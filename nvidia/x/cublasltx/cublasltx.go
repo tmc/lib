@@ -406,32 +406,21 @@ func (e *Engine) execute(
 			algoPtr = &heuristicResult.Algo
 		}
 
-		var alphaPtr, betaPtr uintptr
+		alpha, beta := cublaslt.Float32Scalar(cfg.Alpha), cublaslt.Float32Scalar(cfg.Beta)
 		if cfg.ScaleType == cublaslt.R16F {
-			alphaHalf := float32ToF16Bits(cfg.Alpha)
-			betaHalf := float32ToF16Bits(cfg.Beta)
-			pin.Pin(&alphaHalf)
-			pin.Pin(&betaHalf)
-			alphaPtr = uintptr(unsafe.Pointer(&alphaHalf))
-			betaPtr = uintptr(unsafe.Pointer(&betaHalf))
-		} else {
-			alpha := cfg.Alpha
-			beta := cfg.Beta
-			pin.Pin(&alpha)
-			pin.Pin(&beta)
-			alphaPtr = uintptr(unsafe.Pointer(&alpha))
-			betaPtr = uintptr(unsafe.Pointer(&beta))
+			alpha = cublaslt.Float16BitsScalar(float32ToF16Bits(cfg.Alpha))
+			beta = cublaslt.Float16BitsScalar(float32ToF16Bits(cfg.Beta))
 		}
 
 		err = withStream(s, func(streamHandle driver.Stream) error {
 			return e.handle.Matmul(
 				opDesc,
-				alphaPtr,
+				alpha,
 				aPtr,
 				layoutA,
 				bPtr,
 				layoutB,
-				betaPtr,
+				beta,
 				dPtr,
 				layoutD,
 				dPtr,

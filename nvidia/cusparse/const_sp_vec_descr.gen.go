@@ -4,16 +4,12 @@ package cusparse
 
 // DestroySpVec releases the host memory allocated for the sparse vector descriptor spVecDescr.
 //
-// See [Result] for the description of the return status.
-//
 // Wraps cusparseDestroySpVec.
 func (c ConstSpVecDescr) DestroySpVec() error {
 	return destroySpVec(c)
 }
 
 // SpVecGet returns the fields of the sparse vector descriptor spVecDescr.
-//
-// See [Result] for the description of the return status.
 //
 //   - size: Size of the sparse vector
 //   - nnz: Number of non-zero entries of the sparse vector
@@ -30,8 +26,6 @@ func (c ConstSpVecDescr) SpVecGet(size *int64, nnz *int64, indices *uintptr, val
 
 // SpVecGetIndexBase returns the idxBase field of the sparse vector descriptor spVecDescr.
 //
-// See [Result] for the description of the return status.
-//
 //   - idxBase: Enumerator specifying the the index base of indices
 //
 // Wraps cusparseSpVecGetIndexBase.
@@ -40,8 +34,6 @@ func (c ConstSpVecDescr) SpVecGetIndexBase() (IndexBase, error) {
 }
 
 // SpVecGetValues returns the values field of the sparse vector descriptor spVecDescr.
-//
-// See [Result] for the description of the return status.
 //
 //   - values: Values of the sparse vector. Array with nnz elements
 //

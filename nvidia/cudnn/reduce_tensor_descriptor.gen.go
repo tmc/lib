@@ -6,9 +6,6 @@ package cudnn
 //
 // When the input pointer is NULL, this function performs no destroy operation.
 //
-// Returns:
-//   - [Success]: The object was destroyed successfully.
-//
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnDestroyReduceTensorDescriptor.
@@ -18,9 +15,8 @@ func (r ReduceTensorDescriptor) Destroy() error {
 
 // Get queries a previously initialized reduce tensor descriptor object.
 //
-// Returns:
+// Errors:
 //   - [ErrBadParam]: reduceTensorDesc is NULL.
-//   - [Success]: The object was queried successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -37,9 +33,8 @@ func (r ReduceTensorDescriptor) Get() (ReduceTensorConfig, error) {
 //   - reduceTensorIndices: Input. Enumerant to specify the reduced tensor indices
 //   - reduceTensorIndicesType: Input. Enumerant to specify the reduced tensor indices type
 //
-// Returns:
+// Errors:
 //   - [ErrBadParam]: reduceTensorDesc is NULL ( reduceTensorOp, reduceTensorCompType, reduceTensorNanOpt, reduceTensorIndices or reduceTensorIndicesType has an invalid enumerant value).
-//   - [Success]: The object was set successfully.
 //
 // Deprecated: This function is deprecated.
 //

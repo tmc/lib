@@ -9,6 +9,15 @@ package driver
 //
 // See also: [GraphicsResource.MappedPointer], cudaGraphicsResourceGetMappedMipmappedArray
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotMapped]
+//   - [ErrNotMappedAsArray]
+//
 // Wraps cuGraphicsResourceGetMappedMipmappedArray.
 func (g GraphicsResource) MappedMipmappedArray() (MipmappedArray, error) {
 	return graphicsResourceGetMappedMipmappedArray(g)
@@ -18,7 +27,18 @@ func (g GraphicsResource) MappedMipmappedArray() (MipmappedArray, error) {
 //
 // Returns in *pDevPtr a pointer through which the mapped graphics resource resource may be accessed. Returns in pSize the size of the memory in bytes which may be accessed from that pointer. The value set in pPointer may change every time that resource is mapped.
 // If resource is not a buffer then it cannot be accessed via a pointer and [ErrNotMappedAsPointer] is returned. If resource is not mapped then [ErrNotMapped] is returned.
+//   - See also
+//
 // [Stream.GraphicsMapResources], [GraphicsResource.SubResourceGetMappedArray], cudaGraphicsResourceGetMappedPointer
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotMapped]
+//   - [ErrNotMappedAsPointer]
 //
 // See also: [Stream.GraphicsMapResources], [GraphicsResource.SubResourceGetMappedArray]
 //
@@ -31,11 +51,23 @@ func (g GraphicsResource) MappedPointer() (pDevPtr DevicePtr, pSize uint, err er
 //
 // Set flags for mapping the graphics resource resource.
 // Changes to flags will take effect the next time resource is mapped. The flags argument may be any of the following:
+//   - [GraphicsMapResourceFlagsNone]: Specifies no hints about how this resource will be used. It is therefore assumed that this resource will be read from and written to by CUDA kernels. This is the default value.
+//   - CU_GRAPHICS_MAP_RESOURCE_FLAGS_READONLY: Specifies that CUDA kernels which access this resource will not write to this resource.
+//   - CU_GRAPHICS_MAP_RESOURCE_FLAGS_WRITEDISCARD: Specifies that CUDA kernels which access this resource will not read from this resource and will write over the entire contents of the resource, so none of the data previously stored in the resource will be preserved.
+//
 // If resource is presently mapped for access by CUDA then [ErrAlreadyMapped] is returned. If flags is not one of the above values then [ErrInvalidValue] is returned.
 //
 // See also: [Stream.GraphicsMapResources], cudaGraphicsResourceSetMapFlags
 //
 //   - flags: Parameters for resource mapping
+//
+// Errors:
+//   - [ErrAlreadyMapped]
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuGraphicsResourceSetMapFlags, bound as cuGraphicsResourceSetMapFlags_v2.
 func (g GraphicsResource) SetMapFlags(flags GraphicsMapResourceFlags) error {
@@ -52,6 +84,15 @@ func (g GraphicsResource) SetMapFlags(flags GraphicsMapResourceFlags) error {
 //   - arrayIndex: Array index for array textures or cubemap face index as defined by [ArrayCubemapFace] for cubemap textures for the subresource to access
 //   - mipLevel: Mipmap level for the subresource to access
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotMapped]
+//   - [ErrNotMappedAsArray]
+//
 // Wraps cuGraphicsSubResourceGetMappedArray.
 func (g GraphicsResource) SubResourceGetMappedArray(arrayIndex uint32, mipLevel uint32) (Array, error) {
 	return graphicsSubResourceGetMappedArray(g, arrayIndex, mipLevel)
@@ -63,6 +104,13 @@ func (g GraphicsResource) SubResourceGetMappedArray(arrayIndex uint32, mipLevel 
 // If resource is invalid then [ErrInvalidHandle] is returned.
 //
 // See also: cuGraphicsD3D9RegisterResource, cuGraphicsD3D10RegisterResource, cuGraphicsD3D11RegisterResource, cuGraphicsGLRegisterBuffer, cuGraphicsGLRegisterImage, cudaGraphicsUnregisterResource
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
+//   - [ErrUnknown]
 //
 // Wraps cuGraphicsUnregisterResource.
 func (g GraphicsResource) UnregisterResource() error {

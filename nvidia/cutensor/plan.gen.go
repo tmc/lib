@@ -2,12 +2,28 @@
 
 package cutensor
 
-// Attribute wraps cutensorPlanGetAttribute.
+// Attribute retrieves information about an already-created plan (see [PlanattributeT])
+//
+// Block-sparse contraction plans only support [PlanRequiredWorkspace].
+//
+//   - attr: Requested attribute
+//   - buf: On successful exit: Holds the information of the requested attribute
+//   - sizeInBytes: size of buf in bytes
+//
+// Errors:
+//   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
+//
+// Wraps cutensorPlanGetAttribute.
 func (p Plan) Attribute(handle Handle, attr PlanattributeT, buf uintptr, sizeInBytes uint) error {
 	return planGetAttribute(handle, p, attr, buf, sizeInBytes)
 }
 
-// Destroy wraps cutensorDestroyPlan.
+// Destroy frees all resources related to the provided plan.
+//
+// Remark:
+// blocking, no reentrant, and thread-safe
+//
+// Wraps cutensorDestroyPlan.
 func (p Plan) Destroy() error {
 	return destroyPlan(p)
 }

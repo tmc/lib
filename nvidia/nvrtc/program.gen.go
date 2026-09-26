@@ -10,6 +10,11 @@ package nvrtc
 //
 //   - nameExpression: constant expression denoting the address of a global function or device/__constant__ variable
 //
+// Errors:
+//   - [ErrInvalidInput]
+//   - [ErrInvalidProgram]
+//   - [ErrNoNameExpressionsAfterCompilation]
+//
 // Wraps nvrtcAddNameExpression.
 func (p Program) AddNameExpression(nameExpression *byte) error {
 	return addNameExpression(p, nameExpression)
@@ -21,6 +26,16 @@ func (p Program) AddNameExpression(nameExpression *byte) error {
 //
 //   - options: Compiler options in the form of C string array. options can be NULL when numOptions is 0
 //
+// Errors:
+//   - [ErrBuiltinOperationFailure]
+//   - [ErrCancelled]
+//   - [ErrCompilation]
+//   - [ErrInvalidInput]
+//   - [ErrInvalidOption]
+//   - [ErrInvalidProgram]
+//   - [ErrOutOfMemory]
+//   - [ErrTimeFileWriteFailed]
+//
 // Wraps nvrtcCompileProgram.
 func (p Program) Compile(options ...string) error {
 	return compileProgram(p, options...)
@@ -29,6 +44,9 @@ func (p Program) Compile(options ...string) error {
 // Destroy destroys the given program.
 //
 // See also: [CreateProgram]
+//
+// Errors:
+//   - [ErrInvalidProgram]
 //
 // Wraps nvrtcDestroyProgram.
 func (p *Program) Destroy() error {
@@ -41,6 +59,10 @@ func (p *Program) Destroy() error {
 //
 // See also: [Program.CUBINSize]
 //
+// Errors:
+//   - [ErrInvalidInput]
+//   - [ErrInvalidProgram]
+//
 // Wraps nvrtcGetCUBIN.
 func (p Program) CUBIN() ([]byte, error) {
 	return getCUBIN(p)
@@ -51,6 +73,10 @@ func (p Program) CUBIN() ([]byte, error) {
 // The result is 0 if the value specified to -arch is a virtual architecture instead of an actual architecture.
 //
 // See also: [Program.CUBIN]
+//
+// Errors:
+//   - [ErrInvalidInput]
+//   - [ErrInvalidProgram]
 //
 // Wraps nvrtcGetCUBINSize.
 func (p Program) CUBINSize() (uint, error) {
@@ -63,6 +89,10 @@ func (p Program) CUBINSize() (uint, error) {
 //
 // See also: [Program.LTOIRSize]
 //
+// Errors:
+//   - [ErrInvalidInput]
+//   - [ErrInvalidProgram]
+//
 // Wraps nvrtcGetLTOIR.
 func (p Program) LTOIR() ([]byte, error) {
 	return getLTOIR(p)
@@ -73,6 +103,10 @@ func (p Program) LTOIR() ([]byte, error) {
 // The result is 0 if the program was not compiled with -dlto.
 //
 // See also: [Program.LTOIR]
+//
+// Errors:
+//   - [ErrInvalidInput]
+//   - [ErrInvalidProgram]
 //
 // Wraps nvrtcGetLTOIRSize.
 func (p Program) LTOIRSize() (uint, error) {
@@ -88,6 +122,12 @@ func (p Program) LTOIRSize() (uint, error) {
 //   - nameExpression: constant expression denoting the address of a global function or device/__constant__ variable
 //   - loweredName: initialized by the function to point to a C string containing the lowered (mangled) name corresponding to the provided name expression
 //
+// Errors:
+//   - [ErrInvalidInput]
+//   - [ErrInvalidProgram]
+//   - [ErrNameExpressionNotValid]
+//   - [ErrNoLoweredNamesBeforeCompilation]
+//
 // Wraps nvrtcGetLoweredName.
 func (p Program) LoweredName(nameExpression *byte, loweredName **byte) error {
 	return getLoweredName(p, nameExpression, loweredName)
@@ -98,6 +138,10 @@ func (p Program) LoweredName(nameExpression *byte, loweredName **byte) error {
 // No OptiX IR is available if the program was compiled with options incompatible with OptiX IR generation.
 //
 // See also: [Program.OptiXIRSize]
+//
+// Errors:
+//   - [ErrInvalidInput]
+//   - [ErrInvalidProgram]
 //
 // Wraps nvrtcGetOptiXIR.
 func (p Program) OptiXIR() ([]byte, error) {
@@ -110,6 +154,10 @@ func (p Program) OptiXIR() ([]byte, error) {
 //
 // See also: [Program.OptiXIR]
 //
+// Errors:
+//   - [ErrInvalidInput]
+//   - [ErrInvalidProgram]
+//
 // Wraps nvrtcGetOptiXIRSize.
 func (p Program) OptiXIRSize() (uint, error) {
 	return getOptiXIRSize(p)
@@ -119,6 +167,12 @@ func (p Program) OptiXIRSize() (uint, error) {
 //
 // [Success] indicates that the PCH was successfully created. [ErrNoPchCreateAttempted] indicates that no PCH creation was attempted, either because PCH functionality was not requested during the preceding [Program.Compile] call, or automatic PCH processing was requested, and compiler chose not to create a PCH file. [ErrPchCreateHeapExhausted] indicates that a PCH file could potentially have been created, but the compiler ran out space in the PCH heap. In this scenario, the [Program.PCHHeapSizeRequired] can be used to query the required heap size, the heap can be reallocated for this size with [SetPCHHeapSize] and PCH creation may be reattempted again invoking [Program.Compile] with a new NVRTC program instance. [ErrPchCreate] indicates that an error condition prevented the PCH file from being created.
 //
+// Errors:
+//   - [ErrInvalidProgram]
+//   - [ErrNoPchCreateAttempted]
+//   - [ErrPchCreate]
+//   - [ErrPchCreateHeapExhausted]
+//
 // Wraps nvrtcGetPCHCreateStatus.
 func (p Program) PCHCreateStatus() error {
 	return getPCHCreateStatus(p)
@@ -126,8 +180,9 @@ func (p Program) PCHCreateStatus() error {
 
 // PCHHeapSizeRequired retrieves the required size of the PCH heap required to compile the given program.
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidInput]: The size retrieved using this function is only valid if [Program.PCHCreateStatus] returned [Success] or [ErrPchCreateHeapExhausted]
+//   - [ErrInvalidProgram]
 //
 // Wraps nvrtcGetPCHHeapSizeRequired.
 func (p Program) PCHHeapSizeRequired() (uint, error) {
@@ -137,6 +192,10 @@ func (p Program) PCHHeapSizeRequired() (uint, error) {
 // PTX returns the PTX generated by the previous compilation of prog.
 //
 // See also: [Program.PTXSize]
+//
+// Errors:
+//   - [ErrInvalidInput]
+//   - [ErrInvalidProgram]
 //
 // The result does not include the C string's terminating NUL.
 //
@@ -148,6 +207,10 @@ func (p Program) PTX() ([]byte, error) {
 // PTXSize returns the size of the PTX generated by the previous compilation of prog (including the trailing NULL).
 //
 // See also: [Program.PTX]
+//
+// Errors:
+//   - [ErrInvalidInput]
+//   - [ErrInvalidProgram]
 //
 // The size counts the terminating NUL that [Program.PTX] drops, so it is one more
 // than the length of that result.
@@ -161,6 +224,10 @@ func (p Program) PTXSize() (uint, error) {
 //
 // See also: [Program.LogSize]
 //
+// Errors:
+//   - [ErrInvalidInput]
+//   - [ErrInvalidProgram]
+//
 // Wraps nvrtcGetProgramLog.
 func (p Program) Log() (string, error) {
 	return getProgramLog(p)
@@ -171,6 +238,10 @@ func (p Program) Log() (string, error) {
 // Note that compilation log may be generated with warnings and informative messages, even when the compilation of prog succeeds.
 //
 // See also: [Program.Log]
+//
+// Errors:
+//   - [ErrInvalidInput]
+//   - [ErrInvalidProgram]
 //
 // The size counts the terminating NUL that [Program.Log] drops, so it is one more
 // than the length of that result.
@@ -184,6 +255,10 @@ func (p Program) LogSize() (uint, error) {
 //
 // See also: [Program.TileIRSize]
 //
+// Errors:
+//   - [ErrInvalidInput]
+//   - [ErrInvalidProgram]
+//
 // Wraps nvrtcGetTileIR.
 func (p Program) TileIR() ([]byte, error) {
 	return getTileIR(p)
@@ -192,6 +267,10 @@ func (p Program) TileIR() ([]byte, error) {
 // TileIRSize returns the size of the cuda_tile IR generated by the previous compilation of prog.
 //
 // See also: [Program.TileIR]
+//
+// Errors:
+//   - [ErrInvalidInput]
+//   - [ErrInvalidProgram]
 //
 // Wraps nvrtcGetTileIRSize.
 func (p Program) TileIRSize() (uint, error) {
@@ -210,6 +289,10 @@ func (p Program) TileIRSize() (uint, error) {
 //
 //   - callback: the callback that issues cancellation signal
 //   - payload: to be passed as a parameter when invoking the callback
+//
+// Errors:
+//   - [ErrInvalidInput]
+//   - [ErrInvalidProgram]
 //
 // Wraps nvrtcSetFlowCallback.
 func (p Program) SetFlowCallback(callback uintptr, payload uintptr) error {

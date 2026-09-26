@@ -6,9 +6,10 @@ package cublaslt
 //
 //   - pref: Pointer to the structure holding the matrix multiply preferences descriptor created by this function. See [MatrixLayout]
 //
-// Returns:
-//   - [ErrAllocFailed]: if memory could not be allocated
-//   - [Success]: if desciptor was created successfully
+// A nil error means the descriptor was created successfully.
+//
+// Errors:
+//   - [ErrAllocFailed]: If memory could not be allocated.
 //
 // Wraps cublasLtMatmulPreferenceCreate.
 func NewMatmulPreference() (MatmulPreference, error) {
@@ -22,9 +23,10 @@ func NewMatmulPreference() (MatmulPreference, error) {
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
 //   - sizeWritten: Valid only when the return value is [Success]. If sizeInBytes is non-zero: then sizeWritten is the number of bytes actually written; if sizeInBytes is 0: then sizeWritten is the number of bytes needed to write full contents
 //
-// Returns:
-//   - [ErrInvalidValue]: if sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
-//   - [Success]: if attribute's value was successfully written to user memory
+// A nil error means attribute’s value was successfully written to user memory.
+//
+// Errors:
+//   - [ErrInvalidValue]: If sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL, or sizeInBytes doesn’t match size of internal storage for the selected attribute
 //
 // Wraps cublasLtMatmulPreferenceGetAttribute.
 func (m MatmulPreference) Attribute(attr MatmulPreferenceAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
@@ -33,8 +35,7 @@ func (m MatmulPreference) Attribute(attr MatmulPreferenceAttributes, buf uintptr
 
 // Destroy destroys a previously created matrix multiply preferences descriptor object.
 //
-// Returns:
-//   - [Success]: if operation was successful
+// A nil error means the operation was successful.
 //
 // Wraps cublasLtMatmulPreferenceDestroy.
 func (m MatmulPreference) Destroy() error {
@@ -52,9 +53,10 @@ func (m MatmulPreference) Init_internal(size uint) error {
 //   - buf: The value to which the specified attribute should be set
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
 //
-// Returns:
-//   - [ErrInvalidValue]: if buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
-//   - [Success]: if attribute was set successfully
+// A nil error means the attribute was set successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: If buf is NULL or sizeInBytes doesn’t match the size of the internal storage for the selected attribute.
 //
 // Wraps cublasLtMatmulPreferenceSetAttribute.
 func (m MatmulPreference) SetAttribute(attr MatmulPreferenceAttributes, buf uintptr, sizeInBytes uint) error {

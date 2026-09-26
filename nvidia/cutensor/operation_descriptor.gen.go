@@ -2,17 +2,48 @@
 
 package cutensor
 
-// Attribute wraps cutensorOperationDescriptorGetAttribute.
+// Attribute retrieves an attribute of the provided [OperationDescriptor] object (see [OperationdescriptorattributeT]).
+//
+// Block-sparse contraction descriptors only support the attributes [OperationDescriptorScalarType], [OperationDescriptorMovedBytes], and [OperationDescriptorBlocksparseReproducible].
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - attr: Specifies the attribute that will be retrieved
+//   - buf: This buffer (of size sizeInBytes) will hold the requested attribute of the provided [OperationDescriptor] object
+//   - sizeInBytes: Size of buf (in bytes); see [OperationdescriptorattributeT] for the exact size
+//
+// Errors:
+//   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//
+// Wraps cutensorOperationDescriptorGetAttribute.
 func (o OperationDescriptor) Attribute(handle Handle, attr OperationdescriptorattributeT, buf uintptr, sizeInBytes uint) error {
 	return operationDescriptorGetAttribute(handle, o, attr, buf, sizeInBytes)
 }
 
-// Destroy wraps cutensorDestroyOperationDescriptor.
+// Destroy frees all resources related to the provided descriptor.
+//
+// Remark:
+// blocking, no reentrant, and thread-safe
+//
+// Wraps cutensorDestroyOperationDescriptor.
 func (o OperationDescriptor) Destroy() error {
 	return destroyOperationDescriptor(o)
 }
 
-// SetAttribute wraps cutensorOperationDescriptorSetAttribute.
+// SetAttribute sets attribute of a [OperationDescriptor] object.
+//
+// Block-sparse contraction descriptors only support the attribute [OperationDescriptorBlocksparseReproducible].
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - attr: Specifies the attribute that will be set
+//   - buf: This buffer (of size sizeInBytes) determines the value to which attr will be set
+//   - sizeInBytes: Size of buf (in bytes)
+//
+// Errors:
+//   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//
+// Wraps cutensorOperationDescriptorSetAttribute.
 func (o OperationDescriptor) SetAttribute(handle Handle, attr OperationdescriptorattributeT, buf uintptr, sizeInBytes uint) error {
 	return operationDescriptorSetAttribute(handle, o, attr, buf, sizeInBytes)
 }

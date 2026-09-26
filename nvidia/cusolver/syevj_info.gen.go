@@ -4,9 +4,6 @@ package cusolver
 
 // Destroy destroys and releases any memory required by the structure.
 //
-// Returns:
-//   - [Success]: The resources were released successfully.
-//
 // Wraps cusolverDnDestroySyevjInfo.
 func (s SyevjInfo) Destroy() error {
 	return destroySyevjInfo(s)
@@ -18,22 +15,18 @@ func (s SyevjInfo) Destroy() error {
 //
 //   - maxSweeps: Maximum number of sweeps
 //
-// Returns:
-//   - [Success]: The operation completed successfully.
-//
 // Wraps cusolverDnXsyevjSetMaxSweeps.
 func (s SyevjInfo) XsyevjSetMaxSweeps(maxSweeps int32) error {
 	return xsyevjSetMaxSweeps(s, maxSweeps)
 }
 
-// XsyevjSetSortEig If sortEig is zero, the eigenvalues are not sorted.
+// XsyevjSetSortEig sets whether the batched Jacobi eigensolver sorts the eigenvalues it computes.
+//
+// If sortEig is zero, the eigenvalues are not sorted.
 //
 // This function only works for syevjBatched. syevj and sygvj always sort eigenvalues in ascending order. By default, eigenvalues are always sorted in ascending order.
 //
 //   - sortEig: If sortEig is zero, the eigenvalues are not sorted
-//
-// Returns:
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXsyevjSetSortEig.
 func (s SyevjInfo) XsyevjSetSortEig(sortEig int32) error {
@@ -43,9 +36,6 @@ func (s SyevjInfo) XsyevjSetSortEig(sortEig int32) error {
 // XsyevjSetTolerance configures tolerance of syevj.
 //
 //   - tolerance: Accuracy of numerical eigenvalues
-//
-// Returns:
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXsyevjSetTolerance.
 func (s SyevjInfo) XsyevjSetTolerance(tolerance float64) error {

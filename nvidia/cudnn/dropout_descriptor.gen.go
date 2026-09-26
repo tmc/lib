@@ -6,9 +6,6 @@ import "github.com/tmc/lib/nvidia/driver"
 
 // Destroy destroys a previously created dropout descriptor object.
 //
-// Returns:
-//   - [Success]: The object was destroyed successfully.
-//
 // Wraps cudnnDestroyDropoutDescriptor.
 func (d DropoutDescriptor) Destroy() error {
 	return destroyDropoutDescriptor(d)
@@ -18,9 +15,8 @@ func (d DropoutDescriptor) Destroy() error {
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //
-// Returns:
+// Errors:
 //   - [ErrBadParam]: One or more of the arguments was an invalid pointer.
-//   - [Success]: The call was successful.
 //
 // Wraps cudnnGetDropoutDescriptor.
 func (d DropoutDescriptor) Get(handle Handle) (dropout float32, states uintptr, seed uint64, err error) {
@@ -35,9 +31,8 @@ func (d DropoutDescriptor) Get(handle Handle) (dropout float32, states uintptr, 
 //   - stateSizeInBytes: Input. Size in bytes of buffer holding random number generator states
 //   - seed: Input. Seed used in prior calls to [DropoutDescriptor.Set] that initialized states buffer. Using a different seed from this has no effect. A change of seed, and subsequent update to random number generator states can be achieved by calling [DropoutDescriptor.Set]
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidValue]: The states buffer size (as indicated in stateSizeInBytes) is too small.
-//   - [Success]: The call was successful.
 //
 // Wraps cudnnRestoreDropoutDescriptor.
 func (d DropoutDescriptor) Restore(handle Handle, dropout float32, states driver.DevicePtr, stateSizeInBytes int, seed uint64) error {
@@ -55,12 +50,11 @@ func (d DropoutDescriptor) Restore(handle Handle, dropout float32, states driver
 //   - stateSizeInBytes: Input. Specifies the size in bytes of the provided memory for the states
 //   - seed: Input. Seed used to initialize random number generator states
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The function failed to temporarily extend the GPU stack.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
 //   - [ErrInternalError]: Internally used CUDA functions returned an error status.
 //   - [ErrInvalidValue]: The sizeInBytes argument is less than the value returned by [Handle.DropoutGetStatesSize].
-//   - [Success]: The call was successful.
 //
 // Wraps cudnnSetDropoutDescriptor.
 func (d DropoutDescriptor) Set(handle Handle, dropout float32, states driver.DevicePtr, stateSizeInBytes int, seed uint64) error {

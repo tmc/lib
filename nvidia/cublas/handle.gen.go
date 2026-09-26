@@ -4,25 +4,42 @@ package cublas
 
 import (
 	"github.com/tmc/lib/nvidia/driver"
+	"unsafe"
 )
 
 // AsumEx wraps cublasAsumEx.
 //
 // [Handle.AsumEx64] takes 64-bit sizes.
-func (h Handle) AsumEx(n int32, x driver.DevicePtr, xType DataType, incx int32, result uintptr, resultType DataType, executiontype DataType) error {
+//
+// The library writes result before the call returns or, under
+// [Handle.SetPointerMode] with [PointerModeDevice], to the device address
+// d passed as unsafe.Pointer(uintptr(d)) by the time the stream work
+// completes, so device memory must stay valid until then.
+func (h Handle) AsumEx(n int32, x driver.DevicePtr, xType DataType, incx int32, result unsafe.Pointer, resultType DataType, executiontype DataType) error {
 	return asumEx(h, n, x, xType, incx, result, resultType, executiontype)
 }
 
 // AsumEx64 wraps cublasAsumEx_64.
 //
 // It is [Handle.AsumEx] with int64 sizes and strides.
-func (h Handle) AsumEx64(n int64, x driver.DevicePtr, xType DataType, incx int64, result uintptr, resultType DataType, executiontype DataType) error {
+//
+// The library writes result before the call returns or, under
+// [Handle.SetPointerMode] with [PointerModeDevice], to the device address
+// d passed as unsafe.Pointer(uintptr(d)) by the time the stream work
+// completes, so device memory must stay valid until then.
+func (h Handle) AsumEx64(n int64, x driver.DevicePtr, xType DataType, incx int64, result unsafe.Pointer, resultType DataType, executiontype DataType) error {
 	return asumEx64(h, n, x, xType, incx, result, resultType, executiontype)
 }
 
 // AtomicsMode queries the atomic mode of a specific cuBLAS context.
 //
 // The default atomics mode of default initialized [Handle] object is [AtomicsNotAllowed]. Please see the section on the type for more details.
+//
+// A nil error means the atomics mode was queried successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: The argument mode is a NULL pointer
+//   - [ErrNotInitialized]: The library was not initialized
 //
 // Wraps cublasGetAtomicsMode.
 func (h Handle) AtomicsMode() (AtomicsMode, error) {
@@ -33,13 +50,20 @@ func (h Handle) AtomicsMode() (AtomicsMode, error) {
 //
 // This function multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result. Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.AxpyEx] are listed in the following table:
+//   - alpha: CUDA_R_32F; x: CUDA_R_16F; y: CUDA_R_16F; execution: CUDA_R_32F
+//   - alpha: CUDA_R_32F; x: CUDA_R_16BF; y: CUDA_R_16BF; execution: CUDA_R_32F
+//   - alpha: CUDA_R_32F; x: CUDA_R_32F; y: CUDA_R_32F; execution: CUDA_R_32F
+//   - alpha: CUDA_R_64F; x: CUDA_R_64F; y: CUDA_R_64F; execution: CUDA_R_64F
+//   - alpha: CUDA_C_32F; x: CUDA_C_32F; y: CUDA_C_32F; execution: CUDA_C_32F
+//   - alpha: CUDA_C_64F; x: CUDA_C_64F; y: CUDA_C_64F; execution: CUDA_C_64F
+//
 // For references please refer to NETLIB documentation:
 // saxpy(), daxpy(), caxpy(), zaxpy()
 //
 // [Handle.AxpyEx64] takes 64-bit sizes.
 //
 //   - n: Number of elements in the vector x and y
-//   - alpha: < type > scalar used for multiplication
+//   - alpha: < type > scalar used for multiplication. Its kind must match alphaType; a host [Scalar] of another kind is a *[ScalarError].
 //   - alphaType: Enumerant specifying the datatype of scalar alpha
 //   - x: < type > vector with n elements
 //   - xType: Enumerant specifying the datatype of vector x
@@ -47,16 +71,16 @@ func (h Handle) AtomicsMode() (AtomicsMode, error) {
 //   - y: < type > vector with n elements
 //   - yType: Enumerant specifying the datatype of vector y
 //   - incy: Stride between consecutive elements of y
+//   - executiontype: Enumerant specifying the datatype in which the computation is executed
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
 //   - [ErrInvalidValue]: alphaType or xType or yType or executionType is not supported.
 //   - [ErrNotInitialized]: The library was not initialized.
 //   - [ErrNotSupported]: The combination of the parameters xType, yType, and executionType is not supported.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cublasAxpyEx.
-func (h Handle) AxpyEx(n int32, alpha uintptr, alphaType DataType, x driver.DevicePtr, xType DataType, incx int32, y driver.DevicePtr, yType DataType, incy int32, executiontype DataType) error {
+func (h Handle) AxpyEx(n int32, alpha Scalar, alphaType DataType, x driver.DevicePtr, xType DataType, incx int32, y driver.DevicePtr, yType DataType, incy int32, executiontype DataType) error {
 	return axpyEx(h, n, alpha, alphaType, x, xType, incx, y, yType, incy, executiontype)
 }
 
@@ -64,13 +88,20 @@ func (h Handle) AxpyEx(n int32, alpha uintptr, alphaType DataType, x driver.Devi
 //
 // This function multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result. Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.AxpyEx] are listed in the following table:
+//   - alpha: CUDA_R_32F; x: CUDA_R_16F; y: CUDA_R_16F; execution: CUDA_R_32F
+//   - alpha: CUDA_R_32F; x: CUDA_R_16BF; y: CUDA_R_16BF; execution: CUDA_R_32F
+//   - alpha: CUDA_R_32F; x: CUDA_R_32F; y: CUDA_R_32F; execution: CUDA_R_32F
+//   - alpha: CUDA_R_64F; x: CUDA_R_64F; y: CUDA_R_64F; execution: CUDA_R_64F
+//   - alpha: CUDA_C_32F; x: CUDA_C_32F; y: CUDA_C_32F; execution: CUDA_C_32F
+//   - alpha: CUDA_C_64F; x: CUDA_C_64F; y: CUDA_C_64F; execution: CUDA_C_64F
+//
 // For references please refer to NETLIB documentation:
 // saxpy(), daxpy(), caxpy(), zaxpy()
 //
 // It is [Handle.AxpyEx] with int64 sizes and strides.
 //
 //   - n: Number of elements in the vector x and y
-//   - alpha: < type > scalar used for multiplication
+//   - alpha: < type > scalar used for multiplication. Its kind must match alphaType; a host [Scalar] of another kind is a *[ScalarError].
 //   - alphaType: Enumerant specifying the datatype of scalar alpha
 //   - x: < type > vector with n elements
 //   - xType: Enumerant specifying the datatype of vector x
@@ -78,16 +109,16 @@ func (h Handle) AxpyEx(n int32, alpha uintptr, alphaType DataType, x driver.Devi
 //   - y: < type > vector with n elements
 //   - yType: Enumerant specifying the datatype of vector y
 //   - incy: Stride between consecutive elements of y
+//   - executiontype: Enumerant specifying the datatype in which the computation is executed
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
 //   - [ErrInvalidValue]: alphaType or xType or yType or executionType is not supported.
 //   - [ErrNotInitialized]: The library was not initialized.
 //   - [ErrNotSupported]: The combination of the parameters xType, yType, and executionType is not supported.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cublasAxpyEx_64.
-func (h Handle) AxpyEx64(n int64, alpha uintptr, alphaType DataType, x driver.DevicePtr, xType DataType, incx int64, y driver.DevicePtr, yType DataType, incy int64, executiontype DataType) error {
+func (h Handle) AxpyEx64(n int64, alpha Scalar, alphaType DataType, x driver.DevicePtr, xType DataType, incx int64, y driver.DevicePtr, yType DataType, incy int64, executiontype DataType) error {
 	return axpyEx64(h, n, alpha, alphaType, x, xType, incx, y, yType, incy, executiontype)
 }
 
@@ -106,10 +137,9 @@ func (h Handle) AxpyEx64(n int64, alpha uintptr, alphaType DataType, x driver.De
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCaxpy_v2.
 func (h Handle) Caxpy(n int32, alpha *Complex64, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32) error {
@@ -131,10 +161,9 @@ func (h Handle) Caxpy(n int32, alpha *Complex64, x driver.DevicePtr, incx int32,
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCaxpy_v2_64.
 func (h Handle) Caxpy64(n int64, alpha *Complex64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64) error {
@@ -155,10 +184,9 @@ func (h Handle) Caxpy64(n int64, alpha *Complex64, x driver.DevicePtr, incx int6
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCcopy_v2.
 func (h Handle) Ccopy(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32) error {
@@ -179,10 +207,9 @@ func (h Handle) Ccopy(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCcopy_v2_64.
 func (h Handle) Ccopy64(n int64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64) error {
@@ -211,11 +238,10 @@ func (h Handle) Ccopy64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if mode is not one of [SideLeft] and [SideRight], or - if lda < max(1, m), or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if mode is not one of [SideLeft] and [SideRight], or if lda < max(1, m), or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCdgmm.
 func (h Handle) Cdgmm(mode SideMode, m int32, n int32, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32, c driver.DevicePtr, ldc int32) error {
@@ -244,11 +270,10 @@ func (h Handle) Cdgmm(mode SideMode, m int32, n int32, a driver.DevicePtr, lda i
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if mode is not one of [SideLeft] and [SideRight], or - if lda < max(1, m), or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if mode is not one of [SideLeft] and [SideRight], or if lda < max(1, m), or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCdgmm_64.
 func (h Handle) Cdgmm64(mode SideMode, m int64, n int64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64, c driver.DevicePtr, ldc int64) error {
@@ -257,7 +282,7 @@ func (h Handle) Cdgmm64(mode SideMode, m int64, n int64, a driver.DevicePtr, lda
 
 // Cdotc computes the dot product of vectors x and y.
 //
-// Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -270,11 +295,10 @@ func (h Handle) Cdgmm64(mode SideMode, m int64, n int64, a driver.DevicePtr, lda
 //   - incy: Stride between consecutive elements of y
 //   - result: The resulting dot product, which is set to 0 if n <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCdotc_v2.
 func (h Handle) Cdotc(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32) (Complex64, error) {
@@ -283,7 +307,7 @@ func (h Handle) Cdotc(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 
 // Cdotc64 computes the dot product of vectors x and y.
 //
-// Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -296,11 +320,10 @@ func (h Handle) Cdotc(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 //   - incy: Stride between consecutive elements of y
 //   - result: The resulting dot product, which is set to 0 if n <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCdotc_v2_64.
 func (h Handle) Cdotc64(n int64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64) (Complex64, error) {
@@ -309,7 +332,7 @@ func (h Handle) Cdotc64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 
 // Cdotu computes the dot product of vectors x and y.
 //
-// Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -322,11 +345,10 @@ func (h Handle) Cdotc64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 //   - incy: Stride between consecutive elements of y
 //   - result: The resulting dot product, which is set to 0 if n <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCdotu_v2.
 func (h Handle) Cdotu(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32) (Complex64, error) {
@@ -335,7 +357,7 @@ func (h Handle) Cdotu(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 
 // Cdotu64 computes the dot product of vectors x and y.
 //
-// Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -348,11 +370,10 @@ func (h Handle) Cdotu(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 //   - incy: Stride between consecutive elements of y
 //   - result: The resulting dot product, which is set to 0 if n <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCdotu_v2_64.
 func (h Handle) Cdotu64(n int64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64) (Complex64, error) {
@@ -383,11 +404,10 @@ func (h Handle) Cdotu64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 //   - y: < type > vector with m elements if trans == [OpN] and n elements otherwise
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, kl < 0 or ku < 0, or - if lda < (kl + ku + 1), or - if incx == 0 or incy == 0, or - if trans is not one of [OpN], [OpT], [OpC], or - if alpha or beta are NULL
+//   - [ErrInvalidValue]: If m < 0, n < 0, kl < 0 or ku < 0, or if lda < (kl + ku + 1), or if incx == 0 or incy == 0, or if trans is not one of [OpN], [OpT], [OpC], or if alpha or beta are NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgbmv_v2.
 func (h Handle) Cgbmv(trans Operation, m int32, n int32, kl int32, ku int32, alpha *Complex64, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32, beta *Complex64, y driver.DevicePtr, incy int32) error {
@@ -418,11 +438,10 @@ func (h Handle) Cgbmv(trans Operation, m int32, n int32, kl int32, ku int32, alp
 //   - y: < type > vector with m elements if trans == [OpN] and n elements otherwise
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, kl < 0 or ku < 0, or - if lda < (kl + ku + 1), or - if incx == 0 or incy == 0, or - if trans is not one of [OpN], [OpT], [OpC], or - if alpha or beta are NULL
+//   - [ErrInvalidValue]: If m < 0, n < 0, kl < 0 or ku < 0, or if lda < (kl + ku + 1), or if incx == 0 or incy == 0, or if trans is not one of [OpN], [OpT], [OpC], or if alpha or beta are NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgbmv_v2_64.
 func (h Handle) Cgbmv64(trans Operation, m int64, n int64, kl int64, ku int64, alpha *Complex64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64, beta *Complex64, y driver.DevicePtr, incy int64) error {
@@ -458,11 +477,10 @@ func (h Handle) Cgbmv64(trans Operation, m int64, n int64, kl int64, ku int64, a
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if transa is not one of [OpN], [OpT] and [OpC], or - if transb is not one of [OpN], [OpT] and [OpC], or - if lda < max(1, m) when transa == [OpN], and lda < max(1, n) otherwise, or - if ldb < max(1, m) if transb == [OpN], and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if A == C and `(transa != [OpN])
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if transa is not one of [OpN], [OpT] and [OpC], or if transb is not one of [OpN], [OpT] and [OpC], or if lda < max(1, m) when transa == [OpN], and lda < max(1, n) otherwise, or if ldb < max(1, m) if transb == [OpN], and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if A == C and `(transa != [OpN])
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgeam.
 func (h Handle) Cgeam(transa Operation, transb Operation, m int32, n int32, alpha *Complex64, a driver.DevicePtr, lda int32, beta *Complex64, b driver.DevicePtr, ldb int32, c driver.DevicePtr, ldc int32) error {
@@ -498,18 +516,19 @@ func (h Handle) Cgeam(transa Operation, transb Operation, m int32, n int32, alph
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if transa is not one of [OpN], [OpT] and [OpC], or - if transb is not one of [OpN], [OpT] and [OpC], or - if lda < max(1, m) when transa == [OpN], and lda < max(1, n) otherwise, or - if ldb < max(1, m) if transb == [OpN], and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if A == C and `(transa != [OpN])
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if transa is not one of [OpN], [OpT] and [OpC], or if transb is not one of [OpN], [OpT] and [OpC], or if lda < max(1, m) when transa == [OpN], and lda < max(1, n) otherwise, or if ldb < max(1, m) if transb == [OpN], and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if A == C and `(transa != [OpN])
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgeam_64.
 func (h Handle) Cgeam64(transa Operation, transb Operation, m int64, n int64, alpha *Complex64, a driver.DevicePtr, lda int64, beta *Complex64, b driver.DevicePtr, ldb int64, c driver.DevicePtr, ldc int64) error {
 	return cgeam64(h, transa, transb, m, n, alpha, a, lda, beta, b, ldb, c, ldc)
 }
 
-// CgelsBatched Aarray is an array of pointers to matrices stored in column-major format.
+// CgelsBatched solves a batch of overdetermined linear systems in the least-squares sense.
+//
+// Aarray is an array of pointers to matrices stored in column-major format.
 //
 // Carray is an array of pointers to matrices stored in column-major format.
 // This function find the least squares solution of a batch of overdetermined systems: it solves the least squares problem described as follows :
@@ -528,16 +547,15 @@ func (h Handle) Cgeam64(transa Operation, transb Operation, m int64, n int64, al
 //   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
 //   - carray: Array of pointers to < type > array, with each array of dim. m x nrhs with ldc >= max(1, m) if trans == [OpN], and n x nrhs with lda >= max(1, n) otherwise (not supported currently). Matrices Carray [i] should not overlap; otherwise, behavior is undefined
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray [i]
-//   - info: If info == 0 the parameters passed to the function are validIf info < 0 the parameter in position -info is invalid
-//   - devInfoArray: Optional array of integers of dimension batchsize.If non-null, every element of devInfoArray [i] == V has the following meaning:V == 0 : the i-th problem was successfully solvedV > 0 : the V-th diagonal element of the Aarray [i] is zero. Aarray [i] does not have full rank
+//   - info: If info == 0 the parameters passed to the function are valid. If info < 0 the parameter in position -info is invalid
+//   - devInfoArray: Optional array of integers of dimension batchsize. If non-null, every element of devInfoArray [i] == V has the following meaning: V == 0 : the i-th problem was successfully solved. V > 0 : the V-th diagonal element of the Aarray [i] is zero. Aarray [i] does not have full rank
 //   - batchSize: Number of pointers contained in Aarray and Carray
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or nrhs < 0 or batchSize < 0 or - if lda < max(1, m) or ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or nrhs < 0 or batchSize < 0 or if lda < max(1, m) or ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
 //   - [ErrNotSupported]: The parameters m <n or trans is different from non-transpose.
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgelsBatched.
 func (h Handle) CgelsBatched(trans Operation, m int32, n int32, nrhs int32, aarray driver.DevicePtr, lda int32, carray driver.DevicePtr, ldc int32, info *int32, devInfoArray driver.DevicePtr, batchSize int32) error {
@@ -568,12 +586,11 @@ func (h Handle) CgelsBatched(trans Operation, m int32, n int32, nrhs int32, aarr
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: In the case of [Handle.Hgemm] the device does not support math in half precision.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemm_v2.
 func (h Handle) Cgemm(transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex64, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, beta *Complex64, c driver.DevicePtr, ldc int32) error {
@@ -588,7 +605,6 @@ func (h Handle) Cgemm(transa Operation, transb Operation, m int32, n int32, k in
 // and op(B) is defined similarly for matrix B .
 //
 // Note: These 2 routines are only supported on GPUs with architecture capabilities equal to or greater than 5.0
-// The possible error values returned by this function and their meanings are listed in the following table:
 // For references please refer to NETLIB documentation:
 // cgemm(), zgemm()
 //
@@ -608,12 +624,11 @@ func (h Handle) Cgemm(transa Operation, transb Operation, m int32, n int32, k in
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device has a compute capabilites lower than 5.0.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cublasCgemm3m.
 func (h Handle) Cgemm3m(transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex64, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, beta *Complex64, c driver.DevicePtr, ldc int32) error {
@@ -628,7 +643,6 @@ func (h Handle) Cgemm3m(transa Operation, transb Operation, m int32, n int32, k 
 // and op(B) is defined similarly for matrix B .
 //
 // Note: These 2 routines are only supported on GPUs with architecture capabilities equal to or greater than 5.0
-// The possible error values returned by this function and their meanings are listed in the following table:
 // For references please refer to NETLIB documentation:
 // cgemm(), zgemm()
 //
@@ -648,12 +662,11 @@ func (h Handle) Cgemm3m(transa Operation, transb Operation, m int32, n int32, k 
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device has a compute capabilites lower than 5.0.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cublasCgemm3m_64.
 func (h Handle) Cgemm3m64(transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex64, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, beta *Complex64, c driver.DevicePtr, ldc int64) error {
@@ -721,12 +734,11 @@ func (h Handle) Cgemm3mEx64(transa Operation, transb Operation, m int64, n int64
 //   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.HgemmStridedBatched] is only supported for GPU with architecture capabilities equal or greater than 5.3
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemm3mStridedBatched.
 func (h Handle) Cgemm3mStridedBatched(transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex64, a driver.DevicePtr, lda int32, strideA int64, b driver.DevicePtr, ldb int32, strideB int64, beta *Complex64, c driver.DevicePtr, ldc int32, strideC int64, batchCount int32) error {
@@ -766,12 +778,11 @@ func (h Handle) Cgemm3mStridedBatched(transa Operation, transb Operation, m int3
 //   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.HgemmStridedBatched] is only supported for GPU with architecture capabilities equal or greater than 5.3
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemm3mStridedBatched_64.
 func (h Handle) Cgemm3mStridedBatched64(transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex64, a driver.DevicePtr, lda int64, strideA int64, b driver.DevicePtr, ldb int64, strideB int64, beta *Complex64, c driver.DevicePtr, ldc int64, strideC int64, batchCount int64) error {
@@ -802,12 +813,11 @@ func (h Handle) Cgemm3mStridedBatched64(transa Operation, transb Operation, m in
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: In the case of [Handle.Hgemm] the device does not support math in half precision.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemm_v2_64.
 func (h Handle) Cgemm64(transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex64, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, beta *Complex64, c driver.DevicePtr, ldc int64) error {
@@ -825,6 +835,7 @@ func (h Handle) Cgemm64(transa Operation, transb Operation, m int64, n int64, k 
 // Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // [Handle.CgemmBatched64] takes 64-bit sizes.
 //
@@ -834,21 +845,20 @@ func (h Handle) Cgemm64(transa Operation, transb Operation, m int64, n int64, k 
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.HgemmBatched] is only supported for GPU with architecture capabilities equal or greater than 5.3
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemmBatched.
 func (h Handle) CgemmBatched(transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex64, aarray driver.DevicePtr, lda int32, barray driver.DevicePtr, ldb int32, beta *Complex64, carray driver.DevicePtr, ldc int32, batchCount int32) error {
@@ -866,6 +876,7 @@ func (h Handle) CgemmBatched(transa Operation, transb Operation, m int32, n int3
 // Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // It is [Handle.CgemmBatched] with int64 sizes and strides.
 //
@@ -875,21 +886,20 @@ func (h Handle) CgemmBatched(transa Operation, transb Operation, m int32, n int3
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.HgemmBatched] is only supported for GPU with architecture capabilities equal or greater than 5.3
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemmBatched_64.
 func (h Handle) CgemmBatched64(transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex64, aarray driver.DevicePtr, lda int64, barray driver.DevicePtr, ldb int64, beta *Complex64, carray driver.DevicePtr, ldc int64, batchCount int64) error {
@@ -904,7 +914,17 @@ func (h Handle) CgemmBatched64(transa Operation, transb Operation, m int64, n in
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // The matrix types combinations supported for [Handle.SgemmEx] are listed below:
+//   - C: CUDA_R_16BF; A/B: CUDA_R_16BF
+//   - C: CUDA_R_16F; A/B: CUDA_R_16F
+//   - C: CUDA_R_32F; A/B: CUDA_R_8I
+//   - A/B: CUDA_R_16BF
+//   - A/B: CUDA_R_16F
+//   - A/B: CUDA_R_32F
+//
 // The matrix types combinations supported for [Handle.CgemmEx] are listed below :
+//   - C: CUDA_C_32F; A/B: CUDA_C_8I
+//   - A/B: CUDA_C_32F
+//
 // For references please refer to NETLIB documentation:
 // sgemm()
 // For more information about the numerical behavior of some GEMM algorithms, refer to the GEMM Algorithms Numerical Behavior section.
@@ -928,13 +948,12 @@ func (h Handle) CgemmBatched64(transa Operation, transb Operation, m int64, n in
 //   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.CgemmEx] is only supported for GPU with architecture capabilities equal or greater than 5.0
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
 //   - [ErrNotSupported]: The combination of the parameters Atype, Btype and Ctype is not supported
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemmEx.
 func (h Handle) CgemmEx(transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex64, a driver.DevicePtr, atype DataType, lda int32, b driver.DevicePtr, btype DataType, ldb int32, beta *Complex64, c driver.DevicePtr, ctype DataType, ldc int32) error {
@@ -949,7 +968,17 @@ func (h Handle) CgemmEx(transa Operation, transb Operation, m int32, n int32, k 
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // The matrix types combinations supported for [Handle.SgemmEx] are listed below:
+//   - C: CUDA_R_16BF; A/B: CUDA_R_16BF
+//   - C: CUDA_R_16F; A/B: CUDA_R_16F
+//   - C: CUDA_R_32F; A/B: CUDA_R_8I
+//   - A/B: CUDA_R_16BF
+//   - A/B: CUDA_R_16F
+//   - A/B: CUDA_R_32F
+//
 // The matrix types combinations supported for [Handle.CgemmEx] are listed below :
+//   - C: CUDA_C_32F; A/B: CUDA_C_8I
+//   - A/B: CUDA_C_32F
+//
 // For references please refer to NETLIB documentation:
 // sgemm()
 // For more information about the numerical behavior of some GEMM algorithms, refer to the GEMM Algorithms Numerical Behavior section.
@@ -973,13 +1002,12 @@ func (h Handle) CgemmEx(transa Operation, transb Operation, m int32, n int32, k 
 //   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.CgemmEx] is only supported for GPU with architecture capabilities equal or greater than 5.0
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
 //   - [ErrNotSupported]: The combination of the parameters Atype, Btype and Ctype is not supported
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemmEx_64.
 func (h Handle) CgemmEx64(transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex64, a driver.DevicePtr, atype DataType, lda int64, b driver.DevicePtr, btype DataType, ldb int64, beta *Complex64, c driver.DevicePtr, ctype DataType, ldc int64) error {
@@ -1019,12 +1047,11 @@ func (h Handle) CgemmEx64(transa Operation, transb Operation, m int64, n int64, 
 //   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.HgemmStridedBatched] is only supported for GPU with architecture capabilities equal or greater than 5.3
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemmStridedBatched.
 func (h Handle) CgemmStridedBatched(transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex64, a driver.DevicePtr, lda int32, strideA int64, b driver.DevicePtr, ldb int32, strideB int64, beta *Complex64, c driver.DevicePtr, ldc int32, strideC int64, batchCount int32) error {
@@ -1064,12 +1091,11 @@ func (h Handle) CgemmStridedBatched(transa Operation, transb Operation, m int32,
 //   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.HgemmStridedBatched] is only supported for GPU with architecture capabilities equal or greater than 5.3
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemmStridedBatched_64.
 func (h Handle) CgemmStridedBatched64(transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex64, a driver.DevicePtr, lda int64, strideA int64, b driver.DevicePtr, ldb int64, strideB int64, beta *Complex64, c driver.DevicePtr, ldc int64, strideC int64, batchCount int64) error {
@@ -1097,11 +1123,10 @@ func (h Handle) CgemmStridedBatched64(transa Operation, transb Operation, m int6
 //   - y: < type > vector at least (1 + (m - 1) * abs(incy)) elements if trans == [OpN] and at least (1 + (n - 1) * abs(incy)) elements otherwise
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: The parameters m < 0 or n < 0, or incx == 0 or incy == 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemv_v2.
 func (h Handle) Cgemv(trans Operation, m int32, n int32, alpha *Complex64, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32, beta *Complex64, y driver.DevicePtr, incy int32) error {
@@ -1129,11 +1154,10 @@ func (h Handle) Cgemv(trans Operation, m int32, n int32, alpha *Complex64, a dri
 //   - y: < type > vector at least (1 + (m - 1) * abs(incy)) elements if trans == [OpN] and at least (1 + (n - 1) * abs(incy)) elements otherwise
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: The parameters m < 0 or n < 0, or incx == 0 or incy == 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemv_v2_64.
 func (h Handle) Cgemv64(trans Operation, m int64, n int64, alpha *Complex64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64, beta *Complex64, y driver.DevicePtr, incy int64) error {
@@ -1150,6 +1174,7 @@ func (h Handle) Cgemv64(trans Operation, m int64, n int64, alpha *Complex64, a d
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // [Handle.CgemvBatched64] takes 64-bit sizes.
 //
@@ -1157,20 +1182,19 @@ func (h Handle) Cgemv64(trans Operation, m int64, n int64, alpha *Complex64, a d
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - incy: Stride of each one-dimensional array y [i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemvBatched.
 func (h Handle) CgemvBatched(trans Operation, m int32, n int32, alpha *Complex64, aarray driver.DevicePtr, lda int32, xarray driver.DevicePtr, incx int32, beta *Complex64, yarray driver.DevicePtr, incy int32, batchCount int32) error {
@@ -1187,6 +1211,7 @@ func (h Handle) CgemvBatched(trans Operation, m int32, n int32, alpha *Complex64
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // It is [Handle.CgemvBatched] with int64 sizes and strides.
 //
@@ -1194,20 +1219,19 @@ func (h Handle) CgemvBatched(trans Operation, m int32, n int32, alpha *Complex64
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - incy: Stride of each one-dimensional array y [i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemvBatched_64.
 func (h Handle) CgemvBatched64(trans Operation, m int64, n int64, alpha *Complex64, aarray driver.DevicePtr, lda int64, xarray driver.DevicePtr, incx int64, beta *Complex64, yarray driver.DevicePtr, incy int64, batchCount int64) error {
@@ -1244,11 +1268,10 @@ func (h Handle) CgemvBatched64(trans Operation, m int64, n int64, alpha *Complex
 //   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemvStridedBatched.
 func (h Handle) CgemvStridedBatched(trans Operation, m int32, n int32, alpha *Complex64, a driver.DevicePtr, lda int32, strideA int64, x driver.DevicePtr, incx int32, stridex int64, beta *Complex64, y driver.DevicePtr, incy int32, stridey int64, batchCount int32) error {
@@ -1285,18 +1308,19 @@ func (h Handle) CgemvStridedBatched(trans Operation, m int32, n int32, alpha *Co
 //   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemvStridedBatched_64.
 func (h Handle) CgemvStridedBatched64(trans Operation, m int64, n int64, alpha *Complex64, a driver.DevicePtr, lda int64, strideA int64, x driver.DevicePtr, incx int64, stridex int64, beta *Complex64, y driver.DevicePtr, incy int64, stridey int64, batchCount int64) error {
 	return cgemvStridedBatched64(h, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount)
 }
 
-// CgeqrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
+// CgeqrfBatched computes the QR factorization of each matrix in a batch.
+//
+// Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
 //
 // TauArray is an array of pointers to vectors of dimension of at least max (1, min(m, n).
 // This function performs the QR factorization of each Aarray [i] for i = 0, ...,batchSize-1 using Householder reflections. Each matrix Q [i] is represented as a product of elementary reflectors and is stored in the lower part of each Aarray [i] as follows :
@@ -1313,14 +1337,13 @@ func (h Handle) CgemvStridedBatched64(trans Operation, m int64, n int64, alpha *
 //   - aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
 //   - tauArray: Array of pointers to < type > vector, with each vector of dim. max(1 ,min(m, n))
-//   - info: If info == 0, the parameters passed to the function are validIf info < 0, the parameter in position -info is invalid
+//   - info: If info == 0, the parameters passed to the function are valid. If info < 0, the parameter in position -info is invalid
 //   - batchSize: Number of pointers contained in Aarray
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or batchSize < 0, or - if lda < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or batchSize < 0, or if lda < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgeqrfBatched.
 func (h Handle) CgeqrfBatched(m int32, n int32, aarray driver.DevicePtr, lda int32, tauArray driver.DevicePtr, info *int32, batchSize int32) error {
@@ -1346,11 +1369,10 @@ func (h Handle) CgeqrfBatched(m int32, n int32, aarray driver.DevicePtr, lda int
 //   - a: < type > array of dimension lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if incx == 0 or incy == 0, or - if alpha is NULL, or - if lda < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if incx == 0 or incy == 0, or if alpha is NULL, or if lda < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgerc_v2.
 func (h Handle) Cgerc(m int32, n int32, alpha *Complex64, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32, a driver.DevicePtr, lda int32) error {
@@ -1376,11 +1398,10 @@ func (h Handle) Cgerc(m int32, n int32, alpha *Complex64, x driver.DevicePtr, in
 //   - a: < type > array of dimension lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if incx == 0 or incy == 0, or - if alpha is NULL, or - if lda < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if incx == 0 or incy == 0, or if alpha is NULL, or if lda < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgerc_v2_64.
 func (h Handle) Cgerc64(m int64, n int64, alpha *Complex64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64, a driver.DevicePtr, lda int64) error {
@@ -1406,11 +1427,10 @@ func (h Handle) Cgerc64(m int64, n int64, alpha *Complex64, x driver.DevicePtr, 
 //   - a: < type > array of dimension lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if incx == 0 or incy == 0, or - if alpha is NULL, or - if lda < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if incx == 0 or incy == 0, or if alpha is NULL, or if lda < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgeru_v2.
 func (h Handle) Cgeru(m int32, n int32, alpha *Complex64, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32, a driver.DevicePtr, lda int32) error {
@@ -1436,18 +1456,19 @@ func (h Handle) Cgeru(m int32, n int32, alpha *Complex64, x driver.DevicePtr, in
 //   - a: < type > array of dimension lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if incx == 0 or incy == 0, or - if alpha is NULL, or - if lda < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if incx == 0 or incy == 0, or if alpha is NULL, or if lda < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgeru_v2_64.
 func (h Handle) Cgeru64(m int64, n int64, alpha *Complex64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64, a driver.DevicePtr, lda int64) error {
 	return cgeru64(h, m, n, alpha, x, incx, y, incy, a, lda)
 }
 
-// CgetrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
+// CgetrfBatched computes the LU factorization of each matrix in a batch.
+//
+// Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
 //
 // This function performs the LU factorization of each Aarray [i] for i = 0, …, batchSize-1 by the following equation
 // P*Aarray [i]=L*U
@@ -1466,18 +1487,19 @@ func (h Handle) Cgeru64(m int64, n int64, alpha *Complex64, x driver.DevicePtr, 
 //   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
 //   - batchSize: Number of pointers contained in A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: The parameters n < 0 or batchSize < 0 or lda <0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgetrfBatched.
 func (h Handle) CgetrfBatched(n int32, a driver.DevicePtr, lda int32, p driver.DevicePtr, info driver.DevicePtr, batchSize int32) error {
 	return cgetrfBatched(h, n, a, lda, p, info, batchSize)
 }
 
-// CgetriBatched Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
+// CgetriBatched computes the inverse of each matrix in a batch from its LU factorization.
+//
+// Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
 //
 // This function performs the inversion of matrices A [i] for i = 0, …, batchSize-1.
 // Prior to calling cublasgetriBatched, the matrix A [i] must be factorized first using the routine cublasgetrfBatched. After the call of cublasgetrfBatched, the matrix pointing by Aarray [i] will contain the LU factors of the matrix A [i] and the vector pointing by (PivotArray+i) will contain the pivoting sequence.
@@ -1494,11 +1516,10 @@ func (h Handle) CgetrfBatched(n int32, a driver.DevicePtr, lda int32, p driver.D
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray [i]
 //   - batchSize: Number of pointers contained in A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or lda < 0 or ldc < 0 or batchSize < 0, or - if lda < n or ldc < n
+//   - [ErrInvalidValue]: If n < 0 or lda < 0 or ldc < 0 or batchSize < 0, or if lda < n or ldc < n
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgetriBatched.
 func (h Handle) CgetriBatched(n int32, a driver.DevicePtr, lda int32, p driver.DevicePtr, c driver.DevicePtr, ldc int32, info driver.DevicePtr, batchSize int32) error {
@@ -1525,14 +1546,13 @@ func (h Handle) CgetriBatched(n int32, a driver.DevicePtr, lda int32, p driver.D
 //   - devIpiv: Array of size n x batchSize that contains the pivoting sequence of each factorization of Aarray [i] stored in a linear fashion. If devIpiv is NULL, pivoting for all Aarray [i] is ignored
 //   - barray: Array of pointers to < type > array, with each array of dim. n x nrhs with ldb >= max(1, n). Matrices Barray [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldb: Leading dimension of two-dimensional array used to store each solution matrix Barray [i]
-//   - info: If info == 0, the execution is successful.If info = -j, the j-th parameter had an illegal value
+//   - info: If info == 0, the execution is successful. If info = -j, the j-th parameter had an illegal value
 //   - batchSize: Number of pointers contained in A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or nrhs < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if lda < max(1, n), or - if ldb < max(1, n)
+//   - [ErrInvalidValue]: If n < 0 or nrhs < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if lda < max(1, n), or if ldb < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgetrsBatched.
 func (h Handle) CgetrsBatched(trans Operation, n int32, nrhs int32, aarray driver.DevicePtr, lda int32, devIpiv driver.DevicePtr, barray driver.DevicePtr, ldb int32, info *int32, batchSize int32) error {
@@ -1561,11 +1581,10 @@ func (h Handle) CgetrsBatched(trans Operation, n int32, nrhs int32, aarray drive
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < (1 + k), or - if alpha or beta are NULL
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < (1 + k), or if alpha or beta are NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasChbmv_v2.
 func (h Handle) Chbmv(uplo FillMode, n int32, k int32, alpha *Complex64, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32, beta *Complex64, y driver.DevicePtr, incy int32) error {
@@ -1594,11 +1613,10 @@ func (h Handle) Chbmv(uplo FillMode, n int32, k int32, alpha *Complex64, a drive
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < (1 + k), or - if alpha or beta are NULL
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < (1 + k), or if alpha or beta are NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasChbmv_v2_64.
 func (h Handle) Chbmv64(uplo FillMode, n int64, k int64, alpha *Complex64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64, beta *Complex64, y driver.DevicePtr, incy int64) error {
@@ -1627,11 +1645,10 @@ func (h Handle) Chbmv64(uplo FillMode, n int64, k int64, alpha *Complex64, a dri
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if side is not one of [SideLeft] and [SideRight], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, m) when side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if side is not one of [SideLeft] and [SideRight], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, m) when side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasChemm_v2.
 func (h Handle) Chemm(side SideMode, uplo FillMode, m int32, n int32, alpha *Complex64, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, beta *Complex64, c driver.DevicePtr, ldc int32) error {
@@ -1660,11 +1677,10 @@ func (h Handle) Chemm(side SideMode, uplo FillMode, m int32, n int32, alpha *Com
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if side is not one of [SideLeft] and [SideRight], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, m) when side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if side is not one of [SideLeft] and [SideRight], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, m) when side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasChemm_v2_64.
 func (h Handle) Chemm64(side SideMode, uplo FillMode, m int64, n int64, alpha *Complex64, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, beta *Complex64, c driver.DevicePtr, ldc int64) error {
@@ -1692,11 +1708,10 @@ func (h Handle) Chemm64(side SideMode, uplo FillMode, m int64, n int64, alpha *C
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo != [FillModeLower] and uplo != [FillModeUpper], or - if lda < n
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo != [FillModeLower] and uplo != [FillModeUpper], or if lda < n
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasChemv_v2.
 func (h Handle) Chemv(uplo FillMode, n int32, alpha *Complex64, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32, beta *Complex64, y driver.DevicePtr, incy int32) error {
@@ -1724,11 +1739,10 @@ func (h Handle) Chemv(uplo FillMode, n int32, alpha *Complex64, a driver.DeviceP
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo != [FillModeLower] and uplo != [FillModeUpper], or - if lda < n
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo != [FillModeLower] and uplo != [FillModeUpper], or if lda < n
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasChemv_v2_64.
 func (h Handle) Chemv64(uplo FillMode, n int64, alpha *Complex64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64, beta *Complex64, y driver.DevicePtr, incy int64) error {
@@ -1751,11 +1765,10 @@ func (h Handle) Chemv64(uplo FillMode, n int64, alpha *Complex64, a driver.Devic
 //   - a: < type > array of dimensions lda x n, with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n), or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCher_v2.
 func (h Handle) Cher(uplo FillMode, n int32, alpha *float32, x driver.DevicePtr, incx int32, a driver.DevicePtr, lda int32) error {
@@ -1780,11 +1793,10 @@ func (h Handle) Cher(uplo FillMode, n int32, alpha *float32, x driver.DevicePtr,
 //   - a: < type > array of dimension lda x n with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n), or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCher2_v2.
 func (h Handle) Cher2(uplo FillMode, n int32, alpha *Complex64, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32, a driver.DevicePtr, lda int32) error {
@@ -1809,11 +1821,10 @@ func (h Handle) Cher2(uplo FillMode, n int32, alpha *Complex64, x driver.DeviceP
 //   - a: < type > array of dimension lda x n with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n), or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCher2_v2_64.
 func (h Handle) Cher264(uplo FillMode, n int64, alpha *Complex64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64, a driver.DevicePtr, lda int64) error {
@@ -1842,11 +1853,10 @@ func (h Handle) Cher264(uplo FillMode, n int64, alpha *Complex64, x driver.Devic
 //   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCher2k_v2.
 func (h Handle) Cher2k(uplo FillMode, trans Operation, n int32, k int32, alpha *Complex64, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, beta *float32, c driver.DevicePtr, ldc int32) error {
@@ -1875,11 +1885,10 @@ func (h Handle) Cher2k(uplo FillMode, trans Operation, n int32, k int32, alpha *
 //   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCher2k_v2_64.
 func (h Handle) Cher2k64(uplo FillMode, trans Operation, n int64, k int64, alpha *Complex64, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, beta *float32, c driver.DevicePtr, ldc int64) error {
@@ -1902,11 +1911,10 @@ func (h Handle) Cher2k64(uplo FillMode, trans Operation, n int64, k int64, alpha
 //   - a: < type > array of dimensions lda x n, with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n), or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCher_v2_64.
 func (h Handle) Cher64(uplo FillMode, n int64, alpha *float32, x driver.DevicePtr, incx int64, a driver.DevicePtr, lda int64) error {
@@ -1933,11 +1941,10 @@ func (h Handle) Cher64(uplo FillMode, n int64, alpha *float32, x driver.DevicePt
 //   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCherk_v2.
 func (h Handle) Cherk(uplo FillMode, trans Operation, n int32, k int32, alpha *float32, a driver.DevicePtr, lda int32, beta *float32, c driver.DevicePtr, ldc int32) error {
@@ -1954,6 +1961,9 @@ func (h Handle) Cherk(uplo FillMode, trans Operation, n int32, k int32, alpha *f
 //
 // Note: This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The matrix types combinations supported for [Handle.Cherk3mEx] are listed in the following table:
+//   - A: CUDA_C_8I; C: CUDA_C_32F
+//   - A: CUDA_C_32F; C: CUDA_C_32F
+//
 // For references please refer to NETLIB documentation:
 // cherk()
 //
@@ -1972,13 +1982,12 @@ func (h Handle) Cherk(uplo FillMode, trans Operation, n int32, k int32, alpha *f
 //   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device has a compute capability lower than 5.0.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if trans is not one of [OpN], [OpT] and [OpC], or - if lda < max(1, n) if trans == [OpN] and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if Atype or Ctype are not supported
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if trans is not one of [OpN], [OpT] and [OpC], or if lda < max(1, n) if trans == [OpN] and lda < max(1, k) otherwise, or if ldc < max(1, n), or if Atype or Ctype are not supported
 //   - [ErrNotInitialized]: The library was not initialized.
 //   - [ErrNotSupported]: The combination of the parameters Atype and Ctype is not supported.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cublasCherk3mEx.
 func (h Handle) Cherk3mEx(uplo FillMode, trans Operation, n int32, k int32, alpha *float32, a driver.DevicePtr, atype DataType, lda int32, beta *float32, c driver.DevicePtr, ctype DataType, ldc int32) error {
@@ -1995,6 +2004,9 @@ func (h Handle) Cherk3mEx(uplo FillMode, trans Operation, n int32, k int32, alph
 //
 // Note: This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The matrix types combinations supported for [Handle.Cherk3mEx] are listed in the following table:
+//   - A: CUDA_C_8I; C: CUDA_C_32F
+//   - A: CUDA_C_32F; C: CUDA_C_32F
+//
 // For references please refer to NETLIB documentation:
 // cherk()
 //
@@ -2013,13 +2025,12 @@ func (h Handle) Cherk3mEx(uplo FillMode, trans Operation, n int32, k int32, alph
 //   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device has a compute capability lower than 5.0.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if trans is not one of [OpN], [OpT] and [OpC], or - if lda < max(1, n) if trans == [OpN] and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if Atype or Ctype are not supported
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if trans is not one of [OpN], [OpT] and [OpC], or if lda < max(1, n) if trans == [OpN] and lda < max(1, k) otherwise, or if ldc < max(1, n), or if Atype or Ctype are not supported
 //   - [ErrNotInitialized]: The library was not initialized.
 //   - [ErrNotSupported]: The combination of the parameters Atype and Ctype is not supported.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cublasCherk3mEx_64.
 func (h Handle) Cherk3mEx64(uplo FillMode, trans Operation, n int64, k int64, alpha *float32, a driver.DevicePtr, atype DataType, lda int64, beta *float32, c driver.DevicePtr, ctype DataType, ldc int64) error {
@@ -2046,11 +2057,10 @@ func (h Handle) Cherk3mEx64(uplo FillMode, trans Operation, n int64, k int64, al
 //   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCherk_v2_64.
 func (h Handle) Cherk64(uplo FillMode, trans Operation, n int64, k int64, alpha *float32, a driver.DevicePtr, lda int64, beta *float32, c driver.DevicePtr, ldc int64) error {
@@ -2066,6 +2076,9 @@ func (h Handle) Cherk64(uplo FillMode, trans Operation, n int64, k int64, alpha 
 //
 // Note: This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The matrix types combinations supported for [Handle.CherkEx] are listed in the following table:
+//   - A: CUDA_C_8I; C: CUDA_C_32F
+//   - A: CUDA_C_32F; C: CUDA_C_32F
+//
 // For references please refer to NETLIB documentation:
 // cherk()
 //
@@ -2084,13 +2097,12 @@ func (h Handle) Cherk64(uplo FillMode, trans Operation, n int64, k int64, alpha 
 //   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device has a compute capability lower than 5.0.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if trans is not one of [OpN], [OpT] and [OpC], or - if lda < max(1, n) if trans == [OpN] and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if Atype or Ctype are not supported
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if trans is not one of [OpN], [OpT] and [OpC], or if lda < max(1, n) if trans == [OpN] and lda < max(1, k) otherwise, or if ldc < max(1, n), or if Atype or Ctype are not supported
 //   - [ErrNotInitialized]: The library was not initialized.
 //   - [ErrNotSupported]: The combination of the parameters Atype and Ctype is not supported.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cublasCherkEx.
 func (h Handle) CherkEx(uplo FillMode, trans Operation, n int32, k int32, alpha *float32, a driver.DevicePtr, atype DataType, lda int32, beta *float32, c driver.DevicePtr, ctype DataType, ldc int32) error {
@@ -2106,6 +2118,9 @@ func (h Handle) CherkEx(uplo FillMode, trans Operation, n int32, k int32, alpha 
 //
 // Note: This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The matrix types combinations supported for [Handle.CherkEx] are listed in the following table:
+//   - A: CUDA_C_8I; C: CUDA_C_32F
+//   - A: CUDA_C_32F; C: CUDA_C_32F
+//
 // For references please refer to NETLIB documentation:
 // cherk()
 //
@@ -2124,13 +2139,12 @@ func (h Handle) CherkEx(uplo FillMode, trans Operation, n int32, k int32, alpha 
 //   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device has a compute capability lower than 5.0.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if trans is not one of [OpN], [OpT] and [OpC], or - if lda < max(1, n) if trans == [OpN] and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if Atype or Ctype are not supported
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if trans is not one of [OpN], [OpT] and [OpC], or if lda < max(1, n) if trans == [OpN] and lda < max(1, k) otherwise, or if ldc < max(1, n), or if Atype or Ctype are not supported
 //   - [ErrNotInitialized]: The library was not initialized.
 //   - [ErrNotSupported]: The combination of the parameters Atype and Ctype is not supported.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cublasCherkEx_64.
 func (h Handle) CherkEx64(uplo FillMode, trans Operation, n int64, k int64, alpha *float32, a driver.DevicePtr, atype DataType, lda int64, beta *float32, c driver.DevicePtr, ctype DataType, ldc int64) error {
@@ -2161,11 +2175,10 @@ func (h Handle) CherkEx64(uplo FillMode, trans Operation, n int64, k int64, alph
 //   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCherkx.
 func (h Handle) Cherkx(uplo FillMode, trans Operation, n int32, k int32, alpha *Complex64, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, beta *float32, c driver.DevicePtr, ldc int32) error {
@@ -2196,11 +2209,10 @@ func (h Handle) Cherkx(uplo FillMode, trans Operation, n int32, k int32, alpha *
 //   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCherkx_64.
 func (h Handle) Cherkx64(uplo FillMode, trans Operation, n int64, k int64, alpha *Complex64, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, beta *float32, c driver.DevicePtr, ldc int64) error {
@@ -2227,11 +2239,10 @@ func (h Handle) Cherkx64(uplo FillMode, trans Operation, n int64, k int64, alpha
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo != [FillModeLower] and uplo != [FillModeUpper], or - if alpha or beta are NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo != [FillModeLower] and uplo != [FillModeUpper], or if alpha or beta are NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasChpmv_v2.
 func (h Handle) Chpmv(uplo FillMode, n int32, alpha *Complex64, ap driver.DevicePtr, x driver.DevicePtr, incx int32, beta *Complex64, y driver.DevicePtr, incy int32) error {
@@ -2258,11 +2269,10 @@ func (h Handle) Chpmv(uplo FillMode, n int32, alpha *Complex64, ap driver.Device
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo != [FillModeLower] and uplo != [FillModeUpper], or - if alpha or beta are NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo != [FillModeLower] and uplo != [FillModeUpper], or if alpha or beta are NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasChpmv_v2_64.
 func (h Handle) Chpmv64(uplo FillMode, n int64, alpha *Complex64, ap driver.DevicePtr, x driver.DevicePtr, incx int64, beta *Complex64, y driver.DevicePtr, incy int64) error {
@@ -2286,11 +2296,10 @@ func (h Handle) Chpmv64(uplo FillMode, n int64, alpha *Complex64, ap driver.Devi
 //   - incx: Stride between consecutive elements of x
 //   - ap: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed and set to zero
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasChpr_v2.
 func (h Handle) Chpr(uplo FillMode, n int32, alpha *float32, x driver.DevicePtr, incx int32, ap driver.DevicePtr) error {
@@ -2316,11 +2325,10 @@ func (h Handle) Chpr(uplo FillMode, n int32, alpha *float32, x driver.DevicePtr,
 //   - incy: Stride between consecutive elements of y
 //   - ap: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed and set to zero
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasChpr2_v2.
 func (h Handle) Chpr2(uplo FillMode, n int32, alpha *Complex64, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32, ap driver.DevicePtr) error {
@@ -2346,11 +2354,10 @@ func (h Handle) Chpr2(uplo FillMode, n int32, alpha *Complex64, x driver.DeviceP
 //   - incy: Stride between consecutive elements of y
 //   - ap: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed and set to zero
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasChpr2_v2_64.
 func (h Handle) Chpr264(uplo FillMode, n int64, alpha *Complex64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64, ap driver.DevicePtr) error {
@@ -2374,11 +2381,10 @@ func (h Handle) Chpr264(uplo FillMode, n int64, alpha *Complex64, x driver.Devic
 //   - incx: Stride between consecutive elements of x
 //   - ap: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed and set to zero
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasChpr_v2_64.
 func (h Handle) Chpr64(uplo FillMode, n int64, alpha *float32, x driver.DevicePtr, incx int64, ap driver.DevicePtr) error {
@@ -2396,14 +2402,13 @@ func (h Handle) Chpr64(uplo FillMode, n int64, alpha *float32, x driver.DevicePt
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - ainv: Array of pointers to < type > array, with each array of dimension n*n with ldaInv >= max(1, n). Matrices Ainv [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldaInv: Leading dimension of two-dimensional array used to store each matrix Ainv [i]
-//   - info: Array of size batchSize that info [i] contains the information of inversion of A [i].If info [i] == 0, the execution is successful.If info [i] == k, then U(k, k) == 0. The U is exactly singular and the inversion failed
+//   - info: Array of size batchSize that info [i] contains the information of inversion of A [i]. If info [i] == 0, the execution is successful. If info [i] == k, then U(k, k) == 0. The U is exactly singular and the inversion failed
 //   - batchSize: Number of pointers contained in A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or lda < 0 or lda_inv < 0 or batchSize < 0, or - if lda < n or lda_inv < n, or - if n > 32
+//   - [ErrInvalidValue]: If n < 0 or lda < 0 or lda_inv < 0 or batchSize < 0, or if lda < n or lda_inv < n, or if n > 32
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCmatinvBatched.
 func (h Handle) CmatinvBatched(n int32, a driver.DevicePtr, lda int32, ainv driver.DevicePtr, ldaInv int32, info driver.DevicePtr, batchSize int32) error {
@@ -2442,10 +2447,9 @@ func (h Handle) CopyEx64(n int64, x driver.DevicePtr, xType DataType, incx int64
 //   - c: Cosine element of the rotation matrix
 //   - s: Sine element of the rotation matrix
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCrot_v2.
 func (h Handle) Crot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32, c *float32, s *Complex64) error {
@@ -2470,10 +2474,9 @@ func (h Handle) Crot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr
 //   - c: Cosine element of the rotation matrix
 //   - s: Sine element of the rotation matrix
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCrot_v2_64.
 func (h Handle) Crot64(n int64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64, c *float32, s *Complex64) error {
@@ -2498,10 +2501,9 @@ func (h Handle) Crot64(n int64, x driver.DevicePtr, incx int64, y driver.DeviceP
 //   - c: Cosine element of the rotation matrix
 //   - s: Sine element of the rotation matrix
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCrotg_v2.
 func (h Handle) Crotg(a *Complex64, b *Complex64, c *float32, s *Complex64) error {
@@ -2521,10 +2523,9 @@ func (h Handle) Crotg(a *Complex64, b *Complex64, c *float32, s *Complex64) erro
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCscal_v2.
 func (h Handle) Cscal(n int32, alpha *Complex64, x driver.DevicePtr, incx int32) error {
@@ -2544,10 +2545,9 @@ func (h Handle) Cscal(n int32, alpha *Complex64, x driver.DevicePtr, incx int32)
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCscal_v2_64.
 func (h Handle) Cscal64(n int64, alpha *Complex64, x driver.DevicePtr, incx int64) error {
@@ -2572,10 +2572,9 @@ func (h Handle) Cscal64(n int64, alpha *Complex64, x driver.DevicePtr, incx int6
 //   - c: Cosine element of the rotation matrix
 //   - s: Sine element of the rotation matrix
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsrot_v2.
 func (h Handle) Csrot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32, c *float32, s *float32) error {
@@ -2600,10 +2599,9 @@ func (h Handle) Csrot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 //   - c: Cosine element of the rotation matrix
 //   - s: Sine element of the rotation matrix
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsrot_v2_64.
 func (h Handle) Csrot64(n int64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64, c *float32, s *float32) error {
@@ -2623,10 +2621,9 @@ func (h Handle) Csrot64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsscal_v2.
 func (h Handle) Csscal(n int32, alpha *float32, x driver.DevicePtr, incx int32) error {
@@ -2646,10 +2643,9 @@ func (h Handle) Csscal(n int32, alpha *float32, x driver.DevicePtr, incx int32) 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsscal_v2_64.
 func (h Handle) Csscal64(n int64, alpha *float32, x driver.DevicePtr, incx int64) error {
@@ -2670,10 +2666,9 @@ func (h Handle) Csscal64(n int64, alpha *float32, x driver.DevicePtr, incx int64
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCswap_v2.
 func (h Handle) Cswap(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32) error {
@@ -2694,10 +2689,9 @@ func (h Handle) Cswap(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCswap_v2_64.
 func (h Handle) Cswap64(n int64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64) error {
@@ -2726,11 +2720,10 @@ func (h Handle) Cswap64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 //   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if side is not one of [SideLeft] and [SideRight], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, m) when side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if side is not one of [SideLeft] and [SideRight], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, m) when side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsymm_v2.
 func (h Handle) Csymm(side SideMode, uplo FillMode, m int32, n int32, alpha *Complex64, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, beta *Complex64, c driver.DevicePtr, ldc int32) error {
@@ -2759,11 +2752,10 @@ func (h Handle) Csymm(side SideMode, uplo FillMode, m int32, n int32, alpha *Com
 //   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if side is not one of [SideLeft] and [SideRight], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, m) when side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if side is not one of [SideLeft] and [SideRight], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, m) when side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsymm_v2_64.
 func (h Handle) Csymm64(side SideMode, uplo FillMode, m int64, n int64, alpha *Complex64, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, beta *Complex64, c driver.DevicePtr, ldc int64) error {
@@ -2791,11 +2783,10 @@ func (h Handle) Csymm64(side SideMode, uplo FillMode, m int64, n int64, alpha *C
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < n
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < n
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsymv_v2.
 func (h Handle) Csymv(uplo FillMode, n int32, alpha *Complex64, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32, beta *Complex64, y driver.DevicePtr, incy int32) error {
@@ -2823,11 +2814,10 @@ func (h Handle) Csymv(uplo FillMode, n int32, alpha *Complex64, a driver.DeviceP
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < n
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < n
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsymv_v2_64.
 func (h Handle) Csymv64(uplo FillMode, n int64, alpha *Complex64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64, beta *Complex64, y driver.DevicePtr, incy int64) error {
@@ -2850,11 +2840,10 @@ func (h Handle) Csymv64(uplo FillMode, n int64, alpha *Complex64, a driver.Devic
 //   - a: < type > array of dimensions lda x n, with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n), or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsyr_v2.
 func (h Handle) Csyr(uplo FillMode, n int32, alpha *Complex64, x driver.DevicePtr, incx int32, a driver.DevicePtr, lda int32) error {
@@ -2879,11 +2868,10 @@ func (h Handle) Csyr(uplo FillMode, n int32, alpha *Complex64, x driver.DevicePt
 //   - a: < type > array of dimensions lda x n, with lda >= max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha is NULL, or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha is NULL, or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsyr2_v2.
 func (h Handle) Csyr2(uplo FillMode, n int32, alpha *Complex64, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32, a driver.DevicePtr, lda int32) error {
@@ -2908,11 +2896,10 @@ func (h Handle) Csyr2(uplo FillMode, n int32, alpha *Complex64, x driver.DeviceP
 //   - a: < type > array of dimensions lda x n, with lda >= max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha is NULL, or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha is NULL, or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsyr2_v2_64.
 func (h Handle) Csyr264(uplo FillMode, n int64, alpha *Complex64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64, a driver.DevicePtr, lda int64) error {
@@ -2941,11 +2928,10 @@ func (h Handle) Csyr264(uplo FillMode, n int64, alpha *Complex64, x driver.Devic
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsyr2k_v2.
 func (h Handle) Csyr2k(uplo FillMode, trans Operation, n int32, k int32, alpha *Complex64, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, beta *Complex64, c driver.DevicePtr, ldc int32) error {
@@ -2974,11 +2960,10 @@ func (h Handle) Csyr2k(uplo FillMode, trans Operation, n int32, k int32, alpha *
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsyr2k_v2_64.
 func (h Handle) Csyr2k64(uplo FillMode, trans Operation, n int64, k int64, alpha *Complex64, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, beta *Complex64, c driver.DevicePtr, ldc int64) error {
@@ -3001,11 +2986,10 @@ func (h Handle) Csyr2k64(uplo FillMode, trans Operation, n int64, k int64, alpha
 //   - a: < type > array of dimensions lda x n, with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n), or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsyr_v2_64.
 func (h Handle) Csyr64(uplo FillMode, n int64, alpha *Complex64, x driver.DevicePtr, incx int64, a driver.DevicePtr, lda int64) error {
@@ -3032,11 +3016,10 @@ func (h Handle) Csyr64(uplo FillMode, n int64, alpha *Complex64, x driver.Device
 //   - c: < type > array of dimension ldc x n, with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsyrk_v2.
 func (h Handle) Csyrk(uplo FillMode, trans Operation, n int32, k int32, alpha *Complex64, a driver.DevicePtr, lda int32, beta *Complex64, c driver.DevicePtr, ldc int32) error {
@@ -3053,6 +3036,9 @@ func (h Handle) Csyrk(uplo FillMode, trans Operation, n int32, k int32, alpha *C
 //
 // Note: This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The matrix types combinations supported for [Handle.Csyrk3mEx] are listed below :
+//   - A: CUDA_C_8I; C: CUDA_C_32F
+//   - A: CUDA_C_32F; C: CUDA_C_32F
+//
 // For references please refer to NETLIB documentation:
 // ssyrk(), dsyrk(), csyrk(), zsyrk()
 //
@@ -3071,13 +3057,12 @@ func (h Handle) Csyrk(uplo FillMode, trans Operation, n int32, k int32, alpha *C
 //   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device has a compute capability lower than 5.0.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if trans is not one of [OpN], [OpT] and [OpC], or - if lda < max(1, n) if trans == [OpN] and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if Atype or Ctype are not supported
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if trans is not one of [OpN], [OpT] and [OpC], or if lda < max(1, n) if trans == [OpN] and lda < max(1, k) otherwise, or if ldc < max(1, n), or if Atype or Ctype are not supported
 //   - [ErrNotInitialized]: The library was not initialized.
 //   - [ErrNotSupported]: The combination of the parameters Atype and Ctype is not supported.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cublasCsyrk3mEx.
 func (h Handle) Csyrk3mEx(uplo FillMode, trans Operation, n int32, k int32, alpha *Complex64, a driver.DevicePtr, atype DataType, lda int32, beta *Complex64, c driver.DevicePtr, ctype DataType, ldc int32) error {
@@ -3094,6 +3079,9 @@ func (h Handle) Csyrk3mEx(uplo FillMode, trans Operation, n int32, k int32, alph
 //
 // Note: This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The matrix types combinations supported for [Handle.Csyrk3mEx] are listed below :
+//   - A: CUDA_C_8I; C: CUDA_C_32F
+//   - A: CUDA_C_32F; C: CUDA_C_32F
+//
 // For references please refer to NETLIB documentation:
 // ssyrk(), dsyrk(), csyrk(), zsyrk()
 //
@@ -3112,13 +3100,12 @@ func (h Handle) Csyrk3mEx(uplo FillMode, trans Operation, n int32, k int32, alph
 //   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device has a compute capability lower than 5.0.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if trans is not one of [OpN], [OpT] and [OpC], or - if lda < max(1, n) if trans == [OpN] and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if Atype or Ctype are not supported
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if trans is not one of [OpN], [OpT] and [OpC], or if lda < max(1, n) if trans == [OpN] and lda < max(1, k) otherwise, or if ldc < max(1, n), or if Atype or Ctype are not supported
 //   - [ErrNotInitialized]: The library was not initialized.
 //   - [ErrNotSupported]: The combination of the parameters Atype and Ctype is not supported.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cublasCsyrk3mEx_64.
 func (h Handle) Csyrk3mEx64(uplo FillMode, trans Operation, n int64, k int64, alpha *Complex64, a driver.DevicePtr, atype DataType, lda int64, beta *Complex64, c driver.DevicePtr, ctype DataType, ldc int64) error {
@@ -3145,11 +3132,10 @@ func (h Handle) Csyrk3mEx64(uplo FillMode, trans Operation, n int64, k int64, al
 //   - c: < type > array of dimension ldc x n, with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsyrk_v2_64.
 func (h Handle) Csyrk64(uplo FillMode, trans Operation, n int64, k int64, alpha *Complex64, a driver.DevicePtr, lda int64, beta *Complex64, c driver.DevicePtr, ldc int64) error {
@@ -3165,6 +3151,9 @@ func (h Handle) Csyrk64(uplo FillMode, trans Operation, n int64, k int64, alpha 
 //
 // Note: This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The matrix types combinations supported for [Handle.CsyrkEx] are listed below:
+//   - A: CUDA_C_8I; C: CUDA_C_32F
+//   - A: CUDA_C_32F; C: CUDA_C_32F
+//
 // For references please refer to NETLIB documentation:
 // ssyrk(), dsyrk(), csyrk(), zsyrk()
 //
@@ -3183,13 +3172,12 @@ func (h Handle) Csyrk64(uplo FillMode, trans Operation, n int64, k int64, alpha 
 //   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device has a compute capability lower than 5.0.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if trans is not one of [OpN], [OpT] and [OpC], or - if lda < max(1, n) if trans == [OpN] and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if Atype or Ctype are not supported
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if trans is not one of [OpN], [OpT] and [OpC], or if lda < max(1, n) if trans == [OpN] and lda < max(1, k) otherwise, or if ldc < max(1, n), or if Atype or Ctype are not supported
 //   - [ErrNotInitialized]: The library was not initialized.
 //   - [ErrNotSupported]: The combination of the parameters Atype and Ctype is not supported.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cublasCsyrkEx.
 func (h Handle) CsyrkEx(uplo FillMode, trans Operation, n int32, k int32, alpha *Complex64, a driver.DevicePtr, atype DataType, lda int32, beta *Complex64, c driver.DevicePtr, ctype DataType, ldc int32) error {
@@ -3205,6 +3193,9 @@ func (h Handle) CsyrkEx(uplo FillMode, trans Operation, n int32, k int32, alpha 
 //
 // Note: This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The matrix types combinations supported for [Handle.CsyrkEx] are listed below:
+//   - A: CUDA_C_8I; C: CUDA_C_32F
+//   - A: CUDA_C_32F; C: CUDA_C_32F
+//
 // For references please refer to NETLIB documentation:
 // ssyrk(), dsyrk(), csyrk(), zsyrk()
 //
@@ -3223,13 +3214,12 @@ func (h Handle) CsyrkEx(uplo FillMode, trans Operation, n int32, k int32, alpha 
 //   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device has a compute capability lower than 5.0.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if trans is not one of [OpN], [OpT] and [OpC], or - if lda < max(1, n) if trans == [OpN] and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if Atype or Ctype are not supported
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if trans is not one of [OpN], [OpT] and [OpC], or if lda < max(1, n) if trans == [OpN] and lda < max(1, k) otherwise, or if ldc < max(1, n), or if Atype or Ctype are not supported
 //   - [ErrNotInitialized]: The library was not initialized.
 //   - [ErrNotSupported]: The combination of the parameters Atype and Ctype is not supported.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cublasCsyrkEx_64.
 func (h Handle) CsyrkEx64(uplo FillMode, trans Operation, n int64, k int64, alpha *Complex64, a driver.DevicePtr, atype DataType, lda int64, beta *Complex64, c driver.DevicePtr, ctype DataType, ldc int64) error {
@@ -3260,11 +3250,10 @@ func (h Handle) CsyrkEx64(uplo FillMode, trans Operation, n int64, k int64, alph
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsyrkx.
 func (h Handle) Csyrkx(uplo FillMode, trans Operation, n int32, k int32, alpha *Complex64, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, beta *Complex64, c driver.DevicePtr, ldc int32) error {
@@ -3295,11 +3284,10 @@ func (h Handle) Csyrkx(uplo FillMode, trans Operation, n int32, k int32, alpha *
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsyrkx_64.
 func (h Handle) Csyrkx64(uplo FillMode, trans Operation, n int64, k int64, alpha *Complex64, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, beta *Complex64, c driver.DevicePtr, ldc int64) error {
@@ -3327,12 +3315,11 @@ func (h Handle) Csyrkx64(uplo FillMode, trans Operation, n int64, k int64, alpha
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The allocation of internal scratch memory failed
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < (1 + k)
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < (1 + k)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtbmv_v2.
 func (h Handle) Ctbmv(uplo FillMode, trans Operation, diag DiagType, n int32, k int32, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32) error {
@@ -3360,12 +3347,11 @@ func (h Handle) Ctbmv(uplo FillMode, trans Operation, diag DiagType, n int32, k 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The allocation of internal scratch memory failed
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < (1 + k)
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < (1 + k)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtbmv_v2_64.
 func (h Handle) Ctbmv64(uplo FillMode, trans Operation, diag DiagType, n int64, k int64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64) error {
@@ -3395,11 +3381,10 @@ func (h Handle) Ctbmv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < (1 + k)
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < (1 + k)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtbsv_v2.
 func (h Handle) Ctbsv(uplo FillMode, trans Operation, diag DiagType, n int32, k int32, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32) error {
@@ -3429,11 +3414,10 @@ func (h Handle) Ctbsv(uplo FillMode, trans Operation, diag DiagType, n int32, k 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < (1 + k)
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < (1 + k)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtbsv_v2_64.
 func (h Handle) Ctbsv64(uplo FillMode, trans Operation, diag DiagType, n int64, k int64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64) error {
@@ -3459,12 +3443,11 @@ func (h Handle) Ctbsv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The allocation of internal scratch memory failed
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit]
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit]
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtpmv_v2.
 func (h Handle) Ctpmv(uplo FillMode, trans Operation, diag DiagType, n int32, ap driver.DevicePtr, x driver.DevicePtr, incx int32) error {
@@ -3490,12 +3473,11 @@ func (h Handle) Ctpmv(uplo FillMode, trans Operation, diag DiagType, n int32, ap
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The allocation of internal scratch memory failed
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit]
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit]
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtpmv_v2_64.
 func (h Handle) Ctpmv64(uplo FillMode, trans Operation, diag DiagType, n int64, ap driver.DevicePtr, x driver.DevicePtr, incx int64) error {
@@ -3523,11 +3505,10 @@ func (h Handle) Ctpmv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit]
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit]
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtpsv_v2.
 func (h Handle) Ctpsv(uplo FillMode, trans Operation, diag DiagType, n int32, ap driver.DevicePtr, x driver.DevicePtr, incx int32) error {
@@ -3555,11 +3536,10 @@ func (h Handle) Ctpsv(uplo FillMode, trans Operation, diag DiagType, n int32, ap
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit]
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit]
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtpsv_v2_64.
 func (h Handle) Ctpsv64(uplo FillMode, trans Operation, diag DiagType, n int64, ap driver.DevicePtr, x driver.DevicePtr, incx int64) error {
@@ -3578,11 +3558,10 @@ func (h Handle) Ctpsv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 //   - a: < type > array of dimensions lda x n , with lda >= max(1, n). The opposite side of A is left untouched
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtpttr.
 func (h Handle) Ctpttr(uplo FillMode, n int32, ap driver.DevicePtr, a driver.DevicePtr, lda int32) error {
@@ -3614,11 +3593,10 @@ func (h Handle) Ctpttr(uplo FillMode, n int32, ap driver.DevicePtr, a driver.Dev
 //   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if side is not one of [SideLeft] and [SideRight], or - if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if ldc < max(1, m), or - if alpha is NULL
+//   - [ErrInvalidValue]: If m < 0, n < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if side is not one of [SideLeft] and [SideRight], or if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if ldc < max(1, m), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtrmm_v2.
 func (h Handle) Ctrmm(side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *Complex64, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, c driver.DevicePtr, ldc int32) error {
@@ -3650,11 +3628,10 @@ func (h Handle) Ctrmm(side SideMode, uplo FillMode, trans Operation, diag DiagTy
 //   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if side is not one of [SideLeft] and [SideRight], or - if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if ldc < max(1, m), or - if alpha is NULL
+//   - [ErrInvalidValue]: If m < 0, n < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if side is not one of [SideLeft] and [SideRight], or if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if ldc < max(1, m), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtrmm_v2_64.
 func (h Handle) Ctrmm64(side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *Complex64, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, c driver.DevicePtr, ldc int64) error {
@@ -3679,12 +3656,11 @@ func (h Handle) Ctrmm64(side SideMode, uplo FillMode, trans Operation, diag Diag
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The allocation of internal scratch memory failed
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtrmv_v2.
 func (h Handle) Ctrmv(uplo FillMode, trans Operation, diag DiagType, n int32, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32) error {
@@ -3709,12 +3685,11 @@ func (h Handle) Ctrmv(uplo FillMode, trans Operation, diag DiagType, n int32, a 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The allocation of internal scratch memory failed
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtrmv_v2_64.
 func (h Handle) Ctrmv64(uplo FillMode, trans Operation, diag DiagType, n int64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64) error {
@@ -3745,11 +3720,10 @@ func (h Handle) Ctrmv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 //   - b: < type > array. It has dimensions ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if side is not one of [SideLeft] and [SideRight], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if alpha is NULL
+//   - [ErrInvalidValue]: If m < 0, n < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if side is not one of [SideLeft] and [SideRight], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtrsm_v2.
 func (h Handle) Ctrsm(side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *Complex64, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32) error {
@@ -3780,11 +3754,10 @@ func (h Handle) Ctrsm(side SideMode, uplo FillMode, trans Operation, diag DiagTy
 //   - b: < type > array. It has dimensions ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if side is not one of [SideLeft] and [SideRight], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if alpha is NULL
+//   - [ErrInvalidValue]: If m < 0, n < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if side is not one of [SideLeft] and [SideRight], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtrsm_v2_64.
 func (h Handle) Ctrsm64(side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *Complex64, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64) error {
@@ -3818,11 +3791,10 @@ func (h Handle) Ctrsm64(side SideMode, uplo FillMode, trans Operation, diag Diag
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
 //   - batchCount: Number of pointers contained in A and B
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if side is not one of [SideLeft] and [SideRight], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m)
+//   - [ErrInvalidValue]: If m < 0, n < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if side is not one of [SideLeft] and [SideRight], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtrsmBatched.
 func (h Handle) CtrsmBatched(side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *Complex64, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, batchCount int32) error {
@@ -3856,11 +3828,10 @@ func (h Handle) CtrsmBatched(side SideMode, uplo FillMode, trans Operation, diag
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
 //   - batchCount: Number of pointers contained in A and B
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if side is not one of [SideLeft] and [SideRight], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m)
+//   - [ErrInvalidValue]: If m < 0, n < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if side is not one of [SideLeft] and [SideRight], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtrsmBatched_64.
 func (h Handle) CtrsmBatched64(side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *Complex64, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, batchCount int64) error {
@@ -3887,11 +3858,10 @@ func (h Handle) CtrsmBatched64(side SideMode, uplo FillMode, trans Operation, di
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtrsv_v2.
 func (h Handle) Ctrsv(uplo FillMode, trans Operation, diag DiagType, n int32, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32) error {
@@ -3918,11 +3888,10 @@ func (h Handle) Ctrsv(uplo FillMode, trans Operation, diag DiagType, n int32, a 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtrsv_v2_64.
 func (h Handle) Ctrsv64(uplo FillMode, trans Operation, diag DiagType, n int64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64) error {
@@ -3941,11 +3910,10 @@ func (h Handle) Ctrsv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - ap: < type > array with A stored in packed format
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0 or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtrttp.
 func (h Handle) Ctrttp(uplo FillMode, n int32, a driver.DevicePtr, lda int32, ap driver.DevicePtr) error {
@@ -3954,7 +3922,7 @@ func (h Handle) Ctrttp(uplo FillMode, n int32, a driver.DevicePtr, lda int32, ap
 
 // Dasum computes the sum of the absolute values of the elements of vector x.
 //
-// Hence, the result is ∑i=1n|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sasum(), dasum(), scasum(), dzasum()
 //
@@ -3965,12 +3933,11 @@ func (h Handle) Ctrttp(uplo FillMode, n int32, a driver.DevicePtr, lda int32, ap
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting sum, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDasum_v2.
 func (h Handle) Dasum(n int32, x driver.DevicePtr, incx int32) (float64, error) {
@@ -3979,7 +3946,7 @@ func (h Handle) Dasum(n int32, x driver.DevicePtr, incx int32) (float64, error) 
 
 // Dasum64 computes the sum of the absolute values of the elements of vector x.
 //
-// Hence, the result is ∑i=1n|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sasum(), dasum(), scasum(), dzasum()
 //
@@ -3990,12 +3957,11 @@ func (h Handle) Dasum(n int32, x driver.DevicePtr, incx int32) (float64, error) 
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting sum, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDasum_v2_64.
 func (h Handle) Dasum64(n int64, x driver.DevicePtr, incx int64) (float64, error) {
@@ -4017,10 +3983,9 @@ func (h Handle) Dasum64(n int64, x driver.DevicePtr, incx int64) (float64, error
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDaxpy_v2.
 func (h Handle) Daxpy(n int32, alpha *float64, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32) error {
@@ -4042,10 +4007,9 @@ func (h Handle) Daxpy(n int32, alpha *float64, x driver.DevicePtr, incx int32, y
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDaxpy_v2_64.
 func (h Handle) Daxpy64(n int64, alpha *float64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64) error {
@@ -4066,10 +4030,9 @@ func (h Handle) Daxpy64(n int64, alpha *float64, x driver.DevicePtr, incx int64,
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDcopy_v2.
 func (h Handle) Dcopy(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32) error {
@@ -4090,10 +4053,9 @@ func (h Handle) Dcopy(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDcopy_v2_64.
 func (h Handle) Dcopy64(n int64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64) error {
@@ -4122,11 +4084,10 @@ func (h Handle) Dcopy64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if mode is not one of [SideLeft] and [SideRight], or - if lda < max(1, m), or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if mode is not one of [SideLeft] and [SideRight], or if lda < max(1, m), or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDdgmm.
 func (h Handle) Ddgmm(mode SideMode, m int32, n int32, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32, c driver.DevicePtr, ldc int32) error {
@@ -4155,11 +4116,10 @@ func (h Handle) Ddgmm(mode SideMode, m int32, n int32, a driver.DevicePtr, lda i
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if mode is not one of [SideLeft] and [SideRight], or - if lda < max(1, m), or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if mode is not one of [SideLeft] and [SideRight], or if lda < max(1, m), or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDdgmm_64.
 func (h Handle) Ddgmm64(mode SideMode, m int64, n int64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64, c driver.DevicePtr, ldc int64) error {
@@ -4168,7 +4128,7 @@ func (h Handle) Ddgmm64(mode SideMode, m int64, n int64, a driver.DevicePtr, lda
 
 // Ddot computes the dot product of vectors x and y.
 //
-// Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -4181,11 +4141,10 @@ func (h Handle) Ddgmm64(mode SideMode, m int64, n int64, a driver.DevicePtr, lda
 //   - incy: Stride between consecutive elements of y
 //   - result: The resulting dot product, which is set to 0 if n <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDdot_v2.
 func (h Handle) Ddot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32) (float64, error) {
@@ -4194,7 +4153,7 @@ func (h Handle) Ddot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr
 
 // Ddot64 computes the dot product of vectors x and y.
 //
-// Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -4207,11 +4166,10 @@ func (h Handle) Ddot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr
 //   - incy: Stride between consecutive elements of y
 //   - result: The resulting dot product, which is set to 0 if n <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDdot_v2_64.
 func (h Handle) Ddot64(n int64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64) (float64, error) {
@@ -4221,6 +4179,11 @@ func (h Handle) Ddot64(n int64, x driver.DevicePtr, incx int64, y driver.DeviceP
 // Destroy releases hardware resources used by the cuBLAS library.
 //
 // This function is usually the last call with a particular handle to the cuBLAS library. Because [Create] allocates some internal resources and the release of those resources by calling [Handle.Destroy] will implicitly call cudaDeviceSynchronize(), it is recommended to minimize the number of times these functions are called.
+//
+// A nil error means the shut down succeeded.
+//
+// Errors:
+//   - [ErrNotInitialized]: the library was not initialized
 //
 // Wraps cublasDestroy_v2.
 func (h Handle) Destroy() error {
@@ -4251,11 +4214,10 @@ func (h Handle) Destroy() error {
 //   - y: < type > vector with m elements if trans == [OpN] and n elements otherwise
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, kl < 0 or ku < 0, or - if lda < (kl + ku + 1), or - if incx == 0 or incy == 0, or - if trans is not one of [OpN], [OpT], [OpC], or - if alpha or beta are NULL
+//   - [ErrInvalidValue]: If m < 0, n < 0, kl < 0 or ku < 0, or if lda < (kl + ku + 1), or if incx == 0 or incy == 0, or if trans is not one of [OpN], [OpT], [OpC], or if alpha or beta are NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgbmv_v2.
 func (h Handle) Dgbmv(trans Operation, m int32, n int32, kl int32, ku int32, alpha *float64, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32, beta *float64, y driver.DevicePtr, incy int32) error {
@@ -4286,11 +4248,10 @@ func (h Handle) Dgbmv(trans Operation, m int32, n int32, kl int32, ku int32, alp
 //   - y: < type > vector with m elements if trans == [OpN] and n elements otherwise
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, kl < 0 or ku < 0, or - if lda < (kl + ku + 1), or - if incx == 0 or incy == 0, or - if trans is not one of [OpN], [OpT], [OpC], or - if alpha or beta are NULL
+//   - [ErrInvalidValue]: If m < 0, n < 0, kl < 0 or ku < 0, or if lda < (kl + ku + 1), or if incx == 0 or incy == 0, or if trans is not one of [OpN], [OpT], [OpC], or if alpha or beta are NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgbmv_v2_64.
 func (h Handle) Dgbmv64(trans Operation, m int64, n int64, kl int64, ku int64, alpha *float64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64, beta *float64, y driver.DevicePtr, incy int64) error {
@@ -4326,11 +4287,10 @@ func (h Handle) Dgbmv64(trans Operation, m int64, n int64, kl int64, ku int64, a
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if transa is not one of [OpN], [OpT] and [OpC], or - if transb is not one of [OpN], [OpT] and [OpC], or - if lda < max(1, m) when transa == [OpN], and lda < max(1, n) otherwise, or - if ldb < max(1, m) if transb == [OpN], and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if A == C and `(transa != [OpN])
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if transa is not one of [OpN], [OpT] and [OpC], or if transb is not one of [OpN], [OpT] and [OpC], or if lda < max(1, m) when transa == [OpN], and lda < max(1, n) otherwise, or if ldb < max(1, m) if transb == [OpN], and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if A == C and `(transa != [OpN])
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgeam.
 func (h Handle) Dgeam(transa Operation, transb Operation, m int32, n int32, alpha *float64, a driver.DevicePtr, lda int32, beta *float64, b driver.DevicePtr, ldb int32, c driver.DevicePtr, ldc int32) error {
@@ -4366,18 +4326,19 @@ func (h Handle) Dgeam(transa Operation, transb Operation, m int32, n int32, alph
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if transa is not one of [OpN], [OpT] and [OpC], or - if transb is not one of [OpN], [OpT] and [OpC], or - if lda < max(1, m) when transa == [OpN], and lda < max(1, n) otherwise, or - if ldb < max(1, m) if transb == [OpN], and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if A == C and `(transa != [OpN])
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if transa is not one of [OpN], [OpT] and [OpC], or if transb is not one of [OpN], [OpT] and [OpC], or if lda < max(1, m) when transa == [OpN], and lda < max(1, n) otherwise, or if ldb < max(1, m) if transb == [OpN], and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if A == C and `(transa != [OpN])
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgeam_64.
 func (h Handle) Dgeam64(transa Operation, transb Operation, m int64, n int64, alpha *float64, a driver.DevicePtr, lda int64, beta *float64, b driver.DevicePtr, ldb int64, c driver.DevicePtr, ldc int64) error {
 	return dgeam64(h, transa, transb, m, n, alpha, a, lda, beta, b, ldb, c, ldc)
 }
 
-// DgelsBatched Aarray is an array of pointers to matrices stored in column-major format.
+// DgelsBatched solves a batch of overdetermined linear systems in the least-squares sense.
+//
+// Aarray is an array of pointers to matrices stored in column-major format.
 //
 // Carray is an array of pointers to matrices stored in column-major format.
 // This function find the least squares solution of a batch of overdetermined systems: it solves the least squares problem described as follows :
@@ -4396,16 +4357,15 @@ func (h Handle) Dgeam64(transa Operation, transb Operation, m int64, n int64, al
 //   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
 //   - carray: Array of pointers to < type > array, with each array of dim. m x nrhs with ldc >= max(1, m) if trans == [OpN], and n x nrhs with lda >= max(1, n) otherwise (not supported currently). Matrices Carray [i] should not overlap; otherwise, behavior is undefined
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray [i]
-//   - info: If info == 0 the parameters passed to the function are validIf info < 0 the parameter in position -info is invalid
-//   - devInfoArray: Optional array of integers of dimension batchsize.If non-null, every element of devInfoArray [i] == V has the following meaning:V == 0 : the i-th problem was successfully solvedV > 0 : the V-th diagonal element of the Aarray [i] is zero. Aarray [i] does not have full rank
+//   - info: If info == 0 the parameters passed to the function are valid. If info < 0 the parameter in position -info is invalid
+//   - devInfoArray: Optional array of integers of dimension batchsize. If non-null, every element of devInfoArray [i] == V has the following meaning: V == 0 : the i-th problem was successfully solved. V > 0 : the V-th diagonal element of the Aarray [i] is zero. Aarray [i] does not have full rank
 //   - batchSize: Number of pointers contained in Aarray and Carray
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or nrhs < 0 or batchSize < 0 or - if lda < max(1, m) or ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or nrhs < 0 or batchSize < 0 or if lda < max(1, m) or ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
 //   - [ErrNotSupported]: The parameters m <n or trans is different from non-transpose.
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgelsBatched.
 func (h Handle) DgelsBatched(trans Operation, m int32, n int32, nrhs int32, aarray driver.DevicePtr, lda int32, carray driver.DevicePtr, ldc int32, info *int32, devInfoArray driver.DevicePtr, batchSize int32) error {
@@ -4436,12 +4396,11 @@ func (h Handle) DgelsBatched(trans Operation, m int32, n int32, nrhs int32, aarr
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: In the case of [Handle.Hgemm] the device does not support math in half precision.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemm_v2.
 func (h Handle) Dgemm(transa Operation, transb Operation, m int32, n int32, k int32, alpha *float64, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, beta *float64, c driver.DevicePtr, ldc int32) error {
@@ -4472,12 +4431,11 @@ func (h Handle) Dgemm(transa Operation, transb Operation, m int32, n int32, k in
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: In the case of [Handle.Hgemm] the device does not support math in half precision.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemm_v2_64.
 func (h Handle) Dgemm64(transa Operation, transb Operation, m int64, n int64, k int64, alpha *float64, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, beta *float64, c driver.DevicePtr, ldc int64) error {
@@ -4495,6 +4453,7 @@ func (h Handle) Dgemm64(transa Operation, transb Operation, m int64, n int64, k 
 // Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // [Handle.DgemmBatched64] takes 64-bit sizes.
 //
@@ -4504,21 +4463,20 @@ func (h Handle) Dgemm64(transa Operation, transb Operation, m int64, n int64, k 
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.HgemmBatched] is only supported for GPU with architecture capabilities equal or greater than 5.3
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemmBatched.
 func (h Handle) DgemmBatched(transa Operation, transb Operation, m int32, n int32, k int32, alpha *float64, aarray driver.DevicePtr, lda int32, barray driver.DevicePtr, ldb int32, beta *float64, carray driver.DevicePtr, ldc int32, batchCount int32) error {
@@ -4536,6 +4494,7 @@ func (h Handle) DgemmBatched(transa Operation, transb Operation, m int32, n int3
 // Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // It is [Handle.DgemmBatched] with int64 sizes and strides.
 //
@@ -4545,21 +4504,20 @@ func (h Handle) DgemmBatched(transa Operation, transb Operation, m int32, n int3
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.HgemmBatched] is only supported for GPU with architecture capabilities equal or greater than 5.3
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemmBatched_64.
 func (h Handle) DgemmBatched64(transa Operation, transb Operation, m int64, n int64, k int64, alpha *float64, aarray driver.DevicePtr, lda int64, barray driver.DevicePtr, ldb int64, beta *float64, carray driver.DevicePtr, ldc int64, batchCount int64) error {
@@ -4571,7 +4529,7 @@ func (h Handle) DgemmBatched64(transa Operation, transb Operation, m int64, n in
 // A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
 // where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
 //
-// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
+// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑_(i=0)^(groupCount−1)groupSize [i]
 // For matrix A [idx] in group i
 // op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]ᵀif transaArray [i] == CUBLAS_OP_TA [idx]ᴴif transaArray [i] == [OpC]
 // and op(B [idx]) is defined similarly for matrix B [idx] in group i.
@@ -4579,6 +4537,7 @@ func (h Handle) DgemmBatched64(transa Operation, transb Operation, m int64, n in
 // Note: C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemmBatched() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmGroupedBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is required that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // [Handle.DgemmGroupedBatched64] takes 64-bit sizes.
 //
@@ -4588,22 +4547,21 @@ func (h Handle) DgemmBatched64(transa Operation, transb Operation, m int64, n in
 //   - nArray: Array containing the number of columns of op( B [idx]) and C [idx] for each group
 //   - kArray: Array containing the number of columns of op( A [idx]) and rows of op( B [idx]) for each group
 //   - alphaArray: Array containing the < type > scalar used for multiplication for each group
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldaArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix A [idx] for each group
-//   - barray: Array of pointers to < type > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldbArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix B [idx] for each group
 //   - betaArray: Array containing the < type > scalar used for multiplication for each group
-//   - carray: Array of pointers to < type > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldcArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix C [idx] for each group
 //   - groupCount: Number of groups
 //   - groupSize: Array containing the number of pointers contained in Aarray, Barray and Carray for each group
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If transa_array, transb_array, m_array, n_array, k_array, alpha_array, lda_array, ldb_array, beta_array, ldc_array, or group_size are NULL, or - if group_count < 0, or - if m_array [i] < 0, n_array [i] < 0, k_array [i] < 0, group_size [i] < 0, or - if transa_array [i] and transb_array [i] are not one of [OpN], [OpC], [OpT], or - if lda_array [i] < max(1, m_array [i]) if transa_array [i] == [OpN] and lda_array [i] < max(1, k_array [i]) otherwise, or - if ldb_array [i] < max(1, k_array [i]) if transb_array [i] == [OpN] and ldb_array [i] < max(1, n_array [i]) otherwise, or - if ldc_array [i] < max(1, m_array [i])
+//   - [ErrInvalidValue]: If transa_array, transb_array, m_array, n_array, k_array, alpha_array, lda_array, ldb_array, beta_array, ldc_array, or group_size are NULL, or if group_count < 0, or if m_array [i] < 0, n_array [i] < 0, k_array [i] < 0, group_size [i] < 0, or if transa_array [i] and transb_array [i] are not one of [OpN], [OpC], [OpT], or if lda_array [i] < max(1, m_array [i]) if transa_array [i] == [OpN] and lda_array [i] < max(1, k_array [i]) otherwise, or if ldb_array [i] < max(1, k_array [i]) if transb_array [i] == [OpN] and ldb_array [i] < max(1, n_array [i]) otherwise, or if ldc_array [i] < max(1, m_array [i])
 //   - [ErrNotInitialized]: The library was not initialized
 //   - [ErrNotSupported]: The pointer mode is set to [PointerModeDevice]
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemmGroupedBatched.
 func (h Handle) DgemmGroupedBatched(transaArray *Operation, transbArray *Operation, mArray *int32, nArray *int32, kArray *int32, alphaArray *float64, aarray driver.DevicePtr, ldaArray *int32, barray driver.DevicePtr, ldbArray *int32, betaArray *float64, carray driver.DevicePtr, ldcArray *int32, groupCount int32, groupSize *int32) error {
@@ -4615,7 +4573,7 @@ func (h Handle) DgemmGroupedBatched(transaArray *Operation, transbArray *Operati
 // A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
 // where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
 //
-// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
+// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑_(i=0)^(groupCount−1)groupSize [i]
 // For matrix A [idx] in group i
 // op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]ᵀif transaArray [i] == CUBLAS_OP_TA [idx]ᴴif transaArray [i] == [OpC]
 // and op(B [idx]) is defined similarly for matrix B [idx] in group i.
@@ -4623,6 +4581,7 @@ func (h Handle) DgemmGroupedBatched(transaArray *Operation, transbArray *Operati
 // Note: C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemmBatched() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmGroupedBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is required that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // It is [Handle.DgemmGroupedBatched] with int64 sizes and strides.
 //
@@ -4632,22 +4591,21 @@ func (h Handle) DgemmGroupedBatched(transaArray *Operation, transbArray *Operati
 //   - nArray: Array containing the number of columns of op( B [idx]) and C [idx] for each group
 //   - kArray: Array containing the number of columns of op( A [idx]) and rows of op( B [idx]) for each group
 //   - alphaArray: Array containing the < type > scalar used for multiplication for each group
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldaArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix A [idx] for each group
-//   - barray: Array of pointers to < type > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldbArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix B [idx] for each group
 //   - betaArray: Array containing the < type > scalar used for multiplication for each group
-//   - carray: Array of pointers to < type > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldcArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix C [idx] for each group
 //   - groupCount: Number of groups
 //   - groupSize: Array containing the number of pointers contained in Aarray, Barray and Carray for each group
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If transa_array, transb_array, m_array, n_array, k_array, alpha_array, lda_array, ldb_array, beta_array, ldc_array, or group_size are NULL, or - if group_count < 0, or - if m_array [i] < 0, n_array [i] < 0, k_array [i] < 0, group_size [i] < 0, or - if transa_array [i] and transb_array [i] are not one of [OpN], [OpC], [OpT], or - if lda_array [i] < max(1, m_array [i]) if transa_array [i] == [OpN] and lda_array [i] < max(1, k_array [i]) otherwise, or - if ldb_array [i] < max(1, k_array [i]) if transb_array [i] == [OpN] and ldb_array [i] < max(1, n_array [i]) otherwise, or - if ldc_array [i] < max(1, m_array [i])
+//   - [ErrInvalidValue]: If transa_array, transb_array, m_array, n_array, k_array, alpha_array, lda_array, ldb_array, beta_array, ldc_array, or group_size are NULL, or if group_count < 0, or if m_array [i] < 0, n_array [i] < 0, k_array [i] < 0, group_size [i] < 0, or if transa_array [i] and transb_array [i] are not one of [OpN], [OpC], [OpT], or if lda_array [i] < max(1, m_array [i]) if transa_array [i] == [OpN] and lda_array [i] < max(1, k_array [i]) otherwise, or if ldb_array [i] < max(1, k_array [i]) if transb_array [i] == [OpN] and ldb_array [i] < max(1, n_array [i]) otherwise, or if ldc_array [i] < max(1, m_array [i])
 //   - [ErrNotInitialized]: The library was not initialized
 //   - [ErrNotSupported]: The pointer mode is set to [PointerModeDevice]
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemmGroupedBatched_64.
 func (h Handle) DgemmGroupedBatched64(transaArray *Operation, transbArray *Operation, mArray *int64, nArray *int64, kArray *int64, alphaArray *float64, aarray driver.DevicePtr, ldaArray *int64, barray driver.DevicePtr, ldbArray *int64, betaArray *float64, carray driver.DevicePtr, ldcArray *int64, groupCount int64, groupSize *int64) error {
@@ -4687,12 +4645,11 @@ func (h Handle) DgemmGroupedBatched64(transaArray *Operation, transbArray *Opera
 //   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.HgemmStridedBatched] is only supported for GPU with architecture capabilities equal or greater than 5.3
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemmStridedBatched.
 func (h Handle) DgemmStridedBatched(transa Operation, transb Operation, m int32, n int32, k int32, alpha *float64, a driver.DevicePtr, lda int32, strideA int64, b driver.DevicePtr, ldb int32, strideB int64, beta *float64, c driver.DevicePtr, ldc int32, strideC int64, batchCount int32) error {
@@ -4732,12 +4689,11 @@ func (h Handle) DgemmStridedBatched(transa Operation, transb Operation, m int32,
 //   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.HgemmStridedBatched] is only supported for GPU with architecture capabilities equal or greater than 5.3
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemmStridedBatched_64.
 func (h Handle) DgemmStridedBatched64(transa Operation, transb Operation, m int64, n int64, k int64, alpha *float64, a driver.DevicePtr, lda int64, strideA int64, b driver.DevicePtr, ldb int64, strideB int64, beta *float64, c driver.DevicePtr, ldc int64, strideC int64, batchCount int64) error {
@@ -4765,11 +4721,10 @@ func (h Handle) DgemmStridedBatched64(transa Operation, transb Operation, m int6
 //   - y: < type > vector at least (1 + (m - 1) * abs(incy)) elements if trans == [OpN] and at least (1 + (n - 1) * abs(incy)) elements otherwise
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: The parameters m < 0 or n < 0, or incx == 0 or incy == 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemv_v2.
 func (h Handle) Dgemv(trans Operation, m int32, n int32, alpha *float64, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32, beta *float64, y driver.DevicePtr, incy int32) error {
@@ -4797,11 +4752,10 @@ func (h Handle) Dgemv(trans Operation, m int32, n int32, alpha *float64, a drive
 //   - y: < type > vector at least (1 + (m - 1) * abs(incy)) elements if trans == [OpN] and at least (1 + (n - 1) * abs(incy)) elements otherwise
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: The parameters m < 0 or n < 0, or incx == 0 or incy == 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemv_v2_64.
 func (h Handle) Dgemv64(trans Operation, m int64, n int64, alpha *float64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64, beta *float64, y driver.DevicePtr, incy int64) error {
@@ -4818,6 +4772,7 @@ func (h Handle) Dgemv64(trans Operation, m int64, n int64, alpha *float64, a dri
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // [Handle.DgemvBatched64] takes 64-bit sizes.
 //
@@ -4825,20 +4780,19 @@ func (h Handle) Dgemv64(trans Operation, m int64, n int64, alpha *float64, a dri
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - incy: Stride of each one-dimensional array y [i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemvBatched.
 func (h Handle) DgemvBatched(trans Operation, m int32, n int32, alpha *float64, aarray driver.DevicePtr, lda int32, xarray driver.DevicePtr, incx int32, beta *float64, yarray driver.DevicePtr, incy int32, batchCount int32) error {
@@ -4855,6 +4809,7 @@ func (h Handle) DgemvBatched(trans Operation, m int32, n int32, alpha *float64, 
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // It is [Handle.DgemvBatched] with int64 sizes and strides.
 //
@@ -4862,20 +4817,19 @@ func (h Handle) DgemvBatched(trans Operation, m int32, n int32, alpha *float64, 
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - incy: Stride of each one-dimensional array y [i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemvBatched_64.
 func (h Handle) DgemvBatched64(trans Operation, m int64, n int64, alpha *float64, aarray driver.DevicePtr, lda int64, xarray driver.DevicePtr, incx int64, beta *float64, yarray driver.DevicePtr, incy int64, batchCount int64) error {
@@ -4912,11 +4866,10 @@ func (h Handle) DgemvBatched64(trans Operation, m int64, n int64, alpha *float64
 //   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemvStridedBatched.
 func (h Handle) DgemvStridedBatched(trans Operation, m int32, n int32, alpha *float64, a driver.DevicePtr, lda int32, strideA int64, x driver.DevicePtr, incx int32, stridex int64, beta *float64, y driver.DevicePtr, incy int32, stridey int64, batchCount int32) error {
@@ -4953,18 +4906,19 @@ func (h Handle) DgemvStridedBatched(trans Operation, m int32, n int32, alpha *fl
 //   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemvStridedBatched_64.
 func (h Handle) DgemvStridedBatched64(trans Operation, m int64, n int64, alpha *float64, a driver.DevicePtr, lda int64, strideA int64, x driver.DevicePtr, incx int64, stridex int64, beta *float64, y driver.DevicePtr, incy int64, stridey int64, batchCount int64) error {
 	return dgemvStridedBatched64(h, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount)
 }
 
-// DgeqrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
+// DgeqrfBatched computes the QR factorization of each matrix in a batch.
+//
+// Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
 //
 // TauArray is an array of pointers to vectors of dimension of at least max (1, min(m, n).
 // This function performs the QR factorization of each Aarray [i] for i = 0, ...,batchSize-1 using Householder reflections. Each matrix Q [i] is represented as a product of elementary reflectors and is stored in the lower part of each Aarray [i] as follows :
@@ -4981,14 +4935,13 @@ func (h Handle) DgemvStridedBatched64(trans Operation, m int64, n int64, alpha *
 //   - aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
 //   - tauArray: Array of pointers to < type > vector, with each vector of dim. max(1 ,min(m, n))
-//   - info: If info == 0, the parameters passed to the function are validIf info < 0, the parameter in position -info is invalid
+//   - info: If info == 0, the parameters passed to the function are valid. If info < 0, the parameter in position -info is invalid
 //   - batchSize: Number of pointers contained in Aarray
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or batchSize < 0, or - if lda < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or batchSize < 0, or if lda < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgeqrfBatched.
 func (h Handle) DgeqrfBatched(m int32, n int32, aarray driver.DevicePtr, lda int32, tauArray driver.DevicePtr, info *int32, batchSize int32) error {
@@ -5014,11 +4967,10 @@ func (h Handle) DgeqrfBatched(m int32, n int32, aarray driver.DevicePtr, lda int
 //   - a: < type > array of dimension lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if incx == 0 or incy == 0, or - if alpha is NULL, or - if lda < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if incx == 0 or incy == 0, or if alpha is NULL, or if lda < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDger_v2.
 func (h Handle) Dger(m int32, n int32, alpha *float64, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32, a driver.DevicePtr, lda int32) error {
@@ -5044,18 +4996,19 @@ func (h Handle) Dger(m int32, n int32, alpha *float64, x driver.DevicePtr, incx 
 //   - a: < type > array of dimension lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if incx == 0 or incy == 0, or - if alpha is NULL, or - if lda < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if incx == 0 or incy == 0, or if alpha is NULL, or if lda < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDger_v2_64.
 func (h Handle) Dger64(m int64, n int64, alpha *float64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64, a driver.DevicePtr, lda int64) error {
 	return dger64(h, m, n, alpha, x, incx, y, incy, a, lda)
 }
 
-// DgetrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
+// DgetrfBatched computes the LU factorization of each matrix in a batch.
+//
+// Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
 //
 // This function performs the LU factorization of each Aarray [i] for i = 0, …, batchSize-1 by the following equation
 // P*Aarray [i]=L*U
@@ -5074,18 +5027,19 @@ func (h Handle) Dger64(m int64, n int64, alpha *float64, x driver.DevicePtr, inc
 //   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
 //   - batchSize: Number of pointers contained in A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: The parameters n < 0 or batchSize < 0 or lda <0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgetrfBatched.
 func (h Handle) DgetrfBatched(n int32, a driver.DevicePtr, lda int32, p driver.DevicePtr, info driver.DevicePtr, batchSize int32) error {
 	return dgetrfBatched(h, n, a, lda, p, info, batchSize)
 }
 
-// DgetriBatched Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
+// DgetriBatched computes the inverse of each matrix in a batch from its LU factorization.
+//
+// Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
 //
 // This function performs the inversion of matrices A [i] for i = 0, …, batchSize-1.
 // Prior to calling cublasgetriBatched, the matrix A [i] must be factorized first using the routine cublasgetrfBatched. After the call of cublasgetrfBatched, the matrix pointing by Aarray [i] will contain the LU factors of the matrix A [i] and the vector pointing by (PivotArray+i) will contain the pivoting sequence.
@@ -5102,11 +5056,10 @@ func (h Handle) DgetrfBatched(n int32, a driver.DevicePtr, lda int32, p driver.D
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray [i]
 //   - batchSize: Number of pointers contained in A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or lda < 0 or ldc < 0 or batchSize < 0, or - if lda < n or ldc < n
+//   - [ErrInvalidValue]: If n < 0 or lda < 0 or ldc < 0 or batchSize < 0, or if lda < n or ldc < n
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgetriBatched.
 func (h Handle) DgetriBatched(n int32, a driver.DevicePtr, lda int32, p driver.DevicePtr, c driver.DevicePtr, ldc int32, info driver.DevicePtr, batchSize int32) error {
@@ -5133,14 +5086,13 @@ func (h Handle) DgetriBatched(n int32, a driver.DevicePtr, lda int32, p driver.D
 //   - devIpiv: Array of size n x batchSize that contains the pivoting sequence of each factorization of Aarray [i] stored in a linear fashion. If devIpiv is NULL, pivoting for all Aarray [i] is ignored
 //   - barray: Array of pointers to < type > array, with each array of dim. n x nrhs with ldb >= max(1, n). Matrices Barray [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldb: Leading dimension of two-dimensional array used to store each solution matrix Barray [i]
-//   - info: If info == 0, the execution is successful.If info = -j, the j-th parameter had an illegal value
+//   - info: If info == 0, the execution is successful. If info = -j, the j-th parameter had an illegal value
 //   - batchSize: Number of pointers contained in A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or nrhs < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if lda < max(1, n), or - if ldb < max(1, n)
+//   - [ErrInvalidValue]: If n < 0 or nrhs < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if lda < max(1, n), or if ldb < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgetrsBatched.
 func (h Handle) DgetrsBatched(trans Operation, n int32, nrhs int32, aarray driver.DevicePtr, lda int32, devIpiv driver.DevicePtr, barray driver.DevicePtr, ldb int32, info *int32, batchSize int32) error {
@@ -5158,14 +5110,13 @@ func (h Handle) DgetrsBatched(trans Operation, n int32, nrhs int32, aarray drive
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - ainv: Array of pointers to < type > array, with each array of dimension n*n with ldaInv >= max(1, n). Matrices Ainv [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldaInv: Leading dimension of two-dimensional array used to store each matrix Ainv [i]
-//   - info: Array of size batchSize that info [i] contains the information of inversion of A [i].If info [i] == 0, the execution is successful.If info [i] == k, then U(k, k) == 0. The U is exactly singular and the inversion failed
+//   - info: Array of size batchSize that info [i] contains the information of inversion of A [i]. If info [i] == 0, the execution is successful. If info [i] == k, then U(k, k) == 0. The U is exactly singular and the inversion failed
 //   - batchSize: Number of pointers contained in A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or lda < 0 or lda_inv < 0 or batchSize < 0, or - if lda < n or lda_inv < n, or - if n > 32
+//   - [ErrInvalidValue]: If n < 0 or lda < 0 or lda_inv < 0 or batchSize < 0, or if lda < n or lda_inv < n, or if n > 32
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDmatinvBatched.
 func (h Handle) DmatinvBatched(n int32, a driver.DevicePtr, lda int32, ainv driver.DevicePtr, ldaInv int32, info driver.DevicePtr, batchSize int32) error {
@@ -5174,7 +5125,7 @@ func (h Handle) DmatinvBatched(n int32, a driver.DevicePtr, lda int32, ainv driv
 
 // Dnrm2 computes the Euclidean norm of the vector x.
 //
-// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
 //
@@ -5185,12 +5136,11 @@ func (h Handle) DmatinvBatched(n int32, a driver.DevicePtr, lda int32, ainv driv
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting norm, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDnrm2_v2.
 func (h Handle) Dnrm2(n int32, x driver.DevicePtr, incx int32) (float64, error) {
@@ -5199,7 +5149,7 @@ func (h Handle) Dnrm2(n int32, x driver.DevicePtr, incx int32) (float64, error) 
 
 // Dnrm264 computes the Euclidean norm of the vector x.
 //
-// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
 //
@@ -5210,12 +5160,11 @@ func (h Handle) Dnrm2(n int32, x driver.DevicePtr, incx int32) (float64, error) 
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting norm, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDnrm2_v2_64.
 func (h Handle) Dnrm264(n int64, x driver.DevicePtr, incx int64) (float64, error) {
@@ -5226,9 +5175,15 @@ func (h Handle) Dnrm264(n int64, x driver.DevicePtr, incx int64) (float64, error
 //
 // Note: cublasdotc() is dot product conjugated, cublasdotu() is dot product unconjugated.
 // These functions support the 64-bit Integer Interface.
-// This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function computes the dot product of vectors x and y. Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.DotEx] and [Handle.DotcEx] are listed below:
-// The possible error values returned by this function and their meanings are listed in the following table:
+//   - x: CUDA_R_16F; y: CUDA_R_16F; result: CUDA_R_16F; execution: CUDA_R_32F
+//   - x: CUDA_R_16BF; y: CUDA_R_16BF; result: CUDA_R_16BF; execution: CUDA_R_32F
+//   - x: CUDA_R_32F; y: CUDA_R_32F; result: CUDA_R_32F; execution: CUDA_R_32F
+//   - x: CUDA_R_64F; y: CUDA_R_64F; result: CUDA_R_64F; execution: CUDA_R_64F
+//   - x: CUDA_C_32F; y: CUDA_C_32F; result: CUDA_C_32F; execution: CUDA_C_32F
+//   - x: CUDA_C_64F; y: CUDA_C_64F; result: CUDA_C_64F; execution: CUDA_C_64F
+//
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -5241,20 +5196,19 @@ func (h Handle) Dnrm264(n int64, x driver.DevicePtr, incx int64) (float64, error
 //   - y: < type > vector with n elements
 //   - yType: Enumerant specifying the datatype of vector y
 //   - incy: Stride between consecutive elements of y
-//   - result: The resulting dot product, which is set to 0 if n <= 0
+//   - result: The resulting dot product, which is set to 0 if n <= 0. The library writes the value before the call returns or, under [Handle.SetPointerMode] with [PointerModeDevice], to the device address d passed as unsafe.Pointer(uintptr(d)) by the time the stream work completes, so device memory must stay valid until then.
 //   - resultType: Enumerant specifying the datatype of the result
 //   - executionType: Enumerant specifying the datatype in which the computation is executed
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
 //   - [ErrInvalidValue]: xType or yType or resultType or executionType is not supported.
 //   - [ErrNotInitialized]: The library was not initialized.
 //   - [ErrNotSupported]: The combination of the parameters xType, yType, resultType and executionType is not supported.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cublasDotEx.
-func (h Handle) DotEx(n int32, x driver.DevicePtr, xType DataType, incx int32, y driver.DevicePtr, yType DataType, incy int32, result uintptr, resultType DataType, executionType DataType) error {
+func (h Handle) DotEx(n int32, x driver.DevicePtr, xType DataType, incx int32, y driver.DevicePtr, yType DataType, incy int32, result unsafe.Pointer, resultType DataType, executionType DataType) error {
 	return dotEx(h, n, x, xType, incx, y, yType, incy, result, resultType, executionType)
 }
 
@@ -5262,9 +5216,15 @@ func (h Handle) DotEx(n int32, x driver.DevicePtr, xType DataType, incx int32, y
 //
 // Note: cublasdotc() is dot product conjugated, cublasdotu() is dot product unconjugated.
 // These functions support the 64-bit Integer Interface.
-// This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function computes the dot product of vectors x and y. Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.DotEx] and [Handle.DotcEx] are listed below:
-// The possible error values returned by this function and their meanings are listed in the following table:
+//   - x: CUDA_R_16F; y: CUDA_R_16F; result: CUDA_R_16F; execution: CUDA_R_32F
+//   - x: CUDA_R_16BF; y: CUDA_R_16BF; result: CUDA_R_16BF; execution: CUDA_R_32F
+//   - x: CUDA_R_32F; y: CUDA_R_32F; result: CUDA_R_32F; execution: CUDA_R_32F
+//   - x: CUDA_R_64F; y: CUDA_R_64F; result: CUDA_R_64F; execution: CUDA_R_64F
+//   - x: CUDA_C_32F; y: CUDA_C_32F; result: CUDA_C_32F; execution: CUDA_C_32F
+//   - x: CUDA_C_64F; y: CUDA_C_64F; result: CUDA_C_64F; execution: CUDA_C_64F
+//
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -5277,20 +5237,19 @@ func (h Handle) DotEx(n int32, x driver.DevicePtr, xType DataType, incx int32, y
 //   - y: < type > vector with n elements
 //   - yType: Enumerant specifying the datatype of vector y
 //   - incy: Stride between consecutive elements of y
-//   - result: The resulting dot product, which is set to 0 if n <= 0
+//   - result: The resulting dot product, which is set to 0 if n <= 0. The library writes the value before the call returns or, under [Handle.SetPointerMode] with [PointerModeDevice], to the device address d passed as unsafe.Pointer(uintptr(d)) by the time the stream work completes, so device memory must stay valid until then.
 //   - resultType: Enumerant specifying the datatype of the result
 //   - executionType: Enumerant specifying the datatype in which the computation is executed
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
 //   - [ErrInvalidValue]: xType or yType or resultType or executionType is not supported.
 //   - [ErrNotInitialized]: The library was not initialized.
 //   - [ErrNotSupported]: The combination of the parameters xType, yType, resultType and executionType is not supported.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cublasDotEx_64.
-func (h Handle) DotEx64(n int64, x driver.DevicePtr, xType DataType, incx int64, y driver.DevicePtr, yType DataType, incy int64, result uintptr, resultType DataType, executionType DataType) error {
+func (h Handle) DotEx64(n int64, x driver.DevicePtr, xType DataType, incx int64, y driver.DevicePtr, yType DataType, incy int64, result unsafe.Pointer, resultType DataType, executionType DataType) error {
 	return dotEx64(h, n, x, xType, incx, y, yType, incy, result, resultType, executionType)
 }
 
@@ -5298,9 +5257,15 @@ func (h Handle) DotEx64(n int64, x driver.DevicePtr, xType DataType, incx int64,
 //
 // Note: cublasdotc() is dot product conjugated, cublasdotu() is dot product unconjugated.
 // These functions support the 64-bit Integer Interface.
-// This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function computes the dot product of vectors x and y. Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.DotEx] and [Handle.DotcEx] are listed below:
-// The possible error values returned by this function and their meanings are listed in the following table:
+//   - x: CUDA_R_16F; y: CUDA_R_16F; result: CUDA_R_16F; execution: CUDA_R_32F
+//   - x: CUDA_R_16BF; y: CUDA_R_16BF; result: CUDA_R_16BF; execution: CUDA_R_32F
+//   - x: CUDA_R_32F; y: CUDA_R_32F; result: CUDA_R_32F; execution: CUDA_R_32F
+//   - x: CUDA_R_64F; y: CUDA_R_64F; result: CUDA_R_64F; execution: CUDA_R_64F
+//   - x: CUDA_C_32F; y: CUDA_C_32F; result: CUDA_C_32F; execution: CUDA_C_32F
+//   - x: CUDA_C_64F; y: CUDA_C_64F; result: CUDA_C_64F; execution: CUDA_C_64F
+//
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -5313,20 +5278,19 @@ func (h Handle) DotEx64(n int64, x driver.DevicePtr, xType DataType, incx int64,
 //   - y: < type > vector with n elements
 //   - yType: Enumerant specifying the datatype of vector y
 //   - incy: Stride between consecutive elements of y
-//   - result: The resulting dot product, which is set to 0 if n <= 0
+//   - result: The resulting dot product, which is set to 0 if n <= 0. The library writes the value before the call returns or, under [Handle.SetPointerMode] with [PointerModeDevice], to the device address d passed as unsafe.Pointer(uintptr(d)) by the time the stream work completes, so device memory must stay valid until then.
 //   - resultType: Enumerant specifying the datatype of the result
 //   - executionType: Enumerant specifying the datatype in which the computation is executed
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
 //   - [ErrInvalidValue]: xType or yType or resultType or executionType is not supported.
 //   - [ErrNotInitialized]: The library was not initialized.
 //   - [ErrNotSupported]: The combination of the parameters xType, yType, resultType and executionType is not supported.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cublasDotcEx.
-func (h Handle) DotcEx(n int32, x driver.DevicePtr, xType DataType, incx int32, y driver.DevicePtr, yType DataType, incy int32, result uintptr, resultType DataType, executionType DataType) error {
+func (h Handle) DotcEx(n int32, x driver.DevicePtr, xType DataType, incx int32, y driver.DevicePtr, yType DataType, incy int32, result unsafe.Pointer, resultType DataType, executionType DataType) error {
 	return dotcEx(h, n, x, xType, incx, y, yType, incy, result, resultType, executionType)
 }
 
@@ -5334,9 +5298,15 @@ func (h Handle) DotcEx(n int32, x driver.DevicePtr, xType DataType, incx int32, 
 //
 // Note: cublasdotc() is dot product conjugated, cublasdotu() is dot product unconjugated.
 // These functions support the 64-bit Integer Interface.
-// This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function computes the dot product of vectors x and y. Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.DotEx] and [Handle.DotcEx] are listed below:
-// The possible error values returned by this function and their meanings are listed in the following table:
+//   - x: CUDA_R_16F; y: CUDA_R_16F; result: CUDA_R_16F; execution: CUDA_R_32F
+//   - x: CUDA_R_16BF; y: CUDA_R_16BF; result: CUDA_R_16BF; execution: CUDA_R_32F
+//   - x: CUDA_R_32F; y: CUDA_R_32F; result: CUDA_R_32F; execution: CUDA_R_32F
+//   - x: CUDA_R_64F; y: CUDA_R_64F; result: CUDA_R_64F; execution: CUDA_R_64F
+//   - x: CUDA_C_32F; y: CUDA_C_32F; result: CUDA_C_32F; execution: CUDA_C_32F
+//   - x: CUDA_C_64F; y: CUDA_C_64F; result: CUDA_C_64F; execution: CUDA_C_64F
+//
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -5349,20 +5319,19 @@ func (h Handle) DotcEx(n int32, x driver.DevicePtr, xType DataType, incx int32, 
 //   - y: < type > vector with n elements
 //   - yType: Enumerant specifying the datatype of vector y
 //   - incy: Stride between consecutive elements of y
-//   - result: The resulting dot product, which is set to 0 if n <= 0
+//   - result: The resulting dot product, which is set to 0 if n <= 0. The library writes the value before the call returns or, under [Handle.SetPointerMode] with [PointerModeDevice], to the device address d passed as unsafe.Pointer(uintptr(d)) by the time the stream work completes, so device memory must stay valid until then.
 //   - resultType: Enumerant specifying the datatype of the result
 //   - executionType: Enumerant specifying the datatype in which the computation is executed
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
 //   - [ErrInvalidValue]: xType or yType or resultType or executionType is not supported.
 //   - [ErrNotInitialized]: The library was not initialized.
 //   - [ErrNotSupported]: The combination of the parameters xType, yType, resultType and executionType is not supported.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cublasDotcEx_64.
-func (h Handle) DotcEx64(n int64, x driver.DevicePtr, xType DataType, incx int64, y driver.DevicePtr, yType DataType, incy int64, result uintptr, resultType DataType, executionType DataType) error {
+func (h Handle) DotcEx64(n int64, x driver.DevicePtr, xType DataType, incx int64, y driver.DevicePtr, yType DataType, incy int64, result unsafe.Pointer, resultType DataType, executionType DataType) error {
 	return dotcEx64(h, n, x, xType, incx, y, yType, incy, result, resultType, executionType)
 }
 
@@ -5384,10 +5353,9 @@ func (h Handle) DotcEx64(n int64, x driver.DevicePtr, xType DataType, incx int64
 //   - c: Cosine element of the rotation matrix
 //   - s: Sine element of the rotation matrix
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDrot_v2.
 func (h Handle) Drot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32, c *float64, s *float64) error {
@@ -5412,10 +5380,9 @@ func (h Handle) Drot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr
 //   - c: Cosine element of the rotation matrix
 //   - s: Sine element of the rotation matrix
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDrot_v2_64.
 func (h Handle) Drot64(n int64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64, c *float64, s *float64) error {
@@ -5440,10 +5407,9 @@ func (h Handle) Drot64(n int64, x driver.DevicePtr, incx int64, y driver.DeviceP
 //   - c: Cosine element of the rotation matrix
 //   - s: Sine element of the rotation matrix
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDrotg_v2.
 func (h Handle) Drotg(a *float64, b *float64, c *float64, s *float64) error {
@@ -5455,6 +5421,8 @@ func (h Handle) Drotg(a *float64, b *float64, c *float64, s *float64) error {
 // H=(h₁₁h₁₂h₂₁h₂₂), to vectors x and y.
 // Hence, the result is x [k]=h₁₁×x [k]+h₁₂×y [j] and y [j]=h₂₁×x [k]+h₂₂×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The elements , , and of matrix H are stored in param [1], param [2], param [3] and param [4], respectively. The flag = param [0] defines the following predefined values for the matrix H entries
+//   - flag == -1.0: (h₁₁, h₁₂; h₂₁, h₂₂); flag == 0.0: (1.0, h₁₂; h₂₁, 1.0); flag == 1.0: (h₁₁, 1.0; −1.0, h₂₂); flag == -2.0: (1.0, 0.0; 0.0, 1.0)
+//
 // Notice that the values -1.0, 0.0 and 1.0 implied by the flag are not stored in param.
 // For references please refer to NETLIB documentation:
 // srotm(), drotm()
@@ -5468,10 +5436,9 @@ func (h Handle) Drotg(a *float64, b *float64, c *float64, s *float64) error {
 //   - incy: Stride between consecutive elements of y
 //   - param: < type > vector of 5 elements, where param [0] and param [1..4] contain the flag and matrix H
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDrotm_v2.
 func (h Handle) Drotm(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32, param *float64) error {
@@ -5483,6 +5450,8 @@ func (h Handle) Drotm(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 // H=(h₁₁h₁₂h₂₁h₂₂), to vectors x and y.
 // Hence, the result is x [k]=h₁₁×x [k]+h₁₂×y [j] and y [j]=h₂₁×x [k]+h₂₂×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The elements , , and of matrix H are stored in param [1], param [2], param [3] and param [4], respectively. The flag = param [0] defines the following predefined values for the matrix H entries
+//   - flag == -1.0: (h₁₁, h₁₂; h₂₁, h₂₂); flag == 0.0: (1.0, h₁₂; h₂₁, 1.0); flag == 1.0: (h₁₁, 1.0; −1.0, h₂₂); flag == -2.0: (1.0, 0.0; 0.0, 1.0)
+//
 // Notice that the values -1.0, 0.0 and 1.0 implied by the flag are not stored in param.
 // For references please refer to NETLIB documentation:
 // srotm(), drotm()
@@ -5496,10 +5465,9 @@ func (h Handle) Drotm(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 //   - incy: Stride between consecutive elements of y
 //   - param: < type > vector of 5 elements, where param [0] and param [1..4] contain the flag and matrix H
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDrotm_v2_64.
 func (h Handle) Drotm64(n int64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64, param *float64) error {
@@ -5510,6 +5478,8 @@ func (h Handle) Drotm64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 //
 // H=(h₁₁h₁₂h₂₁h₂₂), that zeros out the second entry of a 2×1 vector (d1*x1,d2*y1)ᵀ .
 // The flag = param [0] defines the following predefined values for the matrix H entries
+//   - flag == -1.0: (h₁₁, h₁₂; h₂₁, h₂₂); flag == 0.0: (1.0, h₁₂; h₂₁, 1.0); flag == 1.0: (h₁₁, 1.0; −1.0, h₂₂); flag == -2.0: (1.0, 0.0; 0.0, 1.0)
+//
 // Notice that the values -1.0, 0.0 and 1.0 implied by the flag are not stored in param.
 // For references please refer to NETLIB documentation:
 // srotmg(), drotmg()
@@ -5520,10 +5490,9 @@ func (h Handle) Drotm64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 //   - y1: < type > scalar
 //   - param: < type > vector of 5 elements, where param [0] and param [1-4] contain the flag and matrix H
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDrotmg_v2.
 func (h Handle) Drotmg(d1 *float64, d2 *float64, x1 *float64, y1 *float64, param *float64) error {
@@ -5552,11 +5521,10 @@ func (h Handle) Drotmg(d1 *float64, d2 *float64, x1 *float64, y1 *float64, param
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha or beta are NULL, or - if lda < (1 + k)
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha or beta are NULL, or if lda < (1 + k)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsbmv_v2.
 func (h Handle) Dsbmv(uplo FillMode, n int32, k int32, alpha *float64, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32, beta *float64, y driver.DevicePtr, incy int32) error {
@@ -5585,11 +5553,10 @@ func (h Handle) Dsbmv(uplo FillMode, n int32, k int32, alpha *float64, a driver.
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha or beta are NULL, or - if lda < (1 + k)
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha or beta are NULL, or if lda < (1 + k)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsbmv_v2_64.
 func (h Handle) Dsbmv64(uplo FillMode, n int64, k int64, alpha *float64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64, beta *float64, y driver.DevicePtr, incy int64) error {
@@ -5609,10 +5576,9 @@ func (h Handle) Dsbmv64(uplo FillMode, n int64, k int64, alpha *float64, a drive
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDscal_v2.
 func (h Handle) Dscal(n int32, alpha *float64, x driver.DevicePtr, incx int32) error {
@@ -5632,10 +5598,9 @@ func (h Handle) Dscal(n int32, alpha *float64, x driver.DevicePtr, incx int32) e
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDscal_v2_64.
 func (h Handle) Dscal64(n int64, alpha *float64, x driver.DevicePtr, incx int64) error {
@@ -5662,11 +5627,10 @@ func (h Handle) Dscal64(n int64, alpha *float64, x driver.DevicePtr, incx int64)
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha or beta are NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha or beta are NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDspmv_v2.
 func (h Handle) Dspmv(uplo FillMode, n int32, alpha *float64, ap driver.DevicePtr, x driver.DevicePtr, incx int32, beta *float64, y driver.DevicePtr, incy int32) error {
@@ -5693,11 +5657,10 @@ func (h Handle) Dspmv(uplo FillMode, n int32, alpha *float64, ap driver.DevicePt
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha or beta are NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha or beta are NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDspmv_v2_64.
 func (h Handle) Dspmv64(uplo FillMode, n int64, alpha *float64, ap driver.DevicePtr, x driver.DevicePtr, incx int64, beta *float64, y driver.DevicePtr, incy int64) error {
@@ -5721,11 +5684,10 @@ func (h Handle) Dspmv64(uplo FillMode, n int64, alpha *float64, ap driver.Device
 //   - incx: Stride between consecutive elements of x
 //   - ap: < type > array with A stored in packed format
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDspr_v2.
 func (h Handle) Dspr(uplo FillMode, n int32, alpha *float64, x driver.DevicePtr, incx int32, ap driver.DevicePtr) error {
@@ -5751,11 +5713,10 @@ func (h Handle) Dspr(uplo FillMode, n int32, alpha *float64, x driver.DevicePtr,
 //   - incy: Stride between consecutive elements of y
 //   - ap: < type > array with A stored in packed format
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDspr2_v2.
 func (h Handle) Dspr2(uplo FillMode, n int32, alpha *float64, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32, ap driver.DevicePtr) error {
@@ -5781,11 +5742,10 @@ func (h Handle) Dspr2(uplo FillMode, n int32, alpha *float64, x driver.DevicePtr
 //   - incy: Stride between consecutive elements of y
 //   - ap: < type > array with A stored in packed format
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDspr2_v2_64.
 func (h Handle) Dspr264(uplo FillMode, n int64, alpha *float64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64, ap driver.DevicePtr) error {
@@ -5809,11 +5769,10 @@ func (h Handle) Dspr264(uplo FillMode, n int64, alpha *float64, x driver.DeviceP
 //   - incx: Stride between consecutive elements of x
 //   - ap: < type > array with A stored in packed format
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDspr_v2_64.
 func (h Handle) Dspr64(uplo FillMode, n int64, alpha *float64, x driver.DevicePtr, incx int64, ap driver.DevicePtr) error {
@@ -5834,10 +5793,9 @@ func (h Handle) Dspr64(uplo FillMode, n int64, alpha *float64, x driver.DevicePt
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDswap_v2.
 func (h Handle) Dswap(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32) error {
@@ -5858,10 +5816,9 @@ func (h Handle) Dswap(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDswap_v2_64.
 func (h Handle) Dswap64(n int64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64) error {
@@ -5890,11 +5847,10 @@ func (h Handle) Dswap64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 //   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if side is not one of [SideLeft] and [SideRight], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, m) when side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if side is not one of [SideLeft] and [SideRight], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, m) when side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsymm_v2.
 func (h Handle) Dsymm(side SideMode, uplo FillMode, m int32, n int32, alpha *float64, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, beta *float64, c driver.DevicePtr, ldc int32) error {
@@ -5923,11 +5879,10 @@ func (h Handle) Dsymm(side SideMode, uplo FillMode, m int32, n int32, alpha *flo
 //   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if side is not one of [SideLeft] and [SideRight], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, m) when side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if side is not one of [SideLeft] and [SideRight], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, m) when side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsymm_v2_64.
 func (h Handle) Dsymm64(side SideMode, uplo FillMode, m int64, n int64, alpha *float64, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, beta *float64, c driver.DevicePtr, ldc int64) error {
@@ -5955,11 +5910,10 @@ func (h Handle) Dsymm64(side SideMode, uplo FillMode, m int64, n int64, alpha *f
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < n
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < n
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsymv_v2.
 func (h Handle) Dsymv(uplo FillMode, n int32, alpha *float64, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32, beta *float64, y driver.DevicePtr, incy int32) error {
@@ -5987,11 +5941,10 @@ func (h Handle) Dsymv(uplo FillMode, n int32, alpha *float64, a driver.DevicePtr
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < n
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < n
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsymv_v2_64.
 func (h Handle) Dsymv64(uplo FillMode, n int64, alpha *float64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64, beta *float64, y driver.DevicePtr, incy int64) error {
@@ -6014,11 +5967,10 @@ func (h Handle) Dsymv64(uplo FillMode, n int64, alpha *float64, a driver.DeviceP
 //   - a: < type > array of dimensions lda x n, with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n), or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsyr_v2.
 func (h Handle) Dsyr(uplo FillMode, n int32, alpha *float64, x driver.DevicePtr, incx int32, a driver.DevicePtr, lda int32) error {
@@ -6043,11 +5995,10 @@ func (h Handle) Dsyr(uplo FillMode, n int32, alpha *float64, x driver.DevicePtr,
 //   - a: < type > array of dimensions lda x n, with lda >= max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha is NULL, or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha is NULL, or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsyr2_v2.
 func (h Handle) Dsyr2(uplo FillMode, n int32, alpha *float64, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32, a driver.DevicePtr, lda int32) error {
@@ -6072,11 +6023,10 @@ func (h Handle) Dsyr2(uplo FillMode, n int32, alpha *float64, x driver.DevicePtr
 //   - a: < type > array of dimensions lda x n, with lda >= max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha is NULL, or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha is NULL, or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsyr2_v2_64.
 func (h Handle) Dsyr264(uplo FillMode, n int64, alpha *float64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64, a driver.DevicePtr, lda int64) error {
@@ -6105,11 +6055,10 @@ func (h Handle) Dsyr264(uplo FillMode, n int64, alpha *float64, x driver.DeviceP
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsyr2k_v2.
 func (h Handle) Dsyr2k(uplo FillMode, trans Operation, n int32, k int32, alpha *float64, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, beta *float64, c driver.DevicePtr, ldc int32) error {
@@ -6138,11 +6087,10 @@ func (h Handle) Dsyr2k(uplo FillMode, trans Operation, n int32, k int32, alpha *
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsyr2k_v2_64.
 func (h Handle) Dsyr2k64(uplo FillMode, trans Operation, n int64, k int64, alpha *float64, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, beta *float64, c driver.DevicePtr, ldc int64) error {
@@ -6165,11 +6113,10 @@ func (h Handle) Dsyr2k64(uplo FillMode, trans Operation, n int64, k int64, alpha
 //   - a: < type > array of dimensions lda x n, with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n), or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsyr_v2_64.
 func (h Handle) Dsyr64(uplo FillMode, n int64, alpha *float64, x driver.DevicePtr, incx int64, a driver.DevicePtr, lda int64) error {
@@ -6196,11 +6143,10 @@ func (h Handle) Dsyr64(uplo FillMode, n int64, alpha *float64, x driver.DevicePt
 //   - c: < type > array of dimension ldc x n, with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsyrk_v2.
 func (h Handle) Dsyrk(uplo FillMode, trans Operation, n int32, k int32, alpha *float64, a driver.DevicePtr, lda int32, beta *float64, c driver.DevicePtr, ldc int32) error {
@@ -6227,11 +6173,10 @@ func (h Handle) Dsyrk(uplo FillMode, trans Operation, n int32, k int32, alpha *f
 //   - c: < type > array of dimension ldc x n, with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsyrk_v2_64.
 func (h Handle) Dsyrk64(uplo FillMode, trans Operation, n int64, k int64, alpha *float64, a driver.DevicePtr, lda int64, beta *float64, c driver.DevicePtr, ldc int64) error {
@@ -6262,11 +6207,10 @@ func (h Handle) Dsyrk64(uplo FillMode, trans Operation, n int64, k int64, alpha 
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsyrkx.
 func (h Handle) Dsyrkx(uplo FillMode, trans Operation, n int32, k int32, alpha *float64, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, beta *float64, c driver.DevicePtr, ldc int32) error {
@@ -6297,11 +6241,10 @@ func (h Handle) Dsyrkx(uplo FillMode, trans Operation, n int32, k int32, alpha *
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsyrkx_64.
 func (h Handle) Dsyrkx64(uplo FillMode, trans Operation, n int64, k int64, alpha *float64, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, beta *float64, c driver.DevicePtr, ldc int64) error {
@@ -6329,12 +6272,11 @@ func (h Handle) Dsyrkx64(uplo FillMode, trans Operation, n int64, k int64, alpha
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The allocation of internal scratch memory failed
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < (1 + k)
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < (1 + k)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtbmv_v2.
 func (h Handle) Dtbmv(uplo FillMode, trans Operation, diag DiagType, n int32, k int32, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32) error {
@@ -6362,12 +6304,11 @@ func (h Handle) Dtbmv(uplo FillMode, trans Operation, diag DiagType, n int32, k 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The allocation of internal scratch memory failed
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < (1 + k)
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < (1 + k)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtbmv_v2_64.
 func (h Handle) Dtbmv64(uplo FillMode, trans Operation, diag DiagType, n int64, k int64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64) error {
@@ -6397,11 +6338,10 @@ func (h Handle) Dtbmv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < (1 + k)
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < (1 + k)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtbsv_v2.
 func (h Handle) Dtbsv(uplo FillMode, trans Operation, diag DiagType, n int32, k int32, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32) error {
@@ -6431,11 +6371,10 @@ func (h Handle) Dtbsv(uplo FillMode, trans Operation, diag DiagType, n int32, k 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < (1 + k)
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < (1 + k)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtbsv_v2_64.
 func (h Handle) Dtbsv64(uplo FillMode, trans Operation, diag DiagType, n int64, k int64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64) error {
@@ -6461,12 +6400,11 @@ func (h Handle) Dtbsv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The allocation of internal scratch memory failed
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit]
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit]
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtpmv_v2.
 func (h Handle) Dtpmv(uplo FillMode, trans Operation, diag DiagType, n int32, ap driver.DevicePtr, x driver.DevicePtr, incx int32) error {
@@ -6492,12 +6430,11 @@ func (h Handle) Dtpmv(uplo FillMode, trans Operation, diag DiagType, n int32, ap
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The allocation of internal scratch memory failed
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit]
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit]
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtpmv_v2_64.
 func (h Handle) Dtpmv64(uplo FillMode, trans Operation, diag DiagType, n int64, ap driver.DevicePtr, x driver.DevicePtr, incx int64) error {
@@ -6525,11 +6462,10 @@ func (h Handle) Dtpmv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit]
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit]
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtpsv_v2.
 func (h Handle) Dtpsv(uplo FillMode, trans Operation, diag DiagType, n int32, ap driver.DevicePtr, x driver.DevicePtr, incx int32) error {
@@ -6557,11 +6493,10 @@ func (h Handle) Dtpsv(uplo FillMode, trans Operation, diag DiagType, n int32, ap
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit]
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit]
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtpsv_v2_64.
 func (h Handle) Dtpsv64(uplo FillMode, trans Operation, diag DiagType, n int64, ap driver.DevicePtr, x driver.DevicePtr, incx int64) error {
@@ -6580,11 +6515,10 @@ func (h Handle) Dtpsv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 //   - a: < type > array of dimensions lda x n , with lda >= max(1, n). The opposite side of A is left untouched
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtpttr.
 func (h Handle) Dtpttr(uplo FillMode, n int32, ap driver.DevicePtr, a driver.DevicePtr, lda int32) error {
@@ -6616,11 +6550,10 @@ func (h Handle) Dtpttr(uplo FillMode, n int32, ap driver.DevicePtr, a driver.Dev
 //   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if side is not one of [SideLeft] and [SideRight], or - if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if ldc < max(1, m), or - if alpha is NULL
+//   - [ErrInvalidValue]: If m < 0, n < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if side is not one of [SideLeft] and [SideRight], or if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if ldc < max(1, m), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtrmm_v2.
 func (h Handle) Dtrmm(side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *float64, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, c driver.DevicePtr, ldc int32) error {
@@ -6652,11 +6585,10 @@ func (h Handle) Dtrmm(side SideMode, uplo FillMode, trans Operation, diag DiagTy
 //   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if side is not one of [SideLeft] and [SideRight], or - if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if ldc < max(1, m), or - if alpha is NULL
+//   - [ErrInvalidValue]: If m < 0, n < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if side is not one of [SideLeft] and [SideRight], or if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if ldc < max(1, m), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtrmm_v2_64.
 func (h Handle) Dtrmm64(side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *float64, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, c driver.DevicePtr, ldc int64) error {
@@ -6681,12 +6613,11 @@ func (h Handle) Dtrmm64(side SideMode, uplo FillMode, trans Operation, diag Diag
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The allocation of internal scratch memory failed
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtrmv_v2.
 func (h Handle) Dtrmv(uplo FillMode, trans Operation, diag DiagType, n int32, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32) error {
@@ -6711,12 +6642,11 @@ func (h Handle) Dtrmv(uplo FillMode, trans Operation, diag DiagType, n int32, a 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The allocation of internal scratch memory failed
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtrmv_v2_64.
 func (h Handle) Dtrmv64(uplo FillMode, trans Operation, diag DiagType, n int64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64) error {
@@ -6747,11 +6677,10 @@ func (h Handle) Dtrmv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 //   - b: < type > array. It has dimensions ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if side is not one of [SideLeft] and [SideRight], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if alpha is NULL
+//   - [ErrInvalidValue]: If m < 0, n < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if side is not one of [SideLeft] and [SideRight], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtrsm_v2.
 func (h Handle) Dtrsm(side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *float64, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32) error {
@@ -6782,11 +6711,10 @@ func (h Handle) Dtrsm(side SideMode, uplo FillMode, trans Operation, diag DiagTy
 //   - b: < type > array. It has dimensions ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if side is not one of [SideLeft] and [SideRight], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if alpha is NULL
+//   - [ErrInvalidValue]: If m < 0, n < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if side is not one of [SideLeft] and [SideRight], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtrsm_v2_64.
 func (h Handle) Dtrsm64(side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *float64, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64) error {
@@ -6820,11 +6748,10 @@ func (h Handle) Dtrsm64(side SideMode, uplo FillMode, trans Operation, diag Diag
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
 //   - batchCount: Number of pointers contained in A and B
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if side is not one of [SideLeft] and [SideRight], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m)
+//   - [ErrInvalidValue]: If m < 0, n < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if side is not one of [SideLeft] and [SideRight], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtrsmBatched.
 func (h Handle) DtrsmBatched(side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *float64, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, batchCount int32) error {
@@ -6858,11 +6785,10 @@ func (h Handle) DtrsmBatched(side SideMode, uplo FillMode, trans Operation, diag
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
 //   - batchCount: Number of pointers contained in A and B
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if side is not one of [SideLeft] and [SideRight], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m)
+//   - [ErrInvalidValue]: If m < 0, n < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if side is not one of [SideLeft] and [SideRight], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtrsmBatched_64.
 func (h Handle) DtrsmBatched64(side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *float64, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, batchCount int64) error {
@@ -6889,11 +6815,10 @@ func (h Handle) DtrsmBatched64(side SideMode, uplo FillMode, trans Operation, di
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtrsv_v2.
 func (h Handle) Dtrsv(uplo FillMode, trans Operation, diag DiagType, n int32, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32) error {
@@ -6920,11 +6845,10 @@ func (h Handle) Dtrsv(uplo FillMode, trans Operation, diag DiagType, n int32, a 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtrsv_v2_64.
 func (h Handle) Dtrsv64(uplo FillMode, trans Operation, diag DiagType, n int64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64) error {
@@ -6943,11 +6867,10 @@ func (h Handle) Dtrsv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - ap: < type > array with A stored in packed format
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0 or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtrttp.
 func (h Handle) Dtrttp(uplo FillMode, n int32, a driver.DevicePtr, lda int32, ap driver.DevicePtr) error {
@@ -6956,7 +6879,7 @@ func (h Handle) Dtrttp(uplo FillMode, n int32, a driver.DevicePtr, lda int32, ap
 
 // Dzasum computes the sum of the absolute values of the elements of vector x.
 //
-// Hence, the result is ∑i=1n|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sasum(), dasum(), scasum(), dzasum()
 //
@@ -6967,12 +6890,11 @@ func (h Handle) Dtrttp(uplo FillMode, n int32, a driver.DevicePtr, lda int32, ap
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting sum, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDzasum_v2.
 func (h Handle) Dzasum(n int32, x driver.DevicePtr, incx int32) (float64, error) {
@@ -6981,7 +6903,7 @@ func (h Handle) Dzasum(n int32, x driver.DevicePtr, incx int32) (float64, error)
 
 // Dzasum64 computes the sum of the absolute values of the elements of vector x.
 //
-// Hence, the result is ∑i=1n|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sasum(), dasum(), scasum(), dzasum()
 //
@@ -6992,12 +6914,11 @@ func (h Handle) Dzasum(n int32, x driver.DevicePtr, incx int32) (float64, error)
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting sum, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDzasum_v2_64.
 func (h Handle) Dzasum64(n int64, x driver.DevicePtr, incx int64) (float64, error) {
@@ -7006,7 +6927,7 @@ func (h Handle) Dzasum64(n int64, x driver.DevicePtr, incx int64) (float64, erro
 
 // Dznrm2 computes the Euclidean norm of the vector x.
 //
-// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
 //
@@ -7017,12 +6938,11 @@ func (h Handle) Dzasum64(n int64, x driver.DevicePtr, incx int64) (float64, erro
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting norm, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDznrm2_v2.
 func (h Handle) Dznrm2(n int32, x driver.DevicePtr, incx int32) (float64, error) {
@@ -7031,7 +6951,7 @@ func (h Handle) Dznrm2(n int32, x driver.DevicePtr, incx int32) (float64, error)
 
 // Dznrm264 computes the Euclidean norm of the vector x.
 //
-// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
 //
@@ -7042,12 +6962,11 @@ func (h Handle) Dznrm2(n int32, x driver.DevicePtr, incx int32) (float64, error)
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting norm, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasDznrm2_v2_64.
 func (h Handle) Dznrm264(n int64, x driver.DevicePtr, incx int64) (float64, error) {
@@ -7056,12 +6975,24 @@ func (h Handle) Dznrm264(n int64, x driver.DevicePtr, incx int64) (float64, erro
 
 // EmulationSpecialValuesSupport obtains the value previously programmed to the library handle.
 //
+// A nil error means emulation special values support was returned successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: mask is NULL.
+//   - [ErrNotInitialized]: the library was not initialized.
+//
 // Wraps cublasGetEmulationSpecialValuesSupport.
 func (h Handle) EmulationSpecialValuesSupport(mask *CudaEmulationSpecialValuesSupport) error {
 	return getEmulationSpecialValuesSupport(h, mask)
 }
 
 // EmulationStrategy obtains the value previously programmed to the library handle.
+//
+// A nil error means emulation strategy was returned successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: emulationStrategy is NULL.
+//   - [ErrNotInitialized]: the library was not initialized.
 //
 // Wraps cublasGetEmulationStrategy.
 func (h Handle) EmulationStrategy(emulationStrategy *EmulationStrategy) error {
@@ -7070,12 +7001,24 @@ func (h Handle) EmulationStrategy(emulationStrategy *EmulationStrategy) error {
 
 // FixedPointEmulationMantissaBitCountPointer obtains the value previously programmed to the library handle.
 //
+// A nil error means mantissaBitCount was returned successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: mantissaBitCount is NULL.
+//   - [ErrNotInitialized]: the library was not initialized.
+//
 // Wraps cublasGetFixedPointEmulationMantissaBitCountPointer.
 func (h Handle) FixedPointEmulationMantissaBitCountPointer(mantissaBitCount uintptr) error {
 	return getFixedPointEmulationMantissaBitCountPointer(h, mantissaBitCount)
 }
 
 // FixedPointEmulationMantissaBitOffset obtains the value previously programmed to the library handle.
+//
+// A nil error means mantissaBitOffset was returned successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: mantissaBitOffset is NULL.
+//   - [ErrNotInitialized]: the library was not initialized.
 //
 // Wraps cublasGetFixedPointEmulationMantissaBitOffset.
 func (h Handle) FixedPointEmulationMantissaBitOffset() (int32, error) {
@@ -7084,12 +7027,24 @@ func (h Handle) FixedPointEmulationMantissaBitOffset() (int32, error) {
 
 // FixedPointEmulationMantissaControl obtains the value previously programmed to the library handle.
 //
+// A nil error means fixed-point emulation mantissa control was returned successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: mantissaControl is NULL.
+//   - [ErrNotInitialized]: the library was not initialized.
+//
 // Wraps cublasGetFixedPointEmulationMantissaControl.
 func (h Handle) FixedPointEmulationMantissaControl(mantissaControl *CudaEmulationMantissaControl) error {
 	return getFixedPointEmulationMantissaControl(h, mantissaControl)
 }
 
 // FixedPointEmulationMaxMantissaBitCount obtains the value previously programmed to the library handle.
+//
+// A nil error means maxMantissaBitCount was returned successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: maxMantissaBitCount is NULL.
+//   - [ErrNotInitialized]: the library was not initialized.
 //
 // Wraps cublasGetFixedPointEmulationMaxMantissaBitCount.
 func (h Handle) FixedPointEmulationMaxMantissaBitCount() (int32, error) {
@@ -7109,7 +7064,24 @@ func (h Handle) FixedPointEmulationMaxMantissaBitCount() (int32, error) {
 // Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, behavior is undefined.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // [Handle.GemmBatchedEx] supports the following Compute Type, Scale Type, Atype/Btype, and Ctype:
+//   - Compute Type: [Compute16F] or [Compute16FPedantic]; Scale Type (alpha and beta): CUDA_R_16F; Atype/Btype: CUDA_R_16F; Ctype: CUDA_R_16F
+//   - Compute Type: [Compute32I] or [Compute32IPedantic]; Scale Type (alpha and beta): CUDA_R_32I; Atype/Btype: CUDA_R_8I; Ctype: CUDA_R_32I
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16BF; Ctype: CUDA_R_16BF
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16F; Ctype: CUDA_R_16F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_8I; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16BF; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16F; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_32F; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_C_32F; Atype/Btype: CUDA_C_8I; Ctype: CUDA_C_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_C_32F; Atype/Btype: CUDA_C_32F; Ctype: CUDA_C_32F
+//   - Compute Type: [Compute32FFast16F] or [Compute32FFast16BF] or [Compute32FFastTF32] or [Compute32FEmulated16bfx9]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_32F; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32FFast16F] or [Compute32FFast16BF] or [Compute32FFastTF32] or [Compute32FEmulated16bfx9]; Scale Type (alpha and beta): CUDA_C_32F; Atype/Btype: CUDA_C_32F; Ctype: CUDA_C_32F
+//   - Compute Type: [Compute64F] or [Compute64FPedantic]; Scale Type (alpha and beta): CUDA_R_64F; Atype/Btype: CUDA_R_64F; Ctype: CUDA_R_64F
+//   - Compute Type: [Compute64F] or [Compute64FPedantic]; Scale Type (alpha and beta): CUDA_C_64F; Atype/Btype: CUDA_C_64F; Ctype: CUDA_C_64F
+//
 // If Atype is CUDA_R_16F or CUDA_R_16BF, or computeType is any of the FAST options, or when math mode or algo enable fast math modes, pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 8 == 0 then ensure intptr_t(ptr) % 16 == 0,
+//   - if k % 2 == 0 then ensure intptr_t(ptr) % 4 == 0.
 //
 // Note: Compute types [Compute32I] and [Compute32IPedantic] are only supported with all pointers A [i], B [i] being 4-byte aligned and lda, ldb being multiples of 4. For a better performance, it is also recommended that IMMA kernels requirements for the regular data ordering listed here are met.
 // Also refer to: sgemm.()
@@ -7121,31 +7093,30 @@ func (h Handle) FixedPointEmulationMaxMantissaBitCount() (int32, error) {
 //   - m: Number of rows of matrix op( Aarray [i]) and Carray [i]
 //   - n: Number of columns of matrix op( Barray [i]) and Carray [i]
 //   - k: Number of columns of op( Aarray [i]) and rows of op( Barray [i])
-//   - alpha: Scaling factor for matrix products of the type that corresponds to the computeType and Ctype, see the table below for details
-//   - aarray: Array of pointers to < Atype > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - alpha: Scaling factor for matrix products of the type that corresponds to the computeType and Ctype, see the table below for details. Its kind must match computeType and ctype; a host [Scalar] of another kind is a *[ScalarError].
+//   - aarray: Array of pointers to < Atype > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - atype: Enumerant specifying the datatype of Aarray
 //   - lda: Leading dimension of two-dimensional array used to store the matrix Aarray [i]
-//   - barray: Array of pointers to < Btype > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < Btype > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - btype: Enumerant specifying the datatype of Barray
 //   - ldb: Leading dimension of two-dimensional array used to store matrix Barray [i]
-//   - beta: Scaling factor for Carray of the type that corresponds to the computeType and Ctype, see the table below for details. If beta == 0, Carray [i] does not have to be a valid input
-//   - carray: Array of pointers to < Ctype > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices Carray [i] should not overlap; otherwise, the behavior is undefined.All pointers must meet certain alignment criteria. Please see below for details
+//   - beta: Scaling factor for Carray of the type that corresponds to the computeType and Ctype, see the table below for details. If beta == 0, Carray [i] does not have to be a valid input. Its kind must match computeType and ctype; a host [Scalar] of another kind is a *[ScalarError].
+//   - carray: Array of pointers to < Ctype > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices Carray [i] should not overlap; otherwise, the behavior is undefined. All pointers must meet certain alignment criteria. Please see below for details
 //   - ctype: Enumerant specifying the datatype of Carray
 //   - ldc: Leading dimension of a two-dimensional array used to store each matrix Carray [i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //   - computeType: Enumerant specifying the computation type
 //   - algo: Enumerant specifying the algorithm. See [GemmAlgo]
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.GemmBatchedEx] is only supported for GPU with architecture capabilities equal to or greater than 5.0.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if Atype or Btype or Ctype or algo or computeType is not supported
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if alpha or beta are NULL, or if Atype or Btype or Ctype or algo or computeType is not supported
 //   - [ErrNotInitialized]: The library was not initialized.
 //   - [ErrNotSupported]: The combination of the parameters Atype, Btype and Ctype or the algorithm, algo is not supported.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cublasGemmBatchedEx.
-func (h Handle) GemmBatchedEx(transa Operation, transb Operation, m int32, n int32, k int32, alpha uintptr, aarray driver.DevicePtr, atype DataType, lda int32, barray driver.DevicePtr, btype DataType, ldb int32, beta uintptr, carray driver.DevicePtr, ctype DataType, ldc int32, batchCount int32, computeType ComputeType, algo GemmAlgo) error {
+func (h Handle) GemmBatchedEx(transa Operation, transb Operation, m int32, n int32, k int32, alpha Scalar, aarray driver.DevicePtr, atype DataType, lda int32, barray driver.DevicePtr, btype DataType, ldb int32, beta Scalar, carray driver.DevicePtr, ctype DataType, ldc int32, batchCount int32, computeType ComputeType, algo GemmAlgo) error {
 	return gemmBatchedEx(h, transa, transb, m, n, k, alpha, aarray, atype, lda, barray, btype, ldb, beta, carray, ctype, ldc, batchCount, computeType, algo)
 }
 
@@ -7162,7 +7133,24 @@ func (h Handle) GemmBatchedEx(transa Operation, transb Operation, m int32, n int
 // Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, behavior is undefined.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // [Handle.GemmBatchedEx] supports the following Compute Type, Scale Type, Atype/Btype, and Ctype:
+//   - Compute Type: [Compute16F] or [Compute16FPedantic]; Scale Type (alpha and beta): CUDA_R_16F; Atype/Btype: CUDA_R_16F; Ctype: CUDA_R_16F
+//   - Compute Type: [Compute32I] or [Compute32IPedantic]; Scale Type (alpha and beta): CUDA_R_32I; Atype/Btype: CUDA_R_8I; Ctype: CUDA_R_32I
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16BF; Ctype: CUDA_R_16BF
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16F; Ctype: CUDA_R_16F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_8I; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16BF; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16F; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_32F; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_C_32F; Atype/Btype: CUDA_C_8I; Ctype: CUDA_C_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_C_32F; Atype/Btype: CUDA_C_32F; Ctype: CUDA_C_32F
+//   - Compute Type: [Compute32FFast16F] or [Compute32FFast16BF] or [Compute32FFastTF32] or [Compute32FEmulated16bfx9]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_32F; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32FFast16F] or [Compute32FFast16BF] or [Compute32FFastTF32] or [Compute32FEmulated16bfx9]; Scale Type (alpha and beta): CUDA_C_32F; Atype/Btype: CUDA_C_32F; Ctype: CUDA_C_32F
+//   - Compute Type: [Compute64F] or [Compute64FPedantic]; Scale Type (alpha and beta): CUDA_R_64F; Atype/Btype: CUDA_R_64F; Ctype: CUDA_R_64F
+//   - Compute Type: [Compute64F] or [Compute64FPedantic]; Scale Type (alpha and beta): CUDA_C_64F; Atype/Btype: CUDA_C_64F; Ctype: CUDA_C_64F
+//
 // If Atype is CUDA_R_16F or CUDA_R_16BF, or computeType is any of the FAST options, or when math mode or algo enable fast math modes, pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 8 == 0 then ensure intptr_t(ptr) % 16 == 0,
+//   - if k % 2 == 0 then ensure intptr_t(ptr) % 4 == 0.
 //
 // Note: Compute types [Compute32I] and [Compute32IPedantic] are only supported with all pointers A [i], B [i] being 4-byte aligned and lda, ldb being multiples of 4. For a better performance, it is also recommended that IMMA kernels requirements for the regular data ordering listed here are met.
 // Also refer to: sgemm.()
@@ -7174,31 +7162,30 @@ func (h Handle) GemmBatchedEx(transa Operation, transb Operation, m int32, n int
 //   - m: Number of rows of matrix op( Aarray [i]) and Carray [i]
 //   - n: Number of columns of matrix op( Barray [i]) and Carray [i]
 //   - k: Number of columns of op( Aarray [i]) and rows of op( Barray [i])
-//   - alpha: Scaling factor for matrix products of the type that corresponds to the computeType and Ctype, see the table below for details
-//   - aarray: Array of pointers to < Atype > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - alpha: Scaling factor for matrix products of the type that corresponds to the computeType and Ctype, see the table below for details. Its kind must match computeType and ctype; a host [Scalar] of another kind is a *[ScalarError].
+//   - aarray: Array of pointers to < Atype > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - atype: Enumerant specifying the datatype of Aarray
 //   - lda: Leading dimension of two-dimensional array used to store the matrix Aarray [i]
-//   - barray: Array of pointers to < Btype > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < Btype > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - btype: Enumerant specifying the datatype of Barray
 //   - ldb: Leading dimension of two-dimensional array used to store matrix Barray [i]
-//   - beta: Scaling factor for Carray of the type that corresponds to the computeType and Ctype, see the table below for details. If beta == 0, Carray [i] does not have to be a valid input
-//   - carray: Array of pointers to < Ctype > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices Carray [i] should not overlap; otherwise, the behavior is undefined.All pointers must meet certain alignment criteria. Please see below for details
+//   - beta: Scaling factor for Carray of the type that corresponds to the computeType and Ctype, see the table below for details. If beta == 0, Carray [i] does not have to be a valid input. Its kind must match computeType and ctype; a host [Scalar] of another kind is a *[ScalarError].
+//   - carray: Array of pointers to < Ctype > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices Carray [i] should not overlap; otherwise, the behavior is undefined. All pointers must meet certain alignment criteria. Please see below for details
 //   - ctype: Enumerant specifying the datatype of Carray
 //   - ldc: Leading dimension of a two-dimensional array used to store each matrix Carray [i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //   - computeType: Enumerant specifying the computation type
 //   - algo: Enumerant specifying the algorithm. See [GemmAlgo]
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.GemmBatchedEx] is only supported for GPU with architecture capabilities equal to or greater than 5.0.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if Atype or Btype or Ctype or algo or computeType is not supported
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if alpha or beta are NULL, or if Atype or Btype or Ctype or algo or computeType is not supported
 //   - [ErrNotInitialized]: The library was not initialized.
 //   - [ErrNotSupported]: The combination of the parameters Atype, Btype and Ctype or the algorithm, algo is not supported.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cublasGemmBatchedEx_64.
-func (h Handle) GemmBatchedEx64(transa Operation, transb Operation, m int64, n int64, k int64, alpha uintptr, aarray driver.DevicePtr, atype DataType, lda int64, barray driver.DevicePtr, btype DataType, ldb int64, beta uintptr, carray driver.DevicePtr, ctype DataType, ldc int64, batchCount int64, computeType ComputeType, algo GemmAlgo) error {
+func (h Handle) GemmBatchedEx64(transa Operation, transb Operation, m int64, n int64, k int64, alpha Scalar, aarray driver.DevicePtr, atype DataType, lda int64, barray driver.DevicePtr, btype DataType, ldb int64, beta Scalar, carray driver.DevicePtr, ctype DataType, ldc int64, batchCount int64, computeType ComputeType, algo GemmAlgo) error {
 	return gemmBatchedEx64(h, transa, transb, m, n, k, alpha, aarray, atype, lda, barray, btype, ldb, beta, carray, ctype, ldc, batchCount, computeType, algo)
 }
 
@@ -7213,6 +7200,20 @@ func (h Handle) GemmBatchedEx64(transa Operation, transb Operation, m int64, n i
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // [Handle.GemmEx] supports the following Compute Type, Scale Type, Atype/Btype, and Ctype:
+//   - Compute Type: [Compute16F] or [Compute16FPedantic]; Scale Type (alpha and beta): CUDA_R_16F; Atype/Btype: CUDA_R_16F; Ctype: CUDA_R_16F
+//   - Compute Type: [Compute32I] or [Compute32IPedantic]; Scale Type (alpha and beta): CUDA_R_32I; Atype/Btype: CUDA_R_8I; Ctype: CUDA_R_32I
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16BF; Ctype: CUDA_R_16BF
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16F; Ctype: CUDA_R_16F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_8I; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16BF; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16F; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_32F; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_C_32F; Atype/Btype: CUDA_C_8I; Ctype: CUDA_C_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_C_32F; Atype/Btype: CUDA_C_32F; Ctype: CUDA_C_32F
+//   - Compute Type: [Compute32FFast16F] or [Compute32FFast16BF] or [Compute32FFastTF32] or [Compute32FEmulated16bfx9]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_32F; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32FFast16F] or [Compute32FFast16BF] or [Compute32FFastTF32] or [Compute32FEmulated16bfx9]; Scale Type (alpha and beta): CUDA_C_32F; Atype/Btype: CUDA_C_32F; Ctype: CUDA_C_32F
+//   - Compute Type: [Compute64F] or [Compute64FPedantic]; Scale Type (alpha and beta): CUDA_R_64F; Atype/Btype: CUDA_R_64F; Ctype: CUDA_R_64F
+//   - Compute Type: [Compute64F] or [Compute64FPedantic]; Scale Type (alpha and beta): CUDA_C_64F; Atype/Btype: CUDA_C_64F; Ctype: CUDA_C_64F
 //
 // Note: [Compute32I] and [Compute32IPedantic] compute types are only supported with A, B being 4-byte aligned and lda, ldb being multiples of 4. For better performance, it is also recommended that IMMA kernels requirements for a regular data ordering listed here are met.
 // The possible error values returned by this function and their meanings are listed in the following table.
@@ -7227,30 +7228,29 @@ func (h Handle) GemmBatchedEx64(transa Operation, transb Operation, m int64, n i
 //   - m: Number of rows of matrix op( A) and C
 //   - n: Number of columns of matrix op( B) and C
 //   - k: Number of columns of op( A) and rows of op( B)
-//   - alpha: Scaling factor for A*B of the type that corresponds to the computeType and Ctype, see the table below for details
+//   - alpha: Scaling factor for A*B of the type that corresponds to the computeType and Ctype, see the table below for details. Its kind must match computeType and ctype; a host [Scalar] of another kind is a *[ScalarError].
 //   - a: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - atype: Enumerant specifying the datatype of matrix A
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
 //   - b: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - btype: Enumerant specifying the datatype of matrix B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
-//   - beta: Scaling factor for C of the type that corresponds to the computeType and Ctype, see the table below for details. If beta == 0, C does not have to be a valid input
+//   - beta: Scaling factor for C of the type that corresponds to the computeType and Ctype, see the table below for details. If beta == 0, C does not have to be a valid input. Its kind must match computeType and ctype; a host [Scalar] of another kind is a *[ScalarError].
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //   - computeType: Enumerant specifying the computation type
 //   - algo: Enumerant specifying the algorithm. See [GemmAlgo]
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.GemmEx] is only supported for GPU with architecture capabilities equal or greater than 5.0.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero - if Atype or Btype or Ctype or algo are not supported
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero; if Atype or Btype or Ctype or algo are not supported
 //   - [ErrNotInitialized]: The library was not initialized.
 //   - [ErrNotSupported]: The combination of the parameters Atype, Btype and Ctype or the algorithm, algo is not supported.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cublasGemmEx.
-func (h Handle) GemmEx(transa Operation, transb Operation, m int32, n int32, k int32, alpha uintptr, a driver.DevicePtr, atype DataType, lda int32, b driver.DevicePtr, btype DataType, ldb int32, beta uintptr, c driver.DevicePtr, ctype DataType, ldc int32, computeType ComputeType, algo GemmAlgo) error {
+func (h Handle) GemmEx(transa Operation, transb Operation, m int32, n int32, k int32, alpha Scalar, a driver.DevicePtr, atype DataType, lda int32, b driver.DevicePtr, btype DataType, ldb int32, beta Scalar, c driver.DevicePtr, ctype DataType, ldc int32, computeType ComputeType, algo GemmAlgo) error {
 	return gemmEx(h, transa, transb, m, n, k, alpha, a, atype, lda, b, btype, ldb, beta, c, ctype, ldc, computeType, algo)
 }
 
@@ -7265,6 +7265,20 @@ func (h Handle) GemmEx(transa Operation, transb Operation, m int32, n int32, k i
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // [Handle.GemmEx] supports the following Compute Type, Scale Type, Atype/Btype, and Ctype:
+//   - Compute Type: [Compute16F] or [Compute16FPedantic]; Scale Type (alpha and beta): CUDA_R_16F; Atype/Btype: CUDA_R_16F; Ctype: CUDA_R_16F
+//   - Compute Type: [Compute32I] or [Compute32IPedantic]; Scale Type (alpha and beta): CUDA_R_32I; Atype/Btype: CUDA_R_8I; Ctype: CUDA_R_32I
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16BF; Ctype: CUDA_R_16BF
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16F; Ctype: CUDA_R_16F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_8I; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16BF; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16F; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_32F; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_C_32F; Atype/Btype: CUDA_C_8I; Ctype: CUDA_C_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_C_32F; Atype/Btype: CUDA_C_32F; Ctype: CUDA_C_32F
+//   - Compute Type: [Compute32FFast16F] or [Compute32FFast16BF] or [Compute32FFastTF32] or [Compute32FEmulated16bfx9]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_32F; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32FFast16F] or [Compute32FFast16BF] or [Compute32FFastTF32] or [Compute32FEmulated16bfx9]; Scale Type (alpha and beta): CUDA_C_32F; Atype/Btype: CUDA_C_32F; Ctype: CUDA_C_32F
+//   - Compute Type: [Compute64F] or [Compute64FPedantic]; Scale Type (alpha and beta): CUDA_R_64F; Atype/Btype: CUDA_R_64F; Ctype: CUDA_R_64F
+//   - Compute Type: [Compute64F] or [Compute64FPedantic]; Scale Type (alpha and beta): CUDA_C_64F; Atype/Btype: CUDA_C_64F; Ctype: CUDA_C_64F
 //
 // Note: [Compute32I] and [Compute32IPedantic] compute types are only supported with A, B being 4-byte aligned and lda, ldb being multiples of 4. For better performance, it is also recommended that IMMA kernels requirements for a regular data ordering listed here are met.
 // The possible error values returned by this function and their meanings are listed in the following table.
@@ -7279,30 +7293,29 @@ func (h Handle) GemmEx(transa Operation, transb Operation, m int32, n int32, k i
 //   - m: Number of rows of matrix op( A) and C
 //   - n: Number of columns of matrix op( B) and C
 //   - k: Number of columns of op( A) and rows of op( B)
-//   - alpha: Scaling factor for A*B of the type that corresponds to the computeType and Ctype, see the table below for details
+//   - alpha: Scaling factor for A*B of the type that corresponds to the computeType and Ctype, see the table below for details. Its kind must match computeType and ctype; a host [Scalar] of another kind is a *[ScalarError].
 //   - a: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - atype: Enumerant specifying the datatype of matrix A
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
 //   - b: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - btype: Enumerant specifying the datatype of matrix B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
-//   - beta: Scaling factor for C of the type that corresponds to the computeType and Ctype, see the table below for details. If beta == 0, C does not have to be a valid input
+//   - beta: Scaling factor for C of the type that corresponds to the computeType and Ctype, see the table below for details. If beta == 0, C does not have to be a valid input. Its kind must match computeType and ctype; a host [Scalar] of another kind is a *[ScalarError].
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //   - computeType: Enumerant specifying the computation type
 //   - algo: Enumerant specifying the algorithm. See [GemmAlgo]
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.GemmEx] is only supported for GPU with architecture capabilities equal or greater than 5.0.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero - if Atype or Btype or Ctype or algo are not supported
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero; if Atype or Btype or Ctype or algo are not supported
 //   - [ErrNotInitialized]: The library was not initialized.
 //   - [ErrNotSupported]: The combination of the parameters Atype, Btype and Ctype or the algorithm, algo is not supported.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cublasGemmEx_64.
-func (h Handle) GemmEx64(transa Operation, transb Operation, m int64, n int64, k int64, alpha uintptr, a driver.DevicePtr, atype DataType, lda int64, b driver.DevicePtr, btype DataType, ldb int64, beta uintptr, c driver.DevicePtr, ctype DataType, ldc int64, computeType ComputeType, algo GemmAlgo) error {
+func (h Handle) GemmEx64(transa Operation, transb Operation, m int64, n int64, k int64, alpha Scalar, a driver.DevicePtr, atype DataType, lda int64, b driver.DevicePtr, btype DataType, ldb int64, beta Scalar, c driver.DevicePtr, ctype DataType, ldc int64, computeType ComputeType, algo GemmAlgo) error {
 	return gemmEx64(h, transa, transb, m, n, k, alpha, a, atype, lda, b, btype, ldb, beta, c, ctype, ldc, computeType, algo)
 }
 
@@ -7311,7 +7324,7 @@ func (h Handle) GemmEx64(transa Operation, transb Operation, m int64, n int64, k
 // A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
 // where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
 //
-// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
+// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑_(i=0)^(groupCount−1)groupSize [i]
 // For matrix A [idx] in group i
 // op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]ᵀif transaArray [i] == CUBLAS_OP_TA [idx]ᴴif transaArray [i] == [OpC]
 // and op(B [idx]) is defined similarly for matrix B [idx] in group i.
@@ -7319,7 +7332,16 @@ func (h Handle) GemmEx64(transa Operation, transb Operation, m int64, n int64, k
 // Note: C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to [Handle.GemmBatchedEx] in different CUDA streams, rather than use this API.
 // [Handle.GemmGroupedBatchedEx] supports the following Compute Type, Scale Type, Atype/Btype, and Ctype:
+//   - Compute Type: [Compute32F]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16BF; Ctype: CUDA_R_16BF
+//   - Compute Type: [Compute32F]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16F; Ctype: CUDA_R_16F
+//   - Compute Type: [Compute32F]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_32F; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_32F; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32FFastTF32]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_32F; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute64F] or [Compute64FPedantic]; Scale Type (alpha and beta): CUDA_R_64F; Atype/Btype: CUDA_R_64F; Ctype: CUDA_R_64F
+//
 // If Atype is CUDA_R_16F or CUDA_R_16BF or if the computeType is any of the FAST options, pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is required that they meet the following rule:
+//   - if (k * AtypeSize) % 16 == 0 then ensure intptr_t(ptr) % 16 == 0,
+//   - if (k * AtypeSize) % 4 == 0 then ensure intptr_t(ptr) % 4 == 0.
 //
 // [Handle.GemmGroupedBatchedEx64] takes 64-bit sizes.
 //
@@ -7329,29 +7351,28 @@ func (h Handle) GemmEx64(transa Operation, transb Operation, m int64, n int64, k
 //   - nArray: Array containing the number of columns of op( B [idx]) and C [idx] for each group
 //   - kArray: Array containing the number of columns of op( A [idx]) and rows of op( B [idx]) for each group
 //   - alphaArray: Array containing the < Scale Type > scalar used for multiplication for each group
-//   - aarray: Array of pointers to < Atype > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < Atype > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - atype: Enumerant specifying the datatype of A
 //   - ldaArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix A [idx] for each group
-//   - barray: Array of pointers to < Btype > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < Btype > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - btype: Enumerant specifying the datatype of B
 //   - ldbArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix B [idx] for each group
 //   - betaArray: Array containing the < Scale Type > scalar used for multiplication for each group
-//   - carray: Array of pointers to < Ctype > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < Ctype > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - ctype: Enumerant specifying the datatype of C
 //   - ldcArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix C [idx] for each group
 //   - groupCount: Number of groups
 //   - groupSize: Array containing the number of pointers contained in Aarray, Barray and Carray for each group
 //   - computeType: Enumerant specifying the computation type
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If transa_array, transb_array, m_array, n_array, k_array, alpha_array, lda_array, ldb_array, beta_array, ldc_array, or group_size are NULL, or - if group_count < 0, or - if m_array [i] < 0, n_array [i] < 0, k_array [i] < 0, group_size [i] < 0, or - if transa_array [i] and transb_array [i] are not one of [OpN], [OpC], [OpT], or - if lda_array [i] < max(1, m_array [i]) if transa_array [i] == [OpN] and lda_array [i] < max(1, k_array [i]) otherwise, or - if ldb_array [i] < max(1, k_array [i]) if transb_array [i] == [OpN] and ldb_array [i] < max(1, n_array [i]) otherwise, or - if ldc_array [i] < max(1, m_array [i])
+//   - [ErrInvalidValue]: If transa_array, transb_array, m_array, n_array, k_array, alpha_array, lda_array, ldb_array, beta_array, ldc_array, or group_size are NULL, or if group_count < 0, or if m_array [i] < 0, n_array [i] < 0, k_array [i] < 0, group_size [i] < 0, or if transa_array [i] and transb_array [i] are not one of [OpN], [OpC], [OpT], or if lda_array [i] < max(1, m_array [i]) if transa_array [i] == [OpN] and lda_array [i] < max(1, k_array [i]) otherwise, or if ldb_array [i] < max(1, k_array [i]) if transb_array [i] == [OpN] and ldb_array [i] < max(1, n_array [i]) otherwise, or if ldc_array [i] < max(1, m_array [i])
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [ErrNotSupported]: - the pointer mode is set to [PointerModeDevice] - Atype or Btype or Ctype or computeType are not supported
-//   - [Success]: The operation completed successfully
+//   - [ErrNotSupported]: the pointer mode is set to [PointerModeDevice]; Atype or Btype or Ctype or computeType are not supported
 //
 // Wraps cublasGemmGroupedBatchedEx.
-func (h Handle) GemmGroupedBatchedEx(transaArray *Operation, transbArray *Operation, mArray *int32, nArray *int32, kArray *int32, alphaArray uintptr, aarray driver.DevicePtr, atype DataType, ldaArray *int32, barray driver.DevicePtr, btype DataType, ldbArray *int32, betaArray uintptr, carray driver.DevicePtr, ctype DataType, ldcArray *int32, groupCount int32, groupSize *int32, computeType ComputeType) error {
+func (h Handle) GemmGroupedBatchedEx(transaArray *Operation, transbArray *Operation, mArray *int32, nArray *int32, kArray *int32, alphaArray unsafe.Pointer, aarray driver.DevicePtr, atype DataType, ldaArray *int32, barray driver.DevicePtr, btype DataType, ldbArray *int32, betaArray unsafe.Pointer, carray driver.DevicePtr, ctype DataType, ldcArray *int32, groupCount int32, groupSize *int32, computeType ComputeType) error {
 	return gemmGroupedBatchedEx(h, transaArray, transbArray, mArray, nArray, kArray, alphaArray, aarray, atype, ldaArray, barray, btype, ldbArray, betaArray, carray, ctype, ldcArray, groupCount, groupSize, computeType)
 }
 
@@ -7360,7 +7381,7 @@ func (h Handle) GemmGroupedBatchedEx(transaArray *Operation, transbArray *Operat
 // A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
 // where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
 //
-// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
+// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑_(i=0)^(groupCount−1)groupSize [i]
 // For matrix A [idx] in group i
 // op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]ᵀif transaArray [i] == CUBLAS_OP_TA [idx]ᴴif transaArray [i] == [OpC]
 // and op(B [idx]) is defined similarly for matrix B [idx] in group i.
@@ -7368,7 +7389,16 @@ func (h Handle) GemmGroupedBatchedEx(transaArray *Operation, transbArray *Operat
 // Note: C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to [Handle.GemmBatchedEx] in different CUDA streams, rather than use this API.
 // [Handle.GemmGroupedBatchedEx] supports the following Compute Type, Scale Type, Atype/Btype, and Ctype:
+//   - Compute Type: [Compute32F]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16BF; Ctype: CUDA_R_16BF
+//   - Compute Type: [Compute32F]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16F; Ctype: CUDA_R_16F
+//   - Compute Type: [Compute32F]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_32F; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_32F; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32FFastTF32]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_32F; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute64F] or [Compute64FPedantic]; Scale Type (alpha and beta): CUDA_R_64F; Atype/Btype: CUDA_R_64F; Ctype: CUDA_R_64F
+//
 // If Atype is CUDA_R_16F or CUDA_R_16BF or if the computeType is any of the FAST options, pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is required that they meet the following rule:
+//   - if (k * AtypeSize) % 16 == 0 then ensure intptr_t(ptr) % 16 == 0,
+//   - if (k * AtypeSize) % 4 == 0 then ensure intptr_t(ptr) % 4 == 0.
 //
 // It is [Handle.GemmGroupedBatchedEx] with int64 sizes and strides.
 //
@@ -7378,29 +7408,28 @@ func (h Handle) GemmGroupedBatchedEx(transaArray *Operation, transbArray *Operat
 //   - nArray: Array containing the number of columns of op( B [idx]) and C [idx] for each group
 //   - kArray: Array containing the number of columns of op( A [idx]) and rows of op( B [idx]) for each group
 //   - alphaArray: Array containing the < Scale Type > scalar used for multiplication for each group
-//   - aarray: Array of pointers to < Atype > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < Atype > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - atype: Enumerant specifying the datatype of A
 //   - ldaArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix A [idx] for each group
-//   - barray: Array of pointers to < Btype > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < Btype > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - btype: Enumerant specifying the datatype of B
 //   - ldbArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix B [idx] for each group
 //   - betaArray: Array containing the < Scale Type > scalar used for multiplication for each group
-//   - carray: Array of pointers to < Ctype > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < Ctype > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - ctype: Enumerant specifying the datatype of C
 //   - ldcArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix C [idx] for each group
 //   - groupCount: Number of groups
 //   - groupSize: Array containing the number of pointers contained in Aarray, Barray and Carray for each group
 //   - computeType: Enumerant specifying the computation type
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If transa_array, transb_array, m_array, n_array, k_array, alpha_array, lda_array, ldb_array, beta_array, ldc_array, or group_size are NULL, or - if group_count < 0, or - if m_array [i] < 0, n_array [i] < 0, k_array [i] < 0, group_size [i] < 0, or - if transa_array [i] and transb_array [i] are not one of [OpN], [OpC], [OpT], or - if lda_array [i] < max(1, m_array [i]) if transa_array [i] == [OpN] and lda_array [i] < max(1, k_array [i]) otherwise, or - if ldb_array [i] < max(1, k_array [i]) if transb_array [i] == [OpN] and ldb_array [i] < max(1, n_array [i]) otherwise, or - if ldc_array [i] < max(1, m_array [i])
+//   - [ErrInvalidValue]: If transa_array, transb_array, m_array, n_array, k_array, alpha_array, lda_array, ldb_array, beta_array, ldc_array, or group_size are NULL, or if group_count < 0, or if m_array [i] < 0, n_array [i] < 0, k_array [i] < 0, group_size [i] < 0, or if transa_array [i] and transb_array [i] are not one of [OpN], [OpC], [OpT], or if lda_array [i] < max(1, m_array [i]) if transa_array [i] == [OpN] and lda_array [i] < max(1, k_array [i]) otherwise, or if ldb_array [i] < max(1, k_array [i]) if transb_array [i] == [OpN] and ldb_array [i] < max(1, n_array [i]) otherwise, or if ldc_array [i] < max(1, m_array [i])
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [ErrNotSupported]: - the pointer mode is set to [PointerModeDevice] - Atype or Btype or Ctype or computeType are not supported
-//   - [Success]: The operation completed successfully
+//   - [ErrNotSupported]: the pointer mode is set to [PointerModeDevice]; Atype or Btype or Ctype or computeType are not supported
 //
 // Wraps cublasGemmGroupedBatchedEx_64.
-func (h Handle) GemmGroupedBatchedEx64(transaArray *Operation, transbArray *Operation, mArray *int64, nArray *int64, kArray *int64, alphaArray uintptr, aarray driver.DevicePtr, atype DataType, ldaArray *int64, barray driver.DevicePtr, btype DataType, ldbArray *int64, betaArray uintptr, carray driver.DevicePtr, ctype DataType, ldcArray *int64, groupCount int64, groupSize *int64, computeType ComputeType) error {
+func (h Handle) GemmGroupedBatchedEx64(transaArray *Operation, transbArray *Operation, mArray *int64, nArray *int64, kArray *int64, alphaArray unsafe.Pointer, aarray driver.DevicePtr, atype DataType, ldaArray *int64, barray driver.DevicePtr, btype DataType, ldbArray *int64, betaArray unsafe.Pointer, carray driver.DevicePtr, ctype DataType, ldcArray *int64, groupCount int64, groupSize *int64, computeType ComputeType) error {
 	return gemmGroupedBatchedEx64(h, transaArray, transbArray, mArray, nArray, kArray, alphaArray, aarray, atype, ldaArray, barray, btype, ldbArray, betaArray, carray, ctype, ldcArray, groupCount, groupSize, computeType)
 }
 
@@ -7419,6 +7448,20 @@ func (h Handle) GemmGroupedBatchedEx64(transaArray *Operation, transbArray *Oper
 //
 // Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
 // [Handle.GemmStridedBatchedEx] supports the following Compute Type, Scale Type, Atype/Btype, and Ctype:
+//   - Compute Type: [Compute16F] or [Compute16FPedantic]; Scale Type (alpha and beta): CUDA_R_16F; Atype/Btype: CUDA_R_16F; Ctype: CUDA_R_16F
+//   - Compute Type: [Compute32I] or [Compute32IPedantic]; Scale Type (alpha and beta): CUDA_R_32I; Atype/Btype: CUDA_R_8I; Ctype: CUDA_R_32I
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16BF; Ctype: CUDA_R_16BF
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16F; Ctype: CUDA_R_16F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_8I; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16BF; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16F; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_32F; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_C_32F; Atype/Btype: CUDA_C_8I; Ctype: CUDA_C_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_C_32F; Atype/Btype: CUDA_C_32F; Ctype: CUDA_C_32F
+//   - Compute Type: [Compute32FFast16F] or [Compute32FFast16BF] or [Compute32FFastTF32] or [Compute32FEmulated16bfx9]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_32F; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32FFast16F] or [Compute32FFast16BF] or [Compute32FFastTF32] or [Compute32FEmulated16bfx9]; Scale Type (alpha and beta): CUDA_C_32F; Atype/Btype: CUDA_C_32F; Ctype: CUDA_C_32F
+//   - Compute Type: [Compute64F] or [Compute64FPedantic]; Scale Type (alpha and beta): CUDA_R_64F; Atype/Btype: CUDA_R_64F; Ctype: CUDA_R_64F
+//   - Compute Type: [Compute64F] or [Compute64FPedantic]; Scale Type (alpha and beta): CUDA_C_64F; Atype/Btype: CUDA_C_64F; Ctype: CUDA_C_64F
 //
 // Note: Compute types [Compute32I] and [Compute32IPedantic] are only supported with all pointers A [i], B [i] being 4-byte aligned and lda, ldb being multiples of 4. For a better performance, it is also recommended that IMMA kernels requirements for the regular data ordering listed here are met.
 // Also refer to: sgemm.()
@@ -7430,7 +7473,7 @@ func (h Handle) GemmGroupedBatchedEx64(transaArray *Operation, transbArray *Oper
 //   - m: Number of rows of matrix op( A [i]) and C [i]
 //   - n: Number of columns of matrix op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
-//   - alpha: Scaling factor for A*B of the < Scale Type > that corresponds to the computeType and Ctype, see the table below for details
+//   - alpha: Scaling factor for A*B of the < Scale Type > that corresponds to the computeType and Ctype, see the table below for details. Its kind must match computeType and ctype; a host [Scalar] of another kind is a *[ScalarError].
 //   - a: Pointer to < Atype > matrix, A, corresponds to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - atype: Enumerant specifying the datatype of A
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A [i]
@@ -7439,7 +7482,7 @@ func (h Handle) GemmGroupedBatchedEx64(transaArray *Operation, transbArray *Oper
 //   - btype: Enumerant specifying the datatype of B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
 //   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
-//   - beta: Scaling factor for C of the < Scale Type > that corresponds to the computeType and Ctype, see the table below for details. If beta == 0, C [i] does not have to be a valid input
+//   - beta: Scaling factor for C of the < Scale Type > that corresponds to the computeType and Ctype, see the table below for details. If beta == 0, C [i] does not have to be a valid input. Its kind must match computeType and ctype; a host [Scalar] of another kind is a *[ScalarError].
 //   - c: Pointer to < Ctype > matrix, C, corresponds to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
 //   - ctype: Enumerant specifying the datatype of C
 //   - ldc: Leading dimension of a two-dimensional array used to store each matrix C [i]
@@ -7448,16 +7491,15 @@ func (h Handle) GemmGroupedBatchedEx64(transaArray *Operation, transbArray *Oper
 //   - computeType: Enumerant specifying the computation type
 //   - algo: Enumerant specifying the algorithm. See [GemmAlgo]
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.GemmBatchedEx] is only supported for GPU with architecture capabilities equal or greater than 5.0.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if Atype or Btype or Ctype or algo or computeType is not supported
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if alpha or beta are NULL, or if Atype or Btype or Ctype or algo or computeType is not supported
 //   - [ErrNotInitialized]: The library was not initialized.
 //   - [ErrNotSupported]: The combination of the parameters Atype, Btype and Ctype or the algorithm, algo is not supported.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cublasGemmStridedBatchedEx.
-func (h Handle) GemmStridedBatchedEx(transa Operation, transb Operation, m int32, n int32, k int32, alpha uintptr, a driver.DevicePtr, atype DataType, lda int32, strideA int64, b driver.DevicePtr, btype DataType, ldb int32, strideB int64, beta uintptr, c driver.DevicePtr, ctype DataType, ldc int32, strideC int64, batchCount int32, computeType ComputeType, algo GemmAlgo) error {
+func (h Handle) GemmStridedBatchedEx(transa Operation, transb Operation, m int32, n int32, k int32, alpha Scalar, a driver.DevicePtr, atype DataType, lda int32, strideA int64, b driver.DevicePtr, btype DataType, ldb int32, strideB int64, beta Scalar, c driver.DevicePtr, ctype DataType, ldc int32, strideC int64, batchCount int32, computeType ComputeType, algo GemmAlgo) error {
 	return gemmStridedBatchedEx(h, transa, transb, m, n, k, alpha, a, atype, lda, strideA, b, btype, ldb, strideB, beta, c, ctype, ldc, strideC, batchCount, computeType, algo)
 }
 
@@ -7476,6 +7518,20 @@ func (h Handle) GemmStridedBatchedEx(transa Operation, transb Operation, m int32
 //
 // Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
 // [Handle.GemmStridedBatchedEx] supports the following Compute Type, Scale Type, Atype/Btype, and Ctype:
+//   - Compute Type: [Compute16F] or [Compute16FPedantic]; Scale Type (alpha and beta): CUDA_R_16F; Atype/Btype: CUDA_R_16F; Ctype: CUDA_R_16F
+//   - Compute Type: [Compute32I] or [Compute32IPedantic]; Scale Type (alpha and beta): CUDA_R_32I; Atype/Btype: CUDA_R_8I; Ctype: CUDA_R_32I
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16BF; Ctype: CUDA_R_16BF
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16F; Ctype: CUDA_R_16F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_8I; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16BF; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16F; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_32F; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_C_32F; Atype/Btype: CUDA_C_8I; Ctype: CUDA_C_32F
+//   - Compute Type: [Compute32F] or [Compute32FPedantic]; Scale Type (alpha and beta): CUDA_C_32F; Atype/Btype: CUDA_C_32F; Ctype: CUDA_C_32F
+//   - Compute Type: [Compute32FFast16F] or [Compute32FFast16BF] or [Compute32FFastTF32] or [Compute32FEmulated16bfx9]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_32F; Ctype: CUDA_R_32F
+//   - Compute Type: [Compute32FFast16F] or [Compute32FFast16BF] or [Compute32FFastTF32] or [Compute32FEmulated16bfx9]; Scale Type (alpha and beta): CUDA_C_32F; Atype/Btype: CUDA_C_32F; Ctype: CUDA_C_32F
+//   - Compute Type: [Compute64F] or [Compute64FPedantic]; Scale Type (alpha and beta): CUDA_R_64F; Atype/Btype: CUDA_R_64F; Ctype: CUDA_R_64F
+//   - Compute Type: [Compute64F] or [Compute64FPedantic]; Scale Type (alpha and beta): CUDA_C_64F; Atype/Btype: CUDA_C_64F; Ctype: CUDA_C_64F
 //
 // Note: Compute types [Compute32I] and [Compute32IPedantic] are only supported with all pointers A [i], B [i] being 4-byte aligned and lda, ldb being multiples of 4. For a better performance, it is also recommended that IMMA kernels requirements for the regular data ordering listed here are met.
 // Also refer to: sgemm.()
@@ -7487,7 +7543,7 @@ func (h Handle) GemmStridedBatchedEx(transa Operation, transb Operation, m int32
 //   - m: Number of rows of matrix op( A [i]) and C [i]
 //   - n: Number of columns of matrix op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
-//   - alpha: Scaling factor for A*B of the < Scale Type > that corresponds to the computeType and Ctype, see the table below for details
+//   - alpha: Scaling factor for A*B of the < Scale Type > that corresponds to the computeType and Ctype, see the table below for details. Its kind must match computeType and ctype; a host [Scalar] of another kind is a *[ScalarError].
 //   - a: Pointer to < Atype > matrix, A, corresponds to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - atype: Enumerant specifying the datatype of A
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A [i]
@@ -7496,7 +7552,7 @@ func (h Handle) GemmStridedBatchedEx(transa Operation, transb Operation, m int32
 //   - btype: Enumerant specifying the datatype of B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
 //   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
-//   - beta: Scaling factor for C of the < Scale Type > that corresponds to the computeType and Ctype, see the table below for details. If beta == 0, C [i] does not have to be a valid input
+//   - beta: Scaling factor for C of the < Scale Type > that corresponds to the computeType and Ctype, see the table below for details. If beta == 0, C [i] does not have to be a valid input. Its kind must match computeType and ctype; a host [Scalar] of another kind is a *[ScalarError].
 //   - c: Pointer to < Ctype > matrix, C, corresponds to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
 //   - ctype: Enumerant specifying the datatype of C
 //   - ldc: Leading dimension of a two-dimensional array used to store each matrix C [i]
@@ -7505,16 +7561,15 @@ func (h Handle) GemmStridedBatchedEx(transa Operation, transb Operation, m int32
 //   - computeType: Enumerant specifying the computation type
 //   - algo: Enumerant specifying the algorithm. See [GemmAlgo]
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.GemmBatchedEx] is only supported for GPU with architecture capabilities equal or greater than 5.0.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if Atype or Btype or Ctype or algo or computeType is not supported
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if alpha or beta are NULL, or if Atype or Btype or Ctype or algo or computeType is not supported
 //   - [ErrNotInitialized]: The library was not initialized.
 //   - [ErrNotSupported]: The combination of the parameters Atype, Btype and Ctype or the algorithm, algo is not supported.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cublasGemmStridedBatchedEx_64.
-func (h Handle) GemmStridedBatchedEx64(transa Operation, transb Operation, m int64, n int64, k int64, alpha uintptr, a driver.DevicePtr, atype DataType, lda int64, strideA int64, b driver.DevicePtr, btype DataType, ldb int64, strideB int64, beta uintptr, c driver.DevicePtr, ctype DataType, ldc int64, strideC int64, batchCount int64, computeType ComputeType, algo GemmAlgo) error {
+func (h Handle) GemmStridedBatchedEx64(transa Operation, transb Operation, m int64, n int64, k int64, alpha Scalar, a driver.DevicePtr, atype DataType, lda int64, strideA int64, b driver.DevicePtr, btype DataType, ldb int64, strideB int64, beta Scalar, c driver.DevicePtr, ctype DataType, ldc int64, strideC int64, batchCount int64, computeType ComputeType, algo GemmAlgo) error {
 	return gemmStridedBatchedEx64(h, transa, transb, m, n, k, alpha, a, atype, lda, strideA, b, btype, ldb, strideB, beta, c, ctype, ldc, strideC, batchCount, computeType, algo)
 }
 
@@ -7528,6 +7583,7 @@ func (h Handle) GemmStridedBatchedEx64(transa Operation, transb Operation, m int
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // [Handle.HSHgemvBatched64] takes 64-bit sizes.
 //
@@ -7535,20 +7591,19 @@ func (h Handle) GemmStridedBatchedEx64(transa Operation, transb Operation, m int
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - incy: Stride of each one-dimensional array y [i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasHSHgemvBatched.
 func (h Handle) HSHgemvBatched(trans Operation, m int32, n int32, alpha *float32, aarray driver.DevicePtr, lda int32, xarray driver.DevicePtr, incx int32, beta *float32, yarray driver.DevicePtr, incy int32, batchCount int32) error {
@@ -7565,6 +7620,7 @@ func (h Handle) HSHgemvBatched(trans Operation, m int32, n int32, alpha *float32
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // It is [Handle.HSHgemvBatched] with int64 sizes and strides.
 //
@@ -7572,20 +7628,19 @@ func (h Handle) HSHgemvBatched(trans Operation, m int32, n int32, alpha *float32
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - incy: Stride of each one-dimensional array y [i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasHSHgemvBatched_64.
 func (h Handle) HSHgemvBatched64(trans Operation, m int64, n int64, alpha *float32, aarray driver.DevicePtr, lda int64, xarray driver.DevicePtr, incx int64, beta *float32, yarray driver.DevicePtr, incy int64, batchCount int64) error {
@@ -7622,11 +7677,10 @@ func (h Handle) HSHgemvBatched64(trans Operation, m int64, n int64, alpha *float
 //   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasHSHgemvStridedBatched.
 func (h Handle) HSHgemvStridedBatched(trans Operation, m int32, n int32, alpha *float32, a driver.DevicePtr, lda int32, strideA int64, x driver.DevicePtr, incx int32, stridex int64, beta *float32, y driver.DevicePtr, incy int32, stridey int64, batchCount int32) error {
@@ -7663,11 +7717,10 @@ func (h Handle) HSHgemvStridedBatched(trans Operation, m int32, n int32, alpha *
 //   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasHSHgemvStridedBatched_64.
 func (h Handle) HSHgemvStridedBatched64(trans Operation, m int64, n int64, alpha *float32, a driver.DevicePtr, lda int64, strideA int64, x driver.DevicePtr, incx int64, stridex int64, beta *float32, y driver.DevicePtr, incy int64, stridey int64, batchCount int64) error {
@@ -7684,6 +7737,7 @@ func (h Handle) HSHgemvStridedBatched64(trans Operation, m int64, n int64, alpha
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // [Handle.HSSgemvBatched64] takes 64-bit sizes.
 //
@@ -7691,20 +7745,19 @@ func (h Handle) HSHgemvStridedBatched64(trans Operation, m int64, n int64, alpha
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - incy: Stride of each one-dimensional array y [i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasHSSgemvBatched.
 func (h Handle) HSSgemvBatched(trans Operation, m int32, n int32, alpha *float32, aarray driver.DevicePtr, lda int32, xarray driver.DevicePtr, incx int32, beta *float32, yarray driver.DevicePtr, incy int32, batchCount int32) error {
@@ -7721,6 +7774,7 @@ func (h Handle) HSSgemvBatched(trans Operation, m int32, n int32, alpha *float32
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // It is [Handle.HSSgemvBatched] with int64 sizes and strides.
 //
@@ -7728,20 +7782,19 @@ func (h Handle) HSSgemvBatched(trans Operation, m int32, n int32, alpha *float32
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - incy: Stride of each one-dimensional array y [i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasHSSgemvBatched_64.
 func (h Handle) HSSgemvBatched64(trans Operation, m int64, n int64, alpha *float32, aarray driver.DevicePtr, lda int64, xarray driver.DevicePtr, incx int64, beta *float32, yarray driver.DevicePtr, incy int64, batchCount int64) error {
@@ -7778,11 +7831,10 @@ func (h Handle) HSSgemvBatched64(trans Operation, m int64, n int64, alpha *float
 //   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasHSSgemvStridedBatched.
 func (h Handle) HSSgemvStridedBatched(trans Operation, m int32, n int32, alpha *float32, a driver.DevicePtr, lda int32, strideA int64, x driver.DevicePtr, incx int32, stridex int64, beta *float32, y driver.DevicePtr, incy int32, stridey int64, batchCount int32) error {
@@ -7819,11 +7871,10 @@ func (h Handle) HSSgemvStridedBatched(trans Operation, m int32, n int32, alpha *
 //   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasHSSgemvStridedBatched_64.
 func (h Handle) HSSgemvStridedBatched64(trans Operation, m int64, n int64, alpha *float32, a driver.DevicePtr, lda int64, strideA int64, x driver.DevicePtr, incx int64, stridex int64, beta *float32, y driver.DevicePtr, incy int64, stridey int64, batchCount int64) error {
@@ -7854,12 +7905,11 @@ func (h Handle) HSSgemvStridedBatched64(trans Operation, m int64, n int64, alpha
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: In the case of [Handle.Hgemm] the device does not support math in half precision.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasHgemm.
 func (h Handle) Hgemm(transa Operation, transb Operation, m int32, n int32, k int32, alpha *Half, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, beta *Half, c driver.DevicePtr, ldc int32) error {
@@ -7890,12 +7940,11 @@ func (h Handle) Hgemm(transa Operation, transb Operation, m int32, n int32, k in
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: In the case of [Handle.Hgemm] the device does not support math in half precision.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasHgemm_64.
 func (h Handle) Hgemm64(transa Operation, transb Operation, m int64, n int64, k int64, alpha *Half, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, beta *Half, c driver.DevicePtr, ldc int64) error {
@@ -7913,6 +7962,7 @@ func (h Handle) Hgemm64(transa Operation, transb Operation, m int64, n int64, k 
 // Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // [Handle.HgemmBatched64] takes 64-bit sizes.
 //
@@ -7922,21 +7972,20 @@ func (h Handle) Hgemm64(transa Operation, transb Operation, m int64, n int64, k 
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.HgemmBatched] is only supported for GPU with architecture capabilities equal or greater than 5.3
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasHgemmBatched.
 func (h Handle) HgemmBatched(transa Operation, transb Operation, m int32, n int32, k int32, alpha *Half, aarray driver.DevicePtr, lda int32, barray driver.DevicePtr, ldb int32, beta *Half, carray driver.DevicePtr, ldc int32, batchCount int32) error {
@@ -7954,6 +8003,7 @@ func (h Handle) HgemmBatched(transa Operation, transb Operation, m int32, n int3
 // Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // It is [Handle.HgemmBatched] with int64 sizes and strides.
 //
@@ -7963,21 +8013,20 @@ func (h Handle) HgemmBatched(transa Operation, transb Operation, m int32, n int3
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.HgemmBatched] is only supported for GPU with architecture capabilities equal or greater than 5.3
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasHgemmBatched_64.
 func (h Handle) HgemmBatched64(transa Operation, transb Operation, m int64, n int64, k int64, alpha *Half, aarray driver.DevicePtr, lda int64, barray driver.DevicePtr, ldb int64, beta *Half, carray driver.DevicePtr, ldc int64, batchCount int64) error {
@@ -8017,12 +8066,11 @@ func (h Handle) HgemmBatched64(transa Operation, transb Operation, m int64, n in
 //   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.HgemmStridedBatched] is only supported for GPU with architecture capabilities equal or greater than 5.3
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasHgemmStridedBatched.
 func (h Handle) HgemmStridedBatched(transa Operation, transb Operation, m int32, n int32, k int32, alpha *Half, a driver.DevicePtr, lda int32, strideA int64, b driver.DevicePtr, ldb int32, strideB int64, beta *Half, c driver.DevicePtr, ldc int32, strideC int64, batchCount int32) error {
@@ -8062,12 +8110,11 @@ func (h Handle) HgemmStridedBatched(transa Operation, transb Operation, m int32,
 //   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.HgemmStridedBatched] is only supported for GPU with architecture capabilities equal or greater than 5.3
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasHgemmStridedBatched_64.
 func (h Handle) HgemmStridedBatched64(transa Operation, transb Operation, m int64, n int64, k int64, alpha *Half, a driver.DevicePtr, lda int64, strideA int64, b driver.DevicePtr, ldb int64, strideB int64, beta *Half, c driver.DevicePtr, ldc int64, strideC int64, batchCount int64) error {
@@ -8115,12 +8162,11 @@ func (h Handle) IaminEx64(n int64, x driver.DevicePtr, xType DataType, incx int6
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting index, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasIcamax_v2.
 func (h Handle) Icamax(n int32, x driver.DevicePtr, incx int32) (int32, error) {
@@ -8140,12 +8186,11 @@ func (h Handle) Icamax(n int32, x driver.DevicePtr, incx int32) (int32, error) {
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting index, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasIcamax_v2_64.
 func (h Handle) Icamax64(n int64, x driver.DevicePtr, incx int64) (int64, error) {
@@ -8165,12 +8210,11 @@ func (h Handle) Icamax64(n int64, x driver.DevicePtr, incx int64) (int64, error)
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting index, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasIcamin_v2.
 func (h Handle) Icamin(n int32, x driver.DevicePtr, incx int32) (int32, error) {
@@ -8190,12 +8234,11 @@ func (h Handle) Icamin(n int32, x driver.DevicePtr, incx int32) (int32, error) {
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting index, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasIcamin_v2_64.
 func (h Handle) Icamin64(n int64, x driver.DevicePtr, incx int64) (int64, error) {
@@ -8215,12 +8258,11 @@ func (h Handle) Icamin64(n int64, x driver.DevicePtr, incx int64) (int64, error)
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting index, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasIdamax_v2.
 func (h Handle) Idamax(n int32, x driver.DevicePtr, incx int32) (int32, error) {
@@ -8240,12 +8282,11 @@ func (h Handle) Idamax(n int32, x driver.DevicePtr, incx int32) (int32, error) {
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting index, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasIdamax_v2_64.
 func (h Handle) Idamax64(n int64, x driver.DevicePtr, incx int64) (int64, error) {
@@ -8265,12 +8306,11 @@ func (h Handle) Idamax64(n int64, x driver.DevicePtr, incx int64) (int64, error)
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting index, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasIdamin_v2.
 func (h Handle) Idamin(n int32, x driver.DevicePtr, incx int32) (int32, error) {
@@ -8290,12 +8330,11 @@ func (h Handle) Idamin(n int32, x driver.DevicePtr, incx int32) (int32, error) {
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting index, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasIdamin_v2_64.
 func (h Handle) Idamin64(n int64, x driver.DevicePtr, incx int64) (int64, error) {
@@ -8315,12 +8354,11 @@ func (h Handle) Idamin64(n int64, x driver.DevicePtr, incx int64) (int64, error)
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting index, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasIsamax_v2.
 func (h Handle) Isamax(n int32, x driver.DevicePtr, incx int32) (int32, error) {
@@ -8340,12 +8378,11 @@ func (h Handle) Isamax(n int32, x driver.DevicePtr, incx int32) (int32, error) {
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting index, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasIsamax_v2_64.
 func (h Handle) Isamax64(n int64, x driver.DevicePtr, incx int64) (int64, error) {
@@ -8365,12 +8402,11 @@ func (h Handle) Isamax64(n int64, x driver.DevicePtr, incx int64) (int64, error)
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting index, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasIsamin_v2.
 func (h Handle) Isamin(n int32, x driver.DevicePtr, incx int32) (int32, error) {
@@ -8390,12 +8426,11 @@ func (h Handle) Isamin(n int32, x driver.DevicePtr, incx int32) (int32, error) {
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting index, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasIsamin_v2_64.
 func (h Handle) Isamin64(n int64, x driver.DevicePtr, incx int64) (int64, error) {
@@ -8415,12 +8450,11 @@ func (h Handle) Isamin64(n int64, x driver.DevicePtr, incx int64) (int64, error)
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting index, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasIzamax_v2.
 func (h Handle) Izamax(n int32, x driver.DevicePtr, incx int32) (int32, error) {
@@ -8440,12 +8474,11 @@ func (h Handle) Izamax(n int32, x driver.DevicePtr, incx int32) (int32, error) {
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting index, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasIzamax_v2_64.
 func (h Handle) Izamax64(n int64, x driver.DevicePtr, incx int64) (int64, error) {
@@ -8465,12 +8498,11 @@ func (h Handle) Izamax64(n int64, x driver.DevicePtr, incx int64) (int64, error)
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting index, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasIzamin_v2.
 func (h Handle) Izamin(n int32, x driver.DevicePtr, incx int32) (int32, error) {
@@ -8490,12 +8522,11 @@ func (h Handle) Izamin(n int32, x driver.DevicePtr, incx int32) (int32, error) {
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting index, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasIzamin_v2_64.
 func (h Handle) Izamin64(n int64, x driver.DevicePtr, incx int64) (int64, error) {
@@ -8504,6 +8535,12 @@ func (h Handle) Izamin64(n int64, x driver.DevicePtr, incx int64) (int64, error)
 
 // MathMode returns the math mode used by the library routines.
 //
+// A nil error means the math type was returned successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: If mode is NULL.
+//   - [ErrNotInitialized]: The library was not initialized.
+//
 // Wraps cublasGetMathMode.
 func (h Handle) MathMode() (Math, error) {
 	return getMathMode(h)
@@ -8511,8 +8548,15 @@ func (h Handle) MathMode() (Math, error) {
 
 // Nrm2Ex is an API generalization of the routine cublasnrm2() where input data, output data and compute type can be specified independently.
 //
-// This function computes the Euclidean norm of the vector x. The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function computes the Euclidean norm of the vector x. The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.Nrm2Ex] are listed below :
+//   - x: CUDA_R_16F; result: CUDA_R_16F; execution: CUDA_R_32F
+//   - x: CUDA_R_16BF; result: CUDA_R_16BF; execution: CUDA_R_32F
+//   - x: CUDA_R_32F; result: CUDA_R_32F; execution: CUDA_R_32F
+//   - x: CUDA_C_32F; result: CUDA_R_32F; execution: CUDA_R_32F
+//   - x: CUDA_R_64F; result: CUDA_R_64F; execution: CUDA_R_64F
+//   - x: CUDA_C_64F; result: CUDA_R_64F; execution: CUDA_R_64F
+//
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
 //
@@ -8522,27 +8566,33 @@ func (h Handle) MathMode() (Math, error) {
 //   - x: < type > vector with n elements
 //   - xType: Enumerant specifying the datatype of vector x
 //   - incx: Stride between consecutive elements of x
-//   - result: The resulting norm, which is set to 0 if n <= 0 or incx <= 0
+//   - result: The resulting norm, which is set to 0 if n <= 0 or incx <= 0. The library writes the value before the call returns or, under [Handle.SetPointerMode] with [PointerModeDevice], to the device address d passed as unsafe.Pointer(uintptr(d)) by the time the stream work completes, so device memory must stay valid until then.
 //   - resultType: Enumerant specifying the datatype of the result
 //   - executionType: Enumerant specifying the datatype in which the computation is executed
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If xType or resultType or executionType is not supported, or - if result is NULL
+//   - [ErrInvalidValue]: If xType or resultType or executionType is not supported, or if result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
 //   - [ErrNotSupported]: The combination of the parameters xType, resultType and executionType is not supported
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasNrm2Ex.
-func (h Handle) Nrm2Ex(n int32, x driver.DevicePtr, xType DataType, incx int32, result uintptr, resultType DataType, executionType DataType) error {
+func (h Handle) Nrm2Ex(n int32, x driver.DevicePtr, xType DataType, incx int32, result unsafe.Pointer, resultType DataType, executionType DataType) error {
 	return nrm2Ex(h, n, x, xType, incx, result, resultType, executionType)
 }
 
 // Nrm2Ex64 is an API generalization of the routine cublasnrm2() where input data, output data and compute type can be specified independently.
 //
-// This function computes the Euclidean norm of the vector x. The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function computes the Euclidean norm of the vector x. The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.Nrm2Ex] are listed below :
+//   - x: CUDA_R_16F; result: CUDA_R_16F; execution: CUDA_R_32F
+//   - x: CUDA_R_16BF; result: CUDA_R_16BF; execution: CUDA_R_32F
+//   - x: CUDA_R_32F; result: CUDA_R_32F; execution: CUDA_R_32F
+//   - x: CUDA_C_32F; result: CUDA_R_32F; execution: CUDA_R_32F
+//   - x: CUDA_R_64F; result: CUDA_R_64F; execution: CUDA_R_64F
+//   - x: CUDA_C_64F; result: CUDA_R_64F; execution: CUDA_R_64F
+//
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
 //
@@ -8552,26 +8602,31 @@ func (h Handle) Nrm2Ex(n int32, x driver.DevicePtr, xType DataType, incx int32, 
 //   - x: < type > vector with n elements
 //   - xType: Enumerant specifying the datatype of vector x
 //   - incx: Stride between consecutive elements of x
-//   - result: The resulting norm, which is set to 0 if n <= 0 or incx <= 0
+//   - result: The resulting norm, which is set to 0 if n <= 0 or incx <= 0. The library writes the value before the call returns or, under [Handle.SetPointerMode] with [PointerModeDevice], to the device address d passed as unsafe.Pointer(uintptr(d)) by the time the stream work completes, so device memory must stay valid until then.
 //   - resultType: Enumerant specifying the datatype of the result
 //   - executionType: Enumerant specifying the datatype in which the computation is executed
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If xType or resultType or executionType is not supported, or - if result is NULL
+//   - [ErrInvalidValue]: If xType or resultType or executionType is not supported, or if result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
 //   - [ErrNotSupported]: The combination of the parameters xType, resultType and executionType is not supported
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasNrm2Ex_64.
-func (h Handle) Nrm2Ex64(n int64, x driver.DevicePtr, xType DataType, incx int64, result uintptr, resultType DataType, executionType DataType) error {
+func (h Handle) Nrm2Ex64(n int64, x driver.DevicePtr, xType DataType, incx int64, result unsafe.Pointer, resultType DataType, executionType DataType) error {
 	return nrm2Ex64(h, n, x, xType, incx, result, resultType, executionType)
 }
 
 // PointerMode obtains the pointer mode used by the cuBLAS library.
 //
 // Please see the section on the [PointerMode] type for more details.
+//
+// A nil error means the pointer mode was obtained successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: mode is NULL
+//   - [ErrNotInitialized]: The library was not initialized
 //
 // Wraps cublasGetPointerMode_v2.
 func (h Handle) PointerMode() (PointerMode, error) {
@@ -8585,6 +8640,11 @@ func (h Handle) PointerMode() (PointerMode, error) {
 // to vectors x and y.
 // Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.RotEx] are listed below :
+//   - executionType: CUDA_R_32F; xType / yType: CUDA_R_16BF, CUDA_R_16F, CUDA_R_32F; csType: CUDA_R_16BF, CUDA_R_16F, CUDA_R_32F
+//   - executionType: CUDA_R_64F; xType / yType: CUDA_R_64F; csType: CUDA_R_64F
+//   - executionType: CUDA_C_32F; xType / yType: CUDA_C_32F, CUDA_C_32F; csType: CUDA_R_32F, CUDA_C_32F
+//   - executionType: CUDA_C_64F; xType / yType: CUDA_C_64F, CUDA_C_64F; csType: CUDA_R_64F, CUDA_C_64F
+//
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
 //
@@ -8597,17 +8657,17 @@ func (h Handle) PointerMode() (PointerMode, error) {
 //   - y: < type > vector with n elements
 //   - yType: Enumerant specifying the datatype of vector y
 //   - incy: Stride between consecutive elements of y
-//   - c: Cosine element of the rotation matrix
-//   - s: Sine element of the rotation matrix
+//   - c: Cosine element of the rotation matrix. Its kind must match csType; a host [Scalar] of another kind is a *[ScalarError].
+//   - s: Sine element of the rotation matrix. Its kind must match csType; a host [Scalar] of another kind is a *[ScalarError].
 //   - csType: Enumerant specifying the datatype of c and s
+//   - executiontype: Enumerant specifying the datatype in which the computation is executed
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasRotEx.
-func (h Handle) RotEx(n int32, x driver.DevicePtr, xType DataType, incx int32, y driver.DevicePtr, yType DataType, incy int32, c uintptr, s uintptr, csType DataType, executiontype DataType) error {
+func (h Handle) RotEx(n int32, x driver.DevicePtr, xType DataType, incx int32, y driver.DevicePtr, yType DataType, incy int32, c Scalar, s Scalar, csType DataType, executiontype DataType) error {
 	return rotEx(h, n, x, xType, incx, y, yType, incy, c, s, csType, executiontype)
 }
 
@@ -8618,6 +8678,11 @@ func (h Handle) RotEx(n int32, x driver.DevicePtr, xType DataType, incx int32, y
 // to vectors x and y.
 // Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.RotEx] are listed below :
+//   - executionType: CUDA_R_32F; xType / yType: CUDA_R_16BF, CUDA_R_16F, CUDA_R_32F; csType: CUDA_R_16BF, CUDA_R_16F, CUDA_R_32F
+//   - executionType: CUDA_R_64F; xType / yType: CUDA_R_64F; csType: CUDA_R_64F
+//   - executionType: CUDA_C_32F; xType / yType: CUDA_C_32F, CUDA_C_32F; csType: CUDA_R_32F, CUDA_C_32F
+//   - executionType: CUDA_C_64F; xType / yType: CUDA_C_64F, CUDA_C_64F; csType: CUDA_R_64F, CUDA_C_64F
+//
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
 //
@@ -8630,47 +8695,58 @@ func (h Handle) RotEx(n int32, x driver.DevicePtr, xType DataType, incx int32, y
 //   - y: < type > vector with n elements
 //   - yType: Enumerant specifying the datatype of vector y
 //   - incy: Stride between consecutive elements of y
-//   - c: Cosine element of the rotation matrix
-//   - s: Sine element of the rotation matrix
+//   - c: Cosine element of the rotation matrix. Its kind must match csType; a host [Scalar] of another kind is a *[ScalarError].
+//   - s: Sine element of the rotation matrix. Its kind must match csType; a host [Scalar] of another kind is a *[ScalarError].
 //   - csType: Enumerant specifying the datatype of c and s
+//   - executiontype: Enumerant specifying the datatype in which the computation is executed
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasRotEx_64.
-func (h Handle) RotEx64(n int64, x driver.DevicePtr, xType DataType, incx int64, y driver.DevicePtr, yType DataType, incy int64, c uintptr, s uintptr, csType DataType, executiontype DataType) error {
+func (h Handle) RotEx64(n int64, x driver.DevicePtr, xType DataType, incx int64, y driver.DevicePtr, yType DataType, incy int64, c Scalar, s Scalar, csType DataType, executiontype DataType) error {
 	return rotEx64(h, n, x, xType, incx, y, yType, incy, c, s, csType, executiontype)
 }
 
 // RotgEx wraps cublasRotgEx.
-func (h Handle) RotgEx(a uintptr, b uintptr, abType DataType, c uintptr, s uintptr, csType DataType, executiontype DataType) error {
+//
+// The library writes a, b, c, and s before the call returns or, under
+// [Handle.SetPointerMode] with [PointerModeDevice], to the device address
+// d passed as unsafe.Pointer(uintptr(d)) by the time the stream work
+// completes, so device memory must stay valid until then.
+func (h Handle) RotgEx(a unsafe.Pointer, b unsafe.Pointer, abType DataType, c unsafe.Pointer, s unsafe.Pointer, csType DataType, executiontype DataType) error {
 	return rotgEx(h, a, b, abType, c, s, csType, executiontype)
 }
 
 // RotmEx wraps cublasRotmEx.
 //
 // [Handle.RotmEx64] takes 64-bit sizes.
-func (h Handle) RotmEx(n int32, x driver.DevicePtr, xType DataType, incx int32, y driver.DevicePtr, yType DataType, incy int32, param uintptr, paramType DataType, executiontype DataType) error {
+func (h Handle) RotmEx(n int32, x driver.DevicePtr, xType DataType, incx int32, y driver.DevicePtr, yType DataType, incy int32, param unsafe.Pointer, paramType DataType, executiontype DataType) error {
 	return rotmEx(h, n, x, xType, incx, y, yType, incy, param, paramType, executiontype)
 }
 
 // RotmEx64 wraps cublasRotmEx_64.
 //
 // It is [Handle.RotmEx] with int64 sizes and strides.
-func (h Handle) RotmEx64(n int64, x driver.DevicePtr, xType DataType, incx int64, y driver.DevicePtr, yType DataType, incy int64, param uintptr, paramType DataType, executiontype DataType) error {
+func (h Handle) RotmEx64(n int64, x driver.DevicePtr, xType DataType, incx int64, y driver.DevicePtr, yType DataType, incy int64, param unsafe.Pointer, paramType DataType, executiontype DataType) error {
 	return rotmEx64(h, n, x, xType, incx, y, yType, incy, param, paramType, executiontype)
 }
 
 // RotmgEx wraps cublasRotmgEx.
-func (h Handle) RotmgEx(d1 uintptr, d1Type DataType, d2 uintptr, d2Type DataType, x1 uintptr, x1Type DataType, y1 uintptr, y1Type DataType, param uintptr, paramType DataType, executiontype DataType) error {
+//
+// The kind of y1 must match y1Type; a host [Scalar] of another kind is a
+// *[ScalarError]. The library writes d1, d2, and x1 before the call
+// returns or, under [Handle.SetPointerMode] with [PointerModeDevice], to
+// the device address d passed as unsafe.Pointer(uintptr(d)) by the time
+// the stream work completes, so device memory must stay valid until then.
+func (h Handle) RotmgEx(d1 unsafe.Pointer, d1Type DataType, d2 unsafe.Pointer, d2Type DataType, x1 unsafe.Pointer, x1Type DataType, y1 Scalar, y1Type DataType, param unsafe.Pointer, paramType DataType, executiontype DataType) error {
 	return rotmgEx(h, d1, d1Type, d2, d2Type, x1, x1Type, y1, y1Type, param, paramType, executiontype)
 }
 
 // Sasum computes the sum of the absolute values of the elements of vector x.
 //
-// Hence, the result is ∑i=1n|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sasum(), dasum(), scasum(), dzasum()
 //
@@ -8681,12 +8757,11 @@ func (h Handle) RotmgEx(d1 uintptr, d1Type DataType, d2 uintptr, d2Type DataType
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting sum, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSasum_v2.
 func (h Handle) Sasum(n int32, x driver.DevicePtr, incx int32) (float32, error) {
@@ -8695,7 +8770,7 @@ func (h Handle) Sasum(n int32, x driver.DevicePtr, incx int32) (float32, error) 
 
 // Sasum64 computes the sum of the absolute values of the elements of vector x.
 //
-// Hence, the result is ∑i=1n|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sasum(), dasum(), scasum(), dzasum()
 //
@@ -8706,12 +8781,11 @@ func (h Handle) Sasum(n int32, x driver.DevicePtr, incx int32) (float32, error) 
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting sum, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSasum_v2_64.
 func (h Handle) Sasum64(n int64, x driver.DevicePtr, incx int64) (float32, error) {
@@ -8733,10 +8807,9 @@ func (h Handle) Sasum64(n int64, x driver.DevicePtr, incx int64) (float32, error
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSaxpy_v2.
 func (h Handle) Saxpy(n int32, alpha *float32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32) error {
@@ -8758,10 +8831,9 @@ func (h Handle) Saxpy(n int32, alpha *float32, x driver.DevicePtr, incx int32, y
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSaxpy_v2_64.
 func (h Handle) Saxpy64(n int64, alpha *float32, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64) error {
@@ -8772,28 +8844,34 @@ func (h Handle) Saxpy64(n int64, alpha *float32, x driver.DevicePtr, incx int64,
 //
 // Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.ScalEx] are listed below :
+//   - alpha: CUDA_R_32F; x: CUDA_R_16F; execution: CUDA_R_32F
+//   - alpha: CUDA_R_32F; x: CUDA_R_16BF; execution: CUDA_R_32F
+//   - alpha: CUDA_R_32F; x: CUDA_R_32F; execution: CUDA_R_32F
+//   - alpha: CUDA_R_64F; x: CUDA_R_64F; execution: CUDA_R_64F
+//   - alpha: CUDA_C_32F; x: CUDA_C_32F; execution: CUDA_C_32F
+//   - alpha: CUDA_C_64F; x: CUDA_C_64F; execution: CUDA_C_64F
+//
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
 //
 // [Handle.ScalEx64] takes 64-bit sizes.
 //
 //   - n: Number of elements in the vector x
-//   - alpha: < type > scalar used for multiplication
+//   - alpha: < type > scalar used for multiplication. Its kind must match alphaType; a host [Scalar] of another kind is a *[ScalarError].
 //   - alphaType: Enumerant specifying the datatype of scalar alpha
 //   - x: < type > vector with n elements
 //   - xType: Enumerant specifying the datatype of vector x
 //   - incx: Stride between consecutive elements of x
 //   - executionType: Enumerant specifying the datatype in which the computation is executed
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: alphaType or xType or executionType is not supported
 //   - [ErrNotInitialized]: The library was not initialized
 //   - [ErrNotSupported]: The combination of the parameters xType and executionType is not supported
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasScalEx.
-func (h Handle) ScalEx(n int32, alpha uintptr, alphaType DataType, x driver.DevicePtr, xType DataType, incx int32, executionType DataType) error {
+func (h Handle) ScalEx(n int32, alpha Scalar, alphaType DataType, x driver.DevicePtr, xType DataType, incx int32, executionType DataType) error {
 	return scalEx(h, n, alpha, alphaType, x, xType, incx, executionType)
 }
 
@@ -8801,34 +8879,40 @@ func (h Handle) ScalEx(n int32, alpha uintptr, alphaType DataType, x driver.Devi
 //
 // Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.ScalEx] are listed below :
+//   - alpha: CUDA_R_32F; x: CUDA_R_16F; execution: CUDA_R_32F
+//   - alpha: CUDA_R_32F; x: CUDA_R_16BF; execution: CUDA_R_32F
+//   - alpha: CUDA_R_32F; x: CUDA_R_32F; execution: CUDA_R_32F
+//   - alpha: CUDA_R_64F; x: CUDA_R_64F; execution: CUDA_R_64F
+//   - alpha: CUDA_C_32F; x: CUDA_C_32F; execution: CUDA_C_32F
+//   - alpha: CUDA_C_64F; x: CUDA_C_64F; execution: CUDA_C_64F
+//
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
 //
 // It is [Handle.ScalEx] with int64 sizes and strides.
 //
 //   - n: Number of elements in the vector x
-//   - alpha: < type > scalar used for multiplication
+//   - alpha: < type > scalar used for multiplication. Its kind must match alphaType; a host [Scalar] of another kind is a *[ScalarError].
 //   - alphaType: Enumerant specifying the datatype of scalar alpha
 //   - x: < type > vector with n elements
 //   - xType: Enumerant specifying the datatype of vector x
 //   - incx: Stride between consecutive elements of x
 //   - executionType: Enumerant specifying the datatype in which the computation is executed
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: alphaType or xType or executionType is not supported
 //   - [ErrNotInitialized]: The library was not initialized
 //   - [ErrNotSupported]: The combination of the parameters xType and executionType is not supported
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasScalEx_64.
-func (h Handle) ScalEx64(n int64, alpha uintptr, alphaType DataType, x driver.DevicePtr, xType DataType, incx int64, executionType DataType) error {
+func (h Handle) ScalEx64(n int64, alpha Scalar, alphaType DataType, x driver.DevicePtr, xType DataType, incx int64, executionType DataType) error {
 	return scalEx64(h, n, alpha, alphaType, x, xType, incx, executionType)
 }
 
 // Scasum computes the sum of the absolute values of the elements of vector x.
 //
-// Hence, the result is ∑i=1n|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sasum(), dasum(), scasum(), dzasum()
 //
@@ -8839,12 +8923,11 @@ func (h Handle) ScalEx64(n int64, alpha uintptr, alphaType DataType, x driver.De
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting sum, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasScasum_v2.
 func (h Handle) Scasum(n int32, x driver.DevicePtr, incx int32) (float32, error) {
@@ -8853,7 +8936,7 @@ func (h Handle) Scasum(n int32, x driver.DevicePtr, incx int32) (float32, error)
 
 // Scasum64 computes the sum of the absolute values of the elements of vector x.
 //
-// Hence, the result is ∑i=1n|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sasum(), dasum(), scasum(), dzasum()
 //
@@ -8864,12 +8947,11 @@ func (h Handle) Scasum(n int32, x driver.DevicePtr, incx int32) (float32, error)
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting sum, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasScasum_v2_64.
 func (h Handle) Scasum64(n int64, x driver.DevicePtr, incx int64) (float32, error) {
@@ -8878,7 +8960,7 @@ func (h Handle) Scasum64(n int64, x driver.DevicePtr, incx int64) (float32, erro
 
 // Scnrm2 computes the Euclidean norm of the vector x.
 //
-// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
 //
@@ -8889,12 +8971,11 @@ func (h Handle) Scasum64(n int64, x driver.DevicePtr, incx int64) (float32, erro
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting norm, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasScnrm2_v2.
 func (h Handle) Scnrm2(n int32, x driver.DevicePtr, incx int32) (float32, error) {
@@ -8903,7 +8984,7 @@ func (h Handle) Scnrm2(n int32, x driver.DevicePtr, incx int32) (float32, error)
 
 // Scnrm264 computes the Euclidean norm of the vector x.
 //
-// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
 //
@@ -8914,12 +8995,11 @@ func (h Handle) Scnrm2(n int32, x driver.DevicePtr, incx int32) (float32, error)
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting norm, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasScnrm2_v2_64.
 func (h Handle) Scnrm264(n int64, x driver.DevicePtr, incx int64) (float32, error) {
@@ -8940,10 +9020,9 @@ func (h Handle) Scnrm264(n int64, x driver.DevicePtr, incx int64) (float32, erro
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasScopy_v2.
 func (h Handle) Scopy(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32) error {
@@ -8964,10 +9043,9 @@ func (h Handle) Scopy(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasScopy_v2_64.
 func (h Handle) Scopy64(n int64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64) error {
@@ -8996,11 +9074,10 @@ func (h Handle) Scopy64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if mode is not one of [SideLeft] and [SideRight], or - if lda < max(1, m), or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if mode is not one of [SideLeft] and [SideRight], or if lda < max(1, m), or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSdgmm.
 func (h Handle) Sdgmm(mode SideMode, m int32, n int32, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32, c driver.DevicePtr, ldc int32) error {
@@ -9029,11 +9106,10 @@ func (h Handle) Sdgmm(mode SideMode, m int32, n int32, a driver.DevicePtr, lda i
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if mode is not one of [SideLeft] and [SideRight], or - if lda < max(1, m), or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if mode is not one of [SideLeft] and [SideRight], or if lda < max(1, m), or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSdgmm_64.
 func (h Handle) Sdgmm64(mode SideMode, m int64, n int64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64, c driver.DevicePtr, ldc int64) error {
@@ -9042,7 +9118,7 @@ func (h Handle) Sdgmm64(mode SideMode, m int64, n int64, a driver.DevicePtr, lda
 
 // Sdot computes the dot product of vectors x and y.
 //
-// Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -9055,11 +9131,10 @@ func (h Handle) Sdgmm64(mode SideMode, m int64, n int64, a driver.DevicePtr, lda
 //   - incy: Stride between consecutive elements of y
 //   - result: The resulting dot product, which is set to 0 if n <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSdot_v2.
 func (h Handle) Sdot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32) (float32, error) {
@@ -9068,7 +9143,7 @@ func (h Handle) Sdot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr
 
 // Sdot64 computes the dot product of vectors x and y.
 //
-// Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -9081,22 +9156,28 @@ func (h Handle) Sdot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr
 //   - incy: Stride between consecutive elements of y
 //   - result: The resulting dot product, which is set to 0 if n <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSdot_v2_64.
 func (h Handle) Sdot64(n int64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64) (float32, error) {
 	return sdot64(h, n, x, incx, y, incy)
 }
 
-// SetAtomicsMode Some routines like cublassymv() and cublashemv() have an alternate implementation that use atomics to cumulate results.
+// SetAtomicsMode allows or disallows atomics in the routines that have an implementation using them.
+//
+// Some routines like cublassymv() and cublashemv() have an alternate implementation that use atomics to cumulate results.
 //
 // This implementation is generally significantly faster but can generate results that are not strictly identical from one run to the others. Mathematically, those different results are not significant but when debugging those differences can be prejudicial.
 // This function allows or disallows the usage of atomics in the cuBLAS library for all routines which have an alternate implementation. When not explicitly specified in the documentation of any cuBLAS routine, it means that this routine does not have an alternate implementation that use atomics. When atomics mode is disabled, each cuBLAS routine should produce the same results from one run to the other when called with identical parameters on the same Hardware.
 // The default atomics mode of default initialized [Handle] object is [AtomicsNotAllowed]. Please see the section on the type for more details.
+//
+// A nil error means the atomics mode was set successfully.
+//
+// Errors:
+//   - [ErrNotInitialized]: the library was not initialized
 //
 // Wraps cublasSetAtomicsMode.
 func (h Handle) SetAtomicsMode(mode AtomicsMode) error {
@@ -9104,6 +9185,12 @@ func (h Handle) SetAtomicsMode(mode AtomicsMode) error {
 }
 
 // SetEmulationSpecialValuesSupport sets the value previously programmed to the library handle.
+//
+// A nil error means emulation special values support was set successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: mask is outside of the allowed range.
+//   - [ErrNotInitialized]: the library was not initialized.
 //
 // Wraps cublasSetEmulationSpecialValuesSupport.
 func (h Handle) SetEmulationSpecialValuesSupport(mask CudaEmulationSpecialValuesSupport) error {
@@ -9114,12 +9201,24 @@ func (h Handle) SetEmulationSpecialValuesSupport(mask CudaEmulationSpecialValues
 //
 // For more details, please see [EmulationStrategy].
 //
+// A nil error means the emulation strategy was set successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: An invalid value for emulation strategy was specified.
+//   - [ErrNotInitialized]: The library was not initialized.
+//
 // Wraps cublasSetEmulationStrategy.
 func (h Handle) SetEmulationStrategy(emulationStrategy EmulationStrategy) error {
 	return setEmulationStrategy(h, emulationStrategy)
 }
 
 // SetFixedPointEmulationMantissaBitCountPointer sets the value previously programmed to the library handle.
+//
+// A nil error means mantissaBitCount was set successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: mantissaBitCount is outside of the allowed range.
+//   - [ErrNotInitialized]: the library was not initialized.
 //
 // Wraps cublasSetFixedPointEmulationMantissaBitCountPointer.
 func (h Handle) SetFixedPointEmulationMantissaBitCountPointer(mantissaBitCount *int32) error {
@@ -9128,6 +9227,12 @@ func (h Handle) SetFixedPointEmulationMantissaBitCountPointer(mantissaBitCount *
 
 // SetFixedPointEmulationMantissaBitOffset sets the value previously programmed to the library handle.
 //
+// A nil error means mantissaBitOffset was set successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: mantissaBitOffset is outside of the allowed range.
+//   - [ErrNotInitialized]: the library was not initialized.
+//
 // Wraps cublasSetFixedPointEmulationMantissaBitOffset.
 func (h Handle) SetFixedPointEmulationMantissaBitOffset(mantissaBitOffset int32) error {
 	return setFixedPointEmulationMantissaBitOffset(h, mantissaBitOffset)
@@ -9135,12 +9240,24 @@ func (h Handle) SetFixedPointEmulationMantissaBitOffset(mantissaBitOffset int32)
 
 // SetFixedPointEmulationMantissaControl sets the value previously programmed to the library handle.
 //
+// A nil error means fixed-point emulation mantissa control was set successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: mantissaControl is outside of the allowed range.
+//   - [ErrNotInitialized]: the library was not initialized.
+//
 // Wraps cublasSetFixedPointEmulationMantissaControl.
 func (h Handle) SetFixedPointEmulationMantissaControl(mantissaControl CudaEmulationMantissaControl) error {
 	return setFixedPointEmulationMantissaControl(h, mantissaControl)
 }
 
 // SetFixedPointEmulationMaxMantissaBitCount sets the value previously programmed to the library handle.
+//
+// A nil error means maxMantissaBitCount was set successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: maxMantissaBitCount is outside of the allowed range.
+//   - [ErrNotInitialized]: the library was not initialized.
 //
 // Wraps cublasSetFixedPointEmulationMaxMantissaBitCount.
 func (h Handle) SetFixedPointEmulationMaxMantissaBitCount(maxMantissaBitCount int32) error {
@@ -9152,6 +9269,12 @@ func (h Handle) SetFixedPointEmulationMaxMantissaBitCount(maxMantissaBitCount in
 // Users are allowed to set the compute precision mode as a logical combination of them (except the deprecated [TensorOpMath]). For example, [Handle.SetMathMode](handle, [DefaultMath] | [MathDisallowReducedPrecisionReduction]). Please note that the default math mode is [DefaultMath].
 // For matrix and compute precisions allowed for [Handle.GemmEx] and cublasLtMatmul() APIs and their strided variants please refer to: [Handle.GemmEx] , [Handle.GemmBatchedEx], [Handle.GemmStridedBatchedEx], and cublasLtMatmul().
 //
+// A nil error means the math mode was set successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: An invalid value for mode was specified.
+//   - [ErrNotInitialized]: The library was not initialized.
+//
 // Wraps cublasSetMathMode.
 func (h Handle) SetMathMode(mode Math) error {
 	return setMathMode(h, mode)
@@ -9160,6 +9283,12 @@ func (h Handle) SetMathMode(mode Math) error {
 // SetPointerMode sets the pointer mode used by the cuBLAS library.
 //
 // The default is for the values to be passed by reference on the host. Please see the section on the [PointerMode] type for more details.
+//
+// A nil error means the pointer mode was set successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: mode is not [PointerModeHost] or [PointerModeDevice]
+//   - [ErrNotInitialized]: The library was not initialized
 //
 // Wraps cublasSetPointerMode_v2.
 func (h Handle) SetPointerMode(mode PointerMode) error {
@@ -9172,6 +9301,12 @@ func (h Handle) SetPointerMode(mode PointerMode) error {
 // When set to 0, the library returns to its default behavior. The input value should not exceed the device’s multiprocessor count, which can be obtained using cudaDeviceGetAttribute. Negative values are not accepted.
 // The user must ensure thread safety when modifying the library handle with this routine similar to when using [Handle.SetStream], etc.
 //
+// A nil error means SM count target was set successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: The value of smCountTarget outside of the allowed range.
+//   - [ErrNotInitialized]: The library was not initialized.
+//
 // Wraps cublasSetSmCountTarget.
 func (h Handle) SetSmCountTarget(smCountTarget int32) error {
 	return setSmCountTarget(h, smCountTarget)
@@ -9180,6 +9315,9 @@ func (h Handle) SetSmCountTarget(smCountTarget int32) error {
 // SetStream sets the cuBLAS library stream, which will be used to execute all subsequent calls to the cuBLAS library functions.
 //
 // If the cuBLAS library stream is not set, all kernels use the default NULL stream. In particular, this routine can be used to change the stream between kernel launches and then to reset the cuBLAS library stream back to NULL. Additionally this function unconditionally resets the cuBLAS library workspace back to the default workspace pool (see [Handle.SetWorkspace]).
+//
+// Errors:
+//   - [ErrNotInitialized]: the library was not initialized
 //
 // Wraps cublasSetStream_v2.
 func (h Handle) SetStream(streamId driver.Stream) error {
@@ -9194,9 +9332,14 @@ func (h Handle) SetStream(streamId driver.Stream) error {
 //
 // Warning: cuBLAS functions may invoke more than one CUDA kernel, and rely on workspace being intact between the invocations. Hence, if cuBLAS handle is configured with user-provided workspace and is being used from multiple threads, it is user’s responsibility to serialize cuBLAS calls between threads, as otherwise the kernels from different cuBLAS invocations might interleave and invalidate the assumptions each of them makes regarding workspace intactness. The default workspace pool managed by cuBLAS is thread safe.
 // The table below shows the recommended size of user-provided workspace. This is based on the cuBLAS default workspace pool size which is GPU architecture dependent.
+//   - GPU Architecture: NVIDIA Hopper Architecture and newer (sm90+); Recommended workspace size: 32 MiB
+//   - GPU Architecture: Other; Recommended workspace size: 4 MiB
 //
 // Note: If the cuBLAS library is configured to utilize fixed-point emulation, which can be done by setting the corresponding math mode in [Handle.SetMathMode] or calling APIs with [Compute64FEmulatedFixedpoint], it can be beneficial to provide more workspace than recommended for the GPU architecture. See Fixed-Point Workspace Requirements for more details.
-// The possible error values returned by this function and their meanings are listed below.
+//
+// Errors:
+//   - [ErrInvalidValue]: The workspace pointer wasn’t aligned to at least 256 bytes
+//   - [ErrNotInitialized]: The library was not initialized
 //
 // Wraps cublasSetWorkspace_v2.
 func (h Handle) SetWorkspace(workspace driver.DevicePtr, workspaceSizeInBytes uint) error {
@@ -9227,11 +9370,10 @@ func (h Handle) SetWorkspace(workspace driver.DevicePtr, workspaceSizeInBytes ui
 //   - y: < type > vector with m elements if trans == [OpN] and n elements otherwise
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, kl < 0 or ku < 0, or - if lda < (kl + ku + 1), or - if incx == 0 or incy == 0, or - if trans is not one of [OpN], [OpT], [OpC], or - if alpha or beta are NULL
+//   - [ErrInvalidValue]: If m < 0, n < 0, kl < 0 or ku < 0, or if lda < (kl + ku + 1), or if incx == 0 or incy == 0, or if trans is not one of [OpN], [OpT], [OpC], or if alpha or beta are NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgbmv_v2.
 func (h Handle) Sgbmv(trans Operation, m int32, n int32, kl int32, ku int32, alpha *float32, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32, beta *float32, y driver.DevicePtr, incy int32) error {
@@ -9262,11 +9404,10 @@ func (h Handle) Sgbmv(trans Operation, m int32, n int32, kl int32, ku int32, alp
 //   - y: < type > vector with m elements if trans == [OpN] and n elements otherwise
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, kl < 0 or ku < 0, or - if lda < (kl + ku + 1), or - if incx == 0 or incy == 0, or - if trans is not one of [OpN], [OpT], [OpC], or - if alpha or beta are NULL
+//   - [ErrInvalidValue]: If m < 0, n < 0, kl < 0 or ku < 0, or if lda < (kl + ku + 1), or if incx == 0 or incy == 0, or if trans is not one of [OpN], [OpT], [OpC], or if alpha or beta are NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgbmv_v2_64.
 func (h Handle) Sgbmv64(trans Operation, m int64, n int64, kl int64, ku int64, alpha *float32, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64, beta *float32, y driver.DevicePtr, incy int64) error {
@@ -9302,11 +9443,10 @@ func (h Handle) Sgbmv64(trans Operation, m int64, n int64, kl int64, ku int64, a
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if transa is not one of [OpN], [OpT] and [OpC], or - if transb is not one of [OpN], [OpT] and [OpC], or - if lda < max(1, m) when transa == [OpN], and lda < max(1, n) otherwise, or - if ldb < max(1, m) if transb == [OpN], and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if A == C and `(transa != [OpN])
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if transa is not one of [OpN], [OpT] and [OpC], or if transb is not one of [OpN], [OpT] and [OpC], or if lda < max(1, m) when transa == [OpN], and lda < max(1, n) otherwise, or if ldb < max(1, m) if transb == [OpN], and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if A == C and `(transa != [OpN])
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgeam.
 func (h Handle) Sgeam(transa Operation, transb Operation, m int32, n int32, alpha *float32, a driver.DevicePtr, lda int32, beta *float32, b driver.DevicePtr, ldb int32, c driver.DevicePtr, ldc int32) error {
@@ -9342,18 +9482,19 @@ func (h Handle) Sgeam(transa Operation, transb Operation, m int32, n int32, alph
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if transa is not one of [OpN], [OpT] and [OpC], or - if transb is not one of [OpN], [OpT] and [OpC], or - if lda < max(1, m) when transa == [OpN], and lda < max(1, n) otherwise, or - if ldb < max(1, m) if transb == [OpN], and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if A == C and `(transa != [OpN])
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if transa is not one of [OpN], [OpT] and [OpC], or if transb is not one of [OpN], [OpT] and [OpC], or if lda < max(1, m) when transa == [OpN], and lda < max(1, n) otherwise, or if ldb < max(1, m) if transb == [OpN], and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if A == C and `(transa != [OpN])
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgeam_64.
 func (h Handle) Sgeam64(transa Operation, transb Operation, m int64, n int64, alpha *float32, a driver.DevicePtr, lda int64, beta *float32, b driver.DevicePtr, ldb int64, c driver.DevicePtr, ldc int64) error {
 	return sgeam64(h, transa, transb, m, n, alpha, a, lda, beta, b, ldb, c, ldc)
 }
 
-// SgelsBatched Aarray is an array of pointers to matrices stored in column-major format.
+// SgelsBatched solves a batch of overdetermined linear systems in the least-squares sense.
+//
+// Aarray is an array of pointers to matrices stored in column-major format.
 //
 // Carray is an array of pointers to matrices stored in column-major format.
 // This function find the least squares solution of a batch of overdetermined systems: it solves the least squares problem described as follows :
@@ -9372,16 +9513,15 @@ func (h Handle) Sgeam64(transa Operation, transb Operation, m int64, n int64, al
 //   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
 //   - carray: Array of pointers to < type > array, with each array of dim. m x nrhs with ldc >= max(1, m) if trans == [OpN], and n x nrhs with lda >= max(1, n) otherwise (not supported currently). Matrices Carray [i] should not overlap; otherwise, behavior is undefined
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray [i]
-//   - info: If info == 0 the parameters passed to the function are validIf info < 0 the parameter in position -info is invalid
-//   - devInfoArray: Optional array of integers of dimension batchsize.If non-null, every element of devInfoArray [i] == V has the following meaning:V == 0 : the i-th problem was successfully solvedV > 0 : the V-th diagonal element of the Aarray [i] is zero. Aarray [i] does not have full rank
+//   - info: If info == 0 the parameters passed to the function are valid. If info < 0 the parameter in position -info is invalid
+//   - devInfoArray: Optional array of integers of dimension batchsize. If non-null, every element of devInfoArray [i] == V has the following meaning: V == 0 : the i-th problem was successfully solved. V > 0 : the V-th diagonal element of the Aarray [i] is zero. Aarray [i] does not have full rank
 //   - batchSize: Number of pointers contained in Aarray and Carray
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or nrhs < 0 or batchSize < 0 or - if lda < max(1, m) or ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or nrhs < 0 or batchSize < 0 or if lda < max(1, m) or ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
 //   - [ErrNotSupported]: The parameters m <n or trans is different from non-transpose.
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgelsBatched.
 func (h Handle) SgelsBatched(trans Operation, m int32, n int32, nrhs int32, aarray driver.DevicePtr, lda int32, carray driver.DevicePtr, ldc int32, info *int32, devInfoArray driver.DevicePtr, batchSize int32) error {
@@ -9412,12 +9552,11 @@ func (h Handle) SgelsBatched(trans Operation, m int32, n int32, nrhs int32, aarr
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: In the case of [Handle.Hgemm] the device does not support math in half precision.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemm_v2.
 func (h Handle) Sgemm(transa Operation, transb Operation, m int32, n int32, k int32, alpha *float32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, beta *float32, c driver.DevicePtr, ldc int32) error {
@@ -9448,12 +9587,11 @@ func (h Handle) Sgemm(transa Operation, transb Operation, m int32, n int32, k in
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: In the case of [Handle.Hgemm] the device does not support math in half precision.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemm_v2_64.
 func (h Handle) Sgemm64(transa Operation, transb Operation, m int64, n int64, k int64, alpha *float32, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, beta *float32, c driver.DevicePtr, ldc int64) error {
@@ -9471,6 +9609,7 @@ func (h Handle) Sgemm64(transa Operation, transb Operation, m int64, n int64, k 
 // Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // [Handle.SgemmBatched64] takes 64-bit sizes.
 //
@@ -9480,21 +9619,20 @@ func (h Handle) Sgemm64(transa Operation, transb Operation, m int64, n int64, k 
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.HgemmBatched] is only supported for GPU with architecture capabilities equal or greater than 5.3
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemmBatched.
 func (h Handle) SgemmBatched(transa Operation, transb Operation, m int32, n int32, k int32, alpha *float32, aarray driver.DevicePtr, lda int32, barray driver.DevicePtr, ldb int32, beta *float32, carray driver.DevicePtr, ldc int32, batchCount int32) error {
@@ -9512,6 +9650,7 @@ func (h Handle) SgemmBatched(transa Operation, transb Operation, m int32, n int3
 // Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // It is [Handle.SgemmBatched] with int64 sizes and strides.
 //
@@ -9521,21 +9660,20 @@ func (h Handle) SgemmBatched(transa Operation, transb Operation, m int32, n int3
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.HgemmBatched] is only supported for GPU with architecture capabilities equal or greater than 5.3
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemmBatched_64.
 func (h Handle) SgemmBatched64(transa Operation, transb Operation, m int64, n int64, k int64, alpha *float32, aarray driver.DevicePtr, lda int64, barray driver.DevicePtr, ldb int64, beta *float32, carray driver.DevicePtr, ldc int64, batchCount int64) error {
@@ -9550,7 +9688,17 @@ func (h Handle) SgemmBatched64(transa Operation, transb Operation, m int64, n in
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // The matrix types combinations supported for [Handle.SgemmEx] are listed below:
+//   - C: CUDA_R_16BF; A/B: CUDA_R_16BF
+//   - C: CUDA_R_16F; A/B: CUDA_R_16F
+//   - C: CUDA_R_32F; A/B: CUDA_R_8I
+//   - A/B: CUDA_R_16BF
+//   - A/B: CUDA_R_16F
+//   - A/B: CUDA_R_32F
+//
 // The matrix types combinations supported for [Handle.CgemmEx] are listed below :
+//   - C: CUDA_C_32F; A/B: CUDA_C_8I
+//   - A/B: CUDA_C_32F
+//
 // For references please refer to NETLIB documentation:
 // sgemm()
 // For more information about the numerical behavior of some GEMM algorithms, refer to the GEMM Algorithms Numerical Behavior section.
@@ -9574,13 +9722,12 @@ func (h Handle) SgemmBatched64(transa Operation, transb Operation, m int64, n in
 //   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.CgemmEx] is only supported for GPU with architecture capabilities equal or greater than 5.0
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
 //   - [ErrNotSupported]: The combination of the parameters Atype, Btype and Ctype is not supported
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemmEx.
 func (h Handle) SgemmEx(transa Operation, transb Operation, m int32, n int32, k int32, alpha *float32, a driver.DevicePtr, atype DataType, lda int32, b driver.DevicePtr, btype DataType, ldb int32, beta *float32, c driver.DevicePtr, ctype DataType, ldc int32) error {
@@ -9595,7 +9742,17 @@ func (h Handle) SgemmEx(transa Operation, transb Operation, m int32, n int32, k 
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // The matrix types combinations supported for [Handle.SgemmEx] are listed below:
+//   - C: CUDA_R_16BF; A/B: CUDA_R_16BF
+//   - C: CUDA_R_16F; A/B: CUDA_R_16F
+//   - C: CUDA_R_32F; A/B: CUDA_R_8I
+//   - A/B: CUDA_R_16BF
+//   - A/B: CUDA_R_16F
+//   - A/B: CUDA_R_32F
+//
 // The matrix types combinations supported for [Handle.CgemmEx] are listed below :
+//   - C: CUDA_C_32F; A/B: CUDA_C_8I
+//   - A/B: CUDA_C_32F
+//
 // For references please refer to NETLIB documentation:
 // sgemm()
 // For more information about the numerical behavior of some GEMM algorithms, refer to the GEMM Algorithms Numerical Behavior section.
@@ -9619,13 +9776,12 @@ func (h Handle) SgemmEx(transa Operation, transb Operation, m int32, n int32, k 
 //   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.CgemmEx] is only supported for GPU with architecture capabilities equal or greater than 5.0
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
 //   - [ErrNotSupported]: The combination of the parameters Atype, Btype and Ctype is not supported
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemmEx_64.
 func (h Handle) SgemmEx64(transa Operation, transb Operation, m int64, n int64, k int64, alpha *float32, a driver.DevicePtr, atype DataType, lda int64, b driver.DevicePtr, btype DataType, ldb int64, beta *float32, c driver.DevicePtr, ctype DataType, ldc int64) error {
@@ -9637,7 +9793,7 @@ func (h Handle) SgemmEx64(transa Operation, transb Operation, m int64, n int64, 
 // A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
 // where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
 //
-// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
+// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑_(i=0)^(groupCount−1)groupSize [i]
 // For matrix A [idx] in group i
 // op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]ᵀif transaArray [i] == CUBLAS_OP_TA [idx]ᴴif transaArray [i] == [OpC]
 // and op(B [idx]) is defined similarly for matrix B [idx] in group i.
@@ -9645,6 +9801,7 @@ func (h Handle) SgemmEx64(transa Operation, transb Operation, m int64, n int64, 
 // Note: C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemmBatched() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmGroupedBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is required that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // [Handle.SgemmGroupedBatched64] takes 64-bit sizes.
 //
@@ -9654,22 +9811,21 @@ func (h Handle) SgemmEx64(transa Operation, transb Operation, m int64, n int64, 
 //   - nArray: Array containing the number of columns of op( B [idx]) and C [idx] for each group
 //   - kArray: Array containing the number of columns of op( A [idx]) and rows of op( B [idx]) for each group
 //   - alphaArray: Array containing the < type > scalar used for multiplication for each group
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldaArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix A [idx] for each group
-//   - barray: Array of pointers to < type > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldbArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix B [idx] for each group
 //   - betaArray: Array containing the < type > scalar used for multiplication for each group
-//   - carray: Array of pointers to < type > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldcArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix C [idx] for each group
 //   - groupCount: Number of groups
 //   - groupSize: Array containing the number of pointers contained in Aarray, Barray and Carray for each group
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If transa_array, transb_array, m_array, n_array, k_array, alpha_array, lda_array, ldb_array, beta_array, ldc_array, or group_size are NULL, or - if group_count < 0, or - if m_array [i] < 0, n_array [i] < 0, k_array [i] < 0, group_size [i] < 0, or - if transa_array [i] and transb_array [i] are not one of [OpN], [OpC], [OpT], or - if lda_array [i] < max(1, m_array [i]) if transa_array [i] == [OpN] and lda_array [i] < max(1, k_array [i]) otherwise, or - if ldb_array [i] < max(1, k_array [i]) if transb_array [i] == [OpN] and ldb_array [i] < max(1, n_array [i]) otherwise, or - if ldc_array [i] < max(1, m_array [i])
+//   - [ErrInvalidValue]: If transa_array, transb_array, m_array, n_array, k_array, alpha_array, lda_array, ldb_array, beta_array, ldc_array, or group_size are NULL, or if group_count < 0, or if m_array [i] < 0, n_array [i] < 0, k_array [i] < 0, group_size [i] < 0, or if transa_array [i] and transb_array [i] are not one of [OpN], [OpC], [OpT], or if lda_array [i] < max(1, m_array [i]) if transa_array [i] == [OpN] and lda_array [i] < max(1, k_array [i]) otherwise, or if ldb_array [i] < max(1, k_array [i]) if transb_array [i] == [OpN] and ldb_array [i] < max(1, n_array [i]) otherwise, or if ldc_array [i] < max(1, m_array [i])
 //   - [ErrNotInitialized]: The library was not initialized
 //   - [ErrNotSupported]: The pointer mode is set to [PointerModeDevice]
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemmGroupedBatched.
 func (h Handle) SgemmGroupedBatched(transaArray *Operation, transbArray *Operation, mArray *int32, nArray *int32, kArray *int32, alphaArray *float32, aarray driver.DevicePtr, ldaArray *int32, barray driver.DevicePtr, ldbArray *int32, betaArray *float32, carray driver.DevicePtr, ldcArray *int32, groupCount int32, groupSize *int32) error {
@@ -9681,7 +9837,7 @@ func (h Handle) SgemmGroupedBatched(transaArray *Operation, transbArray *Operati
 // A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
 // where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
 //
-// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
+// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑_(i=0)^(groupCount−1)groupSize [i]
 // For matrix A [idx] in group i
 // op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]ᵀif transaArray [i] == CUBLAS_OP_TA [idx]ᴴif transaArray [i] == [OpC]
 // and op(B [idx]) is defined similarly for matrix B [idx] in group i.
@@ -9689,6 +9845,7 @@ func (h Handle) SgemmGroupedBatched(transaArray *Operation, transbArray *Operati
 // Note: C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemmBatched() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmGroupedBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is required that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // It is [Handle.SgemmGroupedBatched] with int64 sizes and strides.
 //
@@ -9698,22 +9855,21 @@ func (h Handle) SgemmGroupedBatched(transaArray *Operation, transbArray *Operati
 //   - nArray: Array containing the number of columns of op( B [idx]) and C [idx] for each group
 //   - kArray: Array containing the number of columns of op( A [idx]) and rows of op( B [idx]) for each group
 //   - alphaArray: Array containing the < type > scalar used for multiplication for each group
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldaArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix A [idx] for each group
-//   - barray: Array of pointers to < type > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldbArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix B [idx] for each group
 //   - betaArray: Array containing the < type > scalar used for multiplication for each group
-//   - carray: Array of pointers to < type > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldcArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix C [idx] for each group
 //   - groupCount: Number of groups
 //   - groupSize: Array containing the number of pointers contained in Aarray, Barray and Carray for each group
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If transa_array, transb_array, m_array, n_array, k_array, alpha_array, lda_array, ldb_array, beta_array, ldc_array, or group_size are NULL, or - if group_count < 0, or - if m_array [i] < 0, n_array [i] < 0, k_array [i] < 0, group_size [i] < 0, or - if transa_array [i] and transb_array [i] are not one of [OpN], [OpC], [OpT], or - if lda_array [i] < max(1, m_array [i]) if transa_array [i] == [OpN] and lda_array [i] < max(1, k_array [i]) otherwise, or - if ldb_array [i] < max(1, k_array [i]) if transb_array [i] == [OpN] and ldb_array [i] < max(1, n_array [i]) otherwise, or - if ldc_array [i] < max(1, m_array [i])
+//   - [ErrInvalidValue]: If transa_array, transb_array, m_array, n_array, k_array, alpha_array, lda_array, ldb_array, beta_array, ldc_array, or group_size are NULL, or if group_count < 0, or if m_array [i] < 0, n_array [i] < 0, k_array [i] < 0, group_size [i] < 0, or if transa_array [i] and transb_array [i] are not one of [OpN], [OpC], [OpT], or if lda_array [i] < max(1, m_array [i]) if transa_array [i] == [OpN] and lda_array [i] < max(1, k_array [i]) otherwise, or if ldb_array [i] < max(1, k_array [i]) if transb_array [i] == [OpN] and ldb_array [i] < max(1, n_array [i]) otherwise, or if ldc_array [i] < max(1, m_array [i])
 //   - [ErrNotInitialized]: The library was not initialized
 //   - [ErrNotSupported]: The pointer mode is set to [PointerModeDevice]
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemmGroupedBatched_64.
 func (h Handle) SgemmGroupedBatched64(transaArray *Operation, transbArray *Operation, mArray *int64, nArray *int64, kArray *int64, alphaArray *float32, aarray driver.DevicePtr, ldaArray *int64, barray driver.DevicePtr, ldbArray *int64, betaArray *float32, carray driver.DevicePtr, ldcArray *int64, groupCount int64, groupSize *int64) error {
@@ -9753,12 +9909,11 @@ func (h Handle) SgemmGroupedBatched64(transaArray *Operation, transbArray *Opera
 //   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.HgemmStridedBatched] is only supported for GPU with architecture capabilities equal or greater than 5.3
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemmStridedBatched.
 func (h Handle) SgemmStridedBatched(transa Operation, transb Operation, m int32, n int32, k int32, alpha *float32, a driver.DevicePtr, lda int32, strideA int64, b driver.DevicePtr, ldb int32, strideB int64, beta *float32, c driver.DevicePtr, ldc int32, strideC int64, batchCount int32) error {
@@ -9798,12 +9953,11 @@ func (h Handle) SgemmStridedBatched(transa Operation, transb Operation, m int32,
 //   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.HgemmStridedBatched] is only supported for GPU with architecture capabilities equal or greater than 5.3
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemmStridedBatched_64.
 func (h Handle) SgemmStridedBatched64(transa Operation, transb Operation, m int64, n int64, k int64, alpha *float32, a driver.DevicePtr, lda int64, strideA int64, b driver.DevicePtr, ldb int64, strideB int64, beta *float32, c driver.DevicePtr, ldc int64, strideC int64, batchCount int64) error {
@@ -9831,11 +9985,10 @@ func (h Handle) SgemmStridedBatched64(transa Operation, transb Operation, m int6
 //   - y: < type > vector at least (1 + (m - 1) * abs(incy)) elements if trans == [OpN] and at least (1 + (n - 1) * abs(incy)) elements otherwise
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: The parameters m < 0 or n < 0, or incx == 0 or incy == 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemv_v2.
 func (h Handle) Sgemv(trans Operation, m int32, n int32, alpha *float32, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32, beta *float32, y driver.DevicePtr, incy int32) error {
@@ -9863,11 +10016,10 @@ func (h Handle) Sgemv(trans Operation, m int32, n int32, alpha *float32, a drive
 //   - y: < type > vector at least (1 + (m - 1) * abs(incy)) elements if trans == [OpN] and at least (1 + (n - 1) * abs(incy)) elements otherwise
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: The parameters m < 0 or n < 0, or incx == 0 or incy == 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemv_v2_64.
 func (h Handle) Sgemv64(trans Operation, m int64, n int64, alpha *float32, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64, beta *float32, y driver.DevicePtr, incy int64) error {
@@ -9884,6 +10036,7 @@ func (h Handle) Sgemv64(trans Operation, m int64, n int64, alpha *float32, a dri
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // [Handle.SgemvBatched64] takes 64-bit sizes.
 //
@@ -9891,20 +10044,19 @@ func (h Handle) Sgemv64(trans Operation, m int64, n int64, alpha *float32, a dri
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - incy: Stride of each one-dimensional array y [i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemvBatched.
 func (h Handle) SgemvBatched(trans Operation, m int32, n int32, alpha *float32, aarray driver.DevicePtr, lda int32, xarray driver.DevicePtr, incx int32, beta *float32, yarray driver.DevicePtr, incy int32, batchCount int32) error {
@@ -9921,6 +10073,7 @@ func (h Handle) SgemvBatched(trans Operation, m int32, n int32, alpha *float32, 
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // It is [Handle.SgemvBatched] with int64 sizes and strides.
 //
@@ -9928,20 +10081,19 @@ func (h Handle) SgemvBatched(trans Operation, m int32, n int32, alpha *float32, 
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - incy: Stride of each one-dimensional array y [i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemvBatched_64.
 func (h Handle) SgemvBatched64(trans Operation, m int64, n int64, alpha *float32, aarray driver.DevicePtr, lda int64, xarray driver.DevicePtr, incx int64, beta *float32, yarray driver.DevicePtr, incy int64, batchCount int64) error {
@@ -9978,11 +10130,10 @@ func (h Handle) SgemvBatched64(trans Operation, m int64, n int64, alpha *float32
 //   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemvStridedBatched.
 func (h Handle) SgemvStridedBatched(trans Operation, m int32, n int32, alpha *float32, a driver.DevicePtr, lda int32, strideA int64, x driver.DevicePtr, incx int32, stridex int64, beta *float32, y driver.DevicePtr, incy int32, stridey int64, batchCount int32) error {
@@ -10019,18 +10170,19 @@ func (h Handle) SgemvStridedBatched(trans Operation, m int32, n int32, alpha *fl
 //   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemvStridedBatched_64.
 func (h Handle) SgemvStridedBatched64(trans Operation, m int64, n int64, alpha *float32, a driver.DevicePtr, lda int64, strideA int64, x driver.DevicePtr, incx int64, stridex int64, beta *float32, y driver.DevicePtr, incy int64, stridey int64, batchCount int64) error {
 	return sgemvStridedBatched64(h, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount)
 }
 
-// SgeqrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
+// SgeqrfBatched computes the QR factorization of each matrix in a batch.
+//
+// Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
 //
 // TauArray is an array of pointers to vectors of dimension of at least max (1, min(m, n).
 // This function performs the QR factorization of each Aarray [i] for i = 0, ...,batchSize-1 using Householder reflections. Each matrix Q [i] is represented as a product of elementary reflectors and is stored in the lower part of each Aarray [i] as follows :
@@ -10047,14 +10199,13 @@ func (h Handle) SgemvStridedBatched64(trans Operation, m int64, n int64, alpha *
 //   - aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
 //   - tauArray: Array of pointers to < type > vector, with each vector of dim. max(1 ,min(m, n))
-//   - info: If info == 0, the parameters passed to the function are validIf info < 0, the parameter in position -info is invalid
+//   - info: If info == 0, the parameters passed to the function are valid. If info < 0, the parameter in position -info is invalid
 //   - batchSize: Number of pointers contained in Aarray
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or batchSize < 0, or - if lda < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or batchSize < 0, or if lda < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgeqrfBatched.
 func (h Handle) SgeqrfBatched(m int32, n int32, aarray driver.DevicePtr, lda int32, tauArray driver.DevicePtr, info *int32, batchSize int32) error {
@@ -10080,11 +10231,10 @@ func (h Handle) SgeqrfBatched(m int32, n int32, aarray driver.DevicePtr, lda int
 //   - a: < type > array of dimension lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if incx == 0 or incy == 0, or - if alpha is NULL, or - if lda < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if incx == 0 or incy == 0, or if alpha is NULL, or if lda < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSger_v2.
 func (h Handle) Sger(m int32, n int32, alpha *float32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32, a driver.DevicePtr, lda int32) error {
@@ -10110,18 +10260,19 @@ func (h Handle) Sger(m int32, n int32, alpha *float32, x driver.DevicePtr, incx 
 //   - a: < type > array of dimension lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if incx == 0 or incy == 0, or - if alpha is NULL, or - if lda < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if incx == 0 or incy == 0, or if alpha is NULL, or if lda < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSger_v2_64.
 func (h Handle) Sger64(m int64, n int64, alpha *float32, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64, a driver.DevicePtr, lda int64) error {
 	return sger64(h, m, n, alpha, x, incx, y, incy, a, lda)
 }
 
-// SgetrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
+// SgetrfBatched computes the LU factorization of each matrix in a batch.
+//
+// Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
 //
 // This function performs the LU factorization of each Aarray [i] for i = 0, …, batchSize-1 by the following equation
 // P*Aarray [i]=L*U
@@ -10140,18 +10291,19 @@ func (h Handle) Sger64(m int64, n int64, alpha *float32, x driver.DevicePtr, inc
 //   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
 //   - batchSize: Number of pointers contained in A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: The parameters n < 0 or batchSize < 0 or lda <0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgetrfBatched.
 func (h Handle) SgetrfBatched(n int32, a driver.DevicePtr, lda int32, p driver.DevicePtr, info driver.DevicePtr, batchSize int32) error {
 	return sgetrfBatched(h, n, a, lda, p, info, batchSize)
 }
 
-// SgetriBatched Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
+// SgetriBatched computes the inverse of each matrix in a batch from its LU factorization.
+//
+// Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
 //
 // This function performs the inversion of matrices A [i] for i = 0, …, batchSize-1.
 // Prior to calling cublasgetriBatched, the matrix A [i] must be factorized first using the routine cublasgetrfBatched. After the call of cublasgetrfBatched, the matrix pointing by Aarray [i] will contain the LU factors of the matrix A [i] and the vector pointing by (PivotArray+i) will contain the pivoting sequence.
@@ -10168,11 +10320,10 @@ func (h Handle) SgetrfBatched(n int32, a driver.DevicePtr, lda int32, p driver.D
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray [i]
 //   - batchSize: Number of pointers contained in A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or lda < 0 or ldc < 0 or batchSize < 0, or - if lda < n or ldc < n
+//   - [ErrInvalidValue]: If n < 0 or lda < 0 or ldc < 0 or batchSize < 0, or if lda < n or ldc < n
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgetriBatched.
 func (h Handle) SgetriBatched(n int32, a driver.DevicePtr, lda int32, p driver.DevicePtr, c driver.DevicePtr, ldc int32, info driver.DevicePtr, batchSize int32) error {
@@ -10199,14 +10350,13 @@ func (h Handle) SgetriBatched(n int32, a driver.DevicePtr, lda int32, p driver.D
 //   - devIpiv: Array of size n x batchSize that contains the pivoting sequence of each factorization of Aarray [i] stored in a linear fashion. If devIpiv is NULL, pivoting for all Aarray [i] is ignored
 //   - barray: Array of pointers to < type > array, with each array of dim. n x nrhs with ldb >= max(1, n). Matrices Barray [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldb: Leading dimension of two-dimensional array used to store each solution matrix Barray [i]
-//   - info: If info == 0, the execution is successful.If info = -j, the j-th parameter had an illegal value
+//   - info: If info == 0, the execution is successful. If info = -j, the j-th parameter had an illegal value
 //   - batchSize: Number of pointers contained in A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or nrhs < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if lda < max(1, n), or - if ldb < max(1, n)
+//   - [ErrInvalidValue]: If n < 0 or nrhs < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if lda < max(1, n), or if ldb < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgetrsBatched.
 func (h Handle) SgetrsBatched(trans Operation, n int32, nrhs int32, aarray driver.DevicePtr, lda int32, devIpiv driver.DevicePtr, barray driver.DevicePtr, ldb int32, info *int32, batchSize int32) error {
@@ -10214,6 +10364,12 @@ func (h Handle) SgetrsBatched(trans Operation, n int32, nrhs int32, aarray drive
 }
 
 // SmCountTarget obtains the value previously programmed to the library handle.
+//
+// A nil error means SM count target was returned successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: smCountTarget is NULL.
+//   - [ErrNotInitialized]: the library was not initialized.
 //
 // Wraps cublasGetSmCountTarget.
 func (h Handle) SmCountTarget() (int32, error) {
@@ -10231,14 +10387,13 @@ func (h Handle) SmCountTarget() (int32, error) {
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - ainv: Array of pointers to < type > array, with each array of dimension n*n with ldaInv >= max(1, n). Matrices Ainv [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldaInv: Leading dimension of two-dimensional array used to store each matrix Ainv [i]
-//   - info: Array of size batchSize that info [i] contains the information of inversion of A [i].If info [i] == 0, the execution is successful.If info [i] == k, then U(k, k) == 0. The U is exactly singular and the inversion failed
+//   - info: Array of size batchSize that info [i] contains the information of inversion of A [i]. If info [i] == 0, the execution is successful. If info [i] == k, then U(k, k) == 0. The U is exactly singular and the inversion failed
 //   - batchSize: Number of pointers contained in A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or lda < 0 or lda_inv < 0 or batchSize < 0, or - if lda < n or lda_inv < n, or - if n > 32
+//   - [ErrInvalidValue]: If n < 0 or lda < 0 or lda_inv < 0 or batchSize < 0, or if lda < n or lda_inv < n, or if n > 32
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSmatinvBatched.
 func (h Handle) SmatinvBatched(n int32, a driver.DevicePtr, lda int32, ainv driver.DevicePtr, ldaInv int32, info driver.DevicePtr, batchSize int32) error {
@@ -10247,7 +10402,7 @@ func (h Handle) SmatinvBatched(n int32, a driver.DevicePtr, lda int32, ainv driv
 
 // Snrm2 computes the Euclidean norm of the vector x.
 //
-// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
 //
@@ -10258,12 +10413,11 @@ func (h Handle) SmatinvBatched(n int32, a driver.DevicePtr, lda int32, ainv driv
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting norm, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSnrm2_v2.
 func (h Handle) Snrm2(n int32, x driver.DevicePtr, incx int32) (float32, error) {
@@ -10272,7 +10426,7 @@ func (h Handle) Snrm2(n int32, x driver.DevicePtr, incx int32) (float32, error) 
 
 // Snrm264 computes the Euclidean norm of the vector x.
 //
-// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
 //
@@ -10283,12 +10437,11 @@ func (h Handle) Snrm2(n int32, x driver.DevicePtr, incx int32) (float32, error) 
 //   - incx: Stride between consecutive elements of x
 //   - result: The resulting norm, which is set to 0 if n <= 0 or incx <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: result is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSnrm2_v2_64.
 func (h Handle) Snrm264(n int64, x driver.DevicePtr, incx int64) (float32, error) {
@@ -10313,10 +10466,9 @@ func (h Handle) Snrm264(n int64, x driver.DevicePtr, incx int64) (float32, error
 //   - c: Cosine element of the rotation matrix
 //   - s: Sine element of the rotation matrix
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSrot_v2.
 func (h Handle) Srot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32, c *float32, s *float32) error {
@@ -10341,10 +10493,9 @@ func (h Handle) Srot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr
 //   - c: Cosine element of the rotation matrix
 //   - s: Sine element of the rotation matrix
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSrot_v2_64.
 func (h Handle) Srot64(n int64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64, c *float32, s *float32) error {
@@ -10369,10 +10520,9 @@ func (h Handle) Srot64(n int64, x driver.DevicePtr, incx int64, y driver.DeviceP
 //   - c: Cosine element of the rotation matrix
 //   - s: Sine element of the rotation matrix
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSrotg_v2.
 func (h Handle) Srotg(a *float32, b *float32, c *float32, s *float32) error {
@@ -10384,6 +10534,8 @@ func (h Handle) Srotg(a *float32, b *float32, c *float32, s *float32) error {
 // H=(h₁₁h₁₂h₂₁h₂₂), to vectors x and y.
 // Hence, the result is x [k]=h₁₁×x [k]+h₁₂×y [j] and y [j]=h₂₁×x [k]+h₂₂×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The elements , , and of matrix H are stored in param [1], param [2], param [3] and param [4], respectively. The flag = param [0] defines the following predefined values for the matrix H entries
+//   - flag == -1.0: (h₁₁, h₁₂; h₂₁, h₂₂); flag == 0.0: (1.0, h₁₂; h₂₁, 1.0); flag == 1.0: (h₁₁, 1.0; −1.0, h₂₂); flag == -2.0: (1.0, 0.0; 0.0, 1.0)
+//
 // Notice that the values -1.0, 0.0 and 1.0 implied by the flag are not stored in param.
 // For references please refer to NETLIB documentation:
 // srotm(), drotm()
@@ -10397,10 +10549,9 @@ func (h Handle) Srotg(a *float32, b *float32, c *float32, s *float32) error {
 //   - incy: Stride between consecutive elements of y
 //   - param: < type > vector of 5 elements, where param [0] and param [1..4] contain the flag and matrix H
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSrotm_v2.
 func (h Handle) Srotm(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32, param *float32) error {
@@ -10412,6 +10563,8 @@ func (h Handle) Srotm(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 // H=(h₁₁h₁₂h₂₁h₂₂), to vectors x and y.
 // Hence, the result is x [k]=h₁₁×x [k]+h₁₂×y [j] and y [j]=h₂₁×x [k]+h₂₂×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The elements , , and of matrix H are stored in param [1], param [2], param [3] and param [4], respectively. The flag = param [0] defines the following predefined values for the matrix H entries
+//   - flag == -1.0: (h₁₁, h₁₂; h₂₁, h₂₂); flag == 0.0: (1.0, h₁₂; h₂₁, 1.0); flag == 1.0: (h₁₁, 1.0; −1.0, h₂₂); flag == -2.0: (1.0, 0.0; 0.0, 1.0)
+//
 // Notice that the values -1.0, 0.0 and 1.0 implied by the flag are not stored in param.
 // For references please refer to NETLIB documentation:
 // srotm(), drotm()
@@ -10425,10 +10578,9 @@ func (h Handle) Srotm(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 //   - incy: Stride between consecutive elements of y
 //   - param: < type > vector of 5 elements, where param [0] and param [1..4] contain the flag and matrix H
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSrotm_v2_64.
 func (h Handle) Srotm64(n int64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64, param *float32) error {
@@ -10439,6 +10591,8 @@ func (h Handle) Srotm64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 //
 // H=(h₁₁h₁₂h₂₁h₂₂), that zeros out the second entry of a 2×1 vector (d1*x1,d2*y1)ᵀ .
 // The flag = param [0] defines the following predefined values for the matrix H entries
+//   - flag == -1.0: (h₁₁, h₁₂; h₂₁, h₂₂); flag == 0.0: (1.0, h₁₂; h₂₁, 1.0); flag == 1.0: (h₁₁, 1.0; −1.0, h₂₂); flag == -2.0: (1.0, 0.0; 0.0, 1.0)
+//
 // Notice that the values -1.0, 0.0 and 1.0 implied by the flag are not stored in param.
 // For references please refer to NETLIB documentation:
 // srotmg(), drotmg()
@@ -10449,10 +10603,9 @@ func (h Handle) Srotm64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 //   - y1: < type > scalar
 //   - param: < type > vector of 5 elements, where param [0] and param [1-4] contain the flag and matrix H
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSrotmg_v2.
 func (h Handle) Srotmg(d1 *float32, d2 *float32, x1 *float32, y1 *float32, param *float32) error {
@@ -10481,11 +10634,10 @@ func (h Handle) Srotmg(d1 *float32, d2 *float32, x1 *float32, y1 *float32, param
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha or beta are NULL, or - if lda < (1 + k)
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha or beta are NULL, or if lda < (1 + k)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsbmv_v2.
 func (h Handle) Ssbmv(uplo FillMode, n int32, k int32, alpha *float32, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32, beta *float32, y driver.DevicePtr, incy int32) error {
@@ -10514,11 +10666,10 @@ func (h Handle) Ssbmv(uplo FillMode, n int32, k int32, alpha *float32, a driver.
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha or beta are NULL, or - if lda < (1 + k)
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha or beta are NULL, or if lda < (1 + k)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsbmv_v2_64.
 func (h Handle) Ssbmv64(uplo FillMode, n int64, k int64, alpha *float32, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64, beta *float32, y driver.DevicePtr, incy int64) error {
@@ -10538,10 +10689,9 @@ func (h Handle) Ssbmv64(uplo FillMode, n int64, k int64, alpha *float32, a drive
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSscal_v2.
 func (h Handle) Sscal(n int32, alpha *float32, x driver.DevicePtr, incx int32) error {
@@ -10561,10 +10711,9 @@ func (h Handle) Sscal(n int32, alpha *float32, x driver.DevicePtr, incx int32) e
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSscal_v2_64.
 func (h Handle) Sscal64(n int64, alpha *float32, x driver.DevicePtr, incx int64) error {
@@ -10591,11 +10740,10 @@ func (h Handle) Sscal64(n int64, alpha *float32, x driver.DevicePtr, incx int64)
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha or beta are NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha or beta are NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSspmv_v2.
 func (h Handle) Sspmv(uplo FillMode, n int32, alpha *float32, ap driver.DevicePtr, x driver.DevicePtr, incx int32, beta *float32, y driver.DevicePtr, incy int32) error {
@@ -10622,11 +10770,10 @@ func (h Handle) Sspmv(uplo FillMode, n int32, alpha *float32, ap driver.DevicePt
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha or beta are NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha or beta are NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSspmv_v2_64.
 func (h Handle) Sspmv64(uplo FillMode, n int64, alpha *float32, ap driver.DevicePtr, x driver.DevicePtr, incx int64, beta *float32, y driver.DevicePtr, incy int64) error {
@@ -10650,11 +10797,10 @@ func (h Handle) Sspmv64(uplo FillMode, n int64, alpha *float32, ap driver.Device
 //   - incx: Stride between consecutive elements of x
 //   - ap: < type > array with A stored in packed format
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSspr_v2.
 func (h Handle) Sspr(uplo FillMode, n int32, alpha *float32, x driver.DevicePtr, incx int32, ap driver.DevicePtr) error {
@@ -10680,11 +10826,10 @@ func (h Handle) Sspr(uplo FillMode, n int32, alpha *float32, x driver.DevicePtr,
 //   - incy: Stride between consecutive elements of y
 //   - ap: < type > array with A stored in packed format
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSspr2_v2.
 func (h Handle) Sspr2(uplo FillMode, n int32, alpha *float32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32, ap driver.DevicePtr) error {
@@ -10710,11 +10855,10 @@ func (h Handle) Sspr2(uplo FillMode, n int32, alpha *float32, x driver.DevicePtr
 //   - incy: Stride between consecutive elements of y
 //   - ap: < type > array with A stored in packed format
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSspr2_v2_64.
 func (h Handle) Sspr264(uplo FillMode, n int64, alpha *float32, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64, ap driver.DevicePtr) error {
@@ -10738,11 +10882,10 @@ func (h Handle) Sspr264(uplo FillMode, n int64, alpha *float32, x driver.DeviceP
 //   - incx: Stride between consecutive elements of x
 //   - ap: < type > array with A stored in packed format
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSspr_v2_64.
 func (h Handle) Sspr64(uplo FillMode, n int64, alpha *float32, x driver.DevicePtr, incx int64, ap driver.DevicePtr) error {
@@ -10763,10 +10906,9 @@ func (h Handle) Sspr64(uplo FillMode, n int64, alpha *float32, x driver.DevicePt
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSswap_v2.
 func (h Handle) Sswap(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32) error {
@@ -10787,10 +10929,9 @@ func (h Handle) Sswap(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSswap_v2_64.
 func (h Handle) Sswap64(n int64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64) error {
@@ -10819,11 +10960,10 @@ func (h Handle) Sswap64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 //   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if side is not one of [SideLeft] and [SideRight], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, m) when side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if side is not one of [SideLeft] and [SideRight], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, m) when side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsymm_v2.
 func (h Handle) Ssymm(side SideMode, uplo FillMode, m int32, n int32, alpha *float32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, beta *float32, c driver.DevicePtr, ldc int32) error {
@@ -10852,11 +10992,10 @@ func (h Handle) Ssymm(side SideMode, uplo FillMode, m int32, n int32, alpha *flo
 //   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if side is not one of [SideLeft] and [SideRight], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, m) when side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if side is not one of [SideLeft] and [SideRight], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, m) when side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsymm_v2_64.
 func (h Handle) Ssymm64(side SideMode, uplo FillMode, m int64, n int64, alpha *float32, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, beta *float32, c driver.DevicePtr, ldc int64) error {
@@ -10884,11 +11023,10 @@ func (h Handle) Ssymm64(side SideMode, uplo FillMode, m int64, n int64, alpha *f
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < n
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < n
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsymv_v2.
 func (h Handle) Ssymv(uplo FillMode, n int32, alpha *float32, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32, beta *float32, y driver.DevicePtr, incy int32) error {
@@ -10916,11 +11054,10 @@ func (h Handle) Ssymv(uplo FillMode, n int32, alpha *float32, a driver.DevicePtr
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < n
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < n
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsymv_v2_64.
 func (h Handle) Ssymv64(uplo FillMode, n int64, alpha *float32, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64, beta *float32, y driver.DevicePtr, incy int64) error {
@@ -10943,11 +11080,10 @@ func (h Handle) Ssymv64(uplo FillMode, n int64, alpha *float32, a driver.DeviceP
 //   - a: < type > array of dimensions lda x n, with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n), or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsyr_v2.
 func (h Handle) Ssyr(uplo FillMode, n int32, alpha *float32, x driver.DevicePtr, incx int32, a driver.DevicePtr, lda int32) error {
@@ -10972,11 +11108,10 @@ func (h Handle) Ssyr(uplo FillMode, n int32, alpha *float32, x driver.DevicePtr,
 //   - a: < type > array of dimensions lda x n, with lda >= max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha is NULL, or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha is NULL, or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsyr2_v2.
 func (h Handle) Ssyr2(uplo FillMode, n int32, alpha *float32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32, a driver.DevicePtr, lda int32) error {
@@ -11001,11 +11136,10 @@ func (h Handle) Ssyr2(uplo FillMode, n int32, alpha *float32, x driver.DevicePtr
 //   - a: < type > array of dimensions lda x n, with lda >= max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha is NULL, or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha is NULL, or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsyr2_v2_64.
 func (h Handle) Ssyr264(uplo FillMode, n int64, alpha *float32, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64, a driver.DevicePtr, lda int64) error {
@@ -11034,11 +11168,10 @@ func (h Handle) Ssyr264(uplo FillMode, n int64, alpha *float32, x driver.DeviceP
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsyr2k_v2.
 func (h Handle) Ssyr2k(uplo FillMode, trans Operation, n int32, k int32, alpha *float32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, beta *float32, c driver.DevicePtr, ldc int32) error {
@@ -11067,11 +11200,10 @@ func (h Handle) Ssyr2k(uplo FillMode, trans Operation, n int32, k int32, alpha *
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsyr2k_v2_64.
 func (h Handle) Ssyr2k64(uplo FillMode, trans Operation, n int64, k int64, alpha *float32, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, beta *float32, c driver.DevicePtr, ldc int64) error {
@@ -11094,11 +11226,10 @@ func (h Handle) Ssyr2k64(uplo FillMode, trans Operation, n int64, k int64, alpha
 //   - a: < type > array of dimensions lda x n, with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n), or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsyr_v2_64.
 func (h Handle) Ssyr64(uplo FillMode, n int64, alpha *float32, x driver.DevicePtr, incx int64, a driver.DevicePtr, lda int64) error {
@@ -11125,11 +11256,10 @@ func (h Handle) Ssyr64(uplo FillMode, n int64, alpha *float32, x driver.DevicePt
 //   - c: < type > array of dimension ldc x n, with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsyrk_v2.
 func (h Handle) Ssyrk(uplo FillMode, trans Operation, n int32, k int32, alpha *float32, a driver.DevicePtr, lda int32, beta *float32, c driver.DevicePtr, ldc int32) error {
@@ -11156,11 +11286,10 @@ func (h Handle) Ssyrk(uplo FillMode, trans Operation, n int32, k int32, alpha *f
 //   - c: < type > array of dimension ldc x n, with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsyrk_v2_64.
 func (h Handle) Ssyrk64(uplo FillMode, trans Operation, n int64, k int64, alpha *float32, a driver.DevicePtr, lda int64, beta *float32, c driver.DevicePtr, ldc int64) error {
@@ -11191,11 +11320,10 @@ func (h Handle) Ssyrk64(uplo FillMode, trans Operation, n int64, k int64, alpha 
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsyrkx.
 func (h Handle) Ssyrkx(uplo FillMode, trans Operation, n int32, k int32, alpha *float32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, beta *float32, c driver.DevicePtr, ldc int32) error {
@@ -11226,11 +11354,10 @@ func (h Handle) Ssyrkx(uplo FillMode, trans Operation, n int32, k int32, alpha *
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsyrkx_64.
 func (h Handle) Ssyrkx64(uplo FillMode, trans Operation, n int64, k int64, alpha *float32, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, beta *float32, c driver.DevicePtr, ldc int64) error {
@@ -11258,12 +11385,11 @@ func (h Handle) Ssyrkx64(uplo FillMode, trans Operation, n int64, k int64, alpha
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The allocation of internal scratch memory failed
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < (1 + k)
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < (1 + k)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasStbmv_v2.
 func (h Handle) Stbmv(uplo FillMode, trans Operation, diag DiagType, n int32, k int32, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32) error {
@@ -11291,12 +11417,11 @@ func (h Handle) Stbmv(uplo FillMode, trans Operation, diag DiagType, n int32, k 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The allocation of internal scratch memory failed
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < (1 + k)
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < (1 + k)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasStbmv_v2_64.
 func (h Handle) Stbmv64(uplo FillMode, trans Operation, diag DiagType, n int64, k int64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64) error {
@@ -11326,11 +11451,10 @@ func (h Handle) Stbmv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < (1 + k)
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < (1 + k)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasStbsv_v2.
 func (h Handle) Stbsv(uplo FillMode, trans Operation, diag DiagType, n int32, k int32, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32) error {
@@ -11360,11 +11484,10 @@ func (h Handle) Stbsv(uplo FillMode, trans Operation, diag DiagType, n int32, k 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < (1 + k)
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < (1 + k)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasStbsv_v2_64.
 func (h Handle) Stbsv64(uplo FillMode, trans Operation, diag DiagType, n int64, k int64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64) error {
@@ -11390,12 +11513,11 @@ func (h Handle) Stbsv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The allocation of internal scratch memory failed
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit]
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit]
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasStpmv_v2.
 func (h Handle) Stpmv(uplo FillMode, trans Operation, diag DiagType, n int32, ap driver.DevicePtr, x driver.DevicePtr, incx int32) error {
@@ -11421,12 +11543,11 @@ func (h Handle) Stpmv(uplo FillMode, trans Operation, diag DiagType, n int32, ap
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The allocation of internal scratch memory failed
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit]
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit]
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasStpmv_v2_64.
 func (h Handle) Stpmv64(uplo FillMode, trans Operation, diag DiagType, n int64, ap driver.DevicePtr, x driver.DevicePtr, incx int64) error {
@@ -11454,11 +11575,10 @@ func (h Handle) Stpmv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit]
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit]
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasStpsv_v2.
 func (h Handle) Stpsv(uplo FillMode, trans Operation, diag DiagType, n int32, ap driver.DevicePtr, x driver.DevicePtr, incx int32) error {
@@ -11486,11 +11606,10 @@ func (h Handle) Stpsv(uplo FillMode, trans Operation, diag DiagType, n int32, ap
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit]
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit]
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasStpsv_v2_64.
 func (h Handle) Stpsv64(uplo FillMode, trans Operation, diag DiagType, n int64, ap driver.DevicePtr, x driver.DevicePtr, incx int64) error {
@@ -11509,11 +11628,10 @@ func (h Handle) Stpsv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 //   - a: < type > array of dimensions lda x n , with lda >= max(1, n). The opposite side of A is left untouched
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasStpttr.
 func (h Handle) Stpttr(uplo FillMode, n int32, ap driver.DevicePtr, a driver.DevicePtr, lda int32) error {
@@ -11523,6 +11641,12 @@ func (h Handle) Stpttr(uplo FillMode, n int32, ap driver.DevicePtr, a driver.Dev
 // Stream gets the cuBLAS library stream, which is being used to execute all calls to the cuBLAS library functions.
 //
 // If the cuBLAS library stream is not set, all kernels use the default NULL stream.
+//
+// A nil error means the stream was returned successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: streamId is NULL
+//   - [ErrNotInitialized]: the library was not initialized
 //
 // Wraps cublasGetStream_v2.
 func (h Handle) Stream() (driver.Stream, error) {
@@ -11554,11 +11678,10 @@ func (h Handle) Stream() (driver.Stream, error) {
 //   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if side is not one of [SideLeft] and [SideRight], or - if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if ldc < max(1, m), or - if alpha is NULL
+//   - [ErrInvalidValue]: If m < 0, n < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if side is not one of [SideLeft] and [SideRight], or if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if ldc < max(1, m), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasStrmm_v2.
 func (h Handle) Strmm(side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *float32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, c driver.DevicePtr, ldc int32) error {
@@ -11590,11 +11713,10 @@ func (h Handle) Strmm(side SideMode, uplo FillMode, trans Operation, diag DiagTy
 //   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if side is not one of [SideLeft] and [SideRight], or - if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if ldc < max(1, m), or - if alpha is NULL
+//   - [ErrInvalidValue]: If m < 0, n < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if side is not one of [SideLeft] and [SideRight], or if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if ldc < max(1, m), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasStrmm_v2_64.
 func (h Handle) Strmm64(side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *float32, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, c driver.DevicePtr, ldc int64) error {
@@ -11619,12 +11741,11 @@ func (h Handle) Strmm64(side SideMode, uplo FillMode, trans Operation, diag Diag
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The allocation of internal scratch memory failed
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasStrmv_v2.
 func (h Handle) Strmv(uplo FillMode, trans Operation, diag DiagType, n int32, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32) error {
@@ -11649,12 +11770,11 @@ func (h Handle) Strmv(uplo FillMode, trans Operation, diag DiagType, n int32, a 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The allocation of internal scratch memory failed
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasStrmv_v2_64.
 func (h Handle) Strmv64(uplo FillMode, trans Operation, diag DiagType, n int64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64) error {
@@ -11685,11 +11805,10 @@ func (h Handle) Strmv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 //   - b: < type > array. It has dimensions ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if side is not one of [SideLeft] and [SideRight], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if alpha is NULL
+//   - [ErrInvalidValue]: If m < 0, n < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if side is not one of [SideLeft] and [SideRight], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasStrsm_v2.
 func (h Handle) Strsm(side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *float32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32) error {
@@ -11720,11 +11839,10 @@ func (h Handle) Strsm(side SideMode, uplo FillMode, trans Operation, diag DiagTy
 //   - b: < type > array. It has dimensions ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if side is not one of [SideLeft] and [SideRight], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if alpha is NULL
+//   - [ErrInvalidValue]: If m < 0, n < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if side is not one of [SideLeft] and [SideRight], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasStrsm_v2_64.
 func (h Handle) Strsm64(side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *float32, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64) error {
@@ -11758,11 +11876,10 @@ func (h Handle) Strsm64(side SideMode, uplo FillMode, trans Operation, diag Diag
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
 //   - batchCount: Number of pointers contained in A and B
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if side is not one of [SideLeft] and [SideRight], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m)
+//   - [ErrInvalidValue]: If m < 0, n < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if side is not one of [SideLeft] and [SideRight], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasStrsmBatched.
 func (h Handle) StrsmBatched(side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *float32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, batchCount int32) error {
@@ -11796,11 +11913,10 @@ func (h Handle) StrsmBatched(side SideMode, uplo FillMode, trans Operation, diag
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
 //   - batchCount: Number of pointers contained in A and B
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if side is not one of [SideLeft] and [SideRight], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m)
+//   - [ErrInvalidValue]: If m < 0, n < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if side is not one of [SideLeft] and [SideRight], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasStrsmBatched_64.
 func (h Handle) StrsmBatched64(side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *float32, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, batchCount int64) error {
@@ -11827,11 +11943,10 @@ func (h Handle) StrsmBatched64(side SideMode, uplo FillMode, trans Operation, di
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasStrsv_v2.
 func (h Handle) Strsv(uplo FillMode, trans Operation, diag DiagType, n int32, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32) error {
@@ -11858,11 +11973,10 @@ func (h Handle) Strsv(uplo FillMode, trans Operation, diag DiagType, n int32, a 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasStrsv_v2_64.
 func (h Handle) Strsv64(uplo FillMode, trans Operation, diag DiagType, n int64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64) error {
@@ -11881,11 +11995,10 @@ func (h Handle) Strsv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - ap: < type > array with A stored in packed format
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0 or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasStrttp.
 func (h Handle) Strttp(uplo FillMode, n int32, a driver.DevicePtr, lda int32, ap driver.DevicePtr) error {
@@ -11916,6 +12029,7 @@ func (h Handle) SwapEx64(n int64, x driver.DevicePtr, xType DataType, incx int64
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // [Handle.TSSgemvBatched64] takes 64-bit sizes.
 //
@@ -11923,20 +12037,19 @@ func (h Handle) SwapEx64(n int64, x driver.DevicePtr, xType DataType, incx int64
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - incy: Stride of each one-dimensional array y [i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasTSSgemvBatched.
 func (h Handle) TSSgemvBatched(trans Operation, m int32, n int32, alpha *float32, aarray driver.DevicePtr, lda int32, xarray driver.DevicePtr, incx int32, beta *float32, yarray driver.DevicePtr, incy int32, batchCount int32) error {
@@ -11953,6 +12066,7 @@ func (h Handle) TSSgemvBatched(trans Operation, m int32, n int32, alpha *float32
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // It is [Handle.TSSgemvBatched] with int64 sizes and strides.
 //
@@ -11960,20 +12074,19 @@ func (h Handle) TSSgemvBatched(trans Operation, m int32, n int32, alpha *float32
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - incy: Stride of each one-dimensional array y [i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasTSSgemvBatched_64.
 func (h Handle) TSSgemvBatched64(trans Operation, m int64, n int64, alpha *float32, aarray driver.DevicePtr, lda int64, xarray driver.DevicePtr, incx int64, beta *float32, yarray driver.DevicePtr, incy int64, batchCount int64) error {
@@ -12010,11 +12123,10 @@ func (h Handle) TSSgemvBatched64(trans Operation, m int64, n int64, alpha *float
 //   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasTSSgemvStridedBatched.
 func (h Handle) TSSgemvStridedBatched(trans Operation, m int32, n int32, alpha *float32, a driver.DevicePtr, lda int32, strideA int64, x driver.DevicePtr, incx int32, stridex int64, beta *float32, y driver.DevicePtr, incy int32, stridey int64, batchCount int32) error {
@@ -12051,11 +12163,10 @@ func (h Handle) TSSgemvStridedBatched(trans Operation, m int32, n int32, alpha *
 //   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasTSSgemvStridedBatched_64.
 func (h Handle) TSSgemvStridedBatched64(trans Operation, m int64, n int64, alpha *float32, a driver.DevicePtr, lda int64, strideA int64, x driver.DevicePtr, incx int64, stridex int64, beta *float32, y driver.DevicePtr, incy int64, stridey int64, batchCount int64) error {
@@ -12072,6 +12183,7 @@ func (h Handle) TSSgemvStridedBatched64(trans Operation, m int64, n int64, alpha
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // [Handle.TSTgemvBatched64] takes 64-bit sizes.
 //
@@ -12079,20 +12191,19 @@ func (h Handle) TSSgemvStridedBatched64(trans Operation, m int64, n int64, alpha
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - incy: Stride of each one-dimensional array y [i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasTSTgemvBatched.
 func (h Handle) TSTgemvBatched(trans Operation, m int32, n int32, alpha *float32, aarray driver.DevicePtr, lda int32, xarray driver.DevicePtr, incx int32, beta *float32, yarray driver.DevicePtr, incy int32, batchCount int32) error {
@@ -12109,6 +12220,7 @@ func (h Handle) TSTgemvBatched(trans Operation, m int32, n int32, alpha *float32
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // It is [Handle.TSTgemvBatched] with int64 sizes and strides.
 //
@@ -12116,20 +12228,19 @@ func (h Handle) TSTgemvBatched(trans Operation, m int32, n int32, alpha *float32
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - incy: Stride of each one-dimensional array y [i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasTSTgemvBatched_64.
 func (h Handle) TSTgemvBatched64(trans Operation, m int64, n int64, alpha *float32, aarray driver.DevicePtr, lda int64, xarray driver.DevicePtr, incx int64, beta *float32, yarray driver.DevicePtr, incy int64, batchCount int64) error {
@@ -12166,11 +12277,10 @@ func (h Handle) TSTgemvBatched64(trans Operation, m int64, n int64, alpha *float
 //   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasTSTgemvStridedBatched.
 func (h Handle) TSTgemvStridedBatched(trans Operation, m int32, n int32, alpha *float32, a driver.DevicePtr, lda int32, strideA int64, x driver.DevicePtr, incx int32, stridex int64, beta *float32, y driver.DevicePtr, incy int32, stridey int64, batchCount int32) error {
@@ -12207,11 +12317,10 @@ func (h Handle) TSTgemvStridedBatched(trans Operation, m int32, n int32, alpha *
 //   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasTSTgemvStridedBatched_64.
 func (h Handle) TSTgemvStridedBatched64(trans Operation, m int64, n int64, alpha *float32, a driver.DevicePtr, lda int64, strideA int64, x driver.DevicePtr, incx int64, stridex int64, beta *float32, y driver.DevicePtr, incy int64, stridey int64, batchCount int64) error {
@@ -12226,6 +12335,9 @@ func (h Handle) Uint8gemmBias(transa Operation, transb Operation, transc Operati
 // Version returns the version number of the cuBLAS library.
 //
 // Note: This function can be safely called with handle set to NULL. This allows users to get the version of the library without a handle. Another way to do this is with [GetProperty].
+//
+// Errors:
+//   - [ErrInvalidValue]: version is NULL
 //
 // Wraps cublasGetVersion_v2.
 func (h Handle) Version() (int32, error) {
@@ -12247,10 +12359,9 @@ func (h Handle) Version() (int32, error) {
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZaxpy_v2.
 func (h Handle) Zaxpy(n int32, alpha *Complex128, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32) error {
@@ -12272,10 +12383,9 @@ func (h Handle) Zaxpy(n int32, alpha *Complex128, x driver.DevicePtr, incx int32
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZaxpy_v2_64.
 func (h Handle) Zaxpy64(n int64, alpha *Complex128, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64) error {
@@ -12296,10 +12406,9 @@ func (h Handle) Zaxpy64(n int64, alpha *Complex128, x driver.DevicePtr, incx int
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZcopy_v2.
 func (h Handle) Zcopy(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32) error {
@@ -12320,10 +12429,9 @@ func (h Handle) Zcopy(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZcopy_v2_64.
 func (h Handle) Zcopy64(n int64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64) error {
@@ -12352,11 +12460,10 @@ func (h Handle) Zcopy64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if mode is not one of [SideLeft] and [SideRight], or - if lda < max(1, m), or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if mode is not one of [SideLeft] and [SideRight], or if lda < max(1, m), or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZdgmm.
 func (h Handle) Zdgmm(mode SideMode, m int32, n int32, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32, c driver.DevicePtr, ldc int32) error {
@@ -12385,11 +12492,10 @@ func (h Handle) Zdgmm(mode SideMode, m int32, n int32, a driver.DevicePtr, lda i
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if mode is not one of [SideLeft] and [SideRight], or - if lda < max(1, m), or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if mode is not one of [SideLeft] and [SideRight], or if lda < max(1, m), or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZdgmm_64.
 func (h Handle) Zdgmm64(mode SideMode, m int64, n int64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64, c driver.DevicePtr, ldc int64) error {
@@ -12398,7 +12504,7 @@ func (h Handle) Zdgmm64(mode SideMode, m int64, n int64, a driver.DevicePtr, lda
 
 // Zdotc computes the dot product of vectors x and y.
 //
-// Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -12411,11 +12517,10 @@ func (h Handle) Zdgmm64(mode SideMode, m int64, n int64, a driver.DevicePtr, lda
 //   - incy: Stride between consecutive elements of y
 //   - result: The resulting dot product, which is set to 0 if n <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZdotc_v2.
 func (h Handle) Zdotc(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32) (Complex128, error) {
@@ -12424,7 +12529,7 @@ func (h Handle) Zdotc(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 
 // Zdotc64 computes the dot product of vectors x and y.
 //
-// Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -12437,11 +12542,10 @@ func (h Handle) Zdotc(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 //   - incy: Stride between consecutive elements of y
 //   - result: The resulting dot product, which is set to 0 if n <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZdotc_v2_64.
 func (h Handle) Zdotc64(n int64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64) (Complex128, error) {
@@ -12450,7 +12554,7 @@ func (h Handle) Zdotc64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 
 // Zdotu computes the dot product of vectors x and y.
 //
-// Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -12463,11 +12567,10 @@ func (h Handle) Zdotc64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 //   - incy: Stride between consecutive elements of y
 //   - result: The resulting dot product, which is set to 0 if n <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZdotu_v2.
 func (h Handle) Zdotu(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32) (Complex128, error) {
@@ -12476,7 +12579,7 @@ func (h Handle) Zdotu(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 
 // Zdotu64 computes the dot product of vectors x and y.
 //
-// Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -12489,11 +12592,10 @@ func (h Handle) Zdotu(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 //   - incy: Stride between consecutive elements of y
 //   - result: The resulting dot product, which is set to 0 if n <= 0
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The reduction buffer could not be allocated
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZdotu_v2_64.
 func (h Handle) Zdotu64(n int64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64) (Complex128, error) {
@@ -12518,10 +12620,9 @@ func (h Handle) Zdotu64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 //   - c: Cosine element of the rotation matrix
 //   - s: Sine element of the rotation matrix
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZdrot_v2.
 func (h Handle) Zdrot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32, c *float64, s *float64) error {
@@ -12546,10 +12647,9 @@ func (h Handle) Zdrot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 //   - c: Cosine element of the rotation matrix
 //   - s: Sine element of the rotation matrix
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZdrot_v2_64.
 func (h Handle) Zdrot64(n int64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64, c *float64, s *float64) error {
@@ -12569,10 +12669,9 @@ func (h Handle) Zdrot64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZdscal_v2.
 func (h Handle) Zdscal(n int32, alpha *float64, x driver.DevicePtr, incx int32) error {
@@ -12592,10 +12691,9 @@ func (h Handle) Zdscal(n int32, alpha *float64, x driver.DevicePtr, incx int32) 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZdscal_v2_64.
 func (h Handle) Zdscal64(n int64, alpha *float64, x driver.DevicePtr, incx int64) error {
@@ -12626,11 +12724,10 @@ func (h Handle) Zdscal64(n int64, alpha *float64, x driver.DevicePtr, incx int64
 //   - y: < type > vector with m elements if trans == [OpN] and n elements otherwise
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, kl < 0 or ku < 0, or - if lda < (kl + ku + 1), or - if incx == 0 or incy == 0, or - if trans is not one of [OpN], [OpT], [OpC], or - if alpha or beta are NULL
+//   - [ErrInvalidValue]: If m < 0, n < 0, kl < 0 or ku < 0, or if lda < (kl + ku + 1), or if incx == 0 or incy == 0, or if trans is not one of [OpN], [OpT], [OpC], or if alpha or beta are NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgbmv_v2.
 func (h Handle) Zgbmv(trans Operation, m int32, n int32, kl int32, ku int32, alpha *Complex128, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32, beta *Complex128, y driver.DevicePtr, incy int32) error {
@@ -12661,11 +12758,10 @@ func (h Handle) Zgbmv(trans Operation, m int32, n int32, kl int32, ku int32, alp
 //   - y: < type > vector with m elements if trans == [OpN] and n elements otherwise
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, kl < 0 or ku < 0, or - if lda < (kl + ku + 1), or - if incx == 0 or incy == 0, or - if trans is not one of [OpN], [OpT], [OpC], or - if alpha or beta are NULL
+//   - [ErrInvalidValue]: If m < 0, n < 0, kl < 0 or ku < 0, or if lda < (kl + ku + 1), or if incx == 0 or incy == 0, or if trans is not one of [OpN], [OpT], [OpC], or if alpha or beta are NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgbmv_v2_64.
 func (h Handle) Zgbmv64(trans Operation, m int64, n int64, kl int64, ku int64, alpha *Complex128, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64, beta *Complex128, y driver.DevicePtr, incy int64) error {
@@ -12701,11 +12797,10 @@ func (h Handle) Zgbmv64(trans Operation, m int64, n int64, kl int64, ku int64, a
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if transa is not one of [OpN], [OpT] and [OpC], or - if transb is not one of [OpN], [OpT] and [OpC], or - if lda < max(1, m) when transa == [OpN], and lda < max(1, n) otherwise, or - if ldb < max(1, m) if transb == [OpN], and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if A == C and `(transa != [OpN])
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if transa is not one of [OpN], [OpT] and [OpC], or if transb is not one of [OpN], [OpT] and [OpC], or if lda < max(1, m) when transa == [OpN], and lda < max(1, n) otherwise, or if ldb < max(1, m) if transb == [OpN], and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if A == C and `(transa != [OpN])
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgeam.
 func (h Handle) Zgeam(transa Operation, transb Operation, m int32, n int32, alpha *Complex128, a driver.DevicePtr, lda int32, beta *Complex128, b driver.DevicePtr, ldb int32, c driver.DevicePtr, ldc int32) error {
@@ -12741,18 +12836,19 @@ func (h Handle) Zgeam(transa Operation, transb Operation, m int32, n int32, alph
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if transa is not one of [OpN], [OpT] and [OpC], or - if transb is not one of [OpN], [OpT] and [OpC], or - if lda < max(1, m) when transa == [OpN], and lda < max(1, n) otherwise, or - if ldb < max(1, m) if transb == [OpN], and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if A == C and `(transa != [OpN])
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if transa is not one of [OpN], [OpT] and [OpC], or if transb is not one of [OpN], [OpT] and [OpC], or if lda < max(1, m) when transa == [OpN], and lda < max(1, n) otherwise, or if ldb < max(1, m) if transb == [OpN], and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if A == C and `(transa != [OpN])
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgeam_64.
 func (h Handle) Zgeam64(transa Operation, transb Operation, m int64, n int64, alpha *Complex128, a driver.DevicePtr, lda int64, beta *Complex128, b driver.DevicePtr, ldb int64, c driver.DevicePtr, ldc int64) error {
 	return zgeam64(h, transa, transb, m, n, alpha, a, lda, beta, b, ldb, c, ldc)
 }
 
-// ZgelsBatched Aarray is an array of pointers to matrices stored in column-major format.
+// ZgelsBatched solves a batch of overdetermined linear systems in the least-squares sense.
+//
+// Aarray is an array of pointers to matrices stored in column-major format.
 //
 // Carray is an array of pointers to matrices stored in column-major format.
 // This function find the least squares solution of a batch of overdetermined systems: it solves the least squares problem described as follows :
@@ -12771,16 +12867,15 @@ func (h Handle) Zgeam64(transa Operation, transb Operation, m int64, n int64, al
 //   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
 //   - carray: Array of pointers to < type > array, with each array of dim. m x nrhs with ldc >= max(1, m) if trans == [OpN], and n x nrhs with lda >= max(1, n) otherwise (not supported currently). Matrices Carray [i] should not overlap; otherwise, behavior is undefined
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray [i]
-//   - info: If info == 0 the parameters passed to the function are validIf info < 0 the parameter in position -info is invalid
-//   - devInfoArray: Optional array of integers of dimension batchsize.If non-null, every element of devInfoArray [i] == V has the following meaning:V == 0 : the i-th problem was successfully solvedV > 0 : the V-th diagonal element of the Aarray [i] is zero. Aarray [i] does not have full rank
+//   - info: If info == 0 the parameters passed to the function are valid. If info < 0 the parameter in position -info is invalid
+//   - devInfoArray: Optional array of integers of dimension batchsize. If non-null, every element of devInfoArray [i] == V has the following meaning: V == 0 : the i-th problem was successfully solved. V > 0 : the V-th diagonal element of the Aarray [i] is zero. Aarray [i] does not have full rank
 //   - batchSize: Number of pointers contained in Aarray and Carray
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or nrhs < 0 or batchSize < 0 or - if lda < max(1, m) or ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or nrhs < 0 or batchSize < 0 or if lda < max(1, m) or ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
 //   - [ErrNotSupported]: The parameters m <n or trans is different from non-transpose.
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgelsBatched.
 func (h Handle) ZgelsBatched(trans Operation, m int32, n int32, nrhs int32, aarray driver.DevicePtr, lda int32, carray driver.DevicePtr, ldc int32, info *int32, devInfoArray driver.DevicePtr, batchSize int32) error {
@@ -12811,12 +12906,11 @@ func (h Handle) ZgelsBatched(trans Operation, m int32, n int32, nrhs int32, aarr
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: In the case of [Handle.Hgemm] the device does not support math in half precision.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgemm_v2.
 func (h Handle) Zgemm(transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex128, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, beta *Complex128, c driver.DevicePtr, ldc int32) error {
@@ -12831,7 +12925,6 @@ func (h Handle) Zgemm(transa Operation, transb Operation, m int32, n int32, k in
 // and op(B) is defined similarly for matrix B .
 //
 // Note: These 2 routines are only supported on GPUs with architecture capabilities equal to or greater than 5.0
-// The possible error values returned by this function and their meanings are listed in the following table:
 // For references please refer to NETLIB documentation:
 // cgemm(), zgemm()
 //
@@ -12851,12 +12944,11 @@ func (h Handle) Zgemm(transa Operation, transb Operation, m int32, n int32, k in
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device has a compute capabilites lower than 5.0.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cublasZgemm3m.
 func (h Handle) Zgemm3m(transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex128, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, beta *Complex128, c driver.DevicePtr, ldc int32) error {
@@ -12871,7 +12963,6 @@ func (h Handle) Zgemm3m(transa Operation, transb Operation, m int32, n int32, k 
 // and op(B) is defined similarly for matrix B .
 //
 // Note: These 2 routines are only supported on GPUs with architecture capabilities equal to or greater than 5.0
-// The possible error values returned by this function and their meanings are listed in the following table:
 // For references please refer to NETLIB documentation:
 // cgemm(), zgemm()
 //
@@ -12891,12 +12982,11 @@ func (h Handle) Zgemm3m(transa Operation, transb Operation, m int32, n int32, k 
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device has a compute capabilites lower than 5.0.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cublasZgemm3m_64.
 func (h Handle) Zgemm3m64(transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex128, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, beta *Complex128, c driver.DevicePtr, ldc int64) error {
@@ -12927,12 +13017,11 @@ func (h Handle) Zgemm3m64(transa Operation, transb Operation, m int64, n int64, 
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: In the case of [Handle.Hgemm] the device does not support math in half precision.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgemm_v2_64.
 func (h Handle) Zgemm64(transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex128, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, beta *Complex128, c driver.DevicePtr, ldc int64) error {
@@ -12950,6 +13039,7 @@ func (h Handle) Zgemm64(transa Operation, transb Operation, m int64, n int64, k 
 // Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // [Handle.ZgemmBatched64] takes 64-bit sizes.
 //
@@ -12959,21 +13049,20 @@ func (h Handle) Zgemm64(transa Operation, transb Operation, m int64, n int64, k 
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.HgemmBatched] is only supported for GPU with architecture capabilities equal or greater than 5.3
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgemmBatched.
 func (h Handle) ZgemmBatched(transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex128, aarray driver.DevicePtr, lda int32, barray driver.DevicePtr, ldb int32, beta *Complex128, carray driver.DevicePtr, ldc int32, batchCount int32) error {
@@ -12991,6 +13080,7 @@ func (h Handle) ZgemmBatched(transa Operation, transb Operation, m int32, n int3
 // Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // It is [Handle.ZgemmBatched] with int64 sizes and strides.
 //
@@ -13000,21 +13090,20 @@ func (h Handle) ZgemmBatched(transa Operation, transb Operation, m int32, n int3
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.HgemmBatched] is only supported for GPU with architecture capabilities equal or greater than 5.3
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgemmBatched_64.
 func (h Handle) ZgemmBatched64(transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex128, aarray driver.DevicePtr, lda int64, barray driver.DevicePtr, ldb int64, beta *Complex128, carray driver.DevicePtr, ldc int64, batchCount int64) error {
@@ -13054,12 +13143,11 @@ func (h Handle) ZgemmBatched64(transa Operation, transb Operation, m int64, n in
 //   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.HgemmStridedBatched] is only supported for GPU with architecture capabilities equal or greater than 5.3
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgemmStridedBatched.
 func (h Handle) ZgemmStridedBatched(transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex128, a driver.DevicePtr, lda int32, strideA int64, b driver.DevicePtr, ldb int32, strideB int64, beta *Complex128, c driver.DevicePtr, ldc int32, strideC int64, batchCount int32) error {
@@ -13099,12 +13187,11 @@ func (h Handle) ZgemmStridedBatched(transa Operation, transb Operation, m int32,
 //   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: [Handle.HgemmStridedBatched] is only supported for GPU with architecture capabilities equal or greater than 5.3
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or k < 0, or - if transa and transb are not one of [OpN], [OpC], [OpT], or - if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or - if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or - if ldc < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or k < 0, or if transa and transb are not one of [OpN], [OpC], [OpT], or if lda < max(1, m) when transa == [OpN] and lda < max(1, k) otherwise, or if ldb < max(1, k) when transb == [OpN] and ldb < max(1, n) otherwise, or if ldc < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgemmStridedBatched_64.
 func (h Handle) ZgemmStridedBatched64(transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex128, a driver.DevicePtr, lda int64, strideA int64, b driver.DevicePtr, ldb int64, strideB int64, beta *Complex128, c driver.DevicePtr, ldc int64, strideC int64, batchCount int64) error {
@@ -13132,11 +13219,10 @@ func (h Handle) ZgemmStridedBatched64(transa Operation, transb Operation, m int6
 //   - y: < type > vector at least (1 + (m - 1) * abs(incy)) elements if trans == [OpN] and at least (1 + (n - 1) * abs(incy)) elements otherwise
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: The parameters m < 0 or n < 0, or incx == 0 or incy == 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgemv_v2.
 func (h Handle) Zgemv(trans Operation, m int32, n int32, alpha *Complex128, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32, beta *Complex128, y driver.DevicePtr, incy int32) error {
@@ -13164,11 +13250,10 @@ func (h Handle) Zgemv(trans Operation, m int32, n int32, alpha *Complex128, a dr
 //   - y: < type > vector at least (1 + (m - 1) * abs(incy)) elements if trans == [OpN] and at least (1 + (n - 1) * abs(incy)) elements otherwise
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: The parameters m < 0 or n < 0, or incx == 0 or incy == 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgemv_v2_64.
 func (h Handle) Zgemv64(trans Operation, m int64, n int64, alpha *Complex128, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64, beta *Complex128, y driver.DevicePtr, incy int64) error {
@@ -13185,6 +13270,7 @@ func (h Handle) Zgemv64(trans Operation, m int64, n int64, alpha *Complex128, a 
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // [Handle.ZgemvBatched64] takes 64-bit sizes.
 //
@@ -13192,20 +13278,19 @@ func (h Handle) Zgemv64(trans Operation, m int64, n int64, alpha *Complex128, a 
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - incy: Stride of each one-dimensional array y [i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgemvBatched.
 func (h Handle) ZgemvBatched(trans Operation, m int32, n int32, alpha *Complex128, aarray driver.DevicePtr, lda int32, xarray driver.DevicePtr, incx int32, beta *Complex128, yarray driver.DevicePtr, incy int32, batchCount int32) error {
@@ -13222,6 +13307,7 @@ func (h Handle) ZgemvBatched(trans Operation, m int32, n int32, alpha *Complex12
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
+//   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //
 // It is [Handle.ZgemvBatched] with int64 sizes and strides.
 //
@@ -13229,20 +13315,19 @@ func (h Handle) ZgemvBatched(trans Operation, m int32, n int32, alpha *Complex12
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - incy: Stride of each one-dimensional array y [i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgemvBatched_64.
 func (h Handle) ZgemvBatched64(trans Operation, m int64, n int64, alpha *Complex128, aarray driver.DevicePtr, lda int64, xarray driver.DevicePtr, incx int64, beta *Complex128, yarray driver.DevicePtr, incy int64, batchCount int64) error {
@@ -13279,11 +13364,10 @@ func (h Handle) ZgemvBatched64(trans Operation, m int64, n int64, alpha *Complex
 //   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgemvStridedBatched.
 func (h Handle) ZgemvStridedBatched(trans Operation, m int32, n int32, alpha *Complex128, a driver.DevicePtr, lda int32, strideA int64, x driver.DevicePtr, incx int32, stridex int64, beta *Complex128, y driver.DevicePtr, incy int32, stridey int64, batchCount int32) error {
@@ -13320,18 +13404,19 @@ func (h Handle) ZgemvStridedBatched(trans Operation, m int32, n int32, alpha *Co
 //   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: m < 0, n < 0, or batchCount < 0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgemvStridedBatched_64.
 func (h Handle) ZgemvStridedBatched64(trans Operation, m int64, n int64, alpha *Complex128, a driver.DevicePtr, lda int64, strideA int64, x driver.DevicePtr, incx int64, stridex int64, beta *Complex128, y driver.DevicePtr, incy int64, stridey int64, batchCount int64) error {
 	return zgemvStridedBatched64(h, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount)
 }
 
-// ZgeqrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
+// ZgeqrfBatched computes the QR factorization of each matrix in a batch.
+//
+// Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
 //
 // TauArray is an array of pointers to vectors of dimension of at least max (1, min(m, n).
 // This function performs the QR factorization of each Aarray [i] for i = 0, ...,batchSize-1 using Householder reflections. Each matrix Q [i] is represented as a product of elementary reflectors and is stored in the lower part of each Aarray [i] as follows :
@@ -13348,14 +13433,13 @@ func (h Handle) ZgemvStridedBatched64(trans Operation, m int64, n int64, alpha *
 //   - aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
 //   - tauArray: Array of pointers to < type > vector, with each vector of dim. max(1 ,min(m, n))
-//   - info: If info == 0, the parameters passed to the function are validIf info < 0, the parameter in position -info is invalid
+//   - info: If info == 0, the parameters passed to the function are valid. If info < 0, the parameter in position -info is invalid
 //   - batchSize: Number of pointers contained in Aarray
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0 or batchSize < 0, or - if lda < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0 or batchSize < 0, or if lda < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgeqrfBatched.
 func (h Handle) ZgeqrfBatched(m int32, n int32, aarray driver.DevicePtr, lda int32, tauArray driver.DevicePtr, info *int32, batchSize int32) error {
@@ -13381,11 +13465,10 @@ func (h Handle) ZgeqrfBatched(m int32, n int32, aarray driver.DevicePtr, lda int
 //   - a: < type > array of dimension lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if incx == 0 or incy == 0, or - if alpha is NULL, or - if lda < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if incx == 0 or incy == 0, or if alpha is NULL, or if lda < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgerc_v2.
 func (h Handle) Zgerc(m int32, n int32, alpha *Complex128, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32, a driver.DevicePtr, lda int32) error {
@@ -13411,11 +13494,10 @@ func (h Handle) Zgerc(m int32, n int32, alpha *Complex128, x driver.DevicePtr, i
 //   - a: < type > array of dimension lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if incx == 0 or incy == 0, or - if alpha is NULL, or - if lda < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if incx == 0 or incy == 0, or if alpha is NULL, or if lda < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgerc_v2_64.
 func (h Handle) Zgerc64(m int64, n int64, alpha *Complex128, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64, a driver.DevicePtr, lda int64) error {
@@ -13441,11 +13523,10 @@ func (h Handle) Zgerc64(m int64, n int64, alpha *Complex128, x driver.DevicePtr,
 //   - a: < type > array of dimension lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if incx == 0 or incy == 0, or - if alpha is NULL, or - if lda < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if incx == 0 or incy == 0, or if alpha is NULL, or if lda < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgeru_v2.
 func (h Handle) Zgeru(m int32, n int32, alpha *Complex128, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32, a driver.DevicePtr, lda int32) error {
@@ -13471,18 +13552,19 @@ func (h Handle) Zgeru(m int32, n int32, alpha *Complex128, x driver.DevicePtr, i
 //   - a: < type > array of dimension lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if incx == 0 or incy == 0, or - if alpha is NULL, or - if lda < max(1, m)
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if incx == 0 or incy == 0, or if alpha is NULL, or if lda < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgeru_v2_64.
 func (h Handle) Zgeru64(m int64, n int64, alpha *Complex128, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64, a driver.DevicePtr, lda int64) error {
 	return zgeru64(h, m, n, alpha, x, incx, y, incy, a, lda)
 }
 
-// ZgetrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
+// ZgetrfBatched computes the LU factorization of each matrix in a batch.
+//
+// Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
 //
 // This function performs the LU factorization of each Aarray [i] for i = 0, …, batchSize-1 by the following equation
 // P*Aarray [i]=L*U
@@ -13501,18 +13583,19 @@ func (h Handle) Zgeru64(m int64, n int64, alpha *Complex128, x driver.DevicePtr,
 //   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
 //   - batchSize: Number of pointers contained in A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrInvalidValue]: The parameters n < 0 or batchSize < 0 or lda <0
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgetrfBatched.
 func (h Handle) ZgetrfBatched(n int32, a driver.DevicePtr, lda int32, p driver.DevicePtr, info driver.DevicePtr, batchSize int32) error {
 	return zgetrfBatched(h, n, a, lda, p, info, batchSize)
 }
 
-// ZgetriBatched Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
+// ZgetriBatched computes the inverse of each matrix in a batch from its LU factorization.
+//
+// Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
 //
 // This function performs the inversion of matrices A [i] for i = 0, …, batchSize-1.
 // Prior to calling cublasgetriBatched, the matrix A [i] must be factorized first using the routine cublasgetrfBatched. After the call of cublasgetrfBatched, the matrix pointing by Aarray [i] will contain the LU factors of the matrix A [i] and the vector pointing by (PivotArray+i) will contain the pivoting sequence.
@@ -13529,11 +13612,10 @@ func (h Handle) ZgetrfBatched(n int32, a driver.DevicePtr, lda int32, p driver.D
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray [i]
 //   - batchSize: Number of pointers contained in A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or lda < 0 or ldc < 0 or batchSize < 0, or - if lda < n or ldc < n
+//   - [ErrInvalidValue]: If n < 0 or lda < 0 or ldc < 0 or batchSize < 0, or if lda < n or ldc < n
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgetriBatched.
 func (h Handle) ZgetriBatched(n int32, a driver.DevicePtr, lda int32, p driver.DevicePtr, c driver.DevicePtr, ldc int32, info driver.DevicePtr, batchSize int32) error {
@@ -13560,14 +13642,13 @@ func (h Handle) ZgetriBatched(n int32, a driver.DevicePtr, lda int32, p driver.D
 //   - devIpiv: Array of size n x batchSize that contains the pivoting sequence of each factorization of Aarray [i] stored in a linear fashion. If devIpiv is NULL, pivoting for all Aarray [i] is ignored
 //   - barray: Array of pointers to < type > array, with each array of dim. n x nrhs with ldb >= max(1, n). Matrices Barray [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldb: Leading dimension of two-dimensional array used to store each solution matrix Barray [i]
-//   - info: If info == 0, the execution is successful.If info = -j, the j-th parameter had an illegal value
+//   - info: If info == 0, the execution is successful. If info = -j, the j-th parameter had an illegal value
 //   - batchSize: Number of pointers contained in A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or nrhs < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if lda < max(1, n), or - if ldb < max(1, n)
+//   - [ErrInvalidValue]: If n < 0 or nrhs < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if lda < max(1, n), or if ldb < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgetrsBatched.
 func (h Handle) ZgetrsBatched(trans Operation, n int32, nrhs int32, aarray driver.DevicePtr, lda int32, devIpiv driver.DevicePtr, barray driver.DevicePtr, ldb int32, info *int32, batchSize int32) error {
@@ -13596,11 +13677,10 @@ func (h Handle) ZgetrsBatched(trans Operation, n int32, nrhs int32, aarray drive
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < (1 + k), or - if alpha or beta are NULL
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < (1 + k), or if alpha or beta are NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZhbmv_v2.
 func (h Handle) Zhbmv(uplo FillMode, n int32, k int32, alpha *Complex128, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32, beta *Complex128, y driver.DevicePtr, incy int32) error {
@@ -13629,11 +13709,10 @@ func (h Handle) Zhbmv(uplo FillMode, n int32, k int32, alpha *Complex128, a driv
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < (1 + k), or - if alpha or beta are NULL
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < (1 + k), or if alpha or beta are NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZhbmv_v2_64.
 func (h Handle) Zhbmv64(uplo FillMode, n int64, k int64, alpha *Complex128, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64, beta *Complex128, y driver.DevicePtr, incy int64) error {
@@ -13662,11 +13741,10 @@ func (h Handle) Zhbmv64(uplo FillMode, n int64, k int64, alpha *Complex128, a dr
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if side is not one of [SideLeft] and [SideRight], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, m) when side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if side is not one of [SideLeft] and [SideRight], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, m) when side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZhemm_v2.
 func (h Handle) Zhemm(side SideMode, uplo FillMode, m int32, n int32, alpha *Complex128, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, beta *Complex128, c driver.DevicePtr, ldc int32) error {
@@ -13695,11 +13773,10 @@ func (h Handle) Zhemm(side SideMode, uplo FillMode, m int32, n int32, alpha *Com
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if side is not one of [SideLeft] and [SideRight], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, m) when side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if side is not one of [SideLeft] and [SideRight], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, m) when side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZhemm_v2_64.
 func (h Handle) Zhemm64(side SideMode, uplo FillMode, m int64, n int64, alpha *Complex128, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, beta *Complex128, c driver.DevicePtr, ldc int64) error {
@@ -13727,11 +13804,10 @@ func (h Handle) Zhemm64(side SideMode, uplo FillMode, m int64, n int64, alpha *C
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo != [FillModeLower] and uplo != [FillModeUpper], or - if lda < n
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo != [FillModeLower] and uplo != [FillModeUpper], or if lda < n
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZhemv_v2.
 func (h Handle) Zhemv(uplo FillMode, n int32, alpha *Complex128, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32, beta *Complex128, y driver.DevicePtr, incy int32) error {
@@ -13759,11 +13835,10 @@ func (h Handle) Zhemv(uplo FillMode, n int32, alpha *Complex128, a driver.Device
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo != [FillModeLower] and uplo != [FillModeUpper], or - if lda < n
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo != [FillModeLower] and uplo != [FillModeUpper], or if lda < n
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZhemv_v2_64.
 func (h Handle) Zhemv64(uplo FillMode, n int64, alpha *Complex128, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64, beta *Complex128, y driver.DevicePtr, incy int64) error {
@@ -13786,11 +13861,10 @@ func (h Handle) Zhemv64(uplo FillMode, n int64, alpha *Complex128, a driver.Devi
 //   - a: < type > array of dimensions lda x n, with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n), or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZher_v2.
 func (h Handle) Zher(uplo FillMode, n int32, alpha *float64, x driver.DevicePtr, incx int32, a driver.DevicePtr, lda int32) error {
@@ -13815,11 +13889,10 @@ func (h Handle) Zher(uplo FillMode, n int32, alpha *float64, x driver.DevicePtr,
 //   - a: < type > array of dimension lda x n with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n), or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZher2_v2.
 func (h Handle) Zher2(uplo FillMode, n int32, alpha *Complex128, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32, a driver.DevicePtr, lda int32) error {
@@ -13844,11 +13917,10 @@ func (h Handle) Zher2(uplo FillMode, n int32, alpha *Complex128, x driver.Device
 //   - a: < type > array of dimension lda x n with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n), or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZher2_v2_64.
 func (h Handle) Zher264(uplo FillMode, n int64, alpha *Complex128, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64, a driver.DevicePtr, lda int64) error {
@@ -13877,11 +13949,10 @@ func (h Handle) Zher264(uplo FillMode, n int64, alpha *Complex128, x driver.Devi
 //   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZher2k_v2.
 func (h Handle) Zher2k(uplo FillMode, trans Operation, n int32, k int32, alpha *Complex128, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, beta *float64, c driver.DevicePtr, ldc int32) error {
@@ -13910,11 +13981,10 @@ func (h Handle) Zher2k(uplo FillMode, trans Operation, n int32, k int32, alpha *
 //   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZher2k_v2_64.
 func (h Handle) Zher2k64(uplo FillMode, trans Operation, n int64, k int64, alpha *Complex128, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, beta *float64, c driver.DevicePtr, ldc int64) error {
@@ -13937,11 +14007,10 @@ func (h Handle) Zher2k64(uplo FillMode, trans Operation, n int64, k int64, alpha
 //   - a: < type > array of dimensions lda x n, with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n), or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZher_v2_64.
 func (h Handle) Zher64(uplo FillMode, n int64, alpha *float64, x driver.DevicePtr, incx int64, a driver.DevicePtr, lda int64) error {
@@ -13968,11 +14037,10 @@ func (h Handle) Zher64(uplo FillMode, n int64, alpha *float64, x driver.DevicePt
 //   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZherk_v2.
 func (h Handle) Zherk(uplo FillMode, trans Operation, n int32, k int32, alpha *float64, a driver.DevicePtr, lda int32, beta *float64, c driver.DevicePtr, ldc int32) error {
@@ -13999,11 +14067,10 @@ func (h Handle) Zherk(uplo FillMode, trans Operation, n int32, k int32, alpha *f
 //   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZherk_v2_64.
 func (h Handle) Zherk64(uplo FillMode, trans Operation, n int64, k int64, alpha *float64, a driver.DevicePtr, lda int64, beta *float64, c driver.DevicePtr, ldc int64) error {
@@ -14034,11 +14101,10 @@ func (h Handle) Zherk64(uplo FillMode, trans Operation, n int64, k int64, alpha 
 //   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZherkx.
 func (h Handle) Zherkx(uplo FillMode, trans Operation, n int32, k int32, alpha *Complex128, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, beta *float64, c driver.DevicePtr, ldc int32) error {
@@ -14069,11 +14135,10 @@ func (h Handle) Zherkx(uplo FillMode, trans Operation, n int32, k int32, alpha *
 //   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZherkx_64.
 func (h Handle) Zherkx64(uplo FillMode, trans Operation, n int64, k int64, alpha *Complex128, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, beta *float64, c driver.DevicePtr, ldc int64) error {
@@ -14100,11 +14165,10 @@ func (h Handle) Zherkx64(uplo FillMode, trans Operation, n int64, k int64, alpha
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo != [FillModeLower] and uplo != [FillModeUpper], or - if alpha or beta are NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo != [FillModeLower] and uplo != [FillModeUpper], or if alpha or beta are NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZhpmv_v2.
 func (h Handle) Zhpmv(uplo FillMode, n int32, alpha *Complex128, ap driver.DevicePtr, x driver.DevicePtr, incx int32, beta *Complex128, y driver.DevicePtr, incy int32) error {
@@ -14131,11 +14195,10 @@ func (h Handle) Zhpmv(uplo FillMode, n int32, alpha *Complex128, ap driver.Devic
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo != [FillModeLower] and uplo != [FillModeUpper], or - if alpha or beta are NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo != [FillModeLower] and uplo != [FillModeUpper], or if alpha or beta are NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZhpmv_v2_64.
 func (h Handle) Zhpmv64(uplo FillMode, n int64, alpha *Complex128, ap driver.DevicePtr, x driver.DevicePtr, incx int64, beta *Complex128, y driver.DevicePtr, incy int64) error {
@@ -14159,11 +14222,10 @@ func (h Handle) Zhpmv64(uplo FillMode, n int64, alpha *Complex128, ap driver.Dev
 //   - incx: Stride between consecutive elements of x
 //   - ap: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed and set to zero
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZhpr_v2.
 func (h Handle) Zhpr(uplo FillMode, n int32, alpha *float64, x driver.DevicePtr, incx int32, ap driver.DevicePtr) error {
@@ -14189,11 +14251,10 @@ func (h Handle) Zhpr(uplo FillMode, n int32, alpha *float64, x driver.DevicePtr,
 //   - incy: Stride between consecutive elements of y
 //   - ap: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed and set to zero
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZhpr2_v2.
 func (h Handle) Zhpr2(uplo FillMode, n int32, alpha *Complex128, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32, ap driver.DevicePtr) error {
@@ -14219,11 +14280,10 @@ func (h Handle) Zhpr2(uplo FillMode, n int32, alpha *Complex128, x driver.Device
 //   - incy: Stride between consecutive elements of y
 //   - ap: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed and set to zero
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZhpr2_v2_64.
 func (h Handle) Zhpr264(uplo FillMode, n int64, alpha *Complex128, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64, ap driver.DevicePtr) error {
@@ -14247,11 +14307,10 @@ func (h Handle) Zhpr264(uplo FillMode, n int64, alpha *Complex128, x driver.Devi
 //   - incx: Stride between consecutive elements of x
 //   - ap: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed and set to zero
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZhpr_v2_64.
 func (h Handle) Zhpr64(uplo FillMode, n int64, alpha *float64, x driver.DevicePtr, incx int64, ap driver.DevicePtr) error {
@@ -14269,14 +14328,13 @@ func (h Handle) Zhpr64(uplo FillMode, n int64, alpha *float64, x driver.DevicePt
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - ainv: Array of pointers to < type > array, with each array of dimension n*n with ldaInv >= max(1, n). Matrices Ainv [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldaInv: Leading dimension of two-dimensional array used to store each matrix Ainv [i]
-//   - info: Array of size batchSize that info [i] contains the information of inversion of A [i].If info [i] == 0, the execution is successful.If info [i] == k, then U(k, k) == 0. The U is exactly singular and the inversion failed
+//   - info: Array of size batchSize that info [i] contains the information of inversion of A [i]. If info [i] == 0, the execution is successful. If info [i] == k, then U(k, k) == 0. The U is exactly singular and the inversion failed
 //   - batchSize: Number of pointers contained in A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or lda < 0 or lda_inv < 0 or batchSize < 0, or - if lda < n or lda_inv < n, or - if n > 32
+//   - [ErrInvalidValue]: If n < 0 or lda < 0 or lda_inv < 0 or batchSize < 0, or if lda < n or lda_inv < n, or if n > 32
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZmatinvBatched.
 func (h Handle) ZmatinvBatched(n int32, a driver.DevicePtr, lda int32, ainv driver.DevicePtr, ldaInv int32, info driver.DevicePtr, batchSize int32) error {
@@ -14301,10 +14359,9 @@ func (h Handle) ZmatinvBatched(n int32, a driver.DevicePtr, lda int32, ainv driv
 //   - c: Cosine element of the rotation matrix
 //   - s: Sine element of the rotation matrix
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZrot_v2.
 func (h Handle) Zrot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32, c *float64, s *Complex128) error {
@@ -14329,10 +14386,9 @@ func (h Handle) Zrot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr
 //   - c: Cosine element of the rotation matrix
 //   - s: Sine element of the rotation matrix
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZrot_v2_64.
 func (h Handle) Zrot64(n int64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64, c *float64, s *Complex128) error {
@@ -14357,10 +14413,9 @@ func (h Handle) Zrot64(n int64, x driver.DevicePtr, incx int64, y driver.DeviceP
 //   - c: Cosine element of the rotation matrix
 //   - s: Sine element of the rotation matrix
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZrotg_v2.
 func (h Handle) Zrotg(a *Complex128, b *Complex128, c *float64, s *Complex128) error {
@@ -14380,10 +14435,9 @@ func (h Handle) Zrotg(a *Complex128, b *Complex128, c *float64, s *Complex128) e
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZscal_v2.
 func (h Handle) Zscal(n int32, alpha *Complex128, x driver.DevicePtr, incx int32) error {
@@ -14403,10 +14457,9 @@ func (h Handle) Zscal(n int32, alpha *Complex128, x driver.DevicePtr, incx int32
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZscal_v2_64.
 func (h Handle) Zscal64(n int64, alpha *Complex128, x driver.DevicePtr, incx int64) error {
@@ -14427,10 +14480,9 @@ func (h Handle) Zscal64(n int64, alpha *Complex128, x driver.DevicePtr, incx int
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZswap_v2.
 func (h Handle) Zswap(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32) error {
@@ -14451,10 +14503,9 @@ func (h Handle) Zswap(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZswap_v2_64.
 func (h Handle) Zswap64(n int64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64) error {
@@ -14483,11 +14534,10 @@ func (h Handle) Zswap64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 //   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if side is not one of [SideLeft] and [SideRight], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, m) when side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if side is not one of [SideLeft] and [SideRight], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, m) when side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsymm_v2.
 func (h Handle) Zsymm(side SideMode, uplo FillMode, m int32, n int32, alpha *Complex128, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, beta *Complex128, c driver.DevicePtr, ldc int32) error {
@@ -14516,11 +14566,10 @@ func (h Handle) Zsymm(side SideMode, uplo FillMode, m int32, n int32, alpha *Com
 //   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0 or n < 0, or - if side is not one of [SideLeft] and [SideRight], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, m) when side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if ldc < max(1, m), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If m < 0 or n < 0, or if side is not one of [SideLeft] and [SideRight], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, m) when side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if ldc < max(1, m), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsymm_v2_64.
 func (h Handle) Zsymm64(side SideMode, uplo FillMode, m int64, n int64, alpha *Complex128, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, beta *Complex128, c driver.DevicePtr, ldc int64) error {
@@ -14548,11 +14597,10 @@ func (h Handle) Zsymm64(side SideMode, uplo FillMode, m int64, n int64, alpha *C
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < n
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < n
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsymv_v2.
 func (h Handle) Zsymv(uplo FillMode, n int32, alpha *Complex128, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32, beta *Complex128, y driver.DevicePtr, incy int32) error {
@@ -14580,11 +14628,10 @@ func (h Handle) Zsymv(uplo FillMode, n int32, alpha *Complex128, a driver.Device
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < n
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < n
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsymv_v2_64.
 func (h Handle) Zsymv64(uplo FillMode, n int64, alpha *Complex128, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64, beta *Complex128, y driver.DevicePtr, incy int64) error {
@@ -14607,11 +14654,10 @@ func (h Handle) Zsymv64(uplo FillMode, n int64, alpha *Complex128, a driver.Devi
 //   - a: < type > array of dimensions lda x n, with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n), or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsyr_v2.
 func (h Handle) Zsyr(uplo FillMode, n int32, alpha *Complex128, x driver.DevicePtr, incx int32, a driver.DevicePtr, lda int32) error {
@@ -14636,11 +14682,10 @@ func (h Handle) Zsyr(uplo FillMode, n int32, alpha *Complex128, x driver.DeviceP
 //   - a: < type > array of dimensions lda x n, with lda >= max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha is NULL, or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha is NULL, or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsyr2_v2.
 func (h Handle) Zsyr2(uplo FillMode, n int32, alpha *Complex128, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32, a driver.DevicePtr, lda int32) error {
@@ -14665,11 +14710,10 @@ func (h Handle) Zsyr2(uplo FillMode, n int32, alpha *Complex128, x driver.Device
 //   - a: < type > array of dimensions lda x n, with lda >= max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0 or incy == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if alpha is NULL, or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0 or incy == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if alpha is NULL, or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsyr2_v2_64.
 func (h Handle) Zsyr264(uplo FillMode, n int64, alpha *Complex128, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64, a driver.DevicePtr, lda int64) error {
@@ -14698,11 +14742,10 @@ func (h Handle) Zsyr264(uplo FillMode, n int64, alpha *Complex128, x driver.Devi
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsyr2k_v2.
 func (h Handle) Zsyr2k(uplo FillMode, trans Operation, n int32, k int32, alpha *Complex128, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, beta *Complex128, c driver.DevicePtr, ldc int32) error {
@@ -14731,11 +14774,10 @@ func (h Handle) Zsyr2k(uplo FillMode, trans Operation, n int32, k int32, alpha *
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsyr2k_v2_64.
 func (h Handle) Zsyr2k64(uplo FillMode, trans Operation, n int64, k int64, alpha *Complex128, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, beta *Complex128, c driver.DevicePtr, ldc int64) error {
@@ -14758,11 +14800,10 @@ func (h Handle) Zsyr2k64(uplo FillMode, trans Operation, n int64, k int64, alpha
 //   - a: < type > array of dimensions lda x n, with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n), or - if alpha is NULL
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsyr_v2_64.
 func (h Handle) Zsyr64(uplo FillMode, n int64, alpha *Complex128, x driver.DevicePtr, incx int64, a driver.DevicePtr, lda int64) error {
@@ -14789,11 +14830,10 @@ func (h Handle) Zsyr64(uplo FillMode, n int64, alpha *Complex128, x driver.Devic
 //   - c: < type > array of dimension ldc x n, with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsyrk_v2.
 func (h Handle) Zsyrk(uplo FillMode, trans Operation, n int32, k int32, alpha *Complex128, a driver.DevicePtr, lda int32, beta *Complex128, c driver.DevicePtr, ldc int32) error {
@@ -14820,11 +14860,10 @@ func (h Handle) Zsyrk(uplo FillMode, trans Operation, n int32, k int32, alpha *C
 //   - c: < type > array of dimension ldc x n, with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsyrk_v2_64.
 func (h Handle) Zsyrk64(uplo FillMode, trans Operation, n int64, k int64, alpha *Complex128, a driver.DevicePtr, lda int64, beta *Complex128, c driver.DevicePtr, ldc int64) error {
@@ -14855,11 +14894,10 @@ func (h Handle) Zsyrk64(uplo FillMode, trans Operation, n int64, k int64, alpha 
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsyrkx.
 func (h Handle) Zsyrkx(uplo FillMode, trans Operation, n int32, k int32, alpha *Complex128, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, beta *Complex128, c driver.DevicePtr, ldc int32) error {
@@ -14890,11 +14928,10 @@ func (h Handle) Zsyrkx(uplo FillMode, trans Operation, n int32, k int32, alpha *
 //   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or - if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or - if ldc < max(1, n), or - if alpha or beta are NULL, or - if C is NULL when beta is not zero
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n) when trans == [OpN], and lda < max(1, k) otherwise, or if ldb < max(1, n) when trans == [OpN], and ldb < max(1, k) otherwise, or if ldc < max(1, n), or if alpha or beta are NULL, or if C is NULL when beta is not zero
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsyrkx_64.
 func (h Handle) Zsyrkx64(uplo FillMode, trans Operation, n int64, k int64, alpha *Complex128, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, beta *Complex128, c driver.DevicePtr, ldc int64) error {
@@ -14922,12 +14959,11 @@ func (h Handle) Zsyrkx64(uplo FillMode, trans Operation, n int64, k int64, alpha
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The allocation of internal scratch memory failed
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < (1 + k)
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < (1 + k)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtbmv_v2.
 func (h Handle) Ztbmv(uplo FillMode, trans Operation, diag DiagType, n int32, k int32, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32) error {
@@ -14955,12 +14991,11 @@ func (h Handle) Ztbmv(uplo FillMode, trans Operation, diag DiagType, n int32, k 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The allocation of internal scratch memory failed
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < (1 + k)
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < (1 + k)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtbmv_v2_64.
 func (h Handle) Ztbmv64(uplo FillMode, trans Operation, diag DiagType, n int64, k int64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64) error {
@@ -14990,11 +15025,10 @@ func (h Handle) Ztbmv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < (1 + k)
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < (1 + k)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtbsv_v2.
 func (h Handle) Ztbsv(uplo FillMode, trans Operation, diag DiagType, n int32, k int32, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32) error {
@@ -15024,11 +15058,10 @@ func (h Handle) Ztbsv(uplo FillMode, trans Operation, diag DiagType, n int32, k 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or k < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < (1 + k)
+//   - [ErrInvalidValue]: If n < 0 or k < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < (1 + k)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtbsv_v2_64.
 func (h Handle) Ztbsv64(uplo FillMode, trans Operation, diag DiagType, n int64, k int64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64) error {
@@ -15054,12 +15087,11 @@ func (h Handle) Ztbsv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The allocation of internal scratch memory failed
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit]
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit]
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtpmv_v2.
 func (h Handle) Ztpmv(uplo FillMode, trans Operation, diag DiagType, n int32, ap driver.DevicePtr, x driver.DevicePtr, incx int32) error {
@@ -15085,12 +15117,11 @@ func (h Handle) Ztpmv(uplo FillMode, trans Operation, diag DiagType, n int32, ap
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The allocation of internal scratch memory failed
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit]
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit]
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtpmv_v2_64.
 func (h Handle) Ztpmv64(uplo FillMode, trans Operation, diag DiagType, n int64, ap driver.DevicePtr, x driver.DevicePtr, incx int64) error {
@@ -15118,11 +15149,10 @@ func (h Handle) Ztpmv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit]
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit]
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtpsv_v2.
 func (h Handle) Ztpsv(uplo FillMode, trans Operation, diag DiagType, n int32, ap driver.DevicePtr, x driver.DevicePtr, incx int32) error {
@@ -15150,11 +15180,10 @@ func (h Handle) Ztpsv(uplo FillMode, trans Operation, diag DiagType, n int32, ap
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit]
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit]
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtpsv_v2_64.
 func (h Handle) Ztpsv64(uplo FillMode, trans Operation, diag DiagType, n int64, ap driver.DevicePtr, x driver.DevicePtr, incx int64) error {
@@ -15173,11 +15202,10 @@ func (h Handle) Ztpsv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 //   - a: < type > array of dimensions lda x n , with lda >= max(1, n). The opposite side of A is left untouched
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtpttr.
 func (h Handle) Ztpttr(uplo FillMode, n int32, ap driver.DevicePtr, a driver.DevicePtr, lda int32) error {
@@ -15209,11 +15237,10 @@ func (h Handle) Ztpttr(uplo FillMode, n int32, ap driver.DevicePtr, a driver.Dev
 //   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if side is not one of [SideLeft] and [SideRight], or - if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if ldc < max(1, m), or - if alpha is NULL
+//   - [ErrInvalidValue]: If m < 0, n < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if side is not one of [SideLeft] and [SideRight], or if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if ldc < max(1, m), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtrmm_v2.
 func (h Handle) Ztrmm(side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *Complex128, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, c driver.DevicePtr, ldc int32) error {
@@ -15245,11 +15272,10 @@ func (h Handle) Ztrmm(side SideMode, uplo FillMode, trans Operation, diag DiagTy
 //   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if side is not one of [SideLeft] and [SideRight], or - if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if ldc < max(1, m), or - if alpha is NULL
+//   - [ErrInvalidValue]: If m < 0, n < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if side is not one of [SideLeft] and [SideRight], or if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if ldc < max(1, m), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtrmm_v2_64.
 func (h Handle) Ztrmm64(side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *Complex128, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, c driver.DevicePtr, ldc int64) error {
@@ -15274,12 +15300,11 @@ func (h Handle) Ztrmm64(side SideMode, uplo FillMode, trans Operation, diag Diag
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The allocation of internal scratch memory failed
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtrmv_v2.
 func (h Handle) Ztrmv(uplo FillMode, trans Operation, diag DiagType, n int32, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32) error {
@@ -15304,12 +15329,11 @@ func (h Handle) Ztrmv(uplo FillMode, trans Operation, diag DiagType, n int32, a 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The allocation of internal scratch memory failed
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtrmv_v2_64.
 func (h Handle) Ztrmv64(uplo FillMode, trans Operation, diag DiagType, n int64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64) error {
@@ -15340,11 +15364,10 @@ func (h Handle) Ztrmv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 //   - b: < type > array. It has dimensions ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if side is not one of [SideLeft] and [SideRight], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if alpha is NULL
+//   - [ErrInvalidValue]: If m < 0, n < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if side is not one of [SideLeft] and [SideRight], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtrsm_v2.
 func (h Handle) Ztrsm(side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *Complex128, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32) error {
@@ -15375,11 +15398,10 @@ func (h Handle) Ztrsm(side SideMode, uplo FillMode, trans Operation, diag DiagTy
 //   - b: < type > array. It has dimensions ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if side is not one of [SideLeft] and [SideRight], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m), or - if alpha is NULL
+//   - [ErrInvalidValue]: If m < 0, n < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if side is not one of [SideLeft] and [SideRight], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m), or if alpha is NULL
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtrsm_v2_64.
 func (h Handle) Ztrsm64(side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *Complex128, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64) error {
@@ -15413,11 +15435,10 @@ func (h Handle) Ztrsm64(side SideMode, uplo FillMode, trans Operation, diag Diag
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
 //   - batchCount: Number of pointers contained in A and B
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if side is not one of [SideLeft] and [SideRight], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m)
+//   - [ErrInvalidValue]: If m < 0, n < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if side is not one of [SideLeft] and [SideRight], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtrsmBatched.
 func (h Handle) ZtrsmBatched(side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *Complex128, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, batchCount int32) error {
@@ -15451,11 +15472,10 @@ func (h Handle) ZtrsmBatched(side SideMode, uplo FillMode, trans Operation, diag
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
 //   - batchCount: Number of pointers contained in A and B
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If m < 0, n < 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if side is not one of [SideLeft] and [SideRight], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or - if ldb < max(1, m)
+//   - [ErrInvalidValue]: If m < 0, n < 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if side is not one of [SideLeft] and [SideRight], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, m) if side == [SideLeft], and lda < max(1, n) otherwise, or if ldb < max(1, m)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtrsmBatched_64.
 func (h Handle) ZtrsmBatched64(side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *Complex128, a driver.DevicePtr, lda int64, b driver.DevicePtr, ldb int64, batchCount int64) error {
@@ -15482,11 +15502,10 @@ func (h Handle) ZtrsmBatched64(side SideMode, uplo FillMode, trans Operation, di
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtrsv_v2.
 func (h Handle) Ztrsv(uplo FillMode, trans Operation, diag DiagType, n int32, a driver.DevicePtr, lda int32, x driver.DevicePtr, incx int32) error {
@@ -15513,11 +15532,10 @@ func (h Handle) Ztrsv(uplo FillMode, trans Operation, diag DiagType, n int32, a 
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0, or - if incx == 0, or - if trans is not one of [OpN], [OpT] and [OpC], or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if diag is not one of [DiagUnit] and [DiagNonUnit], or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0, or if incx == 0, or if trans is not one of [OpN], [OpT] and [OpC], or if uplo is not one of [FillModeLower] and [FillModeUpper], or if diag is not one of [DiagUnit] and [DiagNonUnit], or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtrsv_v2_64.
 func (h Handle) Ztrsv64(uplo FillMode, trans Operation, diag DiagType, n int64, a driver.DevicePtr, lda int64, x driver.DevicePtr, incx int64) error {
@@ -15536,11 +15554,10 @@ func (h Handle) Ztrsv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - ap: < type > array with A stored in packed format
 //
-// Returns:
+// Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: - If n < 0 or - if uplo is not one of [FillModeLower] and [FillModeUpper], or - if lda < max(1, n)
+//   - [ErrInvalidValue]: If n < 0 or if uplo is not one of [FillModeLower] and [FillModeUpper], or if lda < max(1, n)
 //   - [ErrNotInitialized]: The library was not initialized
-//   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtrttp.
 func (h Handle) Ztrttp(uplo FillMode, n int32, a driver.DevicePtr, lda int32, ap driver.DevicePtr) error {

@@ -204,8 +204,8 @@ func TestMatmul(t *testing.T) {
 				al += 1
 			}
 			if err := h.Matmul(desc,
-				uintptr(unsafe.Pointer(&al)), ad, aDesc, bd, bDesc,
-				uintptr(unsafe.Pointer(&be)), cd, cDesc, dd, dDesc,
+				cublaslt.Float32Scalar(al), ad, aDesc, bd, bDesc,
+				cublaslt.Float32Scalar(be), cd, cDesc, dd, dDesc,
 				nil, 0, 0, 0); err != nil {
 				t.Fatalf("Matmul: %v", err)
 			}

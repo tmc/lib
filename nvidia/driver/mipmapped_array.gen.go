@@ -8,6 +8,14 @@ package driver
 //
 // See also: [NewMipmappedArray], [MipmappedArray.Level], [NewArray], cudaFreeMipmappedArray
 //
+// Errors:
+//   - [ErrArrayIsMapped]
+//   - [ErrContextIsDestroyed]
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
+//
 // Wraps cuMipmappedArrayDestroy.
 func (m MipmappedArray) Destroy() error {
 	return mipmappedArrayDestroy(m)
@@ -21,6 +29,13 @@ func (m MipmappedArray) Destroy() error {
 // See also: [NewMipmappedArray], [MipmappedArray.Destroy], [NewArray], cudaGetMipmappedArrayLevel
 //
 //   - level: Mipmap level
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuMipmappedArrayGetLevel.
 func (m MipmappedArray) Level(level uint32) (Array, error) {
@@ -38,6 +53,9 @@ func (m MipmappedArray) Level(level uint32) (Array, error) {
 //
 //   - device: Device to get the memory requirements for
 //
+// Errors:
+//   - [ErrInvalidValue]
+//
 // Wraps cuMipmappedArrayGetMemoryRequirements.
 func (m MipmappedArray) MemoryRequirements(device Device) (ArrayMemoryRequirements, error) {
 	return mipmappedArrayGetMemoryRequirements(m, device)
@@ -50,6 +68,9 @@ func (m MipmappedArray) MemoryRequirements(device Device) (ArrayMemoryRequiremen
 //
 // See also: [Array.SparseProperties], [Stream.MemMapArrayAsync]
 //
+// Errors:
+//   - [ErrInvalidValue]
+//
 // Wraps cuMipmappedArrayGetSparseProperties.
 func (m MipmappedArray) SparseProperties() (ArraySparseProperties, error) {
 	return mipmappedArrayGetSparseProperties(m)
@@ -60,12 +81,25 @@ func (m MipmappedArray) SparseProperties() (ArraySparseProperties, error) {
 // Creates a CUDA mipmapped array according to the [Array3dDescriptor] structure pMipmappedArrayDesc and returns a handle to the new CUDA mipmapped array in *pHandle. numMipmapLevels specifies the number of mipmap levels to be allocated. This value is clamped to the range [1, 1 + floor(log2(max(width, height, depth)))].
 // The [Array3dDescriptor] is defined as:
 // where:
+//   - Width, Height, and Depth are the width, height, and depth of the CUDA array (in elements); the following types of CUDA arrays can be allocated: A 1D mipmapped array is allocated if Height and Depth extents are both zero. A 2D mipmapped array is allocated if only Depth extent is zero. A 3D mipmapped array is allocated if all three extents are non-zero. A 1D layered CUDA mipmapped array is allocated if only Height is zero and the CUDA_ARRAY3D_LAYERED flag is set. Each layer is a 1D array. The number of layers is determined by the depth extent. A 2D layered CUDA mipmapped array is allocated if all three extents are non-zero and the CUDA_ARRAY3D_LAYERED flag is set. Each layer is a 2D array. The number of layers is determined by the depth extent. A cubemap CUDA mipmapped array is allocated if all three extents are non-zero and the CUDA_ARRAY3D_CUBEMAP flag is set. Width must be equal to Height, and Depth must be six. A cubemap is a special type of 2D layered CUDA array, where the six layers represent the six faces of a cube. The order of the six layers in memory is the same as that listed in [ArrayCubemapFace]. A cubemap layered CUDA mipmapped array is allocated if all three extents are non-zero, and both, CUDA_ARRAY3D_CUBEMAP and CUDA_ARRAY3D_LAYERED flags are set. Width must be equal to Height, and Depth must be a multiple of six. A cubemap layered CUDA array is a special type of 2D layered CUDA array that consists of a collection of cubemaps. The first six layers represent the first cubemap, the next six layers form the second cubemap, and so on.
+//   - Format specifies the format of the elements; [ArrayFormat] is defined as:
+//   - NumChannels specifies the number of packed components per CUDA array element; it may be 1, 2, or 4;
+//   - Flags may be set to CUDA_ARRAY3D_LAYERED to enable creation of layered CUDA mipmapped arrays. If this flag is set, Depth specifies the number of layers, not the depth of a 3D array. CUDA_ARRAY3D_SURFACE_LDST to enable surface references to be bound to individual mipmap levels of the CUDA mipmapped array. If this flag is not set, [SurfRef.SetArray] will fail when attempting to bind a mipmap level of the CUDA mipmapped array to a surface reference. CUDA_ARRAY3D_CUBEMAP to enable creation of mipmapped cubemaps. If this flag is set, Width must be equal to Height, and Depth must be six. If the CUDA_ARRAY3D_LAYERED flag is also set, then Depth must be a multiple of six. CUDA_ARRAY3D_TEXTURE_GATHER to indicate that the CUDA mipmapped array will be used for texture gather. Texture gather can only be performed on 2D CUDA mipmapped arrays.
+//
 // Width, Height and Depth must meet certain size requirements as listed in the following table. All values are specified in elements. Note that for brevity’s sake, the full name of the device attribute is not specified. For ex., TEXTURE1D_MIPMAPPED_WIDTH refers to the device attribute [DevAttrMaximumTexture1dMipmappedWidth].
 //
 // See also: [MipmappedArray.Destroy], [MipmappedArray.Level], [NewArray], cudaMallocMipmappedArray
 //
 //   - pMipmappedArrayDesc: mipmapped array descriptor
 //   - numMipmapLevels: Number of mipmap levels
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrOutOfMemory]
+//   - [ErrUnknown]
 //
 // Wraps cuMipmappedArrayCreate.
 func NewMipmappedArray(pMipmappedArrayDesc *Array3dDescriptor, numMipmapLevels uint32) (MipmappedArray, error) {

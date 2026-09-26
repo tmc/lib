@@ -15,13 +15,13 @@ var (
 
 // fnLLA2ACalcSlots calls ncclLLA2ACalcSlots.
 func fnLLA2ACalcSlots(a0 int32, a1 int32) int32 {
-	r1, _ := ffiCall2(symLLA2ACalcSlots, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symLLA2ACalcSlots, 0, 0xf, uintptr(a0), uintptr(a1))
 	return int32(r1)
 }
 
 // fnLLA2ACreateRequirement calls ncclLLA2ACreateRequirement.
 func fnLLA2ACreateRequirement(a0 int32, a1 int32, a2 *LLA2AHandle, a3 *DevResourceRequirements) Result {
-	r1, _ := ffiCall4(symLLA2ACreateRequirement, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symLLA2ACreateRequirement, 0, 0xf, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 

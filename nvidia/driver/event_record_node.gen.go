@@ -16,6 +16,11 @@ type EventRecordNode struct {
 //
 // See also: [Graph.AddEventRecordNode], [EventRecordNode.SetEvent], [EventWaitNode.Event], [Event.RecordWithFlags], [Stream.WaitEvent]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuGraphEventRecordNodeGetEvent.
 func (e EventRecordNode) Event() (Event, error) {
 	return graphEventRecordNodeGetEvent(e.GraphNode)
@@ -30,6 +35,11 @@ func (e EventRecordNode) Event() (Event, error) {
 // See also: [GraphNode.SetParams], [Graph.AddEventRecordNode], [EventRecordNode.Event], [EventWaitNode.SetEvent], [Event.RecordWithFlags], [Stream.WaitEvent]
 //
 //   - event: Event to use
+//
+// Errors:
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrOutOfMemory]
 //
 // Wraps cuGraphEventRecordNodeSetEvent.
 func (e EventRecordNode) SetEvent(event Event) error {

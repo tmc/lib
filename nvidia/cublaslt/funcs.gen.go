@@ -30,7 +30,7 @@ var (
 	symLoggerSetFile                    uintptr
 	symLoggerSetLevel                   uintptr
 	symLoggerSetMask                    uintptr
-	fnmatmul                            func(Handle, MatmulDesc, uintptr, uintptr, MatrixLayout, uintptr, MatrixLayout, uintptr, uintptr, MatrixLayout, uintptr, MatrixLayout, *MatmulAlgo, uintptr, uint, driver.Stream) Result
+	fnmatmul                            func(Handle, MatmulDesc, unsafe.Pointer, uintptr, MatrixLayout, uintptr, MatrixLayout, unsafe.Pointer, uintptr, MatrixLayout, uintptr, MatrixLayout, *MatmulAlgo, uintptr, uint, driver.Stream) Result
 	symMatmulAlgoCapGetAttribute        uintptr
 	symmatmulAlgoCheck                  uintptr
 	symMatmulAlgoConfigGetAttribute     uintptr
@@ -53,7 +53,7 @@ var (
 	symmatrixLayoutGetAttribute         uintptr
 	symmatrixLayoutInit_internal        uintptr
 	symmatrixLayoutSetAttribute         uintptr
-	fnmatrixTransform                   func(Handle, MatrixTransformDesc, uintptr, uintptr, MatrixLayout, uintptr, uintptr, MatrixLayout, uintptr, MatrixLayout, driver.Stream) Result
+	fnmatrixTransform                   func(Handle, MatrixTransformDesc, unsafe.Pointer, uintptr, MatrixLayout, unsafe.Pointer, uintptr, MatrixLayout, uintptr, MatrixLayout, driver.Stream) Result
 	symmatrixTransformDescCreate        uintptr
 	symmatrixTransformDescDestroy       uintptr
 	symmatrixTransformDescGetAttribute  uintptr
@@ -61,13 +61,15 @@ var (
 	symmatrixTransformDescSetAttribute  uintptr
 )
 
-// ffiCall0 through ffiCall10 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+// The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
 //
 // Bit i of floatMask marks argument word i as a floating-point bit
 // pattern, which the C ABI passes in a different register file from the
-// integer and pointer words. Each returns the first integer result
-// register and the first floating-point one; a caller reads whichever the
-// C function sets.
+// integer and pointer words. Bits 2i and 2i+1 of widths give the size of
+// argument word i as a ffi.Width code, which places a narrow argument
+// on the stack where the C ABI expects it. Each funnel returns the first
+// integer result register and the first floating-point one; a caller
+// reads whichever the C function sets.
 //
 // The //go:uintptrescapes directive is what makes a Go pointer safe to
 // pass: a pointer converted to uintptr in one of these argument lists is
@@ -97,61 +99,6 @@ func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
 }
 
 //go:uintptrescapes
-func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr) {
-	var args [ffi.MaxArgs]uintptr
-	args[0] = a0
-	args[1] = a1
-	args[2] = a2
-	return ffi.CallFloat(fn, 3, &args, floatMask)
-}
-
-//go:uintptrescapes
-func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
-	var args [ffi.MaxArgs]uintptr
-	args[0] = a0
-	args[1] = a1
-	args[2] = a2
-	args[3] = a3
-	return ffi.CallFloat(fn, 4, &args, floatMask)
-}
-
-//go:uintptrescapes
-func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
-	var args [ffi.MaxArgs]uintptr
-	args[0] = a0
-	args[1] = a1
-	args[2] = a2
-	args[3] = a3
-	args[4] = a4
-	return ffi.CallFloat(fn, 5, &args, floatMask)
-}
-
-//go:uintptrescapes
-func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
-	var args [ffi.MaxArgs]uintptr
-	args[0] = a0
-	args[1] = a1
-	args[2] = a2
-	args[3] = a3
-	args[4] = a4
-	args[5] = a5
-	return ffi.CallFloat(fn, 6, &args, floatMask)
-}
-
-//go:uintptrescapes
-func ffiCall7(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
-	var args [ffi.MaxArgs]uintptr
-	args[0] = a0
-	args[1] = a1
-	args[2] = a2
-	args[3] = a3
-	args[4] = a4
-	args[5] = a5
-	args[6] = a6
-	return ffi.CallFloat(fn, 7, &args, floatMask)
-}
-
-//go:uintptrescapes
 func ffiCall8(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
@@ -166,7 +113,77 @@ func ffiCall8(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7 uintp
 }
 
 //go:uintptrescapes
-func ffiCall9(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8 uintptr) (r1, rf uintptr) {
+func ffiCallWidths1(fn uintptr, floatMask uint32, widths uint64, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloatWidths(fn, 1, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths2(fn uintptr, floatMask uint32, widths uint64, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloatWidths(fn, 2, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths3(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloatWidths(fn, 3, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths4(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloatWidths(fn, 4, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths5(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloatWidths(fn, 5, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths6(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	return ffi.CallFloatWidths(fn, 6, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths7(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	return ffi.CallFloatWidths(fn, 7, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths9(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -177,11 +194,11 @@ func ffiCall9(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8 u
 	args[6] = a6
 	args[7] = a7
 	args[8] = a8
-	return ffi.CallFloat(fn, 9, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 9, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall10(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9 uintptr) (r1, rf uintptr) {
+func ffiCallWidths10(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -193,7 +210,7 @@ func ffiCall10(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8,
 	args[7] = a7
 	args[8] = a8
 	args[9] = a9
-	return ffi.CallFloat(fn, 10, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 10, &args, floatMask, widths)
 }
 
 // An outSlot pools the heap cells a wrapper passes to C for its outputs.
@@ -243,7 +260,7 @@ func fnemulationDescDestroy(a0 EmulationDesc) Result {
 
 // fnemulationDescGetAttribute calls cublasLtEmulationDescGetAttribute.
 func fnemulationDescGetAttribute(a0 EmulationDesc, a1 EmulationDescAttributes, a2 uintptr, a3 uint, a4 *uint) Result {
-	r1, _ := ffiCall5(symemulationDescGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symemulationDescGetAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
@@ -255,25 +272,25 @@ func fnemulationDescInit_internal(a0 EmulationDesc, a1 uint) Result {
 
 // fnemulationDescSetAttribute calls cublasLtEmulationDescSetAttribute.
 func fnemulationDescSetAttribute(a0 EmulationDesc, a1 EmulationDescAttributes, a2 uintptr, a3 uint) Result {
-	r1, _ := ffiCall4(symemulationDescSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	r1, _ := ffiCallWidths4(symemulationDescSetAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
 
 // fnGetProperty calls cublasLtGetProperty.
 func fnGetProperty(a0 LibraryPropertyType, a1 *int32) Result {
-	r1, _ := ffiCall2(symGetProperty, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symGetProperty, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
 // fnGroupedMatrixLayoutCreate calls cublasLtGroupedMatrixLayoutCreate.
 func fnGroupedMatrixLayoutCreate(a0 *MatrixLayout, a1 DataType, a2 int32, a3 uintptr, a4 uintptr, a5 uintptr) Result {
-	r1, _ := ffiCall6(symGroupedMatrixLayoutCreate, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	r1, _ := ffiCallWidths6(symGroupedMatrixLayoutCreate, 0, 0x3c, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
 	return Result(r1)
 }
 
 // fngroupedMatrixLayoutInit_internal calls cublasLtGroupedMatrixLayoutInit_internal.
 func fngroupedMatrixLayoutInit_internal(a0 MatrixLayout, a1 uint, a2 DataType, a3 int32, a4 uintptr, a5 uintptr, a6 uintptr) Result {
-	r1, _ := ffiCall7(symgroupedMatrixLayoutInit_internal, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	r1, _ := ffiCallWidths7(symgroupedMatrixLayoutInit_internal, 0, 0xf0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
 	return Result(r1)
 }
 
@@ -315,19 +332,19 @@ func fnLoggerSetFile(a0 uintptr) Result {
 
 // fnLoggerSetLevel calls cublasLtLoggerSetLevel.
 func fnLoggerSetLevel(a0 int32) Result {
-	r1, _ := ffiCall1(symLoggerSetLevel, 0, uintptr(a0))
+	r1, _ := ffiCallWidths1(symLoggerSetLevel, 0, 0x3, uintptr(a0))
 	return Result(r1)
 }
 
 // fnLoggerSetMask calls cublasLtLoggerSetMask.
 func fnLoggerSetMask(a0 int32) Result {
-	r1, _ := ffiCall1(symLoggerSetMask, 0, uintptr(a0))
+	r1, _ := ffiCallWidths1(symLoggerSetMask, 0, 0x3, uintptr(a0))
 	return Result(r1)
 }
 
 // fnMatmulAlgoCapGetAttribute calls cublasLtMatmulAlgoCapGetAttribute.
 func fnMatmulAlgoCapGetAttribute(a0 *MatmulAlgo, a1 MatmulAlgoCapAttributes, a2 uintptr, a3 uint, a4 *uint) Result {
-	r1, _ := ffiCall5(symMatmulAlgoCapGetAttribute, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symMatmulAlgoCapGetAttribute, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
@@ -339,37 +356,37 @@ func fnmatmulAlgoCheck(a0 Handle, a1 MatmulDesc, a2 MatrixLayout, a3 MatrixLayou
 
 // fnMatmulAlgoConfigGetAttribute calls cublasLtMatmulAlgoConfigGetAttribute.
 func fnMatmulAlgoConfigGetAttribute(a0 *MatmulAlgo, a1 MatmulAlgoConfigAttributes, a2 uintptr, a3 uint, a4 *uint) Result {
-	r1, _ := ffiCall5(symMatmulAlgoConfigGetAttribute, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symMatmulAlgoConfigGetAttribute, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
 // fnMatmulAlgoConfigSetAttribute calls cublasLtMatmulAlgoConfigSetAttribute.
 func fnMatmulAlgoConfigSetAttribute(a0 *MatmulAlgo, a1 MatmulAlgoConfigAttributes, a2 uintptr, a3 uint) Result {
-	r1, _ := ffiCall4(symMatmulAlgoConfigSetAttribute, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3))
+	r1, _ := ffiCallWidths4(symMatmulAlgoConfigSetAttribute, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
 
 // fnmatmulAlgoGetHeuristic calls cublasLtMatmulAlgoGetHeuristic.
 func fnmatmulAlgoGetHeuristic(a0 Handle, a1 MatmulDesc, a2 MatrixLayout, a3 MatrixLayout, a4 MatrixLayout, a5 MatrixLayout, a6 MatmulPreference, a7 int32, a8 *MatmulHeuristicResult, a9 *int32) Result {
-	r1, _ := ffiCall10(symmatmulAlgoGetHeuristic, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)))
+	r1, _ := ffiCallWidths10(symmatmulAlgoGetHeuristic, 0, 0xc000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)))
 	return Result(r1)
 }
 
 // fnmatmulAlgoGetIds calls cublasLtMatmulAlgoGetIds.
 func fnmatmulAlgoGetIds(a0 Handle, a1 ComputeType, a2 DataType, a3 DataType, a4 DataType, a5 DataType, a6 DataType, a7 int32, a8 *int32, a9 *int32) Result {
-	r1, _ := ffiCall10(symmatmulAlgoGetIds, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)))
+	r1, _ := ffiCallWidths10(symmatmulAlgoGetIds, 0, 0xfffc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)))
 	return Result(r1)
 }
 
 // fnmatmulAlgoInit calls cublasLtMatmulAlgoInit.
 func fnmatmulAlgoInit(a0 Handle, a1 ComputeType, a2 DataType, a3 DataType, a4 DataType, a5 DataType, a6 DataType, a7 int32, a8 *MatmulAlgo) Result {
-	r1, _ := ffiCall9(symmatmulAlgoInit, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
+	r1, _ := ffiCallWidths9(symmatmulAlgoInit, 0, 0xfffc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
 	return Result(r1)
 }
 
 // fnmatmulDescCreate calls cublasLtMatmulDescCreate.
 func fnmatmulDescCreate(a0 *MatmulDesc, a1 ComputeType, a2 DataType) Result {
-	r1, _ := ffiCall3(symmatmulDescCreate, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	r1, _ := ffiCallWidths3(symmatmulDescCreate, 0, 0x3c, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
 	return Result(r1)
 }
 
@@ -381,19 +398,19 @@ func fnmatmulDescDestroy(a0 MatmulDesc) Result {
 
 // fnmatmulDescGetAttribute calls cublasLtMatmulDescGetAttribute.
 func fnmatmulDescGetAttribute(a0 MatmulDesc, a1 MatmulDescAttributes, a2 uintptr, a3 uint, a4 *uint) Result {
-	r1, _ := ffiCall5(symmatmulDescGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symmatmulDescGetAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
 // fnmatmulDescInit_internal calls cublasLtMatmulDescInit_internal.
 func fnmatmulDescInit_internal(a0 MatmulDesc, a1 uint, a2 ComputeType, a3 DataType) Result {
-	r1, _ := ffiCall4(symmatmulDescInit_internal, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	r1, _ := ffiCallWidths4(symmatmulDescInit_internal, 0, 0xf0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
 
 // fnmatmulDescSetAttribute calls cublasLtMatmulDescSetAttribute.
 func fnmatmulDescSetAttribute(a0 MatmulDesc, a1 MatmulDescAttributes, a2 uintptr, a3 uint) Result {
-	r1, _ := ffiCall4(symmatmulDescSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	r1, _ := ffiCallWidths4(symmatmulDescSetAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
 
@@ -411,7 +428,7 @@ func fnmatmulPreferenceDestroy(a0 MatmulPreference) Result {
 
 // fnmatmulPreferenceGetAttribute calls cublasLtMatmulPreferenceGetAttribute.
 func fnmatmulPreferenceGetAttribute(a0 MatmulPreference, a1 MatmulPreferenceAttributes, a2 uintptr, a3 uint, a4 *uint) Result {
-	r1, _ := ffiCall5(symmatmulPreferenceGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symmatmulPreferenceGetAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
@@ -423,13 +440,13 @@ func fnmatmulPreferenceInit_internal(a0 MatmulPreference, a1 uint) Result {
 
 // fnmatmulPreferenceSetAttribute calls cublasLtMatmulPreferenceSetAttribute.
 func fnmatmulPreferenceSetAttribute(a0 MatmulPreference, a1 MatmulPreferenceAttributes, a2 uintptr, a3 uint) Result {
-	r1, _ := ffiCall4(symmatmulPreferenceSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	r1, _ := ffiCallWidths4(symmatmulPreferenceSetAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
 
 // fnmatrixLayoutCreate calls cublasLtMatrixLayoutCreate.
 func fnmatrixLayoutCreate(a0 *MatrixLayout, a1 DataType, a2 uint64, a3 uint64, a4 int64) Result {
-	r1, _ := ffiCall5(symmatrixLayoutCreate, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	r1, _ := ffiCallWidths5(symmatrixLayoutCreate, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
 
@@ -441,25 +458,25 @@ func fnmatrixLayoutDestroy(a0 MatrixLayout) Result {
 
 // fnmatrixLayoutGetAttribute calls cublasLtMatrixLayoutGetAttribute.
 func fnmatrixLayoutGetAttribute(a0 MatrixLayout, a1 MatrixLayoutAttribute, a2 uintptr, a3 uint, a4 *uint) Result {
-	r1, _ := ffiCall5(symmatrixLayoutGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symmatrixLayoutGetAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
 // fnmatrixLayoutInit_internal calls cublasLtMatrixLayoutInit_internal.
 func fnmatrixLayoutInit_internal(a0 MatrixLayout, a1 uint, a2 DataType, a3 uint64, a4 uint64, a5 int64) Result {
-	r1, _ := ffiCall6(symmatrixLayoutInit_internal, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	r1, _ := ffiCallWidths6(symmatrixLayoutInit_internal, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
 	return Result(r1)
 }
 
 // fnmatrixLayoutSetAttribute calls cublasLtMatrixLayoutSetAttribute.
 func fnmatrixLayoutSetAttribute(a0 MatrixLayout, a1 MatrixLayoutAttribute, a2 uintptr, a3 uint) Result {
-	r1, _ := ffiCall4(symmatrixLayoutSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	r1, _ := ffiCallWidths4(symmatrixLayoutSetAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
 
 // fnmatrixTransformDescCreate calls cublasLtMatrixTransformDescCreate.
 func fnmatrixTransformDescCreate(a0 *MatrixTransformDesc, a1 DataType) Result {
-	r1, _ := ffiCall2(symmatrixTransformDescCreate, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	r1, _ := ffiCallWidths2(symmatrixTransformDescCreate, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1))
 	return Result(r1)
 }
 
@@ -471,21 +488,164 @@ func fnmatrixTransformDescDestroy(a0 MatrixTransformDesc) Result {
 
 // fnmatrixTransformDescGetAttribute calls cublasLtMatrixTransformDescGetAttribute.
 func fnmatrixTransformDescGetAttribute(a0 MatrixTransformDesc, a1 MatrixTransformDescAttributes, a2 uintptr, a3 uint, a4 *uint) Result {
-	r1, _ := ffiCall5(symmatrixTransformDescGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symmatrixTransformDescGetAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
 // fnmatrixTransformDescInit_internal calls cublasLtMatrixTransformDescInit_internal.
 func fnmatrixTransformDescInit_internal(a0 MatrixTransformDesc, a1 uint, a2 DataType) Result {
-	r1, _ := ffiCall3(symmatrixTransformDescInit_internal, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	r1, _ := ffiCallWidths3(symmatrixTransformDescInit_internal, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2))
 	return Result(r1)
 }
 
 // fnmatrixTransformDescSetAttribute calls cublasLtMatrixTransformDescSetAttribute.
 func fnmatrixTransformDescSetAttribute(a0 MatrixTransformDesc, a1 MatrixTransformDescAttributes, a2 uintptr, a3 uint) Result {
-	r1, _ := ffiCall4(symmatrixTransformDescSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	r1, _ := ffiCallWidths4(symmatrixTransformDescSetAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
+
+// A Scalar is a value, such as the alpha and beta of a matrix product,
+// that the library reads through a pointer. Make one for a value in host
+// memory with [Float16BitsScalar], [Float32Scalar], [Float64Scalar],
+// [Complex64Scalar], [Complex128Scalar], or [Int32Scalar], or for a value
+// in device memory with [DeviceScalar].
+//
+// A call copies a host value into memory of its own, passes the library a
+// pointer to the copy, and reuses that memory once the call returns, so a
+// Scalar never reaches the library and can live anywhere.
+//
+// cuBLASLt reads a host scalar before the call returns, as cuBLAS does
+// (cuBLAS documentation, section 2.1.5), and a call captured into a CUDA
+// graph keeps the value: "In the case of CUBLAS(LT)_POINTER_MODE_HOST,
+// coefficient values are captured in the graph" (section 2.1.12).
+//
+// The kind of a host Scalar must be the type the library reads. Where a
+// call names that type in another parameter, a Scalar of another kind is a
+// *[ScalarError]; where the type is in a descriptor, the call cannot check
+// it. The zero Scalar is a host zero of every kind.
+type Scalar struct {
+	v      [2]uint64 // the host value, or the device address in v[0]
+	kind   scalarKind
+	device bool
+}
+
+// Float16BitsScalar returns a host Scalar holding the IEEE 754 half-precision value
+// with bit pattern b.
+func Float16BitsScalar(b uint16) Scalar {
+	s := Scalar{kind: scalarFloat16}
+	*(*uint16)(unsafe.Pointer(&s.v)) = b
+	return s
+}
+
+// Float32Scalar returns a host Scalar holding the float32 x.
+func Float32Scalar(x float32) Scalar {
+	s := Scalar{kind: scalarFloat32}
+	*(*float32)(unsafe.Pointer(&s.v)) = x
+	return s
+}
+
+// Float64Scalar returns a host Scalar holding the float64 x.
+func Float64Scalar(x float64) Scalar {
+	s := Scalar{kind: scalarFloat64}
+	*(*float64)(unsafe.Pointer(&s.v)) = x
+	return s
+}
+
+// Complex64Scalar returns a host Scalar holding the complex64 x.
+func Complex64Scalar(x complex64) Scalar {
+	s := Scalar{kind: scalarComplex64}
+	*(*complex64)(unsafe.Pointer(&s.v)) = x
+	return s
+}
+
+// Complex128Scalar returns a host Scalar holding the complex128 x.
+func Complex128Scalar(x complex128) Scalar {
+	s := Scalar{kind: scalarComplex128}
+	*(*complex128)(unsafe.Pointer(&s.v)) = x
+	return s
+}
+
+// Int32Scalar returns a host Scalar holding the int32 x.
+func Int32Scalar(x int32) Scalar {
+	s := Scalar{kind: scalarInt32}
+	*(*int32)(unsafe.Pointer(&s.v)) = x
+	return s
+}
+
+// DeviceScalar returns a Scalar the library reads from device memory at p.
+// A call passes p unchanged, which the library reads as an address only
+// under a descriptor pointer mode ([MatmulDescPointerMode],
+// [MatrixTransformDescPointerMode]) other than [PointerModeHost]. The
+// device memory must stay valid until the stream work completes. A
+// DeviceScalar has no kind, so no call checks it.
+func DeviceScalar(p driver.DevicePtr) Scalar {
+	return Scalar{v: [2]uint64{uint64(p)}, device: true}
+}
+
+// arg returns the pointer the library reads s through: the device address,
+// or c after copying the host value into it. c must be heap memory that
+// stays reachable until the call returns.
+func (s Scalar) arg(c *[2]uint64) unsafe.Pointer {
+	if s.device {
+		return *(*unsafe.Pointer)(unsafe.Pointer(&s.v[0]))
+	}
+	*c = s.v
+	return unsafe.Pointer(c)
+}
+
+// is reports whether s may be passed where the kinds k are allowed.
+func (s Scalar) is(k scalarKind) bool {
+	return s.device || s.kind == 0 || s.kind&k != 0
+}
+
+// A scalarKind is a set of the kinds a Scalar can hold.
+type scalarKind uint8
+
+const (
+	scalarFloat16 scalarKind = 1 << iota
+	scalarBfloat16
+	scalarFloat32
+	scalarFloat64
+	scalarComplex64
+	scalarComplex128
+	scalarInt32
+)
+
+var scalarKindNames = [...]string{"float16", "bfloat16", "float32", "float64", "complex64", "complex128", "int32"}
+
+func (k scalarKind) String() string {
+	s := ""
+	for i, name := range scalarKindNames {
+		if k&(1<<i) == 0 {
+			continue
+		}
+		if s != "" {
+			s += " or "
+		}
+		s += name
+	}
+	return s
+}
+
+// A ScalarError reports a host Scalar whose kind is not the type the call
+// names for it in another parameter.
+type ScalarError struct {
+	Func  string // the C symbol called
+	Param string // the scalar parameter
+	Kind  string // the Scalar's kind, such as "float32"
+	Want  string // the kinds the call allows, such as "float64 or complex128"
+}
+
+func (e *ScalarError) Error() string {
+	return e.Func + ": " + e.Param + " is " + e.Kind + ", want " + e.Want
+}
+
+func scalarError(fn, param string, s Scalar, want scalarKind) error {
+	return &ScalarError{Func: fn, Param: param, Kind: s.kind.String(), Want: want.String()}
+}
+
+// scalarCells pools the heap cells host Scalars are copied into, 2 per call.
+var scalarCells outSlot[[2][2]uint64]
 
 // Create initializes the cuBLASLt library and creates a handle to an opaque structure holding the cuBLASLt library context.
 //
@@ -495,6 +655,13 @@ func fnmatrixTransformDescSetAttribute(a0 MatrixTransformDesc, a1 MatrixTransfor
 // See also: cuBLAS Context.
 //
 //   - lightHandle: Pointer to the allocated cuBLASLt handle for the created cuBLASLt context
+//
+// A nil error means the allocation completed successfully.
+//
+// Errors:
+//   - [ErrAllocFailed]: Resource allocation failed inside the cuBLASLt library. This is usually caused by a cudaMalloc() failure. To correct: prior to the function call, deallocate the previously allocated memory as much as possible.
+//   - [ErrInvalidValue]: lighthandle is NULL
+//   - [ErrNotInitialized]: The cuBLASLt library was not initialized. This usually happens: when [Create] is not called first; an error in the CUDA Runtime API called by the cuBLASLt routine, or an error in the hardware setup.
 //
 // Wraps cublasLtCreate.
 func Create() (Handle, error) {
@@ -519,6 +686,12 @@ var slotCreate outSlot[Handle]
 //
 //   - lightHandle: Pointer to the cuBLASLt handle to be destroyed
 //
+// A nil error means the cuBLASLt context was successfully destroyed.
+//
+// Errors:
+//   - [ErrInvalidValue]: lightHandle is NULL
+//   - [ErrNotInitialized]: The cuBLASLt library was not initialized.
+//
 // Wraps cublasLtDestroy.
 func destroy(lightHandle Handle) error {
 	if err := checkLibSym("cublasLtDestroy"); err != nil {
@@ -531,9 +704,10 @@ func destroy(lightHandle Handle) error {
 //
 //   - emulationDesc: Pointer to the previously created structure holding the emulation descriptor queried by this function. See [EmulationDesc]
 //
-// Returns:
-//   - [ErrAllocFailed]: if memory could not be allocated
-//   - [Success]: if desciptor was created successfully
+// A nil error means the descriptor was created successfully.
+//
+// Errors:
+//   - [ErrAllocFailed]: If memory could not be allocated.
 //
 // Wraps cublasLtEmulationDescCreate.
 func emulationDescCreate() (EmulationDesc, error) {
@@ -556,8 +730,7 @@ var slotEmulationDescCreate outSlot[EmulationDesc]
 //
 //   - emulationDesc: Pointer to the previously created structure holding the emulation descriptor queried by this function. See [EmulationDesc]
 //
-// Returns:
-//   - [Success]: if operation was successful
+// A nil error means the descriptor was destroyed successfully.
 //
 // Wraps cublasLtEmulationDescDestroy.
 func emulationDescDestroy(emulationDesc EmulationDesc) error {
@@ -573,11 +746,12 @@ func emulationDescDestroy(emulationDesc EmulationDesc) error {
 //   - attr: The attribute that will be retrieved by this function. See [EmulationDescAttributes]
 //   - buf: Memory address containing the attribute value retrieved by this function
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
-//   - sizeWritten: Valid only when the return value is [Success].If sizeInBytes is non-zero: then sizeWritten is the number of bytes actually written;If sizeInBytes is 0: then sizeWritten is the number of bytes needed to write full contents
+//   - sizeWritten: Valid only when the return value is [Success]. If sizeInBytes is non-zero: then sizeWritten is the number of bytes actually written; If sizeInBytes is 0: then sizeWritten is the number of bytes needed to write full contents
 //
-// Returns:
-//   - [ErrInvalidValue]: if sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
-//   - [Success]: if attribute's value was successfully written to user memory
+// A nil error means attribute’s value was successfully written to user memory.
+//
+// Errors:
+//   - [ErrInvalidValue]: If sizeInBytes is zero and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL, or if sizeInBytes doesn’t match size of internal storage for the selected attribute
 //
 // Wraps cublasLtEmulationDescGetAttribute.
 func emulationDescGetAttribute(emulationDesc EmulationDesc, attr EmulationDescAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
@@ -611,9 +785,10 @@ func emulationDescInit_internal(emulationDesc EmulationDesc, size uint) error {
 //   - buf: The value to which the specified attribute should be set
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
 //
-// Returns:
-//   - [ErrInvalidValue]: if buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
-//   - [Success]: if attribute was set successfully
+// A nil error means the attribute was set successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: If buf is NULL or sizeInBytes does not match size of the internal storage for the selected attribute.
 //
 // Wraps cublasLtEmulationDescSetAttribute.
 func emulationDescSetAttribute(emulationDesc EmulationDesc, attr EmulationDescAttributes, buf uintptr, sizeInBytes uint) error {
@@ -627,6 +802,11 @@ func emulationDescSetAttribute(emulationDesc EmulationDesc, attr EmulationDescAt
 //
 //   - type_: Of the type libraryPropertyType, whose value is requested from the property. See libraryPropertyType_t
 //   - value: Pointer to the host memory location where the requested information should be written
+//
+// A nil error means the requested libraryPropertyType information is successfully written at the provided address.
+//
+// Errors:
+//   - [ErrInvalidValue]: If invalid value of the type input argument, or if value is NULL
 //
 // Wraps cublasLtGetProperty.
 func GetProperty(type_ LibraryPropertyType, value *int32) error {
@@ -647,9 +827,10 @@ func GetProperty(type_ LibraryPropertyType, value *int32) error {
 //   - colsArray: Pointer to a device array of columns of the grouped matrix layout descriptor
 //   - ldArray: Pointer to a device array of leading dimensions of the grouped matrix layout descriptor
 //
-// Returns:
-//   - [ErrAllocFailed]: if memory could not be allocated
-//   - [Success]: if desciptor was created successfully
+// A nil error means the descriptor was created successfully.
+//
+// Errors:
+//   - [ErrAllocFailed]: If the memory could not be allocated.
 //
 // Wraps cublasLtGroupedMatrixLayoutCreate.
 func GroupedMatrixLayoutCreate(type_ DataType, groupCount int32, rowsArray uintptr, colsArray uintptr, ldArray uintptr) (MatrixLayout, error) {
@@ -680,6 +861,11 @@ func groupedMatrixLayoutInit_internal(matLayout MatrixLayout, size uint, type_ D
 //
 //   - capacity: The pointer to the returned capacity value
 //
+// A nil error means the capacity was successfully written.
+//
+// Errors:
+//   - [ErrInvalidValue]: The capacity was successfully set.
+//
 // Wraps cublasLtHeuristicsCacheGetCapacity.
 func HeuristicsCacheGetCapacity(capacity *uint) error {
 	if err := checkLibSym("cublasLtHeuristicsCacheGetCapacity"); err != nil {
@@ -695,6 +881,8 @@ func HeuristicsCacheGetCapacity(capacity *uint) error {
 //
 //   - capacity: The desirable heuristics cache capacity
 //
+// A nil error means the capacity was successfully set.
+//
 // Wraps cublasLtHeuristicsCacheSetCapacity.
 func HeuristicsCacheSetCapacity(capacity uint) error {
 	if err := checkLibSym("cublasLtHeuristicsCacheSetCapacity"); err != nil {
@@ -707,8 +895,7 @@ func HeuristicsCacheSetCapacity(capacity uint) error {
 //
 // This function is experimental.
 //
-// Returns:
-//   - [Success]: if disabled logging
+// A nil error means logging was successfully disabled.
 //
 // Wraps cublasLtLoggerForceDisable.
 func LoggerForceDisable() error {
@@ -724,8 +911,7 @@ func LoggerForceDisable() error {
 //
 //   - logFile: Path of the logging output file
 //
-// Returns:
-//   - [Success]: if log file was created successfully
+// A nil error means the logging file was successfully opened.
 //
 // Wraps cublasLtLoggerOpenFile.
 func LoggerOpenFile(logFile *byte) error {
@@ -739,10 +925,9 @@ func LoggerOpenFile(logFile *byte) error {
 //
 // This function is experimental.
 //
-//   - callback: Pointer to a callback function. See uintptr
+//   - callback: Pointer to a callback function. See [LoggerCallback]
 //
-// Returns:
-//   - [Success]: if callback was set successfully
+// A nil error means the callback function was successfully set.
 //
 // Wraps cublasLtLoggerSetCallback.
 func LoggerSetCallback(callback uintptr) error {
@@ -759,8 +944,7 @@ func LoggerSetCallback(callback uintptr) error {
 //
 //   - file: Pointer to an open file. File should have write permission
 //
-// Returns:
-//   - [Success]: if log file was set successfully
+// A nil error means logging file was successfully set.
 //
 // Wraps cublasLtLoggerSetFile.
 func LoggerSetFile(file uintptr) error {
@@ -776,9 +960,10 @@ func LoggerSetFile(file uintptr) error {
 //
 //   - level: Value of the logging level. See cuBLASLt Logging
 //
-// Returns:
-//   - [ErrInvalidValue]: if log level is not one of the above levels
-//   - [Success]: if log level was set successfully
+// A nil error means the logging level was successfully set.
+//
+// Errors:
+//   - [ErrInvalidValue]: If the value was not a valid logging level. See cuBLASLt Logging.
 //
 // Wraps cublasLtLoggerSetLevel.
 func LoggerSetLevel(level int32) error {
@@ -794,8 +979,7 @@ func LoggerSetLevel(level int32) error {
 //
 //   - mask: Value of the logging mask. See cuBLASLt Logging
 //
-// Returns:
-//   - [Success]: if log mask was set successfully
+// A nil error means the logging mask was successfully set.
 //
 // Wraps cublasLtLoggerSetMask.
 func LoggerSetMask(mask int32) error {
@@ -815,11 +999,38 @@ func LoggerSetMask(mask int32) error {
 // Datatypes Supported:
 // [Handle.Matmul] supports the following computeType, scaleType, Atype/Btype, and Ctype. Footnotes can be found at the end of this section.
 // To use IMMA kernels, one of the following sets of requirements, with the first being the preferred one, must be met:
+//   - Using a regular data ordering: All matrix pointers must be 4-byte aligned. For even better performance, this condition should hold with 16 instead of 4. Leading dimensions of matrices A, B, C must be multiples of 4. Only the “TN” format is supported - A must be transposed and B non-transposed. Pointer mode can be [PointerModeHost], [PointerModeDevice] or [PointerModeAlphaDeviceVectorBetaHost]. With the latter mode, the kernels support the [MatmulDescAlphaVectorBatchStride] attribute. Dimensions m and k must be multiples of 4.
+//   - Using the IMMA-specific data ordering on Ampere (compute capability 8.0) or Turing (compute capability 7.5) (but not Hopper, compute capability 9.0, or later) architecture - [OrderCol32]` for matrices A, C, D, and [OrderCOL44R28C] (on Turing or Ampere architecture) or [OrderCol322R4R4] (on Ampere architecture) for matrix B: Leading dimensions of matrices A, B, C must fulfill conditions specific to the memory ordering (see [Order]). [Handle.Matmul] descriptor must specify [CublasOpT] on matrix B and [CublasOpN] (default) on matrix A and C. If scaleType CUDA_R_32I is used, the only supported values for alpha and beta are 0 or 1. Pointer mode can be [PointerModeHost], [PointerModeDevice], [PointerModeDeviceVector] or [PointerModeAlphaDeviceVectorBetaZero]. These kernels do not support [MatmulDescAlphaVectorBatchStride]. Only the “NT” format is supported - A must be non-transposed and B transposed.
+//
 // To use tensor- or block-scaled FP8 kernels, the following set of requirements must be satisfied:
+//   - All matrix dimensions must meet the optimal requirements listed in Tensor Core Usage (i.e. pointers and matrix dimension must support 16-byte alignment).
+//   - Scaling mode must meet the restrictions noted in the Scaling Mode Support Overview table.
+//   - A must be transposed and B non-transposed (The “TN” format) on Ada (compute capability 8.9), Hopper (compute capability 9.0), and Blackwell GeForce (compute capability 12.x) GPUs.
+//   - The compute type must be [CublasCompute32F].
+//   - The scale type must be CUDA_R_32F.
+//
 // See the table below when using FP8 kernels:
 // To use block-scaled FP4 kernels, the following set of requirements must be satisfied:
+//   - All matrix dimensions must meet the optimal requirements listed in Tensor Core Usage (i.e. pointers and matrix dimension must support 16-byte alignment).
+//   - Scaling mode must be [MatmulMatrixScaleVec16Ue4m3]
+//   - A must be transposed and B non-transposed (The “TN” format)
+//   - The compute type must be [CublasCompute32F].
+//   - The scale type must be CUDA_R_32F.
+//
 // When A,B,C,D are planar-complex matrices ( [MatrixLayoutPlaneOffset] != 0, see [MatrixLayoutAttribute]) to make use of mixed precision tensor core acceleration, the following set of requirements must be satisfied:
+//   - computeType: [CublasCompute32F]; scaleType: CUDA_C_32F; Atype/Btype: CUDA_C_16F 8; Ctype: CUDA_C_16F 8
+//   - computeType: [CublasCompute32F]; scaleType: CUDA_C_32F; Atype/Btype: CUDA_C_16F 8; Ctype: CUDA_C_32F 8
+//   - computeType: [CublasCompute32F]; scaleType: CUDA_C_32F; Atype/Btype: CUDA_C_16BF 8; Ctype: CUDA_C_16BF 8
+//   - computeType: [CublasCompute32F]; scaleType: CUDA_C_32F; Atype/Btype: CUDA_C_16BF 8; Ctype: CUDA_C_32F 8
+//
 // Experimental: To use [Handle.Matmul] with grouped matrices, the following set of requirements must be satisfied:
+//   - All matrix dimensions must meet the optimal requirements listed in Tensor Core Usage (i.e. pointers and matrix dimension must support 16-byte alignment).
+//   - GPU with one of the following compute capabilities: 9.0, 10.x, 11.0.
+//   - The batch mode of all matrices must be [BatchModeGrouped].
+//   - The pointer mode must be [PointerModeHost] or [PointerModeDevice].
+//   - The scale mode of matrices C and D must be [MatmulMatrixScaleScalar32F].
+//   - On GPUs with compute capability 9.0:
+//   - On GPUs with compute capability 10.x and 11.0:
 //
 // Note: Because the shape information for the matrices is only available on the GPU (see [GroupedMatrixLayoutRowsArray], [GroupedMatrixLayoutColsArray], and [GroupedMatrixLayoutLdArray]), the arguments validation is very limited. So it is possible that invalid arguments are not detected which will result in an undefined behavior.
 // NOTES:
@@ -832,12 +1043,12 @@ func LoggerSetMask(mask int32) error {
 //
 //   - lightHandle: Pointer to the allocated cuBLASLt handle for the cuBLASLt context. See [Handle]
 //   - computeDesc: Handle to a previously created matrix multiplication descriptor of type [MatmulDesc]
-//   - alpha: Pointers to the scalars used in the multiplication
+//   - alpha: Pointers to the scalars used in the multiplication. Its kind must match the scale type of computeDesc ([MatmulDescScaleType]).
 //   - a: Pointers to the GPU memory associated with the corresponding descriptors Adesc, Bdesc and Cdesc
 //   - adesc: Handles to the previous created descriptors of the type [MatrixLayout]
 //   - b: Pointers to the GPU memory associated with the corresponding descriptors Adesc, Bdesc and Cdesc
 //   - bdesc: Handles to the previous created descriptors of the type [MatrixLayout]
-//   - beta: Pointers to the scalars used in the multiplication
+//   - beta: Pointers to the scalars used in the multiplication. Its kind must match the scale type of computeDesc ([MatmulDescScaleType]).
 //   - c: Pointers to the GPU memory associated with the corresponding descriptors Adesc, Bdesc and Cdesc
 //   - cdesc: Handles to the previous created descriptors of the type [MatrixLayout]
 //   - d: Pointer to the GPU memory associated with the descriptor Ddesc
@@ -847,20 +1058,21 @@ func LoggerSetMask(mask int32) error {
 //   - workspaceSizeInBytes: Size of the workspace
 //   - stream: The CUDA stream where all the GPU work will be submitted
 //
-// Returns:
-//   - [ErrNotInitialized]: if cuBLASLt handle has not been initialized
-//   - [ErrInvalidValue]: if parameters are in conflict or in an impossible configuration; e.g. when workspaceSizeInBytes is less than workspace required by configured algo
-//   - [ErrNotSupported]: if current implementation on selected device doesn't support configured operation
-//   - [ErrArchMismatch]: if configured operation cannot be run using selected device
-//   - [ErrExecutionFailed]: if cuda reported execution error from the device
-//   - [Success]: if the operation completed successfully
+// Errors:
+//   - [ErrArchMismatch]: If the configured operation cannot be run using the selected device.
+//   - [ErrExecutionFailed]: If CUDA reported an execution error from the device.
+//   - [ErrInvalidValue]: If the parameters are unexpectedly NULL, in conflict or in an impossible configuration. For example, when workspaceSizeInBytes is less than workspace required by the configured algo.
+//   - [ErrNotInitialized]: If cuBLASLt handle has not been initialized.
+//   - [ErrNotSupported]: If the current implementation on the selected device doesn’t support the configured operation.
 //
 // Wraps cublasLtMatmul.
-func matmul(lightHandle Handle, computeDesc MatmulDesc, alpha uintptr, a driver.DevicePtr, adesc MatrixLayout, b driver.DevicePtr, bdesc MatrixLayout, beta uintptr, c driver.DevicePtr, cdesc MatrixLayout, d driver.DevicePtr, ddesc MatrixLayout, algo *MatmulAlgo, workspace driver.DevicePtr, workspaceSizeInBytes uint, stream driver.Stream) error {
+func matmul(lightHandle Handle, computeDesc MatmulDesc, alpha Scalar, a driver.DevicePtr, adesc MatrixLayout, b driver.DevicePtr, bdesc MatrixLayout, beta Scalar, c driver.DevicePtr, cdesc MatrixLayout, d driver.DevicePtr, ddesc MatrixLayout, algo *MatmulAlgo, workspace driver.DevicePtr, workspaceSizeInBytes uint, stream driver.Stream) error {
 	if err := checkLibSym("cublasLtMatmul"); err != nil {
 		return err
 	}
-	return toError(fnmatmul(lightHandle, computeDesc, alpha, uintptr(a), adesc, uintptr(b), bdesc, beta, uintptr(c), cdesc, uintptr(d), ddesc, algo, uintptr(workspace), workspaceSizeInBytes, stream), "cublasLtMatmul")
+	_scalars := scalarCells.get()
+	defer scalarCells.put(_scalars)
+	return toError(fnmatmul(lightHandle, computeDesc, alpha.arg(&_scalars[0]), uintptr(a), adesc, uintptr(b), bdesc, beta.arg(&_scalars[1]), uintptr(c), cdesc, uintptr(d), ddesc, algo, uintptr(workspace), workspaceSizeInBytes, stream), "cublasLtMatmul")
 }
 
 // MatmulAlgoCapGetAttribute returns the value of the queried capability attribute for an initialized [MatmulAlgo] descriptor structure.
@@ -874,9 +1086,10 @@ func matmul(lightHandle Handle, computeDesc MatmulDesc, alpha uintptr, a driver.
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
 //   - sizeWritten: Valid only when the return value is [Success]. If sizeInBytes is non-zero: then sizeWritten is the number of bytes actually written; if sizeInBytes is 0: then sizeWritten is the number of bytes needed to write full contents
 //
-// Returns:
-//   - [ErrInvalidValue]: if sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
-//   - [Success]: if attribute's value was successfully written to user memory
+// A nil error means attribute’s value was successfully written to user memory.
+//
+// Errors:
+//   - [ErrInvalidValue]: If sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL, or if sizeInBytes doesn’t match size of internal storage for the selected attribute
 //
 // Wraps cublasLtMatmulAlgoCapGetAttribute.
 func MatmulAlgoCapGetAttribute(algo *MatmulAlgo, attr MatmulAlgoCapAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
@@ -910,11 +1123,12 @@ var slotMatmulAlgoCapGetAttribute outSlot[uint]
 //   - algo: Descriptor which specifies which matrix multiplication algorithm should be used. See [MatmulAlgo]. May point to result->algo
 //   - result: Pointer to the structure holding the results returned by this function. The results comprise of the required workspace and the calculated wave count. The algo field is never updated. See [MatmulHeuristicResult]
 //
-// Returns:
-//   - [ErrInvalidValue]: if matrix layout descriptors or operation descriptor don't match algo descriptor
-//   - [ErrNotSupported]: if algo configuration or data type combination is not currently supported on given device
-//   - [ErrArchMismatch]: if algo configuration cannot be run using the selected device
-//   - [Success]: if check was successful
+// A nil error means the check was successful.
+//
+// Errors:
+//   - [ErrArchMismatch]: If the algo configuration cannot be run using the selected device.
+//   - [ErrInvalidValue]: If matrix layout descriptors or the operation descriptor do not match the algo descriptor.
+//   - [ErrNotSupported]: If the algo configuration or data type combination is not currently supported on the given device.
 //
 // Wraps cublasLtMatmulAlgoCheck.
 func matmulAlgoCheck(lightHandle Handle, operationDesc MatmulDesc, adesc MatrixLayout, bdesc MatrixLayout, cdesc MatrixLayout, ddesc MatrixLayout, algo *MatmulAlgo) (MatmulHeuristicResult, error) {
@@ -943,9 +1157,10 @@ var slotMatmulAlgoCheck outSlot[MatmulHeuristicResult]
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
 //   - sizeWritten: Valid only when the return value is [Success]. If sizeInBytes is non-zero: then sizeWritten is the number of bytes actually written; if sizeInBytes is 0: then sizeWritten is the number of bytes needed to write full contents
 //
-// Returns:
-//   - [ErrInvalidValue]: if sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
-//   - [Success]: if attribute's value was successfully written to user memory
+// A nil error means attribute’s value was successfully written to user memory.
+//
+// Errors:
+//   - [ErrInvalidValue]: If sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL, or if sizeInBytes doesn’t match size of internal storage for the selected attribute
 //
 // Wraps cublasLtMatmulAlgoConfigGetAttribute.
 func MatmulAlgoConfigGetAttribute(algo *MatmulAlgo, attr MatmulAlgoConfigAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
@@ -973,9 +1188,10 @@ var slotMatmulAlgoConfigGetAttribute outSlot[uint]
 //   - buf: The value to which the configuration attribute should be set
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
 //
-// Returns:
-//   - [ErrInvalidValue]: if buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
-//   - [Success]: if attribute was set successfully
+// A nil error means the attribute was set successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: If buf is NULL or sizeInBytes doesn’t match the size of the internal storage for the selected attribute.
 //
 // Wraps cublasLtMatmulAlgoConfigSetAttribute.
 func MatmulAlgoConfigSetAttribute(algo *MatmulAlgo, attr MatmulAlgoConfigAttributes, buf uintptr, sizeInBytes uint) error {
@@ -1002,10 +1218,11 @@ func MatmulAlgoConfigSetAttribute(algo *MatmulAlgo, attr MatmulAlgoConfigAttribu
 //   - heuristicResultsArray: Array containing the algorithm heuristics and associated runtime characteristics, returned by this function, in the order of increasing estimated compute time
 //   - returnAlgoCount: Number of algorithms returned by this function. This is the number of heuristicResultsArray elements written
 //
-// Returns:
-//   - [ErrInvalidValue]: if requestedAlgoCount is less or equal to zero
-//   - [ErrNotSupported]: if no heuristic function available for current configuration
-//   - [Success]: if query was successful, inspect heuristicResultsArray [0 to (returnAlgoCount - 1)].state for detail status of results
+// A nil error means query was successful. Inspect heuristicResultsArray [0 to (returnAlgoCount -1)].state for the status of the results.
+//
+// Errors:
+//   - [ErrInvalidValue]: If requestedAlgoCount is less or equal to zero.
+//   - [ErrNotSupported]: If no heuristic function available for current configuration.
 //
 // Wraps cublasLtMatmulAlgoGetHeuristic.
 func matmulAlgoGetHeuristic(lightHandle Handle, operationDesc MatmulDesc, adesc MatrixLayout, bdesc MatrixLayout, cdesc MatrixLayout, ddesc MatrixLayout, preference MatmulPreference, requestedAlgoCount int32, heuristicResultsArray *MatmulHeuristicResult) (int32, error) {
@@ -1039,9 +1256,10 @@ var slotMatmulAlgoGetHeuristic outSlot[int32]
 //   - algoIdsArray: Array containing the algorithm IDs returned by this function
 //   - returnAlgoCount: Number of algorithms actually returned by this function
 //
-// Returns:
-//   - [ErrInvalidValue]: if requestedAlgoCount is less or equal to zero
-//   - [Success]: if query was successful, inspect returnAlgoCount to get actual number of IDs available
+// A nil error means query was successful. Inspect returnAlgoCount to get actual number of IDs available.
+//
+// Errors:
+//   - [ErrInvalidValue]: If requestedAlgoCount is less or equal to zero.
 //
 // Wraps cublasLtMatmulAlgoGetIds.
 func matmulAlgoGetIds(lightHandle Handle, computeType ComputeType, scaleType DataType, atype DataType, btype DataType, ctype DataType, dtype DataType, requestedAlgoCount int32, algoIdsArray *int32) (int32, error) {
@@ -1072,10 +1290,11 @@ var slotMatmulAlgoGetIds outSlot[int32]
 //   - algoId: Specifies the algorithm being initialized. Should be a valid algoId returned by the [Handle.MatmulAlgoGetIds] function
 //   - algo: Pointer to the opaque structure to be initialized. See [MatmulAlgo]
 //
-// Returns:
-//   - [ErrInvalidValue]: if algo is NULL or algoId is outside of recognized range
-//   - [ErrNotSupported]: if algoId is not supported for given combination of data types
-//   - [Success]: if the structure was successfully initialized
+// A nil error means the structure was successfully initialized.
+//
+// Errors:
+//   - [ErrInvalidValue]: If algo is NULL or algoId is outside the recognized range.
+//   - [ErrNotSupported]: If algoId is not supported for given combination of data types.
 //
 // Wraps cublasLtMatmulAlgoInit.
 func matmulAlgoInit(lightHandle Handle, computeType ComputeType, scaleType DataType, atype DataType, btype DataType, ctype DataType, dtype DataType, algoId int32, algo *MatmulAlgo) error {
@@ -1091,9 +1310,10 @@ func matmulAlgoInit(lightHandle Handle, computeType ComputeType, scaleType DataT
 //   - computeType: Enumerant that specifies the data precision for the matrix multiply descriptor this function creates. See [CublascomputetypeT]
 //   - scaleType: Enumerant that specifies the data precision for the matrix transform descriptor this function creates. See cudaDataType_t
 //
-// Returns:
-//   - [ErrAllocFailed]: if memory could not be allocated
-//   - [Success]: if desciptor was created successfully
+// A nil error means the descriptor was created successfully.
+//
+// Errors:
+//   - [ErrAllocFailed]: If memory could not be allocated.
 //
 // Wraps cublasLtMatmulDescCreate.
 func matmulDescCreate(computeType ComputeType, scaleType DataType) (MatmulDesc, error) {
@@ -1116,9 +1336,6 @@ var slotMatmulDescCreate outSlot[MatmulDesc]
 //
 //   - matmulDesc: Pointer to the structure holding the matrix multiply descriptor that should be destroyed by this function. See [MatmulDesc]
 //
-// Returns:
-//   - [Success]: if operation was successful
-//
 // Wraps cublasLtMatmulDescDestroy.
 func matmulDescDestroy(matmulDesc MatmulDesc) error {
 	if err := checkLibSym("cublasLtMatmulDescDestroy"); err != nil {
@@ -1135,9 +1352,10 @@ func matmulDescDestroy(matmulDesc MatmulDesc) error {
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
 //   - sizeWritten: Valid only when the return value is [Success]. If sizeInBytes is non-zero: then sizeWritten is the number of bytes actually written; if sizeInBytes is 0: then sizeWritten is the number of bytes needed to write full contents
 //
-// Returns:
-//   - [ErrInvalidValue]: if sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
-//   - [Success]: if attribute's value was successfully written to user memory
+// A nil error means attribute’s value was successfully written to user memory.
+//
+// Errors:
+//   - [ErrInvalidValue]: If sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL, or sizeInBytes doesn’t match size of internal storage for the selected attribute
 //
 // Wraps cublasLtMatmulDescGetAttribute.
 func matmulDescGetAttribute(matmulDesc MatmulDesc, attr MatmulDescAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
@@ -1171,9 +1389,10 @@ func matmulDescInit_internal(matmulDesc MatmulDesc, size uint, computeType Compu
 //   - buf: The value to which the specified attribute should be set
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
 //
-// Returns:
-//   - [ErrInvalidValue]: if buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
-//   - [Success]: if attribute was set successfully
+// A nil error means the attribute was set successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: If buf is NULL or sizeInBytes doesn’t match the size of the internal storage for the selected attribute.
 //
 // Wraps cublasLtMatmulDescSetAttribute.
 func matmulDescSetAttribute(matmulDesc MatmulDesc, attr MatmulDescAttributes, buf uintptr, sizeInBytes uint) error {
@@ -1187,9 +1406,10 @@ func matmulDescSetAttribute(matmulDesc MatmulDesc, attr MatmulDescAttributes, bu
 //
 //   - pref: Pointer to the structure holding the matrix multiply preferences descriptor created by this function. See [MatrixLayout]
 //
-// Returns:
-//   - [ErrAllocFailed]: if memory could not be allocated
-//   - [Success]: if desciptor was created successfully
+// A nil error means the descriptor was created successfully.
+//
+// Errors:
+//   - [ErrAllocFailed]: If memory could not be allocated.
 //
 // Wraps cublasLtMatmulPreferenceCreate.
 func matmulPreferenceCreate() (MatmulPreference, error) {
@@ -1212,8 +1432,7 @@ var slotMatmulPreferenceCreate outSlot[MatmulPreference]
 //
 //   - pref: Pointer to the structure holding the matrix multiply preferences descriptor that should be destroyed by this function. See [MatmulPreference]
 //
-// Returns:
-//   - [Success]: if operation was successful
+// A nil error means the operation was successful.
 //
 // Wraps cublasLtMatmulPreferenceDestroy.
 func matmulPreferenceDestroy(pref MatmulPreference) error {
@@ -1231,9 +1450,10 @@ func matmulPreferenceDestroy(pref MatmulPreference) error {
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
 //   - sizeWritten: Valid only when the return value is [Success]. If sizeInBytes is non-zero: then sizeWritten is the number of bytes actually written; if sizeInBytes is 0: then sizeWritten is the number of bytes needed to write full contents
 //
-// Returns:
-//   - [ErrInvalidValue]: if sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
-//   - [Success]: if attribute's value was successfully written to user memory
+// A nil error means attribute’s value was successfully written to user memory.
+//
+// Errors:
+//   - [ErrInvalidValue]: If sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL, or sizeInBytes doesn’t match size of internal storage for the selected attribute
 //
 // Wraps cublasLtMatmulPreferenceGetAttribute.
 func matmulPreferenceGetAttribute(pref MatmulPreference, attr MatmulPreferenceAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
@@ -1267,9 +1487,10 @@ func matmulPreferenceInit_internal(pref MatmulPreference, size uint) error {
 //   - buf: The value to which the specified attribute should be set
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
 //
-// Returns:
-//   - [ErrInvalidValue]: if buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
-//   - [Success]: if attribute was set successfully
+// A nil error means the attribute was set successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: If buf is NULL or sizeInBytes doesn’t match the size of the internal storage for the selected attribute.
 //
 // Wraps cublasLtMatmulPreferenceSetAttribute.
 func matmulPreferenceSetAttribute(pref MatmulPreference, attr MatmulPreferenceAttributes, buf uintptr, sizeInBytes uint) error {
@@ -1287,9 +1508,10 @@ func matmulPreferenceSetAttribute(pref MatmulPreference, attr MatmulPreferenceAt
 //   - cols: Number of rows and columns of the matrix
 //   - ld: The leading dimension of the matrix. In column major layout, this is the number of elements to jump to reach the next column. Thus ld >= m (number of rows)
 //
-// Returns:
-//   - [ErrAllocFailed]: if memory could not be allocated
-//   - [Success]: if desciptor was created successfully
+// A nil error means the descriptor was created successfully.
+//
+// Errors:
+//   - [ErrAllocFailed]: If the memory could not be allocated.
 //
 // Wraps cublasLtMatrixLayoutCreate.
 func matrixLayoutCreate(type_ DataType, rows uint64, cols uint64, ld int64) (MatrixLayout, error) {
@@ -1312,8 +1534,7 @@ var slotMatrixLayoutCreate outSlot[MatrixLayout]
 //
 //   - matLayout: Pointer to the structure holding the matrix layout descriptor that should be destroyed by this function. See [MatrixLayout]
 //
-// Returns:
-//   - [Success]: if operation was successful
+// A nil error means the operation was successful.
 //
 // Wraps cublasLtMatrixLayoutDestroy.
 func matrixLayoutDestroy(matLayout MatrixLayout) error {
@@ -1331,9 +1552,10 @@ func matrixLayoutDestroy(matLayout MatrixLayout) error {
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
 //   - sizeWritten: Valid only when the return value is [Success]. If sizeInBytes is non-zero: then sizeWritten is the number of bytes actually written; if sizeInBytes is 0: then sizeWritten is the number of bytes needed to write full contents
 //
-// Returns:
-//   - [ErrInvalidValue]: if sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
-//   - [Success]: if attribute's value was successfully written to user memory
+// A nil error means attribute’s value was successfully written to user memory.
+//
+// Errors:
+//   - [ErrInvalidValue]: If sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL, or sizeInBytes doesn’t match size of internal storage for the selected attribute
 //
 // Wraps cublasLtMatrixLayoutGetAttribute.
 func matrixLayoutGetAttribute(matLayout MatrixLayout, attr MatrixLayoutAttribute, buf uintptr, sizeInBytes uint) (uint, error) {
@@ -1367,9 +1589,10 @@ func matrixLayoutInit_internal(matLayout MatrixLayout, size uint, type_ DataType
 //   - buf: The value to which the specified attribute should be set
 //   - sizeInBytes: Size of buf, the attribute buffer
 //
-// Returns:
-//   - [ErrInvalidValue]: if buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
-//   - [Success]: if attribute was set successfully
+// A nil error means attribute was set successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: If buf is NULL or sizeInBytes doesn’t match size of internal storage for the selected attribute.
 //
 // Wraps cublasLtMatrixLayoutSetAttribute.
 func matrixLayoutSetAttribute(matLayout MatrixLayout, attr MatrixLayoutAttribute, buf uintptr, sizeInBytes uint) error {
@@ -1386,30 +1609,31 @@ func matrixLayoutSetAttribute(matLayout MatrixLayout, attr MatrixLayoutAttribute
 //
 //   - lightHandle: Pointer to the allocated cuBLASLt handle for the cuBLASLt context. See [Handle]
 //   - transformDesc: Pointer to the opaque descriptor holding the matrix transformation operation. See [MatrixTransformDesc]
-//   - alpha: Pointers to the scalars used in the multiplication
+//   - alpha: Pointers to the scalars used in the multiplication. Its kind must match the scale type of transformDesc ([MatrixTransformDescScaleType]).
 //   - a: Pointers to the GPU memory associated with the corresponding descriptors Adesc and Bdesc
-//   - adesc: Handles to the previous created descriptors of the type [MatrixLayout].Adesc or Bdesc can be NULL if the corresponding pointer is NULL and the corresponding scalar is zero
-//   - beta: Pointers to the scalars used in the multiplication
+//   - adesc: Handles to the previous created descriptors of the type [MatrixLayout]. Adesc or Bdesc can be NULL if the corresponding pointer is NULL and the corresponding scalar is zero
+//   - beta: Pointers to the scalars used in the multiplication. Its kind must match the scale type of transformDesc ([MatrixTransformDescScaleType]).
 //   - b: Pointers to the GPU memory associated with the corresponding descriptors Adesc and Bdesc
-//   - bdesc: Handles to the previous created descriptors of the type [MatrixLayout].Adesc or Bdesc can be NULL if the corresponding pointer is NULL and the corresponding scalar is zero
+//   - bdesc: Handles to the previous created descriptors of the type [MatrixLayout]. Adesc or Bdesc can be NULL if the corresponding pointer is NULL and the corresponding scalar is zero
 //   - c: Pointer to the GPU memory associated with the Cdesc descriptor
-//   - cdesc: Handles to the previous created descriptors of the type [MatrixLayout].Adesc or Bdesc can be NULL if the corresponding pointer is NULL and the corresponding scalar is zero
+//   - cdesc: Handles to the previous created descriptors of the type [MatrixLayout]. Adesc or Bdesc can be NULL if the corresponding pointer is NULL and the corresponding scalar is zero
 //   - stream: The CUDA stream where all the GPU work will be submitted
 //
-// Returns:
-//   - [ErrNotInitialized]: if cuBLASLt handle has not been initialized
-//   - [ErrInvalidValue]: if parameters are in conflict or in an impossible configuration; e.g. when A is not NULL, but Adesc is NULL
-//   - [ErrNotSupported]: if current implementation on selected device doesn't support configured operation
-//   - [ErrArchMismatch]: if configured operation cannot be run using selected device
-//   - [ErrExecutionFailed]: if cuda reported execution error from the device
-//   - [Success]: if the operation completed successfully
+// Errors:
+//   - [ErrArchMismatch]: If the configured operation cannot be run using the selected device.
+//   - [ErrExecutionFailed]: If CUDA reported an execution error from the device.
+//   - [ErrInvalidValue]: If the parameters are in conflict or in an impossible configuration. For example, when A is not NULL, but Adesc is NULL.
+//   - [ErrNotInitialized]: If cuBLASLt handle has not been initialized.
+//   - [ErrNotSupported]: If the current implementation on the selected device does not support the configured operation.
 //
 // Wraps cublasLtMatrixTransform.
-func matrixTransform(lightHandle Handle, transformDesc MatrixTransformDesc, alpha uintptr, a driver.DevicePtr, adesc MatrixLayout, beta uintptr, b driver.DevicePtr, bdesc MatrixLayout, c driver.DevicePtr, cdesc MatrixLayout, stream driver.Stream) error {
+func matrixTransform(lightHandle Handle, transformDesc MatrixTransformDesc, alpha Scalar, a driver.DevicePtr, adesc MatrixLayout, beta Scalar, b driver.DevicePtr, bdesc MatrixLayout, c driver.DevicePtr, cdesc MatrixLayout, stream driver.Stream) error {
 	if err := checkLibSym("cublasLtMatrixTransform"); err != nil {
 		return err
 	}
-	return toError(fnmatrixTransform(lightHandle, transformDesc, alpha, uintptr(a), adesc, beta, uintptr(b), bdesc, uintptr(c), cdesc, stream), "cublasLtMatrixTransform")
+	_scalars := scalarCells.get()
+	defer scalarCells.put(_scalars)
+	return toError(fnmatrixTransform(lightHandle, transformDesc, alpha.arg(&_scalars[0]), uintptr(a), adesc, beta.arg(&_scalars[1]), uintptr(b), bdesc, uintptr(c), cdesc, stream), "cublasLtMatrixTransform")
 }
 
 // matrixTransformDescCreate creates a matrix transform descriptor by allocating the memory needed to hold its opaque structure.
@@ -1417,9 +1641,10 @@ func matrixTransform(lightHandle Handle, transformDesc MatrixTransformDesc, alph
 //   - transformDesc: Pointer to the structure holding the matrix transform descriptor created by this function. See [MatrixTransformDesc]
 //   - scaleType: Enumerant that specifies the data precision for the matrix transform descriptor this function creates. See cudaDataType_t
 //
-// Returns:
-//   - [ErrAllocFailed]: if memory could not be allocated
-//   - [Success]: if desciptor was created successfully
+// A nil error means the descriptor was created successfully.
+//
+// Errors:
+//   - [ErrAllocFailed]: If memory could not be allocated.
 //
 // Wraps cublasLtMatrixTransformDescCreate.
 func matrixTransformDescCreate(scaleType DataType) (MatrixTransformDesc, error) {
@@ -1442,8 +1667,7 @@ var slotMatrixTransformDescCreate outSlot[MatrixTransformDesc]
 //
 //   - transformDesc: Pointer to the structure holding the matrix transform descriptor that should be destroyed by this function. See [MatrixTransformDesc]
 //
-// Returns:
-//   - [Success]: if operation was successful
+// A nil error means the operation was successful.
 //
 // Wraps cublasLtMatrixTransformDescDestroy.
 func matrixTransformDescDestroy(transformDesc MatrixTransformDesc) error {
@@ -1461,9 +1685,10 @@ func matrixTransformDescDestroy(transformDesc MatrixTransformDesc) error {
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
 //   - sizeWritten: Valid only when the return value is [Success]. If sizeInBytes is non-zero: then sizeWritten is the number of bytes actually written; if sizeInBytes is 0: then sizeWritten is the number of bytes needed to write full contents
 //
-// Returns:
-//   - [ErrInvalidValue]: if sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
-//   - [Success]: if attribute's value was successfully written to user memory
+// A nil error means attribute’s value was successfully written to user memory.
+//
+// Errors:
+//   - [ErrInvalidValue]: If sizeInBytes is zero and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL, or if sizeInBytes doesn’t match size of internal storage for the selected attribute
 //
 // Wraps cublasLtMatrixTransformDescGetAttribute.
 func matrixTransformDescGetAttribute(transformDesc MatrixTransformDesc, attr MatrixTransformDescAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
@@ -1497,9 +1722,10 @@ func matrixTransformDescInit_internal(transformDesc MatrixTransformDesc, size ui
 //   - buf: The value to which the specified attribute should be set
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
 //
-// Returns:
-//   - [ErrInvalidValue]: if buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
-//   - [Success]: if attribute was set successfully
+// A nil error means the attribute was set successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: If buf is NULL or sizeInBytes does not match size of the internal storage for the selected attribute.
 //
 // Wraps cublasLtMatrixTransformDescSetAttribute.
 func matrixTransformDescSetAttribute(transformDesc MatrixTransformDesc, attr MatrixTransformDescAttributes, buf uintptr, sizeInBytes uint) error {

@@ -4,9 +4,6 @@ package cudnn
 
 // Destroy destroys a previously created activation descriptor object.
 //
-// Returns:
-//   - [Success]: The object was destroyed successfully.
-//
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnDestroyActivationDescriptor.
@@ -15,9 +12,6 @@ func (a ActivationDescriptor) Destroy() error {
 }
 
 // Get queries a previously initialized generic activation descriptor object.
-//
-// Returns:
-//   - [Success]: The object was queried successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -28,9 +22,10 @@ func (a ActivationDescriptor) Get() (mode ActivationMode, reluNanOpt NanPropagat
 
 // SwishBeta queries the current beta parameter set for SWISH activation.
 //
-// Returns:
+// A nil error means the beta parameter was queried successfully.
+//
+// Errors:
 //   - [ErrBadParam]: At least one of activationDesc or swish_beta were NULL.
-//   - [Success]: The beta parameter was queried successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -45,9 +40,8 @@ func (a ActivationDescriptor) SwishBeta() (swishBeta float64, err error) {
 //   - reluNanOpt: Input. Enumerant to specify the Nan propagation mode
 //   - coef: Input. Floating point number. When the activation mode (refer to [ActivationMode]) is set to [ActivationClippedRelu], this input specifies the clipping threshold; and when the activation mode is set to [ActivationRelu], this input specifies the upper bound
 //
-// Returns:
+// Errors:
 //   - [ErrBadParam]: mode or reluNanOpt has an invalid enumerant value.
-//   - [Success]: The object was set successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -60,9 +54,10 @@ func (a ActivationDescriptor) Set(mode ActivationMode, reluNanOpt NanPropagation
 //
 //   - swishBeta: Input. The value to set the SWISH activations’ beta parameter to
 //
-// Returns:
+// A nil error means the value was set successfully.
+//
+// Errors:
 //   - [ErrBadParam]: The activation descriptor is a NULL pointer.
-//   - [Success]: The value was set successfully.
 //
 // Deprecated: This function is deprecated.
 //

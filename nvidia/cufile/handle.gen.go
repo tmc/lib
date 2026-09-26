@@ -9,32 +9,173 @@ import (
 	"github.com/tmc/lib/nvidia/driver"
 )
 
-// HandleRegister wraps cuFileHandleRegister.
+// HandleRegister registers an open file.
+//
+// [HandleRegister] is required and performs extra checking that is memoized to provide increased performance on later cuFile operations.
+// This API is OS agnostic.
+//   - Given a file-descriptor will populate and return the [Handle] needed for issuing IO with cuFile APIs.
+//   - A return value of anything other than [Success] leaves fh in an undefined state but has no other side effects.
+//   - By default this API accepts whether the file descriptor is opened with O_DIRECT mode or non O_DIRECT mode.
+//
+// Refer to the following for more information:
+//   - [Handle.Read]
+//   - [Handle.Write]
+//   - [Handle.ReadAsync]
+//   - [Handle.WriteAsync]
+//   - [Handle.Deregister]
+//
+// Parameters:
+//   - fh: Valid pointer to the OS-neutral cuFile handle structure supplied by the user but populated and maintained by the cuFile runtime
+//
+// Errors:
+//   - [DriverNotInitialized]: on failure to load the driver.
+//   - [HandleAlreadyRegistered]: if the file is already registered using the same file-descriptor.
+//   - [InvalidFileOpenFlag]: if the file is opened with unsupported modes such as no O_APPEND, O_NOCTTY, O_NONBLOCK, O_DIRECTORY, O_NOFOLLOW, O_NOATIME, and O_TMPFILE.
+//   - [InvalidFileType]: if the file path is not valid, not a regular file, not a symbolic link, or not a device file.
+//   - [InvalidValue]: if there are null or bad API arguments.
+//   - [IoNotSupported]: if the filesystem is not supported.
+//
+// Wraps cuFileHandleRegister.
 func HandleRegister(descr *Descr) (Handle, error) {
 	return handleRegister(descr)
 }
 
-// Deregister wraps cuFileHandleDeregister.
+// Deregister The API is used to release resources that are claimed by [HandleRegister].
+//
+// Note: This API only logs an ERROR level message in the cufile.log file for valid inputs.
+// This API should be invoked only after the application ensures there are no outstanding IO operations with the handle. If [Handle.Deregister] is called while IO on the file is in progress might result in undefined behavior.
+//   - The user is still expected to close the file descriptor outside the cuFile subsystem after calling this API using close system call.
+//
+// Closing a file handle without calling [Handle.Deregister] does not release the resources that are held in the cuFile library. If this API is not called, the cuFile subsystem releases the resources lazily or when the application exits.
+// Refer to the following for more information:
+//   - [Handle.Read]
+//   - [Handle.Write]
+//   - [HandleRegister]
+//
+// Wraps cuFileHandleDeregister.
 func (h Handle) Deregister() error {
 	return handleDeregister(h)
 }
 
-// Read wraps cuFileRead.
+// Read reads specified bytes from the file descriptor into the device memory or the host memory.
+//
+// This API reads the data from a specified file handle at a specified offset and size bytes into the GPU memory by using GDS functionality or into the host memory based on the type of memory pointer. The API works correctly for unaligned offsets and any data size, although the performance might not match the performance of aligned reads. This is a synchronous call and blocks until the IO is complete.
+//
+// Note: For the bufPtrOffset, if data will be read starting exactly from the bufPtrBase that is registered with [BufRegister], bufPtrOffset should be set to 0. To read starting from an offset in the registered buffer range, the relative offset should be specified in the bufPtrOffset, and the bufPtrBase must remain set to the base address that was used in the [BufRegister] call.
+// See the following for more information:
+//   - [Handle.Write]
+//   - [Handle.ReadAsync]
+//   - [Handle.WriteAsync]
+//
+// Parameters:
+//   - bufPtrBase: Base address of buffer in device memory or host memory. For registered buffers, bufPtrBase must remain set to the base address used in the [BufRegister] call
+//   - size: Size in bytes to read
+//   - fileOffset: Offset in the file to read from
+//   - bufPtrOffset: Offset relative to the bufPtrBase pointer to read into. This parameter should be used only with registered buffers
+//
+// Read returns the count. If it is negative, Read returns 0 and an error
+// instead: an *[ErrnoError] if it is -1, which reports a failure in errno,
+// and otherwise a *[CallError] whose Result.Err ([OpError]) is the negated
+// count. An unavailable library or symbol is also an error.
+//
+// Wraps cuFileRead.
 func (h Handle) Read(bufPtrBase uintptr, size uint, fileOffset int64, bufPtrOffset int64) (int64, error) {
 	return read(h, bufPtrBase, size, fileOffset, bufPtrOffset)
 }
 
-// ReadAsync wraps cuFileReadAsync.
+// ReadAsync enqueues a read operation for the specified bytes from the cuFile handle into the device memory by using GDS functionality or to the host memory based on the type of memory pointer.
+//
+// If non-NULL, the action is ordered in the stream.
+// The current context of the caller is assumed.
+//   - This API reads the data from the specified file handle at the specified offset and size bytes into the GPU memory using GDS functionality.
+//
+// This is an asynchronous call and enqueues the operation into the specified CUDA stream and will not block the host thread for IO completion. The operation can be waited upon using cuStreamSynchronize(stream).
+//   - The bytesReadP memory should be allocated with cuMemHostAlloc/malloc/mmap or registered with cuMemHostRegister.
+//
+// The pointer to access that memory from the device can be obtained by using cuMemHostGetDevicePointer.
+//   - Operations that are enqueued with cuFile Stream APIs are FIFO ordered with respect to other work on the stream and must be completed before continuing to the next action in the stream.
+//   - Unless otherwise specified through [StreamRegister] API, file offset, buffer offset or size parameter will not be evaluated until execution time. In these scenarios, size parameters should be set to the maximum possible I/O size at the time of submission and can be set to the actual size prior to the stream I/O execution.
+//
+// Refer to the following for more information:
+//   - [Handle.Read]
+//   - [Handle.Write]
+//   - [Handle.WriteAsync]
+//
+// Parameters:
+//   - bufPtrBase: The base address of the buffer in the memory into which to read. The buffer can be allocated using either cudaMemory, cudaMallocHost, malloc, or mmap. For registered buffers, bufPtrBase must remain set to the base address used in [BufRegister] call
+//   - sizeP: Pointer to size in bytes to read. If the exact size is not known at the time of I/O submission, then yo must set it to the maximum possible I/O size for that stream I/O
+//   - fileOffsetP: Pointer to offset in the file from which to read. Unless otherwise set using [StreamRegister] API, this value will not be evaluated until execution time
+//   - bufPtrOffsetP: Pointer to the offset relative to the bufPtrBase pointer from which to write. Unless otherwise set using [StreamRegister] API, this value will not be evaluated until execution time
+//   - bytesReadP: Pointer to the bytes read from the specified filehandle. This pointer should be a non NULL value and *bytesReadP set to 0. After successful execution of the operation in the stream, the value *bytesReadP will contain either: The number of bytes successfully read. -1 on IO errors. All other errors return a negative integer value of the [OpError] enum value
+//   - stream: CUDA stream in which to enqueue the operation. If NULL, make this operation synchronous
+//
+// A nil error means a successful submission.
+//
+// Errors:
+//   - CU_FILE_CUDA_ERROR: on CUDA-specific errors. CUresult code can be obtained by using CU_FILE_CUDA_ERR(err).
+//   - CU_FILE_DRIVER_ERROR: if the nvidia-fs driver cannot handle the request.
+//   - CU_FILE_ERROR_INVALID_VALUE: on an input failure.
+//
+// Wraps cuFileReadAsync.
 func (h Handle) ReadAsync(bufPtrBase uintptr, sizeP *uint, fileOffsetP *int64, bufPtrOffsetP *int64, bytesReadP *int64, stream driver.Stream) error {
 	return readAsync(h, bufPtrBase, sizeP, fileOffsetP, bufPtrOffsetP, bytesReadP, stream)
 }
 
-// Write wraps cuFileWrite.
+// Write writes specified bytes from the device memory into the file descriptor using GDS.
+//
+// This API writes the data from the GPU memory or the host memory to a file specified by the file handle at a specified offset and size bytes by using GDS functionality. The API works correctly for unaligned offset and data sizes, although the performance is not on-par with aligned writes.This is a synchronous call and will block until the IO is complete.
+//
+// Note: GDS functionality modified the standard file system metadata in SysMem. However, GDS functionality does not take any special responsibility for writing that metadata back to permanent storage. The data is not guaranteed to be present after a system crash unless the application uses an explicit fsync(2) call. If the file is opened with an O_SYNC flag, the metadata will be written to the disk before the call is complete.
+// Refer to the note in [Handle.Read] for more information about bufPtrOffset:.
+// Refer to the following for more information:
+//   - [Handle.Write]
+//   - [Handle.ReadAsync]
+//   - [Handle.WriteAsync]
+//
+// Parameters:
+//   - bufPtrBase: Base address of buffer in device memory or host memory. For registered buffers, bufPtrBase must remain set to the base address used in the [BufRegister] call
+//   - size: Size in bytes to which to write
+//   - fileOffset: Offset in the file to which to write
+//   - bufPtrOffset: Offset relative to the bufPtrBase pointer from which to write. This parameter should be used only with registered buffers
+//
+// Write returns the count. If it is negative, Write returns 0 and an error
+// instead: an *[ErrnoError] if it is -1, which reports a failure in errno,
+// and otherwise a *[CallError] whose Result.Err ([OpError]) is the negated
+// count. An unavailable library or symbol is also an error.
+//
+// Wraps cuFileWrite.
 func (h Handle) Write(bufPtrBase uintptr, size uint, fileOffset int64, bufPtrOffset int64) (int64, error) {
 	return write(h, bufPtrBase, size, fileOffset, bufPtrOffset)
 }
 
-// WriteAsync wraps cuFileWriteAsync.
+// WriteAsync Queues [Handle.Write] operation for the specified bytes from the device memory into the cuFile handle by using GDS.
+//
+//   - This API writes the data from the GPU memory to a file specified by the file handle at a specified offset and size bytes by using GDS functionality. This is an asynchronous call and enqueues the operation into the specified CUDA stream and will not block the host thread for IO completion. The operation can be waited upon by using cuStreamSynchronize(stream).
+//   - The bytes_written pointer should be allocated with cuMemHostAlloc or registered with cuMemHostRegister, and the pointer to access that memory from the device can be obtained by using cuMemHostGetDevicePointer.
+//   - Operations that are enqueued with cuFile Stream APIs are FIFO ordered with respect to other work on the stream and must be completed before continuing to the next action in the stream.
+//   - Unless otherwise specified through [StreamRegister] API, file offset, buffer offset or size parameter will not be evaluated until execution time. In these scenarios, size parameters should be set to the maximum possible I/O size at the time of submission and can be set to the actual size prior to the stream I/O execution.
+//
+// See the following for more information:
+//   - [Handle.Read]
+//   - [Handle.Write]
+//   - [Handle.ReadAsync]
+//
+// Parameters:
+//   - bufPtrBase: The base address of the buffer in the memory from which to write. The buffer can be allocated using either cudaMemory/cudaMallocHost/malloc/mmap. For registered buffers, bufPtrBase must remain set to the base address used in the [BufRegister] call
+//   - sizeP: Pointer to the size in bytes to write. If the exact size is not known at the time of I/O submission, then you must set it to the maximum possible I/O size for that stream I/O
+//   - fileOffsetP: Pointer to the offset in the file from which to write. Unless otherwise set using [StreamRegister] API, this value will not be evaluated until execution time
+//   - bufPtrOffsetP: Pointer to the offset relative to the bufPtrBase pointer from which to write. Unless otherwise set using [StreamRegister] API, this value will not be evaluated until execution time
+//   - bytesWrittenP: Pointer to the bytes written to the specified filehandle.This pointer should be a non NULL value and *bytesWrittenP set to 0. After successful execution of the operation in the stream, the value *bytesWrittenP will contain either: The number of bytes successfully written. -1 on IO errors. All other errors will return a negative integer value of the [OpError] enum value
+//   - stream: The CUDA stream to enqueue the operation
+//
+// A nil error means a successful submission.
+//
+// Errors:
+//   - CU_FILE_CUDA_ERROR: on CUDA-specific errors. The CUresult code can be obtained by using CU_FILE_CUDA_ERR(err).
+//   - CU_FILE_DRIVER_ERROR: if the nvidia-fs driver cannot handle the request.
+//   - CU_FILE_ERROR_INVALID_VALUE: on an input failure.
+//
+// Wraps cuFileWriteAsync.
 func (h Handle) WriteAsync(bufPtrBase uintptr, sizeP *uint, fileOffsetP *int64, bufPtrOffsetP *int64, bytesWrittenP *int64, stream driver.Stream) error {
 	return writeAsync(h, bufPtrBase, sizeP, fileOffsetP, bufPtrOffsetP, bytesWrittenP, stream)
 }

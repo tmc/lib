@@ -9,14 +9,13 @@ package nvml
 //
 //   - pVgpuInstanceInfo: Pointer to the vGPU instance information structure [ActiveVgpuInstanceInfo]
 //
-// Returns:
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the version of pVgpuInstanceInfo is invalid
 //   - [ErrInsufficientSize]: pVgpuInstanceInfo->vgpuTypeIds buffer is too small, array element count is returned in pVgpuInstanceInfo->vgpuCount
 //   - [ErrInvalidArgument]: If gpuInstance is NULL or invalid, or pVgpuInstanceInfo is NULL or GPU Instance Id is invalid
 //   - [ErrNotSupported]: If not on a vGPU host or an unsupported GPU
 //   - [ErrUninitialized]: If the library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: Successful completion
 //
 // Wraps [nvmlGpuInstanceGetActiveVgpus].
 //
@@ -32,13 +31,12 @@ func (g GpuInstance) ActiveVgpus(pVgpuInstanceInfo *ActiveVgpuInstanceInfo) erro
 //   - id: The compute instance ID
 //   - computeInstance: Returns compute instance
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If device, ID or computeInstance are invalid
 //   - [ErrNotFound]: If the compute instance is not found.
 //   - [ErrNotSupported]: If device doesn’t have MIG mode enabled
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceGetComputeInstanceById].
 //
@@ -56,12 +54,11 @@ func (g GpuInstance) ComputeInstanceById(id uint32) (ComputeInstance, error) {
 //   - placements: Returns placements allowed for the profile. Can be NULL to discover number of allowed placements for this profile. If non-NULL must be large enough to accommodate the placements supported by the profile
 //   - count: Returns number of allowed placemenets for the profile
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If gpuInstance, profileId or count are invalid
 //   - [ErrNotSupported]: If device doesn’t have MIG mode enabled or profileId isn’t supported
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceGetComputeInstancePossiblePlacements].
 //
@@ -81,12 +78,11 @@ func (g GpuInstance) ComputeInstancePossiblePlacements(profileId uint32, placeme
 //   - engProfile: One of the NVML_COMPUTE_INSTANCE_ENGINE_PROFILE_*
 //   - info: Returns detailed profile information
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If gpuInstance, profile, engProfile or info are invalid
 //   - [ErrNotSupported]: If profile isn’t supported
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceGetComputeInstanceProfileInfo].
 //
@@ -95,7 +91,9 @@ func (g GpuInstance) ComputeInstanceProfileInfo(profile uint32, engProfile uint3
 	return gpuInstanceGetComputeInstanceProfileInfo(g, profile, engProfile)
 }
 
-// ComputeInstanceProfileInfoV Versioned wrapper around [GpuInstance.ComputeInstanceProfileInfo] that accepts a versioned [ComputeInstanceProfileInfoV2] or later output structure.
+// ComputeInstanceProfileInfoV returns information about a compute instance profile in a versioned structure, of version 2 or later.
+//
+// Versioned wrapper around [GpuInstance.ComputeInstanceProfileInfo] that accepts a versioned [ComputeInstanceProfileInfoV2] or later output structure.
 //
 // For Ampere or newer fully supported devices. Supported on Linux only.
 //
@@ -105,12 +103,11 @@ func (g GpuInstance) ComputeInstanceProfileInfo(profile uint32, engProfile uint3
 //   - engProfile: One of the NVML_COMPUTE_INSTANCE_ENGINE_PROFILE_*
 //   - info: Returns detailed profile information
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If gpuInstance, profile, engProfile, info, or info->version are invalid
 //   - [ErrNotSupported]: If profile isn’t supported
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceGetComputeInstanceProfileInfoV].
 //
@@ -126,12 +123,11 @@ func (g GpuInstance) ComputeInstanceProfileInfoV(profile uint32, engProfile uint
 //   - profileId: The compute instance profile ID. See [GpuInstance.ComputeInstanceProfileInfo]
 //   - count: Returns remaining instance count for the profile ID
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If gpuInstance, profileId or availableCount are invalid
 //   - [ErrNotSupported]: If profileId isn’t supported
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceGetComputeInstanceRemainingCapacity].
 //
@@ -148,12 +144,11 @@ func (g GpuInstance) ComputeInstanceRemainingCapacity(profileId uint32, count *u
 //   - computeInstances: Returns pre-exiting compute instances, the buffer must be large enough to accommodate the instances supported by the profile. See [GpuInstance.ComputeInstanceProfileInfo]
 //   - count: The count of returned compute instances
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If gpuInstance, profileId, computeInstances or count are invalid
 //   - [ErrNotSupported]: If profileId isn’t supported
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceGetComputeInstances].
 //
@@ -170,14 +165,13 @@ func (g GpuInstance) ComputeInstances(profileId uint32, computeInstances *Comput
 //
 //   - pVgpus: Pointer to the caller-provided structure of [VgpuTypeIdInfo]
 //
-// Returns:
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the version of pVgpus is invalid
 //   - [ErrInsufficientSize]: If pVgpus->vgpuTypeIds buffer is small
 //   - [ErrInvalidArgument]: If gpuInstance is NULL or invalid, or pVgpus is NULL or GPU Instance Id is invalid
 //   - [ErrNotSupported]: If not on a vGPU host or an unsupported GPU
 //   - [ErrUninitialized]: If library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceGetCreatableVgpus].
 //
@@ -194,13 +188,12 @@ func (g GpuInstance) CreatableVgpus(pVgpus *VgpuTypeIdInfo) error {
 //   - profileId: The compute instance profile ID. See [GpuInstance.ComputeInstanceProfileInfo]
 //   - computeInstance: Returns the compute instance handle
 //
-// Returns:
+// Errors:
 //   - [ErrInsufficientResources]: If the requested compute instance could not be created
 //   - [ErrInvalidArgument]: If gpuInstance, profile, profileId or computeInstance are invalid
 //   - [ErrNotSupported]: If profileId isn’t supported
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceCreateComputeInstance].
 //
@@ -218,13 +211,12 @@ func (g GpuInstance) CreateComputeInstance(profileId uint32) (ComputeInstance, e
 //   - placement: The requested placement. See [GpuInstance.ComputeInstancePossiblePlacements]
 //   - computeInstance: Returns the compute instance handle
 //
-// Returns:
+// Errors:
 //   - [ErrInsufficientResources]: If the requested compute instance could not be created
 //   - [ErrInvalidArgument]: If gpuInstance, profile, profileId or computeInstance are invalid
 //   - [ErrNotSupported]: If profileId isn’t supported
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceCreateComputeInstanceWithPlacement].
 //
@@ -237,13 +229,12 @@ func (g GpuInstance) CreateComputeInstanceWithPlacement(profileId uint32, placem
 //
 // For Ampere or newer fully supported devices. Supported on Linux only. Requires privileged user.
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If gpuInstance is invalid
 //   - [ErrInUse]: If the GPU instance is in use. This error would be returned if processes (e.g. CUDA application) or compute instances are active on the GPU instance.
 //   - [ErrNotSupported]: If device doesn’t have MIG mode enabled or in vGPU guest
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceDestroy].
 //
@@ -258,11 +249,10 @@ func (g GpuInstance) Destroy() error {
 //
 //   - info: Return GPU instance information
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If gpuInstance or info are invalid
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceGetInfo].
 //
@@ -278,14 +268,13 @@ func (g GpuInstance) Info() (GpuInstanceInfo, error) {
 //
 //   - pHeterogeneousMode: Pointer to the caller-provided structure of [VgpuHeterogeneousMode]
 //
-// Returns:
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the version of pHeterogeneousMode is invalid
 //   - [ErrInvalidArgument]: If gpuInstance is NULL or invalid, or pHeterogeneousMode is NULL or pHeterogeneousMode->mode is invalid or GPU Instance Id is invalid
 //   - [ErrInUse]: If the gpuInstance is in use
 //   - [ErrNotSupported]: If not on a vGPU host or an unsupported GPU
 //   - [ErrUninitialized]: If library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceSetVgpuHeterogeneousMode].
 //
@@ -302,12 +291,11 @@ func (g GpuInstance) SetVgpuHeterogeneousMode(pHeterogeneousMode *VgpuHeterogene
 //
 //   - pSchedulerState: Pointer to the caller-provided structure of [VgpuSchedulerStateV2]
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If gpuInstance is NULL or invalid, or pSchedulerState is NULL or GPU Instance Id is invalid
 //   - [ErrNotSupported]: If not on a vGPU host or an unsupported GPU or if any vGPU instance exists
 //   - [ErrResetRequired]: If setting the state failed with fatal error, reboot is required
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceSetVgpuSchedulerState_v2].
 //
@@ -324,13 +312,12 @@ func (g GpuInstance) SetVgpuSchedulerState(pSchedulerState *VgpuSchedulerStateV2
 //
 //   - pHeterogeneousMode: Pointer to the caller-provided structure of [VgpuHeterogeneousMode]
 //
-// Returns:
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the version of pHeterogeneousMode is invalid
 //   - [ErrInvalidArgument]: If gpuInstance is NULL or invalid, or pHeterogeneousMode is NULL or GPU Instance Id is invalid
 //   - [ErrNotSupported]: If not on a vGPU host or an unsupported GPU or not in MIG mode
 //   - [ErrUninitialized]: If library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceGetVgpuHeterogeneousMode].
 //
@@ -347,12 +334,13 @@ func (g GpuInstance) VgpuHeterogeneousMode(pHeterogeneousMode *VgpuHeterogeneous
 //
 //   - pSchedulerLogInfo: Reference in which pSchedulerLogInfo is written
 //
-// Returns:
+// A nil error means vGPU scheduler logs are successfully obtained.
+//
+// Errors:
 //   - [ErrInvalidArgument]: If gpuInstance is NULL or invalid, or pSchedulerLogInfo is NULL or GPU Instance Id is invalid
 //   - [ErrNotSupported]: If not on a vGPU host or an unsupported GPU
 //   - [ErrUninitialized]: If library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: vGPU scheduler logs are successfully obtained
 //
 // Wraps [nvmlGpuInstanceGetVgpuSchedulerLog_v2].
 //
@@ -368,12 +356,13 @@ func (g GpuInstance) VgpuSchedulerLog(pSchedulerLogInfo *VgpuSchedulerLogInfoV2)
 //
 //   - pSchedulerStateInfo: Reference in which pSchedulerStateInfo is returned
 //
-// Returns:
+// A nil error means vGPU scheduler state is successfully obtained.
+//
+// Errors:
 //   - [ErrInvalidArgument]: If gpuInstance is NULL or invalid, or pSchedulerStateInfo is NULL or GPU Instance Id is invalid
 //   - [ErrNotSupported]: If not on a vGPU host or an unsupported GPU
 //   - [ErrUninitialized]: If library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: vGPU scheduler state is successfully obtained
 //
 // Wraps [nvmlGpuInstanceGetVgpuSchedulerState_v2].
 //
@@ -389,14 +378,13 @@ func (g GpuInstance) VgpuSchedulerState(pSchedulerStateInfo *VgpuSchedulerStateI
 //
 //   - pCreatablePlacementInfo: Pointer to the list of vGPU creatable placement structure [VgpuCreatablePlacementInfo]
 //
-// Returns:
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the version of pCreatablePlacementInfo is invalid
 //   - [ErrInsufficientSize]: If the buffer is small, element count is returned in pCreatablePlacementInfo->count
 //   - [ErrInvalidArgument]: If gpuInstance is NULL or invalid, or pCreatablePlacementInfo is NULL or GPU Instance Id is invalid
 //   - [ErrNotSupported]: If not on a vGPU host or an unsupported GPU or vGPU heterogeneous mode is not enabled
 //   - [ErrUninitialized]: If the library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: Successful completion
 //
 // Wraps [nvmlGpuInstanceGetVgpuTypeCreatablePlacements].
 //

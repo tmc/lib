@@ -6,9 +6,6 @@ package cudnn
 //
 // This function destroys a previously created convolution descriptor object.
 //
-// Returns:
-//   - [Success]: The descriptor was destroyed successfully.
-//
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnDestroyConvolutionDescriptor.
@@ -20,9 +17,8 @@ func (c ConvolutionDescriptor) Destroy() error {
 //
 // This function queries a previously initialized 2D convolution descriptor object.
 //
-// Returns:
+// Errors:
 //   - [ErrBadParam]: The parameter convDesc is NIL.
-//   - [Success]: The operation was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -39,9 +35,8 @@ func (c ConvolutionDescriptor) Get2D() (Convolution2DConfig, error) {
 //   - inputTensorDesc: Input. Handle to a previously initialized tensor descriptor
 //   - filterDesc: Input. Handle to a previously initialized filter descriptor
 //
-// Returns:
+// Errors:
 //   - [ErrBadParam]: One or more of the descriptors has not been created correctly or there is a mismatch between the feature maps of inputTensorDesc and filterDesc.
-//   - [Success]: The object was set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -54,9 +49,10 @@ func (cd ConvolutionDescriptor) ForwardOutputDim2D(inputTensorDesc TensorDescrip
 //
 // This function returns the group count specified in the given convolution descriptor.
 //
-// Returns:
+// A nil error means the group count was returned successfully.
+//
+// Errors:
 //   - [ErrBadParam]: An invalid convolution descriptor was provided.
-//   - [Success]: The group count was returned successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -69,9 +65,10 @@ func (c ConvolutionDescriptor) GroupCount() (groupCount int32, err error) {
 //
 // This function returns the math type specified in a given convolution descriptor.
 //
-// Returns:
+// A nil error means the math type was returned successfully.
+//
+// Errors:
 //   - [ErrBadParam]: An invalid convolution descriptor was provided.
-//   - [Success]: The math type was returned successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -86,10 +83,9 @@ func (c ConvolutionDescriptor) MathType() (mathType MathType, err error) {
 //
 //   - arrayLengthRequested: Input. Dimension of the expected convolution descriptor. It is also the minimum size of the arrays padA, filterStrideA, and dilationA in order to be able to hold the results
 //
-// Returns:
+// Errors:
 //   - [ErrBadParam]: At least one of the following conditions are met: The descriptor convDesc is NIL. The arrayLengthRequest is negative.
 //   - [ErrNotSupported]: The arrayLengthRequested is greater than CUDNN_DIM_MAX-2.
-//   - [Success]: The query was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -108,9 +104,10 @@ func (c ConvolutionDescriptor) Get(arrayLengthRequested int) (ConvolutionConfig,
 //   - filterDesc: Input. Handle to a previously initialized filter descriptor
 //   - nbDims: Input. Dimension of the output tensor
 //
-// Returns:
+// A nil error means the routine exited successfully.
+//
+// Errors:
 //   - [ErrBadParam]: At least one of the following conditions are met: One of the parameters convDesc, inputTensorDesc, and filterDesc is NIL. The dimension of the filter descriptor filterDesc is different from the dimension of input tensor descriptor inputTensorDesc. The dimension of the convolution descriptor is different from the dimension of input tensor descriptor inputTensorDesc-2. The features map of the filter descriptor filterDesc is different from the one of input tensor descriptor inputTensorDesc. The size of the dilated filter filterDesc is larger than the padded sizes of the input tensor. The dimension nbDims of the output array is negative or greater than the dimension of input tensor descriptor inputTensorDesc.
-//   - [Success]: The routine exited successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -123,9 +120,10 @@ func (c ConvolutionDescriptor) ForwardOutputDims(inputTensorDesc TensorDescripto
 //
 // This function retrieves the convolution reorder type from the given convolution descriptor.
 //
-// Returns:
+// A nil error means the reorder type is retrieved successfully.
+//
+// Errors:
 //   - [ErrBadParam]: One of the inputs to this function is not valid.
-//   - [Success]: The reorder type is retrieved successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -147,9 +145,8 @@ func (c ConvolutionDescriptor) ReorderType() (reorderType ReorderType, err error
 //   - mode: Input. Selects between [Convolution] and [CrossCorrelation]
 //   - computeType: Input. compute precision
 //
-// Returns:
+// Errors:
 //   - [ErrBadParam]: At least one of the following conditions are met: The descriptor convDesc is NIL. One of the parameters pad_h, pad_w is strictly negative. One of the parameters u, v is negative or zero. One of the parameters dilation_h, dilation_w is negative or zero. The parameter mode has an invalid enumerant value.
-//   - [Success]: The object was set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -162,9 +159,10 @@ func (c ConvolutionDescriptor) Set2D(padH int32, padW int32, u int32, v int32, d
 //
 // This function allows the user to specify the number of groups to be used in the associated convolution.
 //
-// Returns:
+// A nil error means the group count was set successfully.
+//
+// Errors:
 //   - [ErrBadParam]: An invalid convolution descriptor was provided.
-//   - [Success]: The group count was set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -177,9 +175,10 @@ func (c ConvolutionDescriptor) SetGroupCount(groupCount int32) error {
 //
 // This function allows the user to specify whether or not the use of tensor op is permitted in the library routines associated with a given convolution descriptor.
 //
-// Returns:
+// A nil error means the math type was set successfully.
+//
+// Errors:
 //   - [ErrBadParam]: Either an invalid convolution descriptor was provided or an invalid math type was specified.
-//   - [Success]: The math type was set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -199,10 +198,9 @@ func (c ConvolutionDescriptor) SetMathType(mathType MathType) error {
 //   - dilationA: Input. Array of dimension arrayLength containing the dilation factor for each dimension
 //   - mode: Input. Selects between [Convolution] and [CrossCorrelation]
 //
-// Returns:
+// Errors:
 //   - [ErrBadParam]: At least one of the following conditions are met: The descriptor convDesc is NIL. The arrayLengthRequest is negative. The enumerant mode has an invalid value. The enumerant datatype has an invalid value. One of the elements of padA is strictly negative. One of the elements of strideA is negative or zero. One of the elements of dilationA is negative or zero.
 //   - [ErrNotSupported]: At least one of the following conditions are met: The arrayLengthRequest is greater than CUDNN_DIM_MAX.
-//   - [Success]: The object was set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -217,9 +215,10 @@ func (c ConvolutionDescriptor) Set(padA []int32, filterStrideA []int32, dilation
 //
 //   - reorderType: Input. Set the reorder type to this value. For more information, refer to [ReorderType]
 //
-// Returns:
+// A nil error means reorder type is set successfully.
+//
+// Errors:
 //   - [ErrBadParam]: The reorder type supplied is not supported.
-//   - [Success]: Reorder type is set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //

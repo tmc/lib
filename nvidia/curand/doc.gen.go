@@ -20,25 +20,25 @@
 //
 // # Random Number Generation
 //
-//   - [Generator.Generate]: [Generator.Generate] 32-bit pseudo or quasirandom numbers.
+//   - [Generator.Generate]: Generate 32-bit pseudo or quasirandom numbers.
 //   - [Generator.GenerateBinomial].
 //   - [Generator.GenerateBinomialHost].
 //   - [Generator.GenerateHost].
-//   - [Generator.GenerateLogNormal]: [Generator.Generate] log-normally distributed floats.
-//   - [Generator.GenerateLogNormalDouble]: [Generator.Generate] log-normally distributed doubles.
+//   - [Generator.GenerateLogNormal]: Generate log-normally distributed floats.
+//   - [Generator.GenerateLogNormalDouble]: Generate log-normally distributed doubles.
 //   - [Generator.GenerateLogNormalDoubleHost].
 //   - [Generator.GenerateLogNormalHost].
-//   - [Generator.GenerateLongLong]: [Generator.Generate] 64-bit quasirandom numbers.
+//   - [Generator.GenerateLongLong]: Generate 64-bit quasirandom numbers.
 //   - [Generator.GenerateLongLongHost].
-//   - [Generator.GenerateNormal]: [Generator.Generate] normally distributed doubles.
-//   - [Generator.GenerateNormalDouble]: [Generator.Generate] normally distributed doubles.
+//   - [Generator.GenerateNormal]: Generate normally distributed doubles.
+//   - [Generator.GenerateNormalDouble]: Generate normally distributed doubles.
 //   - [Generator.GenerateNormalDoubleHost].
 //   - [Generator.GenerateNormalHost].
-//   - [Generator.GeneratePoisson]: [Generator.Generate] Poisson-distributed unsigned ints.
+//   - [Generator.GeneratePoisson]: Generate Poisson-distributed unsigned ints.
 //   - [Generator.GeneratePoissonHost].
 //   - [Generator.GenerateSeeds]: Setup starting states.
-//   - [Generator.GenerateUniform]: [Generator.Generate] uniformly distributed floats.
-//   - [Generator.GenerateUniformDouble]: [Generator.Generate] uniformly distributed doubles.
+//   - [Generator.GenerateUniform]: Generate uniformly distributed floats.
+//   - [Generator.GenerateUniformDouble]: Generate uniformly distributed doubles.
 //   - [Generator.GenerateUniformDoubleHost].
 //   - [Generator.GenerateUniformHost].
 //

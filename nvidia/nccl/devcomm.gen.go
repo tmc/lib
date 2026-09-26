@@ -36,7 +36,7 @@ func fndevCommDestroy(a0 Comm, a1 *DevComm) Result {
 	return Result(r1)
 }
 
-// commQueryProperties Exposes communicator properties by filling in props.
+// commQueryProperties exposes communicator properties by filling in props.
 //
 // Before calling this function, props must be initialized using NCCL_COMM_PROPERTIES_INITIALIZER. Introduced in NCCL 2.29.
 // Note that this is a host-side function.
@@ -144,7 +144,7 @@ func teamWorld(comm Comm) (Team, error) {
 	return fnteamWorld(comm), nil
 }
 
-// QueryProperties Exposes communicator properties by filling in props.
+// QueryProperties exposes communicator properties by filling in props.
 //
 // Before calling this function, props must be initialized using NCCL_COMM_PROPERTIES_INITIALIZER. Introduced in NCCL 2.29.
 // Note that this is a host-side function.

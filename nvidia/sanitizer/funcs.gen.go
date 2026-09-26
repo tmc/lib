@@ -42,25 +42,25 @@ var (
 
 // fnenableAllDomains calls sanitizerEnableAllDomains.
 func fnenableAllDomains(a0 uint32, a1 Subscriber) Result {
-	r1, _ := ffiCall2(symenableAllDomains, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symenableAllDomains, 0, 0x3, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fnenableCallback calls sanitizerEnableCallback.
 func fnenableCallback(a0 uint32, a1 Subscriber, a2 CallbackDomain, a3 uint32) Result {
-	r1, _ := ffiCall4(symenableCallback, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	r1, _ := ffiCallWidths4(symenableCallback, 0, 0xf3, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
 
 // fnenableDomain calls sanitizerEnableDomain.
 func fnenableDomain(a0 uint32, a1 Subscriber, a2 CallbackDomain) Result {
-	r1, _ := ffiCall3(symenableDomain, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	r1, _ := ffiCallWidths3(symenableDomain, 0, 0x33, uintptr(a0), uintptr(a1), uintptr(a2))
 	return Result(r1)
 }
 
 // fngetCallbackState calls sanitizerGetCallbackState.
 func fngetCallbackState(a0 *uint32, a1 Subscriber, a2 CallbackDomain, a3 uint32) Result {
-	r1, _ := ffiCall4(symgetCallbackState, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3))
+	r1, _ := ffiCallWidths4(symgetCallbackState, 0, 0xf0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
 
@@ -108,13 +108,13 @@ func fnmemcpyHostToDeviceAsync(a0 uintptr, a1 unsafe.Pointer, a2 uint, a3 Stream
 
 // fnmemset calls sanitizerMemset.
 func fnmemset(a0 uintptr, a1 int32, a2 uint, a3 StreamHandle) Result {
-	r1, _ := ffiCall4(symmemset, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	r1, _ := ffiCallWidths4(symmemset, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
 
 // fnPatchInstructions calls sanitizerPatchInstructions.
 func fnPatchInstructions(a0 InstructionId, a1 Module, a2 *byte) Result {
-	r1, _ := ffiCall3(symPatchInstructions, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symPatchInstructions, 0, 0x3, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -176,8 +176,7 @@ func fnunsubscribe(a0 Subscriber) Result {
 //   - image: Pointer to module data to load. This API supports the same module formats as the cuModuleLoadData and cuModuleLoadFatBinary functions from the CUDA driver API
 //   - ctx: CUDA context in which to load the patches. If ctx is NULL, the current context will be used
 //
-// Returns:
-//   - [Success]: on success.
+// Errors:
 //   - [ErrNotInitialized]: if unable to initialize the sanitizer.
 //   - [ErrInvalidParameter]: if image does not point to a valid CUDA module.
 //
@@ -200,8 +199,7 @@ func AddPatches(image unsafe.Pointer, ctx driver.Context) error {
 //   - filename: Path to the module file. This API supports the same module formats as the cuModuleLoad function from the CUDA driver API
 //   - ctx: CUDA context in which to load the patches. If ctx is NULL, the current context will be used
 //
-// Returns:
-//   - [Success]: on success
+// Errors:
 //   - [ErrNotInitialized]: if unable to initialize the sanitizer
 //   - [ErrInvalidParameter]: if filename is not a path to a valid CUDA module.
 //
@@ -262,8 +260,7 @@ func AllocHost(ctx driver.Context, size uint) (devPtr uintptr, err error) {
 //   - enable: New enable state for all callbacks in all domains. Zero disables all callbacks, non-zero enables all callbacks
 //   - subscriber: Handle of the initialized subscriber
 //
-// Returns:
-//   - [Success]: on success.
+// Errors:
 //   - [ErrNotInitialized]: if unable to initialize the sanitizer.
 //   - [ErrInvalidParameter]: if subscriber is invalid.
 //
@@ -290,8 +287,7 @@ func enableAllDomains(enable uint32, subscriber Subscriber) error {
 //   - domain: The domain of the callback
 //   - cbid: The ID of the callback
 //
-// Returns:
-//   - [Success]: on success.
+// Errors:
 //   - [ErrNotInitialized]: if unable to initialize the sanitizer.
 //   - [ErrInvalidParameter]: if subscriber, domain or cbid is invalid.
 //
@@ -314,8 +310,7 @@ func enableCallback(enable uint32, subscriber Subscriber, domain CallbackDomain,
 //   - subscriber: Handle of the initialized subscriber
 //   - domain: The domain of the callback
 //
-// Returns:
-//   - [Success]: on success.
+// Errors:
 //   - [ErrNotInitialized]: if unable to initialize the sanitizer.
 //   - [ErrInvalidParameter]: if subscriber or domain is invalid.
 //
@@ -362,8 +357,7 @@ func FreeHost(ctx driver.Context, devPtr uintptr) error {
 //   - ctx (in): CUDA context in which the patches were loaded. If ctx is NULL, the current context will be used
 //   - deviceCallbackName (in): device function callback name
 //
-// Returns:
-//   - [Success]: on success.
+// Errors:
 //   - [ErrInvalidParameter]: if deviceCallbackName function cannot be located, if pc is NULL or if size is NULL.
 //
 // Wraps sanitizerGetCallbackPcAndSize.
@@ -394,8 +388,7 @@ func GetCallbackPcAndSize(ctx driver.Context, deviceCallbackName string) (pc uin
 //   - domain: The domain of the callback
 //   - cbid: The ID of the callback
 //
-// Returns:
-//   - [Success]: on success.
+// Errors:
 //   - [ErrNotInitialized]: if unable to initialize the sanitizer.
 //   - [ErrInvalidParameter]: if enabled is NULL, or if subscriber, domain or cbid is invalid.
 //
@@ -448,8 +441,7 @@ var slotGetCudaBarrierCount outSlot[uint32]
 //
 //   - func_ (in): CUDA function for which the loading status is queried
 //
-// Returns:
-//   - [Success]: on success.
+// Errors:
 //   - [ErrInvalidParameter]: if func is NULL or if loadingStatus is NULL.
 //   - [ErrNotSupported]: if the loading status cannot be queried with this driver version.
 //
@@ -475,8 +467,7 @@ var slotGetFunctionLoadedStatus outSlot[FunctionLoadedStatus]
 //   - module (in): CUDA module containing the function
 //   - functionName (in): CUDA function name
 //
-// Returns:
-//   - [Success]: on success.
+// Errors:
 //   - [ErrInvalidParameter]: if functionName function. cannot be located, if pc is NULL or if size is NULL.
 //
 // Wraps sanitizerGetFunctionPcAndSize.
@@ -502,8 +493,7 @@ var slotGetFunctionPcAndSize outSlot[struct {
 //
 //   - hStream (in): Sanitizer Stream handle
 //
-// Returns:
-//   - [Success]: on success.
+// Errors:
 //   - [ErrInvalidParameter]: if hStream is not a valid Sanitizer stream handle or if stream is NULL.
 //
 // Wraps sanitizerGetStream.
@@ -528,8 +518,7 @@ var slotGetStream outSlot[driver.Stream]
 //   - ctx (in): Context owning the stream. If NULL, the current context will be used
 //   - stream (in): CUstream handle. If NULL, the NULL stream will be used
 //
-// Returns:
-//   - [Success]: on success.
+// Errors:
 //   - [ErrInvalidParameter]: if stream is not a valid CUstream handle or if hStream is NULL.
 //
 // Wraps sanitizerGetStreamHandle.
@@ -556,8 +545,7 @@ func GetStreamHandle(ctx driver.Context, stream driver.Stream) (StreamHandle, er
 // is greater than 1, indicating that a Sanitizer callback has triggered another callback.
 // It returns false for the initial (non-nested) callback level.
 //
-// Returns:
-//   - [Success]: on success.
+// Errors:
 //   - [ErrInvalidParameter]: if isInside is NULL.
 //
 // Wraps sanitizerIsInsideRecursiveCallback.
@@ -648,8 +636,7 @@ func memset(devPtr uintptr, value int32, count uint, stream StreamHandle) error 
 //   - module: CUDA module to instrument
 //   - deviceCallbackName: Name of the device function callback that the inserted patch will call at the instrumented points. This function is expected to be found in code previously loaded by [AddPatchesFromFile] or [AddPatches]
 //
-// Returns:
-//   - [Success]: on success.
+// Errors:
 //   - [ErrNotInitialized]: if unable to initialize the sanitizer.
 //   - [ErrInvalidParameter]: if module is not a CUDA module or if deviceCallbackName function cannot be located.
 //
@@ -674,8 +661,7 @@ func PatchInstructions(instructionId InstructionId, module Module, deviceCallbac
 //
 //   - module: CUDA module to instrument
 //
-// Returns:
-//   - [Success]: on success.
+// Errors:
 //   - [ErrInvalidParameter]: if module is not a CUDA module.
 //
 // Wraps sanitizerPatchModule.
@@ -693,9 +679,6 @@ func PatchModule(module Module) error {
 //
 //   - kernel: CUDA function to link to user data. Callbacks in subsequent launches on this kernel will use userdata as callback data
 //   - userdata: Device memory buffer. This data will be passed to callback functions via the userdata parameter
-//
-// Returns:
-//   - [Success]: on success.
 //
 // Wraps sanitizerSetCallbackData.
 func SetCallbackData(kernel Function, userdata uintptr) error {
@@ -717,9 +700,6 @@ func SetCallbackData(kernel Function, userdata uintptr) error {
 //   - stream: CUDA stream associated with the stream launch
 //   - userdata: Device memory buffer
 //
-// Returns:
-//   - [Success]: on success.
-//
 // Wraps sanitizerSetDeviceGraphData.
 func setDeviceGraphData(graphExec GraphExec, stream StreamHandle, userdata uintptr) error {
 	if err := checkLibSym("sanitizerSetDeviceGraphData"); err != nil {
@@ -738,9 +718,6 @@ func setDeviceGraphData(graphExec GraphExec, stream StreamHandle, userdata uintp
 //   - kernel: CUDA function associated with the kernel launch
 //   - stream: CUDA stream associated with the stream launch
 //   - userdata: Device memory buffer. This data will be passed to callback functions via the userdata parameter
-//
-// Returns:
-//   - [Success]: on success.
 //
 // Wraps sanitizerSetLaunchCallbackData.
 func setLaunchCallbackData(launch LaunchHandle, kernel Function, stream StreamHandle, userdata uintptr) error {
@@ -773,8 +750,7 @@ func streamSynchronize(stream StreamHandle) error {
 //   - callback: The callback function (see [CallbackFunc])
 //   - userdata: A pointer to user data. This data will be passed to the callback function via the userdata parameter
 //
-// Returns:
-//   - [Success]: on success.
+// Errors:
 //   - [ErrNotInitialized]: if unable to initialize the sanitizer.
 //   - SANITIZER_ERROR_MAX_LIMIT_RACHED: if there is already a sanitizer subscriber.
 //   - [ErrInvalidParameter]: if subscriber is NULL.
@@ -806,9 +782,6 @@ var slotSubscribe outSlot[Subscriber]
 //
 //   - module: CUDA module on which to remove instrumentation
 //
-// Returns:
-//   - [Success]: on success.
-//
 // Wraps sanitizerUnpatchModule.
 func UnpatchModule(module Module) error {
 	if err := checkLibSym("sanitizerUnpatchModule"); err != nil {
@@ -824,8 +797,7 @@ func UnpatchModule(module Module) error {
 //
 //   - subscriber: Handle to the initialized subscriber
 //
-// Returns:
-//   - [Success]: on success.
+// Errors:
 //   - [ErrNotInitialized]: if unable to initialize the sanitizer.
 //   - [ErrInvalidParameter]: if subscriber is NULL or not initialized.
 //

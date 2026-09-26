@@ -11,6 +11,14 @@ import "unsafe"
 //
 // See also: [NewArray3D], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaArrayGetInfo
 //
+// Errors:
+//   - [ErrContextIsDestroyed]
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuArray3DGetDescriptor, bound as cuArray3DGetDescriptor_v2.
 func (a Array) Get3DDescriptor() (Array3dDescriptor, error) {
 	return array3DGetDescriptor(a)
@@ -22,6 +30,14 @@ func (a Array) Get3DDescriptor() (Array3dDescriptor, error) {
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaFreeArray
 //
+// Errors:
+//   - [ErrArrayIsMapped]
+//   - [ErrContextIsDestroyed]
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
+//
 // Wraps cuArrayDestroy.
 func (a Array) Destroy() error {
 	return arrayDestroy(a)
@@ -32,6 +48,13 @@ func (a Array) Destroy() error {
 // Returns in *pArrayDescriptor a descriptor containing information on the format and dimensions of the CUDA array hArray. It is useful for subroutines that have been passed a CUDA array, but need to know the CUDA array parameters for validation or other purposes.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaArrayGetInfo
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuArrayGetDescriptor, bound as cuArrayGetDescriptor_v2.
 func (a Array) Descriptor() (ArrayDescriptor, error) {
@@ -46,6 +69,9 @@ func (a Array) Descriptor() (ArrayDescriptor, error) {
 // See also: [MipmappedArray.MemoryRequirements], [Stream.MemMapArrayAsync]
 //
 //   - device: Device to get the memory requirements for
+//
+// Errors:
+//   - [ErrInvalidValue]
 //
 // Wraps cuArrayGetMemoryRequirements.
 func (a Array) MemoryRequirements(device Device) (ArrayMemoryRequirements, error) {
@@ -62,6 +88,13 @@ func (a Array) MemoryRequirements(device Device) (ArrayMemoryRequirements, error
 //
 //   - planeIdx: Plane index
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuArrayGetPlane.
 func (a Array) Plane(planeIdx uint32) (Array, error) {
 	return arrayGetPlane(a, planeIdx)
@@ -73,6 +106,9 @@ func (a Array) Plane(planeIdx uint32) (Array, error) {
 // If the returned value in [ArraySparseProperties].flags contains CU_ARRAY_SPARSE_PROPERTIES_SINGLE_MIPTAIL, then [ArraySparseProperties].miptailSize represents the total size of the array. Otherwise, it will be zero. Also, the returned value in [ArraySparseProperties].miptailFirstLevel is always zero. Note that the array must have been allocated using [NewArray] or [NewArray3D]. For CUDA arrays obtained using [MipmappedArray.Level], [ErrInvalidValue] will be returned. Instead, [MipmappedArray.SparseProperties] must be used to obtain the sparse properties of the entire CUDA mipmapped array to which array belongs to.
 //
 // See also: [MipmappedArray.SparseProperties], [Stream.MemMapArrayAsync]
+//
+// Errors:
+//   - [ErrInvalidValue]
 //
 // Wraps cuArrayGetSparseProperties.
 func (a Array) SparseProperties() (ArraySparseProperties, error) {
@@ -92,6 +128,12 @@ func (a Array) SparseProperties() (ArraySparseProperties, error) {
 //   - srcOffset: Offset in bytes of source array
 //   - byteCount: Size of memory copy in bytes
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuMemcpyAtoA, bound as cuMemcpyAtoA_v2.
 func (a Array) CopyFromArray(dstOffset uint, srcArray Array, srcOffset uint, byteCount uint) error {
 	return memcpyAtoA(a, dstOffset, srcArray, srcOffset, byteCount)
@@ -109,6 +151,12 @@ func (a Array) CopyFromArray(dstOffset uint, srcArray Array, srcOffset uint, byt
 //
 //   - dstHost: Destination device pointer
 //   - srcOffset: Offset in bytes of source array
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // The copy covers all of dstHost: len(dstHost) values of type T.
 //
@@ -140,6 +188,13 @@ func (a Array) CopyToHostPtr(dstHost unsafe.Pointer, srcOffset uint, byteCount u
 //   - dstHost: Destination pointer
 //   - srcOffset: Offset in bytes of source array
 //   - hStream: Stream identifier
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // The copy covers all of dstHost: len(dstHost) values of type T.
 // The copy may still be in progress when the call returns: dstHost must
@@ -173,6 +228,12 @@ func (a Array) CopyToHostAsyncPtr(dstHost unsafe.Pointer, srcOffset uint, byteCo
 //   - srcDevice: Source device pointer
 //   - byteCount: Size of memory copy in bytes
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuMemcpyDtoA, bound as cuMemcpyDtoA_v2.
 func (a Array) CopyFromDevice(dstOffset uint, srcDevice DevicePtr, byteCount uint) error {
 	return memcpyDtoA(a, dstOffset, srcDevice, byteCount)
@@ -190,6 +251,12 @@ func (a Array) CopyFromDevice(dstOffset uint, srcDevice DevicePtr, byteCount uin
 //
 //   - dstOffset: Offset in bytes of destination array
 //   - srcHost: Source host pointer
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // The copy covers all of srcHost: len(srcHost) values of type T.
 //
@@ -222,6 +289,13 @@ func (a Array) CopyFromHostPtr(dstOffset uint, srcHost unsafe.Pointer, byteCount
 //   - srcHost: Source host pointer
 //   - hStream: Stream identifier
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // The copy covers all of srcHost: len(srcHost) values of type T.
 // The copy may still be in progress when the call returns: srcHost must
 // stay reachable and unmodified until the stream is synchronized.
@@ -246,6 +320,11 @@ func (a Array) CopyFromHostAsyncPtr(dstOffset uint, srcHost unsafe.Pointer, byte
 //
 // Creates a CUDA array according to the [Array3dDescriptor] structure pAllocateArray and returns a handle to the new CUDA array in *pHandle. The [Array3dDescriptor] is defined as:
 // where:
+//   - Width, Height, and Depth are the width, height, and depth of the CUDA array (in elements); the following types of CUDA arrays can be allocated: A 1D array is allocated if Height and Depth extents are both zero. A 2D array is allocated if only Depth extent is zero. A 3D array is allocated if all three extents are non-zero. A 1D layered CUDA array is allocated if only Height is zero and the CUDA_ARRAY3D_LAYERED flag is set. Each layer is a 1D array. The number of layers is determined by the depth extent. A 2D layered CUDA array is allocated if all three extents are non-zero and the CUDA_ARRAY3D_LAYERED flag is set. Each layer is a 2D array. The number of layers is determined by the depth extent. A cubemap CUDA array is allocated if all three extents are non-zero and the CUDA_ARRAY3D_CUBEMAP flag is set. Width must be equal to Height, and Depth must be six. A cubemap is a special type of 2D layered CUDA array, where the six layers represent the six faces of a cube. The order of the six layers in memory is the same as that listed in [ArrayCubemapFace]. A cubemap layered CUDA array is allocated if all three extents are non-zero, and both, CUDA_ARRAY3D_CUBEMAP and CUDA_ARRAY3D_LAYERED flags are set. Width must be equal to Height, and Depth must be a multiple of six. A cubemap layered CUDA array is a special type of 2D layered CUDA array that consists of a collection of cubemaps. The first six layers represent the first cubemap, the next six layers form the second cubemap, and so on.
+//   - Format specifies the format of the elements; [ArrayFormat] is defined as:
+//   - NumChannels specifies the number of packed components per CUDA array element; it may be 1, 2, or 4;
+//   - Flags may be set to CUDA_ARRAY3D_LAYERED to enable creation of layered CUDA arrays. If this flag is set, Depth specifies the number of layers, not the depth of a 3D array. CUDA_ARRAY3D_SURFACE_LDST to enable surface references to be bound to the CUDA array. If this flag is not set, [SurfRef.SetArray] will fail when attempting to bind the CUDA array to a surface reference. CUDA_ARRAY3D_CUBEMAP to enable creation of cubemaps. If this flag is set, Width must be equal to Height, and Depth must be six. If the CUDA_ARRAY3D_LAYERED flag is also set, then Depth must be a multiple of six. CUDA_ARRAY3D_TEXTURE_GATHER to indicate that the CUDA array will be used for texture gather. Texture gather can only be performed on 2D CUDA arrays.
+//
 // Width, Height and Depth must meet certain size requirements as listed in the following table. All values are specified in elements. Note that for brevity’s sake, the full name of the device attribute is not specified. For ex., TEXTURE1D_WIDTH refers to the device attribute [DevAttrMaximumTexture1dWidth].
 // Note that 2D CUDA arrays have different size requirements if the CUDA_ARRAY3D_TEXTURE_GATHER flag is set. Width and Height must not be greater than [DevAttrMaximumTexture2dGatherWidth] and [DevAttrMaximumTexture2dGatherHeight] respectively, in that case.
 // Here are examples of CUDA array descriptions:
@@ -257,6 +336,14 @@ func (a Array) CopyFromHostAsyncPtr(dstOffset uint, srcHost unsafe.Pointer, byte
 //
 //   - pAllocateArray: 3D array descriptor
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrOutOfMemory]
+//   - [ErrUnknown]
+//
 // Wraps cuArray3DCreate, bound as cuArray3DCreate_v2.
 func NewArray3D(pAllocateArray *Array3dDescriptor) (Array, error) {
 	return array3DCreate(pAllocateArray)
@@ -266,6 +353,10 @@ func NewArray3D(pAllocateArray *Array3dDescriptor) (Array, error) {
 //
 // Creates a CUDA array according to the [ArrayDescriptor] structure pAllocateArray and returns a handle to the new CUDA array in *pHandle. The [ArrayDescriptor] is defined as:
 // where:
+//   - Width, and Height are the width, and height of the CUDA array (in elements); the CUDA array is one-dimensional if height is 0, two-dimensional otherwise;
+//   - Format specifies the format of the elements; [ArrayFormat] is defined as:
+//   - NumChannels specifies the number of packed components per CUDA array element; it may be 1, 2, or 4;
+//
 // Here are examples of CUDA array descriptions:
 // Description for a CUDA array of 2048 floats:
 // Description for a 64 x 64 CUDA array of floats:
@@ -275,6 +366,14 @@ func NewArray3D(pAllocateArray *Array3dDescriptor) (Array, error) {
 // See also: [NewArray3D], [Array.Get3DDescriptor], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMallocArray
 //
 //   - pAllocateArray: Array descriptor
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrOutOfMemory]
+//   - [ErrUnknown]
 //
 // Wraps cuArrayCreate, bound as cuArrayCreate_v2.
 func NewArray(pAllocateArray *ArrayDescriptor) (Array, error) {

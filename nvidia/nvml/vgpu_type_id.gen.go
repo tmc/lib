@@ -8,11 +8,10 @@ package nvml
 //
 //   - bar1Info: Pointer to the vGPU type BAR1 information structure [VgpuTypeBar1Info]
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuTypeId is invalid, or bar1Info is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuTypeGetBAR1Info].
 //
@@ -29,11 +28,10 @@ func (v VgpuTypeId) BAR1Info(bar1Info *VgpuTypeBar1Info) error {
 //   - capability: Specifies the [VgpuCapability] to be queried
 //   - capResult: A boolean for the queried capability indicating that feature is supported
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuTypeId is invalid, or capability is invalid, or capResult is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuTypeGetCapabilities].
 //
@@ -50,11 +48,10 @@ func (v VgpuTypeId) Capabilities(capability VgpuCapability) (uint32, error) {
 //   - vgpuTypeClass: Pointer to string array to return class in
 //   - size: Size of string
 //
-// Returns:
+// Errors:
 //   - [ErrInsufficientSize]: if size is too small
 //   - [ErrInvalidArgument]: if vgpuTypeId is invalid, or vgpuTypeClass is NULL
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuTypeGetClass].
 //
@@ -70,11 +67,10 @@ func (v VgpuTypeId) Class(vgpuTypeClass *byte, size *uint32) error {
 //   - deviceID: Device ID and vendor ID of the device contained in single 32 bit value
 //   - subsystemID: Subsystem ID and subsystem vendor ID of the device contained in single 32 bit value
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuTypeId is invalid, or deviceId or subsystemID are NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuTypeGetDeviceID].
 //
@@ -87,11 +83,10 @@ func (v VgpuTypeId) DeviceID(deviceID *uint64, subsystemID *uint64) error {
 //
 //   - fbReservation: Reference to return the framebuffer reservation
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If vgpuTypeId is invalid, or fbReservation is NULL
 //   - [ErrUninitialized]: If the library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: Successful completion
 //
 // Wraps [nvmlVgpuTypeGetFbReservation].
 //
@@ -106,12 +101,11 @@ func (v VgpuTypeId) FbReservation() (uint64, error) {
 //
 //   - frameRateLimit: Reference to return the frame rate limit value
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuTypeId is invalid, or frameRateLimit is NULL
 //   - [ErrNotSupported]: if frame rate limiter is turned off for the vGPU type
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuTypeGetFrameRateLimit].
 //
@@ -126,11 +120,10 @@ func (v VgpuTypeId) FrameRateLimit() (uint32, error) {
 //
 //   - fbSize: Pointer to framebuffer size in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuTypeId is invalid, or fbSize is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuTypeGetFramebufferSize].
 //
@@ -146,11 +139,10 @@ func (v VgpuTypeId) FramebufferSize() (uint64, error) {
 //
 //   - gpuInstanceProfileId: GPU Instance Profile ID
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuTypeId is invalid, or gpuInstanceProfileId is NULL
 //   - [ErrNotSupported]: if device is not in vGPU Host virtualization mode
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuTypeGetGpuInstanceProfileId].
 //
@@ -164,11 +156,10 @@ func (v VgpuTypeId) GpuInstanceProfileId() (uint32, error) {
 //
 //   - gspHeapSize: Reference to return the GSP heap size value
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If vgpuTypeId is invalid, or gspHeapSize is NULL
 //   - [ErrUninitialized]: If the library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error previousUnit Structs nextvGPU Enums, Constants, Structs
-//   - [Success]: Successful completion
 //
 // Wraps [nvmlVgpuTypeGetGspHeapSize].
 //
@@ -186,12 +177,11 @@ func (v VgpuTypeId) GspHeapSize() (uint64, error) {
 //   - vgpuTypeLicenseString: Pointer to buffer to return license info
 //   - size: Size of vgpuTypeLicenseString buffer
 //
-// Returns:
+// Errors:
 //   - [ErrInsufficientSize]: if size is too small
 //   - [ErrInvalidArgument]: if vgpuTypeId is invalid, or vgpuTypeLicenseString is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuTypeGetLicense].
 //
@@ -207,11 +197,10 @@ func (v VgpuTypeId) License() (string, error) {
 //   - device: The identifier of the target device
 //   - vgpuInstanceCount: Pointer to get the max number of vGPU instances that can be created on a deicve for given vgpuTypeId
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuTypeId is invalid or is not supported on target device, or vgpuInstanceCount is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuTypeGetMaxInstances].
 //
@@ -226,11 +215,10 @@ func (v VgpuTypeId) MaxInstances(device Device) (uint32, error) {
 //
 //   - vgpuInstanceCountPerVm: Pointer to get the max number of vGPU instances supported per VM for given vgpuTypeId
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuTypeId is invalid, or vgpuInstanceCountPerVm is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuTypeGetMaxInstancesPerVm].
 //
@@ -247,11 +235,10 @@ func (v VgpuTypeId) MaxInstancesPerVm() (uint32, error) {
 //   - vgpuTypeName: Pointer to buffer to return name
 //   - size: Size of buffer
 //
-// Returns:
+// Errors:
 //   - [ErrInsufficientSize]: if size is too small
 //   - [ErrInvalidArgument]: if vgpuTypeId is invalid, or name is NULL
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuTypeGetName].
 //
@@ -266,11 +253,10 @@ func (v VgpuTypeId) Name(vgpuTypeName *byte, size *uint32) error {
 //
 //   - numDisplayHeads: Pointer to number of display heads
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuTypeId is invalid, or numDisplayHeads is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuTypeGetNumDisplayHeads].
 //
@@ -287,11 +273,10 @@ func (v VgpuTypeId) NumDisplayHeads() (uint32, error) {
 //   - xdim: Pointer to maximum number of pixels in X dimension
 //   - ydim: Pointer to maximum number of pixels in Y dimension
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuTypeId is invalid, or xdim or ydim are NULL, or displayIndex is out of range.
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error previousvGPU Structs nextvGPU Migration
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuTypeGetResolution].
 //

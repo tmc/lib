@@ -54,13 +54,15 @@ var (
 	symworkspaceSetMemory                 uintptr
 )
 
-// ffiCall0 through ffiCall7 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+// The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
 //
 // Bit i of floatMask marks argument word i as a floating-point bit
 // pattern, which the C ABI passes in a different register file from the
-// integer and pointer words. Each returns the first integer result
-// register and the first floating-point one; a caller reads whichever the
-// C function sets.
+// integer and pointer words. Bits 2i and 2i+1 of widths give the size of
+// argument word i as a ffi.Width code, which places a narrow argument
+// on the stack where the C ABI expects it. Each funnel returns the first
+// integer result register and the first floating-point one; a caller
+// reads whichever the C function sets.
 //
 // The //go:uintptrescapes directive is what makes a Go pointer safe to
 // pass: a pointer converted to uintptr in one of these argument lists is
@@ -109,18 +111,36 @@ func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uint
 }
 
 //go:uintptrescapes
-func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+func ffiCallWidths2(fn uintptr, floatMask uint32, widths uint64, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloatWidths(fn, 2, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths4(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloatWidths(fn, 4, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths5(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
 	args[2] = a2
 	args[3] = a3
 	args[4] = a4
-	return ffi.CallFloat(fn, 5, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 5, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+func ffiCallWidths6(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -128,11 +148,11 @@ func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1,
 	args[3] = a3
 	args[4] = a4
 	args[5] = a5
-	return ffi.CallFloat(fn, 6, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 6, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall7(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
+func ffiCallWidths7(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -141,7 +161,7 @@ func ffiCall7(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6 uintptr) 
 	args[4] = a4
 	args[5] = a5
 	args[6] = a6
-	return ffi.CallFloat(fn, 7, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 7, &args, floatMask, widths)
 }
 
 // An outSlot pools the heap cells a wrapper passes to C for its outputs.
@@ -179,19 +199,19 @@ func fncreateExpectation(a0 Handle, a1 Operator, a2 *Expectation) Result {
 
 // fncreateOperator calls cudensitymatCreateOperator.
 func fncreateOperator(a0 Handle, a1 int32, a2 *int64, a3 *Operator) Result {
-	r1, _ := ffiCall4(symcreateOperator, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symcreateOperator, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
 // fncreateOperatorTerm calls cudensitymatCreateOperatorTerm.
 func fncreateOperatorTerm(a0 Handle, a1 int32, a2 *int64, a3 *OperatorTerm) Result {
-	r1, _ := ffiCall4(symcreateOperatorTerm, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symcreateOperatorTerm, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
 // fncreateState calls cudensitymatCreateState.
 func fncreateState(a0 Handle, a1 StatePurity, a2 int32, a3 *int64, a4 int64, a5 DataType, a6 *State) Result {
-	r1, _ := ffiCall7(symcreateState, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	r1, _ := ffiCallWidths7(symcreateState, 0, 0xc3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
 	return Result(r1)
 }
 
@@ -269,37 +289,37 @@ func fnGetVersion() uint {
 
 // fnresetDistributedConfiguration calls cudensitymatResetDistributedConfiguration.
 func fnresetDistributedConfiguration(a0 Handle, a1 DistributedProvider, a2 unsafe.Pointer, a3 uint) Result {
-	r1, _ := ffiCall4(symresetDistributedConfiguration, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	r1, _ := ffiCallWidths4(symresetDistributedConfiguration, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
 
 // fnresetRandomSeed calls cudensitymatResetRandomSeed.
 func fnresetRandomSeed(a0 Handle, a1 int32) Result {
-	r1, _ := ffiCall2(symresetRandomSeed, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symresetRandomSeed, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fnstateAttachComponentStorage calls cudensitymatStateAttachComponentStorage.
 func fnstateAttachComponentStorage(a0 Handle, a1 State, a2 int32, a3 *uintptr, a4 *uint) Result {
-	r1, _ := ffiCall5(symstateAttachComponentStorage, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symstateAttachComponentStorage, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
 // fnstateGetComponentInfo calls cudensitymatStateGetComponentInfo.
 func fnstateGetComponentInfo(a0 Handle, a1 State, a2 int32, a3 *int32, a4 *int32, a5 *int64, a6 *int64) Result {
-	r1, _ := ffiCall7(symstateGetComponentInfo, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)))
+	r1, _ := ffiCallWidths7(symstateGetComponentInfo, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)))
 	return Result(r1)
 }
 
 // fnstateGetComponentNumModes calls cudensitymatStateGetComponentNumModes.
 func fnstateGetComponentNumModes(a0 Handle, a1 State, a2 int32, a3 *int32, a4 *int32, a5 *int32) Result {
-	r1, _ := ffiCall6(symstateGetComponentNumModes, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symstateGetComponentNumModes, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fnstateGetComponentStorageSize calls cudensitymatStateGetComponentStorageSize.
 func fnstateGetComponentStorageSize(a0 Handle, a1 State, a2 int32, a3 *uint) Result {
-	r1, _ := ffiCall4(symstateGetComponentStorageSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symstateGetComponentStorageSize, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
@@ -311,19 +331,19 @@ func fnstateGetNumComponents(a0 Handle, a1 State, a2 *int32) Result {
 
 // fnworkspaceGetMemory calls cudensitymatWorkspaceGetMemory.
 func fnworkspaceGetMemory(a0 Handle, a1 WorkspaceDescriptor, a2 Memspace, a3 WorkspaceKind, a4 *uintptr, a5 *uint) Result {
-	r1, _ := ffiCall6(symworkspaceGetMemory, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symworkspaceGetMemory, 0, 0xf0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fnworkspaceGetMemorySize calls cudensitymatWorkspaceGetMemorySize.
 func fnworkspaceGetMemorySize(a0 Handle, a1 WorkspaceDescriptor, a2 Memspace, a3 WorkspaceKind, a4 *uint) Result {
-	r1, _ := ffiCall5(symworkspaceGetMemorySize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symworkspaceGetMemorySize, 0, 0xf0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
 // fnworkspaceSetMemory calls cudensitymatWorkspaceSetMemory.
 func fnworkspaceSetMemory(a0 Handle, a1 WorkspaceDescriptor, a2 Memspace, a3 WorkspaceKind, a4 uintptr, a5 uint) Result {
-	r1, _ := ffiCall6(symworkspaceSetMemory, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	r1, _ := ffiCallWidths6(symworkspaceSetMemory, 0, 0xf0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
 	return Result(r1)
 }
 
@@ -366,9 +386,11 @@ var slotCreate outSlot[Handle]
 // of the quantum state.
 //
 // Storage of tensor elements in memory:
-// - [OperatorSparsityNone]:
+//   - [OperatorSparsityNone]:
+//
 // Dense tensor stored using the generalized column-wise layout.
-// - [OperatorSparsityMultidiagonal]:
+//   - [OperatorSparsityMultidiagonal]:
+//
 // The full non-zero diagonals are stored in a concatenated form,
 // following the order how they appear in the `diagonalOffsets` argument.
 // The length of each stored diagonal is equal to the full matrix dimension,

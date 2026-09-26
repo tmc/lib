@@ -18,8 +18,7 @@ func (s StreamHandle) Synchronize() error {
 
 // Stream retrieves a CUstream handle from a [StreamHandle] handle.
 //
-// Returns:
-//   - [Success]: on success.
+// Errors:
 //   - [ErrInvalidParameter]: if hStream is not a valid Sanitizer stream handle or if stream is NULL.
 //
 // Wraps sanitizerGetStream.
@@ -80,9 +79,6 @@ func (s StreamHandle) Memset(devPtr uintptr, value int32, count uint) error {
 //
 //   - graphExec: CUDA graphExec that will launch CUDA graphs from the device
 //   - userdata: Device memory buffer
-//
-// Returns:
-//   - [Success]: on success.
 //
 // Wraps sanitizerSetDeviceGraphData.
 func (s StreamHandle) SetDeviceGraphData(graphExec GraphExec, userdata uintptr) error {

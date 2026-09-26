@@ -16,12 +16,13 @@ type Result int32
 
 // nvidia-ml error codes from nvml.h.
 const (
-	Success                    Result = 0   // The operation was successful
-	ErrUninitialized           Result = 1   // NVML was not first initialized with [Init]
-	ErrInvalidArgument         Result = 2   // A supplied argument is invalid
-	ErrNotSupported            Result = 3   // The requested operation is not available on target device
-	ErrNoPermission            Result = 4   // The current user does not have permission for operation
-	ErrAlreadyInitialized      Result = 5   // Deprecated: Multiple initializations are now allowed through ref counting
+	Success            Result = 0 // The operation was successful
+	ErrUninitialized   Result = 1 // NVML was not first initialized with [Init]
+	ErrInvalidArgument Result = 2 // A supplied argument is invalid
+	ErrNotSupported    Result = 3 // The requested operation is not available on target device
+	ErrNoPermission    Result = 4 // The current user does not have permission for operation
+	// Deprecated: Multiple initializations are now allowed through ref counting.
+	ErrAlreadyInitialized      Result = 5
 	ErrNotFound                Result = 6   // A query to find an object was unsuccessful
 	ErrInsufficientSize        Result = 7   // An input argument is not large enough
 	ErrInsufficientPower       Result = 8   // A device's external power cables are not properly attached

@@ -15,7 +15,7 @@ func (g Generator) Destroy() error {
 	return destroyGenerator(g)
 }
 
-// Generate [Generator.Generate] 32-bit pseudo or quasirandom numbers.
+// Generate generates 32-bit pseudo or quasirandom numbers.
 //
 // Use generator to generate num 32-bit results into the device memory at
 // outputPtr. The device memory must have been previously allocated and be
@@ -51,7 +51,7 @@ func (g Generator) GenerateHost(output []uint32) error {
 	return generateHost(g, output)
 }
 
-// GenerateLogNormal [Generator.Generate] log-normally distributed floats.
+// GenerateLogNormal generates log-normally distributed floats.
 //
 // Use generator to generate n float results into the device memory at
 // outputPtr. The device memory must have been previously allocated and be
@@ -86,7 +86,7 @@ func (g Generator) GenerateLogNormal(outputPtr driver.DevicePtr, n uint, mean fl
 	return generateLogNormal(g, outputPtr, n, mean, stddev)
 }
 
-// GenerateLogNormalDouble [Generator.Generate] log-normally distributed doubles.
+// GenerateLogNormalDouble generates log-normally distributed doubles.
 //
 // Use generator to generate n double results into the device memory at
 // outputPtr. The device memory must have been previously allocated and be
@@ -135,7 +135,7 @@ func (g Generator) GenerateLogNormalHost(output []float32, mean float32, stddev 
 	return generateLogNormalHost(g, output, mean, stddev)
 }
 
-// GenerateLongLong [Generator.Generate] 64-bit quasirandom numbers.
+// GenerateLongLong generates 64-bit quasirandom numbers.
 //
 // Use generator to generate num 64-bit results into the device memory at
 // outputPtr. The device memory must have been previously allocated and be
@@ -159,7 +159,7 @@ func (g Generator) GenerateLongLongHost(output []uint64) error {
 	return generateLongLongHost(g, output)
 }
 
-// GenerateNormal [Generator.Generate] normally distributed doubles.
+// GenerateNormal generates normally distributed doubles.
 //
 // Use generator to generate n float results into the device memory at
 // outputPtr. The device memory must have been previously allocated and be
@@ -193,7 +193,7 @@ func (g Generator) GenerateNormal(outputPtr driver.DevicePtr, n uint, mean float
 	return generateNormal(g, outputPtr, n, mean, stddev)
 }
 
-// GenerateNormalDouble [Generator.Generate] normally distributed doubles.
+// GenerateNormalDouble generates normally distributed doubles.
 //
 // Use generator to generate n double results into the device memory at
 // outputPtr. The device memory must have been previously allocated and be
@@ -241,7 +241,7 @@ func (g Generator) GenerateNormalHost(output []float32, mean float32, stddev flo
 	return generateNormalHost(g, output, mean, stddev)
 }
 
-// GeneratePoisson [Generator.Generate] Poisson-distributed unsigned ints.
+// GeneratePoisson generates Poisson-distributed unsigned ints.
 //
 // Use generator to generate n unsigned int results into device memory at
 // outputPtr. The device memory must have been previously allocated and must be
@@ -268,7 +268,7 @@ func (g Generator) GeneratePoissonHost(output []uint32, lambda float64) error {
 
 // GenerateSeeds Setup starting states.
 //
-// [Generator.Generate] the starting state of the generator. This function is
+// Generate the starting state of the generator. This function is
 // automatically called by generation functions such as
 // [Generator.Generate] and [Generator.GenerateUniform].
 // It can be called manually for performance testing reasons to separate
@@ -279,7 +279,7 @@ func (g Generator) GenerateSeeds() error {
 	return generateSeeds(g)
 }
 
-// GenerateUniform [Generator.Generate] uniformly distributed floats.
+// GenerateUniform generates uniformly distributed floats.
 //
 // Use generator to generate num float results into the device memory at
 // outputPtr. The device memory must have been previously allocated and be
@@ -297,7 +297,7 @@ func (g Generator) GenerateUniform(outputPtr driver.DevicePtr, num uint) error {
 	return generateUniform(g, outputPtr, num)
 }
 
-// GenerateUniformDouble [Generator.Generate] uniformly distributed doubles.
+// GenerateUniformDouble generates uniformly distributed doubles.
 //
 // Use generator to generate num double results into the device memory at
 // outputPtr. The device memory must have been previously allocated and be
@@ -344,14 +344,15 @@ func (g Generator) SetOffset(offset uint64) error {
 // SetOrdering sets the ordering of results of the pseudo or quasirandom number generator.
 //
 // Legal values of order for pseudorandom generators are:
-// - [CURAND_ORDERING_PseudoDefault]
-// - [CURAND_ORDERING_PseudoBest]
-// - [CURAND_ORDERING_PseudoSeeded]
-// - [CURAND_ORDERING_PseudoLegacy]
+//   - [CURAND_ORDERING_PseudoDefault]
+//   - [CURAND_ORDERING_PseudoBest]
+//   - [CURAND_ORDERING_PseudoSeeded]
+//   - [CURAND_ORDERING_PseudoLegacy]
 //
 // Legal values of order for quasirandom generators are:
-// - [CURAND_ORDERING_QuasiDefault]
+//   - [CURAND_ORDERING_QuasiDefault]
 //
+// Parameters:
 //   - order: Ordering of results
 //
 // Wraps curandSetGeneratorOrdering.

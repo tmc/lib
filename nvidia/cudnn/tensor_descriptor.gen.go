@@ -11,9 +11,8 @@ package cudnn
 //   - xDesc: Input. Handle to a previously created and initialized layer’s x data descriptor
 //   - mode: Input. Batch normalization layer mode of operation
 //
-// Returns:
+// Errors:
 //   - [ErrBadParam]: Invalid batch normalization mode.
-//   - [Success]: The computation was performed successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -33,9 +32,8 @@ func (t TensorDescriptor) DeriveBN(xDesc TensorDescriptor, mode BatchNormMode) e
 //   - xDesc: Input. Handle to a previously created and initialized layer’s x data descriptor
 //   - mode: Input. Batch normalization layer mode of operation
 //
-// Returns:
+// Errors:
 //   - [ErrBadParam]: Invalid batch normalization mode.
-//   - [Success]: The computation was performed successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -48,9 +46,6 @@ func (t TensorDescriptor) DeriveNorm(derivedNormMeanVarDesc TensorDescriptor, xD
 //
 // When the input pointer is NULL, this function performs no destroy operation.
 //
-// Returns:
-//   - [Success]: The object was destroyed successfully.
-//
 // Wraps cudnnDestroyTensorDescriptor.
 func (t TensorDescriptor) Destroy() error {
 	return destroyTensorDescriptor(t)
@@ -60,9 +55,6 @@ func (t TensorDescriptor) Destroy() error {
 //
 // The same reserve space is expected to be passed to [Handle.DropoutForward] and [Handle.DropoutBackward], and its contents is expected to remain unchanged between [Handle.DropoutForward] and [Handle.DropoutBackward] calls.
 //
-// Returns:
-//   - [Success]: The query was successful.
-//
 // Wraps cudnnDropoutGetReserveSpaceSize.
 func (t TensorDescriptor) DropoutGetReserveSpaceSize() (sizeInBytes int, err error) {
 	return dropoutGetReserveSpaceSize(t)
@@ -70,8 +62,7 @@ func (t TensorDescriptor) DropoutGetReserveSpaceSize() (sizeInBytes int, err err
 
 // Get4D queries the parameters of the previously initialized Tensor4d descriptor object.
 //
-// Returns:
-//   - [Success]: The operation succeeded.
+// A nil error means the operation succeeded.
 //
 // Wraps cudnnGetTensor4dDescriptor.
 func (t TensorDescriptor) Get4D() (Tensor4DConfig, error) {
@@ -82,9 +73,10 @@ func (t TensorDescriptor) Get4D() (Tensor4DConfig, error) {
 //
 //   - nbDimsRequested: Input. Number of dimensions to extract from a given tensor descriptor. It is also the minimum size of the arrays dimA and strideA. If this number is greater than the resulting nbDims [0], only nbDims [0] dimensions will be returned
 //
-// Returns:
+// A nil error means the results were returned successfully.
+//
+// Errors:
 //   - [ErrBadParam]: Either tensorDesc or nbDims pointer is NULL.
-//   - [Success]: The results were returned successfully.
 //
 // Wraps cudnnGetTensorNdDescriptor.
 func (t TensorDescriptor) Get(nbDimsRequested int) (dataType DataType, dimA []int32, strideA []int32, err error) {
@@ -95,8 +87,7 @@ func (t TensorDescriptor) Get(nbDimsRequested int) (dataType DataType, dimA []in
 //
 // This function can be used to know the amount of GPU memory to be allocated to hold that tensor.
 //
-// Returns:
-//   - [Success]: The results were returned successfully.
+// A nil error means the results were returned successfully.
 //
 // Wraps cudnnGetTensorSizeInBytes.
 func (t TensorDescriptor) Size() (size int, err error) {
@@ -109,15 +100,15 @@ func (t TensorDescriptor) Size() (size int, err error) {
 // The total size of a tensor including the potential padding between dimensions is limited to 2 Giga-elements of type datatype.
 //
 //   - format: Input. Type of format
+//   - dataType: Input. Data type
 //   - n: Input. Number of images
 //   - c: Input. Number of feature maps per image
 //   - h: Input. Height of each feature map
 //   - w: Input. Width of each feature map
 //
-// Returns:
+// Errors:
 //   - [ErrBadParam]: At least one of the parameters n, c, h, w was negative or format has an invalid enumerant value or dataType has an invalid enumerant value.
 //   - [ErrNotSupported]: The total size of the tensor descriptor exceeds the maximum limit of 2 Giga-elements.
-//   - [Success]: The object was set successfully.
 //
 // Wraps cudnnSetTensor4dDescriptor.
 func (t TensorDescriptor) Set4D(format TensorFormat, dataType DataType, n int32, c int32, h int32, w int32) error {
@@ -130,6 +121,7 @@ func (t TensorDescriptor) Set4D(format TensorFormat, dataType DataType, n int32,
 // At present, some cuDNN routines have limited support for strides. Those routines will return [ErrNotSupported] if a 4D tensor object with an unsupported stride is used. [Handle.TransformTensor] can be used to convert the data to a supported layout.
 // The total size of a tensor including the potential padding between dimensions is limited to 2 Giga-elements of type datatype.
 //
+//   - dataType: Input. Data type
 //   - n: Input. Number of images
 //   - c: Input. Number of feature maps per image
 //   - h: Input. Height of each feature map
@@ -139,10 +131,9 @@ func (t TensorDescriptor) Set4D(format TensorFormat, dataType DataType, n int32,
 //   - hStride: Input. Stride between two consecutive rows
 //   - wStride: Input. Stride between two consecutive columns
 //
-// Returns:
+// Errors:
 //   - [ErrBadParam]: At least one of the parameters n, c, h, w or nStride, cStride, hStride, wStride is negative or dataType has an invalid enumerant value.
 //   - [ErrNotSupported]: The total size of the tensor descriptor exceeds the maximum limit of 2 Giga-elements.
-//   - [Success]: The object was set successfully.
 //
 // Wraps cudnnSetTensor4dDescriptorEx.
 func (t TensorDescriptor) Set4DEx(dataType DataType, n int32, c int32, h int32, w int32, nStride int32, cStride int32, hStride int32, wStride int32) error {
@@ -153,13 +144,13 @@ func (t TensorDescriptor) Set4DEx(dataType DataType, n int32, c int32, h int32, 
 //
 // The total size of a tensor including the potential padding between dimensions is limited to 2 Giga-elements of type datatype. Tensors are restricted to having at least 4 dimensions, and at most CUDNN_DIM_MAX dimensions (defined in cudnn.h). When working with lower dimensional data, it is recommended that the user create a 4D tensor, and set the size along unused dimensions to 1.
 //
+//   - dataType: Input. Data type
 //   - dimA: Input. Array of dimension nbDims that contain the size of the tensor for every dimension. The size along unused dimensions should be set to 1. By convention, the ordering of dimensions in the array follows the format - [N, C, D, H, W], with W occupying the smallest index in the array
 //   - strideA: Input. Array of dimension nbDims that contain the stride of the tensor for every dimension. By convention, the ordering of the strides in the array follows the format - [Nstride, Cstride, Dstride, Hstride, Wstride], with Wstride occupying the smallest index in the array
 //
-// Returns:
+// Errors:
 //   - [ErrBadParam]: At least one of the elements of the array dimA was negative or zero, or dataType has an invalid enumerant value.
 //   - [ErrNotSupported]: The parameter nbDims is outside the range [4, CUDNN_DIM_MAX], or the total size of the tensor descriptor exceeds the maximum limit of 2 Giga-elements.
-//   - [Success]: The object was set successfully.
 //
 // Wraps cudnnSetTensorNdDescriptor.
 func (t TensorDescriptor) Set(dataType DataType, dimA []int32, strideA []int32) error {
@@ -172,10 +163,9 @@ func (t TensorDescriptor) Set(dataType DataType, dimA []int32, strideA []int32) 
 //   - dataType: Input. Tensor data type
 //   - dimA: Input. Array containing the size of each dimension
 //
-// Returns:
+// Errors:
 //   - [ErrBadParam]: Tensor descriptor was not allocated properly; or input parameters are not set correctly.
 //   - [ErrNotSupported]: Dimension size requested is larger than maximum dimension size supported.
-//   - [Success]: The function was successful.
 //
 // Wraps cudnnSetTensorNdDescriptorEx.
 func (t TensorDescriptor) SetEx(format TensorFormat, dataType DataType, dimA []int32) error {

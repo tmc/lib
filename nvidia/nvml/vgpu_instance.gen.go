@@ -12,14 +12,15 @@ import (
 //
 //   - mode: Reference in which to return the current accounting mode
 //
-// Returns:
+// A nil error means the mode has been successfully retrieved.
+//
+// Errors:
 //   - [ErrDriverNotLoaded]: if NVIDIA driver is not running on the vGPU instance
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or mode is NULL
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrNotSupported]: if the vGPU doesn’t support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the mode has been successfully retrieved
 //
 // Wraps [nvmlVgpuInstanceGetAccountingMode].
 //
@@ -42,14 +43,15 @@ func (v VgpuInstance) AccountingMode() (EnableState, error) {
 //   - count: Reference in which to provide the pids array size, and to return the number of elements ready to be queried
 //   - pids: Reference in which to return list of process ids
 //
-// Returns:
+// A nil error means pids were successfully retrieved.
+//
+// Errors:
 //   - [ErrInsufficientSize]: if count is too small ( count is set to expected value)
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or count is NULL
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrNotSupported]: if the vGPU doesn’t support this feature or accounting mode is disabled
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if pids were successfully retrieved
 //
 // Wraps [nvmlVgpuInstanceGetAccountingPids].
 //
@@ -93,13 +95,14 @@ func (v VgpuInstance) AccountingPids(buf []uint32) ([]uint32, error) {
 //   - pid: Process Id of the target process to query stats for
 //   - stats: Reference in which to return the process’s accounting stats
 //
-// Returns:
+// A nil error means stats have been successfully retrieved.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or stats is NULL
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system or stats is not found
 //   - [ErrNotSupported]: if the vGPU doesn’t support this feature or accounting mode is disabled
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if stats have been successfully retrieved
 //
 // Wraps [nvmlVgpuInstanceGetAccountingStats].
 //
@@ -116,13 +119,14 @@ func (v VgpuInstance) AccountingStats(pid uint32, stats *AccountingStats) error 
 //
 // Note: Only compute and graphics applications stats are reported and can be cleared since monitoring applications stats don’t contribute to GPU utilization.
 //
-// Returns:
+// A nil error means accounting information has been cleared.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuInstance is invalid
 //   - [ErrNotSupported]: if the vGPU doesn’t support this feature or accounting mode is disabled
 //   - [ErrNoPermission]: if the user doesn’t have permission to perform this operation
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if accounting information has been cleared
 //
 // Wraps [nvmlVgpuInstanceClearAccountingPids].
 //
@@ -135,13 +139,14 @@ func (v VgpuInstance) ClearAccountingPids() error {
 //
 //   - eccMode: Reference in which to return the current ECC mode
 //
-// Returns:
+// A nil error means the vgpuInstance’s ECC mode has been successfully retrieved.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or mode is NULL
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrNotSupported]: if the vGPU doesn’t support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the vgpuInstance’s ECC mode has been successfully retrieved
 //
 // Wraps [nvmlVgpuInstanceGetEccMode].
 //
@@ -156,12 +161,13 @@ func (v VgpuInstance) EccMode(eccMode *EnableState) error {
 //
 //   - encoderCapacity: Reference to an unsigned int for the encoder capacity
 //
-// Returns:
+// A nil error means encoderCapacity has been retrieved.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or encoderQueryType is invalid
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if encoderCapacity has been retrieved
 //
 // Wraps [nvmlVgpuInstanceGetEncoderCapacity].
 //
@@ -179,13 +185,14 @@ func (v VgpuInstance) EncoderCapacity() (uint32, error) {
 //   - sessionCount: Reference to caller supplied array size, and returns the number of sessions
 //   - sessionInfo: Reference to caller supplied array in which the list of session information us returned
 //
-// Returns:
+// A nil error means sessionInfo is fetched.
+//
+// Errors:
 //   - [ErrInsufficientSize]: if sessionCount is too small, array element count is returned in sessionCount
 //   - [ErrInvalidArgument]: if sessionCount is NULL, or vgpuInstance is 0.
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if sessionInfo is fetched
 //
 // Wraps [nvmlVgpuInstanceGetEncoderSessions].
 //
@@ -222,12 +229,13 @@ func (v VgpuInstance) EncoderSessions(buf []EncoderSessionInfo) ([]EncoderSessio
 //   - averageFps: Reference to an unsigned int for trailing average FPS of all active sessions
 //   - averageLatency: Reference to an unsigned int for encode latency in microseconds
 //
-// Returns:
+// A nil error means sessionCount, averageFps and averageLatency is fetched.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if sessionCount , or averageFps or averageLatency is NULL or vgpuInstance is 0.
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if sessionCount, averageFps and averageLatency is fetched
 //
 // Wraps [nvmlVgpuInstanceGetEncoderStats].
 //
@@ -247,13 +255,14 @@ func (v VgpuInstance) EncoderStats(sessionCount *uint32, averageFps *uint32, ave
 //   - sessionCount: Reference to caller supplied array size, and returns the number of sessions
 //   - sessionInfo: Reference in which to return the session information
 //
-// Returns:
+// A nil error means sessionInfo is fetched.
+//
+// Errors:
 //   - [ErrInsufficientSize]: if sessionCount is too small, array element count is returned in sessionCount
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or sessionCount is NULL.
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if sessionInfo is fetched
 //
 // Wraps [nvmlVgpuInstanceGetFBCSessions].
 //
@@ -288,12 +297,13 @@ func (v VgpuInstance) FBCSessions(buf []FBCSessionInfo) ([]FBCSessionInfo, error
 //
 //   - fbcStats: Reference to [FBCStats] structure containing NvFBC stats
 //
-// Returns:
+// A nil error means fbcStats is fetched.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or fbcStats is NULL
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if fbcStats is fetched
 //
 // Wraps [nvmlVgpuInstanceGetFBCStats].
 //
@@ -309,12 +319,11 @@ func (v VgpuInstance) FBCStats(fbcStats *FBCStats) error {
 //
 //   - fbUsage: Pointer to framebuffer usage in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or fbUsage is NULL
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuInstanceGetFbUsage].
 //
@@ -330,13 +339,14 @@ func (v VgpuInstance) FbUsage() (uint64, error) {
 //
 //   - frameRateLimit: Reference to return the frame rate limit
 //
-// Returns:
+// A nil error means frameRateLimit has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or frameRateLimit is NULL
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrNotSupported]: if frame rate limiter is turned off for the vGPU type
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if frameRateLimit has been set
 //
 // Wraps [nvmlVgpuInstanceGetFrameRateLimit].
 //
@@ -352,12 +362,11 @@ func (v VgpuInstance) FrameRateLimit() (uint32, error) {
 //
 //   - gpuInstanceId: GPU Instance ID
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or gpuInstanceId is NULL.
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuInstanceGetGpuInstanceId].
 //
@@ -375,14 +384,15 @@ func (v VgpuInstance) GpuInstanceId() (uint32, error) {
 //   - vgpuPciId: Caller-supplied buffer to return vGPU PCI Id string
 //   - length: Size of the vgpuPciId buffer
 //
-// Returns:
+// A nil error means vGPU PCI Id is sucessfully retrieved.
+//
+// Errors:
 //   - [ErrDriverNotLoaded]: if NVIDIA driver is not running on the vGPU instance
 //   - [ErrInsufficientSize]: if length is too small, length is set to required length
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or vgpuPciId is NULL
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if vGPU PCI Id is sucessfully retrieved
 //
 // Wraps [nvmlVgpuInstanceGetGpuPciId].
 //
@@ -397,12 +407,13 @@ func (v VgpuInstance) GpuPciId(vgpuPciId *byte, length *uint32) error {
 //
 //   - licenseInfo: Pointer to vGPU license information structure
 //
-// Returns:
+// A nil error means information is successfully retrieved.
+//
+// Errors:
 //   - [ErrDriverNotLoaded]: if NVIDIA driver is not running on the vGPU instance
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or licenseInfo is NULL
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUnknown]: on any unexpected error previousvGPU Migration nextPages
-//   - [Success]: if information is successfully retrieved
 //
 // Wraps [nvmlVgpuInstanceGetLicenseInfo], bound as nvmlVgpuInstanceGetLicenseInfo_v2.
 //
@@ -418,12 +429,13 @@ func (v VgpuInstance) LicenseInfo(licenseInfo *VgpuLicenseInfo) error {
 //
 //   - licensed: Reference to return the licensing status
 //
-// Returns:
+// A nil error means licensed has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or licensed is NULL
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if licensed has been set
 //
 // Deprecated: Use [VgpuInstance.LicenseInfo].
 //
@@ -442,14 +454,13 @@ func (v VgpuInstance) LicenseStatus(licensed *uint32) error {
 //   - mdevUuid: Pointer to caller-supplied buffer to hold MDEV UUID
 //   - size: Size of buffer in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrInsufficientSize]: if size is too small
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or mdevUuid is NULL
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrNotSupported]: on any hypervisor other than KVM
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuInstanceGetMdevUUID].
 //
@@ -468,12 +479,13 @@ func (v VgpuInstance) MdevUUID() (string, error) {
 //   - vgpuMetadata: Pointer to caller-supplied buffer into which vGPU metadata is written
 //   - bufferSize: Size of vgpuMetadata buffer
 //
-// Returns:
+// A nil error means vGPU metadata structure was successfully returned.
+//
+// Errors:
 //   - [ErrInsufficientSize]: vgpuMetadata buffer is too small, required size is returned in bufferSize
 //   - [ErrInvalidArgument]: if bufferSize is NULL or vgpuInstance is 0; if vgpuMetadata is NULL and the value of bufferSize is not 0.
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUnknown]: on any unexpected error previousvGPU Management nextvGPU Utilization and Accounting
-//   - [Success]: vGPU metadata structure was successfully returned
 //
 // Wraps [nvmlVgpuInstanceGetMetadata].
 //
@@ -488,12 +500,13 @@ func (v VgpuInstance) Metadata(vgpuMetadata *VgpuMetadata, bufferSize *uint32) e
 //
 //   - pPlacement: Pointer to vGPU placement ID structure [VgpuPlacementId]
 //
-// Returns:
+// A nil error means information is successfully retrieved.
+//
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the version of pPlacement is invalid
 //   - [ErrInvalidArgument]: If vgpuInstance is invalid or pPlacement is NULL
 //   - [ErrNotFound]: If vgpuInstance does not match a valid active vGPU instance
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: If information is successfully retrieved
 //
 // Wraps [nvmlVgpuInstanceGetPlacementId].
 //
@@ -509,13 +522,14 @@ func (v VgpuInstance) PlacementId(pPlacement *VgpuPlacementId) error {
 //
 //   - pState: Pointer to the vGPU runtime state’s structure [VgpuRuntimeState]
 //
-// Returns:
+// A nil error means information is successfully retrieved.
+//
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the version of pState is invalid
 //   - [ErrInvalidArgument]: If vgpuInstance is invalid, or pState is NULL
 //   - [ErrNotFound]: If vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: If the library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: If information is successfully retrieved
 //
 // Wraps [nvmlVgpuInstanceGetRuntimeStateSize].
 //
@@ -530,12 +544,13 @@ func (v VgpuInstance) RuntimeStateSize() (VgpuRuntimeState, error) {
 //
 //   - encoderCapacity: Unsigned int for the encoder capacity value
 //
-// Returns:
+// A nil error means encoderCapacity has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or encoderCapacity is out of range of 0-100.
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if encoderCapacity has been set
 //
 // Wraps [nvmlVgpuInstanceSetEncoderCapacity].
 //
@@ -551,12 +566,13 @@ func (v VgpuInstance) SetEncoderCapacity(encoderCapacity uint32) error {
 //
 //   - vgpuTypeId: Reference to return the vgpuTypeId
 //
-// Returns:
+// A nil error means vgpuTypeId has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or vgpuTypeId is NULL
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if vgpuTypeId has been set
 //
 // Wraps [nvmlVgpuInstanceGetType].
 //
@@ -573,13 +589,12 @@ func (v VgpuInstance) Type() (VgpuTypeId, error) {
 //   - uuid: Pointer to caller-supplied buffer to hold vGPU UUID
 //   - size: Size of buffer in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrInsufficientSize]: if size is too small
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or uuid is NULL
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuInstanceGetUUID].
 //
@@ -597,13 +612,14 @@ func (v VgpuInstance) UUID() (string, error) {
 //   - version: Caller-supplied buffer to return driver version string
 //   - length: Size of version buffer
 //
-// Returns:
+// A nil error means version has been set.
+//
+// Errors:
 //   - [ErrInsufficientSize]: if length is too small
 //   - [ErrInvalidArgument]: if vgpuInstance is 0
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if version has been set
 //
 // Wraps [nvmlVgpuInstanceGetVmDriverVersion].
 //
@@ -622,13 +638,12 @@ func (v VgpuInstance) VmDriverVersion() (string, error) {
 //   - size: Size of buffer in bytes
 //   - vmIdType: Pointer to hold VM ID type
 //
-// Returns:
+// Errors:
 //   - [ErrInsufficientSize]: if size is too small
 //   - [ErrInvalidArgument]: if vmId or vmIdType is NULL, or vgpuInstance is 0
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuInstanceGetVmID].
 //

@@ -8,10 +8,8 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"runtime"
 	"strings"
 	"testing"
-	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cublas"
 	"github.com/tmc/lib/nvidia/x/cudagraph"
@@ -68,16 +66,10 @@ func TestPhysicalCUBLASHCProjection(t *testing.T) {
 	gemm := func() error {
 		return p.dev.WithContext(func() error {
 			alpha, beta := float32(1), float32(0)
-			var pin runtime.Pinner
-			pin.Pin(&alpha)
-			pin.Pin(&beta)
-			defer pin.Unpin()
 			err := handle.GemmEx(cublas.OpT, cublas.OpN, rows, 1, k,
-				uintptr(unsafe.Pointer(&alpha)), weights.Ptr(), cublas.R16F, k,
-				input.Ptr(), cublas.R16F, k, uintptr(unsafe.Pointer(&beta)),
+				cublas.Float32Scalar(alpha), weights.Ptr(), cublas.R16F, k,
+				input.Ptr(), cublas.R16F, k, cublas.Float32Scalar(beta),
 				output.Ptr(), cublas.R32F, rows, cublas.Compute32F, cublas.GemmDefault)
-			runtime.KeepAlive(alpha)
-			runtime.KeepAlive(beta)
 			return err
 		})
 	}

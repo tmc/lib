@@ -11,11 +11,12 @@ package nvml
 //
 //   - set: Reference in which to return the event handle
 //
-// Returns:
+// A nil error means the event has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if set is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the event has been set
 //
 // Wraps [nvmlEventSetCreate].
 //
@@ -30,10 +31,11 @@ func NewEventSet() (EventSet, error) {
 //
 // See also: [Device.RegisterEvents]
 //
-// Returns:
+// A nil error means the event has been successfully released.
+//
+// Errors:
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the event has been successfully released
 //
 // Wraps [nvmlEventSetFree].
 //
@@ -56,13 +58,14 @@ func (e EventSet) Free() error {
 //   - data: Reference in which to return event data
 //   - timeoutms: Maximum amount of wait time in milliseconds for registered event
 //
-// Returns:
+// A nil error means the data has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if a GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if set or data is NULL
 //   - [ErrTimeout]: if no event arrived in specified timeout or interrupt arrived
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the data has been set
 //
 // Wraps [nvmlEventSetWait], bound as nvmlEventSetWait_v2.
 //

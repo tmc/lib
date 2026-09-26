@@ -9,13 +9,58 @@
 //
 // [Handle.Read] and [Handle.Write] transfer between a registered file and CUDA
 // device memory. Callers own the file, device allocation, offsets and buffer
-// lifetimes. These methods return the signed byte count from cuFile; inspect
-// the vendor contract for negative results. Status-returning functions instead
-// return a Go error. Wrappers without an error result can panic when the
-// library or a required symbol is unavailable.
+// lifetimes. These methods return the byte count from cuFile, or 0 and an
+// error when cuFile reports a failure as a negative count. Status-returning
+// functions return a Go error.
 //
 // The package is built only on Linux and loads libcufile dynamically.
 // [Load] selects a library explicitly; CUFILE_LIB_PATH overrides the default
 // search path. Loading the library alone does not establish that a file system
 // or device supports GPUDirect Storage.
+//
+// # Other
+//
+//   - [BatchHandle.IOCancel]: This is a batch API to cancel an ongoing IO batch operation by using the batch_id that was returned by [BatchHandle.IOSubmit].
+//   - [BatchHandle.IODestroy]: [BatchHandle.IOGetStatus].
+//   - [BatchHandle.IOGetStatus]: This is a batch API to monitor the status of batch IO operations by using the batch_id that was returned by [BatchHandle.IOSubmit].
+//   - [BatchIOSetUp]: [Handle.Read].
+//   - [BatchHandle.IOSubmit]: This API will need to be used to submit a read/write operation on an array of GPU/CPU data pointers from their respective file handle, offset, and size bytes.
+//   - [BufDeregister]: Based on the memory type, this API either deregisters CUDA memory or the host memory registered using the [BufRegister] API.
+//   - [BufRegister]: Based on the memory type, this API registers existing cuMemAlloc’d (pinned) memory for GDS IO operations or host memory for IO operations.
+//   - [DriverClose]: Closes the driver session and frees any associated resources for GDS.
+//   - [DriverGetP2PFlags]: Gets the P2P flags for a specific filesystem or block device.
+//   - [DriverGetProperties]: Gets the Driver session properties for GDS functionality.
+//   - [DriverOpen]: Opens the Driver session to support GDS IO operations.
+//   - [DriverSetMaxCacheSize]: Sets the maximum GPU buffer space, in KB, per device and is used for internal use, for example, to handle unaligned IO and optimal IO path routing.
+//   - [DriverSetMaxDirectIOSize]: Sets the max IO size, in KB.
+//   - [DriverSetMaxPinnedMemSize]: Sets the maximum GPU buffer space, in KB, that is pinned and mapped.
+//   - [DriverSetP2PFlags]: Sets the P2P flags for a specific filesystem or block device.
+//   - [DriverSetPollMode]: Sets whether the [Handle.Read]/Write APIs use polling to complete IO operations.
+//   - [GetBARSizeInKB]: Get the BAR size for a specific GPU in KB.
+//   - [GetParameterBool]: Fetch cuFile configuration parameters in a program.
+//   - [GetParameterMinMaxValue]: Get both the minimum and maximum settable values for a given size_t parameter in a single call.
+//   - [GetParameterPosixPoolSlabArray]: Get POSIX pool slab array.
+//   - [GetParameterSizeT]: Fetch cuFile configuration parameters in a program.
+//   - [GetParameterString]: Fetch cuFile configuration parameters in a program.
+//   - [GetStatsL1]: Get Level 1 cuFile statistics.
+//   - [GetStatsL2]: Get Level 2 cuFile statistics.
+//   - [GetStatsL3]: Get Level 3 cuFile statistics.
+//   - [GetStatsLevel]: Get the current level of statistics collection for cuFile operations.
+//   - [GetVersion]: Retrieves the cuFile library version.
+//   - [Handle.Deregister]: The API is used to release resources that are claimed by [HandleRegister].
+//   - [HandleRegister]: Register an open file.
+//   - [Handle.Read]: Reads specified bytes from the file descriptor into the device memory or the host memory.
+//   - [Handle.ReadAsync]: Enqueues a read operation for the specified bytes from the cuFile handle into the device memory by using GDS functionality or to the host memory based on the type of memory pointer.
+//   - [SetParameterBool]: Allows setting of cuFile configuration parameters in a program.
+//   - [SetParameterPosixPoolSlabArray]: Sets POSIX pool slabs for compat mode I/O.
+//   - [SetParameterSizeT]: Allows setting of cuFile configuration parameters in a program.
+//   - [SetParameterString]: Allows setting of cuFile configuration parameters in a program.
+//   - [SetStatsLevel]: Set the level of statistics collection for cuFile operations.
+//   - [StatsReset]: Reset all cuFile statistics counters to zero.
+//   - [StatsStart]: Start collecting cuFile statistics.
+//   - [StatsStop]: Stop collecting cuFile statistics.
+//   - [StreamDeregister]: This optional API deregisters the stream with the cuFile subsystem.
+//   - [StreamRegister]: Defines the input behavior for stream I/O APIs.
+//   - [Handle.Write]: Writes specified bytes from the device memory into the file descriptor using GDS.
+//   - [Handle.WriteAsync]: Queues [Handle.Write] operation for the specified bytes from the device memory into the cuFile handle by using GDS.
 package cufile

@@ -88,9 +88,9 @@ func ExampleHandle_Gemm() {
 
 	deviceBytes, hostBytes, err := h.GemmBufferSize(
 		cublas.OpN, cublas.OpN, m, n, k,
-		unsafe.Pointer(&alpha), deviceA, ia, ja, descA,
+		cublasmp.Float32Scalar(alpha), deviceA, ia, ja, descA,
 		deviceB, ib, jb, descB,
-		unsafe.Pointer(&beta), deviceC, ic, jc, descC,
+		cublasmp.Float32Scalar(beta), deviceC, ic, jc, descC,
 		cublas.Compute32F)
 	if err != nil {
 		fmt.Println("workspace:", err)
@@ -110,9 +110,9 @@ func ExampleHandle_Gemm() {
 
 	if err := h.Gemm(
 		cublas.OpN, cublas.OpN, m, n, k,
-		unsafe.Pointer(&alpha), deviceA, ia, ja, descA,
+		cublasmp.Float32Scalar(alpha), deviceA, ia, ja, descA,
 		deviceB, ib, jb, descB,
-		unsafe.Pointer(&beta), deviceC, ic, jc, descC,
+		cublasmp.Float32Scalar(beta), deviceC, ic, jc, descC,
 		cublas.Compute32F,
 		deviceWork, deviceBytes, unsafe.Pointer(&hostWork[0]), hostBytes); err != nil {
 		fmt.Println("gemm:", err)

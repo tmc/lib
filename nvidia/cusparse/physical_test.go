@@ -77,7 +77,7 @@ func TestSpMVNumerical(t *testing.T) {
 	pin.Pin(&alpha)
 	pin.Pin(&beta)
 	defer pin.Unpin()
-	ap, bp := uintptr(unsafe.Pointer(&alpha)), uintptr(unsafe.Pointer(&beta))
+	ap, bp := cusparse.Float32Scalar(alpha), cusparse.Float32Scalar(beta)
 	size, err := h.SpMVBufferSize(cusparse.OperationNonTranspose, ap, cusparse.ConstSpMatDescr(a), cusparse.ConstDnVecDescr(vx), bp, vy, cusparse.R32F, cusparse.SpmvAlgDefault)
 	check(err)
 	if size > 1<<28 {

@@ -27,13 +27,13 @@ var (
 
 // fnaddData calls __nvJitLinkAddData_13_2.
 func fnaddData(a0 Handle, a1 InputType, a2 unsafe.Pointer, a3 uint, a4 *byte) Result {
-	r1, _ := ffiCall5(symaddData, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symaddData, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
 // fnaddFile calls __nvJitLinkAddFile_13_2.
 func fnaddFile(a0 Handle, a1 InputType, a2 *byte) Result {
-	r1, _ := ffiCall3(symaddFile, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symaddFile, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -45,7 +45,7 @@ func fncomplete(a0 Handle) Result {
 
 // fnCreate calls __nvJitLinkCreate_13_2.
 func fnCreate(a0 *Handle, a1 uint32, a2 **byte) Result {
-	r1, _ := ffiCall3(symCreate, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symCreate, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 

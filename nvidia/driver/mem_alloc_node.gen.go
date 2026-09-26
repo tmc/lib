@@ -16,6 +16,11 @@ type MemAllocNode struct {
 //
 // See also: [GraphNode.Params], [Graph.AddMemAllocNode], [MemFreeNode.Params]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuGraphMemAllocNodeGetParams.
 func (m MemAllocNode) Params() (MemAllocNodeParams, error) {
 	return graphMemAllocNodeGetParams(m.GraphNode)

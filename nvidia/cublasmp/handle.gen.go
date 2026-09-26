@@ -51,21 +51,21 @@ func (h Handle) Destroy() error {
 // This routine will internally call cublasMpMatmul() with d == c.
 //
 // Contract:
-// - Uses the same descriptor, offset, and block-size contract as
+//   - Uses the same descriptor, offset, and block-size contract as
+//
 // [Handle.GemmBufferSize].
-// - Matrix C is both input and output; unlike cublasMpMatmul(), [Handle.Gemm]
-// always writes the result to C.
+//   - Matrix C is both input and output; unlike cublasMpMatmul(), [Handle.Gemm] always writes the result to C.
 //
 // Workspace:
-// - Call [Handle.GemmBufferSize] with the same arguments first, then pass device
-// and host workspaces of the returned sizes.
+//   - Call [Handle.GemmBufferSize] with the same arguments first, then pass device and host workspaces of the returned sizes.
 //
+// Parameters:
 //   - transA: in Operation op(A) that is non- or (conj.) transpose
 //   - transB: in Operation op(B) that is non- or (conj.) transpose
 //   - m: in Number of rows of op(A) and C
 //   - n: in Number of columns of op(B) and C
 //   - k: in Number of columns of op(A) and rows of op(B)
-//   - alpha: in Scalar used for multiplication (host pointer)
+//   - alpha: in Scalar used for multiplication (host pointer). Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - a: in Pointer to local portion of global matrix A (device)
 //   - ia: in Row index of the first row of sub(A). ia - 1 must be a multiple of mbA
 //   - ja: in Column index of the first column of sub(A). ja - 1 must be a multiple of nbA
@@ -74,7 +74,7 @@ func (h Handle) Destroy() error {
 //   - ib: in Row index of the first row of sub(B). ib - 1 must be a multiple of mbB
 //   - jb: in Column index of the first column of sub(B). jb - 1 must be a multiple of nbB
 //   - descB: in Matrix descriptor for global matrix B
-//   - beta: in Scalar used for multiplication (host pointer)
+//   - beta: in Scalar used for multiplication (host pointer). Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - c: in,out Pointer to local portion of global matrix C (device)
 //   - ic: in Row index of the first row of sub(C). ic - 1 must be a multiple of mbC
 //   - jc: in Column index of the first column of sub(C). jc - 1 must be a multiple of nbC
@@ -86,7 +86,7 @@ func (h Handle) Destroy() error {
 //   - workspaceSizeInBytesOnHost: in Host workspace size as provided by [Handle.GemmBufferSize]
 //
 // Wraps cublasMpGemm.
-func (h Handle) Gemm(transA cublas.Operation, transB cublas.Operation, m int64, n int64, k int64, alpha unsafe.Pointer, a uintptr, ia int64, ja int64, descA MatrixDescriptor, b uintptr, ib int64, jb int64, descB MatrixDescriptor, beta unsafe.Pointer, c uintptr, ic int64, jc int64, descC MatrixDescriptor, computeType cublas.ComputeType, dWork uintptr, workspaceSizeInBytesOnDevice uint, hWork unsafe.Pointer, workspaceSizeInBytesOnHost uint) error {
+func (h Handle) Gemm(transA cublas.Operation, transB cublas.Operation, m int64, n int64, k int64, alpha Scalar, a uintptr, ia int64, ja int64, descA MatrixDescriptor, b uintptr, ib int64, jb int64, descB MatrixDescriptor, beta Scalar, c uintptr, ic int64, jc int64, descC MatrixDescriptor, computeType cublas.ComputeType, dWork uintptr, workspaceSizeInBytesOnDevice uint, hWork unsafe.Pointer, workspaceSizeInBytesOnHost uint) error {
 	return Gemm(h, transA, transB, m, n, k, alpha, a, ia, ja, descA, b, ib, jb, descB, beta, c, ic, jc, descC, computeType, dWork, workspaceSizeInBytesOnDevice, hWork, workspaceSizeInBytesOnHost)
 }
 
@@ -96,25 +96,20 @@ func (h Handle) Gemm(transA cublas.Operation, transB cublas.Operation, m int64, 
 // given input. [Handle.Gemm] uses cublasMpMatmul() semantics with D == C.
 //
 // Contract:
-// - Submatrix indices are 1-based and must be aligned to the corresponding descriptor
-// block dimensions.
-// - descA, descB, and descC must be non-NULL. Matrix C is both input and output;
-// unlike cublasMpMatmul(), [Handle.Gemm] always writes the result to C.
-// - Block-size compatibility follows op(A) and op(B):
-// transA=N, transB=N: nbA == mbB, mbA == mbC, nbB == nbC.
-// transA=N, transB=T/C: nbA == nbB, mbA == mbC, mbB == nbC.
-// transA=T/C, transB=N: mbA == mbB, nbA == mbC, nbB == nbC.
-// transA=T/C, transB=T/C: mbA == nbB, nbA == mbC, mbB == nbC.
+//   - Submatrix indices are 1-based and must be aligned to the corresponding descriptor block dimensions.
+//   - descA, descB, and descC must be non-NULL. Matrix C is both input and output; unlike cublasMpMatmul(), [Handle.Gemm] always writes the result to C.
+//   - Block-size compatibility follows op(A) and op(B): transA=N, transB=N: nbA == mbB, mbA == mbC, nbB == nbC. transA=N, transB=T/C: nbA == nbB, mbA == mbC, mbB == nbC. transA=T/C, transB=N: mbA == mbB, nbA == mbC, nbB == nbC. transA=T/C, transB=T/C: mbA == nbB, nbA == mbC, mbB == nbC.
 //
 // Workspace:
-// - Use the returned workspace sizes unchanged for the matching [Handle.Gemm] call.
+//   - Use the returned workspace sizes unchanged for the matching [Handle.Gemm] call.
 //
+// Parameters:
 //   - transA: in Operation op(A) that is non- or (conj.) transpose
 //   - transB: in Operation op(B) that is non- or (conj.) transpose
 //   - m: in Number of rows of op(A) and C
 //   - n: in Number of columns of op(B) and C
 //   - k: in Number of columns of op(A) and rows of op(B)
-//   - alpha: in Scalar used for multiplication (host pointer)
+//   - alpha: in Scalar used for multiplication (host pointer). Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - a: in Pointer to local portion of global matrix A (device)
 //   - ia: in Row index of the first row of sub(A). ia - 1 must be a multiple of mbA
 //   - ja: in Column index of the first column of sub(A). ja - 1 must be a multiple of nbA
@@ -123,7 +118,7 @@ func (h Handle) Gemm(transA cublas.Operation, transB cublas.Operation, m int64, 
 //   - ib: in Row index of the first row of sub(B). ib - 1 must be a multiple of mbB
 //   - jb: in Column index of the first column of sub(B). jb - 1 must be a multiple of nbB
 //   - descB: in Matrix descriptor for global matrix B
-//   - beta: in Scalar used for multiplication (host pointer)
+//   - beta: in Scalar used for multiplication (host pointer). Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - c: in Pointer to local portion of global matrix C (device)
 //   - ic: in Row index of the first row of sub(C). ic - 1 must be a multiple of mbC
 //   - jc: in Column index of the first column of sub(C). jc - 1 must be a multiple of nbC
@@ -131,7 +126,7 @@ func (h Handle) Gemm(transA cublas.Operation, transB cublas.Operation, m int64, 
 //   - computeType: in cuBLAS compute type for internal matrix-matrix multiplications
 //
 // Wraps cublasMpGemm_bufferSize.
-func (h Handle) GemmBufferSize(transA cublas.Operation, transB cublas.Operation, m int64, n int64, k int64, alpha unsafe.Pointer, a uintptr, ia int64, ja int64, descA MatrixDescriptor, b uintptr, ib int64, jb int64, descB MatrixDescriptor, beta unsafe.Pointer, c uintptr, ic int64, jc int64, descC MatrixDescriptor, computeType cublas.ComputeType) (uint, uint, error) {
+func (h Handle) GemmBufferSize(transA cublas.Operation, transB cublas.Operation, m int64, n int64, k int64, alpha Scalar, a uintptr, ia int64, ja int64, descA MatrixDescriptor, b uintptr, ib int64, jb int64, descB MatrixDescriptor, beta Scalar, c uintptr, ic int64, jc int64, descC MatrixDescriptor, computeType cublas.ComputeType) (uint, uint, error) {
 	return GemmBufferSize(h, transA, transB, m, n, k, alpha, a, ia, ja, descA, b, ib, jb, descB, beta, c, ic, jc, descC, computeType)
 }
 

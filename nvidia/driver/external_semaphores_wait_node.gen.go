@@ -17,6 +17,11 @@ type ExternalSemaphoresWaitNode struct {
 //
 // See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddExternalSemaphoresWaitNode], [ExternalSemaphoresWaitNode.SetParams], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuGraphExternalSemaphoresWaitNodeGetParams.
 func (e ExternalSemaphoresWaitNode) Params() (ExtSemWaitNodeParams, error) {
 	return graphExternalSemaphoresWaitNodeGetParams(e.GraphNode)
@@ -29,6 +34,11 @@ func (e ExternalSemaphoresWaitNode) Params() (ExtSemWaitNodeParams, error) {
 // See also: [GraphNode.SetParams], [Graph.AddExternalSemaphoresWaitNode], [ExternalSemaphoresWaitNode.SetParams], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
 //   - nodeParams: Parameters to copy
+//
+// Errors:
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrOutOfMemory]
 //
 // Wraps cuGraphExternalSemaphoresWaitNodeSetParams.
 func (e ExternalSemaphoresWaitNode) SetParams(nodeParams *ExtSemWaitNodeParams) error {

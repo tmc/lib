@@ -5,9 +5,17 @@ package driver
 // Destroy destroys a green context.
 //
 // Destroys the green context, releasing the primary context of the device that this green context was created for. Any resources provisioned for this green context (that were initially available via the resource descriptor) are released as well. The API does not destroy streams created via [GreenCtx.StreamCreate], [NewStream], or [StreamCreateWithPriority]. Users are expected to destroy these streams explicitly using [Stream.Destroy] to avoid resource leaks. Once the green context is destroyed, any subsequent API calls involving these streams will return [ErrStreamDetached] with the exception of the following APIs:
+//   - [Stream.Destroy].
+//
 // Additionally, the API will invalidate all active captures on these streams.
 //
 // See also: [NewGreenCtx], [Context.Destroy]
+//
+// Errors:
+//   - [ErrContextIsDestroyed]
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrNotInitialized]
 //
 // Wraps cuGreenCtxDestroy.
 func (g GreenCtx) Destroy() error {
@@ -20,6 +28,15 @@ func (g GreenCtx) Destroy() error {
 //
 // See also: [DevResourceGenerateDesc]
 //
+//   - type_: Type of resource to retrieve
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidResourceType]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuGreenCtxGetDevResource.
 func (g GreenCtx) DevResource(type_ DevResourceType) (DevResource, error) {
 	return greenCtxGetDevResource(g, type_)
@@ -30,6 +47,13 @@ func (g GreenCtx) DevResource(type_ DevResourceType) (DevResource, error) {
 // Returns in greenCtxId the unique Id which is associated with a given green context. The Id is unique for the life of the program for this instance of CUDA. If green context is supplied as NULL and the current context is set to a green context, the Id of the current green context is returned.
 //
 // See also: [NewGreenCtx], [GreenCtx.Destroy], [Context.Id]
+//
+// Errors:
+//   - [ErrContextIsDestroyed]
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuGreenCtxGetId.
 func (g GreenCtx) Id() (uint64, error) {
@@ -46,6 +70,13 @@ func (g GreenCtx) Id() (uint64, error) {
 //
 //   - hEvent: Event to record
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
+//   - [ErrStreamCaptureUnsupported]
+//
 // Wraps cuGreenCtxRecordEvent.
 func (g GreenCtx) RecordEvent(hEvent Event) error {
 	return greenCtxRecordEvent(g, hEvent)
@@ -55,6 +86,8 @@ func (g GreenCtx) RecordEvent(hEvent Event) error {
 //
 // Creates a stream for use in the specified green context greenCtx and returns a handle in phStream. The stream can be destroyed by calling [Stream.Destroy]. Note that the API ignores the context that is current to the calling thread and creates a stream in the specified green context greenCtx.
 // The supported values for flags are:
+//   - [StreamNonBlocking]: This must be specified. It indicates that work running in the created stream may run concurrently with work in the default stream, and that the created stream should perform no implicit synchronization with the default stream.
+//
 // Specifying priority affects the scheduling priority of work in the stream. Priorities provide a hint to preferentially run work with higher priority when possible, but do not preempt already-running work or provide any other functional guarantee on execution order. priority follows a convention where lower numbers represent higher priorities. ‘0’ represents default priority. The range of meaningful numerical priorities can be queried using [CtxGetStreamPriorityRange]. If the specified priority is outside the numerical range returned by [CtxGetStreamPriorityRange], it will automatically be clamped to the lowest or the highest number in the range.
 //
 // Note: In the current implementation, only compute kernels launched in priority streams are affected by the stream’s priority. Stream priorities have no effect on host-to-device and device-to-host memory operations.
@@ -63,6 +96,13 @@ func (g GreenCtx) RecordEvent(hEvent Event) error {
 //
 //   - flags: Flags for stream creation. [StreamNonBlocking] must be specified
 //   - priority: Stream priority. Lower numbers represent higher priorities. See [CtxGetStreamPriorityRange] for more information about meaningful stream priorities that can be passed
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrOutOfMemory]
 //
 // Wraps cuGreenCtxStreamCreate.
 func (g GreenCtx) StreamCreate(flags StreamFlags, priority int32) (Stream, error) {
@@ -81,6 +121,13 @@ func (g GreenCtx) StreamCreate(flags StreamFlags, priority int32) (Stream, error
 //
 //   - hEvent: Event to wait on
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
+//   - [ErrStreamCaptureUnsupported]
+//
 // Wraps cuGreenCtxWaitEvent.
 func (g GreenCtx) WaitEvent(hEvent Event) error {
 	return greenCtxWaitEvent(g, hEvent)
@@ -93,12 +140,22 @@ func (g GreenCtx) WaitEvent(hEvent Event) error {
 //
 // Note: The API is not supported on 32-bit platforms.
 // The supported flags are:
+//   - CU_GREEN_CTX_NONE : Default behavior.
+//   - [GreenCtxDefaultStream] : Creates a default stream to use inside the green context.
 //
 // See also: [GreenCtx.Destroy], [CtxFromGreenCtx], [Context.SetCurrent], [Context.PushCurrent], [DevResourceGenerateDesc], [Device.PrimaryCtxRetain], [NewContext]
 //
 //   - desc: Descriptor generated via [DevResourceGenerateDesc] which contains the set of resources to be used
 //   - dev: Device on which to create the green context
 //   - flags: One of the supported green context creation flags
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
+//   - [ErrOutOfMemory]
 //
 // Wraps cuGreenCtxCreate.
 func NewGreenCtx(desc DevResourceDesc, dev Device, flags GreenctxcreateFlags) (GreenCtx, error) {

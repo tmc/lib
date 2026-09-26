@@ -8,8 +8,6 @@ import (
 
 // VecGet returns the fields of the dense vector descriptor dnVecDescr.
 //
-// Refer to [Result] for the description of the return status.
-//
 //   - size: Size of the dense vector
 //   - values: Values of the dense vector. Array with nnz elements
 //   - valueType: Enumerator specifying the datatype of values
@@ -21,8 +19,6 @@ func (d DnVecDescr) VecGet(size *int64, values *uintptr, valueType *DataType) er
 
 // VecGetValues returns the values field of the dense vector descriptor dnVecDescr.
 //
-// Refer to [Result] for the description of the return status.
-//
 //   - values: Values of the dense vector
 //
 // Wraps cusparseDnVecGetValues.
@@ -33,8 +29,9 @@ func (d DnVecDescr) VecGetValues(values *uintptr) error {
 // VecSetValues sets the values field of the dense vector descriptor dnVecDescr.
 //
 // [DnVecDescr.VecSetValues] has the following constraints:
-// Refer to [Result] for the description of the return status.
+//   - values must be aligned to the size of the datatype specified in dnVecDescr. Refer to cudaDataType_t for the description of the datatypes.
 //
+// Parameters:
 //   - values: Values of the dense vector. Array with size elements
 //
 // Wraps cusparseDnVecSetValues.

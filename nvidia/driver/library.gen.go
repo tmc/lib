@@ -11,6 +11,10 @@ package driver
 //   - kernels: Buffer where the kernel handles are returned to
 //   - numKernels: Maximum number of kernel handles may be returned to the buffer
 //
+// Errors:
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//
 // Wraps cuLibraryEnumerateKernels.
 func (l Library) EnumerateKernels(kernels *Kernel, numKernels uint32) error {
 	return libraryEnumerateKernels(kernels, numKernels, l)
@@ -23,6 +27,15 @@ func (l Library) EnumerateKernels(kernels *Kernel, numKernels uint32) error {
 // See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Library.Module], [Module.Global]
 //
 //   - name: Name of global to retrieve
+//
+// Errors:
+//   - [ErrContextIsDestroyed]
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotFound]
+//   - [ErrNotInitialized]
 //
 // Wraps cuLibraryGetGlobal.
 func (l Library) Global(name string) (dptr DevicePtr, bytes uint, err error) {
@@ -37,6 +50,13 @@ func (l Library) Global(name string) (dptr DevicePtr, bytes uint, err error) {
 //
 //   - name: Name of kernel to retrieve
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotFound]
+//   - [ErrNotInitialized]
+//
 // Wraps cuLibraryGetKernel.
 func (l Library) Kernel(name string) (Kernel, error) {
 	return libraryGetKernel(l, name)
@@ -45,6 +65,10 @@ func (l Library) Kernel(name string) (Kernel, error) {
 // KernelCount returns the number of kernels within a library.
 //
 // Returns in count the number of kernels in lib.
+//
+// Errors:
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
 //
 // Wraps cuLibraryGetKernelCount.
 func (l Library) KernelCount() (uint32, error) {
@@ -59,6 +83,13 @@ func (l Library) KernelCount() (uint32, error) {
 //
 //   - name: Name of managed memory to retrieve
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotFound]
+//   - [ErrNotInitialized]
+//
 // Wraps cuLibraryGetManaged.
 func (l Library) Managed(name string) (dptr DevicePtr, bytes uint, err error) {
 	return libraryGetManaged(l, name)
@@ -69,6 +100,15 @@ func (l Library) Managed(name string) (dptr DevicePtr, bytes uint, err error) {
 // Returns in pMod the module handle associated with the current context located in library library. If module handle is not found, the call returns [ErrNotFound].
 //
 // See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Module.Function]
+//
+// Errors:
+//   - [ErrContextIsDestroyed]
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotFound]
+//   - [ErrNotInitialized]
 //
 // Wraps cuLibraryGetModule.
 func (l Library) Module() (Module, error) {
@@ -83,6 +123,13 @@ func (l Library) Module() (Module, error) {
 //
 //   - symbol: Name of function pointer to retrieve
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotFound]
+//   - [ErrNotInitialized]
+//
 // Wraps cuLibraryGetUnifiedFunction.
 func (l Library) UnifiedFunction(symbol string) (uintptr, error) {
 	return libraryGetUnifiedFunction(l, symbol)
@@ -94,6 +141,11 @@ func (l Library) UnifiedFunction(symbol string) (uintptr, error) {
 //
 // See also: [LibraryLoadData], [LibraryLoadFromFile], [Module.Unload]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuLibraryUnload.
 func (l Library) Unload() error {
 	return libraryUnload(l)
@@ -102,6 +154,9 @@ func (l Library) Unload() error {
 // LibraryLoadData loads a library with specified code and options.
 //
 // Takes code and loads the corresponding library library based on the application defined library loading mode:
+//   - If module loading is set to EAGER, via the environment variables described in “Module loading”, library is loaded eagerly into all contexts at the time of the call and future contexts at the time of creation until the library is unloaded with [Library.Unload].
+//   - If the environment variables are set to LAZY, library is not immediately loaded onto all existent contexts and will only be loaded when a function is needed for that context, such as a kernel launch.
+//
 // These environment variables are described in the CUDA programming guide under the “CUDA environment variables” section.
 // The code may be a cubin or fatbin as output by nvcc, or a PTX, either as output by nvcc or hand-written, or Tile IR data. A fatbin should also contain relocatable code when doing separate compilation.
 // Options are passed as an array via jitOptions and any corresponding parameters are passed in jitOptionsValues. The number of total JIT options is supplied via numJitOptions. Any outputs will be returned via jitOptionsValues.
@@ -119,6 +174,19 @@ func (l Library) Unload() error {
 //   - libraryOptionValues: Option values for loading
 //   - numLibraryOptions: Number of options for loading
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidPtx]
+//   - [ErrInvalidValue]
+//   - [ErrJitCompilerNotFound]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
+//   - [ErrNoBinaryForGpu]
+//   - [ErrOutOfMemory]
+//   - [ErrSharedObjectInitFailed]
+//   - [ErrSharedObjectSymbolNotFound]
+//   - [ErrUnsupportedPtxVersion]
+//
 // The wrapper passes code to C without copying if a NUL byte ends it or
 // follows it in its capacity, as one does in text a generated getter returns,
 // or if it starts with the ELF or fatbin magic number. Otherwise code is text,
@@ -132,6 +200,9 @@ func LibraryLoadData(code []byte, jitOptions *JITOption, jitOptionsValues *uintp
 // LibraryLoadFromFile loads a library with specified file and options.
 //
 // Takes a pointer code and loads the corresponding library library based on the application defined library loading mode:
+//   - If module loading is set to EAGER, via the environment variables described in “Module loading”, library is loaded eagerly into all contexts at the time of the call and future contexts at the time of creation until the library is unloaded with [Library.Unload].
+//   - If the environment variables are set to LAZY, library is not immediately loaded onto all existent contexts and will only be loaded when a function is needed for that context, such as a kernel launch.
+//
 // These environment variables are described in the CUDA programming guide under the “CUDA environment variables” section.
 // The file should be a cubin file as output by nvcc, or a PTX file either as output by nvcc or handwritten, or a fatbin file as output by nvcc or hand-written, or Tile IR file. A fatbin should also contain relocatable code when doing separate compilation.
 // Options are passed as an array via jitOptions and any corresponding parameters are passed in jitOptionsValues. The number of total options is supplied via numJitOptions. Any outputs will be returned via jitOptionsValues.
@@ -148,6 +219,19 @@ func LibraryLoadData(code []byte, jitOptions *JITOption, jitOptionsValues *uintp
 //   - libraryOptions: Options for loading
 //   - libraryOptionValues: Option values for loading
 //   - numLibraryOptions: Number of options for loading
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidPtx]
+//   - [ErrInvalidValue]
+//   - [ErrJitCompilerNotFound]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
+//   - [ErrNoBinaryForGpu]
+//   - [ErrOutOfMemory]
+//   - [ErrSharedObjectInitFailed]
+//   - [ErrSharedObjectSymbolNotFound]
+//   - [ErrUnsupportedPtxVersion]
 //
 // Wraps cuLibraryLoadFromFile.
 func LibraryLoadFromFile(fileName string, jitOptions *JITOption, jitOptionsValues *uintptr, numJitOptions uint32, libraryOptions *LibraryOption, libraryOptionValues *uintptr, numLibraryOptions uint32) (Library, error) {

@@ -2,7 +2,6 @@ package cublaslt_test
 
 import (
 	"fmt"
-	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cublaslt"
 	"github.com/tmc/lib/nvidia/driver"
@@ -38,10 +37,9 @@ func Example() {
 	defer cLayout.Destroy()
 
 	var dA, dB, dC driver.DevicePtr // device allocations, m*k, k*n, m*n floats
-	alpha, beta := float32(1), float32(0)
 	err = h.Matmul(desc,
-		uintptr(unsafe.Pointer(&alpha)), dA, aLayout, dB, bLayout,
-		uintptr(unsafe.Pointer(&beta)), dC, cLayout, dC, cLayout,
+		cublaslt.Float32Scalar(1), dA, aLayout, dB, bLayout,
+		cublaslt.Float32Scalar(0), dC, cLayout, dC, cLayout,
 		nil, 0, 0, 0)
 	if err != nil {
 		fmt.Println("matmul:", err)

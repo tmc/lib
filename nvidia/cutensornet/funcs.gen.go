@@ -87,13 +87,15 @@ var (
 	symworkspaceSetMemory                           uintptr
 )
 
-// ffiCall0 through ffiCall14 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+// The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
 //
 // Bit i of floatMask marks argument word i as a floating-point bit
 // pattern, which the C ABI passes in a different register file from the
-// integer and pointer words. Each returns the first integer result
-// register and the first floating-point one; a caller reads whichever the
-// C function sets.
+// integer and pointer words. Bits 2i and 2i+1 of widths give the size of
+// argument word i as a ffi.Width code, which places a narrow argument
+// on the stack where the C ABI expects it. Each funnel returns the first
+// integer result register and the first floating-point one; a caller
+// reads whichever the C function sets.
 //
 // The //go:uintptrescapes directive is what makes a Go pointer safe to
 // pass: a pointer converted to uintptr in one of these argument lists is
@@ -153,18 +155,6 @@ func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf 
 }
 
 //go:uintptrescapes
-func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
-	var args [ffi.MaxArgs]uintptr
-	args[0] = a0
-	args[1] = a1
-	args[2] = a2
-	args[3] = a3
-	args[4] = a4
-	args[5] = a5
-	return ffi.CallFloat(fn, 6, &args, floatMask)
-}
-
-//go:uintptrescapes
 func ffiCall7(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
@@ -178,7 +168,59 @@ func ffiCall7(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6 uintptr) 
 }
 
 //go:uintptrescapes
-func ffiCall8(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7 uintptr) (r1, rf uintptr) {
+func ffiCallWidths1(fn uintptr, floatMask uint32, widths uint64, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloatWidths(fn, 1, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths3(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloatWidths(fn, 3, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths5(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloatWidths(fn, 5, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths6(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	return ffi.CallFloatWidths(fn, 6, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths7(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	return ffi.CallFloatWidths(fn, 7, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths8(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -188,11 +230,11 @@ func ffiCall8(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7 uintp
 	args[5] = a5
 	args[6] = a6
 	args[7] = a7
-	return ffi.CallFloat(fn, 8, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 8, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall14(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13 uintptr) (r1, rf uintptr) {
+func ffiCallWidths14(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -208,7 +250,7 @@ func ffiCall14(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8,
 	args[11] = a11
 	args[12] = a12
 	args[13] = a13
-	return ffi.CallFloat(fn, 14, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 14, &args, floatMask, widths)
 }
 
 // An outSlot pools the heap cells a wrapper passes to C for its outputs.
@@ -234,13 +276,13 @@ func (s *outSlot[T]) put(p *T) {
 
 // fncontractionAutotunePreferenceGetAttribute calls cutensornetContractionAutotunePreferenceGetAttribute.
 func fncontractionAutotunePreferenceGetAttribute(a0 Handle, a1 ContractionAutotunePreference, a2 ContractionAutotunePreferenceAttributes, a3 unsafe.Pointer, a4 uint) Result {
-	r1, _ := ffiCall5(symcontractionAutotunePreferenceGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	r1, _ := ffiCallWidths5(symcontractionAutotunePreferenceGetAttribute, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
 
 // fncontractionAutotunePreferenceSetAttribute calls cutensornetContractionAutotunePreferenceSetAttribute.
 func fncontractionAutotunePreferenceSetAttribute(a0 Handle, a1 ContractionAutotunePreference, a2 ContractionAutotunePreferenceAttributes, a3 unsafe.Pointer, a4 uint) Result {
-	r1, _ := ffiCall5(symcontractionAutotunePreferenceSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	r1, _ := ffiCallWidths5(symcontractionAutotunePreferenceSetAttribute, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
 
@@ -252,19 +294,19 @@ func fncontractionOptimize(a0 Handle, a1 NetworkDescriptor, a2 ContractionOptimi
 
 // fncontractionOptimizerConfigGetAttribute calls cutensornetContractionOptimizerConfigGetAttribute.
 func fncontractionOptimizerConfigGetAttribute(a0 Handle, a1 ContractionOptimizerConfig, a2 ContractionOptimizerConfigAttributes, a3 unsafe.Pointer, a4 uint) Result {
-	r1, _ := ffiCall5(symcontractionOptimizerConfigGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	r1, _ := ffiCallWidths5(symcontractionOptimizerConfigGetAttribute, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
 
 // fncontractionOptimizerConfigSetAttribute calls cutensornetContractionOptimizerConfigSetAttribute.
 func fncontractionOptimizerConfigSetAttribute(a0 Handle, a1 ContractionOptimizerConfig, a2 ContractionOptimizerConfigAttributes, a3 unsafe.Pointer, a4 uint) Result {
-	r1, _ := ffiCall5(symcontractionOptimizerConfigSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	r1, _ := ffiCallWidths5(symcontractionOptimizerConfigSetAttribute, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
 
 // fncontractionOptimizerInfoGetAttribute calls cutensornetContractionOptimizerInfoGetAttribute.
 func fncontractionOptimizerInfoGetAttribute(a0 Handle, a1 ContractionOptimizerInfo, a2 ContractionOptimizerInfoAttributes, a3 unsafe.Pointer, a4 uint) Result {
-	r1, _ := ffiCall5(symcontractionOptimizerInfoGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	r1, _ := ffiCallWidths5(symcontractionOptimizerInfoGetAttribute, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
 
@@ -282,7 +324,7 @@ func fncontractionOptimizerInfoPackData(a0 Handle, a1 ContractionOptimizerInfo, 
 
 // fncontractionOptimizerInfoSetAttribute calls cutensornetContractionOptimizerInfoSetAttribute.
 func fncontractionOptimizerInfoSetAttribute(a0 Handle, a1 ContractionOptimizerInfo, a2 ContractionOptimizerInfoAttributes, a3 unsafe.Pointer, a4 uint) Result {
-	r1, _ := ffiCall5(symcontractionOptimizerInfoSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	r1, _ := ffiCallWidths5(symcontractionOptimizerInfoSetAttribute, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
 
@@ -336,7 +378,7 @@ func fncreateNetworkAutotunePreference(a0 Handle, a1 *NetworkAutotunePreference)
 
 // fncreateNetworkDescriptor calls cutensornetCreateNetworkDescriptor.
 func fncreateNetworkDescriptor(a0 Handle, a1 int32, a2 *int32, a3 *uintptr, a4 *uintptr, a5 *uintptr, a6 *TensorQualifiers, a7 int32, a8 *int64, a9 *int64, a10 *int32, a11 DataType, a12 ComputeType, a13 *NetworkDescriptor) Result {
-	r1, _ := ffiCall14(symcreateNetworkDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)))
+	r1, _ := ffiCallWidths14(symcreateNetworkDescriptor, 0, 0x3c0c00c, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)))
 	return Result(r1)
 }
 
@@ -354,7 +396,7 @@ func fncreateSliceGroupFromIDs(a0 Handle, a1 *int64, a2 *int64, a3 *SliceGroup) 
 
 // fncreateTensorDescriptor calls cutensornetCreateTensorDescriptor.
 func fncreateTensorDescriptor(a0 Handle, a1 int32, a2 *int64, a3 *int64, a4 *int32, a5 DataType, a6 *TensorDescriptor) Result {
-	r1, _ := ffiCall7(symcreateTensorDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	r1, _ := ffiCallWidths7(symcreateTensorDescriptor, 0, 0xc0c, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(unsafe.Pointer(a6)))
 	return Result(r1)
 }
 
@@ -498,37 +540,37 @@ func fnLoggerOpenFile(a0 *byte) Result {
 
 // fnLoggerSetLevel calls cutensornetLoggerSetLevel.
 func fnLoggerSetLevel(a0 int32) Result {
-	r1, _ := ffiCall1(symLoggerSetLevel, 0, uintptr(a0))
+	r1, _ := ffiCallWidths1(symLoggerSetLevel, 0, 0x3, uintptr(a0))
 	return Result(r1)
 }
 
 // fnLoggerSetMask calls cutensornetLoggerSetMask.
 func fnLoggerSetMask(a0 int32) Result {
-	r1, _ := ffiCall1(symLoggerSetMask, 0, uintptr(a0))
+	r1, _ := ffiCallWidths1(symLoggerSetMask, 0, 0x3, uintptr(a0))
 	return Result(r1)
 }
 
 // fnnetworkAppendTensor calls cutensornetNetworkAppendTensor.
 func fnnetworkAppendTensor(a0 Handle, a1 NetworkDescriptor, a2 int32, a3 *int64, a4 *int32, a5 *TensorQualifiers, a6 DataType, a7 *int64) Result {
-	r1, _ := ffiCall8(symnetworkAppendTensor, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	r1, _ := ffiCallWidths8(symnetworkAppendTensor, 0, 0x3030, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(unsafe.Pointer(a7)))
 	return Result(r1)
 }
 
 // fnnetworkAutotunePreferenceGetAttribute calls cutensornetNetworkAutotunePreferenceGetAttribute.
 func fnnetworkAutotunePreferenceGetAttribute(a0 Handle, a1 NetworkAutotunePreference, a2 NetworkAutotunePreferenceAttributes, a3 unsafe.Pointer, a4 uint) Result {
-	r1, _ := ffiCall5(symnetworkAutotunePreferenceGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	r1, _ := ffiCallWidths5(symnetworkAutotunePreferenceGetAttribute, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
 
 // fnnetworkAutotunePreferenceSetAttribute calls cutensornetNetworkAutotunePreferenceSetAttribute.
 func fnnetworkAutotunePreferenceSetAttribute(a0 Handle, a1 NetworkAutotunePreference, a2 NetworkAutotunePreferenceAttributes, a3 unsafe.Pointer, a4 uint) Result {
-	r1, _ := ffiCall5(symnetworkAutotunePreferenceSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	r1, _ := ffiCallWidths5(symnetworkAutotunePreferenceSetAttribute, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
 
 // fnnetworkGetAttribute calls cutensornetNetworkGetAttribute.
 func fnnetworkGetAttribute(a0 Handle, a1 NetworkDescriptor, a2 NetworkAttributes, a3 unsafe.Pointer, a4 uint) Result {
-	r1, _ := ffiCall5(symnetworkGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	r1, _ := ffiCallWidths5(symnetworkGetAttribute, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
 
@@ -540,7 +582,7 @@ func fnnetworkPrepareContraction(a0 Handle, a1 NetworkDescriptor, a2 WorkspaceDe
 
 // fnnetworkSetAttribute calls cutensornetNetworkSetAttribute.
 func fnnetworkSetAttribute(a0 Handle, a1 NetworkDescriptor, a2 NetworkAttributes, a3 unsafe.Pointer, a4 uint) Result {
-	r1, _ := ffiCall5(symnetworkSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	r1, _ := ffiCallWidths5(symnetworkSetAttribute, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
 
@@ -558,7 +600,7 @@ func fnnetworkSetOptimizerInfo(a0 Handle, a1 NetworkDescriptor, a2 ContractionOp
 
 // fnnetworkSetOutputTensor calls cutensornetNetworkSetOutputTensor.
 func fnnetworkSetOutputTensor(a0 Handle, a1 NetworkDescriptor, a2 int32, a3 *int32, a4 DataType) Result {
-	r1, _ := ffiCall5(symnetworkSetOutputTensor, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4))
+	r1, _ := ffiCallWidths5(symnetworkSetOutputTensor, 0, 0x330, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4))
 	return Result(r1)
 }
 
@@ -582,25 +624,25 @@ func fnworkspaceComputeContractionSizes(a0 Handle, a1 NetworkDescriptor, a2 Cont
 
 // fnworkspaceGetMemory calls cutensornetWorkspaceGetMemory.
 func fnworkspaceGetMemory(a0 Handle, a1 WorkspaceDescriptor, a2 Memspace, a3 WorkspaceKind, a4 *uintptr, a5 *int64) Result {
-	r1, _ := ffiCall6(symworkspaceGetMemory, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symworkspaceGetMemory, 0, 0xf0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fnworkspaceGetMemorySize calls cutensornetWorkspaceGetMemorySize.
 func fnworkspaceGetMemorySize(a0 Handle, a1 WorkspaceDescriptor, a2 WorksizePref, a3 Memspace, a4 WorkspaceKind, a5 *int64) Result {
-	r1, _ := ffiCall6(symworkspaceGetMemorySize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symworkspaceGetMemorySize, 0, 0x3f0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fnworkspacePurgeCache calls cutensornetWorkspacePurgeCache.
 func fnworkspacePurgeCache(a0 Handle, a1 WorkspaceDescriptor, a2 Memspace) Result {
-	r1, _ := ffiCall3(symworkspacePurgeCache, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	r1, _ := ffiCallWidths3(symworkspacePurgeCache, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2))
 	return Result(r1)
 }
 
 // fnworkspaceSetMemory calls cutensornetWorkspaceSetMemory.
 func fnworkspaceSetMemory(a0 Handle, a1 WorkspaceDescriptor, a2 Memspace, a3 WorkspaceKind, a4 uintptr, a5 int64) Result {
-	r1, _ := ffiCall6(symworkspaceSetMemory, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	r1, _ := ffiCallWidths6(symworkspaceSetMemory, 0, 0xf0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
 	return Result(r1)
 }
 

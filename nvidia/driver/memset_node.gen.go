@@ -16,6 +16,11 @@ type MemsetNode struct {
 //
 // See also: [GraphNode.Params], [DevicePtr.MemsetD2D32], [Graph.AddMemsetNode], [MemsetNode.SetParams]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuGraphMemsetNodeGetParams.
 func (m MemsetNode) Params() (MemsetNodeParams, error) {
 	return graphMemsetNodeGetParams(m.GraphNode)
@@ -28,6 +33,11 @@ func (m MemsetNode) Params() (MemsetNodeParams, error) {
 // See also: [GraphNode.SetParams], [DevicePtr.MemsetD2D32], [Graph.AddMemsetNode], [MemsetNode.Params]
 //
 //   - nodeParams: Parameters to copy
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuGraphMemsetNodeSetParams.
 func (m MemsetNode) SetParams(nodeParams *MemsetNodeParams) error {

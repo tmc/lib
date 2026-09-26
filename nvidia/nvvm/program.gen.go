@@ -31,61 +31,58 @@ func (p Program) AddModuleTo(buffer unsafe.Pointer, size uint, name string) erro
 //
 // The valid compiler options are:
 //
-// - -g (enable generation of full debugging information).
+//   - -g (enable generation of full debugging information).
+//
 // Full debug support is only valid with '-opt=0'. Debug support
 // requires the input module to utilize NVVM IR Debug Metadata.
 // Line number (line info) only generation is also enabled via NVVM IR
 // Debug Metadata, there is no specific libNVVM API flag for that case.
-// - -opt=
-// - 0 (disable optimizations)
-// - 3 (default, enable optimizations)
-// - -arch=
-// - compute_75 (default)
-// - compute_80
-// - compute_87
-// - compute_89
-// - compute_90
-// - compute_90a
-// - compute_100
-// - compute_100a
-// - compute_100f
-// - compute_103
-// - compute_103a
-// - compute_103f
-// - compute_110
-// - compute_110a
-// - compute_110f
-// - compute_120
-// - compute_120a
-// - compute_120f
-// - compute_121
-// - compute_121a
-// - compute_121f
-// - -ftz=
-// - 0 (default, preserve denormal values, when performing
-// single-precision floating-point operations)
-// - 1 (flush denormal values to zero, when performing
-// single-precision floating-point operations)
-// - -prec-sqrt=
-// - 0 (use a faster approximation for single-precision
-// floating-point square root)
-// - 1 (default, use IEEE round-to-nearest mode for
-// single-precision floating-point square root)
-// - -prec-div=
-// - 0 (use a faster approximation for single-precision
-// floating-point division and reciprocals)
-// - 1 (default, use IEEE round-to-nearest mode for
-// single-precision floating-point division and reciprocals)
-// - -fma=
-// - 0 (disable FMA contraction)
-// - 1 (default, enable FMA contraction)
-// - -jump-table-density=[0-101]
+//   - -opt=
+//   - 0 (disable optimizations)
+//   - 3 (default, enable optimizations)
+//   - -arch=
+//   - compute_75 (default)
+//   - compute_80
+//   - compute_87
+//   - compute_89
+//   - compute_90
+//   - compute_90a
+//   - compute_100
+//   - compute_100a
+//   - compute_100f
+//   - compute_103
+//   - compute_103a
+//   - compute_103f
+//   - compute_110
+//   - compute_110a
+//   - compute_110f
+//   - compute_120
+//   - compute_120a
+//   - compute_120f
+//   - compute_121
+//   - compute_121a
+//   - compute_121f
+//   - -ftz=
+//   - 0 (default, preserve denormal values, when performing single-precision floating-point operations)
+//   - 1 (flush denormal values to zero, when performing single-precision floating-point operations)
+//   - -prec-sqrt=
+//   - 0 (use a faster approximation for single-precision floating-point square root)
+//   - 1 (default, use IEEE round-to-nearest mode for single-precision floating-point square root)
+//   - -prec-div=
+//   - 0 (use a faster approximation for single-precision floating-point division and reciprocals)
+//   - 1 (default, use IEEE round-to-nearest mode for single-precision floating-point division and reciprocals)
+//   - -fma=
+//   - 0 (disable FMA contraction)
+//   - 1 (default, enable FMA contraction)
+//   - -jump-table-density=[0-101]
+//
 // Specify the case density percentage in switch statements, and use
 // it as a minimal threshold to determine whether jump table(brx.idx
 // instruction) will be used to implement a switch statement. Default
 // value is 101. The percentage ranges from 0 to 101 inclusively.
-// - -gen-lto (Generate LTO IR instead of PTX).
+//   - -gen-lto (Generate LTO IR instead of PTX).
 //
+// Parameters:
 //   - options (in): Compiler options in the form of C string array
 //
 // Wraps nvvmCompileProgram.

@@ -4,8 +4,6 @@ package cusparse
 
 // BlockedEllGet returns the fields of the sparse matrix descriptor spMatDescr stored in Blocked-Ellpack (ELL) format.
 //
-// See [Result] for the description of the return status.
-//
 //   - rows: Number of rows of the sparse matrix
 //   - cols: Number of columns of the sparse matrix
 //   - ellBlockSize: Size of the ELL-Block
@@ -23,8 +21,6 @@ func (c ConstSpMatDescr) BlockedEllGet(rows *int64, cols *int64, ellBlockSize *i
 
 // CooGet returns the fields of the sparse matrix descriptor spMatDescr stored in COO format (Array of Structures layout).
 //
-// See [Result] for the description of the return status.
-//
 //   - rows: Number of rows of the sparse matrix
 //   - cols: Number of columns of the sparse matrix
 //   - nnz: Number of non-zero entries of the sparse matrix
@@ -40,8 +36,6 @@ func (c ConstSpMatDescr) CooGet(rows *int64, cols *int64, nnz *int64, cooRowInd 
 }
 
 // CscGet returns the fields of the sparse matrix descriptor spMatDescr stored in CSC format.
-//
-// See [Result] for the description of the return status.
 //
 //   - rows: Number of rows of the sparse matrix
 //   - cols: Number of columns of the sparse matrix
@@ -61,8 +55,6 @@ func (c ConstSpMatDescr) CscGet(rows *int64, cols *int64, nnz *int64, cscColOffs
 
 // CsrGet returns the fields of the sparse matrix descriptor spMatDescr stored in CSR format.
 //
-// See [Result] for the description of the return status.
-//
 //   - rows: Number of rows of the sparse matrix
 //   - cols: Number of columns of the sparse matrix
 //   - nnz: Number of non-zero entries of the sparse matrix
@@ -81,8 +73,6 @@ func (c ConstSpMatDescr) CsrGet(rows *int64, cols *int64, nnz *int64, csrRowOffs
 
 // DestroySpMat releases the host memory allocated for the sparse matrix descriptor spMatDescr.
 //
-// See [Result] for the description of the return status.
-//
 // Wraps cusparseDestroySpMat.
 func (c ConstSpMatDescr) DestroySpMat() error {
 	return destroySpMat(c)
@@ -90,8 +80,10 @@ func (c ConstSpMatDescr) DestroySpMat() error {
 
 // SpMatGetAttribute gets the attributes of the sparse matrix descriptor spMatDescr.
 //
-// See [Result] for the description of the return status.
+//   - Attribute: [SpmatFillMode]; Meaning: Indicates if the lower or upper part of a matrix is stored in sparse storage; Possible Values: [FillModeLower] [FillModeUpper]
+//   - Attribute: [SpmatDiagType]; Meaning: Indicates if the matrix diagonal entries are unity; Possible Values: [DiagTypeNonUnit] [DiagTypeUnit]
 //
+// Parameters:
 //   - attribute: Attribute enumerator
 //   - data: Attribute value
 //   - dataSize: Size of the attribute in bytes for safety
@@ -103,8 +95,6 @@ func (c ConstSpMatDescr) SpMatGetAttribute(attribute SpMatAttribute, data uintpt
 
 // SpMatGetFormat returns the format field of the sparse matrix descriptor spMatDescr.
 //
-// See [Result] for the description of the return status.
-//
 //   - format: Storage format of the sparse matrix
 //
 // Wraps cusparseSpMatGetFormat.
@@ -114,8 +104,6 @@ func (c ConstSpMatDescr) SpMatGetFormat() (Format, error) {
 
 // SpMatGetIndexBase returns the idxBase field of the sparse matrix descriptor spMatDescr.
 //
-// See [Result] for the description of the return status.
-//
 //   - idxBase: Index base of the sparse matrix
 //
 // Wraps cusparseSpMatGetIndexBase.
@@ -124,8 +112,6 @@ func (c ConstSpMatDescr) SpMatGetIndexBase() (IndexBase, error) {
 }
 
 // SpMatGetSize returns the sizes of the sparse matrix spMatDescr.
-//
-// See [Result] for the description of the return status.
 //
 //   - rows: Number of rows of the sparse matrix
 //   - cols: Number of columns of the sparse matrix
@@ -138,8 +124,6 @@ func (c ConstSpMatDescr) SpMatGetSize() (rows int64, cols int64, nnz int64, err 
 
 // SpMatGetStridedBatch returns the batchCount field of the sparse matrix descriptor spMatDescr.
 //
-// See [Result] for the description of the return status.
-//
 //   - batchCount: Number of batches of the sparse matrix
 //
 // Wraps cusparseSpMatGetStridedBatch.
@@ -148,8 +132,6 @@ func (c ConstSpMatDescr) SpMatGetStridedBatch() (int32, error) {
 }
 
 // SpMatGetValues returns the values field of the sparse matrix descriptor spMatDescr.
-//
-// See [Result] for the description of the return status.
 //
 //   - values: Values of the sparse matrix. Array with nnz elements
 //

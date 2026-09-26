@@ -41,13 +41,15 @@ var (
 	fnSetStream          func(Handle, driver.Stream) cusolver.Result
 )
 
-// ffiCall0 through ffiCall5 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+// The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
 //
 // Bit i of floatMask marks argument word i as a floating-point bit
 // pattern, which the C ABI passes in a different register file from the
-// integer and pointer words. Each returns the first integer result
-// register and the first floating-point one; a caller reads whichever the
-// C function sets.
+// integer and pointer words. Bits 2i and 2i+1 of widths give the size of
+// argument word i as a ffi.Width code, which places a narrow argument
+// on the stack where the C ABI expects it. Each funnel returns the first
+// integer result register and the first floating-point one; a caller
+// reads whichever the C function sets.
 //
 // The //go:uintptrescapes directive is what makes a Go pointer safe to
 // pass: a pointer converted to uintptr in one of these argument lists is
@@ -56,14 +58,14 @@ var (
 // movement, which is the failure this avoids.
 
 //go:uintptrescapes
-func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+func ffiCallWidths5(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
 	args[2] = a2
 	args[3] = a3
 	args[4] = a4
-	return ffi.CallFloat(fn, 5, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 5, &args, floatMask, widths)
 }
 
 // An outSlot pools the heap cells a wrapper passes to C for its outputs.
@@ -89,7 +91,7 @@ func (s *outSlot[T]) put(p *T) {
 
 // fnNUMROC calls cusolverMpNUMROC.
 func fnNUMROC(a0 int64, a1 int64, a2 uint32, a3 uint32, a4 uint32) int64 {
-	r1, _ := ffiCall5(symNUMROC, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	r1, _ := ffiCallWidths5(symNUMROC, 0, 0x3f0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return int64(r1)
 }
 

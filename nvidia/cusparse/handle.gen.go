@@ -10,13 +10,31 @@ import (
 //
 // The function [Handle.DenseToSparseBufferSize] returns the size of the workspace needed by [Handle.DenseToSparseAnalysis].
 // The function [Handle.DenseToSparseAnalysis] updates the number of non-zero elements in the sparse matrix descriptor matB. The user is responsible to allocate the memory required by the sparse matrix:
+//   - Row/Column indices and value arrays for CSC and CSR respectively
+//   - Row, column, value arrays for COO
+//   - Column ( ellColInd), value ( ellValue) arrays for Blocked-ELL
+//
 // Finally, we call [Handle.DenseToSparseConvert] for filling the arrays allocated in the previous step.
 // cusparseDenseToSparse() supports the following index type for representing the sparse vector matB:
+//   - 32-bit indices ( [Index32I])
+//   - 64-bit indices ( [Index64I])
+//
 // cusparseDenseToSparse() supports the following data types:
+//   - A/B: CUDA_R_*8I, CUDA_R_16F, CUDA_R_16BF, CUDA_R_32F, CUDA_R_64F, CUDA_C_16F DEPRECATED, CUDA_C_16BF DEPRECATED, CUDA_C_32F, CUDA_C_64F
+//
 // cusparseDense2Sparse() supports the following algorithm:
+//   - [DensetosparseAlgDefault]: Default algorithm
+//
 // cusparseDenseToSparse() has the following properties:
+//   - The routine requires no extra storage
+//   - The routine supports asynchronous execution
+//   - Provides deterministic (bit-wise) results for each run
+//   - The routine does not guarantee the indices of matB to be sorted
+//
 // cusparseDenseToSparse() supports the following optimizations:
-// See [Result] for the description of the return status.
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
 // Please visit cuSPARSE Library Samples - cusparseDenseToSparse (CSR) and cuSPARSE Library Samples - cusparseDenseToSparse (Blocked-ELL) for code examples.
 //
 //   - matA: Dense matrix A
@@ -44,13 +62,31 @@ func (h Handle) DenseToSparseBufferSize(matA ConstDnMatDescr, matB SpMatDescr, a
 //
 // The function [Handle.DenseToSparseBufferSize] returns the size of the workspace needed by [Handle.DenseToSparseAnalysis].
 // The function [Handle.DenseToSparseAnalysis] updates the number of non-zero elements in the sparse matrix descriptor matB. The user is responsible to allocate the memory required by the sparse matrix:
+//   - Row/Column indices and value arrays for CSC and CSR respectively
+//   - Row, column, value arrays for COO
+//   - Column ( ellColInd), value ( ellValue) arrays for Blocked-ELL
+//
 // Finally, we call [Handle.DenseToSparseConvert] for filling the arrays allocated in the previous step.
 // cusparseDenseToSparse() supports the following index type for representing the sparse vector matB:
+//   - 32-bit indices ( [Index32I])
+//   - 64-bit indices ( [Index64I])
+//
 // cusparseDenseToSparse() supports the following data types:
+//   - A/B: CUDA_R_*8I, CUDA_R_16F, CUDA_R_16BF, CUDA_R_32F, CUDA_R_64F, CUDA_C_16F DEPRECATED, CUDA_C_16BF DEPRECATED, CUDA_C_32F, CUDA_C_64F
+//
 // cusparseDense2Sparse() supports the following algorithm:
+//   - [DensetosparseAlgDefault]: Default algorithm
+//
 // cusparseDenseToSparse() has the following properties:
+//   - The routine requires no extra storage
+//   - The routine supports asynchronous execution
+//   - Provides deterministic (bit-wise) results for each run
+//   - The routine does not guarantee the indices of matB to be sorted
+//
 // cusparseDenseToSparse() supports the following optimizations:
-// See [Result] for the description of the return status.
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
 // Please visit cuSPARSE Library Samples - cusparseDenseToSparse (CSR) and cuSPARSE Library Samples - cusparseDenseToSparse (Blocked-ELL) for code examples.
 //
 //   - matA: Dense matrix A
@@ -65,7 +101,6 @@ func (h Handle) DenseToSparseConvert(matA ConstDnMatDescr, matB SpMatDescr, alg 
 // Destroy releases CPU-side resources used by the cuSPARSE library.
 //
 // The release of GPU-side resources may be deferred until the application shuts down.
-// Refer to [Result] for the description of the return status.
 //
 // Wraps cusparseDestroy.
 func (h Handle) Destroy() error {
@@ -76,11 +111,25 @@ func (h Handle) Destroy() error {
 //
 // In other words,
 // [Handle.Gather] supports the following index type for representing the sparse vector vecX:
+//   - 32-bit indices ( [Index32I])
+//   - 64-bit indices ( [Index64I])
+//
 // [Handle.Gather] supports the following data types:
+//   - X/Y: CUDA_R_16F, CUDA_R_16BF, CUDA_R_32F, CUDA_R_64F, CUDA_C_16F DEPRECATED, CUDA_C_16BF DEPRECATED, CUDA_C_32F, CUDA_C_64F
+//
 // [Handle.Gather] has the following constraints:
+//   - The arrays representing the sparse vector vecX must be aligned to 16 bytes
+//
 // [Handle.Gather] has the following properties:
+//   - The routine requires no extra storage
+//   - The routine supports asynchronous execution
+//   - Provides deterministic (bit-wise) results for each run if the the sparse vector vecX indices are distinct
+//   - The routine allows indices of vecX to be unsorted
+//
 // [Handle.Gather] supports the following optimizations:
-// See [Result] for the description of the return status.
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
 // Please visit cuSPARSE Library Samples - [Handle.Gather] for a code example.
 //
 //   - vecY: Dense vector Y
@@ -94,7 +143,6 @@ func (h Handle) Gather(vecY ConstDnVecDescr, vecX SpVecDescr) error {
 // PointerMode obtains the pointer mode used by the cuSPARSE library.
 //
 // Please see the section on the [PointerMode] type for more details.
-// Refer to [Result] for the description of the return status.
 //
 //   - mode: One of the enumerated pointer mode types
 //
@@ -107,7 +155,13 @@ func (h Handle) PointerMode() (PointerMode, error) {
 //
 // Formally, it performs the following operation:
 // C=α(op(A)⋅op(B))∘spy(C)+βC
-// where spy(C)ᵢⱼ = 1 if Cᵢⱼ is an entry stored in matC, and 0 otherwise.
+// where
+//   - op(A) is a dense matrix of size m×k
+//   - op(B) is a dense matrix of size k×n
+//   - C is a sparse matrix of size m×n
+//   - α and β are scalars
+//   - ∘ denotes the Hadamard (entry-wise) matrix product, and spy(C) is the structural sparsity pattern matrix of C defined as: spy(C)ᵢⱼ = 1 if Cᵢⱼ is an entry stored in matC, and 0 otherwise.
+//
 // Also, for matrix A and B: op(A) = A if opA == [OperationNonTranspose], and op(A) = Aᵀ if opA == [OperationTranspose]; op(B) = B if opB == [OperationNonTranspose], and op(B) = Bᵀ if opB == [OperationTranspose].
 // The function [Handle.SDDMMBufferSize] returns the size of the workspace needed by [Handle.SDDMM] or [Handle.SDDMMPreprocess].
 // Calling [Handle.SDDMMPreprocess] is optional. It may accelerate subsequent calls to [Handle.SDDMM]. It is useful when [Handle.SDDMM] is called multiple times with the same sparsity pattern ( matC).
@@ -116,36 +170,70 @@ func (h Handle) PointerMode() (PointerMode, error) {
 // Calling [Handle.SDDMM] with an inactive buffer is always permitted. However, there may be no acceleration from the preprocessing in that case.
 // For the purposes of thread safety, [Handle.SDDMMPreprocess] is writing to matC internal state.
 // Currently supported sparse matrix formats:
+//   - [FormatCsr]
+//   - [FormatBsr]
+//
 // [Handle.SDDMM] supports the following index type for representing the sparse matrix matA:
+//   - 32-bit indices ( [Index32I])
+//   - 64-bit indices ( [Index64I])
+//
 // The data types combinations currently supported for [Handle.SDDMM] are listed below:
 // Uniform-precision computation:
+//   - A/X/Y/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_32F, CUDA_C_64F
+//
 // Mixed-precision computation:
+//   - A/B: CUDA_R_16F; C: CUDA_R_32F; computeType: CUDA_R_32F
+//   - A/B: CUDA_R_16F; C: CUDA_R_16F; computeType: CUDA_R_32F
+//
 // [Handle.SDDMM] for [FormatBsr] also supports the following mixed-precision computation:
+//   - A/B: CUDA_R_16BF; C: CUDA_R_32F; computeType: CUDA_R_32F
+//   - A/B: CUDA_R_16BF; C: CUDA_R_16BF; computeType: CUDA_R_32F
+//
 // NOTE: CUDA_R_16F, CUDA_R_16BF data types always imply mixed-precision computation.
 // [Handle.SDDMM] for CUSPASRE_FORMAT_BSR supports block sizes of 2, 4, 8, 16, 32, 64 and 128.
 // [Handle.SDDMM] supports the following algorithms:
+//   - [SddmmAlgDefault]: Default algorithm. It supports batched computation.
+//
 // Performance notes: [Handle.SDDMM] for [FormatCsr] provides the best performance when matA and matB satisfy:
+//   - matA: matA is in row-major order and opA is [OperationNonTranspose], or matA is in col-major order and opA is not [OperationNonTranspose]
+//   - matB: matB is in col-major order and opB is [OperationNonTranspose], or matB is in row-major order and opB is not [OperationNonTranspose]
+//
 // [Handle.SDDMM] for [FormatBsr] provides the best performance when matA and matB satisfy:
+//   - matA: matA is in row-major order and opA is [OperationNonTranspose], or matA is in col-major order and opA is not [OperationNonTranspose]
+//   - matB: matB is in row-major order and opB is [OperationNonTranspose], or matB is in col-major order and opB is not [OperationNonTranspose]
+//
 // [Handle.SDDMM] supports the following batch modes:
+//   - Cᵢ=(A⋅B)∘Cᵢ
+//   - Cᵢ=(Aᵢ⋅B)∘Cᵢ
+//   - Cᵢ=(A⋅Bᵢ)∘Cᵢ
+//   - Cᵢ=(Aᵢ⋅Bᵢ)∘Cᵢ
+//
 // The number of batches and their strides can be set by using [SpMatDescr.CsrSetStridedBatch] and [DnMatDescr.MatSetStridedBatch]. The maximum number of batches for [Handle.SDDMM] is 65,535.
 // [Handle.SDDMM] has the following properties:
+//   - The routine requires no extra storage
+//   - Provides deterministic (bit-wise) results for each run
+//   - The routine supports asynchronous execution
+//   - The routine allows the indices of matC to be unsorted
+//
 // [Handle.SDDMM] supports the following optimizations:
-// See [Result] for the description of the return status.
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
 // Please visit cuSPARSE Library Samples - [Handle.SDDMM] for a code example. For batched computation please visit [Handle.SDDMM] CSR Batched.
 //
 //   - opA: Operation op(A)
 //   - opB: Operation op(B)
-//   - alpha: α scalar used for multiplication of type computeType
+//   - alpha: α scalar used for multiplication of type computeType. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matA: Dense matrix matA
 //   - matB: Dense matrix matB
-//   - beta: β scalar used for multiplication of type computeType
+//   - beta: β scalar used for multiplication of type computeType. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matC: Sparse matrix matC
 //   - computeType: Datatype in which the computation is executed
 //   - alg: Algorithm for the computation
 //   - externalBuffer: Pointer to a workspace buffer of at least bufferSize bytes
 //
 // Wraps cusparseSDDMM.
-func (h Handle) SDDMM(opA Operation, opB Operation, alpha uintptr, matA ConstDnMatDescr, matB ConstDnMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SDDMMAlg, externalBuffer driver.DevicePtr) error {
+func (h Handle) SDDMM(opA Operation, opB Operation, alpha Scalar, matA ConstDnMatDescr, matB ConstDnMatDescr, beta Scalar, matC SpMatDescr, computeType DataType, alg SDDMMAlg, externalBuffer driver.DevicePtr) error {
 	return sDDMM(h, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, externalBuffer)
 }
 
@@ -153,17 +241,17 @@ func (h Handle) SDDMM(opA Operation, opB Operation, alpha uintptr, matA ConstDnM
 //
 //   - opA: Operation op(A)
 //   - opB: Operation op(B)
-//   - alpha: α scalar used for multiplication of type computeType
+//   - alpha: α scalar used for multiplication of type computeType. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matA: Dense matrix matA
 //   - matB: Dense matrix matB
-//   - beta: β scalar used for multiplication of type computeType
+//   - beta: β scalar used for multiplication of type computeType. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matC: Sparse matrix matC
 //   - computeType: Datatype in which the computation is executed
 //   - alg: Algorithm for the computation
 //   - bufferSize: Workspace size
 //
 // Wraps cusparseSDDMMBufferSize, bound as cusparseSDDMM_bufferSize.
-func (h Handle) SDDMMBufferSize(opA Operation, opB Operation, alpha uintptr, matA ConstDnMatDescr, matB ConstDnMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SDDMMAlg) (uint, error) {
+func (h Handle) SDDMMBufferSize(opA Operation, opB Operation, alpha Scalar, matA ConstDnMatDescr, matB ConstDnMatDescr, beta Scalar, matC SpMatDescr, computeType DataType, alg SDDMMAlg) (uint, error) {
 	return sDDMMBufferSize(h, opA, opB, alpha, matA, matB, beta, matC, computeType, alg)
 }
 
@@ -171,7 +259,13 @@ func (h Handle) SDDMMBufferSize(opA Operation, opB Operation, alpha uintptr, mat
 //
 // [Handle.SDDMM] performs the multiplication of matA and matB, followed by an element-wise multiplication with the sparsity pattern of matC. Formally, it performs the following operation:
 // C=α(op(A)⋅op(B))∘spy(C)+βC
-// where spy(C)ᵢⱼ = 1 if Cᵢⱼ is an entry stored in matC, and 0 otherwise.
+// where
+//   - op(A) is a dense matrix of size m×k
+//   - op(B) is a dense matrix of size k×n
+//   - C is a sparse matrix of size m×n
+//   - α and β are scalars
+//   - ∘ denotes the Hadamard (entry-wise) matrix product, and spy(C) is the structural sparsity pattern matrix of C defined as: spy(C)ᵢⱼ = 1 if Cᵢⱼ is an entry stored in matC, and 0 otherwise.
+//
 // Also, for matrix A and B: op(A) = A if opA == [OperationNonTranspose], and op(A) = Aᵀ if opA == [OperationTranspose]; op(B) = B if opB == [OperationNonTranspose], and op(B) = Bᵀ if opB == [OperationTranspose].
 // The function [Handle.SDDMMBufferSize] returns the size of the workspace needed by [Handle.SDDMM] or [Handle.SDDMMPreprocess].
 // Calling [Handle.SDDMMPreprocess] is optional. It may accelerate subsequent calls to [Handle.SDDMM]. It is useful when [Handle.SDDMM] is called multiple times with the same sparsity pattern ( matC).
@@ -180,36 +274,70 @@ func (h Handle) SDDMMBufferSize(opA Operation, opB Operation, alpha uintptr, mat
 // Calling [Handle.SDDMM] with an inactive buffer is always permitted. However, there may be no acceleration from the preprocessing in that case.
 // For the purposes of thread safety, [Handle.SDDMMPreprocess] is writing to matC internal state.
 // Currently supported sparse matrix formats:
+//   - [FormatCsr]
+//   - [FormatBsr]
+//
 // [Handle.SDDMM] supports the following index type for representing the sparse matrix matA:
+//   - 32-bit indices ( [Index32I])
+//   - 64-bit indices ( [Index64I])
+//
 // The data types combinations currently supported for [Handle.SDDMM] are listed below:
 // Uniform-precision computation:
+//   - A/X/Y/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_32F, CUDA_C_64F
+//
 // Mixed-precision computation:
+//   - A/B: CUDA_R_16F; C: CUDA_R_32F; computeType: CUDA_R_32F
+//   - A/B: CUDA_R_16F; C: CUDA_R_16F; computeType: CUDA_R_32F
+//
 // [Handle.SDDMM] for [FormatBsr] also supports the following mixed-precision computation:
+//   - A/B: CUDA_R_16BF; C: CUDA_R_32F; computeType: CUDA_R_32F
+//   - A/B: CUDA_R_16BF; C: CUDA_R_16BF; computeType: CUDA_R_32F
+//
 // NOTE: CUDA_R_16F, CUDA_R_16BF data types always imply mixed-precision computation.
 // [Handle.SDDMM] for CUSPASRE_FORMAT_BSR supports block sizes of 2, 4, 8, 16, 32, 64 and 128.
 // [Handle.SDDMM] supports the following algorithms:
+//   - [SddmmAlgDefault]: Default algorithm. It supports batched computation.
+//
 // Performance notes: [Handle.SDDMM] for [FormatCsr] provides the best performance when matA and matB satisfy:
+//   - matA: matA is in row-major order and opA is [OperationNonTranspose], or matA is in col-major order and opA is not [OperationNonTranspose]
+//   - matB: matB is in col-major order and opB is [OperationNonTranspose], or matB is in row-major order and opB is not [OperationNonTranspose]
+//
 // [Handle.SDDMM] for [FormatBsr] provides the best performance when matA and matB satisfy:
+//   - matA: matA is in row-major order and opA is [OperationNonTranspose], or matA is in col-major order and opA is not [OperationNonTranspose]
+//   - matB: matB is in row-major order and opB is [OperationNonTranspose], or matB is in col-major order and opB is not [OperationNonTranspose]
+//
 // [Handle.SDDMM] supports the following batch modes:
+//   - Cᵢ=(A⋅B)∘Cᵢ
+//   - Cᵢ=(Aᵢ⋅B)∘Cᵢ
+//   - Cᵢ=(A⋅Bᵢ)∘Cᵢ
+//   - Cᵢ=(Aᵢ⋅Bᵢ)∘Cᵢ
+//
 // The number of batches and their strides can be set by using [SpMatDescr.CsrSetStridedBatch] and [DnMatDescr.MatSetStridedBatch]. The maximum number of batches for [Handle.SDDMM] is 65,535.
 // [Handle.SDDMM] has the following properties:
+//   - The routine requires no extra storage
+//   - Provides deterministic (bit-wise) results for each run
+//   - The routine supports asynchronous execution
+//   - The routine allows the indices of matC to be unsorted
+//
 // [Handle.SDDMM] supports the following optimizations:
-// See [Result] for the description of the return status.
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
 // Please visit cuSPARSE Library Samples - [Handle.SDDMM] for a code example. For batched computation please visit [Handle.SDDMM] CSR Batched.
 //
 //   - opA: Operation op(A)
 //   - opB: Operation op(B)
-//   - alpha: α scalar used for multiplication of type computeType
+//   - alpha: α scalar used for multiplication of type computeType. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matA: Dense matrix matA
 //   - matB: Dense matrix matB
-//   - beta: β scalar used for multiplication of type computeType
+//   - beta: β scalar used for multiplication of type computeType. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matC: Sparse matrix matC
 //   - computeType: Datatype in which the computation is executed
 //   - alg: Algorithm for the computation
 //   - externalBuffer: Pointer to a workspace buffer of at least bufferSize bytes
 //
 // Wraps cusparseSDDMMPreprocess, bound as cusparseSDDMM_preprocess.
-func (h Handle) SDDMMPreprocess(opA Operation, opB Operation, alpha uintptr, matA ConstDnMatDescr, matB ConstDnMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SDDMMAlg, externalBuffer driver.DevicePtr) error {
+func (h Handle) SDDMMPreprocess(opA Operation, opB Operation, alpha Scalar, matA ConstDnMatDescr, matB ConstDnMatDescr, beta Scalar, matC SpMatDescr, computeType DataType, alg SDDMMAlg, externalBuffer driver.DevicePtr) error {
 	return sDDMMPreprocess(h, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, externalBuffer)
 }
 
@@ -217,11 +345,25 @@ func (h Handle) SDDMMPreprocess(opA Operation, opB Operation, alpha uintptr, mat
 //
 // In other words,
 // [Handle.Scatter] supports the following index type for representing the sparse vector vecX:
+//   - 32-bit indices ( [Index32I])
+//   - 64-bit indices ( [Index64I])
+//
 // [Handle.Scatter] supports the following data types:
+//   - X/Y: CUDA_R_8I, CUDA_R_16F, CUDA_R_16BF, CUDA_R_32F, CUDA_R_64F, CUDA_C_16F DEPRECATED, CUDA_C_16BF DEPRECATED, CUDA_C_32F, CUDA_C_64F
+//
 // [Handle.Scatter] has the following constraints:
+//   - The arrays representing the sparse vector vecX must be aligned to 16 bytes
+//
 // [Handle.Scatter] has the following properties:
+//   - The routine requires no extra storage
+//   - The routine supports asynchronous execution
+//   - Provides deterministic (bit-wise) results for each run if the the sparse vector vecX indices are distinct
+//   - The routine allows indices of vecX to be unsorted
+//
 // [Handle.Scatter] supports the following optimizations:
-// See [Result] for the description of the return status.
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
 // Please visit cuSPARSE Library Samples - [Handle.Scatter] for a code example.
 //
 //   - vecX: Sparse vector X
@@ -235,7 +377,6 @@ func (h Handle) Scatter(vecX ConstSpVecDescr, vecY DnVecDescr) error {
 // SetPointerMode sets the pointer mode used by the cuSPARSE library.
 //
 // The default is for the values to be passed by reference on the host. Please see the section on the cublasPointerMode_t type for more details.
-// Refer to [Result] for the description of the return status.
 //
 //   - mode: One of the enumerated pointer mode types
 //
@@ -245,8 +386,6 @@ func (h Handle) SetPointerMode(mode PointerMode) error {
 }
 
 // SetStream sets the stream to be used by the cuSPARSE library to execute its routines.
-//
-// Refer to [Result] for the description of the return status.
 //
 //   - streamId: The stream to be used by the library
 //
@@ -261,21 +400,41 @@ func (h Handle) SetStream(streamId driver.Stream) error {
 // where α,β are scalars, and C,C′ have the same sparsity pattern.
 // The functions [Handle.SpGEMMWorkEstimation], [Handle.SpGEMMEstimateMemory], and [Handle.SpGEMMCompute] are used for both determining the buffer size and performing the actual computation.
 // cusparseSpGEMM supports the following index type for representing the sparse matrix A, B and C (all matrices must have the same index type):
+//   - 32-bit indices ( [Index32I])
+//   - 64-bit indices ( [Index64I])
+//
 // Currently, the function has the following limitations:
+//   - Only CSR format [FormatCsr] is supported
+//   - Only opA, opB equal to [OperationNonTranspose] are supported
+//
 // The data types combinations currently supported for cusparseSpGEMM are listed below :
 // Uniform-precision computation:
+//   - A/B/C/computeType: CUDA_R_16F DEPRECATED, CUDA_R_16BF DEPRECATED, CUDA_R_32F, CUDA_R_64F, CUDA_C_16F DEPRECATED, CUDA_C_16BF DEPRECATED, CUDA_C_32F, CUDA_C_64F
+//
 // cusparseSpGEMM routine runs for the following algorithms:
+//   - [SpgemmDefault]: Default algorithm. Currently, it is [SpgemmALG1].
+//   - [SpgemmALG1]: Algorithm 1: Invokes [Handle.SpGEMMCompute] twice. The first invocation provides an upper bound of the memory required for the computation. The required memory is generally several times larger of the actual memory used. The user can provide an arbitrary buffer size bufferSize2 in the second invocation. If it is not sufficient, the routine will returns [ErrInsufficientResources] status. Provides better performance than other algorithms. Provides deterministic (bit-wise) results for each run.
+//   - [SpgemmALG2]: Algorithm 2: Invokes [Handle.SpGEMMEstimateMemory] to get the amount of the memory required for the computation. Requires less memory for the computation than Algorithm 1. Performance is lower than Algorithm 1, higher than Algorithm 3. Provides deterministic (bit-wise) results for each run.
+//   - [SpgemmALG3]: Algorithm 3: Computes the intermediate products in chunks, one chunk at a time. Invokes [Handle.SpGEMMEstimateMemory] to get the amount of the memory required for the computation. The user can control the amount of required memory by changing the chunk size via chunk_fraction. The chunk size is a fraction of total intermediate products: chunk_fraction * (*num_prods). Provides deterministic (bit-wise) results for each run.
+//
 // cusparseSpGEMM() has the following properties:
+//   - The routine requires no extra storage
+//   - The routine supports asynchronous execution
+//   - The routine allows the indices of matA and matB to be unsorted
+//   - The routine guarantees the indices of matC to be sorted
+//
 // cusparseSpGEMM() supports the following optimizations:
-// See [Result] for the description of the return status.
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
 // Please visit cuSPARSE Library Samples - cusparseSpGEMM for a code example for [SpgemmDefault] and [SpgemmALG1], and cuSPARSE Library Samples - memory-optimzed cusparseSpGEMM for a code example for [SpgemmALG2] and [SpgemmALG3].
 //
 //   - opA: Operation op(A)
 //   - opB: Operation op(B)
-//   - alpha: α scalar used for multiplication
+//   - alpha: α scalar used for multiplication. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matA: Sparse matrix A
 //   - matB: Sparse matrix B
-//   - beta: β scalar used for multiplication
+//   - beta: β scalar used for multiplication. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matC: Sparse matrix C
 //   - computeType: Enumerator specifying the datatype in which the computation is executed
 //   - alg: Enumerator specifying the algorithm for the computation
@@ -284,7 +443,7 @@ func (h Handle) SetStream(streamId driver.Stream) error {
 //   - externalBuffer2: Pointer to workspace buffer needed by [Handle.SpGEMMCompute] and [Handle.SpGEMMCopy]
 //
 // Wraps cusparseSpGEMMCompute, bound as cusparseSpGEMM_compute.
-func (h Handle) SpGEMMCompute(opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstSpMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize2 *uint, externalBuffer2 driver.DevicePtr) error {
+func (h Handle) SpGEMMCompute(opA Operation, opB Operation, alpha Scalar, matA ConstSpMatDescr, matB ConstSpMatDescr, beta Scalar, matC SpMatDescr, computeType DataType, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize2 *uint, externalBuffer2 driver.DevicePtr) error {
 	return spGEMMCompute(h, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, spgemmDescr, bufferSize2, externalBuffer2)
 }
 
@@ -294,28 +453,48 @@ func (h Handle) SpGEMMCompute(opA Operation, opB Operation, alpha uintptr, matA 
 // where α,β are scalars, and C,C′ have the same sparsity pattern.
 // The functions [Handle.SpGEMMWorkEstimation], [Handle.SpGEMMEstimateMemory], and [Handle.SpGEMMCompute] are used for both determining the buffer size and performing the actual computation.
 // cusparseSpGEMM supports the following index type for representing the sparse matrix A, B and C (all matrices must have the same index type):
+//   - 32-bit indices ( [Index32I])
+//   - 64-bit indices ( [Index64I])
+//
 // Currently, the function has the following limitations:
+//   - Only CSR format [FormatCsr] is supported
+//   - Only opA, opB equal to [OperationNonTranspose] are supported
+//
 // The data types combinations currently supported for cusparseSpGEMM are listed below :
 // Uniform-precision computation:
+//   - A/B/C/computeType: CUDA_R_16F DEPRECATED, CUDA_R_16BF DEPRECATED, CUDA_R_32F, CUDA_R_64F, CUDA_C_16F DEPRECATED, CUDA_C_16BF DEPRECATED, CUDA_C_32F, CUDA_C_64F
+//
 // cusparseSpGEMM routine runs for the following algorithms:
+//   - [SpgemmDefault]: Default algorithm. Currently, it is [SpgemmALG1].
+//   - [SpgemmALG1]: Algorithm 1: Invokes [Handle.SpGEMMCompute] twice. The first invocation provides an upper bound of the memory required for the computation. The required memory is generally several times larger of the actual memory used. The user can provide an arbitrary buffer size bufferSize2 in the second invocation. If it is not sufficient, the routine will returns [ErrInsufficientResources] status. Provides better performance than other algorithms. Provides deterministic (bit-wise) results for each run.
+//   - [SpgemmALG2]: Algorithm 2: Invokes [Handle.SpGEMMEstimateMemory] to get the amount of the memory required for the computation. Requires less memory for the computation than Algorithm 1. Performance is lower than Algorithm 1, higher than Algorithm 3. Provides deterministic (bit-wise) results for each run.
+//   - [SpgemmALG3]: Algorithm 3: Computes the intermediate products in chunks, one chunk at a time. Invokes [Handle.SpGEMMEstimateMemory] to get the amount of the memory required for the computation. The user can control the amount of required memory by changing the chunk size via chunk_fraction. The chunk size is a fraction of total intermediate products: chunk_fraction * (*num_prods). Provides deterministic (bit-wise) results for each run.
+//
 // cusparseSpGEMM() has the following properties:
+//   - The routine requires no extra storage
+//   - The routine supports asynchronous execution
+//   - The routine allows the indices of matA and matB to be unsorted
+//   - The routine guarantees the indices of matC to be sorted
+//
 // cusparseSpGEMM() supports the following optimizations:
-// See [Result] for the description of the return status.
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
 // Please visit cuSPARSE Library Samples - cusparseSpGEMM for a code example for [SpgemmDefault] and [SpgemmALG1], and cuSPARSE Library Samples - memory-optimzed cusparseSpGEMM for a code example for [SpgemmALG2] and [SpgemmALG3].
 //
 //   - opA: Operation op(A)
 //   - opB: Operation op(B)
-//   - alpha: α scalar used for multiplication
+//   - alpha: α scalar used for multiplication. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matA: Sparse matrix A
 //   - matB: Sparse matrix B
-//   - beta: β scalar used for multiplication
+//   - beta: β scalar used for multiplication. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matC: Sparse matrix C
 //   - computeType: Enumerator specifying the datatype in which the computation is executed
 //   - alg: Enumerator specifying the algorithm for the computation
 //   - spgemmDescr: Opaque descriptor for storing internal data used across the three steps
 //
 // Wraps cusparseSpGEMMCopy, bound as cusparseSpGEMM_copy.
-func (h Handle) SpGEMMCopy(opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstSpMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SpGEMMAlg, spgemmDescr SpGEMMDescr) error {
+func (h Handle) SpGEMMCopy(opA Operation, opB Operation, alpha Scalar, matA ConstSpMatDescr, matB ConstSpMatDescr, beta Scalar, matC SpMatDescr, computeType DataType, alg SpGEMMAlg, spgemmDescr SpGEMMDescr) error {
 	return spGEMMCopy(h, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, spgemmDescr)
 }
 
@@ -325,21 +504,41 @@ func (h Handle) SpGEMMCopy(opA Operation, opB Operation, alpha uintptr, matA Con
 // where α,β are scalars, and C,C′ have the same sparsity pattern.
 // The functions [Handle.SpGEMMWorkEstimation], [Handle.SpGEMMEstimateMemory], and [Handle.SpGEMMCompute] are used for both determining the buffer size and performing the actual computation.
 // cusparseSpGEMM supports the following index type for representing the sparse matrix A, B and C (all matrices must have the same index type):
+//   - 32-bit indices ( [Index32I])
+//   - 64-bit indices ( [Index64I])
+//
 // Currently, the function has the following limitations:
+//   - Only CSR format [FormatCsr] is supported
+//   - Only opA, opB equal to [OperationNonTranspose] are supported
+//
 // The data types combinations currently supported for cusparseSpGEMM are listed below :
 // Uniform-precision computation:
+//   - A/B/C/computeType: CUDA_R_16F DEPRECATED, CUDA_R_16BF DEPRECATED, CUDA_R_32F, CUDA_R_64F, CUDA_C_16F DEPRECATED, CUDA_C_16BF DEPRECATED, CUDA_C_32F, CUDA_C_64F
+//
 // cusparseSpGEMM routine runs for the following algorithms:
+//   - [SpgemmDefault]: Default algorithm. Currently, it is [SpgemmALG1].
+//   - [SpgemmALG1]: Algorithm 1: Invokes [Handle.SpGEMMCompute] twice. The first invocation provides an upper bound of the memory required for the computation. The required memory is generally several times larger of the actual memory used. The user can provide an arbitrary buffer size bufferSize2 in the second invocation. If it is not sufficient, the routine will returns [ErrInsufficientResources] status. Provides better performance than other algorithms. Provides deterministic (bit-wise) results for each run.
+//   - [SpgemmALG2]: Algorithm 2: Invokes [Handle.SpGEMMEstimateMemory] to get the amount of the memory required for the computation. Requires less memory for the computation than Algorithm 1. Performance is lower than Algorithm 1, higher than Algorithm 3. Provides deterministic (bit-wise) results for each run.
+//   - [SpgemmALG3]: Algorithm 3: Computes the intermediate products in chunks, one chunk at a time. Invokes [Handle.SpGEMMEstimateMemory] to get the amount of the memory required for the computation. The user can control the amount of required memory by changing the chunk size via chunkFraction. The chunk size is a fraction of total intermediate products: chunkFraction * (*num_prods). Provides deterministic (bit-wise) results for each run.
+//
 // cusparseSpGEMM() has the following properties:
+//   - The routine requires no extra storage
+//   - The routine supports asynchronous execution
+//   - The routine allows the indices of matA and matB to be unsorted
+//   - The routine guarantees the indices of matC to be sorted
+//
 // cusparseSpGEMM() supports the following optimizations:
-// See [Result] for the description of the return status.
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
 // Please visit cuSPARSE Library Samples - cusparseSpGEMM for a code example for [SpgemmDefault] and [SpgemmALG1], and cuSPARSE Library Samples - memory-optimzed cusparseSpGEMM for a code example for [SpgemmALG2] and [SpgemmALG3].
 //
 //   - opA: Operation op(A)
 //   - opB: Operation op(B)
-//   - alpha: α scalar used for multiplication
+//   - alpha: α scalar used for multiplication. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matA: Sparse matrix A
 //   - matB: Sparse matrix B
-//   - beta: β scalar used for multiplication
+//   - beta: β scalar used for multiplication. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matC: Sparse matrix C
 //   - computeType: Enumerator specifying the datatype in which the computation is executed
 //   - alg: Enumerator specifying the algorithm for the computation
@@ -350,7 +549,7 @@ func (h Handle) SpGEMMCopy(opA Operation, opB Operation, alpha uintptr, matA Con
 //   - bufferSize2: Number of bytes of workspace requested by [Handle.SpGEMMCompute]
 //
 // Wraps cusparseSpGEMMEstimateMemory, bound as cusparseSpGEMM_estimateMemory.
-func (h Handle) SpGEMMEstimateMemory(opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstSpMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, chunkFraction float32, bufferSize3 *uint, externalBuffer3 driver.DevicePtr, bufferSize2 *uint) error {
+func (h Handle) SpGEMMEstimateMemory(opA Operation, opB Operation, alpha Scalar, matA ConstSpMatDescr, matB ConstSpMatDescr, beta Scalar, matC SpMatDescr, computeType DataType, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, chunkFraction float32, bufferSize3 *uint, externalBuffer3 driver.DevicePtr, bufferSize2 *uint) error {
 	return spGEMMEstimateMemory(h, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, spgemmDescr, chunkFraction, bufferSize3, externalBuffer3, bufferSize2)
 }
 
@@ -360,21 +559,41 @@ func (h Handle) SpGEMMEstimateMemory(opA Operation, opB Operation, alpha uintptr
 // where α,β are scalars, and C,C′ have the same sparsity pattern.
 // The functions [Handle.SpGEMMWorkEstimation], [Handle.SpGEMMEstimateMemory], and [Handle.SpGEMMCompute] are used for both determining the buffer size and performing the actual computation.
 // cusparseSpGEMM supports the following index type for representing the sparse matrix A, B and C (all matrices must have the same index type):
+//   - 32-bit indices ( [Index32I])
+//   - 64-bit indices ( [Index64I])
+//
 // Currently, the function has the following limitations:
+//   - Only CSR format [FormatCsr] is supported
+//   - Only opA, opB equal to [OperationNonTranspose] are supported
+//
 // The data types combinations currently supported for cusparseSpGEMM are listed below :
 // Uniform-precision computation:
+//   - A/B/C/computeType: CUDA_R_16F DEPRECATED, CUDA_R_16BF DEPRECATED, CUDA_R_32F, CUDA_R_64F, CUDA_C_16F DEPRECATED, CUDA_C_16BF DEPRECATED, CUDA_C_32F, CUDA_C_64F
+//
 // cusparseSpGEMM routine runs for the following algorithms:
+//   - [SpgemmDefault]: Default algorithm. Currently, it is [SpgemmALG1].
+//   - [SpgemmALG1]: Algorithm 1: Invokes [Handle.SpGEMMCompute] twice. The first invocation provides an upper bound of the memory required for the computation. The required memory is generally several times larger of the actual memory used. The user can provide an arbitrary buffer size bufferSize2 in the second invocation. If it is not sufficient, the routine will returns [ErrInsufficientResources] status. Provides better performance than other algorithms. Provides deterministic (bit-wise) results for each run.
+//   - [SpgemmALG2]: Algorithm 2: Invokes [Handle.SpGEMMEstimateMemory] to get the amount of the memory required for the computation. Requires less memory for the computation than Algorithm 1. Performance is lower than Algorithm 1, higher than Algorithm 3. Provides deterministic (bit-wise) results for each run.
+//   - [SpgemmALG3]: Algorithm 3: Computes the intermediate products in chunks, one chunk at a time. Invokes [Handle.SpGEMMEstimateMemory] to get the amount of the memory required for the computation. The user can control the amount of required memory by changing the chunk size via chunk_fraction. The chunk size is a fraction of total intermediate products: chunk_fraction * (*num_prods). Provides deterministic (bit-wise) results for each run.
+//
 // cusparseSpGEMM() has the following properties:
+//   - The routine requires no extra storage
+//   - The routine supports asynchronous execution
+//   - The routine allows the indices of matA and matB to be unsorted
+//   - The routine guarantees the indices of matC to be sorted
+//
 // cusparseSpGEMM() supports the following optimizations:
-// See [Result] for the description of the return status.
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
 // Please visit cuSPARSE Library Samples - cusparseSpGEMM for a code example for [SpgemmDefault] and [SpgemmALG1], and cuSPARSE Library Samples - memory-optimzed cusparseSpGEMM for a code example for [SpgemmALG2] and [SpgemmALG3].
 //
 //   - opA: Operation op(A)
 //   - opB: Operation op(B)
-//   - alpha: α scalar used for multiplication
+//   - alpha: α scalar used for multiplication. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matA: Sparse matrix A
 //   - matB: Sparse matrix B
-//   - beta: β scalar used for multiplication
+//   - beta: β scalar used for multiplication. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matC: Sparse matrix C
 //   - computeType: Enumerator specifying the datatype in which the computation is executed
 //   - alg: Enumerator specifying the algorithm for the computation
@@ -383,16 +602,93 @@ func (h Handle) SpGEMMEstimateMemory(opA Operation, opB Operation, alpha uintptr
 //   - externalBuffer1: Pointer to workspace buffer needed by [Handle.SpGEMMWorkEstimation] and [Handle.SpGEMMCompute]
 //
 // Wraps cusparseSpGEMMWorkEstimation, bound as cusparseSpGEMM_workEstimation.
-func (h Handle) SpGEMMWorkEstimation(opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstSpMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize1 *uint, externalBuffer1 driver.DevicePtr) error {
+func (h Handle) SpGEMMWorkEstimation(opA Operation, opB Operation, alpha Scalar, matA ConstSpMatDescr, matB ConstSpMatDescr, beta Scalar, matC SpMatDescr, computeType DataType, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize1 *uint, externalBuffer1 driver.DevicePtr) error {
 	return spGEMMWorkEstimation(h, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, spgemmDescr, bufferSize1, externalBuffer1)
 }
 
-// SpGEMMreuseCompute wraps cusparseSpGEMMreuseCompute, bound as cusparseSpGEMMreuse_compute.
-func (h Handle) SpGEMMreuseCompute(opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstSpMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SpGEMMAlg, spgemmDescr SpGEMMDescr) error {
+// SpGEMMreuseCompute performs the multiplication of two sparse matrices matA and matB where the structure of the output matrix matC can be reused for multiple computations with different values.
+//
+// C′=αop(A)⋅op(B)+βC
+// where α and β are scalars.
+// The functions [Handle.SpGEMMreuseWorkEstimation], [Handle.SpGEMMreuseNnz], and [Handle.SpGEMMreuseCopy] are used for determining the buffer size and performing the actual computation.
+//
+// Note: cusparseSpGEMMreuse() output CSR matrix ( matC) is sorted by column indices.
+// MEMORY REQUIREMENT: cusparseSpGEMMreuse requires to keep in memory all intermediate products to reuse the structure of the output matrix. On the other hand, the number of intermediate products is orders of magnitude higher than the number of non-zero entries in general. In order to minimize the memory requirements, the routine uses multiple buffers that can be deallocated after they are no more needed. If the number of intermediate product exceeds 2^31-1, the routine will returns [ErrInsufficientResources] status.
+// Currently, the function has the following limitations:
+//   - Only 32-bit indices [Index32I] is supported
+//   - Only CSR format [FormatCsr] is supported
+//   - Only opA, opB equal to [OperationNonTranspose] are supported
+//
+// The data types combinations currently supported for cusparseSpGEMMreuse are listed below.
+// Uniform-precision computation:
+//   - A/B/C/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_16F DEPRECATED, CUDA_C_16BF DEPRECATED, CUDA_C_32F, CUDA_C_64F
+//
+// Mixed-precision computation: DEPRECATED
+//   - A/B: CUDA_R_16F; C: CUDA_R_16F; computeType: CUDA_R_32F
+//   - A/B: CUDA_R_16BF; C: CUDA_R_16BF; computeType: CUDA_R_32F
+//
+// cusparseSpGEMMreuse routine runs for the following algorithm:
+//   - [SpgemmDefault], [SpgemmCsrAlgNondeterminitic]: Default algorithm. Provides deterministic (bit-wise) structure for the output matrix for each run, while value computation is not deterministic.
+//   - [SpgemmCsrAlgDeterminitic]: Provides deterministic (bit-wise) structure for the output matrix and value computation for each run.
+//
+// cusparseSpGEMMreuse() has the following properties:
+//   - The routine requires no extra storage
+//   - The routine supports asynchronous execution
+//   - The routine allows the indices of matA and matB to be unsorted
+//   - The routine guarantees the indices of matC to be sorted
+//
+// cusparseSpGEMMreuse() supports the following optimizations:
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
+// Please visit cuSPARSE Library Samples - cusparseSpGEMMreuse for a code example.
+//
+// The kinds of alpha and beta must match computeType; a host [Scalar] of
+// another kind is a *[ScalarError].
+//
+// Wraps cusparseSpGEMMreuseCompute, bound as cusparseSpGEMMreuse_compute.
+func (h Handle) SpGEMMreuseCompute(opA Operation, opB Operation, alpha Scalar, matA ConstSpMatDescr, matB ConstSpMatDescr, beta Scalar, matC SpMatDescr, computeType DataType, alg SpGEMMAlg, spgemmDescr SpGEMMDescr) error {
 	return spGEMMreuseCompute(h, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, spgemmDescr)
 }
 
-// SpGEMMreuseCopy wraps cusparseSpGEMMreuseCopy, bound as cusparseSpGEMMreuse_copy.
+// SpGEMMreuseCopy performs the multiplication of two sparse matrices matA and matB where the structure of the output matrix matC can be reused for multiple computations with different values.
+//
+// C′=αop(A)⋅op(B)+βC
+// where α and β are scalars.
+// The functions [Handle.SpGEMMreuseWorkEstimation], [Handle.SpGEMMreuseNnz], and [Handle.SpGEMMreuseCopy] are used for determining the buffer size and performing the actual computation.
+//
+// Note: cusparseSpGEMMreuse() output CSR matrix ( matC) is sorted by column indices.
+// MEMORY REQUIREMENT: cusparseSpGEMMreuse requires to keep in memory all intermediate products to reuse the structure of the output matrix. On the other hand, the number of intermediate products is orders of magnitude higher than the number of non-zero entries in general. In order to minimize the memory requirements, the routine uses multiple buffers that can be deallocated after they are no more needed. If the number of intermediate product exceeds 2^31-1, the routine will returns [ErrInsufficientResources] status.
+// Currently, the function has the following limitations:
+//   - Only 32-bit indices [Index32I] is supported
+//   - Only CSR format [FormatCsr] is supported
+//   - Only opA, opB equal to [OperationNonTranspose] are supported
+//
+// The data types combinations currently supported for cusparseSpGEMMreuse are listed below.
+// Uniform-precision computation:
+//   - A/B/C/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_16F DEPRECATED, CUDA_C_16BF DEPRECATED, CUDA_C_32F, CUDA_C_64F
+//
+// Mixed-precision computation: DEPRECATED
+//   - A/B: CUDA_R_16F; C: CUDA_R_16F; computeType: CUDA_R_32F
+//   - A/B: CUDA_R_16BF; C: CUDA_R_16BF; computeType: CUDA_R_32F
+//
+// cusparseSpGEMMreuse routine runs for the following algorithm:
+//   - [SpgemmDefault], [SpgemmCsrAlgNondeterminitic]: Default algorithm. Provides deterministic (bit-wise) structure for the output matrix for each run, while value computation is not deterministic.
+//   - [SpgemmCsrAlgDeterminitic]: Provides deterministic (bit-wise) structure for the output matrix and value computation for each run.
+//
+// cusparseSpGEMMreuse() has the following properties:
+//   - The routine requires no extra storage
+//   - The routine supports asynchronous execution
+//   - The routine allows the indices of matA and matB to be unsorted
+//   - The routine guarantees the indices of matC to be sorted
+//
+// cusparseSpGEMMreuse() supports the following optimizations:
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
+// Please visit cuSPARSE Library Samples - cusparseSpGEMMreuse for a code example.
+//
+// Wraps cusparseSpGEMMreuseCopy, bound as cusparseSpGEMMreuse_copy.
 func (h Handle) SpGEMMreuseCopy(opA Operation, opB Operation, matA ConstSpMatDescr, matB ConstSpMatDescr, matC SpMatDescr, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize5 *uint, externalBuffer5 driver.DevicePtr) error {
 	return spGEMMreuseCopy(h, opA, opB, matA, matB, matC, alg, spgemmDescr, bufferSize5, externalBuffer5)
 }
@@ -406,13 +702,32 @@ func (h Handle) SpGEMMreuseCopy(opA Operation, opB Operation, matA ConstSpMatDes
 // Note: cusparseSpGEMMreuse() output CSR matrix ( matC) is sorted by column indices.
 // MEMORY REQUIREMENT: cusparseSpGEMMreuse requires to keep in memory all intermediate products to reuse the structure of the output matrix. On the other hand, the number of intermediate products is orders of magnitude higher than the number of non-zero entries in general. In order to minimize the memory requirements, the routine uses multiple buffers that can be deallocated after they are no more needed. If the number of intermediate product exceeds 2^31-1, the routine will returns [ErrInsufficientResources] status.
 // Currently, the function has the following limitations:
+//   - Only 32-bit indices [Index32I] is supported
+//   - Only CSR format [FormatCsr] is supported
+//   - Only opA, opB equal to [OperationNonTranspose] are supported
+//
 // The data types combinations currently supported for cusparseSpGEMMreuse are listed below.
 // Uniform-precision computation:
+//   - A/B/C/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_16F DEPRECATED, CUDA_C_16BF DEPRECATED, CUDA_C_32F, CUDA_C_64F
+//
 // Mixed-precision computation: DEPRECATED
+//   - A/B: CUDA_R_16F; C: CUDA_R_16F; computeType: CUDA_R_32F
+//   - A/B: CUDA_R_16BF; C: CUDA_R_16BF; computeType: CUDA_R_32F
+//
 // cusparseSpGEMMreuse routine runs for the following algorithm:
+//   - [SpgemmDefault], [SpgemmCsrAlgNondeterminitic]: Default algorithm. Provides deterministic (bit-wise) structure for the output matrix for each run, while value computation is not deterministic.
+//   - [SpgemmCsrAlgDeterminitic]: Provides deterministic (bit-wise) structure for the output matrix and value computation for each run.
+//
 // cusparseSpGEMMreuse() has the following properties:
+//   - The routine requires no extra storage
+//   - The routine supports asynchronous execution
+//   - The routine allows the indices of matA and matB to be unsorted
+//   - The routine guarantees the indices of matC to be sorted
+//
 // cusparseSpGEMMreuse() supports the following optimizations:
-// Refer to [Result] for the description of the return status.
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
 // Please visit cuSPARSE Library Samples - cusparseSpGEMMreuse for a code example.
 //
 // Wraps cusparseSpGEMMreuseNnz, bound as cusparseSpGEMMreuse_nnz.
@@ -429,13 +744,32 @@ func (h Handle) SpGEMMreuseNnz(opA Operation, opB Operation, matA ConstSpMatDesc
 // Note: cusparseSpGEMMreuse() output CSR matrix ( matC) is sorted by column indices.
 // MEMORY REQUIREMENT: cusparseSpGEMMreuse requires to keep in memory all intermediate products to reuse the structure of the output matrix. On the other hand, the number of intermediate products is orders of magnitude higher than the number of non-zero entries in general. In order to minimize the memory requirements, the routine uses multiple buffers that can be deallocated after they are no more needed. If the number of intermediate product exceeds 2^31-1, the routine will returns [ErrInsufficientResources] status.
 // Currently, the function has the following limitations:
+//   - Only 32-bit indices [Index32I] is supported
+//   - Only CSR format [FormatCsr] is supported
+//   - Only opA, opB equal to [OperationNonTranspose] are supported
+//
 // The data types combinations currently supported for cusparseSpGEMMreuse are listed below.
 // Uniform-precision computation:
+//   - A/B/C/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_16F DEPRECATED, CUDA_C_16BF DEPRECATED, CUDA_C_32F, CUDA_C_64F
+//
 // Mixed-precision computation: DEPRECATED
+//   - A/B: CUDA_R_16F; C: CUDA_R_16F; computeType: CUDA_R_32F
+//   - A/B: CUDA_R_16BF; C: CUDA_R_16BF; computeType: CUDA_R_32F
+//
 // cusparseSpGEMMreuse routine runs for the following algorithm:
+//   - [SpgemmDefault], [SpgemmCsrAlgNondeterminitic]: Default algorithm. Provides deterministic (bit-wise) structure for the output matrix for each run, while value computation is not deterministic.
+//   - [SpgemmCsrAlgDeterminitic]: Provides deterministic (bit-wise) structure for the output matrix and value computation for each run.
+//
 // cusparseSpGEMMreuse() has the following properties:
+//   - The routine requires no extra storage
+//   - The routine supports asynchronous execution
+//   - The routine allows the indices of matA and matB to be unsorted
+//   - The routine guarantees the indices of matC to be sorted
+//
 // cusparseSpGEMMreuse() supports the following optimizations:
-// Refer to [Result] for the description of the return status.
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
 // Please visit cuSPARSE Library Samples - cusparseSpGEMMreuse for a code example.
 //
 // Wraps cusparseSpGEMMreuseWorkEstimation, bound as cusparseSpGEMMreuse_workEstimation.
@@ -447,6 +781,11 @@ func (h Handle) SpGEMMreuseWorkEstimation(opA Operation, opB Operation, matA Con
 //
 // C=αop(A)⋅op(B)+βC
 // where
+//   - op(A) is a sparse matrix of size m×k
+//   - op(B) is a dense matrix of size k×n
+//   - C is a dense matrix of size m×n
+//   - α and β are scalars
+//
 // The routine can be also used to perform the multiplication of a dense matrix and a sparse matrix by switching the dense matrices layout:
 // C_(C)=B_(C)⋅A+βC_(C)→C_(R)=Aᵀ⋅B_(R)+βC_(R)
 // where B_(C) , C_(C) indicate column-major layout, while B_(R) , C_(R) refer to row-major layout
@@ -459,39 +798,100 @@ func (h Handle) SpGEMMreuseWorkEstimation(opA Operation, opB Operation, matA Con
 // Calling [Handle.SpMM] with an inactive buffer is always permitted. However, there may be no acceleration from the preprocessing in that case.
 // For the purposes of thread safety, [Handle.SpMMPreprocess] is writing to matA internal state.
 // [Handle.SpMM] supports the following sparse matrix formats:
+//   - [FormatCoo]
+//   - [FormatCsr]
+//   - [FormatCsc]
+//   - [FormatBsr]
+//   - [FormatBlockedEll]
+//   - (1): COO/CSR/CSC/BSR FORMATS
+//
 // [Handle.SpMM] supports the following index type for representing the sparse matrix matA:
+//   - 32-bit indices ( [Index32I])
+//   - 64-bit indices ( [Index64I])
+//
 // [Handle.SpMM] supports the following data types:
 // Uniform-precision computation:
+//   - A/B/C/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_32F, CUDA_C_64F
+//
 // Mixed-precision computation:
+//   - A/B: CUDA_R_8I; C: CUDA_R_32I; computeType: CUDA_R_32I
+//   - A/B: CUDA_R_8I; C: CUDA_R_32F; computeType: CUDA_R_32F
+//   - A/B: CUDA_R_16F; C: CUDA_R_32F; computeType: CUDA_R_32F
+//   - A/B: CUDA_R_16BF; C: CUDA_R_32F; computeType: CUDA_R_32F
+//   - A/B: CUDA_R_16F; C: CUDA_R_16F; computeType: CUDA_R_32F
+//   - A/B: CUDA_R_16BF; C: CUDA_R_16BF; computeType: CUDA_R_32F
+//   - A/B: CUDA_C_16F; C: CUDA_C_16F; computeType: CUDA_C_32F; DEPRECATED
+//   - A/B: CUDA_C_16BF; C: CUDA_C_16BF; computeType: CUDA_C_32F; DEPRECATED
+//
 // NOTE: CUDA_R_16F, CUDA_R_16BF, CUDA_C_16F, and CUDA_C_16BF data types always imply mixed-precision computation.
 // [Handle.SpMM] supports the following algorithms:
+//   - [SpmmAlgDefault]: Default algorithm for any sparse matrix format
+//   - [SpmmCooALG1]: Algorithm 1 for COO sparse matrix format: May provide better performance for small number of nnz; Provides the best performance with column-major layout; It supports batched computation; May produce slightly different results during different runs with the same input parameters
+//   - [SpmmCooALG2]: Algorithm 2 for COO sparse matrix format: It provides deterministic result; Provides the best performance with column-major layout; In general, slower than Algorithm 1; It supports batched computation; It requires additional memory; If opA != [OperationNonTranspose], it is identical to [SpmmCooALG1]
+//   - [SpmmCooALG3]: Algorithm 3 for COO sparse matrix format: May provide better performance for large number of nnz; May produce slightly different results during different runs with the same input parameters
+//   - [SpmmCooALG4]: Algorithm 4 for COO sparse matrix format: Provides better performance with row-major layout; It supports batched computation; May produce slightly different results during different runs with the same input parameters
+//   - [SpmmCsrALG1]: Algorithm 1 for CSR/CSC sparse matrix format: Provides the best performance with column-major layout; It supports batched computation; It requires additional memory; May produce slightly different results during different runs with the same input parameters
+//   - [SpmmCsrALG2]: Algorithm 2 for CSR/CSC sparse matrix format: Provides the best performance with row-major layout; It supports batched computation; It requires additional memory; May produce slightly different results during different runs with the same input parameters
+//   - [SpmmCsrALG3]: Algorithm 3 for CSR sparse matrix format: It provides deterministic result; It requires additional memory; It supports only CSR matrix and opA == [OperationNonTranspose]; It does not support opB == [OperationConjugateTranspose]; It does not support CUDA_C_16F and CUDA_C_16BF data types
+//   - [SpmmBsrALG1]: Algorithm 1 for BSR sparse matrix format: It provides deterministic result; It requires no additional memory; It supports only opA == [OperationNonTranspose]; It does not support CUDA_C_16F and CUDA_C_16BF data types; It does not support column-major blocks in A
+//
 // NOTE: When using [Handle.SpMM] for mixed-precision computation on COO or CSR matrices, it defaults to algorithms [SpmmCooALG2] and [SpmmCsrALG3], respectively. If the required computation isn’t supported by those algorithms, the mixed-precision operation will fail.
 // Performance notes:
+//   - Row-major layout provides higher performance than column-major
+//   - [SpmmCooALG4] and [SpmmCsrALG2] should be used with row-major layout, while [SpmmCooALG1], [SpmmCooALG2], [SpmmCooALG3], and [SpmmCsrALG1] with column-major layout
+//   - For beta != 1, most algorithms scale the output matrix before the main computation
+//   - For n == 1, the routine may use [Handle.SpMV]
+//
 // [Handle.SpMM] with all algorithms support the following batch modes except for [SpmmCsrALG3]:
+//   - Cᵢ=A⋅Bᵢ
+//   - Cᵢ=Aᵢ⋅B
+//   - Cᵢ=Aᵢ⋅Bᵢ
+//
 // The number of batches and their strides can be set by using [SpMatDescr.CooSetStridedBatch], [SpMatDescr.CsrSetStridedBatch], and [DnMatDescr.MatSetStridedBatch]. The maximum number of batches for [Handle.SpMM] is 65,535.
 // [Handle.SpMM] has the following properties:
+//   - The routine requires no extra storage for [SpmmCooALG1], [SpmmCooALG3], [SpmmCooALG4], [SpmmBsrALG1]
+//   - The routine supports asynchronous execution
+//   - Provides deterministic (bit-wise) results for each run only for [SpmmCooALG2], [SpmmCsrALG3], and [SpmmBsrALG1] algorithms
+//   - compute-sanitizer could report false race conditions for this routine. This is for optimization purposes and does not affect the correctness of the computation
+//   - The routine allows the indices of matA to be unsorted
+//
 // [Handle.SpMM] supports the following optimizations:
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
 // Please visit cuSPARSE Library Samples - [Handle.SpMM] CSR and [Handle.SpMM] COO for a code example. For batched computation please visit [Handle.SpMM] CSR Batched and [Handle.SpMM] COO Batched.
+//   - (2): BLOCKED-ELLPACK FORMAT
+//
 // [Handle.SpMM] supports the following data types for [FormatBlockedEll] format and the following GPU architectures for exploiting NVIDIA Tensor Cores:
 // [Handle.SpMM] supports the following algorithms with [FormatBlockedEll] format:
+//   - [SpmmAlgDefault]: Default algorithm for any sparse matrix format
+//   - [SpmmBlockedEllALG1]: Default algorithm for Blocked-ELL format
+//
 // Performance notes:
+//   - Blocked-ELL [Handle.SpMM] provides the best performance with Power-of-2 Block-Sizes.
+//   - Large Block-Sizes (e.g. ≥ 64) provide the best performance.
+//
 // The function has the following limitations:
+//   - The pointer mode must be equal to [PointerModeHost]
+//   - Only opA == [OperationNonTranspose] is supported.
+//   - opB == [OperationConjugateTranspose] is not supported.
+//   - Only [Index32I] is supported.
+//
 // Please visit cuSPARSE Library Samples - [Handle.SpMM] Blocked-ELL for a code example.
-// See [Result] for the description of the return status.
 //
 //   - opA: Operation op(A)
 //   - opB: Operation op(B)
-//   - alpha: α scalar used for multiplication of type computeType
+//   - alpha: α scalar used for multiplication of type computeType. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matA: Sparse matrix A
 //   - matB: Dense matrix B
-//   - beta: β scalar used for multiplication of type computeType
+//   - beta: β scalar used for multiplication of type computeType. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matC: Dense matrix C
 //   - computeType: Datatype in which the computation is executed
 //   - alg: Algorithm for the computation
 //   - externalBuffer: Pointer to workspace buffer of at least bufferSize bytes
 //
 // Wraps cusparseSpMM.
-func (h Handle) SpMM(opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstDnMatDescr, beta uintptr, matC DnMatDescr, computeType DataType, alg SpMMAlg, externalBuffer driver.DevicePtr) error {
+func (h Handle) SpMM(opA Operation, opB Operation, alpha Scalar, matA ConstSpMatDescr, matB ConstDnMatDescr, beta Scalar, matC DnMatDescr, computeType DataType, alg SpMMAlg, externalBuffer driver.DevicePtr) error {
 	return spMM(h, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, externalBuffer)
 }
 
@@ -499,17 +899,17 @@ func (h Handle) SpMM(opA Operation, opB Operation, alpha uintptr, matA ConstSpMa
 //
 //   - opA: Operation op(A)
 //   - opB: Operation op(B)
-//   - alpha: α scalar used for multiplication of type computeType
+//   - alpha: α scalar used for multiplication of type computeType. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matA: Sparse matrix A
 //   - matB: Dense matrix B
-//   - beta: β scalar used for multiplication of type computeType
+//   - beta: β scalar used for multiplication of type computeType. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matC: Dense matrix C
 //   - computeType: Datatype in which the computation is executed
 //   - alg: Algorithm for the computation
 //   - bufferSize: Workspace size
 //
 // Wraps cusparseSpMMBufferSize, bound as cusparseSpMM_bufferSize.
-func (h Handle) SpMMBufferSize(opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstDnMatDescr, beta uintptr, matC DnMatDescr, computeType DataType, alg SpMMAlg) (uint, error) {
+func (h Handle) SpMMBufferSize(opA Operation, opB Operation, alpha Scalar, matA ConstSpMatDescr, matB ConstDnMatDescr, beta Scalar, matC DnMatDescr, computeType DataType, alg SpMMAlg) (uint, error) {
 	return spMMBufferSize(h, opA, opB, alpha, matA, matB, beta, matC, computeType, alg)
 }
 
@@ -518,6 +918,11 @@ func (h Handle) SpMMBufferSize(opA Operation, opB Operation, alpha uintptr, matA
 // [Handle.SpMM] performs the multiplication of a sparse matrix matA and a dense matrix matB.
 // C=αop(A)⋅op(B)+βC
 // where
+//   - op(A) is a sparse matrix of size m×k
+//   - op(B) is a dense matrix of size k×n
+//   - C is a dense matrix of size m×n
+//   - α and β are scalars
+//
 // The routine can be also used to perform the multiplication of a dense matrix and a sparse matrix by switching the dense matrices layout:
 // C_(C)=B_(C)⋅A+βC_(C)→C_(R)=Aᵀ⋅B_(R)+βC_(R)
 // where B_(C) , C_(C) indicate column-major layout, while B_(R) , C_(R) refer to row-major layout
@@ -530,95 +935,206 @@ func (h Handle) SpMMBufferSize(opA Operation, opB Operation, alpha uintptr, matA
 // Calling [Handle.SpMM] with an inactive buffer is always permitted. However, there may be no acceleration from the preprocessing in that case.
 // For the purposes of thread safety, [Handle.SpMMPreprocess] is writing to matA internal state.
 // [Handle.SpMM] supports the following sparse matrix formats:
+//   - [FormatCoo]
+//   - [FormatCsr]
+//   - [FormatCsc]
+//   - [FormatBsr]
+//   - [FormatBlockedEll]
+//   - (1): COO/CSR/CSC/BSR FORMATS
+//
 // [Handle.SpMM] supports the following index type for representing the sparse matrix matA:
+//   - 32-bit indices ( [Index32I])
+//   - 64-bit indices ( [Index64I])
+//
 // [Handle.SpMM] supports the following data types:
 // Uniform-precision computation:
+//   - A/B/C/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_32F, CUDA_C_64F
+//
 // Mixed-precision computation:
+//   - A/B: CUDA_R_8I; C: CUDA_R_32I; computeType: CUDA_R_32I
+//   - A/B: CUDA_R_8I; C: CUDA_R_32F; computeType: CUDA_R_32F
+//   - A/B: CUDA_R_16F; C: CUDA_R_32F; computeType: CUDA_R_32F
+//   - A/B: CUDA_R_16BF; C: CUDA_R_32F; computeType: CUDA_R_32F
+//   - A/B: CUDA_R_16F; C: CUDA_R_16F; computeType: CUDA_R_32F
+//   - A/B: CUDA_R_16BF; C: CUDA_R_16BF; computeType: CUDA_R_32F
+//   - A/B: CUDA_C_16F; C: CUDA_C_16F; computeType: CUDA_C_32F; DEPRECATED
+//   - A/B: CUDA_C_16BF; C: CUDA_C_16BF; computeType: CUDA_C_32F; DEPRECATED
+//
 // NOTE: CUDA_R_16F, CUDA_R_16BF, CUDA_C_16F, and CUDA_C_16BF data types always imply mixed-precision computation.
 // [Handle.SpMM] supports the following algorithms:
+//   - [SpmmAlgDefault]: Default algorithm for any sparse matrix format
+//   - [SpmmCooALG1]: Algorithm 1 for COO sparse matrix format: May provide better performance for small number of nnz; Provides the best performance with column-major layout; It supports batched computation; May produce slightly different results during different runs with the same input parameters
+//   - [SpmmCooALG2]: Algorithm 2 for COO sparse matrix format: It provides deterministic result; Provides the best performance with column-major layout; In general, slower than Algorithm 1; It supports batched computation; It requires additional memory; If opA != [OperationNonTranspose], it is identical to [SpmmCooALG1]
+//   - [SpmmCooALG3]: Algorithm 3 for COO sparse matrix format: May provide better performance for large number of nnz; May produce slightly different results during different runs with the same input parameters
+//   - [SpmmCooALG4]: Algorithm 4 for COO sparse matrix format: Provides better performance with row-major layout; It supports batched computation; May produce slightly different results during different runs with the same input parameters
+//   - [SpmmCsrALG1]: Algorithm 1 for CSR/CSC sparse matrix format: Provides the best performance with column-major layout; It supports batched computation; It requires additional memory; May produce slightly different results during different runs with the same input parameters
+//   - [SpmmCsrALG2]: Algorithm 2 for CSR/CSC sparse matrix format: Provides the best performance with row-major layout; It supports batched computation; It requires additional memory; May produce slightly different results during different runs with the same input parameters
+//   - [SpmmCsrALG3]: Algorithm 3 for CSR sparse matrix format: It provides deterministic result; It requires additional memory; It supports only CSR matrix and opA == [OperationNonTranspose]; It does not support opB == [OperationConjugateTranspose]; It does not support CUDA_C_16F and CUDA_C_16BF data types
+//   - [SpmmBsrALG1]: Algorithm 1 for BSR sparse matrix format: It provides deterministic result; It requires no additional memory; It supports only opA == [OperationNonTranspose]; It does not support CUDA_C_16F and CUDA_C_16BF data types; It does not support column-major blocks in A
+//
 // NOTE: When using [Handle.SpMM] for mixed-precision computation on COO or CSR matrices, it defaults to algorithms [SpmmCooALG2] and [SpmmCsrALG3], respectively. If the required computation isn’t supported by those algorithms, the mixed-precision operation will fail.
 // Performance notes:
+//   - Row-major layout provides higher performance than column-major
+//   - [SpmmCooALG4] and [SpmmCsrALG2] should be used with row-major layout, while [SpmmCooALG1], [SpmmCooALG2], [SpmmCooALG3], and [SpmmCsrALG1] with column-major layout
+//   - For beta != 1, most algorithms scale the output matrix before the main computation
+//   - For n == 1, the routine may use [Handle.SpMV]
+//
 // [Handle.SpMM] with all algorithms support the following batch modes except for [SpmmCsrALG3]:
+//   - Cᵢ=A⋅Bᵢ
+//   - Cᵢ=Aᵢ⋅B
+//   - Cᵢ=Aᵢ⋅Bᵢ
+//
 // The number of batches and their strides can be set by using [SpMatDescr.CooSetStridedBatch], [SpMatDescr.CsrSetStridedBatch], and [DnMatDescr.MatSetStridedBatch]. The maximum number of batches for [Handle.SpMM] is 65,535.
 // [Handle.SpMM] has the following properties:
+//   - The routine requires no extra storage for [SpmmCooALG1], [SpmmCooALG3], [SpmmCooALG4], [SpmmBsrALG1]
+//   - The routine supports asynchronous execution
+//   - Provides deterministic (bit-wise) results for each run only for [SpmmCooALG2], [SpmmCsrALG3], and [SpmmBsrALG1] algorithms
+//   - compute-sanitizer could report false race conditions for this routine. This is for optimization purposes and does not affect the correctness of the computation
+//   - The routine allows the indices of matA to be unsorted
+//
 // [Handle.SpMM] supports the following optimizations:
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
 // Please visit cuSPARSE Library Samples - [Handle.SpMM] CSR and [Handle.SpMM] COO for a code example. For batched computation please visit [Handle.SpMM] CSR Batched and [Handle.SpMM] COO Batched.
+//   - (2): BLOCKED-ELLPACK FORMAT
+//
 // [Handle.SpMM] supports the following data types for [FormatBlockedEll] format and the following GPU architectures for exploiting NVIDIA Tensor Cores:
 // [Handle.SpMM] supports the following algorithms with [FormatBlockedEll] format:
+//   - [SpmmAlgDefault]: Default algorithm for any sparse matrix format
+//   - [SpmmBlockedEllALG1]: Default algorithm for Blocked-ELL format
+//
 // Performance notes:
+//   - Blocked-ELL [Handle.SpMM] provides the best performance with Power-of-2 Block-Sizes.
+//   - Large Block-Sizes (e.g. ≥ 64) provide the best performance.
+//
 // The function has the following limitations:
+//   - The pointer mode must be equal to [PointerModeHost]
+//   - Only opA == [OperationNonTranspose] is supported.
+//   - opB == [OperationConjugateTranspose] is not supported.
+//   - Only [Index32I] is supported.
+//
 // Please visit cuSPARSE Library Samples - [Handle.SpMM] Blocked-ELL for a code example.
-// See [Result] for the description of the return status.
 //
 //   - opA: Operation op(A)
 //   - opB: Operation op(B)
-//   - alpha: α scalar used for multiplication of type computeType
+//   - alpha: α scalar used for multiplication of type computeType. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matA: Sparse matrix A
 //   - matB: Dense matrix B
-//   - beta: β scalar used for multiplication of type computeType
+//   - beta: β scalar used for multiplication of type computeType. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matC: Dense matrix C
 //   - computeType: Datatype in which the computation is executed
 //   - alg: Algorithm for the computation
 //   - externalBuffer: Pointer to workspace buffer of at least bufferSize bytes
 //
 // Wraps cusparseSpMMPreprocess, bound as cusparseSpMM_preprocess.
-func (h Handle) SpMMPreprocess(opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstDnMatDescr, beta uintptr, matC DnMatDescr, computeType DataType, alg SpMMAlg, externalBuffer driver.DevicePtr) error {
+func (h Handle) SpMMPreprocess(opA Operation, opB Operation, alpha Scalar, matA ConstSpMatDescr, matB ConstDnMatDescr, beta Scalar, matC DnMatDescr, computeType DataType, alg SpMMAlg, externalBuffer driver.DevicePtr) error {
 	return spMMPreprocess(h, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, externalBuffer)
 }
 
 // SpMV performs the multiplication of a sparse matrix matA and a dense vector vecX.
 //
 // Y=αop(A)⋅X+βY, where
+//   - op(A) is a sparse matrix of size m×k
+//   - X is a dense vector of size k
+//   - Y is a dense vector of size m
+//   - α and β are scalars
+//
 // Also, for matrix A: op(A) = A if opA == [OperationNonTranspose], op(A) = Aᵀ if opA == [OperationTranspose], and op(A) = Aᴴ if opA == [OperationConjugateTranspose].
 // The function [Handle.SpMVBufferSize] returns the size of the workspace needed by [Handle.SpMVPreprocess] and [Handle.SpMV]
 // The sparse matrix formats currently supported are listed below:
+//   - [FormatCoo]
+//   - [FormatCsr]
+//   - [FormatCsc]
+//   - [FormatBsr]
+//   - CUSPARSE_FORMAT_SLICED_ELL
+//
 // [Handle.SpMV] supports the following index type for representing the sparse matrix matA:
+//   - 32-bit indices ( [Index32I])
+//   - 64-bit indices ( [Index64I])
+//
 // [Handle.SpMV] supports the following data types:
 // Uniform-precision computation:
+//   - A/X/Y/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_32F, CUDA_C_64F
+//
 // Mixed-precision computation:
+//   - A/X: CUDA_R_8I; Y: CUDA_R_32I; computeType: CUDA_R_32I
+//   - A/X: CUDA_R_8I; Y: CUDA_R_32F; computeType: CUDA_R_32F
+//   - A/X: CUDA_R_16F; Y: CUDA_R_32F; computeType: CUDA_R_32F
+//   - A/X: CUDA_R_16BF; Y: CUDA_R_32F; computeType: CUDA_R_32F
+//   - A/X: CUDA_R_16F; Y: CUDA_R_16F; computeType: CUDA_R_32F
+//   - A/X: CUDA_R_16BF; Y: CUDA_R_16BF; computeType: CUDA_R_32F
+//   - A/X: CUDA_C_32F; Y: CUDA_C_32F; computeType: CUDA_C_32F
+//   - A/X: CUDA_C_16F; Y: CUDA_C_16F; computeType: CUDA_C_32F; Notes: DEPRECATED
+//   - A/X: CUDA_C_16BF; Y: CUDA_C_16BF; computeType: CUDA_C_32F; Notes: DEPRECATED
+//   - A: CUDA_R_32F; X/Y/computeType: CUDA_R_64F
+//
 // Mixed Regular/Complex computation:
+//   - A: CUDA_R_32F; X/Y/computeType: CUDA_C_32F
+//   - A: CUDA_R_64F; X/Y/computeType: CUDA_C_64F
+//
 // NOTE: CUDA_R_16F, CUDA_R_16BF, CUDA_C_16F, and CUDA_C_16BF data types always imply mixed-precision computation.
 // [Handle.SpMV] supports the following algorithms:
+//   - [SpmvAlgDefault]: Default algorithm for any sparse matrix format.
+//   - [SpmvCooALG1]: Default algorithm for COO sparse matrix format. May produce slightly different results during different runs with the same input parameters.
+//   - [SpmvCooALG2]: Provides deterministic (bit-wise) results for each run. If opA != [OperationNonTranspose], it is identical to [SpmvCooALG1].
+//   - [SpmvCsrALG1]: Default algorithm for CSR/CSC sparse matrix format. May produce slightly different results during different runs with the same input parameters.
+//   - [SpmvCsrALG2]: Provides deterministic (bit-wise) results for each run. If opA != [OperationNonTranspose], it is identical to [SpmvCsrALG1].
+//   - [SpmvSellALG1]: Default algorithm for Sliced Ellpack sparse matrix format. Provides deterministic (bit-wise) results for each run.
+//   - [SpmvBsrALG1]: Default algorithm for BSR sparse matrix format. Provides deterministic (bit-wise) results for each run. Supports only opA == [OperationNonTranspose]. Supports both row-major and column-major block layouts in A.
+//
 // Calling [Handle.SpMVPreprocess] is optional. It may accelerate subsequent calls to [Handle.SpMV]. It is useful when [Handle.SpMV] is called multiple times with the same sparsity pattern ( matA).
 // Calling [Handle.SpMVPreprocess] with buffer makes that buffer “active” for matA [Handle.SpMV] calls. Subsequent calls to [Handle.SpMV] with matA and the active buffer must use the same values for all parameters as the call to [Handle.SpMVPreprocess]. The exceptions are: alpha, beta, vecX, vecY, and the values (but not indices) of matA may be different. Importantly, the buffer contents must be unmodified since the call to [Handle.SpMVPreprocess]. When [Handle.SpMV] is called with matA and its active buffer, it may read acceleration data from the buffer.
 // Calling [Handle.SpMVPreprocess] again with matA and a new buffer will make the new buffer active, forgetting about the previously-active buffer and making it inactive. For [Handle.SpMV], there can only be one active buffer per sparse matrix at a time. To get the effect of multiple active buffers for a single sparse matrix, create multiple matrix handles that all point to the same index and value buffers, and call [Handle.SpMVPreprocess] once per handle with different workspace buffers.
 // Calling [Handle.SpMV] with an inactive buffer is always permitted. However, there may be no acceleration from the preprocessing in that case.
 // For the purposes of thread safety, [Handle.SpMVPreprocess] is writing to matA internal state.
 // Performance notes:
+//   - [SpmvCooALG1] and [SpmvCsrALG1] provide higher performance than [SpmvCooALG2] and [SpmvCsrALG2].
+//   - In general, opA == [OperationNonTranspose] is 3x faster than opA != [OperationNonTranspose].
+//   - Using [Handle.SpMVPreprocess] helps improve performance of [Handle.SpMV] in CSR. It is beneficial when we need to run [Handle.SpMV] multiple times with a same matrix ( [Handle.SpMVPreprocess] is executed only once).
+//
 // [Handle.SpMV] has the following properties:
+//   - The routine requires extra storage for CSR/CSC format (all algorithms) and for COO format with [SpmvCooALG2] algorithm.
+//   - Provides deterministic (bit-wise) results for each run only for [SpmvCooALG2], [SpmvCsrALG2] and [SpmvBsrALG1] algorithms, and opA == [OperationNonTranspose].
+//   - The routine supports asynchronous execution.
+//   - compute-sanitizer could report false race conditions for this routine when beta == 0. This is for optimization purposes and does not affect the correctness of the computation.
+//   - The routine allows the indices of matA to be unsorted.
+//
 // [Handle.SpMV] supports the following optimizations:
-// See [Result] for the description of the return status.
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
 // Please visit cuSPARSE Library Samples - [Handle.SpMV] CSR and [Handle.SpMV] COO for a code example.
 //
 //   - opA: Operation op(A)
-//   - alpha: α scalar used for multiplication of type computeType
+//   - alpha: α scalar used for multiplication of type computeType. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matA: Sparse matrix A
 //   - vecX: Dense vector X
-//   - beta: β scalar used for multiplication of type computeType
+//   - beta: β scalar used for multiplication of type computeType. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - vecY: Dense vector Y
 //   - computeType: Datatype in which the computation is executed
 //   - alg: Algorithm for the computation
 //   - externalBuffer: Pointer to a workspace buffer of at least bufferSize bytes
 //
 // Wraps cusparseSpMV.
-func (h Handle) SpMV(opA Operation, alpha uintptr, matA ConstSpMatDescr, vecX ConstDnVecDescr, beta uintptr, vecY DnVecDescr, computeType DataType, alg SpMVAlg, externalBuffer driver.DevicePtr) error {
+func (h Handle) SpMV(opA Operation, alpha Scalar, matA ConstSpMatDescr, vecX ConstDnVecDescr, beta Scalar, vecY DnVecDescr, computeType DataType, alg SpMVAlg, externalBuffer driver.DevicePtr) error {
 	return spMV(h, opA, alpha, matA, vecX, beta, vecY, computeType, alg, externalBuffer)
 }
 
 // SpMVBufferSize returns the workspace size for [Handle.SpMV].
 //
 //   - opA: Operation op(A)
-//   - alpha: α scalar used for multiplication of type computeType
+//   - alpha: α scalar used for multiplication of type computeType. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matA: Sparse matrix A
 //   - vecX: Dense vector X
-//   - beta: β scalar used for multiplication of type computeType
+//   - beta: β scalar used for multiplication of type computeType. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - vecY: Dense vector Y
 //   - computeType: Datatype in which the computation is executed
 //   - alg: Algorithm for the computation
 //   - bufferSize: Workspace size
 //
 // Wraps cusparseSpMVBufferSize, bound as cusparseSpMV_bufferSize.
-func (h Handle) SpMVBufferSize(opA Operation, alpha uintptr, matA ConstSpMatDescr, vecX ConstDnVecDescr, beta uintptr, vecY DnVecDescr, computeType DataType, alg SpMVAlg) (uint, error) {
+func (h Handle) SpMVBufferSize(opA Operation, alpha Scalar, matA ConstSpMatDescr, vecX ConstDnVecDescr, beta Scalar, vecY DnVecDescr, computeType DataType, alg SpMVAlg) (uint, error) {
 	return spMVBufferSize(h, opA, alpha, matA, vecX, beta, vecY, computeType, alg)
 }
 
@@ -626,28 +1142,54 @@ func (h Handle) SpMVBufferSize(opA Operation, alpha uintptr, matA ConstSpMatDesc
 //
 // It performs the multiplication of a sparse matrix matA and a dense vector vecX.
 // This function is experimental.
-// Zᵢ=epilogue(α∑k(op(Aᵢₖ)⋅Xₖ)+βYᵢ)
+// Zᵢ=epilogue(α∑_(k)(op(Aᵢₖ)⋅Xₖ)+βYᵢ)
 // where
+//   - op(A) is a sparse matrix of size m×k
+//   - X is a dense vector of size k
+//   - Y is a dense vector of size m
+//   - Z is a dense vector of size m. It is allowed to alias Y.
+//   - α and β are scalars
+//   - epilogue is a custom function with the following signature
+//
 // [Handle.SpMVOp] supports sparse format [FormatCsr] and opA=[OperationNonTranspose]. The following index type combinations are supported:
+//   - csrRowOffsetsType: [Index32I]; csrColIndType: [Index32I]
+//   - csrRowOffsetsType: [Index64I]; csrColIndType: [Index32I]
+//
 // [Handle.SpMVOp] supports the following type combinations:
+//   - A: CUDA_R_32F; X/Y/Z/computeType: CUDA_R_32F
+//   - A: CUDA_R_32F; X/Y/Z/computeType: CUDA_R_64F
+//   - A: CUDA_R_64F; X/Y/Z/computeType: CUDA_R_64F
+//
 // [Handle.SpMVOp] supports the following algorithms:
+//   - CUSPARSE_SPMVOP_ALG_DEFAULT: Default algorithm; currently equivalent to CUSPARSE_SPMVOP_ALG1.
+//   - CUSPARSE_SPMVOP_ALG1: Deterministic algorithm. Supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan, either in-place or via [SpMatDescr.CsrSetPointers].
+//   - CUSPARSE_SPMVOP_ALG2: Alternative deterministic algorithm. Compared to CUSPARSE_SPMVOP_ALG1, it may offer higher performance at the cost of significantly more buffer usage and more expensive preprocessing in [Handle.SpMVOpCreateDescr]. Does not support updating the values of matA between calls without rebuilding the descriptor and the execution plan.
+//
 // The function [Handle.SpMVOpBufferSize] returns the size of the workspace needed by [Handle.SpMVOpCreateDescr] and [Handle.SpMVOp]. Currently, it accepts NULL for vecX, vecY and vecZ.
 // The function [Handle.SpMVOpCreateDescr] prepares the internal data represented by the descriptor which is needed by [Handle.SpMVOpCreatePlan] and [Handle.SpMVOp]. The passed-in device buffer must remain valid and unmodified until the associated descriptor is destroyed. It supports passing dummy vecX, vecY and vecZ objects, as long as their data type attributes are valid. Other attributes are ignored during the descriptor creation. If epilogueLTOBuffer is NULL or epilogueLTOBufferSize is 0, the built-in default epilogue will be employed without Link-Time-Optimization (LTO):
 // The function [Handle.SpMVOpCreatePlan] takes in the descriptor and the LTO-IR of the custom epilogue, and returns the execution plan. The same descriptor can be used to create multiple execution plans, each with its own epilogue and epilogue auxiliary data. A caching system is employed to avoid redundant JIT compilation: plans compiled from identical LTO-IR (same epilogueLTOBuffer content and epilogueLTOBufferSize) share a single CUmodule.
 // The function [Handle.SpMVOpSetGlobalUserData] copies epilogueDataSize bytes from the host buffer epilogueData to the device __device__ or __constant__ variable named epilogueDataName in the compiled epilogue module. epilogueDataName must match the symbol name of the variable as declared in the epilogue device code. The invocation is optional; it should be called only if the epilogue requires auxiliary data. It can be invoked repeatedly before [Handle.SpMVOp] to update the auxiliary data. As a consequence of the plan caching, calling [Handle.SpMVOpSetGlobalUserData] affects every plan that links to the same compiled epilogue, not only the plan passed as argument. If multiple plans share the same LTO-IR but require different runtime constant values, the caller is responsible for serializing each [Handle.SpMVOpSetGlobalUserData] + [Handle.SpMVOp] pair so that each plan’s constants are current at the time it executes.
 // [Handle.SpMVOp] has the following properties:
-// See [Result] for the description of the return status.
+//   - It supports a customizable epilogue function, enabling users to apply additional elementwise and more complex operations to the output vector.
+//   - It provides improved numerical accuracy than [Handle.SpMV] due to the fact that accumulation is partially performed using Kahan’s summation.
+//   - The routine produces deterministic (bit-wise) results for each run, assuming that the epilogue function is deterministic.
+//   - In general, it is significantly faster than [Handle.SpMV] with the deterministic algorithm [SpmvCsrALG2], at the cost of more buffer usage.
+//   - CUSPARSE_SPMVOP_ALG1 (and CUSPARSE_SPMVOP_ALG_DEFAULT) supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan. The updated values can be provided in-place (by modifying the device memory previously registered in the matrix descriptor) or by calling [SpMatDescr.CsrSetPointers] with the new value pointer before each [Handle.SpMVOp] call.
+//   - The routine supports asynchronous execution.
+//   - The routine allows the indices of matA to be unsorted.
+//   - It supports CUDA graph capture optimizations.
+//
 // Please visit cuSPARSE Library Samples - [Handle.SpMVOp] for a code example.
 //
-//   - plan: Opaque descriptor for storing the multiplication execution plan,namely all the information necessary to execute [Handle.SpMVOp]
-//   - alpha: α scalar used for multiplication of type computeType
-//   - beta: β scalar used for multiplication of type computeType
+//   - plan: Opaque descriptor for storing the multiplication execution plan, namely all the information necessary to execute [Handle.SpMVOp]
+//   - alpha: α scalar used for multiplication of type computeType. Its kind must match the compute type.
+//   - beta: β scalar used for multiplication of type computeType. Its kind must match the compute type.
 //   - vecX: Dense vector X
 //   - vecY: Dense vector Y
 //   - vecZ: Dense vector Z
 //
 // Wraps cusparseSpMVOp.
-func (h Handle) SpMVOp(plan SpMVOpPlan, alpha uintptr, beta uintptr, vecX ConstDnVecDescr, vecY ConstDnVecDescr, vecZ DnVecDescr) error {
+func (h Handle) SpMVOp(plan SpMVOpPlan, alpha Scalar, beta Scalar, vecX ConstDnVecDescr, vecY ConstDnVecDescr, vecZ DnVecDescr) error {
 	return spMVOp(h, plan, alpha, beta, vecX, vecY, vecZ)
 }
 
@@ -670,17 +1212,43 @@ func (h Handle) SpMVOpBufferSize(opA Operation, matA ConstSpMatDescr, vecX Const
 //
 // It performs the multiplication of a sparse matrix matA and a dense vector vecX.
 // This function is experimental.
-// Zᵢ=epilogue(α∑k(op(Aᵢₖ)⋅Xₖ)+βYᵢ)
+// Zᵢ=epilogue(α∑_(k)(op(Aᵢₖ)⋅Xₖ)+βYᵢ)
 // where
+//   - op(A) is a sparse matrix of size m×k
+//   - X is a dense vector of size k
+//   - Y is a dense vector of size m
+//   - Z is a dense vector of size m. It is allowed to alias Y.
+//   - α and β are scalars
+//   - epilogue is a custom function with the following signature
+//
 // [Handle.SpMVOp] supports sparse format [FormatCsr] and opA=[OperationNonTranspose]. The following index type combinations are supported:
+//   - csrRowOffsetsType: [Index32I]; csrColIndType: [Index32I]
+//   - csrRowOffsetsType: [Index64I]; csrColIndType: [Index32I]
+//
 // [Handle.SpMVOp] supports the following type combinations:
+//   - A: CUDA_R_32F; X/Y/Z/computeType: CUDA_R_32F
+//   - A: CUDA_R_32F; X/Y/Z/computeType: CUDA_R_64F
+//   - A: CUDA_R_64F; X/Y/Z/computeType: CUDA_R_64F
+//
 // [Handle.SpMVOp] supports the following algorithms:
+//   - CUSPARSE_SPMVOP_ALG_DEFAULT: Default algorithm; currently equivalent to CUSPARSE_SPMVOP_ALG1.
+//   - CUSPARSE_SPMVOP_ALG1: Deterministic algorithm. Supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan, either in-place or via [SpMatDescr.CsrSetPointers].
+//   - CUSPARSE_SPMVOP_ALG2: Alternative deterministic algorithm. Compared to CUSPARSE_SPMVOP_ALG1, it may offer higher performance at the cost of significantly more buffer usage and more expensive preprocessing in [Handle.SpMVOpCreateDescr]. Does not support updating the values of matA between calls without rebuilding the descriptor and the execution plan.
+//
 // The function [Handle.SpMVOpBufferSize] returns the size of the workspace needed by [Handle.SpMVOpCreateDescr] and [Handle.SpMVOp]. Currently, it accepts NULL for vecX, vecY and vecZ.
 // The function [Handle.SpMVOpCreateDescr] prepares the internal data represented by the descriptor which is needed by [Handle.SpMVOpCreatePlan] and [Handle.SpMVOp]. The passed-in device buffer must remain valid and unmodified until the associated descriptor is destroyed. It supports passing dummy vecX, vecY and vecZ objects, as long as their data type attributes are valid. Other attributes are ignored during the descriptor creation. If epilogueLTOBuffer is NULL or epilogueLTOBufferSize is 0, the built-in default epilogue will be employed without Link-Time-Optimization (LTO):
 // The function [Handle.SpMVOpCreatePlan] takes in the descriptor and the LTO-IR of the custom epilogue, and returns the execution plan. The same descriptor can be used to create multiple execution plans, each with its own epilogue and epilogue auxiliary data. A caching system is employed to avoid redundant JIT compilation: plans compiled from identical LTO-IR (same epilogueLTOBuffer content and epilogueLTOBufferSize) share a single CUmodule.
 // The function [Handle.SpMVOpSetGlobalUserData] copies epilogueDataSize bytes from the host buffer epilogueData to the device __device__ or __constant__ variable named epilogueDataName in the compiled epilogue module. epilogueDataName must match the symbol name of the variable as declared in the epilogue device code. The invocation is optional; it should be called only if the epilogue requires auxiliary data. It can be invoked repeatedly before [Handle.SpMVOp] to update the auxiliary data. As a consequence of the plan caching, calling [Handle.SpMVOpSetGlobalUserData] affects every plan that links to the same compiled epilogue, not only the plan passed as argument. If multiple plans share the same LTO-IR but require different runtime constant values, the caller is responsible for serializing each [Handle.SpMVOpSetGlobalUserData] + [Handle.SpMVOp] pair so that each plan’s constants are current at the time it executes.
 // [Handle.SpMVOp] has the following properties:
-// See [Result] for the description of the return status.
+//   - It supports a customizable epilogue function, enabling users to apply additional elementwise and more complex operations to the output vector.
+//   - It provides improved numerical accuracy than [Handle.SpMV] due to the fact that accumulation is partially performed using Kahan’s summation.
+//   - The routine produces deterministic (bit-wise) results for each run, assuming that the epilogue function is deterministic.
+//   - In general, it is significantly faster than [Handle.SpMV] with the deterministic algorithm [SpmvCsrALG2], at the cost of more buffer usage.
+//   - CUSPARSE_SPMVOP_ALG1 (and CUSPARSE_SPMVOP_ALG_DEFAULT) supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan. The updated values can be provided in-place (by modifying the device memory previously registered in the matrix descriptor) or by calling [SpMatDescr.CsrSetPointers] with the new value pointer before each [Handle.SpMVOp] call.
+//   - The routine supports asynchronous execution.
+//   - The routine allows the indices of matA to be unsorted.
+//   - It supports CUDA graph capture optimizations.
+//
 // Please visit cuSPARSE Library Samples - [Handle.SpMVOp] for a code example.
 //
 //   - opA: Operation op(A)
@@ -700,20 +1268,46 @@ func (h Handle) SpMVOpCreateDescr(opA Operation, matA ConstSpMatDescr, vecX Cons
 //
 // It performs the multiplication of a sparse matrix matA and a dense vector vecX.
 // This function is experimental.
-// Zᵢ=epilogue(α∑k(op(Aᵢₖ)⋅Xₖ)+βYᵢ)
+// Zᵢ=epilogue(α∑_(k)(op(Aᵢₖ)⋅Xₖ)+βYᵢ)
 // where
+//   - op(A) is a sparse matrix of size m×k
+//   - X is a dense vector of size k
+//   - Y is a dense vector of size m
+//   - Z is a dense vector of size m. It is allowed to alias Y.
+//   - α and β are scalars
+//   - epilogue is a custom function with the following signature
+//
 // [Handle.SpMVOp] supports sparse format [FormatCsr] and opA=[OperationNonTranspose]. The following index type combinations are supported:
+//   - csrRowOffsetsType: [Index32I]; csrColIndType: [Index32I]
+//   - csrRowOffsetsType: [Index64I]; csrColIndType: [Index32I]
+//
 // [Handle.SpMVOp] supports the following type combinations:
+//   - A: CUDA_R_32F; X/Y/Z/computeType: CUDA_R_32F
+//   - A: CUDA_R_32F; X/Y/Z/computeType: CUDA_R_64F
+//   - A: CUDA_R_64F; X/Y/Z/computeType: CUDA_R_64F
+//
 // [Handle.SpMVOp] supports the following algorithms:
+//   - CUSPARSE_SPMVOP_ALG_DEFAULT: Default algorithm; currently equivalent to CUSPARSE_SPMVOP_ALG1.
+//   - CUSPARSE_SPMVOP_ALG1: Deterministic algorithm. Supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan, either in-place or via [SpMatDescr.CsrSetPointers].
+//   - CUSPARSE_SPMVOP_ALG2: Alternative deterministic algorithm. Compared to CUSPARSE_SPMVOP_ALG1, it may offer higher performance at the cost of significantly more buffer usage and more expensive preprocessing in [Handle.SpMVOpCreateDescr]. Does not support updating the values of matA between calls without rebuilding the descriptor and the execution plan.
+//
 // The function [Handle.SpMVOpBufferSize] returns the size of the workspace needed by [Handle.SpMVOpCreateDescr] and [Handle.SpMVOp]. Currently, it accepts NULL for vecX, vecY and vecZ.
 // The function [Handle.SpMVOpCreateDescr] prepares the internal data represented by the descriptor which is needed by [Handle.SpMVOpCreatePlan] and [Handle.SpMVOp]. The passed-in device buffer must remain valid and unmodified until the associated descriptor is destroyed. It supports passing dummy vecX, vecY and vecZ objects, as long as their data type attributes are valid. Other attributes are ignored during the descriptor creation. If epilogueLTOBuffer is NULL or epilogueLTOBufferSize is 0, the built-in default epilogue will be employed without Link-Time-Optimization (LTO):
 // The function [Handle.SpMVOpCreatePlan] takes in the descriptor and the LTO-IR of the custom epilogue, and returns the execution plan. The same descriptor can be used to create multiple execution plans, each with its own epilogue and epilogue auxiliary data. A caching system is employed to avoid redundant JIT compilation: plans compiled from identical LTO-IR (same epilogueLTOBuffer content and epilogueLTOBufferSize) share a single CUmodule.
 // The function [Handle.SpMVOpSetGlobalUserData] copies epilogueDataSize bytes from the host buffer epilogueData to the device __device__ or __constant__ variable named epilogueDataName in the compiled epilogue module. epilogueDataName must match the symbol name of the variable as declared in the epilogue device code. The invocation is optional; it should be called only if the epilogue requires auxiliary data. It can be invoked repeatedly before [Handle.SpMVOp] to update the auxiliary data. As a consequence of the plan caching, calling [Handle.SpMVOpSetGlobalUserData] affects every plan that links to the same compiled epilogue, not only the plan passed as argument. If multiple plans share the same LTO-IR but require different runtime constant values, the caller is responsible for serializing each [Handle.SpMVOpSetGlobalUserData] + [Handle.SpMVOp] pair so that each plan’s constants are current at the time it executes.
 // [Handle.SpMVOp] has the following properties:
-// See [Result] for the description of the return status.
+//   - It supports a customizable epilogue function, enabling users to apply additional elementwise and more complex operations to the output vector.
+//   - It provides improved numerical accuracy than [Handle.SpMV] due to the fact that accumulation is partially performed using Kahan’s summation.
+//   - The routine produces deterministic (bit-wise) results for each run, assuming that the epilogue function is deterministic.
+//   - In general, it is significantly faster than [Handle.SpMV] with the deterministic algorithm [SpmvCsrALG2], at the cost of more buffer usage.
+//   - CUSPARSE_SPMVOP_ALG1 (and CUSPARSE_SPMVOP_ALG_DEFAULT) supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan. The updated values can be provided in-place (by modifying the device memory previously registered in the matrix descriptor) or by calling [SpMatDescr.CsrSetPointers] with the new value pointer before each [Handle.SpMVOp] call.
+//   - The routine supports asynchronous execution.
+//   - The routine allows the indices of matA to be unsorted.
+//   - It supports CUDA graph capture optimizations.
+//
 // Please visit cuSPARSE Library Samples - [Handle.SpMVOp] for a code example.
 //
-//   - plan: Opaque descriptor for storing the multiplication execution plan,namely all the information necessary to execute [Handle.SpMVOp]
+//   - plan: Opaque descriptor for storing the multiplication execution plan, namely all the information necessary to execute [Handle.SpMVOp]
 //
 // Wraps cusparseSpMVOpCreatePlan, bound as cusparseSpMVOp_createPlan.
 func (h Handle) SpMVOpCreatePlan(desc SpMVOpDescr, code uintptr, codeSize uint) (SpMVOpPlan, error) {
@@ -724,20 +1318,46 @@ func (h Handle) SpMVOpCreatePlan(desc SpMVOpDescr, code uintptr, codeSize uint) 
 //
 // It performs the multiplication of a sparse matrix matA and a dense vector vecX.
 // This function is experimental.
-// Zᵢ=epilogue(α∑k(op(Aᵢₖ)⋅Xₖ)+βYᵢ)
+// Zᵢ=epilogue(α∑_(k)(op(Aᵢₖ)⋅Xₖ)+βYᵢ)
 // where
+//   - op(A) is a sparse matrix of size m×k
+//   - X is a dense vector of size k
+//   - Y is a dense vector of size m
+//   - Z is a dense vector of size m. It is allowed to alias Y.
+//   - α and β are scalars
+//   - epilogue is a custom function with the following signature
+//
 // [Handle.SpMVOp] supports sparse format [FormatCsr] and opA=[OperationNonTranspose]. The following index type combinations are supported:
+//   - csrRowOffsetsType: [Index32I]; csrColIndType: [Index32I]
+//   - csrRowOffsetsType: [Index64I]; csrColIndType: [Index32I]
+//
 // [Handle.SpMVOp] supports the following type combinations:
+//   - A: CUDA_R_32F; X/Y/Z/computeType: CUDA_R_32F
+//   - A: CUDA_R_32F; X/Y/Z/computeType: CUDA_R_64F
+//   - A: CUDA_R_64F; X/Y/Z/computeType: CUDA_R_64F
+//
 // [Handle.SpMVOp] supports the following algorithms:
+//   - CUSPARSE_SPMVOP_ALG_DEFAULT: Default algorithm; currently equivalent to CUSPARSE_SPMVOP_ALG1.
+//   - CUSPARSE_SPMVOP_ALG1: Deterministic algorithm. Supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan, either in-place or via [SpMatDescr.CsrSetPointers].
+//   - CUSPARSE_SPMVOP_ALG2: Alternative deterministic algorithm. Compared to CUSPARSE_SPMVOP_ALG1, it may offer higher performance at the cost of significantly more buffer usage and more expensive preprocessing in [Handle.SpMVOpCreateDescr]. Does not support updating the values of matA between calls without rebuilding the descriptor and the execution plan.
+//
 // The function [Handle.SpMVOpBufferSize] returns the size of the workspace needed by [Handle.SpMVOpCreateDescr] and [Handle.SpMVOp]. Currently, it accepts NULL for vecX, vecY and vecZ.
 // The function [Handle.SpMVOpCreateDescr] prepares the internal data represented by the descriptor which is needed by [Handle.SpMVOpCreatePlan] and [Handle.SpMVOp]. The passed-in device buffer must remain valid and unmodified until the associated descriptor is destroyed. It supports passing dummy vecX, vecY and vecZ objects, as long as their data type attributes are valid. Other attributes are ignored during the descriptor creation. If epilogueLTOBuffer is NULL or epilogueLTOBufferSize is 0, the built-in default epilogue will be employed without Link-Time-Optimization (LTO):
 // The function [Handle.SpMVOpCreatePlan] takes in the descriptor and the LTO-IR of the custom epilogue, and returns the execution plan. The same descriptor can be used to create multiple execution plans, each with its own epilogue and epilogue auxiliary data. A caching system is employed to avoid redundant JIT compilation: plans compiled from identical LTO-IR (same epilogueLTOBuffer content and epilogueLTOBufferSize) share a single CUmodule.
 // The function [Handle.SpMVOpSetGlobalUserData] copies epilogueDataSize bytes from the host buffer epilogueData to the device __device__ or __constant__ variable named epilogueDataName in the compiled epilogue module. epilogueDataName must match the symbol name of the variable as declared in the epilogue device code. The invocation is optional; it should be called only if the epilogue requires auxiliary data. It can be invoked repeatedly before [Handle.SpMVOp] to update the auxiliary data. As a consequence of the plan caching, calling [Handle.SpMVOpSetGlobalUserData] affects every plan that links to the same compiled epilogue, not only the plan passed as argument. If multiple plans share the same LTO-IR but require different runtime constant values, the caller is responsible for serializing each [Handle.SpMVOpSetGlobalUserData] + [Handle.SpMVOp] pair so that each plan’s constants are current at the time it executes.
 // [Handle.SpMVOp] has the following properties:
-// See [Result] for the description of the return status.
+//   - It supports a customizable epilogue function, enabling users to apply additional elementwise and more complex operations to the output vector.
+//   - It provides improved numerical accuracy than [Handle.SpMV] due to the fact that accumulation is partially performed using Kahan’s summation.
+//   - The routine produces deterministic (bit-wise) results for each run, assuming that the epilogue function is deterministic.
+//   - In general, it is significantly faster than [Handle.SpMV] with the deterministic algorithm [SpmvCsrALG2], at the cost of more buffer usage.
+//   - CUSPARSE_SPMVOP_ALG1 (and CUSPARSE_SPMVOP_ALG_DEFAULT) supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan. The updated values can be provided in-place (by modifying the device memory previously registered in the matrix descriptor) or by calling [SpMatDescr.CsrSetPointers] with the new value pointer before each [Handle.SpMVOp] call.
+//   - The routine supports asynchronous execution.
+//   - The routine allows the indices of matA to be unsorted.
+//   - It supports CUDA graph capture optimizations.
+//
 // Please visit cuSPARSE Library Samples - [Handle.SpMVOp] for a code example.
 //
-//   - plan: Opaque descriptor for storing the multiplication execution plan,namely all the information necessary to execute [Handle.SpMVOp]
+//   - plan: Opaque descriptor for storing the multiplication execution plan, namely all the information necessary to execute [Handle.SpMVOp]
 //
 // Wraps cusparseSpMVOpSetGlobalUserData, bound as cusparseSpMVOp_setGlobalUserData.
 func (h Handle) SpMVOpSetGlobalUserData(plan SpMVOpPlan, globalDataName *byte, inputData uintptr, dataSize uint) error {
@@ -748,39 +1368,89 @@ func (h Handle) SpMVOpSetGlobalUserData(plan SpMVOpPlan, globalDataName *byte, i
 //
 // [Handle.SpMV] performs the multiplication of a sparse matrix matA and a dense vector vecX.
 // Y=αop(A)⋅X+βY, where
+//   - op(A) is a sparse matrix of size m×k
+//   - X is a dense vector of size k
+//   - Y is a dense vector of size m
+//   - α and β are scalars
+//
 // Also, for matrix A: op(A) = A if opA == [OperationNonTranspose], op(A) = Aᵀ if opA == [OperationTranspose], and op(A) = Aᴴ if opA == [OperationConjugateTranspose].
 // The function [Handle.SpMVBufferSize] returns the size of the workspace needed by [Handle.SpMVPreprocess] and [Handle.SpMV]
 // The sparse matrix formats currently supported are listed below:
+//   - [FormatCoo]
+//   - [FormatCsr]
+//   - [FormatCsc]
+//   - [FormatBsr]
+//   - CUSPARSE_FORMAT_SLICED_ELL
+//
 // [Handle.SpMV] supports the following index type for representing the sparse matrix matA:
+//   - 32-bit indices ( [Index32I])
+//   - 64-bit indices ( [Index64I])
+//
 // [Handle.SpMV] supports the following data types:
 // Uniform-precision computation:
+//   - A/X/Y/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_32F, CUDA_C_64F
+//
 // Mixed-precision computation:
+//   - A/X: CUDA_R_8I; Y: CUDA_R_32I; computeType: CUDA_R_32I
+//   - A/X: CUDA_R_8I; Y: CUDA_R_32F; computeType: CUDA_R_32F
+//   - A/X: CUDA_R_16F; Y: CUDA_R_32F; computeType: CUDA_R_32F
+//   - A/X: CUDA_R_16BF; Y: CUDA_R_32F; computeType: CUDA_R_32F
+//   - A/X: CUDA_R_16F; Y: CUDA_R_16F; computeType: CUDA_R_32F
+//   - A/X: CUDA_R_16BF; Y: CUDA_R_16BF; computeType: CUDA_R_32F
+//   - A/X: CUDA_C_32F; Y: CUDA_C_32F; computeType: CUDA_C_32F
+//   - A/X: CUDA_C_16F; Y: CUDA_C_16F; computeType: CUDA_C_32F; Notes: DEPRECATED
+//   - A/X: CUDA_C_16BF; Y: CUDA_C_16BF; computeType: CUDA_C_32F; Notes: DEPRECATED
+//   - A: CUDA_R_32F; X/Y/computeType: CUDA_R_64F
+//
 // Mixed Regular/Complex computation:
+//   - A: CUDA_R_32F; X/Y/computeType: CUDA_C_32F
+//   - A: CUDA_R_64F; X/Y/computeType: CUDA_C_64F
+//
 // NOTE: CUDA_R_16F, CUDA_R_16BF, CUDA_C_16F, and CUDA_C_16BF data types always imply mixed-precision computation.
 // [Handle.SpMV] supports the following algorithms:
+//   - [SpmvAlgDefault]: Default algorithm for any sparse matrix format.
+//   - [SpmvCooALG1]: Default algorithm for COO sparse matrix format. May produce slightly different results during different runs with the same input parameters.
+//   - [SpmvCooALG2]: Provides deterministic (bit-wise) results for each run. If opA != [OperationNonTranspose], it is identical to [SpmvCooALG1].
+//   - [SpmvCsrALG1]: Default algorithm for CSR/CSC sparse matrix format. May produce slightly different results during different runs with the same input parameters.
+//   - [SpmvCsrALG2]: Provides deterministic (bit-wise) results for each run. If opA != [OperationNonTranspose], it is identical to [SpmvCsrALG1].
+//   - [SpmvSellALG1]: Default algorithm for Sliced Ellpack sparse matrix format. Provides deterministic (bit-wise) results for each run.
+//   - [SpmvBsrALG1]: Default algorithm for BSR sparse matrix format. Provides deterministic (bit-wise) results for each run. Supports only opA == [OperationNonTranspose]. Supports both row-major and column-major block layouts in A.
+//
 // Calling [Handle.SpMVPreprocess] is optional. It may accelerate subsequent calls to [Handle.SpMV]. It is useful when [Handle.SpMV] is called multiple times with the same sparsity pattern ( matA).
 // Calling [Handle.SpMVPreprocess] with buffer makes that buffer “active” for matA [Handle.SpMV] calls. Subsequent calls to [Handle.SpMV] with matA and the active buffer must use the same values for all parameters as the call to [Handle.SpMVPreprocess]. The exceptions are: alpha, beta, vecX, vecY, and the values (but not indices) of matA may be different. Importantly, the buffer contents must be unmodified since the call to [Handle.SpMVPreprocess]. When [Handle.SpMV] is called with matA and its active buffer, it may read acceleration data from the buffer.
 // Calling [Handle.SpMVPreprocess] again with matA and a new buffer will make the new buffer active, forgetting about the previously-active buffer and making it inactive. For [Handle.SpMV], there can only be one active buffer per sparse matrix at a time. To get the effect of multiple active buffers for a single sparse matrix, create multiple matrix handles that all point to the same index and value buffers, and call [Handle.SpMVPreprocess] once per handle with different workspace buffers.
 // Calling [Handle.SpMV] with an inactive buffer is always permitted. However, there may be no acceleration from the preprocessing in that case.
 // For the purposes of thread safety, [Handle.SpMVPreprocess] is writing to matA internal state.
 // Performance notes:
+//   - [SpmvCooALG1] and [SpmvCsrALG1] provide higher performance than [SpmvCooALG2] and [SpmvCsrALG2].
+//   - In general, opA == [OperationNonTranspose] is 3x faster than opA != [OperationNonTranspose].
+//   - Using [Handle.SpMVPreprocess] helps improve performance of [Handle.SpMV] in CSR. It is beneficial when we need to run [Handle.SpMV] multiple times with a same matrix ( [Handle.SpMVPreprocess] is executed only once).
+//
 // [Handle.SpMV] has the following properties:
+//   - The routine requires extra storage for CSR/CSC format (all algorithms) and for COO format with [SpmvCooALG2] algorithm.
+//   - Provides deterministic (bit-wise) results for each run only for [SpmvCooALG2], [SpmvCsrALG2] and [SpmvBsrALG1] algorithms, and opA == [OperationNonTranspose].
+//   - The routine supports asynchronous execution.
+//   - compute-sanitizer could report false race conditions for this routine when beta == 0. This is for optimization purposes and does not affect the correctness of the computation.
+//   - The routine allows the indices of matA to be unsorted.
+//
 // [Handle.SpMV] supports the following optimizations:
-// See [Result] for the description of the return status.
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
 // Please visit cuSPARSE Library Samples - [Handle.SpMV] CSR and [Handle.SpMV] COO for a code example.
 //
 //   - opA: Operation op(A)
-//   - alpha: α scalar used for multiplication of type computeType
+//   - alpha: α scalar used for multiplication of type computeType. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matA: Sparse matrix A
 //   - vecX: Dense vector X
-//   - beta: β scalar used for multiplication of type computeType
+//   - beta: β scalar used for multiplication of type computeType. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - vecY: Dense vector Y
 //   - computeType: Datatype in which the computation is executed
 //   - alg: Algorithm for the computation
 //   - externalBuffer: Pointer to a workspace buffer of at least bufferSize bytes
 //
 // Wraps cusparseSpMVPreprocess, bound as cusparseSpMV_preprocess.
-func (h Handle) SpMVPreprocess(opA Operation, alpha uintptr, matA ConstSpMatDescr, vecX ConstDnVecDescr, beta uintptr, vecY DnVecDescr, computeType DataType, alg SpMVAlg, externalBuffer driver.DevicePtr) error {
+func (h Handle) SpMVPreprocess(opA Operation, alpha Scalar, matA ConstSpMatDescr, vecX ConstDnVecDescr, beta Scalar, vecY DnVecDescr, computeType DataType, alg SpMVAlg, externalBuffer driver.DevicePtr) error {
 	return spMVPreprocess(h, opA, alpha, matA, vecX, beta, vecY, computeType, alg, externalBuffer)
 }
 
@@ -788,6 +1458,11 @@ func (h Handle) SpMVPreprocess(opA Operation, alpha uintptr, matA ConstSpMatDesc
 //
 // op(A)⋅C=αop(B)
 // where
+//   - op(A) is a sparse square matrix of size m×m
+//   - op(B) is a dense matrix of size m×n
+//   - C is a dense matrix of size m×n
+//   - α is a scalar
+//
 // Also, for matrix A: op(A) = A if opA == [OperationNonTranspose], op(A) = Aᵀ if opA == [OperationTranspose], and op(A) = Aᴴ if opA == [OperationConjugateTranspose]; op(B) = B if opB == [OperationNonTranspose], and op(B) = Bᵀ if opB == [OperationTranspose].
 // The function [Handle.SpSMBufferSize] returns the size of the workspace needed by [Handle.SpSMAnalysis] and [Handle.SpSMSolve]. The function [Handle.SpSMAnalysis] performs the analysis phase, while [Handle.SpSMSolve] executes the solve phase for a sparse triangular linear system. The opaque data structure spsmDescr is used to share information among all functions. The function [Handle.SpSMUpdateMatrix] updates spsmDescr with new matrix values.
 // The routine supports arbitrary sparsity for the input matrix, but only the upper or lower triangular part is taken into account in the computation.
@@ -795,21 +1470,47 @@ func (h Handle) SpMVPreprocess(opA Operation, alpha uintptr, matA ConstSpMatDesc
 // The externalBuffer is stored into spsmDescr and used by [Handle.SpSMSolve]. For this reason, the device memory buffer must be deallocated only after [Handle.SpSMSolve]
 // NOTE: all parameters must be consistent across cusparseSpSM API calls and the matrix descriptions and externalBuffer must not be modified between [Handle.SpSMAnalysis] and [Handle.SpSMSolve]
 // The sparse matrix formats currently supported are listed below:
+//   - [FormatCsr]
+//   - [FormatCsc]
+//   - [FormatCoo]
+//
 // The cusparseSpSM() supports the following shapes and properties:
+//   - [FillModeLower] and [FillModeUpper] fill modes
+//   - [DiagTypeNonUnit] and [DiagTypeUnit] diagonal types
+//
 // The fill mode and diagonal type can be set by [SpMatDescr.MatSetAttribute].
 // cusparseSpSM() supports the following index type for representing the sparse matrix matA:
+//   - 32-bit indices ( [Index32I])
+//   - 64-bit indices ( [Index64I])
+//
 // cusparseSpSM() supports the following data types:
 // Uniform-precision computation:
+//   - A/B/C/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_32F, CUDA_C_64F
+//
 // cusparseSpSM() supports the following algorithms:
+//   - [SpsmAlgDefault]: Default algorithm
+//
 // cusparseSpSM() has the following properties:
+//   - The routine requires no extra storage
+//   - Provides deterministic (bit-wise) results for each run for the solving phase [Handle.SpSMSolve]
+//   - The [Handle.SpSMSolve] routine supports asynchronous execution
+//   - The routine supports in-place operation. The same device pointer must be provided to the values parameter of the dense matrices matB and matC. All other dense matrix descriptor parameters (e.g., order) can be set independently
+//   - [Handle.SpSMBufferSize] and [Handle.SpSMAnalysis] routines accept descriptors of NULL values for matB and matC. These two routines do not accept NULL descriptors
+//   - The routine allows the indices of matA to be unsorted
+//
 // cusparseSpSM() supports the following optimizations:
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
 // [Handle.SpSMUpdateMatrix] updates the sparse matrix after calling the analysis phase. This functions supports the following update strategies ( updatePart):
-// See [Result] for the description of the return status.
+//   - [SpsmUpdateGeneral]: Updates the sparse matrix values with values of newValues array
+//   - [SpsmUpdateDiagonal]: Updates the diagonal part of the matrix with diagonal values stored in newValues array. That is, newValues has the new diagonal values only
+//
 // Please visit cuSPARSE Library Samples - cusparseSpSM CSR and cuSPARSE Library Samples - cusparseSpSM COO for code examples.
 //
 //   - opA: Operation op(A)
 //   - opB: Operation op(B)
-//   - alpha: α scalar used for multiplication of type computeType
+//   - alpha: α scalar used for multiplication of type computeType. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matA: Sparse matrix A
 //   - matB: Dense matrix B
 //   - matC: Dense matrix C
@@ -819,7 +1520,7 @@ func (h Handle) SpMVPreprocess(opA Operation, alpha uintptr, matA ConstSpMatDesc
 //   - externalBuffer: Pointer to a workspace buffer of at least bufferSize bytes. It is used by [Handle.SpSMAnalysis] and [Handle.SpSMSolve]
 //
 // Wraps cusparseSpSMAnalysis, bound as cusparseSpSM_analysis.
-func (h Handle) SpSMAnalysis(opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstDnMatDescr, matC DnMatDescr, computeType DataType, alg SpSMAlg, spsmDescr SpSMDescr, externalBuffer driver.DevicePtr) error {
+func (h Handle) SpSMAnalysis(opA Operation, opB Operation, alpha Scalar, matA ConstSpMatDescr, matB ConstDnMatDescr, matC DnMatDescr, computeType DataType, alg SpSMAlg, spsmDescr SpSMDescr, externalBuffer driver.DevicePtr) error {
 	return spSMAnalysis(h, opA, opB, alpha, matA, matB, matC, computeType, alg, spsmDescr, externalBuffer)
 }
 
@@ -827,7 +1528,7 @@ func (h Handle) SpSMAnalysis(opA Operation, opB Operation, alpha uintptr, matA C
 //
 //   - opA: Operation op(A)
 //   - opB: Operation op(B)
-//   - alpha: α scalar used for multiplication of type computeType
+//   - alpha: α scalar used for multiplication of type computeType. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matA: Sparse matrix A
 //   - matB: Dense matrix B
 //   - matC: Dense matrix C
@@ -837,7 +1538,7 @@ func (h Handle) SpSMAnalysis(opA Operation, opB Operation, alpha uintptr, matA C
 //   - bufferSize: Workspace size
 //
 // Wraps cusparseSpSMBufferSize, bound as cusparseSpSM_bufferSize.
-func (h Handle) SpSMBufferSize(opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstDnMatDescr, matC DnMatDescr, computeType DataType, alg SpSMAlg, spsmDescr SpSMDescr) (uint, error) {
+func (h Handle) SpSMBufferSize(opA Operation, opB Operation, alpha Scalar, matA ConstSpMatDescr, matB ConstDnMatDescr, matC DnMatDescr, computeType DataType, alg SpSMAlg, spsmDescr SpSMDescr) (uint, error) {
 	return spSMBufferSize(h, opA, opB, alpha, matA, matB, matC, computeType, alg, spsmDescr)
 }
 
@@ -845,6 +1546,11 @@ func (h Handle) SpSMBufferSize(opA Operation, opB Operation, alpha uintptr, matA
 //
 // op(A)⋅C=αop(B)
 // where
+//   - op(A) is a sparse square matrix of size m×m
+//   - op(B) is a dense matrix of size m×n
+//   - C is a dense matrix of size m×n
+//   - α is a scalar
+//
 // Also, for matrix A: op(A) = A if opA == [OperationNonTranspose], op(A) = Aᵀ if opA == [OperationTranspose], and op(A) = Aᴴ if opA == [OperationConjugateTranspose]; op(B) = B if opB == [OperationNonTranspose], and op(B) = Bᵀ if opB == [OperationTranspose].
 // The function [Handle.SpSMBufferSize] returns the size of the workspace needed by [Handle.SpSMAnalysis] and [Handle.SpSMSolve]. The function [Handle.SpSMAnalysis] performs the analysis phase, while [Handle.SpSMSolve] executes the solve phase for a sparse triangular linear system. The opaque data structure spsmDescr is used to share information among all functions. The function [Handle.SpSMUpdateMatrix] updates spsmDescr with new matrix values.
 // The routine supports arbitrary sparsity for the input matrix, but only the upper or lower triangular part is taken into account in the computation.
@@ -852,21 +1558,47 @@ func (h Handle) SpSMBufferSize(opA Operation, opB Operation, alpha uintptr, matA
 // The externalBuffer is stored into spsmDescr and used by [Handle.SpSMSolve]. For this reason, the device memory buffer must be deallocated only after [Handle.SpSMSolve]
 // NOTE: all parameters must be consistent across cusparseSpSM API calls and the matrix descriptions and externalBuffer must not be modified between [Handle.SpSMAnalysis] and [Handle.SpSMSolve]
 // The sparse matrix formats currently supported are listed below:
+//   - [FormatCsr]
+//   - [FormatCsc]
+//   - [FormatCoo]
+//
 // The cusparseSpSM() supports the following shapes and properties:
+//   - [FillModeLower] and [FillModeUpper] fill modes
+//   - [DiagTypeNonUnit] and [DiagTypeUnit] diagonal types
+//
 // The fill mode and diagonal type can be set by [SpMatDescr.MatSetAttribute].
 // cusparseSpSM() supports the following index type for representing the sparse matrix matA:
+//   - 32-bit indices ( [Index32I])
+//   - 64-bit indices ( [Index64I])
+//
 // cusparseSpSM() supports the following data types:
 // Uniform-precision computation:
+//   - A/B/C/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_32F, CUDA_C_64F
+//
 // cusparseSpSM() supports the following algorithms:
+//   - [SpsmAlgDefault]: Default algorithm
+//
 // cusparseSpSM() has the following properties:
+//   - The routine requires no extra storage
+//   - Provides deterministic (bit-wise) results for each run for the solving phase [Handle.SpSMSolve]
+//   - The [Handle.SpSMSolve] routine supports asynchronous execution
+//   - The routine supports in-place operation. The same device pointer must be provided to the values parameter of the dense matrices matB and matC. All other dense matrix descriptor parameters (e.g., order) can be set independently
+//   - [Handle.SpSMBufferSize] and [Handle.SpSMAnalysis] routines accept descriptors of NULL values for matB and matC. These two routines do not accept NULL descriptors
+//   - The routine allows the indices of matA to be unsorted
+//
 // cusparseSpSM() supports the following optimizations:
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
 // [Handle.SpSMUpdateMatrix] updates the sparse matrix after calling the analysis phase. This functions supports the following update strategies ( updatePart):
-// See [Result] for the description of the return status.
+//   - [SpsmUpdateGeneral]: Updates the sparse matrix values with values of newValues array
+//   - [SpsmUpdateDiagonal]: Updates the diagonal part of the matrix with diagonal values stored in newValues array. That is, newValues has the new diagonal values only
+//
 // Please visit cuSPARSE Library Samples - cusparseSpSM CSR and cuSPARSE Library Samples - cusparseSpSM COO for code examples.
 //
 //   - opA: Operation op(A)
 //   - opB: Operation op(B)
-//   - alpha: α scalar used for multiplication of type computeType
+//   - alpha: α scalar used for multiplication of type computeType. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matA: Sparse matrix A
 //   - matB: Dense matrix B
 //   - matC: Dense matrix C
@@ -875,7 +1607,7 @@ func (h Handle) SpSMBufferSize(opA Operation, opB Operation, alpha uintptr, matA
 //   - spsmDescr: Opaque descriptor for storing internal data used across the three steps
 //
 // Wraps cusparseSpSMSolve, bound as cusparseSpSM_solve.
-func (h Handle) SpSMSolve(opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstDnMatDescr, matC DnMatDescr, computeType DataType, alg SpSMAlg, spsmDescr SpSMDescr) error {
+func (h Handle) SpSMSolve(opA Operation, opB Operation, alpha Scalar, matA ConstSpMatDescr, matB ConstDnMatDescr, matC DnMatDescr, computeType DataType, alg SpSMAlg, spsmDescr SpSMDescr) error {
 	return spSMSolve(h, opA, opB, alpha, matA, matB, matC, computeType, alg, spsmDescr)
 }
 
@@ -883,6 +1615,11 @@ func (h Handle) SpSMSolve(opA Operation, opB Operation, alpha uintptr, matA Cons
 //
 // op(A)⋅C=αop(B)
 // where
+//   - op(A) is a sparse square matrix of size m×m
+//   - op(B) is a dense matrix of size m×n
+//   - C is a dense matrix of size m×n
+//   - α is a scalar
+//
 // Also, for matrix A: op(A) = A if opA == [OperationNonTranspose], op(A) = Aᵀ if opA == [OperationTranspose], and op(A) = Aᴴ if opA == [OperationConjugateTranspose]; op(B) = B if opB == [OperationNonTranspose], and op(B) = Bᵀ if opB == [OperationTranspose].
 // The function [Handle.SpSMBufferSize] returns the size of the workspace needed by [Handle.SpSMAnalysis] and [Handle.SpSMSolve]. The function [Handle.SpSMAnalysis] performs the analysis phase, while [Handle.SpSMSolve] executes the solve phase for a sparse triangular linear system. The opaque data structure spsmDescr is used to share information among all functions. The function [Handle.SpSMUpdateMatrix] updates spsmDescr with new matrix values.
 // The routine supports arbitrary sparsity for the input matrix, but only the upper or lower triangular part is taken into account in the computation.
@@ -890,16 +1627,42 @@ func (h Handle) SpSMSolve(opA Operation, opB Operation, alpha uintptr, matA Cons
 // The externalBuffer is stored into spsmDescr and used by [Handle.SpSMSolve]. For this reason, the device memory buffer must be deallocated only after [Handle.SpSMSolve]
 // NOTE: all parameters must be consistent across cusparseSpSM API calls and the matrix descriptions and externalBuffer must not be modified between [Handle.SpSMAnalysis] and [Handle.SpSMSolve]
 // The sparse matrix formats currently supported are listed below:
+//   - [FormatCsr]
+//   - [FormatCsc]
+//   - [FormatCoo]
+//
 // The cusparseSpSM() supports the following shapes and properties:
+//   - [FillModeLower] and [FillModeUpper] fill modes
+//   - [DiagTypeNonUnit] and [DiagTypeUnit] diagonal types
+//
 // The fill mode and diagonal type can be set by [SpMatDescr.MatSetAttribute].
 // cusparseSpSM() supports the following index type for representing the sparse matrix matA:
+//   - 32-bit indices ( [Index32I])
+//   - 64-bit indices ( [Index64I])
+//
 // cusparseSpSM() supports the following data types:
 // Uniform-precision computation:
+//   - A/B/C/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_32F, CUDA_C_64F
+//
 // cusparseSpSM() supports the following algorithms:
+//   - [SpsmAlgDefault]: Default algorithm
+//
 // cusparseSpSM() has the following properties:
+//   - The routine requires no extra storage
+//   - Provides deterministic (bit-wise) results for each run for the solving phase [Handle.SpSMSolve]
+//   - The [Handle.SpSMSolve] routine supports asynchronous execution
+//   - The routine supports in-place operation. The same device pointer must be provided to the values parameter of the dense matrices matB and matC. All other dense matrix descriptor parameters (e.g., order) can be set independently
+//   - [Handle.SpSMBufferSize] and [Handle.SpSMAnalysis] routines accept descriptors of NULL values for matB and matC. These two routines do not accept NULL descriptors
+//   - The routine allows the indices of matA to be unsorted
+//
 // cusparseSpSM() supports the following optimizations:
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
 // [Handle.SpSMUpdateMatrix] updates the sparse matrix after calling the analysis phase. This functions supports the following update strategies ( updatePart):
-// See [Result] for the description of the return status.
+//   - [SpsmUpdateGeneral]: Updates the sparse matrix values with values of newValues array
+//   - [SpsmUpdateDiagonal]: Updates the diagonal part of the matrix with diagonal values stored in newValues array. That is, newValues has the new diagonal values only
+//
 // Please visit cuSPARSE Library Samples - cusparseSpSM CSR and cuSPARSE Library Samples - cusparseSpSM COO for code examples.
 //
 //   - spsmDescr: Opaque descriptor for storing internal data used across the three steps
@@ -913,25 +1676,57 @@ func (h Handle) SpSMUpdateMatrix(spsmDescr SpSMDescr, newValues driver.DevicePtr
 //
 // op(A)⋅Y=αX
 // where
+//   - op(A) is a sparse square matrix of size m×m
+//   - X is a dense vector of size m
+//   - Y is a dense vector of size m
+//   - α is a scalar
+//
 // Also, for matrix A: op(A) = A if opA == [OperationNonTranspose], op(A) = Aᵀ if opA == [OperationTranspose], and op(A) = Aᴴ if opA == [OperationConjugateTranspose].
 // The function [Handle.SpSVBufferSize] returns the size of the workspace needed by [Handle.SpSVAnalysis] and [Handle.SpSVSolve]. The function [Handle.SpSVAnalysis] performs the analysis phase, while [Handle.SpSVSolve] executes the solve phase for a sparse triangular linear system. The opaque data structure spsvDescr is used to share information among all functions. The function [Handle.SpSVUpdateMatrix] updates spsvDescr with new matrix values.
 // The routine supports arbitrary sparsity for the input matrix, but only the upper or lower triangular part is taken into account in the computation.
 // NOTE: all parameters must be consistent across cusparseSpSV API calls and the matrix descriptions and externalBuffer must not be modified between [Handle.SpSVAnalysis] and [Handle.SpSVSolve]. The function [Handle.SpSVUpdateMatrix] can be used to update the values on the sparse matrix stored inside the opaque data structure spsvDescr
 // The sparse matrix formats currently supported are listed below:
+//   - [FormatCsr]
+//   - [FormatCsc]
+//   - [FormatCoo]
+//   - CUSPARSE_FORMAT_SLICED_ELL
+//
 // The cusparseSpSV() supports the following shapes and properties:
+//   - [FillModeLower] and [FillModeUpper] fill modes
+//   - [DiagTypeNonUnit] and [DiagTypeUnit] diagonal types
+//
 // The fill mode and diagonal type can be set by [SpMatDescr.MatSetAttribute].
 // cusparseSpSV() supports the following index type for representing the sparse matrix matA:
+//   - 32-bit indices ( [Index32I])
+//   - 64-bit indices ( [Index64I])
+//
 // cusparseSpSV() supports the following data types:
 // Uniform-precision computation:
+//   - A/X/Y/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_32F, CUDA_C_64F
+//
 // cusparseSpSV() supports the following algorithms:
+//   - [SpsvAlgDefault]: Default algorithm
+//
 // cusparseSpSV() has the following properties:
+//   - The routine requires extra storage for the analysis phase which is proportional to number of non-zero entries of the sparse matrix
+//   - Provides deterministic (bit-wise) results for each run for the solving phase [Handle.SpSVSolve]
+//   - The routine supports in-place operation
+//   - The [Handle.SpSVSolve] routine supports asynchronous execution
+//   - [Handle.SpSVBufferSize] and [Handle.SpSVAnalysis] routines accept NULL for vecX and vecY
+//   - The routine allows the indices of matA to be unsorted
+//
 // cusparseSpSV() supports the following optimizations:
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
 // [Handle.SpSVUpdateMatrix] updates the sparse matrix after calling the analysis phase. This functions supports the following update strategies ( updatePart):
-// See [Result] for the description of the return status.
+//   - [SpsvUpdateGeneral]: Updates the sparse matrix values with values of newValues array
+//   - [SpsvUpdateDiagonal]: Updates the diagonal part of the matrix with diagonal values stored in newValues array. That is, newValues has the new diagonal values only
+//
 // Please visit cuSPARSE Library Samples - cusparseSpSV CSR and cuSPARSE Library Samples - cusparseSpSV COO for code examples.
 //
 //   - opA: Operation op(A)
-//   - alpha: α scalar used for multiplication of type computeType
+//   - alpha: α scalar used for multiplication of type computeType. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matA: Sparse matrix A
 //   - vecX: Dense vector X
 //   - vecY: Dense vector Y
@@ -941,14 +1736,14 @@ func (h Handle) SpSMUpdateMatrix(spsmDescr SpSMDescr, newValues driver.DevicePtr
 //   - externalBuffer: Pointer to a workspace buffer of at least bufferSize bytes. It is used by [Handle.SpSVAnalysis] and [Handle.SpSVSolve]
 //
 // Wraps cusparseSpSVAnalysis, bound as cusparseSpSV_analysis.
-func (h Handle) SpSVAnalysis(opA Operation, alpha uintptr, matA ConstSpMatDescr, vecX ConstDnVecDescr, vecY DnVecDescr, computeType DataType, alg SpSVAlg, spsvDescr SpSVDescr, externalBuffer driver.DevicePtr) error {
+func (h Handle) SpSVAnalysis(opA Operation, alpha Scalar, matA ConstSpMatDescr, vecX ConstDnVecDescr, vecY DnVecDescr, computeType DataType, alg SpSVAlg, spsvDescr SpSVDescr, externalBuffer driver.DevicePtr) error {
 	return spSVAnalysis(h, opA, alpha, matA, vecX, vecY, computeType, alg, spsvDescr, externalBuffer)
 }
 
 // SpSVBufferSize returns the workspace size for cusparseSpSV.
 //
 //   - opA: Operation op(A)
-//   - alpha: α scalar used for multiplication of type computeType
+//   - alpha: α scalar used for multiplication of type computeType. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matA: Sparse matrix A
 //   - vecX: Dense vector X
 //   - vecY: Dense vector Y
@@ -958,7 +1753,7 @@ func (h Handle) SpSVAnalysis(opA Operation, alpha uintptr, matA ConstSpMatDescr,
 //   - bufferSize: Workspace size
 //
 // Wraps cusparseSpSVBufferSize, bound as cusparseSpSV_bufferSize.
-func (h Handle) SpSVBufferSize(opA Operation, alpha uintptr, matA ConstSpMatDescr, vecX ConstDnVecDescr, vecY DnVecDescr, computeType DataType, alg SpSVAlg, spsvDescr SpSVDescr) (uint, error) {
+func (h Handle) SpSVBufferSize(opA Operation, alpha Scalar, matA ConstSpMatDescr, vecX ConstDnVecDescr, vecY DnVecDescr, computeType DataType, alg SpSVAlg, spsvDescr SpSVDescr) (uint, error) {
 	return spSVBufferSize(h, opA, alpha, matA, vecX, vecY, computeType, alg, spsvDescr)
 }
 
@@ -966,25 +1761,57 @@ func (h Handle) SpSVBufferSize(opA Operation, alpha uintptr, matA ConstSpMatDesc
 //
 // op(A)⋅Y=αX
 // where
+//   - op(A) is a sparse square matrix of size m×m
+//   - X is a dense vector of size m
+//   - Y is a dense vector of size m
+//   - α is a scalar
+//
 // Also, for matrix A: op(A) = A if opA == [OperationNonTranspose], op(A) = Aᵀ if opA == [OperationTranspose], and op(A) = Aᴴ if opA == [OperationConjugateTranspose].
 // The function [Handle.SpSVBufferSize] returns the size of the workspace needed by [Handle.SpSVAnalysis] and [Handle.SpSVSolve]. The function [Handle.SpSVAnalysis] performs the analysis phase, while [Handle.SpSVSolve] executes the solve phase for a sparse triangular linear system. The opaque data structure spsvDescr is used to share information among all functions. The function [Handle.SpSVUpdateMatrix] updates spsvDescr with new matrix values.
 // The routine supports arbitrary sparsity for the input matrix, but only the upper or lower triangular part is taken into account in the computation.
 // NOTE: all parameters must be consistent across cusparseSpSV API calls and the matrix descriptions and externalBuffer must not be modified between [Handle.SpSVAnalysis] and [Handle.SpSVSolve]. The function [Handle.SpSVUpdateMatrix] can be used to update the values on the sparse matrix stored inside the opaque data structure spsvDescr
 // The sparse matrix formats currently supported are listed below:
+//   - [FormatCsr]
+//   - [FormatCsc]
+//   - [FormatCoo]
+//   - CUSPARSE_FORMAT_SLICED_ELL
+//
 // The cusparseSpSV() supports the following shapes and properties:
+//   - [FillModeLower] and [FillModeUpper] fill modes
+//   - [DiagTypeNonUnit] and [DiagTypeUnit] diagonal types
+//
 // The fill mode and diagonal type can be set by [SpMatDescr.MatSetAttribute].
 // cusparseSpSV() supports the following index type for representing the sparse matrix matA:
+//   - 32-bit indices ( [Index32I])
+//   - 64-bit indices ( [Index64I])
+//
 // cusparseSpSV() supports the following data types:
 // Uniform-precision computation:
+//   - A/X/Y/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_32F, CUDA_C_64F
+//
 // cusparseSpSV() supports the following algorithms:
+//   - [SpsvAlgDefault]: Default algorithm
+//
 // cusparseSpSV() has the following properties:
+//   - The routine requires extra storage for the analysis phase which is proportional to number of non-zero entries of the sparse matrix
+//   - Provides deterministic (bit-wise) results for each run for the solving phase [Handle.SpSVSolve]
+//   - The routine supports in-place operation
+//   - The [Handle.SpSVSolve] routine supports asynchronous execution
+//   - [Handle.SpSVBufferSize] and [Handle.SpSVAnalysis] routines accept NULL for vecX and vecY
+//   - The routine allows the indices of matA to be unsorted
+//
 // cusparseSpSV() supports the following optimizations:
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
 // [Handle.SpSVUpdateMatrix] updates the sparse matrix after calling the analysis phase. This functions supports the following update strategies ( updatePart):
-// See [Result] for the description of the return status.
+//   - [SpsvUpdateGeneral]: Updates the sparse matrix values with values of newValues array
+//   - [SpsvUpdateDiagonal]: Updates the diagonal part of the matrix with diagonal values stored in newValues array. That is, newValues has the new diagonal values only
+//
 // Please visit cuSPARSE Library Samples - cusparseSpSV CSR and cuSPARSE Library Samples - cusparseSpSV COO for code examples.
 //
 //   - opA: Operation op(A)
-//   - alpha: α scalar used for multiplication of type computeType
+//   - alpha: α scalar used for multiplication of type computeType. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - matA: Sparse matrix A
 //   - vecX: Dense vector X
 //   - vecY: Dense vector Y
@@ -993,7 +1820,7 @@ func (h Handle) SpSVBufferSize(opA Operation, alpha uintptr, matA ConstSpMatDesc
 //   - spsvDescr: Opaque descriptor for storing internal data used across the three steps
 //
 // Wraps cusparseSpSVSolve, bound as cusparseSpSV_solve.
-func (h Handle) SpSVSolve(opA Operation, alpha uintptr, matA ConstSpMatDescr, vecX ConstDnVecDescr, vecY DnVecDescr, computeType DataType, alg SpSVAlg, spsvDescr SpSVDescr) error {
+func (h Handle) SpSVSolve(opA Operation, alpha Scalar, matA ConstSpMatDescr, vecX ConstDnVecDescr, vecY DnVecDescr, computeType DataType, alg SpSVAlg, spsvDescr SpSVDescr) error {
 	return spSVSolve(h, opA, alpha, matA, vecX, vecY, computeType, alg, spsvDescr)
 }
 
@@ -1001,21 +1828,53 @@ func (h Handle) SpSVSolve(opA Operation, alpha uintptr, matA ConstSpMatDescr, ve
 //
 // op(A)⋅Y=αX
 // where
+//   - op(A) is a sparse square matrix of size m×m
+//   - X is a dense vector of size m
+//   - Y is a dense vector of size m
+//   - α is a scalar
+//
 // Also, for matrix A: op(A) = A if opA == [OperationNonTranspose], op(A) = Aᵀ if opA == [OperationTranspose], and op(A) = Aᴴ if opA == [OperationConjugateTranspose].
 // The function [Handle.SpSVBufferSize] returns the size of the workspace needed by [Handle.SpSVAnalysis] and [Handle.SpSVSolve]. The function [Handle.SpSVAnalysis] performs the analysis phase, while [Handle.SpSVSolve] executes the solve phase for a sparse triangular linear system. The opaque data structure spsvDescr is used to share information among all functions. The function [Handle.SpSVUpdateMatrix] updates spsvDescr with new matrix values.
 // The routine supports arbitrary sparsity for the input matrix, but only the upper or lower triangular part is taken into account in the computation.
 // NOTE: all parameters must be consistent across cusparseSpSV API calls and the matrix descriptions and externalBuffer must not be modified between [Handle.SpSVAnalysis] and [Handle.SpSVSolve]. The function [Handle.SpSVUpdateMatrix] can be used to update the values on the sparse matrix stored inside the opaque data structure spsvDescr
 // The sparse matrix formats currently supported are listed below:
+//   - [FormatCsr]
+//   - [FormatCsc]
+//   - [FormatCoo]
+//   - CUSPARSE_FORMAT_SLICED_ELL
+//
 // The cusparseSpSV() supports the following shapes and properties:
+//   - [FillModeLower] and [FillModeUpper] fill modes
+//   - [DiagTypeNonUnit] and [DiagTypeUnit] diagonal types
+//
 // The fill mode and diagonal type can be set by [SpMatDescr.MatSetAttribute].
 // cusparseSpSV() supports the following index type for representing the sparse matrix matA:
+//   - 32-bit indices ( [Index32I])
+//   - 64-bit indices ( [Index64I])
+//
 // cusparseSpSV() supports the following data types:
 // Uniform-precision computation:
+//   - A/X/Y/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_32F, CUDA_C_64F
+//
 // cusparseSpSV() supports the following algorithms:
+//   - [SpsvAlgDefault]: Default algorithm
+//
 // cusparseSpSV() has the following properties:
+//   - The routine requires extra storage for the analysis phase which is proportional to number of non-zero entries of the sparse matrix
+//   - Provides deterministic (bit-wise) results for each run for the solving phase [Handle.SpSVSolve]
+//   - The routine supports in-place operation
+//   - The [Handle.SpSVSolve] routine supports asynchronous execution
+//   - [Handle.SpSVBufferSize] and [Handle.SpSVAnalysis] routines accept NULL for vecX and vecY
+//   - The routine allows the indices of matA to be unsorted
+//
 // cusparseSpSV() supports the following optimizations:
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
 // [Handle.SpSVUpdateMatrix] updates the sparse matrix after calling the analysis phase. This functions supports the following update strategies ( updatePart):
-// See [Result] for the description of the return status.
+//   - [SpsvUpdateGeneral]: Updates the sparse matrix values with values of newValues array
+//   - [SpsvUpdateDiagonal]: Updates the diagonal part of the matrix with diagonal values stored in newValues array. That is, newValues has the new diagonal values only
+//
 // Please visit cuSPARSE Library Samples - cusparseSpSV CSR and cuSPARSE Library Samples - cusparseSpSV COO for code examples.
 //
 //   - spsvDescr: Opaque descriptor for storing internal data used across the three steps
@@ -1030,11 +1889,25 @@ func (h Handle) SpSVUpdateMatrix(spsvDescr SpSVDescr, newValues driver.DevicePtr
 // Blocked-ELL is not currently supported.
 // The function [Handle.SparseToDenseBufferSize] returns the size of the workspace needed by [Handle.SparseToDense].
 // [Handle.SparseToDense] supports the following index type for representing the sparse matrix matA:
+//   - 32-bit indices ( [Index32I])
+//   - 64-bit indices ( [Index64I])
+//
 // [Handle.SparseToDense] supports the following data types:
+//   - A/B: CUDA_R_8I, CUDA_R_16F, CUDA_R_16BF, CUDA_R_32F, CUDA_R_64F, CUDA_C_16F DEPRECATED, CUDA_C_16BF DEPRECATED, CUDA_C_32F, CUDA_C_64F
+//
 // cusparseSparse2Dense() supports the following algorithm:
+//   - [SparsetodenseAlgDefault]: Default algorithm
+//
 // [Handle.SparseToDense] has the following properties:
+//   - The routine requires no extra storage
+//   - The routine supports asynchronous execution
+//   - Provides deterministic (bit-wise) results for each run
+//   - The routine allows the indices of matA to be unsorted
+//
 // [Handle.SparseToDense] supports the following optimizations:
-// See [Result] for the description of the return status.
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
 // Please visit cuSPARSE Library Samples - [Handle.SparseToDense] for a code example.
 //
 //   - matA: Sparse matrix A
@@ -1061,7 +1934,6 @@ func (h Handle) SparseToDenseBufferSize(matA ConstSpMatDescr, matB DnMatDescr, a
 // Stream gets the cuSPARSE library stream, which is being used to to execute all calls to the cuSPARSE library functions.
 //
 // If the cuSPARSE library stream is not set, all kernels use the default NULL stream.
-// Refer to [Result] for the description of the return status.
 //
 //   - streamId: The stream used by the library
 //
@@ -1071,8 +1943,6 @@ func (h Handle) Stream() (driver.Stream, error) {
 }
 
 // Version returns the version number of the cuSPARSE library.
-//
-// Refer to [Result] for the description of the return status.
 //
 //   - version: The version number of the library
 //

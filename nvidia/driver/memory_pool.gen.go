@@ -11,6 +11,9 @@ package driver
 //
 // See also: [DevicePtr.FreeAsync], [Device.SetMemPool], [Device.MemPool], [Device.DefaultMemPool], [NewMemoryPool]
 //
+// Errors:
+//   - [ErrInvalidValue]
+//
 // Wraps cuMemPoolDestroy.
 func (m MemoryPool) Destroy() error {
 	return memPoolDestroy(m)
@@ -27,6 +30,11 @@ func (m MemoryPool) Destroy() error {
 //   - handleOut: Returned OS handle
 //   - handleType: the type of handle to create
 //   - flags: must be 0
+//
+// Errors:
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrOutOfMemory]
 //
 // Wraps cuMemPoolExportToShareableHandle.
 func (m MemoryPool) ExportToShareableHandle(handleOut uintptr, handleType MemAllocationHandleType, flags uint64) error {
@@ -49,7 +57,23 @@ func (m MemoryPool) Access(location *MemLocation) (MemaccessFlags, error) {
 // Attribute gets attributes of a memory pool.
 //
 // Supported attributes are:
+//   - [MempoolAttrReleaseThreshold]: (value type = cuuint64_t) Amount of reserved memory in bytes to hold onto before trying to release memory back to the OS. When more than the release threshold bytes of memory are held by the memory pool, the allocator will try to release memory back to the OS on the next call to stream, event or context synchronize. (default 0)
+//   - [MempoolAttrReuseFollowEventDependencies]: (value type = int) Allow [Stream.MemAllocAsync] to use memory asynchronously freed in another stream as long as a stream ordering dependency of the allocating stream on the free action exists. Cuda events and null stream interactions can create the required stream ordered dependencies. (default enabled)
+//   - [MempoolAttrReuseAllowOpportunistic]: (value type = int) Allow reuse of already completed frees when there is no dependency between the free and allocation. (default enabled)
+//   - [MempoolAttrReuseAllowInternalDependencies]: (value type = int) Allow [Stream.MemAllocAsync] to insert new stream dependencies in order to establish the stream ordering required to reuse a piece of memory released by [DevicePtr.FreeAsync] (default enabled).
+//   - [MempoolAttrReservedMemCurrent]: (value type = cuuint64_t) Amount of backing memory currently allocated for the mempool
+//   - [MempoolAttrReservedMemHigh]: (value type = cuuint64_t) High watermark of backing memory allocated for the mempool since the last time it was reset.
+//   - [MempoolAttrUsedMemCurrent]: (value type = cuuint64_t) Amount of memory from the pool that is currently in use by the application.
+//   - [MempoolAttrUsedMemHigh]: (value type = cuuint64_t) High watermark of the amount of memory from the pool that was in use by the application.
+//
 // The following properties can be also be queried on imported and default pools:
+//   - [MempoolAttrAllocationType]: (value type = [MemAllocationType]) The allocation type of the mempool
+//   - [MempoolAttrExportHandleTypes]: (value type = [MemAllocationHandleType]) Available export handle types for the mempool. For imported pools this value is always [MemHandleTypeNone] as an imported pool cannot be re-exported
+//   - [MempoolAttrLocationId]: (value type = int) The location id for the mempool. If the location type for this pool is [MemLocationTypeInvisible] then ID will be CU_DEVICE_INVALID.
+//   - [MempoolAttrLocationType]: (value type = [MemLocationType]) The location type for the mempool. For imported memory pools where the device is not directly visible to the importing process or pools imported via fabric handles across nodes this will be [MemLocationTypeInvisible].
+//   - CU_MEMPOOL_ATTR_LOCALITY_DOMAIN_ID: (value type = int) The locality domain id for the mempool, if the mempool is localized to a locality domain. A value of -1 indicates that the mempool is not localized to a locality domain.
+//   - [MempoolAttrMaxPoolSize]: (value type = cuuint64_t) Maximum size of the pool in bytes, this value may be higher than what was initially passed to [NewMemoryPool] due to alignment requirements. A value of 0 indicates no maximum size. For [MemAllocationTypeManaged] and IPC imported pools this value will be system dependent.
+//   - [MempoolAttrHwDecompressEnabled]: (value type = int) Indicates whether the pool has hardware compresssion enabled
 //
 // Note: On devices with a single locality domain, mempools created with CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN and localityDomainId 0 are equivalent to full-device mempools created with [MemLocationTypeDevice]. The value of this attribute will be -1 for such mempools.
 //
@@ -57,6 +81,10 @@ func (m MemoryPool) Access(location *MemLocation) (MemaccessFlags, error) {
 //
 //   - attr: The attribute to get
 //   - value: Retrieved value
+//
+// Errors:
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuMemPoolGetAttribute.
 func (m MemoryPool) Attribute(attr MempoolAttribute, value uintptr) error {
@@ -73,6 +101,11 @@ func (m MemoryPool) Attribute(attr MempoolAttribute, value uintptr) error {
 //
 //   - shareData: data specifying the memory to import
 //
+// Errors:
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrOutOfMemory]
+//
 // Wraps cuMemPoolImportPointer.
 func (m MemoryPool) ImportPointer(shareData *MemPoolPtrExportData) (DevicePtr, error) {
 	return memPoolImportPointer(m, shareData)
@@ -82,7 +115,13 @@ func (m MemoryPool) ImportPointer(shareData *MemPoolPtrExportData) (DevicePtr, e
 //
 // See also: [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool]
 //
+//   - map_: Array of access descriptors. Each descriptor instructs the access to enable for a single gpu
 //   - count: Number of descriptors in the map array
+//
+// Errors:
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
 //
 // Wraps cuMemPoolSetAccess.
 func (m MemoryPool) SetAccess(map_ *MemAccessDesc, count uint) error {
@@ -92,11 +131,20 @@ func (m MemoryPool) SetAccess(map_ *MemAccessDesc, count uint) error {
 // SetAttribute sets attributes of a memory pool.
 //
 // Supported attributes are:
+//   - [MempoolAttrReleaseThreshold]: (value type = cuuint64_t) Amount of reserved memory in bytes to hold onto before trying to release memory back to the OS. When more than the release threshold bytes of memory are held by the memory pool, the allocator will try to release memory back to the OS on the next call to stream, event or context synchronize. (default 0)
+//   - [MempoolAttrReuseFollowEventDependencies]: (value type = int) Allow [Stream.MemAllocAsync] to use memory asynchronously freed in another stream as long as a stream ordering dependency of the allocating stream on the free action exists. Cuda events and null stream interactions can create the required stream ordered dependencies. (default enabled)
+//   - [MempoolAttrReuseAllowOpportunistic]: (value type = int) Allow reuse of already completed frees when there is no dependency between the free and allocation. (default enabled)
+//   - [MempoolAttrReuseAllowInternalDependencies]: (value type = int) Allow [Stream.MemAllocAsync] to insert new stream dependencies in order to establish the stream ordering required to reuse a piece of memory released by [DevicePtr.FreeAsync] (default enabled).
+//   - [MempoolAttrReservedMemHigh]: (value type = cuuint64_t) Reset the high watermark that tracks the amount of backing memory that was allocated for the memory pool. It is illegal to set this attribute to a non-zero value.
+//   - [MempoolAttrUsedMemHigh]: (value type = cuuint64_t) Reset the high watermark that tracks the amount of used memory that was allocated for the memory pool.
 //
 // See also: [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool]
 //
 //   - attr: The attribute to modify
 //   - value: Pointer to the value to assign
+//
+// Errors:
+//   - [ErrInvalidValue]
 //
 // Wraps cuMemPoolSetAttribute.
 func (m MemoryPool) SetAttribute(attr MempoolAttribute, value uintptr) error {
@@ -114,6 +162,10 @@ func (m MemoryPool) SetAttribute(attr MempoolAttribute, value uintptr) error {
 // See also: [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool]
 //
 //   - minBytesToKeep: If the pool has less than minBytesToKeep reserved, the TrimTo operation is a no-op. Otherwise the pool will be guaranteed to have at least minBytesToKeep bytes reserved after the operation
+//
+// Errors:
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuMemPoolTrimTo.
 func (m MemoryPool) TrimTo(minBytesToKeep uint) error {
@@ -133,6 +185,13 @@ func (m MemoryPool) TrimTo(minBytesToKeep uint) error {
 // See also: [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool], [MemoryPool.SetAccess], [MemoryPool.SetAttribute]
 //
 //   - hStream: The stream establishing the stream ordering semantic
+//
+// Errors:
+//   - [ErrInvalidContext]: default stream specified with no current context
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
+//   - [ErrOutOfMemory]
 //
 // The allocation holds n values of type T: bytesize is n times the size of T.
 // A negative n, or one whose size overflows uint, is an error.
@@ -165,6 +224,10 @@ func (m MemoryPool) MemAllocFromPoolAsyncBytes(bytesize uint, hStream Stream) (D
 //
 // See also: [Device.DefaultMemPool], [Device.MemPool], [MemGetMemPool], [NewMemoryPool], [MemoryPool.Destroy], [MemoryPool.MemAllocFromPoolAsync]
 //
+// Errors:
+//   - [ErrInvalidValue]
+//   - [ErrNotSupported]
+//
 // Wraps cuMemSetMemPool.
 func (m MemoryPool) MemSetMemPool(location *MemLocation, type_ MemAllocationType) error {
 	return memSetMemPool(location, type_, m)
@@ -173,7 +236,7 @@ func (m MemoryPool) MemSetMemPool(location *MemLocation, type_ MemAllocationType
 // NewMemoryPool creates a memory pool.
 //
 // Creates a CUDA memory pool and returns the handle in pool. The poolProps determines the properties of the pool such as the backing device and IPC capabilities.
-// To create a memory pool for HOST memory not targeting a specific NUMA node, applications must set set [MemPoolProps].CUmemLocationtype to [MemLocationTypeHost]. [MemPoolProps].CUmemLocationid is ignored for such pools. Pools created with the type [MemLocationTypeHost] are not IPC capable and [MemPoolProps].handleTypes must be 0, any other values will result in [ErrInvalidValue]. To create a memory pool targeting a specific host NUMA node, applications must set [MemPoolProps].CUmemLocationtype to [MemLocationTypeHostNuma] and [MemPoolProps].CUmemLocationid must specify the NUMA ID of the host memory node. Specifying [MemLocationTypeHostNumaCurrent] as the [MemPoolProps].CUmemLocationtype will result in [ErrInvalidValue]. To create a memory pool targeting a specific device locality domain, applications must set [MemPoolProps].CUmemLocationtype to CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN, [MemPoolProps].CUmemLocationlocalized.deviceId must specify the device ID, and [MemPoolProps].CUmemLocationlocalized.localityDomainId must specify the locality domain ID. The locality domain ID must be a valid locality domain ID for the specified device. See also [Device.Attribute] with the attribute CU_DEVICE_ATTRIBUTE_LOCALITY_DOMAIN_COUNT.
+// To create a memory pool for HOST memory not targeting a specific NUMA node, applications must set set [MemPoolProps].[MemLocation].type to [MemLocationTypeHost]. [MemPoolProps].[MemLocation].id is ignored for such pools. Pools created with the type [MemLocationTypeHost] are not IPC capable and [MemPoolProps].handleTypes must be 0, any other values will result in [ErrInvalidValue]. To create a memory pool targeting a specific host NUMA node, applications must set [MemPoolProps].[MemLocation].type to [MemLocationTypeHostNuma] and [MemPoolProps].[MemLocation].id must specify the NUMA ID of the host memory node. Specifying [MemLocationTypeHostNumaCurrent] as the [MemPoolProps].[MemLocation].type will result in [ErrInvalidValue]. To create a memory pool targeting a specific device locality domain, applications must set [MemPoolProps].[MemLocation].type to CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN, [MemPoolProps].[MemLocation].localized.deviceId must specify the device ID, and [MemPoolProps].[MemLocation].localized.localityDomainId must specify the locality domain ID. The locality domain ID must be a valid locality domain ID for the specified device. See also [Device.Attribute] with the attribute CU_DEVICE_ATTRIBUTE_LOCALITY_DOMAIN_COUNT.
 // By default, the pool’s memory will be accessible from the device it is allocated on. In the case of pools created with [MemLocationTypeHostNuma] or [MemLocationTypeHost], their default accessibility will be from the host CPU. Applications can control the maximum size of the pool by specifying a non-zero value for [MemPoolProps].maxSize. If set to 0, the maximum size of the pool will default to a system dependent value.
 // Applications that intend to use [MemHandleTypeFabric] based memory sharing must ensure: (1) nvidia-caps-imex-channels character device is created by the driver and is listed under /proc/devices (2) have at least one IMEX channel file accessible by the user launching the application.
 // When exporter and importer CUDA processes have been granted access to the same IMEX channel, they can securely share memory.
@@ -186,6 +249,13 @@ func (m MemoryPool) MemSetMemPool(location *MemLocation, type_ MemAllocationType
 // Note: Specifying [MemHandleTypeNone] creates a memory pool that will not support IPC.
 //
 // See also: [Device.SetMemPool], [Device.MemPool], [Device.DefaultMemPool], [MemoryPool.MemAllocFromPoolAsync], [MemoryPool.ExportToShareableHandle]
+//
+// Errors:
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//   - [ErrOutOfMemory]
 //
 // Wraps cuMemPoolCreate.
 func NewMemoryPool(poolProps *MemPoolProps) (MemoryPool, error) {
@@ -204,6 +274,11 @@ func NewMemoryPool(poolProps *MemPoolProps) (MemoryPool, error) {
 //   - handle: OS handle of the pool to open
 //   - handleType: The type of handle being imported
 //   - flags: must be 0
+//
+// Errors:
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrOutOfMemory]
 //
 // Wraps cuMemPoolImportFromShareableHandle.
 func MemPoolImportFromShareableHandle(handle uintptr, handleType MemAllocationHandleType, flags uint64) (MemoryPool, error) {

@@ -52,13 +52,15 @@ var (
 	fnsetStream                          func(Generator, driver.Stream) Result
 )
 
-// ffiCall0 through ffiCall5 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+// The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
 //
 // Bit i of floatMask marks argument word i as a floating-point bit
 // pattern, which the C ABI passes in a different register file from the
-// integer and pointer words. Each returns the first integer result
-// register and the first floating-point one; a caller reads whichever the
-// C function sets.
+// integer and pointer words. Bits 2i and 2i+1 of widths give the size of
+// argument word i as a ffi.Width code, which places a narrow argument
+// on the stack where the C ABI expects it. Each funnel returns the first
+// integer result register and the first floating-point one; a caller
+// reads whichever the C function sets.
 //
 // The //go:uintptrescapes directive is what makes a Go pointer safe to
 // pass: a pointer converted to uintptr in one of these argument lists is
@@ -111,6 +113,25 @@ func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf 
 	return ffi.CallFloat(fn, 5, &args, floatMask)
 }
 
+//go:uintptrescapes
+func ffiCallWidths2(fn uintptr, floatMask uint32, widths uint64, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloatWidths(fn, 2, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths5(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloatWidths(fn, 5, &args, floatMask, widths)
+}
+
 // An outSlot pools the heap cells a wrapper passes to C for its outputs.
 //
 // A pointer passed through a positional call is moved to the heap, so the
@@ -134,13 +155,13 @@ func (s *outSlot[T]) put(p *T) {
 
 // fnCreateGenerator calls curandCreateGenerator.
 func fnCreateGenerator(a0 *Generator, a1 RngType) Result {
-	r1, _ := ffiCall2(symCreateGenerator, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	r1, _ := ffiCallWidths2(symCreateGenerator, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1))
 	return Result(r1)
 }
 
 // fnCreateGeneratorHost calls curandCreateGeneratorHost.
 func fnCreateGeneratorHost(a0 *Generator, a1 RngType) Result {
-	r1, _ := ffiCall2(symCreateGeneratorHost, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	r1, _ := ffiCallWidths2(symCreateGeneratorHost, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1))
 	return Result(r1)
 }
 
@@ -170,13 +191,13 @@ func fngenerate(a0 Generator, a1 uintptr, a2 uint) Result {
 
 // fngenerateBinomial calls curandGenerateBinomial.
 func fngenerateBinomial(a0 Generator, a1 uintptr, a2 uint, a3 uint32, a4 float64) Result {
-	r1, _ := ffiCall5(symgenerateBinomial, 0b10000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(math.Float64bits(a4)))
+	r1, _ := ffiCallWidths5(symgenerateBinomial, 0b10000, 0xc0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(math.Float64bits(a4)))
 	return Result(r1)
 }
 
 // fngenerateBinomialHost calls curandGenerateBinomial.
 func fngenerateBinomialHost(a0 Generator, a1 *uint32, a2 uint, a3 uint32, a4 float64) Result {
-	r1, _ := ffiCall5(symgenerateBinomialHost, 0b10000, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3), uintptr(math.Float64bits(a4)))
+	r1, _ := ffiCallWidths5(symgenerateBinomialHost, 0b10000, 0xc0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3), uintptr(math.Float64bits(a4)))
 	return Result(r1)
 }
 
@@ -188,7 +209,7 @@ func fngenerateHost(a0 Generator, a1 *uint32, a2 uint) Result {
 
 // fngenerateLogNormal calls curandGenerateLogNormal.
 func fngenerateLogNormal(a0 Generator, a1 uintptr, a2 uint, a3 float32, a4 float32) Result {
-	r1, _ := ffiCall5(symgenerateLogNormal, 0b11000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(math.Float32bits(a3)), uintptr(math.Float32bits(a4)))
+	r1, _ := ffiCallWidths5(symgenerateLogNormal, 0b11000, 0x3c0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(math.Float32bits(a3)), uintptr(math.Float32bits(a4)))
 	return Result(r1)
 }
 
@@ -206,7 +227,7 @@ func fngenerateLogNormalDoubleHost(a0 Generator, a1 *float64, a2 uint, a3 float6
 
 // fngenerateLogNormalHost calls curandGenerateLogNormal.
 func fngenerateLogNormalHost(a0 Generator, a1 *float32, a2 uint, a3 float32, a4 float32) Result {
-	r1, _ := ffiCall5(symgenerateLogNormalHost, 0b11000, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(math.Float32bits(a3)), uintptr(math.Float32bits(a4)))
+	r1, _ := ffiCallWidths5(symgenerateLogNormalHost, 0b11000, 0x3c0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(math.Float32bits(a3)), uintptr(math.Float32bits(a4)))
 	return Result(r1)
 }
 
@@ -224,7 +245,7 @@ func fngenerateLongLongHost(a0 Generator, a1 *uint64, a2 uint) Result {
 
 // fngenerateNormal calls curandGenerateNormal.
 func fngenerateNormal(a0 Generator, a1 uintptr, a2 uint, a3 float32, a4 float32) Result {
-	r1, _ := ffiCall5(symgenerateNormal, 0b11000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(math.Float32bits(a3)), uintptr(math.Float32bits(a4)))
+	r1, _ := ffiCallWidths5(symgenerateNormal, 0b11000, 0x3c0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(math.Float32bits(a3)), uintptr(math.Float32bits(a4)))
 	return Result(r1)
 }
 
@@ -242,7 +263,7 @@ func fngenerateNormalDoubleHost(a0 Generator, a1 *float64, a2 uint, a3 float64, 
 
 // fngenerateNormalHost calls curandGenerateNormal.
 func fngenerateNormalHost(a0 Generator, a1 *float32, a2 uint, a3 float32, a4 float32) Result {
-	r1, _ := ffiCall5(symgenerateNormalHost, 0b11000, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(math.Float32bits(a3)), uintptr(math.Float32bits(a4)))
+	r1, _ := ffiCallWidths5(symgenerateNormalHost, 0b11000, 0x3c0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(math.Float32bits(a3)), uintptr(math.Float32bits(a4)))
 	return Result(r1)
 }
 
@@ -290,19 +311,19 @@ func fngenerateUniformHost(a0 Generator, a1 *float32, a2 uint) Result {
 
 // fnGetDirectionVectors32 calls curandGetDirectionVectors32.
 func fnGetDirectionVectors32(a0 **DirectionVectors32, a1 DirectionVectorSet) Result {
-	r1, _ := ffiCall2(symGetDirectionVectors32, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	r1, _ := ffiCallWidths2(symGetDirectionVectors32, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1))
 	return Result(r1)
 }
 
 // fnGetDirectionVectors64 calls curandGetDirectionVectors64.
 func fnGetDirectionVectors64(a0 **DirectionVectors64, a1 DirectionVectorSet) Result {
-	r1, _ := ffiCall2(symGetDirectionVectors64, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	r1, _ := ffiCallWidths2(symGetDirectionVectors64, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1))
 	return Result(r1)
 }
 
 // fnGetProperty calls curandGetProperty.
 func fnGetProperty(a0 LibraryPropertyType, a1 *int32) Result {
-	r1, _ := ffiCall2(symGetProperty, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symGetProperty, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
@@ -326,7 +347,7 @@ func fnsetGeneratorOffset(a0 Generator, a1 uint64) Result {
 
 // fnsetGeneratorOrdering calls curandSetGeneratorOrdering.
 func fnsetGeneratorOrdering(a0 Generator, a1 Ordering) Result {
-	r1, _ := ffiCall2(symsetGeneratorOrdering, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symsetGeneratorOrdering, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
@@ -338,7 +359,7 @@ func fnsetPseudoRandomGeneratorSeed(a0 Generator, a1 uint64) Result {
 
 // fnsetQuasiRandomGeneratorDimensions calls curandSetQuasiRandomGeneratorDimensions.
 func fnsetQuasiRandomGeneratorDimensions(a0 Generator, a1 uint32) Result {
-	r1, _ := ffiCall2(symsetQuasiRandomGeneratorDimensions, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symsetQuasiRandomGeneratorDimensions, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
@@ -348,68 +369,69 @@ func fnsetQuasiRandomGeneratorDimensions(a0 Generator, a1 uint32) Result {
 // and returns it in *generator.
 //
 // Legal values for rngType are:
-// - [CURAND_RNG_PseudoDefault]
-// - [CURAND_RNG_PseudoXorwow]
-// - [CURAND_RNG_PseudoMrg32k3a]
-// - [CURAND_RNG_PseudoMtgp32]
-// - [CURAND_RNG_PseudoMt19937]
-// - [CURAND_RNG_PseudoPhilox43210]
-// - [CURAND_RNG_QuasiDefault]
-// - [CURAND_RNG_QuasiSobol32]
-// - [CURAND_RNG_QuasiScrambledSobol32]
-// - [CURAND_RNG_QuasiSobol64]
-// - [CURAND_RNG_QuasiScrambledSobol64]
+//   - [CURAND_RNG_PseudoDefault]
+//   - [CURAND_RNG_PseudoXorwow]
+//   - [CURAND_RNG_PseudoMrg32k3a]
+//   - [CURAND_RNG_PseudoMtgp32]
+//   - [CURAND_RNG_PseudoMt19937]
+//   - [CURAND_RNG_PseudoPhilox43210]
+//   - [CURAND_RNG_QuasiDefault]
+//   - [CURAND_RNG_QuasiSobol32]
+//   - [CURAND_RNG_QuasiScrambledSobol32]
+//   - [CURAND_RNG_QuasiSobol64]
+//   - [CURAND_RNG_QuasiScrambledSobol64]
 //
 // When rngType is [CURAND_RNG_PseudoDefault], the type chosen
-// is [CURAND_RNG_PseudoXorwow]. \n
+// is [CURAND_RNG_PseudoXorwow].
 // When rngType is [CURAND_RNG_QuasiDefault],
 // the type chosen is [CURAND_RNG_QuasiSobol32].
 //
 // The default values for rngType = [CURAND_RNG_PseudoXorwow] are:
-// - seed = 0
-// - offset = 0
-// - ordering = [CURAND_ORDERING_PseudoDefault]
+//   - seed = 0
+//   - offset = 0
+//   - ordering = [CURAND_ORDERING_PseudoDefault]
 //
 // The default values for rngType = [CURAND_RNG_PseudoMrg32k3a] are:
-// - seed = 0
-// - offset = 0
-// - ordering = [CURAND_ORDERING_PseudoDefault]
+//   - seed = 0
+//   - offset = 0
+//   - ordering = [CURAND_ORDERING_PseudoDefault]
 //
 // The default values for rngType = [CURAND_RNG_PseudoMtgp32] are:
-// - seed = 0
-// - offset = 0
-// - ordering = [CURAND_ORDERING_PseudoDefault]
+//   - seed = 0
+//   - offset = 0
+//   - ordering = [CURAND_ORDERING_PseudoDefault]
 //
 // The default values for rngType = [CURAND_RNG_PseudoMt19937] are:
-// - seed = 0
-// - offset = 0
-// - ordering = [CURAND_ORDERING_PseudoDefault]
+//   - seed = 0
+//   - offset = 0
+//   - ordering = [CURAND_ORDERING_PseudoDefault]
 //
 // * The default values for rngType = [CURAND_RNG_PseudoPhilox43210] are:
-// - seed = 0
-// - offset = 0
-// - ordering = [CURAND_ORDERING_PseudoDefault]
+//   - seed = 0
+//   - offset = 0
+//   - ordering = [CURAND_ORDERING_PseudoDefault]
 //
 // The default values for rngType = [CURAND_RNG_QuasiSobol32] are:
-// - dimensions = 1
-// - offset = 0
-// - ordering = [CURAND_ORDERING_QuasiDefault]
+//   - dimensions = 1
+//   - offset = 0
+//   - ordering = [CURAND_ORDERING_QuasiDefault]
 //
 // The default values for rngType = [CURAND_RNG_QuasiSobol64] are:
-// - dimensions = 1
-// - offset = 0
-// - ordering = [CURAND_ORDERING_QuasiDefault]
+//   - dimensions = 1
+//   - offset = 0
+//   - ordering = [CURAND_ORDERING_QuasiDefault]
 //
 // The default values for rngType = CURAND_RNG_QUASI_SCRAMBBLED_SOBOL32 are:
-// - dimensions = 1
-// - offset = 0
-// - ordering = [CURAND_ORDERING_QuasiDefault]
+//   - dimensions = 1
+//   - offset = 0
+//   - ordering = [CURAND_ORDERING_QuasiDefault]
 //
 // The default values for rngType = [CURAND_RNG_QuasiScrambledSobol64] are:
-// - dimensions = 1
-// - offset = 0
-// - ordering = [CURAND_ORDERING_QuasiDefault]
+//   - dimensions = 1
+//   - offset = 0
+//   - ordering = [CURAND_ORDERING_QuasiDefault]
 //
+// Parameters:
 //   - generator: Pointer to generator
 //   - rngType: Type of generator to create
 //
@@ -436,68 +458,69 @@ var slotCreateGenerator outSlot[Generator]
 // and returns it in *generator.
 //
 // Legal values for rngType are:
-// - [CURAND_RNG_PseudoDefault]
-// - [CURAND_RNG_PseudoXorwow]
-// - [CURAND_RNG_PseudoMrg32k3a]
-// - [CURAND_RNG_PseudoMtgp32]
-// - [CURAND_RNG_PseudoMt19937]
-// - [CURAND_RNG_PseudoPhilox43210]
-// - [CURAND_RNG_QuasiDefault]
-// - [CURAND_RNG_QuasiSobol32]
-// - [CURAND_RNG_QuasiScrambledSobol32]
-// - [CURAND_RNG_QuasiSobol64]
-// - [CURAND_RNG_QuasiScrambledSobol64]
+//   - [CURAND_RNG_PseudoDefault]
+//   - [CURAND_RNG_PseudoXorwow]
+//   - [CURAND_RNG_PseudoMrg32k3a]
+//   - [CURAND_RNG_PseudoMtgp32]
+//   - [CURAND_RNG_PseudoMt19937]
+//   - [CURAND_RNG_PseudoPhilox43210]
+//   - [CURAND_RNG_QuasiDefault]
+//   - [CURAND_RNG_QuasiSobol32]
+//   - [CURAND_RNG_QuasiScrambledSobol32]
+//   - [CURAND_RNG_QuasiSobol64]
+//   - [CURAND_RNG_QuasiScrambledSobol64]
 //
 // When rngType is [CURAND_RNG_PseudoDefault], the type chosen
-// is [CURAND_RNG_PseudoXorwow]. \n
+// is [CURAND_RNG_PseudoXorwow].
 // When rngType is [CURAND_RNG_QuasiDefault],
 // the type chosen is [CURAND_RNG_QuasiSobol32].
 //
 // The default values for rngType = [CURAND_RNG_PseudoXorwow] are:
-// - seed = 0
-// - offset = 0
-// - ordering = [CURAND_ORDERING_PseudoDefault]
+//   - seed = 0
+//   - offset = 0
+//   - ordering = [CURAND_ORDERING_PseudoDefault]
 //
 // The default values for rngType = [CURAND_RNG_PseudoMrg32k3a] are:
-// - seed = 0
-// - offset = 0
-// - ordering = [CURAND_ORDERING_PseudoDefault]
+//   - seed = 0
+//   - offset = 0
+//   - ordering = [CURAND_ORDERING_PseudoDefault]
 //
 // The default values for rngType = [CURAND_RNG_PseudoMtgp32] are:
-// - seed = 0
-// - offset = 0
-// - ordering = [CURAND_ORDERING_PseudoDefault]
+//   - seed = 0
+//   - offset = 0
+//   - ordering = [CURAND_ORDERING_PseudoDefault]
 //
 // The default values for rngType = [CURAND_RNG_PseudoMt19937] are:
-// - seed = 0
-// - offset = 0
-// - ordering = [CURAND_ORDERING_PseudoDefault]
+//   - seed = 0
+//   - offset = 0
+//   - ordering = [CURAND_ORDERING_PseudoDefault]
 //
 // * The default values for rngType = [CURAND_RNG_PseudoPhilox43210] are:
-// - seed = 0
-// - offset = 0
-// - ordering = [CURAND_ORDERING_PseudoDefault]
+//   - seed = 0
+//   - offset = 0
+//   - ordering = [CURAND_ORDERING_PseudoDefault]
 //
 // The default values for rngType = [CURAND_RNG_QuasiSobol32] are:
-// - dimensions = 1
-// - offset = 0
-// - ordering = [CURAND_ORDERING_QuasiDefault]
+//   - dimensions = 1
+//   - offset = 0
+//   - ordering = [CURAND_ORDERING_QuasiDefault]
 //
 // The default values for rngType = [CURAND_RNG_QuasiSobol64] are:
-// - dimensions = 1
-// - offset = 0
-// - ordering = [CURAND_ORDERING_QuasiDefault]
+//   - dimensions = 1
+//   - offset = 0
+//   - ordering = [CURAND_ORDERING_QuasiDefault]
 //
 // The default values for rngType = [CURAND_RNG_QuasiScrambledSobol32] are:
-// - dimensions = 1
-// - offset = 0
-// - ordering = [CURAND_ORDERING_QuasiDefault]
+//   - dimensions = 1
+//   - offset = 0
+//   - ordering = [CURAND_ORDERING_QuasiDefault]
 //
 // The default values for rngType = [CURAND_RNG_QuasiScrambledSobol64] are:
-// - dimensions = 1
-// - offset = 0
-// - ordering = [CURAND_ORDERING_QuasiDefault]
+//   - dimensions = 1
+//   - offset = 0
+//   - ordering = [CURAND_ORDERING_QuasiDefault]
 //
+// Parameters:
 //   - generator: Pointer to generator
 //   - rngType: Type of generator to create
 //
@@ -571,7 +594,7 @@ func destroyGenerator(generator Generator) error {
 	return toError(fndestroyGenerator(generator), "curandDestroyGenerator")
 }
 
-// generate [Generator.Generate] 32-bit pseudo or quasirandom numbers.
+// generate generates 32-bit pseudo or quasirandom numbers.
 //
 // Use generator to generate num 32-bit results into the device memory at
 // outputPtr. The device memory must have been previously allocated and be
@@ -620,7 +643,7 @@ func generateHost(generator Generator, output []uint32) error {
 	return toError(fngenerateHost(generator, unsafe.SliceData(output), uint(len(output))), "curandGenerate")
 }
 
-// generateLogNormal [Generator.Generate] log-normally distributed floats.
+// generateLogNormal generates log-normally distributed floats.
 //
 // Use generator to generate n float results into the device memory at
 // outputPtr. The device memory must have been previously allocated and be
@@ -659,7 +682,7 @@ func generateLogNormal(generator Generator, outputPtr driver.DevicePtr, n uint, 
 	return toError(fngenerateLogNormal(generator, uintptr(outputPtr), n, mean, stddev), "curandGenerateLogNormal")
 }
 
-// generateLogNormalDouble [Generator.Generate] log-normally distributed doubles.
+// generateLogNormalDouble generates log-normally distributed doubles.
 //
 // Use generator to generate n double results into the device memory at
 // outputPtr. The device memory must have been previously allocated and be
@@ -718,7 +741,7 @@ func generateLogNormalHost(generator Generator, output []float32, mean float32, 
 	return toError(fngenerateLogNormalHost(generator, unsafe.SliceData(output), uint(len(output)), mean, stddev), "curandGenerateLogNormal")
 }
 
-// generateLongLong [Generator.Generate] 64-bit quasirandom numbers.
+// generateLongLong generates 64-bit quasirandom numbers.
 //
 // Use generator to generate num 64-bit results into the device memory at
 // outputPtr. The device memory must have been previously allocated and be
@@ -749,7 +772,7 @@ func generateLongLongHost(generator Generator, output []uint64) error {
 	return toError(fngenerateLongLongHost(generator, unsafe.SliceData(output), uint(len(output))), "curandGenerateLongLong")
 }
 
-// generateNormal [Generator.Generate] normally distributed doubles.
+// generateNormal generates normally distributed doubles.
 //
 // Use generator to generate n float results into the device memory at
 // outputPtr. The device memory must have been previously allocated and be
@@ -787,7 +810,7 @@ func generateNormal(generator Generator, outputPtr driver.DevicePtr, n uint, mea
 	return toError(fngenerateNormal(generator, uintptr(outputPtr), n, mean, stddev), "curandGenerateNormal")
 }
 
-// generateNormalDouble [Generator.Generate] normally distributed doubles.
+// generateNormalDouble generates normally distributed doubles.
 //
 // Use generator to generate n double results into the device memory at
 // outputPtr. The device memory must have been previously allocated and be
@@ -845,7 +868,7 @@ func generateNormalHost(generator Generator, output []float32, mean float32, std
 	return toError(fngenerateNormalHost(generator, unsafe.SliceData(output), uint(len(output)), mean, stddev), "curandGenerateNormal")
 }
 
-// generatePoisson [Generator.Generate] Poisson-distributed unsigned ints.
+// generatePoisson generates Poisson-distributed unsigned ints.
 //
 // Use generator to generate n unsigned int results into device memory at
 // outputPtr. The device memory must have been previously allocated and must be
@@ -879,7 +902,7 @@ func generatePoissonHost(generator Generator, output []uint32, lambda float64) e
 
 // generateSeeds Setup starting states.
 //
-// [Generator.Generate] the starting state of the generator. This function is
+// Generate the starting state of the generator. This function is
 // automatically called by generation functions such as
 // [Generator.Generate] and [Generator.GenerateUniform].
 // It can be called manually for performance testing reasons to separate
@@ -895,7 +918,7 @@ func generateSeeds(generator Generator) error {
 	return toError(fngenerateSeeds(generator), "curandGenerateSeeds")
 }
 
-// generateUniform [Generator.Generate] uniformly distributed floats.
+// generateUniform generates uniformly distributed floats.
 //
 // Use generator to generate num float results into the device memory at
 // outputPtr. The device memory must have been previously allocated and be
@@ -917,7 +940,7 @@ func generateUniform(generator Generator, outputPtr driver.DevicePtr, num uint) 
 	return toError(fngenerateUniform(generator, uintptr(outputPtr), num), "curandGenerateUniform")
 }
 
-// generateUniformDouble [Generator.Generate] uniformly distributed doubles.
+// generateUniformDouble generates uniformly distributed doubles.
 //
 // Use generator to generate num double results into the device memory at
 // outputPtr. The device memory must have been previously allocated and be
@@ -969,9 +992,10 @@ func generateUniformHost(generator Generator, output []float32) error {
 // has 32 vectors. Each individual vector is an unsigned int.
 //
 // Legal values for set are:
-// - [CURAND_DirectionVectors32Joekuo6] (20,000 dimensions)
-// - [CURAND_ScrambledDirectionVectors32Joekuo6] (20,000 dimensions)
+//   - [CURAND_DirectionVectors32Joekuo6] (20,000 dimensions)
+//   - [CURAND_ScrambledDirectionVectors32Joekuo6] (20,000 dimensions)
 //
+// Parameters:
 //   - vectors: Address of pointer in which to return direction vectors
 //   - set: Which set of direction vectors to use
 //
@@ -1002,9 +1026,10 @@ var slotGetDirectionVectors32 outSlot[*DirectionVectors32]
 // has 64 vectors. Each individual vector is an unsigned long long.
 //
 // Legal values for set are:
-// - [CURAND_DirectionVectors64Joekuo6] (20,000 dimensions)
-// - [CURAND_ScrambledDirectionVectors64Joekuo6] (20,000 dimensions)
+//   - [CURAND_DirectionVectors64Joekuo6] (20,000 dimensions)
+//   - [CURAND_ScrambledDirectionVectors64Joekuo6] (20,000 dimensions)
 //
+// Parameters:
 //   - vectors: Address of pointer in which to return direction vectors
 //   - set: Which set of direction vectors to use
 //
@@ -1148,14 +1173,15 @@ func setGeneratorOffset(generator Generator, offset uint64) error {
 // setGeneratorOrdering sets the ordering of results of the pseudo or quasirandom number generator.
 //
 // Legal values of order for pseudorandom generators are:
-// - [CURAND_ORDERING_PseudoDefault]
-// - [CURAND_ORDERING_PseudoBest]
-// - [CURAND_ORDERING_PseudoSeeded]
-// - [CURAND_ORDERING_PseudoLegacy]
+//   - [CURAND_ORDERING_PseudoDefault]
+//   - [CURAND_ORDERING_PseudoBest]
+//   - [CURAND_ORDERING_PseudoSeeded]
+//   - [CURAND_ORDERING_PseudoLegacy]
 //
 // Legal values of order for quasirandom generators are:
-// - [CURAND_ORDERING_QuasiDefault]
+//   - [CURAND_ORDERING_QuasiDefault]
 //
+// Parameters:
 //   - generator: Generator to modify
 //   - order: Ordering of results
 //

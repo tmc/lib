@@ -4,9 +4,6 @@ package cudnn
 
 // Destroy destroys a previously created LRN descriptor object.
 //
-// Returns:
-//   - [Success]: The object was destroyed successfully.
-//
 // Wraps cudnnDestroyLRNDescriptor.
 func (l LRNDescriptor) Destroy() error {
 	return destroyLRNDescriptor(l)
@@ -14,8 +11,7 @@ func (l LRNDescriptor) Destroy() error {
 
 // Get retrieves values stored in the previously initialized LRN descriptor object.
 //
-// Returns:
-//   - [Success]: Function completed successfully.
+// A nil error means function completed successfully.
 //
 // Wraps cudnnGetLRNDescriptor.
 func (l LRNDescriptor) Get() (lrnN uint32, lrnAlpha float64, lrnBeta float64, lrnK float64, err error) {
@@ -29,9 +25,8 @@ func (l LRNDescriptor) Get() (lrnN uint32, lrnAlpha float64, lrnBeta float64, lr
 //   - lrnBeta: Input. Value of the beta power parameter in the normalization formula. By default, this value is set to 0.75 in [CreateLRNDescriptor]
 //   - lrnK: Input. Value of the k parameter in the normalization formula. By default, this value is set to 2.0
 //
-// Returns:
+// Errors:
 //   - [ErrBadParam]: One of the input parameters was out of valid range as described above.
-//   - [Success]: The object was set successfully.
 //
 // Wraps cudnnSetLRNDescriptor.
 func (l LRNDescriptor) Set(lrnN uint32, lrnAlpha float64, lrnBeta float64, lrnK float64) error {

@@ -77,10 +77,23 @@ func (c Comm) UniqueId() (UniqueId, error) {
 //
 // It must be called by both existing ranks (from the parent communicator) and new ranks (joining the communicator).
 // For existing ranks:
+//   - comm should be the parent communicator
+//   - rank must be set to -1 (existing ranks retain their original rank in the new communicator)
+//   - uniqueId unused. (existing ranks receive coordination information internally)
+//   - The function creates newcomm with the same rank as in the parent communicator
+//
 // For new ranks:
+//   - comm should be NULL
+//   - rank must be set to the desired rank in the new communicator (must be >= parent communicator size)
+//   - uniqueId must be the unique identifier obtained from [Comm.UniqueId] called by the coordinator
+//
 // The nRanks parameter specifies the total number of ranks in the new communicator and must be greater than the size of the parent communicator. If the new communicator needs a special configuration, it can be passed as config; otherwise, setting config to NULL will make the new communicator inherit the configuration of the parent communicator (for existing ranks) or use default configuration (for new ranks).
 // There should not be any outstanding NCCL operations on the parent communicator when calling this function to avoid potential deadlocks. After the grow operation completes, the parent communicator should be destroyed using [Comm.Destroy] to free resources.
 // Example workflow:
+//   - Coordinator rank calls [Comm.UniqueId] to generate the grow identifier
+//   - Coordinator distributes the uniqueId to all new ranks (out-of-band)
+//   - All existing ranks call [Comm.Grow] with comm =parent, rank =-1, uniqueId =NULL
+//   - All new ranks call [Comm.Grow] with comm =NULL, rank =new_rank, uniqueId =received_id
 //
 // Wraps ncclCommGrow.
 func (c Comm) Grow(nRanks int32, uniqueId *UniqueId, rank int32, config *Config) (Comm, error) {
@@ -148,6 +161,8 @@ func (c Comm) Split(color int32, key int32, config *Config) (Comm, error) {
 //
 // The communicator cannot be used for any NCCL operations while suspended. There should be no outstanding NCCL operations on comm when this function is called.
 // The flags parameter controls which resources are released:
+//   - NCCL_SUSPEND_MEM ( 0x01) – Release dynamic GPU memory allocations held by the communicator.
+//
 // A suspended communicator can be restored to an active state by calling [Comm.Resume].
 //
 // Wraps ncclCommSuspend.
@@ -190,7 +205,7 @@ func (c Comm) AllGather(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, se
 	return allGather(sendbuff, recvbuff, sendcount, datatype, c, stream)
 }
 
-// AllGatherConfig Configurable variant of [Comm.AllGather].
+// AllGatherConfig is a configurable variant of [Comm.AllGather].
 //
 // Wraps ncclAllGatherConfig.
 func (c Comm) AllGatherConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, sendcount uint, datatype DataType, stream driver.Stream, config *CollConfig) error {
@@ -206,14 +221,16 @@ func (c Comm) AllReduce(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, co
 	return allReduce(sendbuff, recvbuff, count, datatype, op, c, stream)
 }
 
-// AllReduceConfig Configurable variant of [Comm.AllReduce].
+// AllReduceConfig is a configurable variant of [Comm.AllReduce].
 //
 // Wraps ncclAllReduceConfig.
 func (c Comm) AllReduceConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, op RedOp, stream driver.Stream, config *CollConfig) error {
 	return allReduceConfig(sendbuff, recvbuff, count, datatype, op, c, stream, config)
 }
 
-// AlltoAll Each rank sends count values to all other ranks and receives count values from all other ranks.
+// AlltoAll sends a separate block of count elements from each rank to every rank.
+//
+// Each rank sends count values to all other ranks and receives count values from all other ranks.
 //
 // Data to send to destination rank j is taken from sendbuff+j*count and data received from source rank i is placed at recvbuff+i*count.
 //
@@ -225,7 +242,7 @@ func (c Comm) AlltoAll(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, cou
 	return alltoAll(sendbuff, recvbuff, count, datatype, c, stream)
 }
 
-// AlltoAllConfig Configurable variant of [Comm.AlltoAll].
+// AlltoAllConfig is a configurable variant of [Comm.AlltoAll].
 //
 // Wraps ncclAlltoAllConfig.
 func (c Comm) AlltoAllConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, stream driver.Stream, config *CollConfig) error {
@@ -242,14 +259,16 @@ func (c Comm) Broadcast(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, co
 	return broadcast(sendbuff, recvbuff, count, datatype, root, c, stream)
 }
 
-// BroadcastConfig Configurable variant of [Comm.Broadcast].
+// BroadcastConfig is a configurable variant of [Comm.Broadcast].
 //
 // Wraps ncclBroadcastConfig.
 func (c Comm) BroadcastConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, root int32, stream driver.Stream, config *CollConfig) error {
 	return broadcastConfig(sendbuff, recvbuff, count, datatype, root, c, stream, config)
 }
 
-// Gather Each rank sends count elements from sendbuff to the root rank.
+// Gather gathers count elements from each rank on the root rank.
+//
+// Each rank sends count elements from sendbuff to the root rank.
 //
 // On the root rank, data from rank i is placed at recvbuff + i*count. On non-root ranks, recvbuff is not used.
 //
@@ -261,7 +280,7 @@ func (c Comm) Gather(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count
 	return gather(sendbuff, recvbuff, count, datatype, root, c, stream)
 }
 
-// GatherConfig Configurable variant of [Comm.Gather].
+// GatherConfig is a configurable variant of [Comm.Gather].
 //
 // Wraps ncclGatherConfig.
 func (c Comm) GatherConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, root int32, stream driver.Stream, config *CollConfig) error {
@@ -316,7 +335,7 @@ func (c Comm) Reduce(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count
 	return reduce(sendbuff, recvbuff, count, datatype, op, root, c, stream)
 }
 
-// ReduceConfig Configurable variant of [Comm.Reduce].
+// ReduceConfig is a configurable variant of [Comm.Reduce].
 //
 // Wraps ncclReduceConfig.
 func (c Comm) ReduceConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, op RedOp, root int32, stream driver.Stream, config *CollConfig) error {
@@ -333,14 +352,16 @@ func (c Comm) ReduceScatter(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr
 	return reduceScatter(sendbuff, recvbuff, recvcount, datatype, op, c, stream)
 }
 
-// ReduceScatterConfig Configurable variant of [Comm.ReduceScatter].
+// ReduceScatterConfig is a configurable variant of [Comm.ReduceScatter].
 //
 // Wraps ncclReduceScatterConfig.
 func (c Comm) ReduceScatterConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, recvcount uint, datatype DataType, op RedOp, stream driver.Stream, config *CollConfig) error {
 	return reduceScatterConfig(sendbuff, recvbuff, recvcount, datatype, op, c, stream, config)
 }
 
-// Scatter Each rank receives count elements from the root rank.
+// Scatter scatters count elements from the root rank to each rank.
+//
+// Each rank receives count elements from the root rank.
 //
 // On the root rank, count elements from sendbuff + i*count are sent to rank i. On non-root ranks, sendbuff is not used.
 //
@@ -353,7 +374,7 @@ func (c Comm) Scatter(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, coun
 	return scatter(sendbuff, recvbuff, count, datatype, root, c, stream)
 }
 
-// ScatterConfig Configurable variant of [Comm.Scatter].
+// ScatterConfig is a configurable variant of [Comm.Scatter].
 //
 // Wraps ncclScatterConfig.
 func (c Comm) ScatterConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, root int32, stream driver.Stream, config *CollConfig) error {

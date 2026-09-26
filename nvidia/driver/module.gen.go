@@ -11,6 +11,11 @@ package driver
 //   - functions: Buffer where the function handles are returned to
 //   - numFunctions: Maximum number of function handles may be returned to the buffer
 //
+// Errors:
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//
 // Wraps cuModuleEnumerateFunctions.
 func (m Module) EnumerateFunctions(functions *Function, numFunctions uint32) error {
 	return moduleEnumerateFunctions(functions, numFunctions, m)
@@ -24,6 +29,13 @@ func (m Module) EnumerateFunctions(functions *Function, numFunctions uint32) err
 //
 //   - name: Name of function to retrieve
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotFound]
+//   - [ErrNotInitialized]
+//
 // Wraps cuModuleGetFunction.
 func (m Module) Function(name string) (Function, error) {
 	return moduleGetFunction(m, name)
@@ -32,6 +44,10 @@ func (m Module) Function(name string) (Function, error) {
 // FunctionCount returns the number of functions within a module.
 //
 // Returns in count the number of functions in mod.
+//
+// Errors:
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
 //
 // Wraps cuModuleGetFunctionCount.
 func (m Module) FunctionCount() (uint32, error) {
@@ -46,6 +62,13 @@ func (m Module) FunctionCount() (uint32, error) {
 //
 //   - name: Name of global to retrieve
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotFound]
+//   - [ErrNotInitialized]
+//
 // Wraps cuModuleGetGlobal, bound as cuModuleGetGlobal_v2.
 func (m Module) Global(name string) (dptr DevicePtr, bytes uint, err error) {
 	return moduleGetGlobal(m, name)
@@ -58,6 +81,13 @@ func (m Module) Global(name string) (dptr DevicePtr, bytes uint, err error) {
 // See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [ModuleLoadFatBinary], [Module.Unload]
 //
 //   - name: Name of surface reference to retrieve
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotFound]
+//   - [ErrNotInitialized]
 //
 // Deprecated: This function is deprecated.
 //
@@ -74,6 +104,13 @@ func (m Module) SurfRef(name *byte) (SurfRef, error) {
 //
 //   - name: Name of texture reference to retrieve
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotFound]
+//   - [ErrNotInitialized]
+//
 // Deprecated: This function is deprecated.
 //
 // Wraps cuModuleGetTexRef.
@@ -89,6 +126,13 @@ func (m Module) TexRef(name *byte) (TexRef, error) {
 //
 // See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [ModuleLoadFatBinary]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//
 // Wraps cuModuleUnload.
 func (m Module) Unload() error {
 	return moduleUnload(m)
@@ -102,6 +146,21 @@ func (m Module) Unload() error {
 //
 //   - fname: Filename of module to load
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrFileNotFound]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidPtx]
+//   - [ErrInvalidValue]
+//   - [ErrJitCompilerNotFound]
+//   - [ErrNotFound]
+//   - [ErrNotInitialized]
+//   - [ErrNoBinaryForGpu]
+//   - [ErrOutOfMemory]
+//   - [ErrSharedObjectInitFailed]
+//   - [ErrSharedObjectSymbolNotFound]
+//   - [ErrUnsupportedPtxVersion]
+//
 // Wraps cuModuleLoad.
 func ModuleLoad(fname string) (Module, error) {
 	return moduleLoad(fname)
@@ -114,6 +173,19 @@ func ModuleLoad(fname string) (Module, error) {
 // See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadDataEx], [ModuleLoadFatBinary], [Module.Unload]
 //
 //   - image: Module data to load
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidPtx]
+//   - [ErrInvalidValue]
+//   - [ErrJitCompilerNotFound]
+//   - [ErrNotInitialized]
+//   - [ErrNoBinaryForGpu]
+//   - [ErrOutOfMemory]
+//   - [ErrSharedObjectInitFailed]
+//   - [ErrSharedObjectSymbolNotFound]
+//   - [ErrUnsupportedPtxVersion]
 //
 // The wrapper passes image to C without copying if a NUL byte ends it or
 // follows it in its capacity, as one does in text a generated getter returns,
@@ -136,6 +208,19 @@ func ModuleLoadData(image []byte) (Module, error) {
 //   - options: Options for JIT
 //   - optionValues: Option values for JIT
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidPtx]
+//   - [ErrInvalidValue]
+//   - [ErrJitCompilerNotFound]
+//   - [ErrNotInitialized]
+//   - [ErrNoBinaryForGpu]
+//   - [ErrOutOfMemory]
+//   - [ErrSharedObjectInitFailed]
+//   - [ErrSharedObjectSymbolNotFound]
+//   - [ErrUnsupportedPtxVersion]
+//
 // The wrapper passes image to C without copying if a NUL byte ends it or
 // follows it in its capacity, as one does in text a generated getter returns,
 // or if it starts with the ELF or fatbin magic number. Otherwise image is text,
@@ -154,6 +239,20 @@ func ModuleLoadDataEx(image []byte, numOptions uint32, options *JITOption, optio
 // See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [Module.Unload]
 //
 //   - fatCubin: Fat binary to load
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidPtx]
+//   - [ErrInvalidValue]
+//   - [ErrJitCompilerNotFound]
+//   - [ErrNotFound]
+//   - [ErrNotInitialized]
+//   - [ErrNoBinaryForGpu]
+//   - [ErrOutOfMemory]
+//   - [ErrSharedObjectInitFailed]
+//   - [ErrSharedObjectSymbolNotFound]
+//   - [ErrUnsupportedPtxVersion]
 //
 // Wraps cuModuleLoadFatBinary.
 func ModuleLoadFatBinary(fatCubin []byte) (Module, error) {

@@ -11,8 +11,7 @@ package sanitizer
 //
 //   - enable: New enable state for all callbacks in all domains. Zero disables all callbacks, non-zero enables all callbacks
 //
-// Returns:
-//   - [Success]: on success.
+// Errors:
 //   - [ErrNotInitialized]: if unable to initialize the sanitizer.
 //   - [ErrInvalidParameter]: if subscriber is invalid.
 //
@@ -35,8 +34,7 @@ func (s Subscriber) EnableAllDomains(enable uint32) error {
 //   - domain: The domain of the callback
 //   - cbid: The ID of the callback
 //
-// Returns:
-//   - [Success]: on success.
+// Errors:
 //   - [ErrNotInitialized]: if unable to initialize the sanitizer.
 //   - [ErrInvalidParameter]: if subscriber, domain or cbid is invalid.
 //
@@ -55,8 +53,7 @@ func (s Subscriber) EnableCallback(enable uint32, domain CallbackDomain, cbid ui
 //   - enable: New enable state for all callbacks in the domain. Zero disables all callbacks, non-zero enables all callbacks
 //   - domain: The domain of the callback
 //
-// Returns:
-//   - [Success]: on success.
+// Errors:
 //   - [ErrNotInitialized]: if unable to initialize the sanitizer.
 //   - [ErrInvalidParameter]: if subscriber or domain is invalid.
 //
@@ -78,8 +75,7 @@ func (s Subscriber) EnableDomain(enable uint32, domain CallbackDomain) error {
 //   - domain: The domain of the callback
 //   - cbid: The ID of the callback
 //
-// Returns:
-//   - [Success]: on success.
+// Errors:
 //   - [ErrNotInitialized]: if unable to initialize the sanitizer.
 //   - [ErrInvalidParameter]: if enabled is NULL, or if subscriber, domain or cbid is invalid.
 //
@@ -93,8 +89,7 @@ func (s Subscriber) CallbackState(domain CallbackDomain, cbid uint32) (uint32, e
 // Removes a callback subscriber so that no future callback will be issued to
 // that subscriber.
 //
-// Returns:
-//   - [Success]: on success.
+// Errors:
 //   - [ErrNotInitialized]: if unable to initialize the sanitizer.
 //   - [ErrInvalidParameter]: if subscriber is NULL or not initialized.
 //

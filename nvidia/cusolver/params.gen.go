@@ -4,9 +4,6 @@ package cusolver
 
 // Destroy destroys and releases any memory required by the structure.
 //
-// Returns:
-//   - [Success]: The resources were released successfully.
-//
 // Wraps cusolverDnDestroyParams.
 func (p Params) Destroy() error {
 	return destroyParams(p)
@@ -17,9 +14,8 @@ func (p Params) Destroy() error {
 //   - function: The routine to be configured
 //   - algo: The algorithm to be configured
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidValue]: Wrong combination of function and algo.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSetAdvOptions.
 func (p Params) SetAdvOptions(function Function, algo AlgMode) error {

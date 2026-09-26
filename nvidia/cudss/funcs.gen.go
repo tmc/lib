@@ -57,13 +57,15 @@ var (
 	symSetThreadingLayer          uintptr
 )
 
-// ffiCall0 through ffiCall15 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+// The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
 //
 // Bit i of floatMask marks argument word i as a floating-point bit
 // pattern, which the C ABI passes in a different register file from the
-// integer and pointer words. Each returns the first integer result
-// register and the first floating-point one; a caller reads whichever the
-// C function sets.
+// integer and pointer words. Bits 2i and 2i+1 of widths give the size of
+// argument word i as a ffi.Width code, which places a narrow argument
+// on the stack where the C ABI expects it. Each funnel returns the first
+// integer result register and the first floating-point one; a caller
+// reads whichever the C function sets.
 //
 // The //go:uintptrescapes directive is what makes a Go pointer safe to
 // pass: a pointer converted to uintptr in one of these argument lists is
@@ -102,16 +104,6 @@ func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr)
 }
 
 //go:uintptrescapes
-func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
-	var args [ffi.MaxArgs]uintptr
-	args[0] = a0
-	args[1] = a1
-	args[2] = a2
-	args[3] = a3
-	return ffi.CallFloat(fn, 4, &args, floatMask)
-}
-
-//go:uintptrescapes
 func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
@@ -120,18 +112,6 @@ func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf 
 	args[3] = a3
 	args[4] = a4
 	return ffi.CallFloat(fn, 5, &args, floatMask)
-}
-
-//go:uintptrescapes
-func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
-	var args [ffi.MaxArgs]uintptr
-	args[0] = a0
-	args[1] = a1
-	args[2] = a2
-	args[3] = a3
-	args[4] = a4
-	args[5] = a5
-	return ffi.CallFloat(fn, 6, &args, floatMask)
 }
 
 //go:uintptrescapes
@@ -203,6 +183,132 @@ func ffiCall15(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8,
 	return ffi.CallFloat(fn, 15, &args, floatMask)
 }
 
+//go:uintptrescapes
+func ffiCallWidths1(fn uintptr, floatMask uint32, widths uint64, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloatWidths(fn, 1, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths2(fn uintptr, floatMask uint32, widths uint64, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloatWidths(fn, 2, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths3(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloatWidths(fn, 3, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths4(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloatWidths(fn, 4, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths5(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloatWidths(fn, 5, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths6(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	return ffi.CallFloatWidths(fn, 6, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths7(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	return ffi.CallFloatWidths(fn, 7, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths9(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	return ffi.CallFloatWidths(fn, 9, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths14(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	return ffi.CallFloatWidths(fn, 14, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths15(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	return ffi.CallFloatWidths(fn, 15, &args, floatMask, widths)
+}
+
 // An outSlot pools the heap cells a wrapper passes to C for its outputs.
 //
 // A pointer passed through a positional call is moved to the heap, so the
@@ -238,13 +344,13 @@ func fnConfigDestroy(a0 Config) Result {
 
 // fnConfigGet calls cudssConfigGet.
 func fnConfigGet(a0 Config, a1 ConfigParam, a2 unsafe.Pointer, a3 uint, a4 *uint) Result {
-	r1, _ := ffiCall5(symConfigGet, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symConfigGet, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
 // fnConfigSet calls cudssConfigSet.
 func fnConfigSet(a0 Config, a1 ConfigParam, a2 unsafe.Pointer, a3 uint) Result {
-	r1, _ := ffiCall4(symConfigSet, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	r1, _ := ffiCallWidths4(symConfigSet, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
 
@@ -256,7 +362,7 @@ func fnCreate(a0 *Handle) Result {
 
 // fnCreateMg calls cudssCreateMg.
 func fnCreateMg(a0 *Handle, a1 int32, a2 *int32) Result {
-	r1, _ := ffiCall3(symCreateMg, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symCreateMg, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -274,13 +380,13 @@ func fnDataDestroy(a0 Handle, a1 Data) Result {
 
 // fnDataGet calls cudssDataGet.
 func fnDataGet(a0 Handle, a1 Data, a2 DataParam, a3 unsafe.Pointer, a4 uint, a5 *uint) Result {
-	r1, _ := ffiCall6(symDataGet, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symDataGet, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fnDataSet calls cudssDataSet.
 func fnDataSet(a0 Handle, a1 Data, a2 DataParam, a3 unsafe.Pointer, a4 uint) Result {
-	r1, _ := ffiCall5(symDataSet, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	r1, _ := ffiCallWidths5(symDataSet, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
 
@@ -292,7 +398,7 @@ func fnDestroy(a0 Handle) Result {
 
 // fnExecute calls cudssExecute.
 func fnExecute(a0 Handle, a1 Phase, a2 Config, a3 Data, a4 Matrix, a5 Matrix, a6 Matrix) Result {
-	r1, _ := ffiCall7(symExecute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	r1, _ := ffiCallWidths7(symExecute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
 	return Result(r1)
 }
 
@@ -304,7 +410,7 @@ func fnGetDeviceMemHandler(a0 Handle, a1 *DeviceMemHandler) Result {
 
 // fnGetProperty calls cudssGetProperty.
 func fnGetProperty(a0 LibraryPropertyType, a1 *int32) Result {
-	r1, _ := ffiCall2(symGetProperty, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symGetProperty, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
@@ -328,37 +434,37 @@ func fnLoggerSetCallback(a0 uintptr) Result {
 
 // fnLoggerSetLevel calls cudssLoggerSetLevel.
 func fnLoggerSetLevel(a0 int32) Result {
-	r1, _ := ffiCall1(symLoggerSetLevel, 0, uintptr(a0))
+	r1, _ := ffiCallWidths1(symLoggerSetLevel, 0, 0x3, uintptr(a0))
 	return Result(r1)
 }
 
 // fnLoggerSetMask calls cudssLoggerSetMask.
 func fnLoggerSetMask(a0 int32) Result {
-	r1, _ := ffiCall1(symLoggerSetMask, 0, uintptr(a0))
+	r1, _ := ffiCallWidths1(symLoggerSetMask, 0, 0x3, uintptr(a0))
 	return Result(r1)
 }
 
 // fnMatrixCreateBatchCsr calls cudssMatrixCreateBatchCsr.
 func fnMatrixCreateBatchCsr(a0 *Matrix, a1 int64, a2 uintptr, a3 uintptr, a4 uintptr, a5 *uintptr, a6 *uintptr, a7 *uintptr, a8 *uintptr, a9 DataType, a10 DataType, a11 DataType, a12 MatrixType, a13 MatrixViewType, a14 IndexBase) Result {
-	r1, _ := ffiCall15(symMatrixCreateBatchCsr, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14))
+	r1, _ := ffiCallWidths15(symMatrixCreateBatchCsr, 0, 0x3ffc0000, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14))
 	return Result(r1)
 }
 
 // fnMatrixCreateBatchDn calls cudssMatrixCreateBatchDn.
 func fnMatrixCreateBatchDn(a0 *Matrix, a1 int64, a2 uintptr, a3 uintptr, a4 uintptr, a5 *uintptr, a6 DataType, a7 DataType, a8 Layout) Result {
-	r1, _ := ffiCall9(symMatrixCreateBatchDn, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8))
+	r1, _ := ffiCallWidths9(symMatrixCreateBatchDn, 0, 0x3f000, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8))
 	return Result(r1)
 }
 
 // fnMatrixCreateCsr calls cudssMatrixCreateCsr.
 func fnMatrixCreateCsr(a0 *Matrix, a1 int64, a2 int64, a3 int64, a4 uintptr, a5 uintptr, a6 uintptr, a7 uintptr, a8 DataType, a9 DataType, a10 DataType, a11 MatrixType, a12 MatrixViewType, a13 IndexBase) Result {
-	r1, _ := ffiCall14(symMatrixCreateCsr, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	r1, _ := ffiCallWidths14(symMatrixCreateCsr, 0, 0xfff0000, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
 	return Result(r1)
 }
 
 // fnMatrixCreateDn calls cudssMatrixCreateDn.
 func fnMatrixCreateDn(a0 *Matrix, a1 int64, a2 int64, a3 int64, a4 uintptr, a5 DataType, a6 Layout) Result {
-	r1, _ := ffiCall7(symMatrixCreateDn, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	r1, _ := ffiCallWidths7(symMatrixCreateDn, 0, 0x3c00, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
 	return Result(r1)
 }
 
@@ -448,7 +554,7 @@ func fnSetDeviceMemHandler(a0 Handle, a1 *DeviceMemHandler) Result {
 
 // fnSetMgStreams calls cudssSetMgStreams.
 func fnSetMgStreams(a0 Handle, a1 *driver.Stream, a2 int32) Result {
-	r1, _ := ffiCall3(symSetMgStreams, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	r1, _ := ffiCallWidths3(symSetMgStreams, 0, 0x30, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
 	return Result(r1)
 }
 

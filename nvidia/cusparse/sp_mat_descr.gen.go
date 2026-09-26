@@ -8,8 +8,6 @@ import (
 
 // BlockedEllGet returns the fields of the sparse matrix descriptor spMatDescr stored in Blocked-Ellpack (ELL) format.
 //
-// See [Result] for the description of the return status.
-//
 //   - rows: Number of rows of the sparse matrix
 //   - cols: Number of columns of the sparse matrix
 //   - ellBlockSize: Size of the ELL-Block
@@ -27,11 +25,10 @@ func (s SpMatDescr) BlockedEllGet(rows *int64, cols *int64, ellBlockSize *int64,
 
 // BsrSetStridedBatch sets the batchCount and the batchStride fields of the sparse matrix descriptor spMatDescr.
 //
-// See [Result] for the description of the return status.
-//
 //   - batchCount: Number of batches of the sparse matrix
 //   - offsetsBatchStride: Address offset between consecutive batches for the row offset array
 //   - columnsBatchStride: Address offset between consecutive batches for the column array
+//   - valuesBatchStride: Address offset between consecutive batches for the values array
 //
 // Wraps cusparseBsrSetStridedBatch.
 func (s SpMatDescr) BsrSetStridedBatch(batchCount int32, offsetsBatchStride int64, columnsBatchStride int64, valuesBatchStride int64) error {
@@ -39,8 +36,6 @@ func (s SpMatDescr) BsrSetStridedBatch(batchCount int32, offsetsBatchStride int6
 }
 
 // CooGet returns the fields of the sparse matrix descriptor spMatDescr stored in COO format (Array of Structures layout).
-//
-// See [Result] for the description of the return status.
 //
 //   - rows: Number of rows of the sparse matrix
 //   - cols: Number of columns of the sparse matrix
@@ -59,8 +54,9 @@ func (s SpMatDescr) CooGet(rows *int64, cols *int64, nnz *int64, cooRowInd *uint
 // CooSetPointers sets the pointers of the sparse matrix descriptor spMatDescr.
 //
 // [SpMatDescr.CooSetPointers] has the following constraints:
-// See [Result] for the description of the return status.
+//   - cooRows, cooColumns, and cooValues must be aligned to the size of their corresponding datatypes specified in spMatDescr. See cudaDataType_t for the description of the datatypes.
 //
+// Parameters:
 //   - cooRows: Row indices of the sparse matrix. Array with nnz elements
 //   - cooColumns: Column indices of the sparse matrix. Array with nnz elements
 //   - cooValues: Values of the sparse matrix. Array with nnz elements
@@ -72,8 +68,6 @@ func (s SpMatDescr) CooSetPointers(cooRows driver.DevicePtr, cooColumns driver.D
 
 // CooSetStridedBatch sets the batchCount and the batchStride fields of the sparse matrix descriptor spMatDescr.
 //
-// See [Result] for the description of the return status.
-//
 //   - batchCount: Number of batches of the sparse matrix
 //   - batchStride: address offset between consecutive batches
 //
@@ -83,8 +77,6 @@ func (s SpMatDescr) CooSetStridedBatch(batchCount int32, batchStride int64) erro
 }
 
 // CscGet returns the fields of the sparse matrix descriptor spMatDescr stored in CSC format.
-//
-// See [Result] for the description of the return status.
 //
 //   - rows: Number of rows of the sparse matrix
 //   - cols: Number of columns of the sparse matrix
@@ -105,8 +97,9 @@ func (s SpMatDescr) CscGet(rows *int64, cols *int64, nnz *int64, cscColOffsets *
 // CscSetPointers sets the pointers of the sparse matrix descriptor spMatDescr.
 //
 // [SpMatDescr.CscSetPointers] has the following constraints:
-// See [Result] for the description of the return status.
+//   - cscColOffsets, cscRowInd, and cscValues must be aligned to the size of their corresponding datatypes specified in spMatDescr. See cudaDataType_t for the description of the datatypes.
 //
+// Parameters:
 //   - cscColOffsets: Col offsets of the sparse matrix. Array with cols + 1 elements
 //   - cscRowInd: Row indices of the sparse matrix. Array with nnz elements
 //   - cscValues: Values of the sparse matrix. Array with nnz elements
@@ -117,8 +110,6 @@ func (s SpMatDescr) CscSetPointers(cscColOffsets driver.DevicePtr, cscRowInd dri
 }
 
 // CsrGet returns the fields of the sparse matrix descriptor spMatDescr stored in CSR format.
-//
-// See [Result] for the description of the return status.
 //
 //   - rows: Number of rows of the sparse matrix
 //   - cols: Number of columns of the sparse matrix
@@ -139,8 +130,9 @@ func (s SpMatDescr) CsrGet(rows *int64, cols *int64, nnz *int64, csrRowOffsets *
 // CsrSetPointers sets the pointers of the sparse matrix descriptor spMatDescr.
 //
 // [SpMatDescr.CsrSetPointers] has the following constraints:
-// See [Result] for the description of the return status.
+//   - csrRowOffsets, csrColInd, and csrValues must be aligned to the size of their corresponding datatypes specified in spMatDescr. See cudaDataType_t for the description of the datatypes.
 //
+// Parameters:
 //   - csrRowOffsets: Row offsets of the sparse matrix. Array with rows + 1 elements
 //   - csrColInd: Column indices of the sparse matrix. Array with nnz elements
 //   - csrValues: Values of the sparse matrix. Array with nnz elements
@@ -151,8 +143,6 @@ func (s SpMatDescr) CsrSetPointers(csrRowOffsets driver.DevicePtr, csrColInd dri
 }
 
 // CsrSetStridedBatch sets the batchCount and the batchStride fields of the sparse matrix descriptor spMatDescr.
-//
-// See [Result] for the description of the return status.
 //
 //   - batchCount: Number of batches of the sparse matrix
 //   - offsetsBatchStride: Address offset between consecutive batches for the row offset array
@@ -165,8 +155,6 @@ func (s SpMatDescr) CsrSetStridedBatch(batchCount int32, offsetsBatchStride int6
 
 // MatGetValues returns the values field of the sparse matrix descriptor spMatDescr.
 //
-// See [Result] for the description of the return status.
-//
 //   - values: Values of the sparse matrix. Array with nnz elements
 //
 // Wraps cusparseSpMatGetValues.
@@ -176,8 +164,10 @@ func (s SpMatDescr) MatGetValues(values *uintptr) error {
 
 // MatSetAttribute sets the attributes of the sparse matrix descriptor spMatDescr.
 //
-// See [Result] for the description of the return status.
+//   - Attribute: [SpmatFillMode]; Meaning: Indicates if the lower or upper part of a matrix is stored in sparse storage; Possible Values: [FillModeLower] [FillModeUpper]
+//   - Attribute: [SpmatDiagType]; Meaning: Indicates if the matrix diagonal entries are unity; Possible Values: [DiagTypeNonUnit] [DiagTypeUnit]
 //
+// Parameters:
 //   - attribute: Attribute enumerator
 //   - data: Attribute value
 //   - dataSize: Size of the attribute in bytes for safety
@@ -190,8 +180,9 @@ func (s SpMatDescr) MatSetAttribute(attribute SpMatAttribute, data uintptr, data
 // MatSetValues sets the values field of the sparse matrix descriptor spMatDescr.
 //
 // [SpMatDescr.MatSetValues] has the following constraints:
-// See [Result] for the description of the return status.
+//   - values must be aligned to the size of its corresponding datatype specified in spMatDescr. See cudaDataType_t for the description of the datatypes.
 //
+// Parameters:
 //   - values: Values of the sparse matrix. Array with nnz elements
 //
 // Wraps cusparseSpMatSetValues.

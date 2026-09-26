@@ -12,9 +12,6 @@ package sanitizer
 //   - stream: CUDA stream associated with the stream launch
 //   - userdata: Device memory buffer. This data will be passed to callback functions via the userdata parameter
 //
-// Returns:
-//   - [Success]: on success.
-//
 // Wraps sanitizerSetLaunchCallbackData.
 func (l LaunchHandle) SetCallbackData(kernel Function, stream StreamHandle, userdata uintptr) error {
 	return setLaunchCallbackData(l, kernel, stream, userdata)

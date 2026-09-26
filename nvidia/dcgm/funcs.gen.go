@@ -75,13 +75,15 @@ var (
 	symWatchFields                           uintptr
 )
 
-// ffiCall0 through ffiCall7 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+// The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
 //
 // Bit i of floatMask marks argument word i as a floating-point bit
 // pattern, which the C ABI passes in a different register file from the
-// integer and pointer words. Each returns the first integer result
-// register and the first floating-point one; a caller reads whichever the
-// C function sets.
+// integer and pointer words. Bits 2i and 2i+1 of widths give the size of
+// argument word i as a ffi.Width code, which places a narrow argument
+// on the stack where the C ABI expects it. Each funnel returns the first
+// integer result register and the first floating-point one; a caller
+// reads whichever the C function sets.
 //
 // The //go:uintptrescapes directive is what makes a Go pointer safe to
 // pass: a pointer converted to uintptr in one of these argument lists is
@@ -120,28 +122,52 @@ func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr)
 }
 
 //go:uintptrescapes
-func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+func ffiCallWidths1(fn uintptr, floatMask uint32, widths uint64, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloatWidths(fn, 1, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths2(fn uintptr, floatMask uint32, widths uint64, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloatWidths(fn, 2, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths3(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloatWidths(fn, 3, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths4(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
 	args[2] = a2
 	args[3] = a3
-	return ffi.CallFloat(fn, 4, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 4, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+func ffiCallWidths5(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
 	args[2] = a2
 	args[3] = a3
 	args[4] = a4
-	return ffi.CallFloat(fn, 5, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 5, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+func ffiCallWidths6(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -149,11 +175,11 @@ func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1,
 	args[3] = a3
 	args[4] = a4
 	args[5] = a5
-	return ffi.CallFloat(fn, 6, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 6, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall7(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
+func ffiCallWidths7(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -162,7 +188,7 @@ func ffiCall7(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6 uintptr) 
 	args[4] = a4
 	args[5] = a5
 	args[6] = a6
-	return ffi.CallFloat(fn, 7, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 7, &args, floatMask, widths)
 }
 
 // An outSlot pools the heap cells a wrapper passes to C for its outputs.
@@ -188,7 +214,7 @@ func (s *outSlot[T]) put(p *T) {
 
 // fnDcgmFieldGetById calls DcgmFieldGetById.
 func fnDcgmFieldGetById(a0 uint16) FieldMetaP {
-	r1, _ := ffiCall1(symDcgmFieldGetById, 0, uintptr(a0))
+	r1, _ := ffiCallWidths1(symDcgmFieldGetById, 0, 0x2, uintptr(a0))
 	return FieldMetaP(r1)
 }
 
@@ -230,19 +256,19 @@ func fnDisconnect(a0 Handle) Result {
 
 // fnEntitiesGetLatestValues calls dcgmEntitiesGetLatestValues.
 func fnEntitiesGetLatestValues(a0 Handle, a1 *GroupEntityPair, a2 uint32, a3 *uint16, a4 uint32, a5 uint32, a6 *FieldValueV2) Result {
-	r1, _ := ffiCall7(symEntitiesGetLatestValues, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	r1, _ := ffiCallWidths7(symEntitiesGetLatestValues, 0, 0xf30, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
 	return Result(r1)
 }
 
 // fnEntityGetLatestValues calls dcgmEntityGetLatestValues.
 func fnEntityGetLatestValues(a0 Handle, a1 FieldEntityGroup, a2 int32, a3 *uint16, a4 uint32, a5 *FieldValueV1) Result {
-	r1, _ := ffiCall6(symEntityGetLatestValues, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symEntityGetLatestValues, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fnFieldGroupCreate calls dcgmFieldGroupCreate.
 func fnFieldGroupCreate(a0 Handle, a1 int32, a2 *uint16, a3 *byte, a4 *FieldGrp) Result {
-	r1, _ := ffiCall5(symFieldGroupCreate, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symFieldGroupCreate, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
@@ -284,25 +310,25 @@ func fnGetCpuHierarchyV2(a0 Handle, a1 *CpuHierarchy) Result {
 
 // fnGetDeviceAttributes calls dcgmGetDeviceAttributes.
 func fnGetDeviceAttributes(a0 Handle, a1 uint32, a2 *DeviceAttributes) Result {
-	r1, _ := ffiCall3(symGetDeviceAttributes, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symGetDeviceAttributes, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fnGetDeviceTopology calls dcgmGetDeviceTopology.
 func fnGetDeviceTopology(a0 Handle, a1 uint32, a2 *DeviceTopology) Result {
-	r1, _ := ffiCall3(symGetDeviceTopology, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symGetDeviceTopology, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fnGetDeviceWorkloadPowerProfileInfo calls dcgmGetDeviceWorkloadPowerProfileInfo.
 func fnGetDeviceWorkloadPowerProfileInfo(a0 Handle, a1 uint32, a2 *WorkloadPowerProfileProfilesInfo, a3 *DeviceWorkloadPowerProfilesStatus) Result {
-	r1, _ := ffiCall4(symGetDeviceWorkloadPowerProfileInfo, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symGetDeviceWorkloadPowerProfileInfo, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
 // fnGetEntityGroupEntities calls dcgmGetEntityGroupEntities.
 func fnGetEntityGroupEntities(a0 Handle, a1 FieldEntityGroup, a2 *FieldEid, a3 *int32, a4 uint32) Result {
-	r1, _ := ffiCall5(symGetEntityGroupEntities, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(a4))
+	r1, _ := ffiCallWidths5(symGetEntityGroupEntities, 0, 0x30c, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(a4))
 	return Result(r1)
 }
 
@@ -314,7 +340,7 @@ func fnGetFieldSummary(a0 Handle, a1 *FieldSummaryRequest) Result {
 
 // fnGetGpuChipArchitecture calls dcgmGetGpuChipArchitecture.
 func fnGetGpuChipArchitecture(a0 Handle, a1 uint32, a2 *ChipArchitecture) Result {
-	r1, _ := ffiCall3(symGetGpuChipArchitecture, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symGetGpuChipArchitecture, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -326,7 +352,7 @@ func fnGetGpuInstanceHierarchy(a0 Handle, a1 *MigHierarchyV2) Result {
 
 // fnGetGpuStatus calls dcgmGetGpuStatus.
 func fnGetGpuStatus(a0 Handle, a1 uint32, a2 *EntityStatus) Result {
-	r1, _ := ffiCall3(symGetGpuStatus, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symGetGpuStatus, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -338,7 +364,7 @@ func fnGetGroupTopology(a0 Handle, a1 GpuGrp, a2 *GroupTopology) Result {
 
 // fnGetLatestValuesForFields calls dcgmGetLatestValuesForFields.
 func fnGetLatestValuesForFields(a0 Handle, a1 int32, a2 *uint16, a3 uint32, a4 *FieldValueV1) Result {
-	r1, _ := ffiCall5(symGetLatestValuesForFields, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symGetLatestValuesForFields, 0, 0xcc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
@@ -356,19 +382,19 @@ func fnGetNvLinkP2PStatus(a0 Handle, a1 *NvLinkP2PStatus) Result {
 
 // fnGroupAddDevice calls dcgmGroupAddDevice.
 func fnGroupAddDevice(a0 Handle, a1 GpuGrp, a2 uint32) Result {
-	r1, _ := ffiCall3(symGroupAddDevice, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	r1, _ := ffiCallWidths3(symGroupAddDevice, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2))
 	return Result(r1)
 }
 
 // fnGroupAddEntity calls dcgmGroupAddEntity.
 func fnGroupAddEntity(a0 Handle, a1 GpuGrp, a2 FieldEntityGroup, a3 FieldEid) Result {
-	r1, _ := ffiCall4(symGroupAddEntity, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	r1, _ := ffiCallWidths4(symGroupAddEntity, 0, 0xf0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
 
 // fnGroupCreate calls dcgmGroupCreate.
 func fnGroupCreate(a0 Handle, a1 GroupType, a2 *byte, a3 *GpuGrp) Result {
-	r1, _ := ffiCall4(symGroupCreate, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symGroupCreate, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
@@ -392,13 +418,13 @@ func fnGroupGetInfo(a0 Handle, a1 GpuGrp, a2 *GroupInfo) Result {
 
 // fnGroupRemoveDevice calls dcgmGroupRemoveDevice.
 func fnGroupRemoveDevice(a0 Handle, a1 GpuGrp, a2 uint32) Result {
-	r1, _ := ffiCall3(symGroupRemoveDevice, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	r1, _ := ffiCallWidths3(symGroupRemoveDevice, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2))
 	return Result(r1)
 }
 
 // fnGroupRemoveEntity calls dcgmGroupRemoveEntity.
 func fnGroupRemoveEntity(a0 Handle, a1 GpuGrp, a2 FieldEntityGroup, a3 FieldEid) Result {
-	r1, _ := ffiCall4(symGroupRemoveEntity, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	r1, _ := ffiCallWidths4(symGroupRemoveEntity, 0, 0xf0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
 
@@ -440,13 +466,13 @@ func fnInit() Result {
 
 // fnIntrospectGetHostengineCpuUtilization calls dcgmIntrospectGetHostengineCpuUtilization.
 func fnIntrospectGetHostengineCpuUtilization(a0 Handle, a1 *IntrospectCpuUtil, a2 int32) Result {
-	r1, _ := ffiCall3(symIntrospectGetHostengineCpuUtilization, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	r1, _ := ffiCallWidths3(symIntrospectGetHostengineCpuUtilization, 0, 0x30, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
 	return Result(r1)
 }
 
 // fnIntrospectGetHostengineMemoryUsage calls dcgmIntrospectGetHostengineMemoryUsage.
 func fnIntrospectGetHostengineMemoryUsage(a0 Handle, a1 *IntrospectMemory, a2 int32) Result {
-	r1, _ := ffiCall3(symIntrospectGetHostengineMemoryUsage, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	r1, _ := ffiCallWidths3(symIntrospectGetHostengineMemoryUsage, 0, 0x30, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
 	return Result(r1)
 }
 
@@ -458,13 +484,13 @@ func fnModuleGetStatuses(a0 Handle, a1 *ModuleGetStatusesStruct) Result {
 
 // fnModuleIdToName calls dcgmModuleIdToName.
 func fnModuleIdToName(a0 ModuleId, a1 *uintptr) Result {
-	r1, _ := ffiCall2(symModuleIdToName, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symModuleIdToName, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
 // fnPowerProfileIdToName calls dcgmPowerProfileIdToName.
 func fnPowerProfileIdToName(a0 PowerProfileType, a1 *uintptr) Result {
-	r1, _ := ffiCall2(symPowerProfileIdToName, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symPowerProfileIdToName, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
@@ -530,7 +556,7 @@ func fnUnwatchFields(a0 Handle, a1 GpuGrp, a2 FieldGrp) Result {
 
 // fnUpdateAllFields calls dcgmUpdateAllFields.
 func fnUpdateAllFields(a0 Handle, a1 int32) Result {
-	r1, _ := ffiCall2(symUpdateAllFields, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symUpdateAllFields, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
@@ -542,7 +568,7 @@ func fnVersionInfo(a0 *VersionInfoStruct) Result {
 
 // fnWatchFields calls dcgmWatchFields.
 func fnWatchFields(a0 Handle, a1 GpuGrp, a2 FieldGrp, a3 int64, a4 float64, a5 int32) Result {
-	r1, _ := ffiCall6(symWatchFields, 0b10000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(math.Float64bits(a4)), uintptr(a5))
+	r1, _ := ffiCallWidths6(symWatchFields, 0b10000, 0xc00, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(math.Float64bits(a4)), uintptr(a5))
 	return Result(r1)
 }
 
@@ -1251,8 +1277,8 @@ func HostengineVersionInfo(pDcgmHandle Handle, pVersionInfo *VersionInfoStruct) 
 //
 // This must be called before [StartEmbeddedV2] or [ConnectV2]
 // * @return
-// - [Success] if DCGM has been properly initialized
-// - [ErrInitError] if there was an error initializing the library
+//   - [Success] if DCGM has been properly initialized
+//   - [ErrInitError] if there was an error initializing the library
 //
 // Wraps dcgmInit.
 func Init() error {

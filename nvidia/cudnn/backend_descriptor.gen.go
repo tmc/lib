@@ -4,9 +4,10 @@ package cudnn
 
 // Destroy destroys instances of [BackendDescriptor] that were previously created using [NewBackendDescriptor].
 //
-// Returns:
+// A nil error means the memory was destroyed successfully.
+//
+// Errors:
 //   - [ErrAllocFailed]: The destruction of memory failed. Undefined Behavior The descriptor was altered between the Create and Destroy Descriptor. Undefined The value pointed by the descriptor will be Undefined after the memory is free and done.
-//   - [Success]: The memory was destroyed successfully.
 //
 // Wraps cudnnBackendDestroyDescriptor.
 func (b BackendDescriptor) Destroy() error {
@@ -17,13 +18,14 @@ func (b BackendDescriptor) Destroy() error {
 //
 // The data and the working space are encapsulated in the VariantPack.
 //
-//   - variantPack: Input. Pointer to the finalized VariantPack consisting of:
+//   - variantPack: Input. Pointer to the finalized VariantPack consisting of: Data pointer for each non-virtual pointer of the operation set in the execution plan. Pointer to user-allocated workspace in global memory at least as large as the size queried from CUDNN_BACKEND_
 //
-// Returns:
+// A nil error means the ExecutionPlan was executed successfully.
+//
+// Errors:
 //   - [ErrBadParam]: An incorrect or inconsistent value is encountered. For example, a required data pointer is invalid.
 //   - [ErrExecutionFailed]: An error was encountered executing the plan with the variant pack.
 //   - [ErrInternalError]: Some internal errors were encountered.
-//   - [Success]: The ExecutionPlan was executed successfully.
 //
 // Wraps cudnnBackendExecute.
 func (b BackendDescriptor) Execute(handle Handle, variantPack BackendDescriptor) error {
@@ -35,11 +37,12 @@ func (b BackendDescriptor) Execute(handle Handle, variantPack BackendDescriptor)
 // The type of finalization is done depending on the descriptorType argument with which the descriptor was created using [NewBackendDescriptor] or initialized using [BackendDescriptor.Initialize].
 // [BackendDescriptor.Finalize] also checks all the attributes set between the create/initialization and finalize phase. If successful, [BackendDescriptor.Finalize] returns [Success] and the finalized state of the descriptor is set to true. In this state, setting attributes using [BackendDescriptor.SetAttribute] is not allowed. Getting attributes using [BackendDescriptor.Attribute] is only allowed when the finalized state of the descriptor is true.
 //
-// Returns:
+// A nil error means the descriptor was finalized successfully.
+//
+// Errors:
 //   - CUDNN_STATUS_BAD_PARAMS: Invalid descriptor attribute values or combination thereof is encountered.
 //   - [ErrInternalError]: Some internal errors are encountered.
 //   - [ErrNotSupported]: Descriptor attribute values or combinations therefore not supported by the current version of cuDNN are encountered.
-//   - [Success]: The descriptor was finalized successfully.
 //
 // Wraps cudnnBackendFinalize.
 func (b BackendDescriptor) Finalize() error {
@@ -55,10 +58,11 @@ func (b BackendDescriptor) Finalize() error {
 //   - requestedElementCount: Input. Number of elements to output to arrayOfElements
 //   - arrayOfElements: Input. Array of elements of the datatype of the attributeType. The data type of the attributeType is listed in the mapping table of [BackendAttributeType]
 //
-// Returns:
+// A nil error means the attributeName was given to the descriptor successfully.
+//
+// Errors:
 //   - [ErrBadParam]: One or more invalid or inconsistent argument values were encountered. Some examples include: attributeName is not a valid attribute for the descriptor. attributeType is not one of the valid types for the attribute.
 //   - [ErrNotInitialized]: The descriptor has not been successfully finalized using [BackendDescriptor.Finalize].
-//   - [Success]: The attributeName was given to the descriptor successfully.
 //
 // Wraps cudnnBackendGetAttribute.
 func (b BackendDescriptor) Attribute(attributeName BackendAttributeName, attributeType BackendAttributeType, requestedElementCount int64, arrayOfElements uintptr) (elementCount int64, err error) {
@@ -69,9 +73,10 @@ func (b BackendDescriptor) Attribute(attributeName BackendAttributeName, attribu
 //
 // This function repurposes a pre-allocated memory pointed to by a descriptor of size sizeInByte to a backend descriptor of type descriptorType. The finalized state of the descriptor is set to false.
 //
-// Returns:
+// A nil error means the memory was initialized successfully.
+//
+// Errors:
 //   - [ErrBadParam]: An invalid or inconsistent argument value is encountered. Some examples include: descriptor is a nullptr sizeInBytes is less than the size required by the descriptor type
-//   - [Success]: The memory was initialized successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.2.
 //
@@ -94,11 +99,12 @@ func (b BackendDescriptor) PopulateCudaGraph(handle Handle, variantPack BackendD
 //   - elementCount: Input. Number of elements being set
 //   - arrayOfElements: Input. The starting location for an array from where to read the values from. The elements of the array are expected to be of the datatype of the attributeType. The datatype of the attributeType is listed in the mapping table of [BackendAttributeType]
 //
-// Returns:
+// A nil error means the attributeName was set to the descriptor.
+//
+// Errors:
 //   - [ErrBadParam]: The function is called with arguments that correspond to invalid values. Some examples include: attributeName is not a settable attribute of descriptor. attributeType is incorrect for this attributeName. elemCount value is unexpected. arrayOfElements contains values invalid for the attributeType.
 //   - [ErrNotInitialized]: The backend descriptor pointed to by the descriptor is already in the finalized state.
 //   - [ErrNotSupported]: The values to which the attributes are being set are not supported by the current version of cuDNN.
-//   - [Success]: The attributeName was set to the descriptor.
 //
 // Wraps cudnnBackendSetAttribute.
 func (b BackendDescriptor) SetAttribute(attributeName BackendAttributeName, attributeType BackendAttributeType, elementCount int64, arrayOfElements uintptr) error {
@@ -115,10 +121,11 @@ func (b BackendDescriptor) UpdateCudaGraph(handle Handle, variantPack BackendDes
 //   - descriptorType: Input. One among the enumerated [BackendDescriptorType]
 //   - descriptor: Input. Pointer to an instance of [BackendDescriptor] to be created
 //
-// Returns:
+// A nil error means the creation was successful.
+//
+// Errors:
 //   - [ErrAllocFailed]: The memory allocation failed.
 //   - [ErrNotSupported]: Creating a descriptor of a given type is not supported.
-//   - [Success]: The creation was successful.
 //
 // Wraps cudnnBackendCreateDescriptor.
 func NewBackendDescriptor(descriptorType BackendDescriptorType) (BackendDescriptor, error) {

@@ -11,11 +11,21 @@ package driver
 //
 // See also: [LinkCreate], [LinkState.AddFile], [LinkState.Complete], [LinkState.Destroy]
 //
+//   - type_: The type of the input data
 //   - data: The input data
 //   - name: An optional name for this input in log messages
 //   - numOptions: Size of options
 //   - options: Options to be applied only for this input (overrides options from [LinkCreate])
 //   - optionValues: Array of option values, each cast to void *
+//
+// Errors:
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidImage]
+//   - [ErrInvalidPtx]
+//   - [ErrInvalidValue]
+//   - [ErrNoBinaryForGpu]
+//   - [ErrOutOfMemory]
+//   - [ErrUnsupportedPtxVersion]
 //
 // The wrapper passes data to C without copying if a NUL byte ends it or
 // follows it in its capacity, as one does in text a generated getter returns,
@@ -37,10 +47,21 @@ func (l LinkState) AddData(type_ JitInputType, data []byte, name *byte, numOptio
 //
 // See also: [LinkCreate], [LinkState.AddData], [LinkState.Complete], [LinkState.Destroy]
 //
+//   - type_: The type of the input data
 //   - path: Path to the input file
 //   - numOptions: Size of options
 //   - options: Options to be applied only for this input (overrides options from [LinkCreate])
 //   - optionValues: Array of option values, each cast to void *
+//
+// Errors:
+//   - [ErrFileNotFound]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidImage]
+//   - [ErrInvalidPtx]
+//   - [ErrInvalidValue]
+//   - [ErrNoBinaryForGpu]
+//   - [ErrOutOfMemory]
+//   - [ErrUnsupportedPtxVersion]
 //
 // Wraps cuLinkAddFile, bound as cuLinkAddFile_v2.
 func (l LinkState) AddFile(type_ JitInputType, path *byte, numOptions uint32, options *JITOption, optionValues *uintptr) error {
@@ -53,6 +74,10 @@ func (l LinkState) AddFile(type_ JitInputType, path *byte, numOptions uint32, op
 //
 // See also: [LinkCreate], [LinkState.AddData], [LinkState.AddFile], [LinkState.Destroy], [ModuleLoadData]
 //
+// Errors:
+//   - [ErrInvalidHandle]
+//   - [ErrOutOfMemory]
+//
 // Wraps cuLinkComplete.
 func (l LinkState) Complete() (cubinOut uintptr, sizeOut uint, err error) {
 	return linkComplete(l)
@@ -61,6 +86,9 @@ func (l LinkState) Complete() (cubinOut uintptr, sizeOut uint, err error) {
 // Destroy destroys state for a JIT linker invocation.
 //
 // See also: [LinkCreate]
+//
+// Errors:
+//   - [ErrInvalidHandle]
 //
 // Wraps cuLinkDestroy.
 func (l LinkState) Destroy() error {

@@ -5,6 +5,23 @@ package driver
 // Attribute returns information about a kernel.
 //
 // Returns in *pi the integer value of the attribute attrib for the kernel kernel for the requested device dev. The supported attributes are:
+//   - [FuncAttributeMaxThreadsPerBlock]: The maximum number of threads per block, beyond which a launch of the kernel would fail. This number depends on both the kernel and the requested device.
+//   - [FuncAttributeSharedSizeBytes]: The size in bytes of statically-allocated shared memory per block required by this kernel. This does not include dynamically-allocated shared memory requested by the user at runtime.
+//   - [FuncAttributeConstSizeBytes]: The size in bytes of user-allocated constant memory required by this kernel.
+//   - [FuncAttributeLocalSizeBytes]: The size in bytes of local memory used by each thread of this kernel.
+//   - [FuncAttributeNumRegs]: The number of registers used by each thread of this kernel.
+//   - [FuncAttributePtxVersion]: The PTX virtual architecture version for which the kernel was compiled. This value is the major PTX version * 10 + the minor PTX version, so a PTX version 1.3 function would return the value 13. Note that this may return the undefined value of 0 for cubins compiled prior to CUDA 3.0.
+//   - [FuncAttributeBinaryVersion]: The binary architecture version for which the kernel was compiled. This value is the major binary version * 10 + the minor binary version, so a binary version 1.3 function would return the value 13. Note that this will return a value of 10 for legacy cubins that do not have a properly-encoded binary architecture version.
+//   - CU_FUNC_CACHE_MODE_CA: The attribute to indicate whether the kernel has been compiled with user specified option “-Xptxas –dlcm=ca” set.
+//   - [FuncAttributeMaxDynamicSharedSizeBytes]: The maximum size in bytes of dynamically-allocated shared memory.
+//   - [FuncAttributePreferredSharedMemoryCarveout]: Preferred shared memory-L1 cache split ratio in percent of total shared memory.
+//   - [FuncAttributeClusterSizeMustBeSet]: If this attribute is set, the kernel must launch with a valid cluster size specified.
+//   - [FuncAttributeRequiredClusterWidth]: The required cluster width in blocks.
+//   - [FuncAttributeRequiredClusterHeight]: The required cluster height in blocks.
+//   - [FuncAttributeRequiredClusterDepth]: The required cluster depth in blocks.
+//   - [FuncAttributeNonPortableClusterSizeAllowed]: Indicates whether the function can be launched with non-portable cluster size. 1 is allowed, 0 is disallowed. A non-portable cluster size may only function on the specific SKUs the program is tested on. The launch might fail if the program is run on a different hardware platform. CUDA API provides cudaOccupancyMaxActiveClusters to assist with checking whether the desired size can be launched on the current device. A portable cluster size is guaranteed to be functional on all compute capabilities higher than the target compute capability. The portable cluster size for sm_90 is 8 blocks per cluster. This value may increase for future compute capabilities. The specific hardware unit may support higher cluster sizes that’s not guaranteed to be portable.
+//   - [FuncAttributeClusterSchedulingPolicyPreference]: The block scheduling policy of a function. The value type is [ClusterSchedulingPolicy].
+//   - CU_FUNC_ATTRIBUTE_SHARED_MEMORY_MODE: The shared memory mode of a function. The value type is [SharedMemoryMode] / cudaSharedMemoryMode.
 //
 // Note: If another thread is trying to set the same attribute on the same device using [Kernel.SetAttribute] simultaneously, the attribute query will give the old or new value depending on the interleavings chosen by the OS scheduler and memory consistency.
 //
@@ -12,6 +29,13 @@ package driver
 //
 //   - attrib: Attribute requested
 //   - dev: Device to query attribute of
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuKernelGetAttribute.
 func (k Kernel) Attribute(attrib FunctionAttribute, dev Device) (int32, error) {
@@ -24,6 +48,15 @@ func (k Kernel) Attribute(attrib FunctionAttribute, dev Device) (int32, error) {
 //
 // See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Library.Kernel], [Library.Module], [Module.Function]
 //
+// Errors:
+//   - [ErrContextIsDestroyed]
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotFound]
+//   - [ErrNotInitialized]
+//
 // Wraps cuKernelGetFunction.
 func (k Kernel) Function() (Function, error) {
 	return kernelGetFunction(k)
@@ -35,6 +68,13 @@ func (k Kernel) Function() (Function, error) {
 //
 // See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Library.Kernel]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotFound]
+//   - [ErrNotInitialized]
+//
 // Wraps cuKernelGetLibrary.
 func (k Kernel) Library() (Library, error) {
 	return kernelGetLibrary(k)
@@ -43,6 +83,9 @@ func (k Kernel) Library() (Library, error) {
 // Name returns the function name for a [Kernel] handle.
 //
 // Returns in **name the function name associated with the kernel handle hfunc . The function name is returned as a null-terminated string. The returned name is only valid when the kernel handle is valid. If the library is unloaded or reloaded, one must call the API again to get the updated name. This API may return a mangled name if the function is not declared as having C linkage. If either **name or hfunc is NULL, [ErrInvalidValue] is returned.
+//
+// Errors:
+//   - [ErrInvalidValue]
 //
 // Wraps cuKernelGetName.
 func (k Kernel) Name() (string, error) {
@@ -54,6 +97,9 @@ func (k Kernel) Name() (string, error) {
 // Queries the number of kernel parameters used by kernel and returns it in paramCount.
 //
 // See also: [Kernel.ParamInfo]
+//
+// Errors:
+//   - [ErrInvalidValue]
 //
 // Wraps cuKernelGetParamCount.
 func (k Kernel) ParamCount() (uint, error) {
@@ -68,6 +114,9 @@ func (k Kernel) ParamCount() (uint, error) {
 //
 //   - paramIndex: The parameter index to query
 //
+// Errors:
+//   - [ErrInvalidValue]
+//
 // Wraps cuKernelGetParamInfo.
 func (k Kernel) ParamInfo(paramIndex uint) (paramOffset uint, paramSize uint, err error) {
 	return kernelGetParamInfo(k, paramIndex)
@@ -78,6 +127,14 @@ func (k Kernel) ParamInfo(paramIndex uint) (paramOffset uint, paramSize uint, er
 // This call sets the value of a specified attribute attrib on the kernel kernel for the requested device dev to an integer value specified by val. This function returns [Success] if the new value of the attribute could be successfully set. If the set fails, this call will return an error. Not all attributes can have values set. Attempting to set a value on a read-only attribute will result in an error ([ErrInvalidValue])
 // Note that attributes set using [Function.SetAttribute] will override the attribute set by this API irrespective of whether the call to [Function.SetAttribute] is made before or after this API call. However, [Kernel.Attribute] will always return the attribute value set by this API.
 // Supported attributes are:
+//   - [FuncAttributeMaxDynamicSharedSizeBytes]: This is the maximum size in bytes of dynamically-allocated shared memory. The value should contain the requested maximum size of dynamically-allocated shared memory. The sum of this value and the function attribute [FuncAttributeSharedSizeBytes] cannot exceed the device attribute [DevAttrMaxSharedMemoryPerBlockOptin]. The maximal size of requestable dynamic shared memory may differ by GPU architecture.
+//   - [FuncAttributePreferredSharedMemoryCarveout]: On devices where the L1 cache and shared memory use the same hardware resources, this sets the shared memory carveout preference, in percent of the total shared memory. See [DevAttrMaxSharedMemoryPerMultiprocessor] This is only a hint, and the driver can choose a different ratio if required to execute the function.
+//   - [FuncAttributeRequiredClusterWidth]: The required cluster width in blocks. The width, height, and depth values must either all be 0 or all be positive. The validity of the cluster dimensions is checked at launch time. If the value is set during compile time, it cannot be set at runtime. Setting it at runtime will return [ErrNotPermitted].
+//   - [FuncAttributeRequiredClusterHeight]: The required cluster height in blocks. The width, height, and depth values must either all be 0 or all be positive. The validity of the cluster dimensions is checked at launch time. If the value is set during compile time, it cannot be set at runtime. Setting it at runtime will return [ErrNotPermitted].
+//   - [FuncAttributeRequiredClusterDepth]: The required cluster depth in blocks. The width, height, and depth values must either all be 0 or all be positive. The validity of the cluster dimensions is checked at launch time. If the value is set during compile time, it cannot be set at runtime. Setting it at runtime will return [ErrNotPermitted].
+//   - [FuncAttributeNonPortableClusterSizeAllowed]: Indicates whether the function can be launched with non-portable cluster size. 1 is allowed, 0 is disallowed.
+//   - [FuncAttributeClusterSchedulingPolicyPreference]: The block scheduling policy of a function. The value type is [ClusterSchedulingPolicy].
+//   - CU_FUNC_ATTRIBUTE_SHARED_MEMORY_MODE: The shared memory mode of a function. The value type is [SharedMemoryMode] / cudaSharedMemoryMode.
 //
 // Note: The API has stricter locking requirements in comparison to its legacy counterpart [Function.SetAttribute] due to device-wide semantics. If multiple threads are trying to set the same attribute on the same device simultaneously, the attribute setting will depend on the interleavings chosen by the OS scheduler and memory consistency.
 //
@@ -86,6 +143,14 @@ func (k Kernel) ParamInfo(paramIndex uint) (paramOffset uint, paramSize uint, er
 //   - attrib: Attribute requested
 //   - val: Value to set
 //   - dev: Device to set attribute of
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrOutOfMemory]
 //
 // Wraps cuKernelSetAttribute.
 func (k Kernel) SetAttribute(attrib FunctionAttribute, val int32, dev Device) error {
@@ -99,6 +164,10 @@ func (k Kernel) SetAttribute(attrib FunctionAttribute, val int32, dev Device) er
 // This setting does nothing on devices where the size of the L1 cache and shared memory are fixed.
 // Launching a kernel with a different preference than the most recent preference setting may insert a device-side synchronization point.
 // The supported cache configurations are:
+//   - [FuncCachePreferNone]: no preference for shared memory or L1 (default)
+//   - [FuncCachePreferShared]: prefer larger shared memory and smaller L1 cache
+//   - [FuncCachePreferL1]: prefer larger L1 cache and smaller shared memory
+//   - [FuncCachePreferEqual]: prefer equal sized L1 cache and shared memory
 //
 // Note: The API has stricter locking requirements in comparison to its legacy counterpart [Function.SetCacheConfig] due to device-wide semantics. If multiple threads are trying to set a config on the same device simultaneously, the cache config setting will depend on the interleavings chosen by the OS scheduler and memory consistency.
 //
@@ -106,6 +175,14 @@ func (k Kernel) SetAttribute(attrib FunctionAttribute, val int32, dev Device) er
 //
 //   - config: Requested cache configuration
 //   - dev: Device to set attribute of
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrOutOfMemory]
 //
 // Wraps cuKernelSetCacheConfig.
 func (k Kernel) SetCacheConfig(config FuncCacheConfig, dev Device) error {

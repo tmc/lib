@@ -31,9 +31,9 @@ type TensorAllocConfig struct {
 
 // AllocConfig represents allocator callbacks returning CUDA runtime status codes, with a caller-owned context.
 type AllocConfig struct {
-	// Optional C function pointer: int32 alloc(void **ptr, size_t size, void *context). Zero selects the native default allocator.
+	// Optional C function pointer: cudaError_t alloc(void **ptr, size_t size, void *context). Zero selects the native default allocator.
 	AllocFn uintptr
-	// Optional C function pointer: int32 free(void *ptr, void *context). Zero selects the native default deallocator.
+	// Optional C function pointer: cudaError_t free(void *ptr, void *context). Zero selects the native default deallocator.
 	FreeFn uintptr
 	// Caller-owned callback context; must remain valid for the group lifetime.
 	Context unsafe.Pointer

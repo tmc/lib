@@ -7,9 +7,6 @@ package cudnn
 // This function destroys the attention descriptor object and releases its memory. The attnDesc argument can be NULL. Invoking [AttnDescriptor.Destroy] with a NULL argument is a no operation (NOP).
 // The [AttnDescriptor.Destroy] function is not able to detect if the attnDesc argument holds a valid address. Undefined behavior will occur in case of passing an invalid pointer, not returned by the [CreateAttnDescriptor] function, or in the double deletion scenario of a valid address.
 //
-// Returns:
-//   - [Success]: The descriptor was destroyed successfully.
-//
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnDestroyAttnDescriptor.
@@ -21,9 +18,10 @@ func (a AttnDescriptor) Destroy() error {
 //
 // This function retrieves settings from the previously created attention descriptor. The user can assign NULL to any pointer except attnDesc when the retrieved value is not needed.
 //
-// Returns:
+// A nil error means requested attention descriptor fields were retrieved successfully.
+//
+// Errors:
 //   - [ErrBadParam]: An invalid input argument was found.
-//   - [Success]: Requested attention descriptor fields were retrieved successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -38,7 +36,7 @@ func (a AttnDescriptor) Get() (AttnConfig, error) {
 // Input sequence data descriptors in [Handle.MultiHeadAttnForward], [Handle.MultiHeadAttnBackwardData], and [Handle.MultiHeadAttnBackwardWeights] functions are checked against the configuration parameters stored in the attention descriptor. Some parameters must match exactly while max arguments such as maxBatchSize or qoMaxSeqLength establish upper limits for the corresponding dimensions.
 // The multihead attention model can be described by the following equations:
 // hᵢ=(W_(V,i)V)softmax(smScaler(KᵀW_(K,i)ᵀ)(W_(Q,i)q)),fori=0⋯nHeads−1
-// MultiHeadAttn(q,K,V,W_(Q),W_(K),W_(V),W_(O))=∑i=0nHeads−1W_(O,i)hᵢ
+// MultiHeadAttn(q,K,V,W_(Q),W_(K),W_(V),W_(O))=∑_(i=0)^(nHeads−1)W_(O,i)hᵢ
 // Where:
 // The lengths of query, key, and value vectors are defined by the qSize, kSize, and vSize arguments respectively.
 // For simplicity, the above equations are presented using a single embedding vector q but the cuDNN API can handle multiple q candidates in the beam search scheme, process q vectors from multiple sequences bundled into a batch, or automatically iterate through all embedding vectors (time-steps) of a sequence. Thus, in general, q, K, V inputs are tensors with additional pieces of information such as the active length of each sequence or how unused padding vectors should be saved.
@@ -62,8 +60,14 @@ func (a AttnDescriptor) Get() (AttnConfig, error) {
 // Use no biases in the attention input and output projections.
 // CUDNN_ATTN_ENABLE_PROJ_BIASES
 // Use extra biases in the attention input and output projections. In this case the projected K¯ vectors are computed as K¯ᵢ=W_(K,i)K+b*[1,1,⋯,1]₁ₓₙ, where n is the number of columns in the K matrix. In other words, the same column vector b is added to all columns of K after the weight matrix multiplication.
-// Unsupported Features
+//   - dataType: [DataDouble]; computePrec: [DataDouble]; mathType: [DefaultMath]
+//   - dataType: [DataFloat]; computePrec: [DataFloat]; mathType: [DefaultMath], [TensorOpMathAllowConversion]
+//   - dataType: [DataHalf]; computePrec: [DataHalf], [DataFloat]; mathType: [DefaultMath], [TensorOpMath], [TensorOpMathAllowConversion]
 //
+// Unsupported Features
+//   - The paddingFill argument in [SeqDataDescriptor] is currently ignored by all multihead attention functions.
+//
+// Parameters:
 //   - attnMode: Input. Enables various attention options that do not require additional numerical values. Refer to the table below for the list of supported flags. The user should assign a preferred set of bitwise OR-ed flags to this argument
 //   - nHeads: Input. Number of attention heads
 //   - smScaler: Input. Softmax smoothing ( 1.0 >= smScaler >= 0.0) or sharpening ( smScaler > 1.0) coefficient. Negative values are not accepted
@@ -84,10 +88,11 @@ func (a AttnDescriptor) Get() (AttnConfig, error) {
 //   - maxBatchSize: Input. Largest batch size expected in any [SeqDataDescriptor] container
 //   - maxBeamSize: Input. Largest beam size expected in any [SeqDataDescriptor] container
 //
-// Returns:
+// A nil error means the attention descriptor was configured successfully.
+//
+// Errors:
 //   - [ErrBadParam]: An invalid input argument was encountered. Some examples include: post projection Q and K sizes were not equal dataType, computePrec, or mathType were invalid one or more of the following arguments were either negative or zero: nHeads, qSize, kSize, vSize, qoMaxSeqLength, kvMaxSeqLength, maxBatchSize, maxBeamSize one or more of the following arguments were negative: qProjSize, kProjSize, vProjSize, smScaler
 //   - [ErrNotSupported]: A requested option or a combination of input arguments is not supported.
-//   - [Success]: The attention descriptor was configured successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //

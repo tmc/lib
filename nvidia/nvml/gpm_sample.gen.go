@@ -9,10 +9,9 @@ package nvml
 //
 //   - gpmSample: Where the allocated sample will be stored
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if an invalid pointer is provided
 //   - [ErrMemory]: if system memory is insufficient
-//   - [Success]: on success
 //
 // Wraps [nvmlGpmSampleAlloc].
 //
@@ -25,9 +24,8 @@ func NewGpmSample() (GpmSample, error) {
 //
 // For Hopper or newer fully supported devices.
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if an invalid pointer is provided
-//   - [Success]: on success
 //
 // Wraps [nvmlGpmSampleFree].
 //
@@ -46,9 +44,6 @@ func (g GpmSample) Free() error {
 // Note: This API supports the device handle and MIG device handle.
 //
 //   - device: The device handle or MIG device handle to get samples for
-//
-// Returns:
-//   - [Success]: on success Nonzero NVML_ERROR_? enum on error
 //
 // Wraps [nvmlGpmSampleGet].
 //

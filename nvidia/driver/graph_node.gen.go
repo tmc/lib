@@ -11,6 +11,9 @@ package driver
 //
 //   - hClonedGraph: Cloned graph to query
 //
+// Errors:
+//   - [ErrInvalidValue]
+//
 // Wraps cuGraphNodeFindInClone.
 func (g GraphNode) FindInClone(hClonedGraph Graph) (GraphNode, error) {
 	return graphNodeFindInClone(g, hClonedGraph)
@@ -21,6 +24,9 @@ func (g GraphNode) FindInClone(hClonedGraph Graph) (GraphNode, error) {
 // Returns the graph that contains hNode in *phGraph. If hNode is in a child graph, the child graph it is in is returned.
 //
 // See also: [Graph.GetNodes], [Graph.DebugDotPrint] [GraphNode.LocalId] [GraphNode.ToolsId] [Graph.Id] [GraphExec.Id]
+//
+// Errors:
+//   - [ErrInvalidValue]
 //
 // Wraps cuGraphNodeGetContainingGraph.
 func (g GraphNode) ContainingGraph() (Graph, error) {
@@ -38,6 +44,12 @@ func (g GraphNode) ContainingGraph() (Graph, error) {
 //   - edgeData: Optional array to return edge data for each dependency
 //   - numDependencies: See description
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrLossyQuery]
+//   - [ErrNotInitialized]
+//
 // Wraps cuGraphNodeGetDependencies, bound as cuGraphNodeGetDependencies_v2.
 func (g GraphNode) Dependencies(dependencies *GraphNode, edgeData *GraphEdgeData, numDependencies *uint) error {
 	return graphNodeGetDependencies(g, dependencies, edgeData, numDependencies)
@@ -53,6 +65,12 @@ func (g GraphNode) Dependencies(dependencies *GraphNode, edgeData *GraphEdgeData
 //   - dependentNodes: Pointer to return the dependent nodes
 //   - edgeData: Optional pointer to return edge data for dependent nodes
 //   - numDependentNodes: See description
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrLossyQuery]
+//   - [ErrNotInitialized]
 //
 // Wraps cuGraphNodeGetDependentNodes, bound as cuGraphNodeGetDependentNodes_v2.
 func (g GraphNode) DependentNodes(dependentNodes *GraphNode, edgeData *GraphEdgeData, numDependentNodes *uint) error {
@@ -73,6 +91,9 @@ func (g GraphNode) DependentNodes(dependentNodes *GraphNode, edgeData *GraphEdge
 //
 //   - hGraphExec: The executable graph in which to set the specified node
 //
+// Errors:
+//   - [ErrInvalidValue]
+//
 // Wraps cuGraphNodeGetEnabled.
 func (g GraphNode) Enabled(hGraphExec GraphExec) (uint32, error) {
 	return graphNodeGetEnabled(hGraphExec, g)
@@ -83,6 +104,9 @@ func (g GraphNode) Enabled(hGraphExec GraphExec) (uint32, error) {
 // Returns the node id of hNode in *nodeId. The nodeId matches that referenced by [Graph.DebugDotPrint]. The local nodeId and graphId together can uniquely identify the node.
 //
 // See also: [Graph.GetNodes], [Graph.DebugDotPrint] [GraphNode.ContainingGraph] [GraphNode.ToolsId] [Graph.Id] [GraphExec.Id]
+//
+// Errors:
+//   - [ErrInvalidValue]
 //
 // Wraps cuGraphNodeGetLocalId.
 func (g GraphNode) LocalId() (uint32, error) {
@@ -97,6 +121,11 @@ func (g GraphNode) LocalId() (uint32, error) {
 //
 // See also: [GraphNode.SetParams], [Graph.AddNode], [GraphExec.NodeSetParams]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuGraphNodeGetParams.
 func (g GraphNode) Params() (GraphNodeParams, error) {
 	return graphNodeGetParams(g)
@@ -105,6 +134,9 @@ func (g GraphNode) Params() (GraphNodeParams, error) {
 // ToolsId returns an id used by tools to identify a given node.
 //
 // See also: [Graph.GetNodes], [Graph.DebugDotPrint] [GraphNode.ContainingGraph] [GraphNode.LocalId] [Graph.Id] [GraphExec.Id]
+//
+// Errors:
+//   - [ErrInvalidValue]
 //
 // Wraps cuGraphNodeGetToolsId.
 func (g GraphNode) ToolsId() (uint64, error) {
@@ -116,6 +148,11 @@ func (g GraphNode) ToolsId() (uint64, error) {
 // Returns the node type of hNode in type.
 //
 // See also: [Graph.GetNodes], [Graph.RootNodes], [ChildGraphNode.Graph], [KernelNode.Params], [KernelNode.SetParams], [HostNode.Params], [HostNode.SetParams], [MemcpyNode.Params], [MemcpyNode.SetParams], [MemsetNode.Params], [MemsetNode.SetParams]
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuGraphNodeGetType.
 func (g GraphNode) Type() (GraphNodeType, error) {
@@ -137,6 +174,9 @@ func (g GraphNode) Type() (GraphNodeType, error) {
 //   - hGraphExec: The executable graph in which to set the specified node
 //   - isEnabled: Node is enabled if != 0, otherwise the node is disabled
 //
+// Errors:
+//   - [ErrInvalidValue]
+//
 // Wraps cuGraphNodeSetEnabled.
 func (g GraphNode) SetEnabled(hGraphExec GraphExec, isEnabled uint32) error {
 	return graphNodeSetEnabled(hGraphExec, g, isEnabled)
@@ -151,6 +191,10 @@ func (g GraphNode) SetEnabled(hGraphExec GraphExec, isEnabled uint32) error {
 //
 //   - nodeParams: Parameters to copy
 //
+// Errors:
+//   - [ErrInvalidValue]
+//   - [ErrNotSupported]
+//
 // Wraps cuGraphNodeSetParams.
 func (g GraphNode) SetParams(nodeParams *GraphNodeParams) error {
 	return graphNodeSetParams(g, nodeParams)
@@ -162,6 +206,9 @@ func (g GraphNode) SetParams(nodeParams *GraphNodeParams) error {
 // Nodes which belong to a graph which contains allocation or free nodes cannot be destroyed. Any attempt to do so will return an error.
 //
 // See also: [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
+//
+// Errors:
+//   - [ErrInvalidValue]
 //
 // Wraps cuGraphDestroyNode.
 func (g GraphNode) DestroyNode() error {

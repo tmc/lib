@@ -2,7 +2,6 @@ package cutensor_test
 
 import (
 	"fmt"
-	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cutensor"
 	"github.com/tmc/lib/nvidia/driver"
@@ -112,8 +111,8 @@ func ExampleHandle_Contract() {
 	var dA, dB, dC, dWorkspace driver.DevicePtr // device allocations
 	alpha, beta := float32(1), float32(0)
 	err = h.Contract(plan,
-		unsafe.Pointer(&alpha), dA, dB,
-		unsafe.Pointer(&beta), dC, dC,
+		cutensor.Float32Scalar(alpha), dA, dB,
+		cutensor.Float32Scalar(beta), dC, dC,
 		dWorkspace, wsSize, driver.Stream(0))
 	if err != nil {
 		fmt.Println("contract:", err)

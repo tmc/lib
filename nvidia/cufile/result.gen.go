@@ -35,3 +35,23 @@ func toError(r Error, fn string) error {
 	}
 	return &CallError{Func: fn, Result: r}
 }
+
+// An ErrnoError reports that Func returned -1, which means the call
+// failed and C set errno to say why. The call does not capture errno,
+// so the error cannot report it.
+type ErrnoError struct {
+	Func string // the C symbol called
+}
+
+// Error reports the C symbol called.
+func (e *ErrnoError) Error() string { return e.Func + ": returned -1; errno not captured" }
+
+// negativeError returns the error for the negative count n that fn
+// returned: an *ErrnoError for -1, and otherwise a *CallError whose status
+// is -n.
+func negativeError(n int64, fn string) error {
+	if n == -1 {
+		return &ErrnoError{Func: fn}
+	}
+	return &CallError{Func: fn, Result: Error{Err: OpError(-n)}}
+}

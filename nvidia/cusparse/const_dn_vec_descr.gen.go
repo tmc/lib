@@ -4,16 +4,12 @@ package cusparse
 
 // DestroyDnVec releases the host memory allocated for the dense vector descriptor dnVecDescr.
 //
-// Refer to [Result] for the description of the return status.
-//
 // Wraps cusparseDestroyDnVec.
 func (c ConstDnVecDescr) DestroyDnVec() error {
 	return destroyDnVec(c)
 }
 
 // DnVecGet returns the fields of the dense vector descriptor dnVecDescr.
-//
-// Refer to [Result] for the description of the return status.
 //
 //   - size: Size of the dense vector
 //   - values: Values of the dense vector. Array with nnz elements
@@ -25,8 +21,6 @@ func (c ConstDnVecDescr) DnVecGet(size *int64, values *uintptr, valueType *DataT
 }
 
 // DnVecGetValues returns the values field of the dense vector descriptor dnVecDescr.
-//
-// Refer to [Result] for the description of the return status.
 //
 //   - values: Values of the dense vector
 //

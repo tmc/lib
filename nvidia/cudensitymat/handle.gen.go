@@ -26,9 +26,11 @@ import (
 // of the quantum state.
 //
 // Storage of tensor elements in memory:
-// - [OperatorSparsityNone]:
+//   - [OperatorSparsityNone]:
+//
 // Dense tensor stored using the generalized column-wise layout.
-// - [OperatorSparsityMultidiagonal]:
+//   - [OperatorSparsityMultidiagonal]:
+//
 // The full non-zero diagonals are stored in a concatenated form,
 // following the order how they appear in the `diagonalOffsets` argument.
 // The length of each stored diagonal is equal to the full matrix dimension,

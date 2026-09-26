@@ -51,18 +51,18 @@ func TestUnavailableSurfaceIsStructured(t *testing.T) {
 		{"GemmBufferSize", func() error {
 			_, _, err := cublasmp.Handle(0).GemmBufferSize(
 				cublas.OpN, cublas.OpN, 1, 1, 1,
-				unsafe.Pointer(&alpha), 0, 1, 1, cublasmp.MatrixDescriptor(0),
+				cublasmp.Float32Scalar(alpha), 0, 1, 1, cublasmp.MatrixDescriptor(0),
 				0, 1, 1, cublasmp.MatrixDescriptor(0),
-				unsafe.Pointer(&alpha), 0, 1, 1, cublasmp.MatrixDescriptor(0),
+				cublasmp.Float32Scalar(alpha), 0, 1, 1, cublasmp.MatrixDescriptor(0),
 				cublas.Compute32F)
 			return err
 		}},
 		{"Gemm", func() error {
 			return cublasmp.Handle(0).Gemm(
 				cublas.OpN, cublas.OpN, 1, 1, 1,
-				unsafe.Pointer(&alpha), 0, 1, 1, cublasmp.MatrixDescriptor(0),
+				cublasmp.Float32Scalar(alpha), 0, 1, 1, cublasmp.MatrixDescriptor(0),
 				0, 1, 1, cublasmp.MatrixDescriptor(0),
-				unsafe.Pointer(&alpha), 0, 1, 1, cublasmp.MatrixDescriptor(0),
+				cublasmp.Float32Scalar(alpha), 0, 1, 1, cublasmp.MatrixDescriptor(0),
 				cublas.Compute32F, 0, 0, unsafe.Pointer(&alpha), 0)
 		}},
 	}

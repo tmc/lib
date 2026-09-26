@@ -2,7 +2,7 @@
 
 package custatevec
 
-// NewCommunicator [Create] communicator.
+// NewCommunicator creates communicator.
 //
 //   - handle: in the handle to cuStateVec library
 //   - communicator: out a pointer to the communicator

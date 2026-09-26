@@ -10,6 +10,9 @@ package driver
 //
 // See also: [CoredumpRegisterCompleteCallback]
 //
+// Errors:
+//   - [ErrInvalidValue]
+//
 // Wraps cuCoredumpDeregisterCompleteCallback.
 func (c CoredumpCallbackHandle) DeregisterCompleteCallback() error {
 	return coredumpDeregisterCompleteCallback(c)
@@ -22,6 +25,9 @@ func (c CoredumpCallbackHandle) DeregisterCompleteCallback() error {
 // Note: It is the caller’s responsibility to deregister callbacks before they go out of scope.
 //
 // See also: [CoredumpRegisterStartCallback]
+//
+// Errors:
+//   - [ErrInvalidValue]
 //
 // Wraps cuCoredumpDeregisterStartCallback.
 func (c CoredumpCallbackHandle) DeregisterStartCallback() error {

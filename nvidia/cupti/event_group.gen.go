@@ -10,16 +10,15 @@ import (
 // AddEvent adds an event to an event group.
 //
 // The event add can fail for a number of reasons:
-// - The event group is enabled
-// - The event does not belong to the same event domain as the
-// events that are already in the event group
-// - Device limitations on the events that can belong to the same group
-// - The event group is full
+//   - The event group is enabled
+//   - The event does not belong to the same event domain as the events that are already in the event group
+//   - Device limitations on the events that can belong to the same group
+//   - The event group is full
 //
+// Parameters:
 //   - event: The event to add to the group
 //
-// Returns:
-//   - [Success]
+// Errors:
 //   - [ErrNotInitialized]
 //   - [ErrInvalidEventId]
 //   - [ErrOutOfMemory]
@@ -40,8 +39,7 @@ func (e EventGroup) AddEvent(event uint32) error {
 // Destroy an eventGroup and free its resources. An event group
 // cannot be destroyed if it is enabled.
 //
-// Returns:
-//   - [Success]
+// Errors:
 //   - [ErrNotInitialized]
 //   - [ErrInvalidOperation]: if the event group is enabled
 //   - [ErrInvalidParameter]: if eventGroup is NULL
@@ -58,8 +56,7 @@ func (e EventGroup) Destroy() error {
 // Disabling an event group stops collection
 // of events contained in the group.
 //
-// Returns:
-//   - [Success]
+// Errors:
 //   - [ErrNotInitialized]
 //   - [ErrHardware]
 //   - [ErrInvalidParameter]: if eventGroup is NULL
@@ -77,8 +74,7 @@ func (e EventGroup) Disable() error {
 // all the events in the group and then starts collection of those
 // events.
 //
-// Returns:
-//   - [Success]
+// Errors:
 //   - [ErrNotInitialized]
 //   - [ErrHardware]
 //   - [ErrNotReady]: if eventGroup does not contain any events
@@ -107,8 +103,7 @@ func (e EventGroup) Enable() error {
 //   - valueSize: Size of buffer pointed by the value, and returns the number of bytes written to value
 //   - value: Returns the value of the attribute
 //
-// Returns:
-//   - [Success]
+// Errors:
 //   - [ErrNotInitialized]
 //   - [ErrInvalidParameter]: if valueSize or value is NULL, or if attrib is not an eventgroup attribute
 //   - [ErrParameterSizeNotSufficient]: For non-c-string attribute values, indicates that the value buffer is too small to hold the attribute value.
@@ -132,10 +127,10 @@ func (e EventGroup) Attribute(attrib EventGroupAttribute, valueSize *uint, value
 // set on the group.
 //
 // The data format returned in eventValueBuffer is:
-// - domain instance 0: event0 event1 ... eventN
-// - domain instance 1: event0 event1 ... eventN
-// - ...
-// - domain instance M: event0 event1 ... eventN
+//   - domain instance 0: event0 event1 ... eventN
+//   - domain instance 1: event0 event1 ... eventN
+//   - ...
+//   - domain instance M: event0 event1 ... eventN
 //
 // The event order in eventValueBuffer is returned in eventIdArray. The size should be at least
 // (sizeof(CUpti_EventID) * number of events in group).
@@ -160,8 +155,7 @@ func (e EventGroup) Attribute(attrib EventGroupAttribute, valueSize *uint, value
 //   - eventValueBuffer: Returns the event values
 //   - eventIdArray: Returns the IDs of the events in the same order as the values return in eventValueBuffer
 //
-// Returns:
-//   - [Success]
+// Errors:
 //   - [ErrNotInitialized]
 //   - [ErrHardware]
 //   - [ErrInvalidOperation]: if eventGroup is disabled
@@ -206,8 +200,7 @@ func (e EventGroup) ReadAllEvents(flags ReadEventFlags, eventValueBuffer []uint6
 //   - eventValueBufferSizeBytes: The size of eventValueBuffer in bytes, and returns the number of bytes written to eventValueBuffer
 //   - eventValueBuffer: Returns the event value(s)
 //
-// Returns:
-//   - [Success]
+// Errors:
 //   - [ErrNotInitialized]
 //   - [ErrInvalidEventId]
 //   - [ErrHardware]
@@ -227,8 +220,7 @@ func (e EventGroup) ReadEvent(flags ReadEventFlags, event uint32, eventValueBuff
 // Events cannot be removed if
 // the event group is enabled.
 //
-// Returns:
-//   - [Success]
+// Errors:
 //   - [ErrNotInitialized]
 //   - [ErrInvalidOperation]: if eventGroup is enabled
 //   - [ErrInvalidParameter]: if eventGroup is NULL
@@ -247,8 +239,7 @@ func (e EventGroup) RemoveAllEvents() error {
 //
 //   - event: The event to remove from the group
 //
-// Returns:
-//   - [Success]
+// Errors:
 //   - [ErrNotInitialized]
 //   - [ErrInvalidEventId]
 //   - [ErrInvalidOperation]: if eventGroup is enabled
@@ -261,7 +252,9 @@ func (e EventGroup) RemoveEvent(event uint32) error {
 	return eventGroupRemoveEvent(e, event)
 }
 
-// ResetAllEvents Zero all the event counts in an event group.
+// ResetAllEvents zeroes the counts of all the events in the event group.
+//
+// Zero all the event counts in an event group.
 //
 // must guard against simultaneous destruction or modification of eventGroup (for example, client must guard against simultaneous
 // calls to [EventGroup.Destroy], [EventGroup.AddEvent],
@@ -270,8 +263,7 @@ func (e EventGroup) RemoveEvent(event uint32) error {
 // must guard against simultaneous calls to cudaDeviceReset,
 // cuCtxDestroy, etc.).
 //
-// Returns:
-//   - [Success]
+// Errors:
 //   - [ErrNotInitialized]
 //   - [ErrHardware]
 //   - [ErrInvalidParameter]: if eventGroup is NULL
@@ -289,8 +281,7 @@ func (e EventGroup) ResetAllEvents() error {
 //   - valueSize: The size, in bytes, of the value
 //   - value: The attribute value to write
 //
-// Returns:
-//   - [Success]
+// Errors:
 //   - [ErrNotInitialized]
 //   - [ErrInvalidParameter]: if valueSize or value is NULL, or if attrib is not an event group attribute, or if attrib is not a writable attribute
 //   - [ErrParameterSizeNotSufficient]: Indicates that the value buffer is too small to hold the attribute value.
@@ -311,8 +302,7 @@ func (e EventGroup) SetAttribute(attrib EventGroupAttribute, valueSize uint, val
 //   - eventGroup: Returns the new event group
 //   - flags: Reserved - must be zero
 //
-// Returns:
-//   - [Success]
+// Errors:
 //   - [ErrNotInitialized]
 //   - [ErrInvalidContext]
 //   - [ErrOutOfMemory]

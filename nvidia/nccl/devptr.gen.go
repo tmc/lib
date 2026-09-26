@@ -20,7 +20,7 @@ var (
 
 // fngetLsaDevicePointer calls ncclGetLsaDevicePointer.
 func fngetLsaDevicePointer(a0 Window, a1 uint, a2 int32, a3 *uintptr) Result {
-	r1, _ := ffiCall4(symgetLsaDevicePointer, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symgetLsaDevicePointer, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
@@ -38,17 +38,19 @@ func fngetMultimemDeviceLeInfo(a0 Window, a1 uint, a2 *CftLeId, a3 *uint) Result
 
 // fngetPeerDeviceLeInfo calls ncclGetPeerDeviceLeInfo.
 func fngetPeerDeviceLeInfo(a0 Window, a1 uint, a2 int32, a3 *CftLeId, a4 *uint) Result {
-	r1, _ := ffiCall5(symgetPeerDeviceLeInfo, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symgetPeerDeviceLeInfo, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
 // fngetPeerDevicePointer calls ncclGetPeerDevicePointer.
 func fngetPeerDevicePointer(a0 Window, a1 uint, a2 int32, a3 *uintptr) Result {
-	r1, _ := ffiCall4(symgetPeerDevicePointer, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symgetPeerDevicePointer, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
-// getCftDeviceLeInfo Host-side query for the logical endpoint leId and leOffset corresponding to window, byte offset, and peerCft within cftTeam.
+// getCftDeviceLeInfo returns the logical endpoint, and the offset into it, of a byte offset in the window for a peer in cftTeam.
+//
+// Host-side query for the logical endpoint leId and leOffset corresponding to window, byte offset, and peerCft within cftTeam.
 //
 // Wraps ncclGetCftDeviceLeInfo.
 func getCftDeviceLeInfo(window Window, offset uint, peerCft int32, cftTeam Team) (leId CftLeId, leOffset uint, err error) {
@@ -114,7 +116,9 @@ func getLsaMultimemDevicePointer(window Window, offset uint) (driver.DevicePtr, 
 
 var slotGetLsaMultimemDevicePointer outSlot[uintptr]
 
-// getMultimemDeviceLeInfo Host-side query for the multicast logical endpoint leId and leOffset corresponding to window and byte offset.
+// getMultimemDeviceLeInfo returns the multicast logical endpoint, and the offset into it, of a byte offset in the window.
+//
+// Host-side query for the multicast logical endpoint leId and leOffset corresponding to window and byte offset.
 //
 // Wraps ncclGetMultimemDeviceLeInfo.
 func getMultimemDeviceLeInfo(window Window, offset uint) (leId CftLeId, leOffset uint, err error) {
@@ -157,7 +161,9 @@ func getMultimemDevicePointer(window Window, offset uint, multimem MultimemHandl
 	return driver.DevicePtr(out), nil
 }
 
-// getPeerDeviceLeInfo Host-side query for the logical endpoint leId and leOffset corresponding to window, byte offset and peerWorld within the world team.
+// getPeerDeviceLeInfo returns the logical endpoint, and the offset into it, of a byte offset in the window for a peer in the world team.
+//
+// Host-side query for the logical endpoint leId and leOffset corresponding to window, byte offset and peerWorld within the world team.
 //
 // Wraps ncclGetPeerDeviceLeInfo.
 func getPeerDeviceLeInfo(window Window, offset uint, peerWorld int32) (leId CftLeId, leOffset uint, err error) {
@@ -203,7 +209,9 @@ func getPeerDevicePointer(window Window, offset uint, peer int32) (driver.Device
 
 var slotGetPeerDevicePointer outSlot[uintptr]
 
-// CftDeviceLeInfo Host-side query for the logical endpoint leId and leOffset corresponding to window, byte offset, and peerCft within cftTeam.
+// CftDeviceLeInfo returns the logical endpoint, and the offset into it, of a byte offset in the window for a peer in cftTeam.
+//
+// Host-side query for the logical endpoint leId and leOffset corresponding to window, byte offset, and peerCft within cftTeam.
 //
 // Wraps ncclGetCftDeviceLeInfo.
 func (w Window) CftDeviceLeInfo(offset uint, peerCft int32, cftTeam Team) (leId CftLeId, leOffset uint, err error) {
@@ -237,7 +245,9 @@ func (w Window) LsaMultimemDevicePointer(offset uint) (driver.DevicePtr, error) 
 	return getLsaMultimemDevicePointer(w, offset)
 }
 
-// MultimemDeviceLeInfo Host-side query for the multicast logical endpoint leId and leOffset corresponding to window and byte offset.
+// MultimemDeviceLeInfo returns the multicast logical endpoint, and the offset into it, of a byte offset in the window.
+//
+// Host-side query for the multicast logical endpoint leId and leOffset corresponding to window and byte offset.
 //
 // Wraps ncclGetMultimemDeviceLeInfo.
 func (w Window) MultimemDeviceLeInfo(offset uint) (leId CftLeId, leOffset uint, err error) {
@@ -258,7 +268,9 @@ func (w Window) MultimemDevicePointer(offset uint, multimem MultimemHandle) (dri
 	return getMultimemDevicePointer(w, offset, multimem)
 }
 
-// PeerDeviceLeInfo Host-side query for the logical endpoint leId and leOffset corresponding to window, byte offset and peerWorld within the world team.
+// PeerDeviceLeInfo returns the logical endpoint, and the offset into it, of a byte offset in the window for a peer in the world team.
+//
+// Host-side query for the logical endpoint leId and leOffset corresponding to window, byte offset and peerWorld within the world team.
 //
 // Wraps ncclGetPeerDeviceLeInfo.
 func (w Window) PeerDeviceLeInfo(offset uint, peerWorld int32) (leId CftLeId, leOffset uint, err error) {

@@ -130,25 +130,25 @@ func fncommGetUniqueId(a0 Comm, a1 *UniqueId) Result {
 
 // fncommGrow calls ncclCommGrow.
 func fncommGrow(a0 Comm, a1 int32, a2 *UniqueId, a3 int32, a4 *Comm, a5 *Config) Result {
-	r1, _ := ffiCall6(symcommGrow, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symcommGrow, 0, 0xcc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fnCommInitAll calls ncclCommInitAll.
 func fnCommInitAll(a0 *Comm, a1 int32, a2 *int32) Result {
-	r1, _ := ffiCall3(symCommInitAll, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symCommInitAll, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fncommInitRankScalable calls ncclCommInitRankScalable.
 func fncommInitRankScalable(a0 *Comm, a1 int32, a2 int32, a3 int32, a4 *UniqueId, a5 *Config) Result {
-	r1, _ := ffiCall6(symcommInitRankScalable, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symcommInitRankScalable, 0, 0xfc, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fncommMemStats calls ncclCommMemStats.
 func fncommMemStats(a0 Comm, a1 CommMemStat, a2 *uint64) Result {
-	r1, _ := ffiCall3(symcommMemStats, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symcommMemStats, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -166,25 +166,25 @@ func fncommResume(a0 Comm) Result {
 
 // fncommRevoke calls ncclCommRevoke.
 func fncommRevoke(a0 Comm, a1 int32) Result {
-	r1, _ := ffiCall2(symcommRevoke, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symcommRevoke, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fncommShrink calls ncclCommShrink.
 func fncommShrink(a0 Comm, a1 *int32, a2 int32, a3 *Comm, a4 *Config, a5 int32) Result {
-	r1, _ := ffiCall6(symcommShrink, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(a5))
+	r1, _ := ffiCallWidths6(symcommShrink, 0, 0xc30, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(a5))
 	return Result(r1)
 }
 
 // fncommSplit calls ncclCommSplit.
 func fncommSplit(a0 Comm, a1 int32, a2 int32, a3 *Comm, a4 *Config) Result {
-	r1, _ := ffiCall5(symcommSplit, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symcommSplit, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
 // fncommSuspend calls ncclCommSuspend.
 func fncommSuspend(a0 Comm, a1 int32) Result {
-	r1, _ := ffiCall2(symcommSuspend, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symcommSuspend, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
@@ -202,7 +202,7 @@ func fncommWindowDeregister(a0 Comm, a1 Window) Result {
 
 // fncommWindowRegister calls ncclCommWindowRegister.
 func fncommWindowRegister(a0 Comm, a1 uintptr, a2 uint, a3 *Window, a4 int32) Result {
-	r1, _ := ffiCall5(symcommWindowRegister, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4))
+	r1, _ := ffiCallWidths5(symcommWindowRegister, 0, 0x300, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4))
 	return Result(r1)
 }
 
@@ -267,7 +267,7 @@ func fnParamDumpAll() {
 
 // fnparamGet calls ncclParamGet.
 func fnparamGet(a0 ParamHandle, a1 uintptr, a2 int32, a3 *int32) Result {
-	r1, _ := ffiCall4(symparamGet, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symparamGet, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
@@ -339,13 +339,13 @@ func fnparamGetU8(a0 ParamHandle, a1 *uint8) Result {
 
 // fnredOpCreatePreMulSum calls ncclRedOpCreatePreMulSum.
 func fnredOpCreatePreMulSum(a0 *RedOp, a1 uintptr, a2 DataType, a3 ScalarResidence, a4 Comm) Result {
-	r1, _ := ffiCall5(symredOpCreatePreMulSum, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	r1, _ := ffiCallWidths5(symredOpCreatePreMulSum, 0, 0xf0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
 
 // fnredOpDestroy calls ncclRedOpDestroy.
 func fnredOpDestroy(a0 RedOp, a1 Comm) Result {
-	r1, _ := ffiCall2(symredOpDestroy, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symredOpDestroy, 0, 0x3, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
@@ -368,7 +368,7 @@ func allGather(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, sendcount u
 	return toError(fnallGather(uintptr(sendbuff), uintptr(recvbuff), sendcount, datatype, comm, stream), "ncclAllGather")
 }
 
-// allGatherConfig Configurable variant of [Comm.AllGather].
+// allGatherConfig is a configurable variant of [Comm.AllGather].
 //
 // Wraps ncclAllGatherConfig.
 func allGatherConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, sendcount uint, datatype DataType, comm Comm, stream driver.Stream, config *CollConfig) error {
@@ -390,7 +390,7 @@ func allReduce(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint,
 	return toError(fnallReduce(uintptr(sendbuff), uintptr(recvbuff), count, datatype, op, comm, stream), "ncclAllReduce")
 }
 
-// allReduceConfig Configurable variant of [Comm.AllReduce].
+// allReduceConfig is a configurable variant of [Comm.AllReduce].
 //
 // Wraps ncclAllReduceConfig.
 func allReduceConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, op RedOp, comm Comm, stream driver.Stream, config *CollConfig) error {
@@ -400,7 +400,9 @@ func allReduceConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count
 	return toError(fnallReduceConfig(uintptr(sendbuff), uintptr(recvbuff), count, datatype, op, comm, stream, config), "ncclAllReduceConfig")
 }
 
-// alltoAll Each rank sends count values to all other ranks and receives count values from all other ranks.
+// alltoAll sends a separate block of count elements from each rank to every rank.
+//
+// Each rank sends count values to all other ranks and receives count values from all other ranks.
 //
 // Data to send to destination rank j is taken from sendbuff+j*count and data received from source rank i is placed at recvbuff+i*count.
 //
@@ -415,7 +417,7 @@ func alltoAll(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, 
 	return toError(fnalltoAll(uintptr(sendbuff), uintptr(recvbuff), count, datatype, comm, stream), "ncclAlltoAll")
 }
 
-// alltoAllConfig Configurable variant of [Comm.AlltoAll].
+// alltoAllConfig is a configurable variant of [Comm.AlltoAll].
 //
 // Wraps ncclAlltoAllConfig.
 func alltoAllConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, comm Comm, stream driver.Stream, config *CollConfig) error {
@@ -438,7 +440,7 @@ func broadcast(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint,
 	return toError(fnbroadcast(uintptr(sendbuff), uintptr(recvbuff), count, datatype, root, comm, stream), "ncclBroadcast")
 }
 
-// broadcastConfig Configurable variant of [Comm.Broadcast].
+// broadcastConfig is a configurable variant of [Comm.Broadcast].
 //
 // Wraps ncclBroadcastConfig.
 func broadcastConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, root int32, comm Comm, stream driver.Stream, config *CollConfig) error {
@@ -581,10 +583,23 @@ var slotCommGetUniqueId outSlot[UniqueId]
 //
 // It must be called by both existing ranks (from the parent communicator) and new ranks (joining the communicator).
 // For existing ranks:
+//   - comm should be the parent communicator
+//   - rank must be set to -1 (existing ranks retain their original rank in the new communicator)
+//   - uniqueId unused. (existing ranks receive coordination information internally)
+//   - The function creates newcomm with the same rank as in the parent communicator
+//
 // For new ranks:
+//   - comm should be NULL
+//   - rank must be set to the desired rank in the new communicator (must be >= parent communicator size)
+//   - uniqueId must be the unique identifier obtained from [Comm.UniqueId] called by the coordinator
+//
 // The nRanks parameter specifies the total number of ranks in the new communicator and must be greater than the size of the parent communicator. If the new communicator needs a special configuration, it can be passed as config; otherwise, setting config to NULL will make the new communicator inherit the configuration of the parent communicator (for existing ranks) or use default configuration (for new ranks).
 // There should not be any outstanding NCCL operations on the parent communicator when calling this function to avoid potential deadlocks. After the grow operation completes, the parent communicator should be destroyed using [Comm.Destroy] to free resources.
 // Example workflow:
+//   - Coordinator rank calls [Comm.UniqueId] to generate the grow identifier
+//   - Coordinator distributes the uniqueId to all new ranks (out-of-band)
+//   - All existing ranks call [Comm.Grow] with comm =parent, rank =-1, uniqueId =NULL
+//   - All new ranks call [Comm.Grow] with comm =NULL, rank =new_rank, uniqueId =received_id
 //
 // Wraps ncclCommGrow.
 func commGrow(comm Comm, nRanks int32, uniqueId *UniqueId, rank int32, config *Config) (Comm, error) {
@@ -789,6 +804,8 @@ var slotCommSplit outSlot[Comm]
 //
 // The communicator cannot be used for any NCCL operations while suspended. There should be no outstanding NCCL operations on comm when this function is called.
 // The flags parameter controls which resources are released:
+//   - NCCL_SUSPEND_MEM ( 0x01) – Release dynamic GPU memory allocations held by the communicator.
+//
 // A suspended communicator can be restored to an active state by calling [Comm.Resume].
 //
 // Wraps ncclCommSuspend.
@@ -851,7 +868,9 @@ func commWindowRegister(comm Comm, buff driver.DevicePtr, size uint, winFlags in
 
 var slotCommWindowRegister outSlot[Window]
 
-// gather Each rank sends count elements from sendbuff to the root rank.
+// gather gathers count elements from each rank on the root rank.
+//
+// Each rank sends count elements from sendbuff to the root rank.
 //
 // On the root rank, data from rank i is placed at recvbuff + i*count. On non-root ranks, recvbuff is not used.
 //
@@ -866,7 +885,7 @@ func gather(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, da
 	return toError(fngather(uintptr(sendbuff), uintptr(recvbuff), count, datatype, root, comm, stream), "ncclGather")
 }
 
-// gatherConfig Configurable variant of [Comm.Gather].
+// gatherConfig is a configurable variant of [Comm.Gather].
 //
 // Wraps ncclGatherConfig.
 func gatherConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, root int32, comm Comm, stream driver.Stream, config *CollConfig) error {
@@ -996,7 +1015,7 @@ func MemFree(ptr driver.DevicePtr) error {
 	return toError(fnMemFree(uintptr(ptr)), "ncclMemFree")
 }
 
-// ParamBind Look up the parameter identified by key and store a handle to it in *out.
+// ParamBind looks up the parameter identified by key and stores a handle to it in *out.
 //
 // The returned handle is owned by the parameter system and must not be freed by the caller. If key does not match any registered parameter, the function returns an ncclInvalidArgument error and *out is left unmodified.
 // key is the canonical name of the parameter (typically the corresponding environment variable name).
@@ -1051,7 +1070,7 @@ func ParamGetAllParameterKeys(table **byte, tableLen *int32) error {
 	return toError(fnParamGetAllParameterKeys(table, tableLen), "ncclParamGetAllParameterKeys")
 }
 
-// paramGetI16 reads the value of the parameter bound to h as the type T and store it in *out.
+// paramGetI16 reads the value of the parameter bound to h as the type T and stores it in *out.
 //
 // Returns ncclInvalidArgument if the parameter value cannot be converted to the requested type. These functions will also return ncclInvalidArgument if h or out is NULL.
 // This function family comes in all combinations of signed (I) and unsigned (U) for 8-, 16-, 32-, and 64-bit integers.
@@ -1064,7 +1083,7 @@ func paramGetI16(h ParamHandle, out *int16) error {
 	return toError(fnparamGetI16(h, out), "ncclParamGetI16")
 }
 
-// paramGetI32 reads the value of the parameter bound to h as the type T and store it in *out.
+// paramGetI32 reads the value of the parameter bound to h as the type T and stores it in *out.
 //
 // Returns ncclInvalidArgument if the parameter value cannot be converted to the requested type. These functions will also return ncclInvalidArgument if h or out is NULL.
 // This function family comes in all combinations of signed (I) and unsigned (U) for 8-, 16-, 32-, and 64-bit integers.
@@ -1086,7 +1105,7 @@ func paramGetI32(h ParamHandle) (int32, error) {
 
 var slotParamGetI32 outSlot[int32]
 
-// paramGetI64 reads the value of the parameter bound to h as the type T and store it in *out.
+// paramGetI64 reads the value of the parameter bound to h as the type T and stores it in *out.
 //
 // Returns ncclInvalidArgument if the parameter value cannot be converted to the requested type. These functions will also return ncclInvalidArgument if h or out is NULL.
 // This function family comes in all combinations of signed (I) and unsigned (U) for 8-, 16-, 32-, and 64-bit integers.
@@ -1108,7 +1127,7 @@ func paramGetI64(h ParamHandle) (int64, error) {
 
 var slotParamGetI64 outSlot[int64]
 
-// paramGetI8 reads the value of the parameter bound to h as the type T and store it in *out.
+// paramGetI8 reads the value of the parameter bound to h as the type T and stores it in *out.
 //
 // Returns ncclInvalidArgument if the parameter value cannot be converted to the requested type. These functions will also return ncclInvalidArgument if h or out is NULL.
 // This function family comes in all combinations of signed (I) and unsigned (U) for 8-, 16-, 32-, and 64-bit integers.
@@ -1121,7 +1140,7 @@ func paramGetI8(h ParamHandle, out *int8) error {
 	return toError(fnparamGetI8(h, out), "ncclParamGetI8")
 }
 
-// ParamGetParameter Look up the parameter identified by key and return its value as a null-terminated string.
+// ParamGetParameter looks up the parameter identified by key and returns its value as a null-terminated string.
 //
 // The pointer written to *value is owned by the parameter system and is valid until the next call to [ParamGetParameter] on the same thread. valueLen receives the length of the string in bytes, excluding the null terminator. Returns ncclInvalidArgument if key is not found.
 // Example:
@@ -1146,7 +1165,7 @@ func paramGetStr(h ParamHandle, out **byte) error {
 	return toError(fnparamGetStr(h, out), "ncclParamGetStr")
 }
 
-// paramGetU16 reads the value of the parameter bound to h as the type T and store it in *out.
+// paramGetU16 reads the value of the parameter bound to h as the type T and stores it in *out.
 //
 // Returns ncclInvalidArgument if the parameter value cannot be converted to the requested type. These functions will also return ncclInvalidArgument if h or out is NULL.
 // This function family comes in all combinations of signed (I) and unsigned (U) for 8-, 16-, 32-, and 64-bit integers.
@@ -1159,7 +1178,7 @@ func paramGetU16(h ParamHandle, out *uint16) error {
 	return toError(fnparamGetU16(h, out), "ncclParamGetU16")
 }
 
-// paramGetU32 reads the value of the parameter bound to h as the type T and store it in *out.
+// paramGetU32 reads the value of the parameter bound to h as the type T and stores it in *out.
 //
 // Returns ncclInvalidArgument if the parameter value cannot be converted to the requested type. These functions will also return ncclInvalidArgument if h or out is NULL.
 // This function family comes in all combinations of signed (I) and unsigned (U) for 8-, 16-, 32-, and 64-bit integers.
@@ -1181,7 +1200,7 @@ func paramGetU32(h ParamHandle) (uint32, error) {
 
 var slotParamGetU32 outSlot[uint32]
 
-// paramGetU64 reads the value of the parameter bound to h as the type T and store it in *out.
+// paramGetU64 reads the value of the parameter bound to h as the type T and stores it in *out.
 //
 // Returns ncclInvalidArgument if the parameter value cannot be converted to the requested type. These functions will also return ncclInvalidArgument if h or out is NULL.
 // This function family comes in all combinations of signed (I) and unsigned (U) for 8-, 16-, 32-, and 64-bit integers.
@@ -1203,7 +1222,7 @@ func paramGetU64(h ParamHandle) (uint64, error) {
 
 var slotParamGetU64 outSlot[uint64]
 
-// paramGetU8 reads the value of the parameter bound to h as the type T and store it in *out.
+// paramGetU8 reads the value of the parameter bound to h as the type T and stores it in *out.
 //
 // Returns ncclInvalidArgument if the parameter value cannot be converted to the requested type. These functions will also return ncclInvalidArgument if h or out is NULL.
 // This function family comes in all combinations of signed (I) and unsigned (U) for 8-, 16-, 32-, and 64-bit integers.
@@ -1294,7 +1313,7 @@ func reduce(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, da
 	return toError(fnreduce(uintptr(sendbuff), uintptr(recvbuff), count, datatype, op, root, comm, stream), "ncclReduce")
 }
 
-// reduceConfig Configurable variant of [Comm.Reduce].
+// reduceConfig is a configurable variant of [Comm.Reduce].
 //
 // Wraps ncclReduceConfig.
 func reduceConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, op RedOp, root int32, comm Comm, stream driver.Stream, config *CollConfig) error {
@@ -1317,7 +1336,7 @@ func reduceScatter(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, recvcou
 	return toError(fnreduceScatter(uintptr(sendbuff), uintptr(recvbuff), recvcount, datatype, op, comm, stream), "ncclReduceScatter")
 }
 
-// reduceScatterConfig Configurable variant of [Comm.ReduceScatter].
+// reduceScatterConfig is a configurable variant of [Comm.ReduceScatter].
 //
 // Wraps ncclReduceScatterConfig.
 func reduceScatterConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, recvcount uint, datatype DataType, op RedOp, comm Comm, stream driver.Stream, config *CollConfig) error {
@@ -1327,7 +1346,9 @@ func reduceScatterConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, r
 	return toError(fnreduceScatterConfig(uintptr(sendbuff), uintptr(recvbuff), recvcount, datatype, op, comm, stream, config), "ncclReduceScatterConfig")
 }
 
-// scatter Each rank receives count elements from the root rank.
+// scatter scatters count elements from the root rank to each rank.
+//
+// Each rank receives count elements from the root rank.
 //
 // On the root rank, count elements from sendbuff + i*count are sent to rank i. On non-root ranks, sendbuff is not used.
 //
@@ -1343,7 +1364,7 @@ func scatter(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, d
 	return toError(fnscatter(uintptr(sendbuff), uintptr(recvbuff), count, datatype, root, comm, stream), "ncclScatter")
 }
 
-// scatterConfig Configurable variant of [Comm.Scatter].
+// scatterConfig is a configurable variant of [Comm.Scatter].
 //
 // Wraps ncclScatterConfig.
 func scatterConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, root int32, comm Comm, stream driver.Stream, config *CollConfig) error {

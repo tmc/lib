@@ -6,21 +6,53 @@ package cusparse
 //
 // op(A)⋅Y=αX
 // where
+//   - op(A) is a sparse square matrix of size m×m
+//   - X is a dense vector of size m
+//   - Y is a dense vector of size m
+//   - α is a scalar
+//
 // Also, for matrix A: op(A) = A if opA == [OperationNonTranspose], op(A) = Aᵀ if opA == [OperationTranspose], and op(A) = Aᴴ if opA == [OperationConjugateTranspose].
 // The function [Handle.SpSVBufferSize] returns the size of the workspace needed by [Handle.SpSVAnalysis] and [Handle.SpSVSolve]. The function [Handle.SpSVAnalysis] performs the analysis phase, while [Handle.SpSVSolve] executes the solve phase for a sparse triangular linear system. The opaque data structure spsvDescr is used to share information among all functions. The function [Handle.SpSVUpdateMatrix] updates spsvDescr with new matrix values.
 // The routine supports arbitrary sparsity for the input matrix, but only the upper or lower triangular part is taken into account in the computation.
 // NOTE: all parameters must be consistent across cusparseSpSV API calls and the matrix descriptions and externalBuffer must not be modified between [Handle.SpSVAnalysis] and [Handle.SpSVSolve]. The function [Handle.SpSVUpdateMatrix] can be used to update the values on the sparse matrix stored inside the opaque data structure spsvDescr
 // The sparse matrix formats currently supported are listed below:
+//   - [FormatCsr]
+//   - [FormatCsc]
+//   - [FormatCoo]
+//   - CUSPARSE_FORMAT_SLICED_ELL
+//
 // The cusparseSpSV() supports the following shapes and properties:
+//   - [FillModeLower] and [FillModeUpper] fill modes
+//   - [DiagTypeNonUnit] and [DiagTypeUnit] diagonal types
+//
 // The fill mode and diagonal type can be set by [SpMatDescr.MatSetAttribute].
 // cusparseSpSV() supports the following index type for representing the sparse matrix matA:
+//   - 32-bit indices ( [Index32I])
+//   - 64-bit indices ( [Index64I])
+//
 // cusparseSpSV() supports the following data types:
 // Uniform-precision computation:
+//   - A/X/Y/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_32F, CUDA_C_64F
+//
 // cusparseSpSV() supports the following algorithms:
+//   - [SpsvAlgDefault]: Default algorithm
+//
 // cusparseSpSV() has the following properties:
+//   - The routine requires extra storage for the analysis phase which is proportional to number of non-zero entries of the sparse matrix
+//   - Provides deterministic (bit-wise) results for each run for the solving phase [Handle.SpSVSolve]
+//   - The routine supports in-place operation
+//   - The [Handle.SpSVSolve] routine supports asynchronous execution
+//   - [Handle.SpSVBufferSize] and [Handle.SpSVAnalysis] routines accept NULL for vecX and vecY
+//   - The routine allows the indices of matA to be unsorted
+//
 // cusparseSpSV() supports the following optimizations:
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
 // [Handle.SpSVUpdateMatrix] updates the sparse matrix after calling the analysis phase. This functions supports the following update strategies ( updatePart):
-// See [Result] for the description of the return status.
+//   - [SpsvUpdateGeneral]: Updates the sparse matrix values with values of newValues array
+//   - [SpsvUpdateDiagonal]: Updates the diagonal part of the matrix with diagonal values stored in newValues array. That is, newValues has the new diagonal values only
+//
 // Please visit cuSPARSE Library Samples - cusparseSpSV CSR and cuSPARSE Library Samples - cusparseSpSV COO for code examples.
 //
 // Wraps cusparseSpSVDestroyDescr, bound as cusparseSpSV_destroyDescr.

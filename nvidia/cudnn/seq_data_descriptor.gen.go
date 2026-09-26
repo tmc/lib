@@ -7,9 +7,6 @@ package cudnn
 // This function destroys the sequence data descriptor object and releases its memory. The seqDataDesc argument can be NULL. Invoking [SeqDataDescriptor.Destroy] with a NULL argument is a no operation (NOP).
 // The [SeqDataDescriptor.Destroy] function is not able to detect if the seqDataDesc argument holds a valid address. Undefined behavior will occur in case of passing an invalid pointer, not returned by the [CreateSeqDataDescriptor] function, or in the double deletion scenario of a valid address.
 //
-// Returns:
-//   - [Success]: The descriptor was destroyed successfully.
-//
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnDestroySeqDataDescriptor.
@@ -28,10 +25,11 @@ func (s SeqDataDescriptor) Destroy() error {
 //   - seqLengthSizeRequested: Input. The maximum number of consecutive elements that can be written to the seqLengthArray[] array starting from index zero
 //   - paddingFill: Output. Pointer to a storage location of dataType with the fill value that should be written to all padding vectors. Use NULL when an explicit initialization of output padding vectors was not requested
 //
-// Returns:
+// A nil error means requested sequence data descriptor fields were retrieved successfully.
+//
+// Errors:
 //   - [ErrBadParam]: An invalid input argument was found.
 //   - [ErrInternalError]: An inconsistent internal state was encountered.
-//   - [Success]: Requested sequence data descriptor fields were retrieved successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -67,11 +65,12 @@ func (s SeqDataDescriptor) Get(nbDimsRequested int, seqLengthSizeRequested int, 
 //   - seqLengthArray: Input. An integer array that defines all sequence lengths of the container
 //   - paddingFill: Input. Must be NULL. Pointer to a value of dataType that is used to fill up output vectors beyond the valid length of each sequence or NULL to ignore this setting
 //
-// Returns:
+// A nil error means all input arguments were validated and the sequence data descriptor was successfully updated.
+//
+// Errors:
 //   - [ErrAllocFailed]: Failed to allocate storage for the sequence data descriptor object.
 //   - [ErrBadParam]: An invalid input argument was found. Some examples include: seqDataDesc=NULL dateType was not a valid type of [DataType] nbDims was negative or zero seqLengthArraySize did not match the expected length some elements of seqLengthArray[] were invalid
 //   - [ErrNotSupported]: An unsupported input argument was encountered. Some examples include: nbDims is not equal to 4 paddingFill is not NULL
-//   - [Success]: All input arguments were validated and the sequence data descriptor was successfully updated.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //

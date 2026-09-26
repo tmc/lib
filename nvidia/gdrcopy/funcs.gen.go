@@ -32,13 +32,15 @@ var (
 	fnUnpinBuffer           func(Handle, MemHandle) int32
 )
 
-// ffiCall0 through ffiCall6 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+// The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
 //
 // Bit i of floatMask marks argument word i as a floating-point bit
 // pattern, which the C ABI passes in a different register file from the
-// integer and pointer words. Each returns the first integer result
-// register and the first floating-point one; a caller reads whichever the
-// C function sets.
+// integer and pointer words. Bits 2i and 2i+1 of widths give the size of
+// argument word i as a ffi.Width code, which places a narrow argument
+// on the stack where the C ABI expects it. Each funnel returns the first
+// integer result register and the first floating-point one; a caller
+// reads whichever the C function sets.
 //
 // The //go:uintptrescapes directive is what makes a Go pointer safe to
 // pass: a pointer converted to uintptr in one of these argument lists is
@@ -77,18 +79,35 @@ func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr)
 }
 
 //go:uintptrescapes
-func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+func ffiCallWidths2(fn uintptr, floatMask uint32, widths uint64, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloatWidths(fn, 2, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths3(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloatWidths(fn, 3, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths5(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
 	args[2] = a2
 	args[3] = a3
 	args[4] = a4
-	return ffi.CallFloat(fn, 5, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 5, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+func ffiCallWidths6(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -96,7 +115,7 @@ func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1,
 	args[3] = a3
 	args[4] = a4
 	args[5] = a5
-	return ffi.CallFloat(fn, 6, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 6, &args, floatMask, widths)
 }
 
 // An outSlot pools the heap cells a wrapper passes to C for its outputs.
@@ -134,13 +153,13 @@ func fnDriverGetVersion(a0 Handle, a1 *int32, a2 *int32) int32 {
 
 // fnGetAttribute calls gdr_get_attribute.
 func fnGetAttribute(a0 Handle, a1 Attr, a2 *int32) int32 {
-	r1, _ := ffiCall3(symGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symGetAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return int32(r1)
 }
 
 // fnGetMappingTypeString calls gdr_get_mapping_type_string.
 func fnGetMappingTypeString(a0 MappingType, a1 **byte) int32 {
-	r1, _ := ffiCall2(symGetMappingTypeString, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symGetMappingTypeString, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return int32(r1)
 }
 
@@ -152,13 +171,13 @@ func fnOpen() Handle {
 
 // fnPinBuffer calls gdr_pin_buffer.
 func fnPinBuffer(a0 Handle, a1 uint, a2 uint, a3 uint64, a4 uint32, a5 *MemHandle) int32 {
-	r1, _ := ffiCall6(symPinBuffer, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symPinBuffer, 0, 0x300, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
 	return int32(r1)
 }
 
 // fnPinBufferV2 calls gdr_pin_buffer_v2.
 func fnPinBufferV2(a0 Handle, a1 uint, a2 uint, a3 uint32, a4 *MemHandle) int32 {
-	r1, _ := ffiCall5(symPinBufferV2, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symPinBufferV2, 0, 0xc0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return int32(r1)
 }
 

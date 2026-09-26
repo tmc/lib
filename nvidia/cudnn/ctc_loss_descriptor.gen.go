@@ -4,9 +4,6 @@ package cudnn
 
 // Destroy destroys a CTC loss function descriptor object.
 //
-// Returns:
-//   - [Success]: The function returned successfully.
-//
 // Wraps cudnnDestroyCTCLossDescriptor.
 func (c CTCLossDescriptor) Destroy() error {
 	return destroyCTCLossDescriptor(c)
@@ -14,9 +11,8 @@ func (c CTCLossDescriptor) Destroy() error {
 
 // Get returns the configuration of the passed CTC loss function descriptor.
 //
-// Returns:
+// Errors:
 //   - [ErrBadParam]: Input ctcLossDesc descriptor passed is invalid.
-//   - [Success]: The function returned successfully.
 //
 // Wraps cudnnGetCTCLossDescriptor_v9.
 func (c CTCLossDescriptor) Get() (CTCLossConfig, error) {
@@ -25,9 +21,8 @@ func (c CTCLossDescriptor) Get() (CTCLossConfig, error) {
 
 // Set sets a CTC loss function descriptor.
 //
-// Returns:
+// Errors:
 //   - [ErrBadParam]: At least one of the input parameters passed is invalid.
-//   - [Success]: The function returned successfully.
 //
 // Wraps cudnnSetCTCLossDescriptor_v9.
 func (c CTCLossDescriptor) Set(cfg CTCLossConfig) error {

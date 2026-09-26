@@ -1164,7 +1164,7 @@ const (
 	DcgmModuleStatusFailed     ModuleStatus = 2 // Loading the module failed
 	DcgmModuleStatusLoaded     ModuleStatus = 3 // Module has been loaded
 	DcgmModuleStatusUnloaded   ModuleStatus = 4 // Module has been unloaded, happens during shutdown
-	DcgmModuleStatusPaused     ModuleStatus = 5
+	DcgmModuleStatusPaused     ModuleStatus = 5 // < Module has been paused. This is a temporary state that will move to DcgmModuleStatusLoaded once the module is resumed. This status implies that the module is loaded.
 	DcgmModuleStatusReloadable ModuleStatus = 6 // Module is reloadable. Implies it's loaded.
 )
 

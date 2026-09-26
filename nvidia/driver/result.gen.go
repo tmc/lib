@@ -22,24 +22,30 @@ type Result int32
 
 // cuda error codes from cuda.h.
 const (
-	Success                         Result = 0   // The API call returned with no errors. In the case of query calls, this also means that the operation being queried is complete (see [Event.Query] and [Stream.Query]).
-	ErrInvalidValue                 Result = 1   // This indicates that one or more of the parameters passed to the API call is not within an acceptable range of values.
-	ErrOutOfMemory                  Result = 2   // The API call failed because it was unable to allocate enough memory or other resources to perform the requested operation.
-	ErrNotInitialized               Result = 3   // This indicates that the CUDA driver has not been initialized with [Init] or that initialization has failed.
-	ErrDeinitialized                Result = 4   // This indicates that the CUDA driver is in the process of shutting down.
-	ErrProfilerDisabled             Result = 5   // This indicates profiler is not initialized for this run. This can happen when the application is running with external profiling tools like visual profiler.
-	ErrProfilerNotInitialized       Result = 6   // \deprecated This error return is deprecated as of CUDA 5.0. It is no longer an error to attempt to enable/disable the profiling via cuProfilerStart or cuProfilerStop without initialization.
-	ErrProfilerAlreadyStarted       Result = 7   // \deprecated This error return is deprecated as of CUDA 5.0. It is no longer an error to call cuProfilerStart() when profiling is already enabled.
-	ErrProfilerAlreadyStopped       Result = 8   // \deprecated This error return is deprecated as of CUDA 5.0. It is no longer an error to call cuProfilerStop() when profiling is already disabled.
-	ErrStubLibrary                  Result = 34  // This indicates that the CUDA driver that the application has loaded is a stub library. Applications that run with the stub rather than a real driver loaded will result in CUDA API returning this error.
-	ErrCallRequiresNewerDriver      Result = 36  // This indicates that the API call requires a newer CUDA driver than the one currently installed. Users should install an updated NVIDIA CUDA driver to allow the API call to succeed.
-	ErrDeviceUnavailable            Result = 46  // This indicates that requested CUDA device is unavailable at the current time. Devices are often unavailable due to use of [ComputemodeExclusiveProcess] or [ComputemodeProhibited].
-	ErrNoDevice                     Result = 100 // This indicates that no CUDA-capable devices were detected by the installed CUDA driver.
-	ErrInvalidDevice                Result = 101 // This indicates that the device ordinal supplied by the user does not correspond to a valid CUDA device or that the action requested is invalid for the specified device.
-	ErrDeviceNotLicensed            Result = 102 // This error indicates that the Grid license is not applied.
-	ErrInvalidImage                 Result = 200 // This indicates that the device kernel image is invalid. This can also indicate an invalid CUDA module.
-	ErrInvalidContext               Result = 201 // This most frequently indicates that there is no context bound to the current thread. This can also be returned if the context passed to an API call is not a valid handle (such as a context that has had [Context.Destroy] invoked on it). This can also be returned if a user mixes different API versions (i.e. 3010 context with 3020 API calls). See [Context.ApiVersion] for more details. This can also be returned if the green context passed to an API call was not converted to a [Context] using [CtxFromGreenCtx] API.
-	ErrContextAlreadyCurrent        Result = 202 // This indicated that the context being supplied as a parameter to the API call was already the active context. \deprecated This error return is deprecated as of CUDA 3.2. It is no longer an error to attempt to push the active context via [Context.PushCurrent].
+	Success             Result = 0 // The API call returned with no errors. In the case of query calls, this also means that the operation being queried is complete (see [Event.Query] and [Stream.Query]).
+	ErrInvalidValue     Result = 1 // This indicates that one or more of the parameters passed to the API call is not within an acceptable range of values.
+	ErrOutOfMemory      Result = 2 // The API call failed because it was unable to allocate enough memory or other resources to perform the requested operation.
+	ErrNotInitialized   Result = 3 // This indicates that the CUDA driver has not been initialized with [Init] or that initialization has failed.
+	ErrDeinitialized    Result = 4 // This indicates that the CUDA driver is in the process of shutting down.
+	ErrProfilerDisabled Result = 5 // This indicates profiler is not initialized for this run. This can happen when the application is running with external profiling tools like visual profiler.
+	// Deprecated: This error return is deprecated as of CUDA 5.0. It is no longer an error to attempt to enable/disable the profiling via cuProfilerStart or cuProfilerStop without initialization.
+	ErrProfilerNotInitialized Result = 6
+	// Deprecated: This error return is deprecated as of CUDA 5.0. It is no longer an error to call cuProfilerStart() when profiling is already enabled.
+	ErrProfilerAlreadyStarted Result = 7
+	// Deprecated: This error return is deprecated as of CUDA 5.0. It is no longer an error to call cuProfilerStop() when profiling is already disabled.
+	ErrProfilerAlreadyStopped  Result = 8
+	ErrStubLibrary             Result = 34  // This indicates that the CUDA driver that the application has loaded is a stub library. Applications that run with the stub rather than a real driver loaded will result in CUDA API returning this error.
+	ErrCallRequiresNewerDriver Result = 36  // This indicates that the API call requires a newer CUDA driver than the one currently installed. Users should install an updated NVIDIA CUDA driver to allow the API call to succeed.
+	ErrDeviceUnavailable       Result = 46  // This indicates that requested CUDA device is unavailable at the current time. Devices are often unavailable due to use of [ComputemodeExclusiveProcess] or [ComputemodeProhibited].
+	ErrNoDevice                Result = 100 // This indicates that no CUDA-capable devices were detected by the installed CUDA driver.
+	ErrInvalidDevice           Result = 101 // This indicates that the device ordinal supplied by the user does not correspond to a valid CUDA device or that the action requested is invalid for the specified device.
+	ErrDeviceNotLicensed       Result = 102 // This error indicates that the Grid license is not applied.
+	ErrInvalidImage            Result = 200 // This indicates that the device kernel image is invalid. This can also indicate an invalid CUDA module.
+	ErrInvalidContext          Result = 201 // This most frequently indicates that there is no context bound to the current thread. This can also be returned if the context passed to an API call is not a valid handle (such as a context that has had [Context.Destroy] invoked on it). This can also be returned if a user mixes different API versions (i.e. 3010 context with 3020 API calls). See [Context.ApiVersion] for more details. This can also be returned if the green context passed to an API call was not converted to a [Context] using [CtxFromGreenCtx] API.
+	// ErrContextAlreadyCurrent: This indicated that the context being supplied as a parameter to the API call was already the active context.
+	//
+	// Deprecated: This error return is deprecated as of CUDA 3.2. It is no longer an error to attempt to push the active context via [Context.PushCurrent].
+	ErrContextAlreadyCurrent        Result = 202
 	ErrMapFailed                    Result = 205 // This indicates that a map or register operation has failed.
 	ErrUnmapFailed                  Result = 206 // This indicates that an unmap or unregister operation has failed.
 	ErrArrayIsMapped                Result = 207 // This indicates that the specified array is currently mapped and thus cannot be destroyed.

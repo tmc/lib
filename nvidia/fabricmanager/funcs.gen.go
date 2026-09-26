@@ -21,13 +21,13 @@ var (
 
 // fnactivateFabricPartition calls fmActivateFabricPartition.
 func fnactivateFabricPartition(a0 Handle, a1 uint32) Result {
-	r1, _ := ffiCall2(symactivateFabricPartition, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symactivateFabricPartition, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fnactivateFabricPartitionWithVFs calls fmActivateFabricPartitionWithVFs.
 func fnactivateFabricPartitionWithVFs(a0 Handle, a1 uint32, a2 *PciDevice, a3 uint32) Result {
-	r1, _ := ffiCall4(symactivateFabricPartitionWithVFs, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
+	r1, _ := ffiCallWidths4(symactivateFabricPartitionWithVFs, 0, 0xcc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
 	return Result(r1)
 }
 
@@ -39,7 +39,7 @@ func fnConnect(a0 *ConnectParams, a1 *Handle) Result {
 
 // fndeactivateFabricPartition calls fmDeactivateFabricPartition.
 func fndeactivateFabricPartition(a0 Handle, a1 uint32) Result {
-	r1, _ := ffiCall2(symdeactivateFabricPartition, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symdeactivateFabricPartition, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 

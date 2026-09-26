@@ -48,12 +48,18 @@ func (e MemattachFlags) String() string {
 type CtxFlags uint32
 
 const (
-	CtxSchedAuto          CtxFlags = 0x00 // Automatic scheduling
-	CtxSchedSpin          CtxFlags = 0x01 // Set spin as default scheduling
-	CtxSchedYield         CtxFlags = 0x02 // Set yield as default scheduling
-	CtxSchedBlockingSync  CtxFlags = 0x04 // Set blocking synchronization as default scheduling
-	CtxBlockingSync       CtxFlags = 0x04
-	CtxSchedMask          CtxFlags = 0x07
+	CtxSchedAuto         CtxFlags = 0x00 // Automatic scheduling
+	CtxSchedSpin         CtxFlags = 0x01 // Set spin as default scheduling
+	CtxSchedYield        CtxFlags = 0x02 // Set yield as default scheduling
+	CtxSchedBlockingSync CtxFlags = 0x04 // Set blocking synchronization as default scheduling
+	// CtxBlockingSync: Set blocking synchronization as default scheduling
+	//
+	// Deprecated: This flag was deprecated as of CUDA 4.0 and was replaced with [CtxSchedBlockingSync].
+	CtxBlockingSync CtxFlags = 0x04
+	CtxSchedMask    CtxFlags = 0x07
+	// CtxMapHost: All contexts as of CUDA 3.2 behave as though the flag is enabled.
+	//
+	// Deprecated: This flag was deprecated as of CUDA 11.0 and it no longer has any effect.
 	CtxMapHost            CtxFlags = 0x08
 	CtxLmemResizeToMax    CtxFlags = 0x10 // Keep local memory allocation after launch
 	CtxCoredumpEnable     CtxFlags = 0x20 // Trigger coredumps from exceptions in this context
@@ -237,7 +243,8 @@ func (e EventFlags) String() string {
 type EventRecordFlags int32
 
 const (
-	EventRecordDefault  EventRecordFlags = 0x0 // Default event record flag
+	EventRecordDefault EventRecordFlags = 0x0 // Default event record flag
+	// EventRecordExternal: When using stream capture, create an event record node instead of the default behavior. This flag is invalid when used outside of capture.
 	EventRecordExternal EventRecordFlags = 0x1
 )
 
@@ -256,7 +263,8 @@ func (e EventRecordFlags) String() string {
 type EventWaitFlags int32
 
 const (
-	EventWaitDefault  EventWaitFlags = 0x0 // Default event wait flag
+	EventWaitDefault EventWaitFlags = 0x0 // Default event wait flag
+	// EventWaitExternal: When using stream capture, create an event wait node instead of the default behavior. This flag is invalid when used outside of capture.
 	EventWaitExternal EventWaitFlags = 0x1
 )
 
@@ -361,10 +369,13 @@ func (e AtomicOperationCapability) String() string {
 type StreamwaitvalueFlags int32
 
 const (
-	StreamWaitValueGeq   StreamwaitvalueFlags = 0x0
-	StreamWaitValueEq    StreamwaitvalueFlags = 0x1 // Wait until *addr == value.
-	StreamWaitValueAnd   StreamwaitvalueFlags = 0x2 // Wait until (*addr & value) != 0.
-	StreamWaitValueNor   StreamwaitvalueFlags = 0x3
+	// StreamWaitValueGeq: Wait until (int32_t)(*addr - value) >= 0 (or int64_t for 64 bit values). Note this is a cyclic comparison which ignores wraparound. (Default behavior.)
+	StreamWaitValueGeq StreamwaitvalueFlags = 0x0
+	StreamWaitValueEq  StreamwaitvalueFlags = 0x1 // Wait until *addr == value.
+	StreamWaitValueAnd StreamwaitvalueFlags = 0x2 // Wait until (*addr & value) != 0.
+	// StreamWaitValueNor: Wait until ~(*addr | value) != 0. Support for this operation can be queried with [Device.Attribute] and [DevAttrCanUseStreamWaitValueNor].
+	StreamWaitValueNor StreamwaitvalueFlags = 0x3
+	// StreamWaitValueFlush: Follow the wait operation with a flush of outstanding remote writes. This means that, if a remote write operation is guaranteed to have reached the device before the wait can be satisfied, that write is guaranteed to be visible to downstream device work. The device is permitted to reorder remote writes internally. For example, this flag would be required if two remote writes arrive in a defined order, the wait is satisfied by the second write, and downstream work needs to observe the first write. Support for this operation is restricted to selected platforms and can be queried with [DevAttrCanFlushRemoteWrites].
 	StreamWaitValueFlush StreamwaitvalueFlags = 1 << 30
 )
 
@@ -389,7 +400,8 @@ func (e StreamwaitvalueFlags) String() string {
 type StreamwritevalueFlags int32
 
 const (
-	StreamWriteValueDefault         StreamwritevalueFlags = 0x0 // Default behavior
+	StreamWriteValueDefault StreamwritevalueFlags = 0x0 // Default behavior
+	// StreamWriteValueNoMemoryBarrier: Permits the write to be reordered with writes which were issued before it, as a performance optimization. Normally, [Stream.WriteValue32] will provide a memory fence before the write, which has similar semantics to __threadfence_system() but is scoped to the stream rather than a CUDA thread. This flag is not supported in the v2 API.
 	StreamWriteValueNoMemoryBarrier StreamwritevalueFlags = 0x1
 )
 
@@ -414,7 +426,8 @@ const (
 	StreamMemOpWriteValue64 StreamBatchMemOpType = 5 // Represents a [Stream.WriteValue64] operation
 	StreamMemOpBarrier      StreamBatchMemOpType = 6 // Insert a memory barrier of the specified type
 	// StreamMemOpAtomicReduction: Perform a atomic reduction. See CUstreamBatchMemOpParams.atomicReduction
-	StreamMemOpAtomicReduction   StreamBatchMemOpType = 8
+	StreamMemOpAtomicReduction StreamBatchMemOpType = 8
+	// StreamMemOpFlushRemoteWrites: This has the same effect as [StreamWaitValueFlush], but as a standalone operation.
 	StreamMemOpFlushRemoteWrites StreamBatchMemOpType = 3
 )
 
@@ -458,7 +471,7 @@ func (e StreammemorybarrierFlags) String() string {
 	return fmt.Sprintf("StreammemorybarrierFlags(%d)", e)
 }
 
-// StreamAtomicReductionOpType represents atomic reduction operation types for CUstreamBatchMemOpParams.atomicReductionreductionOp.
+// StreamAtomicReductionOpType represents atomic reduction operation types for CUstreamBatchMemOpParams.atomicReduction.reductionOp.
 type StreamAtomicReductionOpType int32
 
 const (
@@ -480,7 +493,7 @@ func (e StreamAtomicReductionOpType) String() string {
 	return fmt.Sprintf("StreamAtomicReductionOpType(%d)", e)
 }
 
-// StreamAtomicReductionDataType represents atomic reduction data types for CUstreamBatchMemOpParams.atomicReductiondataType.
+// StreamAtomicReductionDataType represents atomic reduction data types for CUstreamBatchMemOpParams.atomicReduction.dataType.
 type StreamAtomicReductionDataType int32
 
 const (
@@ -851,34 +864,41 @@ const (
 	DevAttrMaxGridDimY             DeviceAttribute = 6 // Maximum grid dimension Y
 	DevAttrMaxGridDimZ             DeviceAttribute = 7 // Maximum grid dimension Z
 	DevAttrMaxSharedMemoryPerBlock DeviceAttribute = 8 // Maximum shared memory available per block in bytes
-	DevAttrSharedMemoryPerBlock    DeviceAttribute = 8 // Deprecated, use [DevAttrMaxSharedMemoryPerBlock]
+	// Deprecated: Use [DevAttrMaxSharedMemoryPerBlock].
+	DevAttrSharedMemoryPerBlock DeviceAttribute = 8
 	// DevAttrTotalConstantMemory: Memory available on device for __constant__ variables in a CUDA C kernel in bytes
 	DevAttrTotalConstantMemory  DeviceAttribute = 9
 	DevAttrWarpSize             DeviceAttribute = 10 // Warp size in threads
 	DevAttrMaxPitch             DeviceAttribute = 11 // Maximum pitch in bytes allowed by memory copies
 	DevAttrMaxRegistersPerBlock DeviceAttribute = 12 // Maximum number of 32-bit registers available per block
-	DevAttrRegistersPerBlock    DeviceAttribute = 12 // Deprecated, use [DevAttrMaxRegistersPerBlock]
-	DevAttrClockRate            DeviceAttribute = 13 // Typical clock frequency in kilohertz
-	DevAttrTextureAlignment     DeviceAttribute = 14 // Alignment requirement for textures
-	// DevAttrGpuOverlap: Device can possibly copy memory and execute a kernel concurrently. Deprecated. Use instead [DevAttrAsyncEngineCount].
-	DevAttrGpuOverlap                     DeviceAttribute = 15
-	DevAttrMultiprocessorCount            DeviceAttribute = 16 // Number of multiprocessors on device
-	DevAttrKernelExecTimeout              DeviceAttribute = 17 // Specifies whether there is a run time limit on kernels
-	DevAttrIntegrated                     DeviceAttribute = 18 // Device is integrated with host memory
-	DevAttrCanMapHostMemory               DeviceAttribute = 19 // Device can map host memory into CUDA address space
-	DevAttrComputeMode                    DeviceAttribute = 20 // Compute mode (See [Computemode] for details)
-	DevAttrMaximumTexture1dWidth          DeviceAttribute = 21 // Maximum 1D texture width
-	DevAttrMaximumTexture2dWidth          DeviceAttribute = 22 // Maximum 2D texture width
-	DevAttrMaximumTexture2dHeight         DeviceAttribute = 23 // Maximum 2D texture height
-	DevAttrMaximumTexture3dWidth          DeviceAttribute = 24 // Maximum 3D texture width
-	DevAttrMaximumTexture3dHeight         DeviceAttribute = 25 // Maximum 3D texture height
-	DevAttrMaximumTexture3dDepth          DeviceAttribute = 26 // Maximum 3D texture depth
-	DevAttrMaximumTexture2dLayeredWidth   DeviceAttribute = 27 // Maximum 2D layered texture width
-	DevAttrMaximumTexture2dLayeredHeight  DeviceAttribute = 28 // Maximum 2D layered texture height
-	DevAttrMaximumTexture2dLayeredLayers  DeviceAttribute = 29 // Maximum layers in a 2D layered texture
-	DevAttrMaximumTexture2dArrayWidth     DeviceAttribute = 27 // Deprecated, use [DevAttrMaximumTexture2dLayeredWidth]
-	DevAttrMaximumTexture2dArrayHeight    DeviceAttribute = 28 // Deprecated, use [DevAttrMaximumTexture2dLayeredHeight]
-	DevAttrMaximumTexture2dArrayNumslices DeviceAttribute = 29 // Deprecated, use [DevAttrMaximumTexture2dLayeredLayers]
+	// Deprecated: Use [DevAttrMaxRegistersPerBlock].
+	DevAttrRegistersPerBlock DeviceAttribute = 12
+	DevAttrClockRate         DeviceAttribute = 13 // Typical clock frequency in kilohertz
+	DevAttrTextureAlignment  DeviceAttribute = 14 // Alignment requirement for textures
+	// DevAttrGpuOverlap: Device can possibly copy memory and execute a kernel concurrently.
+	//
+	// Deprecated: Use instead [DevAttrAsyncEngineCount].
+	DevAttrGpuOverlap                    DeviceAttribute = 15
+	DevAttrMultiprocessorCount           DeviceAttribute = 16 // Number of multiprocessors on device
+	DevAttrKernelExecTimeout             DeviceAttribute = 17 // Specifies whether there is a run time limit on kernels
+	DevAttrIntegrated                    DeviceAttribute = 18 // Device is integrated with host memory
+	DevAttrCanMapHostMemory              DeviceAttribute = 19 // Device can map host memory into CUDA address space
+	DevAttrComputeMode                   DeviceAttribute = 20 // Compute mode (See [Computemode] for details)
+	DevAttrMaximumTexture1dWidth         DeviceAttribute = 21 // Maximum 1D texture width
+	DevAttrMaximumTexture2dWidth         DeviceAttribute = 22 // Maximum 2D texture width
+	DevAttrMaximumTexture2dHeight        DeviceAttribute = 23 // Maximum 2D texture height
+	DevAttrMaximumTexture3dWidth         DeviceAttribute = 24 // Maximum 3D texture width
+	DevAttrMaximumTexture3dHeight        DeviceAttribute = 25 // Maximum 3D texture height
+	DevAttrMaximumTexture3dDepth         DeviceAttribute = 26 // Maximum 3D texture depth
+	DevAttrMaximumTexture2dLayeredWidth  DeviceAttribute = 27 // Maximum 2D layered texture width
+	DevAttrMaximumTexture2dLayeredHeight DeviceAttribute = 28 // Maximum 2D layered texture height
+	DevAttrMaximumTexture2dLayeredLayers DeviceAttribute = 29 // Maximum layers in a 2D layered texture
+	// Deprecated: Use [DevAttrMaximumTexture2dLayeredWidth].
+	DevAttrMaximumTexture2dArrayWidth DeviceAttribute = 27
+	// Deprecated: Use [DevAttrMaximumTexture2dLayeredHeight].
+	DevAttrMaximumTexture2dArrayHeight DeviceAttribute = 28
+	// Deprecated: Use [DevAttrMaximumTexture2dLayeredLayers].
+	DevAttrMaximumTexture2dArrayNumslices DeviceAttribute = 29
 	DevAttrSurfaceAlignment               DeviceAttribute = 30 // Alignment requirement for surfaces
 	DevAttrConcurrentKernels              DeviceAttribute = 31 // Device can possibly execute multiple kernels concurrently
 	DevAttrEccEnabled                     DeviceAttribute = 32 // Device has ECC support enabled
@@ -893,7 +913,8 @@ const (
 	DevAttrUnifiedAddressing              DeviceAttribute = 41 // Device shares a unified address space with the host
 	DevAttrMaximumTexture1dLayeredWidth   DeviceAttribute = 42 // Maximum 1D layered texture width
 	DevAttrMaximumTexture1dLayeredLayers  DeviceAttribute = 43 // Maximum layers in a 1D layered texture
-	DevAttrCanTex2dGather                 DeviceAttribute = 44 // Deprecated, do not use.
+	// Deprecated: Do not use.
+	DevAttrCanTex2dGather DeviceAttribute = 44
 	// DevAttrMaximumTexture2dGatherWidth: Maximum 2D texture width if CUDA_ARRAY3D_TEXTURE_GATHER is set
 	DevAttrMaximumTexture2dGatherWidth DeviceAttribute = 45
 	// DevAttrMaximumTexture2dGatherHeight: Maximum 2D texture height if CUDA_ARRAY3D_TEXTURE_GATHER is set
@@ -920,7 +941,7 @@ const (
 	DevAttrMaximumSurfacecubemapWidth         DeviceAttribute = 66 // Maximum cubemap surface width
 	DevAttrMaximumSurfacecubemapLayeredWidth  DeviceAttribute = 67 // Maximum cubemap layered surface width
 	DevAttrMaximumSurfacecubemapLayeredLayers DeviceAttribute = 68 // Maximum layers in a cubemap layered surface
-	// DevAttrMaximumTexture1dLinearWidth: Deprecated, do not use. Use cudaDeviceGetTexture1DLinearMaxWidth() or [Device.Texture1DLinearMaxWidth] instead.
+	// Deprecated: Do not use. Use cudaDeviceGetTexture1DLinearMaxWidth() or [Device.Texture1DLinearMaxWidth] instead.
 	DevAttrMaximumTexture1dLinearWidth      DeviceAttribute = 69
 	DevAttrMaximumTexture2dLinearWidth      DeviceAttribute = 70 // Maximum 2D linear texture width
 	DevAttrMaximumTexture2dLinearHeight     DeviceAttribute = 71 // Maximum 2D linear texture height
@@ -950,15 +971,21 @@ const (
 	DevAttrComputePreemptionSupported DeviceAttribute = 90 // Device supports compute preemption.
 	// DevAttrCanUseHostPointerForRegisteredMem: Device can access host registered memory at the same virtual address as the CPU
 	DevAttrCanUseHostPointerForRegisteredMem DeviceAttribute = 91
-	// DevAttrCanUseStreamMemOpsV1: Deprecated, along with v1 MemOps API, [Stream.BatchMemOp] and related APIs are supported.
+	// DevAttrCanUseStreamMemOpsV1: [Stream.BatchMemOp] and related APIs are supported.
+	//
+	// Deprecated: This constant is deprecated along with v1 MemOps API.
 	DevAttrCanUseStreamMemOpsV1 DeviceAttribute = 92
-	// DevAttrCanUse64BitStreamMemOpsV1: Deprecated, along with v1 MemOps API, 64-bit operations are supported in [Stream.BatchMemOp] and related APIs.
+	// DevAttrCanUse64BitStreamMemOpsV1: 64-bit operations are supported in [Stream.BatchMemOp] and related APIs.
+	//
+	// Deprecated: This constant is deprecated along with v1 MemOps API.
 	DevAttrCanUse64BitStreamMemOpsV1 DeviceAttribute = 93
-	// DevAttrCanUseStreamWaitValueNorV1: Deprecated, along with v1 MemOps API, [StreamWaitValueNor] is supported.
+	// DevAttrCanUseStreamWaitValueNorV1: [StreamWaitValueNor] is supported.
+	//
+	// Deprecated: This constant is deprecated along with v1 MemOps API.
 	DevAttrCanUseStreamWaitValueNorV1 DeviceAttribute = 94
 	// DevAttrCooperativeLaunch: Device supports launching cooperative kernels via [Function.LaunchCooperativeKernel]
 	DevAttrCooperativeLaunch DeviceAttribute = 95
-	// DevAttrCooperativeMultiDeviceLaunch: Deprecated, [LaunchCooperativeKernelMultiDevice] is deprecated.
+	// Deprecated: [LaunchCooperativeKernelMultiDevice] is deprecated.
 	DevAttrCooperativeMultiDeviceLaunch DeviceAttribute = 96
 	DevAttrMaxSharedMemoryPerBlockOptin DeviceAttribute = 97 // Maximum optin shared memory per block
 	// DevAttrCanFlushRemoteWrites: The [StreamWaitValueFlush] flag and the [StreamMemOpFlushRemoteWrites] MemOp are supported on the device. See CUDA_MEMOP for additional details.
@@ -967,8 +994,9 @@ const (
 	DevAttrHostRegisterSupported                  DeviceAttribute = 99
 	DevAttrPageableMemoryAccessUsesHostPageTables DeviceAttribute = 100 // Device accesses pageable memory via the host's page tables.
 	// DevAttrDirectManagedMemAccessFromHost: The host can directly access managed memory on the device without migration.
-	DevAttrDirectManagedMemAccessFromHost    DeviceAttribute = 101
-	DevAttrVirtualAddressManagementSupported DeviceAttribute = 102 // Deprecated, Use [DevAttrVirtualMemoryManagementSupported]
+	DevAttrDirectManagedMemAccessFromHost DeviceAttribute = 101
+	// Deprecated: Use [DevAttrVirtualMemoryManagementSupported].
+	DevAttrVirtualAddressManagementSupported DeviceAttribute = 102
 	// DevAttrVirtualMemoryManagementSupported: Device supports virtual memory management APIs like [DevicePtr.MemAddressReserve], [MemCreate], [DevicePtr.MemMap] and related APIs
 	DevAttrVirtualMemoryManagementSupported DeviceAttribute = 102
 	// DevAttrHandleTypePosixFileDescriptorSupported: Device supports exporting memory to a posix file descriptor with [MemExportToShareableHandle], if requested via [MemCreate]
@@ -1718,76 +1746,96 @@ func (e MemRangeAttribute) String() string {
 type JITOption int32
 
 const (
-	// JITMaxRegisters: Max number of registers that a thread may use.\n Option type: unsigned int\n Applies to: compiler only
+	// JITMaxRegisters: Max number of registers that a thread may use. Option type: unsigned int. Applies to: compiler only
 	JITMaxRegisters JITOption = 0
-	// JITThreadsPerBlock: IN: Specifies minimum number of threads per block to target compilation for\n OUT: Returns the number of threads the compiler actually targeted. This restricts the resource utilization of the compiler (e.g. max registers) such that a block with the given number of threads should be able to launch based on register limitations. Note, this option does not currently take into account any other resource limitations, such as shared memory utilization.\n Cannot be combined with [JITTarget].\n Option type: unsigned int\n Applies to: compiler only
+	// JITThreadsPerBlock: IN: Specifies minimum number of threads per block to target compilation for. OUT: Returns the number of threads the compiler actually targeted. This restricts the resource utilization of the compiler (e.g. max registers) such that a block with the given number of threads should be able to launch based on register limitations. Note, this option does not currently take into account any other resource limitations, such as shared memory utilization. Cannot be combined with [JITTarget]. Option type: unsigned int. Applies to: compiler only
 	JITThreadsPerBlock JITOption = 1
-	// JITWallTime: Overwrites the option value with the total wall clock time, in milliseconds, spent in the compiler and linker\n Option type: float\n Applies to: compiler and linker
+	// JITWallTime: Overwrites the option value with the total wall clock time, in milliseconds, spent in the compiler and linker. Option type: float. Applies to: compiler and linker
 	JITWallTime JITOption = 2
-	// JITInfoLogBuffer: Pointer to a buffer in which to print any log messages that are informational in nature (the buffer size is specified via option [JITInfoLogBufferSizeBytes])\n Option type: char *\n Applies to: compiler and linker
+	// JITInfoLogBuffer: Pointer to a buffer in which to print any log messages that are informational in nature (the buffer size is specified via option [JITInfoLogBufferSizeBytes]). Option type: char * Applies to: compiler and linker
 	JITInfoLogBuffer JITOption = 3
-	// JITInfoLogBufferSizeBytes: IN: Log buffer size in bytes. Log messages will be capped at this size (including null terminator)\n OUT: Amount of log buffer filled with messages\n Option type: unsigned int\n Applies to: compiler and linker
+	// JITInfoLogBufferSizeBytes: IN: Log buffer size in bytes. Log messages will be capped at this size (including null terminator). OUT: Amount of log buffer filled with messages. Option type: unsigned int. Applies to: compiler and linker
 	JITInfoLogBufferSizeBytes JITOption = 4
-	// JITErrorLogBuffer: Pointer to a buffer in which to print any log messages that reflect errors (the buffer size is specified via option [JITErrorLogBufferSizeBytes])\n Option type: char *\n Applies to: compiler and linker
+	// JITErrorLogBuffer: Pointer to a buffer in which to print any log messages that reflect errors (the buffer size is specified via option [JITErrorLogBufferSizeBytes]). Option type: char * Applies to: compiler and linker
 	JITErrorLogBuffer JITOption = 5
-	// JITErrorLogBufferSizeBytes: IN: Log buffer size in bytes. Log messages will be capped at this size (including null terminator)\n OUT: Amount of log buffer filled with messages\n Option type: unsigned int\n Applies to: compiler and linker
+	// JITErrorLogBufferSizeBytes: IN: Log buffer size in bytes. Log messages will be capped at this size (including null terminator). OUT: Amount of log buffer filled with messages. Option type: unsigned int. Applies to: compiler and linker
 	JITErrorLogBufferSizeBytes JITOption = 6
-	// JITOptimizationLevel: Level of optimizations to apply to generated code (0 - 4), with 4 being the default and highest level of optimizations.\n Option type: unsigned int\n Applies to: compiler only
+	// JITOptimizationLevel: Level of optimizations to apply to generated code (0 - 4), with 4 being the default and highest level of optimizations. Option type: unsigned int. Applies to: compiler only
 	JITOptimizationLevel JITOption = 7
-	// JITTargetFromCucontext: No option value required. Determines the target based on the current attached context (default)\n Option type: No option value needed\n Applies to: compiler and linker
+	// JITTargetFromCucontext: No option value required. Determines the target based on the current attached context (default). Option type: No option value needed. Applies to: compiler and linker
 	JITTargetFromCucontext JITOption = 8
-	// JITTarget: Target is chosen based on supplied [JitTarget]. Cannot be combined with [JITThreadsPerBlock].\n Option type: unsigned int for enumerated type [JitTarget]\n Applies to: compiler and linker
+	// JITTarget: Target is chosen based on supplied [JitTarget]. Cannot be combined with [JITThreadsPerBlock]. Option type: unsigned int for enumerated type [JitTarget]. Applies to: compiler and linker
 	JITTarget JITOption = 9
-	// JITFallbackStrategy: Specifies choice of fallback strategy if matching cubin is not found. Choice is based on supplied [JitFallback]. This option cannot be used with cuLink* APIs as the linker requires exact matches.\n Option type: unsigned int for enumerated type [JitFallback]\n Applies to: compiler only
+	// JITFallbackStrategy: Specifies choice of fallback strategy if matching cubin is not found. Choice is based on supplied [JitFallback]. This option cannot be used with cuLink* APIs as the linker requires exact matches. Option type: unsigned int for enumerated type [JitFallback]. Applies to: compiler only
 	JITFallbackStrategy JITOption = 10
-	// JITGenerateDebugInfo: Specifies whether to create debug information in output (-g) (0: false, default)\n Option type: int\n Applies to: compiler and linker
+	// JITGenerateDebugInfo: Specifies whether to create debug information in output (-g) (0: false, default). Option type: int. Applies to: compiler and linker
 	JITGenerateDebugInfo JITOption = 11
-	// JITLogVerbose: Generate verbose log messages (0: false, default)\n Option type: int\n Applies to: compiler and linker
+	// JITLogVerbose: Generate verbose log messages (0: false, default). Option type: int. Applies to: compiler and linker
 	JITLogVerbose JITOption = 12
-	// JITGenerateLineInfo: Generate line number information (-lineinfo) (0: false, default)\n Option type: int\n Applies to: compiler only
+	// JITGenerateLineInfo: Generate line number information (-lineinfo) (0: false, default). Option type: int. Applies to: compiler only
 	JITGenerateLineInfo JITOption = 13
-	// JITCacheMode: Specifies whether to enable caching explicitly (-dlcm) \n Choice is based on supplied CUjit_cacheMode_enum.\n Option type: unsigned int for enumerated type CUjit_cacheMode_enum\n Applies to: compiler only
+	// JITCacheMode: Specifies whether to enable caching explicitly (-dlcm). Choice is based on supplied CUjit_cacheMode_enum. Option type: unsigned int for enumerated type CUjit_cacheMode_enum. Applies to: compiler only
 	JITCacheMode JITOption = 14
-	// JITNewSM3XOpt: \deprecated This jit option is deprecated and should not be used.
+	// Deprecated: This jit option is deprecated and should not be used.
 	JITNewSM3XOpt  JITOption = 15
 	JITFastCompile JITOption = 16 // This jit option is used for internal purpose only.
-	// JITGlobalSymbolNames: Array of device symbol names that will be relocated to the corresponding host addresses stored in [JITGlobalSymbolAddresses].\n Must contain [JITGlobalSymbolCount] entries.\n When loading a device module, driver will relocate all encountered unresolved symbols to the host addresses.\n It is only allowed to register symbols that correspond to unresolved global variables.\n It is illegal to register the same device symbol at multiple addresses.\n Option type: const char **\n Applies to: dynamic linker only
+	// JITGlobalSymbolNames: Array of device symbol names that will be relocated to the corresponding host addresses stored in [JITGlobalSymbolAddresses]. Must contain [JITGlobalSymbolCount] entries. When loading a device module, driver will relocate all encountered unresolved symbols to the host addresses. It is only allowed to register symbols that correspond to unresolved global variables. It is illegal to register the same device symbol at multiple addresses. Option type: const char ** Applies to: dynamic linker only
 	JITGlobalSymbolNames JITOption = 17
-	// JITGlobalSymbolAddresses: Array of host addresses that will be used to relocate corresponding device symbols stored in [JITGlobalSymbolNames].\n Must contain [JITGlobalSymbolCount] entries.\n Option type: void **\n Applies to: dynamic linker only
+	// JITGlobalSymbolAddresses: Array of host addresses that will be used to relocate corresponding device symbols stored in [JITGlobalSymbolNames]. Must contain [JITGlobalSymbolCount] entries. Option type: void ** Applies to: dynamic linker only
 	JITGlobalSymbolAddresses JITOption = 18
-	// JITGlobalSymbolCount: Number of entries in [JITGlobalSymbolNames] and [JITGlobalSymbolAddresses] arrays.\n Option type: unsigned int\n Applies to: dynamic linker only
+	// JITGlobalSymbolCount: Number of entries in [JITGlobalSymbolNames] and [JITGlobalSymbolAddresses] arrays. Option type: unsigned int. Applies to: dynamic linker only
 	JITGlobalSymbolCount JITOption = 19
-	// JITLto: \deprecated Enable link-time optimization (-dlto) for device code (Disabled by default).\n This option is not supported on 32-bit platforms.\n Option type: int\n Applies to: compiler and linker. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	// JITLto: Enable link-time optimization (-dlto) for device code (Disabled by default). This option is not supported on 32-bit platforms. Option type: int. Applies to: compiler and linker. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	//
+	// Deprecated: This constant is deprecated.
 	JITLto JITOption = 20
-	// JITFtz: \deprecated Control single-precision denormals (-ftz) support (0: false, default). 1 : flushes denormal values to zero 0 : preserves denormal values Option type: int\n Applies to: link-time optimization specified with [JITLto]. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	// JITFtz: Control single-precision denormals (-ftz) support (0: false, default). 1 : flushes denormal values to zero 0 : preserves denormal values Option type: int. Applies to: link-time optimization specified with [JITLto]. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	//
+	// Deprecated: This constant is deprecated.
 	JITFtz JITOption = 21
-	// JITPrecDiv: \deprecated Control single-precision floating-point division and reciprocals (-prec-div) support (1: true, default). 1 : Enables the IEEE round-to-nearest mode 0 : Enables the fast approximation mode Option type: int\n Applies to: link-time optimization specified with [JITLto]. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	// JITPrecDiv: Control single-precision floating-point division and reciprocals (-prec-div) support (1: true, default). 1 : Enables the IEEE round-to-nearest mode 0 : Enables the fast approximation mode Option type: int. Applies to: link-time optimization specified with [JITLto]. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	//
+	// Deprecated: This constant is deprecated.
 	JITPrecDiv JITOption = 22
-	// JITPrecSqrt: \deprecated Control single-precision floating-point square root (-prec-sqrt) support (1: true, default). 1 : Enables the IEEE round-to-nearest mode 0 : Enables the fast approximation mode Option type: int\n Applies to: link-time optimization specified with [JITLto]. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	// JITPrecSqrt: Control single-precision floating-point square root (-prec-sqrt) support (1: true, default). 1 : Enables the IEEE round-to-nearest mode 0 : Enables the fast approximation mode Option type: int. Applies to: link-time optimization specified with [JITLto]. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	//
+	// Deprecated: This constant is deprecated.
 	JITPrecSqrt JITOption = 23
-	// JITFma: \deprecated Enable/Disable the contraction of floating-point multiplies and adds/subtracts into floating-point multiply-add (-fma) operations (1: Enable, default; 0: Disable). Option type: int\n Applies to: link-time optimization specified with [JITLto]. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	// JITFma: Enable/Disable the contraction of floating-point multiplies and adds/subtracts into floating-point multiply-add (-fma) operations (1: Enable, default; 0: Disable). Option type: int. Applies to: link-time optimization specified with [JITLto]. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	//
+	// Deprecated: This constant is deprecated.
 	JITFma JITOption = 24
-	// JITReferencedKernelNames: \deprecated Array of kernel names that should be preserved at link time while others can be removed.\n Must contain [JITReferencedKernelCount] entries.\n Note that kernel names can be mangled by the compiler in which case the mangled name needs to be specified.\n Wildcard "*" can be used to represent zero or more characters instead of specifying the full or mangled name.\n It is important to note that the wildcard "*" is also added implicitly. For example, specifying "foo" will match "foobaz", "barfoo", "barfoobaz" and thus preserve all kernels with those names. This can be avoided by providing a more specific name like "barfoobaz".\n Option type: const char **\n Applies to: dynamic linker only. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	// JITReferencedKernelNames: Array of kernel names that should be preserved at link time while others can be removed. Must contain [JITReferencedKernelCount] entries. Note that kernel names can be mangled by the compiler in which case the mangled name needs to be specified. Wildcard "*" can be used to represent zero or more characters instead of specifying the full or mangled name. It is important to note that the wildcard "*" is also added implicitly. For example, specifying "foo" will match "foobaz", "barfoo", "barfoobaz" and thus preserve all kernels with those names. This can be avoided by providing a more specific name like "barfoobaz". Option type: const char ** Applies to: dynamic linker only. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	//
+	// Deprecated: This constant is deprecated.
 	JITReferencedKernelNames JITOption = 25
-	// JITReferencedKernelCount: \deprecated Number of entries in [JITReferencedKernelNames] array.\n Option type: unsigned int\n Applies to: dynamic linker only. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	// JITReferencedKernelCount: Number of entries in [JITReferencedKernelNames] array. Option type: unsigned int. Applies to: dynamic linker only. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	//
+	// Deprecated: This constant is deprecated.
 	JITReferencedKernelCount JITOption = 26
-	// JITReferencedVariableNames: \deprecated Array of variable names (__device__ and/or __constant__) that should be preserved at link time while others can be removed.\n Must contain [JITReferencedVariableCount] entries.\n Note that variable names can be mangled by the compiler in which case the mangled name needs to be specified.\n Wildcard "*" can be used to represent zero or more characters instead of specifying the full or mangled name.\n It is important to note that the wildcard "*" is also added implicitly. For example, specifying "foo" will match "foobaz", "barfoo", "barfoobaz" and thus preserve all variables with those names. This can be avoided by providing a more specific name like "barfoobaz".\n Option type: const char **\n Applies to: link-time optimization specified with [JITLto]. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	// JITReferencedVariableNames: Array of variable names (__device__ and/or __constant__) that should be preserved at link time while others can be removed. Must contain [JITReferencedVariableCount] entries. Note that variable names can be mangled by the compiler in which case the mangled name needs to be specified. Wildcard "*" can be used to represent zero or more characters instead of specifying the full or mangled name. It is important to note that the wildcard "*" is also added implicitly. For example, specifying "foo" will match "foobaz", "barfoo", "barfoobaz" and thus preserve all variables with those names. This can be avoided by providing a more specific name like "barfoobaz". Option type: const char ** Applies to: link-time optimization specified with [JITLto]. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	//
+	// Deprecated: This constant is deprecated.
 	JITReferencedVariableNames JITOption = 27
-	// JITReferencedVariableCount: \deprecated Number of entries in [JITReferencedVariableNames] array.\n Option type: unsigned int\n Applies to: link-time optimization specified with [JITLto]. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	// JITReferencedVariableCount: Number of entries in [JITReferencedVariableNames] array. Option type: unsigned int. Applies to: link-time optimization specified with [JITLto]. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	//
+	// Deprecated: This constant is deprecated.
 	JITReferencedVariableCount JITOption = 28
-	// JITOptimizeUnusedDeviceVariables: \deprecated This option serves as a hint to enable the JIT compiler/linker to remove constant (__constant__) and device (__device__) variables unreferenced in device code (Disabled by default).\n Note that host references to constant and device variables using APIs like [Module.Global] with this option specified may result in undefined behavior unless the variables are explicitly specified using [JITReferencedVariableNames].\n Option type: int\n Applies to: link-time optimization specified with [JITLto]. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	// JITOptimizeUnusedDeviceVariables: This option serves as a hint to enable the JIT compiler/linker to remove constant (__constant__) and device (__device__) variables unreferenced in device code (Disabled by default). Note that host references to constant and device variables using APIs like [Module.Global] with this option specified may result in undefined behavior unless the variables are explicitly specified using [JITReferencedVariableNames]. Option type: int. Applies to: link-time optimization specified with [JITLto]. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	//
+	// Deprecated: This constant is deprecated.
 	JITOptimizeUnusedDeviceVariables JITOption = 29
-	// JITPositionIndependentCode: Generate position independent code (0: false)\n Option type: int\n Applies to: compiler only
+	// JITPositionIndependentCode: Generate position independent code (0: false). Option type: int. Applies to: compiler only
 	JITPositionIndependentCode JITOption = 30
-	// JITMinCtaPerSm: This option hints to the JIT compiler the minimum number of CTAs from the kernel’s grid to be mapped to a SM. This option is ignored when used together with [JITMaxRegisters] or [JITThreadsPerBlock]. Optimizations based on this option need [JITMaxThreadsPerBlock] to be specified as well. For kernels already using PTX directive .minnctapersm, this option will be ignored by default. Use [JITOverrideDirectiveValues] to let this option take precedence over the PTX directive. Option type: unsigned int\n Applies to: compiler only
+	// JITMinCtaPerSm: This option hints to the JIT compiler the minimum number of CTAs from the kernel’s grid to be mapped to a SM. This option is ignored when used together with [JITMaxRegisters] or [JITThreadsPerBlock]. Optimizations based on this option need [JITMaxThreadsPerBlock] to be specified as well. For kernels already using PTX directive .minnctapersm, this option will be ignored by default. Use [JITOverrideDirectiveValues] to let this option take precedence over the PTX directive. Option type: unsigned int. Applies to: compiler only
 	JITMinCtaPerSm JITOption = 31
-	// JITMaxThreadsPerBlock: Maximum number threads in a thread block, computed as the product of the maximum extent specifed for each dimension of the block. This limit is guaranteed not to be exeeded in any invocation of the kernel. Exceeding the the maximum number of threads results in runtime error or kernel launch failure. For kernels already using PTX directive .maxntid, this option will be ignored by default. Use [JITOverrideDirectiveValues] to let this option take precedence over the PTX directive. Option type: int\n Applies to: compiler only
+	// JITMaxThreadsPerBlock: Maximum number threads in a thread block, computed as the product of the maximum extent specifed for each dimension of the block. This limit is guaranteed not to be exeeded in any invocation of the kernel. Exceeding the the maximum number of threads results in runtime error or kernel launch failure. For kernels already using PTX directive .maxntid, this option will be ignored by default. Use [JITOverrideDirectiveValues] to let this option take precedence over the PTX directive. Option type: int. Applies to: compiler only
 	JITMaxThreadsPerBlock JITOption = 32
-	// JITOverrideDirectiveValues: This option lets the values specified using [JITMaxRegisters], [JITThreadsPerBlock], [JITMaxThreadsPerBlock] and [JITMinCtaPerSm] take precedence over any PTX directives. (0: Disable, default; 1: Enable) Option type: int\n Applies to: compiler only
+	// JITOverrideDirectiveValues: This option lets the values specified using [JITMaxRegisters], [JITThreadsPerBlock], [JITMaxThreadsPerBlock] and [JITMinCtaPerSm] take precedence over any PTX directives. (0: Disable, default; 1: Enable) Option type: int. Applies to: compiler only
 	JITOverrideDirectiveValues JITOption = 33
-	// JITSplitCompile: This option specifies the maximum number of concurrent threads to use when running compiler optimizations. If the specified value is 1, the option will be ignored. If the specified value is 0, the number of threads will match the number of CPUs on the underlying machine. Otherwise, if the option is N, then up to N threads will be used. Option type: unsigned int\n Applies to: compiler only
+	// JITSplitCompile: This option specifies the maximum number of concurrent threads to use when running compiler optimizations. If the specified value is 1, the option will be ignored. If the specified value is 0, the number of threads will match the number of CPUs on the underlying machine. Otherwise, if the option is N, then up to N threads will be used. Option type: unsigned int. Applies to: compiler only
 	JITSplitCompile JITOption = 34
-	// JITBinaryLoaderThreadCount: This option specifies the maximum number of concurrent threads to use when compiling device code. If the specified value is 1, the option will be ignored. If the specified value is 0, the number of threads will match the number of CPUs on the underlying machine. Otherwise, if the option is N, then up to N threads will be used. This option is ignored if the env var CUDA_BINARY_LOADER_THREAD_COUNT is set. Option type: unsigned int\n Applies to: compiler and linker
+	// JITBinaryLoaderThreadCount: This option specifies the maximum number of concurrent threads to use when compiling device code. If the specified value is 1, the option will be ignored. If the specified value is 0, the number of threads will match the number of CPUs on the underlying machine. Otherwise, if the option is N, then up to N threads will be used. This option is ignored if the env var CUDA_BINARY_LOADER_THREAD_COUNT is set. Option type: unsigned int. Applies to: compiler and linker
 	JITBinaryLoaderThreadCount JITOption = 35
 	JITNumOptions              JITOption = 36
 )
@@ -2034,16 +2082,18 @@ func (e JitCachemode) String() string {
 type JitInputType int32
 
 const (
-	// JitInputCubin: Compiled device-class-specific device code\n Applicable options: none
+	// JitInputCubin: Compiled device-class-specific device code. Applicable options: none
 	JitInputCubin JitInputType = 0
-	JitInputPtx   JitInputType = 1 // PTX source code\n Applicable options: PTX compiler options
-	// JitInputFatbinary: Bundle of multiple cubins and/or PTX of some device code\n Applicable options: PTX compiler options, [JITFallbackStrategy]
+	JitInputPtx   JitInputType = 1 // PTX source code. Applicable options: PTX compiler options
+	// JitInputFatbinary: Bundle of multiple cubins and/or PTX of some device code. Applicable options: PTX compiler options, [JITFallbackStrategy]
 	JitInputFatbinary JitInputType = 2
-	// JitInputObject: Host object with embedded device code\n Applicable options: PTX compiler options, [JITFallbackStrategy]
+	// JitInputObject: Host object with embedded device code. Applicable options: PTX compiler options, [JITFallbackStrategy]
 	JitInputObject JitInputType = 3
-	// JitInputLibrary: Archive of host objects with embedded device code\n Applicable options: PTX compiler options, [JITFallbackStrategy]
+	// JitInputLibrary: Archive of host objects with embedded device code. Applicable options: PTX compiler options, [JITFallbackStrategy]
 	JitInputLibrary JitInputType = 4
-	// JitInputNvvm: \deprecated High-level intermediate code for link-time optimization\n Applicable options: NVVM compiler options, PTX compiler options. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	// JitInputNvvm: High-level intermediate code for link-time optimization. Applicable options: NVVM compiler options, PTX compiler options. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	//
+	// Deprecated: This constant is deprecated.
 	JitInputNvvm     JitInputType = 5
 	JitNumInputTypes JitInputType = 6
 )
@@ -2285,8 +2335,10 @@ const (
 	GraphNodeTypeExtSemasWait   GraphNodeType = 9  // External semaphore wait node
 	GraphNodeTypeMemAlloc       GraphNodeType = 10 // Memory Allocation Node
 	GraphNodeTypeMemFree        GraphNodeType = 11 // Memory Free Node
-	GraphNodeTypeBatchMemOp     GraphNodeType = 12
-	GraphNodeTypeConditional    GraphNodeType = 13
+	// GraphNodeTypeBatchMemOp: Batch MemOp Node See [Stream.BatchMemOp] and [StreamBatchMemOpType] for what these nodes can do.
+	GraphNodeTypeBatchMemOp GraphNodeType = 12
+	// GraphNodeTypeConditional: Conditional Node. May be used to implement a conditional execution path or loop inside of a graph. The graph(s) contained within the body of the conditional node can be selectively executed or iterated upon based on the value of a conditional variable. Handles must be created in advance of creating the node using [Graph.ConditionalHandleCreate]. The following restrictions apply to graphs which contain conditional nodes: The graph cannot be used in a child node. Only one instantiation of the graph may exist at any point in time. The graph cannot be cloned. To set the control value, supply a default value when creating the handle and/or call cudaGraphSetConditional from device code.
+	GraphNodeTypeConditional GraphNodeType = 13
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -2328,7 +2380,8 @@ func (e GraphNodeType) String() string {
 type GraphDependencyType int32
 
 const (
-	GraphDependencyTypeDefault      GraphDependencyType = 0 // This is an ordinary dependency.
+	GraphDependencyTypeDefault GraphDependencyType = 0 // This is an ordinary dependency.
+	// GraphDependencyTypeProgrammatic: This dependency type allows the downstream node to use cudaGridDependencySynchronize(). It may only be used between kernel nodes, and must be used with either the CU_GRAPH_KERNEL_NODE_PORT_PROGRAMMATIC or CU_GRAPH_KERNEL_NODE_PORT_LAUNCH_ORDER outgoing port.
 	GraphDependencyTypeProgrammatic GraphDependencyType = 1
 )
 
@@ -2454,6 +2507,7 @@ func (e LaunchMemSyncDomain) String() string {
 type LaunchAttributePortableClusterMode int32
 
 const (
+	// LaunchPortableClusterModeDefault: The default to use for allowing non-portable cluster size on launch - uses current function attribute for [FuncAttributeNonPortableClusterSizeAllowed]
 	LaunchPortableClusterModeDefault LaunchAttributePortableClusterMode = 0
 	// LaunchPortableClusterModeRequirePortable: Specifies that the cluster size requested must be a portable size
 	LaunchPortableClusterModeRequirePortable LaunchAttributePortableClusterMode = 1
@@ -2478,8 +2532,11 @@ func (e LaunchAttributePortableClusterMode) String() string {
 type SharedMemoryMode int32
 
 const (
-	SharedMemoryModeDefault          SharedMemoryMode = 0
-	SharedMemoryModeRequirePortable  SharedMemoryMode = 1
+	// SharedMemoryModeDefault: The default to use for shared memory on launch - uses current function attribute for [FuncAttributeMaxDynamicSharedSizeBytes]
+	SharedMemoryModeDefault SharedMemoryMode = 0
+	// SharedMemoryModeRequirePortable: Specifies that the dynamic shared size bytes requested must be a portable size within the bounds of [DevAttrMaxSharedMemoryPerBlock]
+	SharedMemoryModeRequirePortable SharedMemoryMode = 1
+	// SharedMemoryModeAllowNonPortable: Specifies that the dynamic shared size bytes requested may be a non-portable size but still within the bounds of [DevAttrMaxSharedMemoryPerBlockOptin]
 	SharedMemoryModeAllowNonPortable SharedMemoryMode = 2
 )
 
@@ -2500,25 +2557,38 @@ func (e SharedMemoryMode) String() string {
 type LaunchAttributeID int32
 
 const (
-	LaunchAttributeIgnore                LaunchAttributeID = 0 // Ignored entry, for convenient composition
-	LaunchAttributeAccessPolicyWindow    LaunchAttributeID = 1
+	LaunchAttributeIgnore LaunchAttributeID = 0 // Ignored entry, for convenient composition
+	// LaunchAttributeAccessPolicyWindow: Valid for streams, graph nodes, launches. See CUlaunchAttributeValue.accessPolicyWindow.
+	LaunchAttributeAccessPolicyWindow LaunchAttributeID = 1
+	// LaunchAttributeCooperative: Valid for graph nodes, launches. See CUlaunchAttributeValue.cooperative.
 	LaunchAttributeCooperative           LaunchAttributeID = 2
-	LaunchAttributeSynchronizationPolicy LaunchAttributeID = 3
+	LaunchAttributeSynchronizationPolicy LaunchAttributeID = 3 // Valid for streams. See CUlaunchAttributeValue.syncPolicy.
 	// LaunchAttributeClusterDimension: Valid for graph nodes, launches. See CUlaunchAttributeValue.clusterDim.
 	LaunchAttributeClusterDimension LaunchAttributeID = 4
 	// LaunchAttributeClusterSchedulingPolicyPreference: Valid for graph nodes, launches. See CUlaunchAttributeValue.clusterSchedulingPolicyPreference.
 	LaunchAttributeClusterSchedulingPolicyPreference LaunchAttributeID = 5
-	LaunchAttributeProgrammaticStreamSerialization   LaunchAttributeID = 6
-	LaunchAttributeProgrammaticEvent                 LaunchAttributeID = 7
-	LaunchAttributePriority                          LaunchAttributeID = 8
-	LaunchAttributeMemSyncDomainMap                  LaunchAttributeID = 9
-	LaunchAttributeMemSyncDomain                     LaunchAttributeID = 10
-	LaunchAttributePreferredClusterDimension         LaunchAttributeID = 11
-	LaunchAttributeLaunchCompletionEvent             LaunchAttributeID = 12
-	LaunchAttributeDeviceUpdatableKernelNode         LaunchAttributeID = 13
-	LaunchAttributePreferredSharedMemoryCarveout     LaunchAttributeID = 14
-	LaunchAttributeNvlinkUtilCentricScheduling       LaunchAttributeID = 16
-	LaunchAttributePortableClusterSizeMode           LaunchAttributeID = 17
+	// LaunchAttributeProgrammaticStreamSerialization: Valid for launches. Setting CUlaunchAttributeValue.programmaticStreamSerializationAllowed to non-0 signals that the kernel will use programmatic means to resolve its stream dependency, so that the CUDA runtime should opportunistically allow the grid's execution to overlap with the previous kernel in the stream, if that kernel requests the overlap. The dependent launches can choose to wait on the dependency using the programmatic sync (cudaGridDependencySynchronize() or equivalent PTX instructions).
+	LaunchAttributeProgrammaticStreamSerialization LaunchAttributeID = 6
+	// LaunchAttributeProgrammaticEvent: Valid for launches. Set CUlaunchAttributeValue.programmaticEvent to record the event. Event recorded through this launch attribute is guaranteed to only trigger after all block in the associated kernel trigger the event. A block can trigger the event through PTX launchdep.release or CUDA builtin function cudaTriggerProgrammaticLaunchCompletion(). A trigger can also be inserted at the beginning of each block's execution if triggerAtBlockStart is set to non-0. The dependent launches can choose to wait on the dependency using the programmatic sync (cudaGridDependencySynchronize() or equivalent PTX instructions). Note that dependents (including the CPU thread calling [Event.Synchronize]) are not guaranteed to observe the release precisely when it is released. For example, [Event.Synchronize] may only observe the event trigger long after the associated kernel has completed. This recording type is primarily meant for establishing programmatic dependency between device tasks. Note also this type of dependency allows, but does not guarantee, concurrent execution of tasks. The event supplied must not be an interprocess or interop event. The event must disable timing (i.e. must be created with the [EventDisableTiming] flag set).
+	LaunchAttributeProgrammaticEvent LaunchAttributeID = 7
+	// LaunchAttributePriority: Valid for streams, graph nodes, launches. See CUlaunchAttributeValue.priority.
+	LaunchAttributePriority LaunchAttributeID = 8
+	// LaunchAttributeMemSyncDomainMap: Valid for streams, graph nodes, launches. See CUlaunchAttributeValue.memSyncDomainMap.
+	LaunchAttributeMemSyncDomainMap LaunchAttributeID = 9
+	// LaunchAttributeMemSyncDomain: Valid for streams, graph nodes, launches. See CUlaunchAttributeValue.memSyncDomain.
+	LaunchAttributeMemSyncDomain LaunchAttributeID = 10
+	// LaunchAttributePreferredClusterDimension: Valid for graph nodes, launches. Set CUlaunchAttributeValue.preferredClusterDim to allow the kernel launch to specify a preferred substitute cluster dimension. Blocks may be grouped according to either the dimensions specified with this attribute (grouped into a "preferred substitute cluster"), or the one specified with [LaunchAttributeClusterDimension] attribute (grouped into a "regular cluster"). The cluster dimensions of a "preferred substitute cluster" shall be an integer multiple greater than zero of the regular cluster dimensions. The device will attempt - on a best-effort basis - to group thread blocks into preferred clusters over grouping them into regular clusters. When it deems necessary (primarily when the device temporarily runs out of physical resources to launch the larger preferred clusters), the device may switch to launch the regular clusters instead to attempt to utilize as much of the physical device resources as possible. Each type of cluster will have its enumeration / coordinate setup as if the grid consists solely of its type of cluster. For example, if the preferred substitute cluster dimensions double the regular cluster dimensions, there might be simultaneously a regular cluster indexed at (1,0,0), and a preferred cluster indexed at (1,0,0). In this example, the preferred substitute cluster (1,0,0) replaces regular clusters (2,0,0) and (3,0,0) and groups their blocks. This attribute will only take effect when a regular cluster dimension has been specified. The preferred substitute cluster dimension must be an integer multiple greater than zero of the regular cluster dimension and must divide the grid. It must also be no more than `maxBlocksPerCluster`, if it is set in the kernel's `__launch_bounds__`. Otherwise it must be less than the maximum value the driver can support. Otherwise, setting this attribute to a value physically unable to fit on any particular device is permitted.
+	LaunchAttributePreferredClusterDimension LaunchAttributeID = 11
+	// LaunchAttributeLaunchCompletionEvent: Valid for launches. Set CUlaunchAttributeValue.launchCompletionEvent to record the event. Nominally, the event is triggered once all blocks of the kernel have begun execution. Currently this is a best effort. If a kernel B has a launch completion dependency on a kernel A, B may wait until A is complete. Alternatively, blocks of B may begin before all blocks of A have begun, for example if B can claim execution resources unavailable to A (e.g. they run on different GPUs) or if B is a higher priority than A. Exercise caution if such an ordering inversion could lead to deadlock. A launch completion event is nominally similar to a programmatic event with triggerAtBlockStart set except that it is not visible to cudaGridDependencySynchronize() and can be used with compute capability less than 9.0. The event supplied must not be an interprocess or interop event. The event must disable timing (i.e. must be created with the [EventDisableTiming] flag set).
+	LaunchAttributeLaunchCompletionEvent LaunchAttributeID = 12
+	// LaunchAttributeDeviceUpdatableKernelNode: Valid for graph nodes, launches. This attribute is graphs-only, and passing it to a launch in a non-capturing stream will result in an error. CUlaunchAttributeValue.deviceUpdatableKernelNode.deviceUpdatable can only be set to 0 or 1. Setting the field to 1 indicates that the corresponding kernel node should be device-updatable. On success, a handle will be returned via CUlaunchAttributeValue.deviceUpdatableKernelNode.devNode which can be passed to the various device-side update functions to update the node's kernel parameters from within another kernel. For more information on the types of device updates that can be made, as well as the relevant limitations thereof, see cudaGraphKernelNodeUpdatesApply. Nodes which are device-updatable have additional restrictions compared to regular kernel nodes. Firstly, device-updatable nodes cannot be removed from their graph via [GraphNode.DestroyNode]. Additionally, once opted-in to this functionality, a node cannot opt out, and any attempt to set the deviceUpdatable attribute to 0 will result in an error. Device-updatable kernel nodes also cannot have their attributes copied to/from another kernel node via [KernelNode.CopyAttributes]. Graphs containing one or more device-updatable nodes also do not allow multiple instantiation, and neither the graph nor its instantiated version can be passed to [GraphExec.Update]. If a graph contains device-updatable nodes and updates those nodes from the device from within the graph, the graph must be uploaded with [GraphExec.Upload] before it is launched. For such a graph, if host-side executable graph updates are made to the device-updatable nodes, the graph must be uploaded before it is launched again.
+	LaunchAttributeDeviceUpdatableKernelNode LaunchAttributeID = 13
+	// LaunchAttributePreferredSharedMemoryCarveout: Valid for launches. On devices where the L1 cache and shared memory use the same hardware resources, setting CUlaunchAttributeValue.sharedMemCarveout to a percentage between 0-100 signals the CUDA driver to set the shared memory carveout preference, in percent of the total shared memory for that kernel launch. This attribute takes precedence over [FuncAttributePreferredSharedMemoryCarveout]. This is only a hint, and the CUDA driver can choose a different configuration if required for the launch.
+	LaunchAttributePreferredSharedMemoryCarveout LaunchAttributeID = 14
+	// LaunchAttributeNvlinkUtilCentricScheduling: Valid for streams, graph nodes, launches. This attribute is a hint to the CUDA runtime that the launch should attempt to make the kernel maximize its NVLINK utilization. When possible to honor this hint, CUDA will assume each block in the grid launch will carry out an even amount of NVLINK traffic, and make a best-effort attempt to adjust the kernel launch based on that assumption. This attribute is a hint only. CUDA makes no functional or performance guarantee. Its applicability can be affected by many different factors, including driver version (i.e. CUDA doesn't guarantee the performance characteristics will be maintained between driver versions or a driver update could alter or regress previously observed perf characteristics.) It also doesn't guarantee a successful result, i.e. applying the attribute may not improve the performance of either the targeted kernel or the encapsulating application. Valid values for CUlaunchAttributeValue.nvlinkUtilCentricScheduling are 0 (disabled) and 1 (enabled).
+	LaunchAttributeNvlinkUtilCentricScheduling LaunchAttributeID = 16
+	// LaunchAttributePortableClusterSizeMode: Valid for graph nodes, launches. This controls whether the kernel launch is allowed to use a non-portable cluster size. Valid values for CUlaunchAttributeValue.portableClusterSizeMode are described in [LaunchAttributePortableClusterMode]. Any other value will return [ErrInvalidValue]
+	LaunchAttributePortableClusterSizeMode LaunchAttributeID = 17
 	// LaunchAttributeSharedMemoryMode: Valid for graph nodes, launches. This indicates if the kernel is allowed to use a non-portable dynamic shared memory mode.
 	LaunchAttributeSharedMemoryMode LaunchAttributeID = 18
 )
@@ -2570,8 +2640,9 @@ func (e LaunchAttributeID) String() string {
 type StreamCaptureStatus int32
 
 const (
-	StreamCaptureStatusNone        StreamCaptureStatus = 0 // Stream is not capturing
-	StreamCaptureStatusActive      StreamCaptureStatus = 1 // Stream is actively capturing
+	StreamCaptureStatusNone   StreamCaptureStatus = 0 // Stream is not capturing
+	StreamCaptureStatusActive StreamCaptureStatus = 1 // Stream is actively capturing
+	// StreamCaptureStatusInvalidated: Stream is part of a capture sequence that has been invalidated, but not terminated
 	StreamCaptureStatusInvalidated StreamCaptureStatus = 2
 )
 
@@ -2743,7 +2814,7 @@ const (
 	DeviceP2PAttributePerformanceRank       DeviceP2pattribute = 0x01
 	DeviceP2PAttributeAccessSupported       DeviceP2pattribute = 0x02 // P2P Access is enable
 	DeviceP2PAttributeNativeAtomicSupported DeviceP2pattribute = 0x03 // All CUDA-valid atomic operation over the link are supported
-	// DeviceP2PAttributeAccessAccessSupported: \deprecated use [DeviceP2PAttributeCudaArrayAccessSupported] instead
+	// Deprecated: Use [DeviceP2PAttributeCudaArrayAccessSupported] instead.
 	DeviceP2PAttributeAccessAccessSupported    DeviceP2pattribute = 0x04
 	DeviceP2PAttributeCudaArrayAccessSupported DeviceP2pattribute = 0x04 // Accessing CUDA arrays over the link supported
 	// DeviceP2PAttributeOnlyPartialNativeAtomicSupported: Only some CUDA-valid atomic operations over the link are supported.
@@ -3632,8 +3703,11 @@ func (e GraphmemAttribute) String() string {
 type GraphChildGraphNodeOwnership int32
 
 const (
-	GraphChildGraphOwnershipClone   GraphChildGraphNodeOwnership = 0
-	GraphChildGraphOwnershipMove    GraphChildGraphNodeOwnership = 1
+	// GraphChildGraphOwnershipClone: Default behavior for a child graph node. Child graph is cloned into the parent and memory allocation/free nodes can't be present in the child graph.
+	GraphChildGraphOwnershipClone GraphChildGraphNodeOwnership = 0
+	// GraphChildGraphOwnershipMove: The child graph is moved to the parent. The handle to the child graph is owned by the parent and will be destroyed when the parent is destroyed. The following restrictions apply to child graphs after they have been moved: Cannot be independently instantiated or destroyed; Cannot be added as a child graph of a separate parent graph; Cannot be used as an argument to [GraphExec.Update]; Cannot have additional memory allocation or free nodes added.
+	GraphChildGraphOwnershipMove GraphChildGraphNodeOwnership = 1
+	// GraphChildGraphOwnershipInvalid: Invalid ownership flag. Set when params are queried to prevent accidentally reusing the driver-owned graph object
 	GraphChildGraphOwnershipInvalid GraphChildGraphNodeOwnership = -1
 )
 
@@ -3835,9 +3909,12 @@ type GraphinstantiateFlags int32
 const (
 	// GraphInstantiateFlagAutoFreeOnLaunch: Automatically free memory allocated in a graph before relaunching.
 	GraphInstantiateFlagAutoFreeOnLaunch GraphinstantiateFlags = 1
-	GraphInstantiateFlagUpload           GraphinstantiateFlags = 2
-	GraphInstantiateFlagDeviceLaunch     GraphinstantiateFlags = 4
-	GraphInstantiateFlagUseNodePriority  GraphinstantiateFlags = 8
+	// GraphInstantiateFlagUpload: Automatically upload the graph after instantiation. Only supported by [Graph.InstantiateWithParams]. The upload will be performed using the stream provided in instantiateParams.
+	GraphInstantiateFlagUpload GraphinstantiateFlags = 2
+	// GraphInstantiateFlagDeviceLaunch: Instantiate the graph to be launchable from the device. This flag can only be used on platforms which support unified addressing. This flag cannot be used in conjunction with [GraphInstantiateFlagAutoFreeOnLaunch].
+	GraphInstantiateFlagDeviceLaunch GraphinstantiateFlags = 4
+	// GraphInstantiateFlagUseNodePriority: Run the graph using the per-node priority attributes rather than the priority of the stream it is launched into.
+	GraphInstantiateFlagUseNodePriority GraphinstantiateFlags = 8
 )
 
 // String returns the constant name, or a numeric representation for unknown values.

@@ -45,13 +45,15 @@ var (
 	symStreamParseFile                 uintptr
 )
 
-// ffiCall0 through ffiCall6 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+// The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
 //
 // Bit i of floatMask marks argument word i as a floating-point bit
 // pattern, which the C ABI passes in a different register file from the
-// integer and pointer words. Each returns the first integer result
-// register and the first floating-point one; a caller reads whichever the
-// C function sets.
+// integer and pointer words. Bits 2i and 2i+1 of widths give the size of
+// argument word i as a ffi.Width code, which places a narrow argument
+// on the stack where the C ABI expects it. Each funnel returns the first
+// integer result register and the first floating-point one; a caller
+// reads whichever the C function sets.
 //
 // The //go:uintptrescapes directive is what makes a Go pointer safe to
 // pass: a pointer converted to uintptr in one of these argument lists is
@@ -84,28 +86,45 @@ func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr)
 }
 
 //go:uintptrescapes
-func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+func ffiCallWidths2(fn uintptr, floatMask uint32, widths uint64, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloatWidths(fn, 2, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths3(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloatWidths(fn, 3, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths4(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
 	args[2] = a2
 	args[3] = a3
-	return ffi.CallFloat(fn, 4, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 4, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+func ffiCallWidths5(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
 	args[2] = a2
 	args[3] = a3
 	args[4] = a4
-	return ffi.CallFloat(fn, 5, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 5, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+func ffiCallWidths6(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -113,7 +132,7 @@ func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1,
 	args[3] = a3
 	args[4] = a4
 	args[5] = a5
-	return ffi.CallFloat(fn, 6, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 6, &args, floatMask, widths)
 }
 
 // An outSlot pools the heap cells a wrapper passes to C for its outputs.
@@ -139,7 +158,7 @@ func (s *outSlot[T]) put(p *T) {
 
 // fnCreate calls nvjpeg2kCreate.
 func fnCreate(a0 Backend, a1 *DeviceAllocator, a2 *PinnedAllocator, a3 *Handle) Result {
-	r1, _ := ffiCall4(symCreate, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symCreate, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
@@ -151,7 +170,7 @@ func fnCreateSimple(a0 *Handle) Result {
 
 // fnCreateV2 calls nvjpeg2kCreateV2.
 func fnCreateV2(a0 Backend, a1 *DeviceAllocatorV2, a2 *PinnedAllocatorV2, a3 *Handle) Result {
-	r1, _ := ffiCall4(symCreateV2, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symCreateV2, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
@@ -169,19 +188,19 @@ func fnDecodeParamsDestroy(a0 DecodeParams) Result {
 
 // fnDecodeParamsSetDecodeArea calls nvjpeg2kDecodeParamsSetDecodeArea.
 func fnDecodeParamsSetDecodeArea(a0 DecodeParams, a1 uint32, a2 uint32, a3 uint32, a4 uint32) Result {
-	r1, _ := ffiCall5(symDecodeParamsSetDecodeArea, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	r1, _ := ffiCallWidths5(symDecodeParamsSetDecodeArea, 0, 0x3fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
 
 // fnDecodeParamsSetOutputFormat calls nvjpeg2kDecodeParamsSetOutputFormat.
 func fnDecodeParamsSetOutputFormat(a0 DecodeParams, a1 ImageFormat) Result {
-	r1, _ := ffiCall2(symDecodeParamsSetOutputFormat, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symDecodeParamsSetOutputFormat, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fnDecodeParamsSetRGBOutput calls nvjpeg2kDecodeParamsSetRGBOutput.
 func fnDecodeParamsSetRGBOutput(a0 DecodeParams, a1 int32) Result {
-	r1, _ := ffiCall2(symDecodeParamsSetRGBOutput, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symDecodeParamsSetRGBOutput, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
@@ -205,7 +224,7 @@ func fnDestroy(a0 Handle) Result {
 
 // fnGetCudartProperty calls nvjpeg2kGetCudartProperty.
 func fnGetCudartProperty(a0 LibraryPropertyType, a1 *int32) Result {
-	r1, _ := ffiCall2(symGetCudartProperty, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symGetCudartProperty, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
@@ -223,7 +242,7 @@ func fnGetPinnedMemoryPadding(a0 *uint, a1 Handle) Result {
 
 // fnGetProperty calls nvjpeg2kGetProperty.
 func fnGetProperty(a0 LibraryPropertyType, a1 *int32) Result {
-	r1, _ := ffiCall2(symGetProperty, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symGetProperty, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
@@ -259,13 +278,13 @@ func fnStreamGetColorSpace(a0 Bitstream, a1 *ColorSpace) Result {
 
 // fnStreamGetComponentNLTInfo calls nvjpeg2kStreamGetComponentNLTInfo.
 func fnStreamGetComponentNLTInfo(a0 Bitstream, a1 uint32, a2 *NLTInfo) Result {
-	r1, _ := ffiCall3(symStreamGetComponentNLTInfo, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symStreamGetComponentNLTInfo, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fnStreamGetImageComponentInfo calls nvjpeg2kStreamGetImageComponentInfo.
 func fnStreamGetImageComponentInfo(a0 Bitstream, a1 *ImageComponentInfo, a2 uint32) Result {
-	r1, _ := ffiCall3(symStreamGetImageComponentInfo, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	r1, _ := ffiCallWidths3(symStreamGetImageComponentInfo, 0, 0x30, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
 	return Result(r1)
 }
 
@@ -277,25 +296,25 @@ func fnStreamGetImageInfo(a0 Bitstream, a1 *ImageInfo) Result {
 
 // fnStreamGetResolutionComponentDim calls nvjpeg2kStreamGetResolutionComponentDim.
 func fnStreamGetResolutionComponentDim(a0 Bitstream, a1 uint32, a2 uint32, a3 uint32, a4 *uint32, a5 *uint32) Result {
-	r1, _ := ffiCall6(symStreamGetResolutionComponentDim, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symStreamGetResolutionComponentDim, 0, 0xfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fnStreamGetResolutionsInTile calls nvjpeg2kStreamGetResolutionsInTile.
 func fnStreamGetResolutionsInTile(a0 Bitstream, a1 uint32, a2 *uint32) Result {
-	r1, _ := ffiCall3(symStreamGetResolutionsInTile, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symStreamGetResolutionsInTile, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fnStreamGetTileComponentDim calls nvjpeg2kStreamGetTileComponentDim.
 func fnStreamGetTileComponentDim(a0 Bitstream, a1 uint32, a2 uint32, a3 *uint32, a4 *uint32) Result {
-	r1, _ := ffiCall5(symStreamGetTileComponentDim, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symStreamGetTileComponentDim, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
 // fnStreamParse calls nvjpeg2kStreamParse.
 func fnStreamParse(a0 Handle, a1 *uint8, a2 uint, a3 int32, a4 int32, a5 Bitstream) Result {
-	r1, _ := ffiCall6(symStreamParse, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	r1, _ := ffiCallWidths6(symStreamParse, 0, 0x3c0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
 	return Result(r1)
 }
 
@@ -784,12 +803,10 @@ var slotStreamGetColorSpace outSlot[ColorSpace]
 // marker precision.
 //
 // Use this to choose the destination type for an NLT-type-3 stream:
-// - FP16 — when every component BDnlt = 16.
-// - FP32 — when every component BDnlt in {16, 32}
-// and at least one is >= 16. BDnlt = 16 components are widened
-// via __half2float at decode time. See [ImageType]
-// for the full destination-type restrictions.
+//   - FP16 — when every component BDnlt = 16.
+//   - FP32 — when every component BDnlt in {16, 32} and at least one is >= 16. BDnlt = 16 components are widened via __half2float at decode time. See [ImageType] for the full destination-type restrictions.
 //
+// Parameters:
 //   - streamHandle: [in] Bitstream handle
 //   - componentId: [in] Component index (0..num_components-1)
 //
@@ -864,10 +881,11 @@ var slotStreamGetImageInfo outSlot[ImageInfo]
 // StreamGetResolutionComponentDim returns one tile component's width and height at a resolution level.
 //
 // The resolution dimensions are computed as follows:
-// - res_scale = 1 << (num_resolutions - resLevel - 1)
-// - resWidth = (tile_width + res_scale - 1) >> res_scale
-// - resHeight = (tile_height + res_scale - 1) >> res_scale
+//   - res_scale = 1 << (num_resolutions - resLevel - 1)
+//   - resWidth = (tile_width + res_scale - 1) >> res_scale
+//   - resHeight = (tile_height + res_scale - 1) >> res_scale
 //
+// Parameters:
 //   - streamHandle: [in] Bitstream handle
 //   - componentId: [in] Component index
 //   - tileId: [in] Raster scan based tile index

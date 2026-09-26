@@ -8,8 +8,6 @@ import (
 
 // VecGet returns the fields of the sparse vector descriptor spVecDescr.
 //
-// See [Result] for the description of the return status.
-//
 //   - size: Size of the sparse vector
 //   - nnz: Number of non-zero entries of the sparse vector
 //   - indices: Indices of the sparse vector. Array with nnz elements
@@ -25,8 +23,6 @@ func (s SpVecDescr) VecGet(size *int64, nnz *int64, indices *uintptr, values *ui
 
 // VecGetValues returns the values field of the sparse vector descriptor spVecDescr.
 //
-// See [Result] for the description of the return status.
-//
 //   - values: Values of the sparse vector. Array with nnz elements
 //
 // Wraps cusparseSpVecGetValues.
@@ -37,8 +33,9 @@ func (s SpVecDescr) VecGetValues(values *uintptr) error {
 // VecSetValues sets the values field of the sparse vector descriptor spVecDescr.
 //
 // [DnVecDescr.VecSetValues] has the following constraints:
-// See [Result] for the description of the return status.
+//   - values must be aligned to the size of the datatype specified in spVecDescr. See cudaDataType_t for the description of the datatypes.
 //
+// Parameters:
 //   - values: Values of the sparse vector. Array with nnz elements
 //
 // Wraps cusparseSpVecSetValues.

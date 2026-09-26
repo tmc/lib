@@ -4,115 +4,641 @@ package cutensor
 
 import (
 	"github.com/tmc/lib/nvidia/driver"
-	"unsafe"
 )
 
-// Contract wraps cutensorContract.
-func (h Handle) Contract(plan Plan, alpha unsafe.Pointer, a driver.DevicePtr, b driver.DevicePtr, beta unsafe.Pointer, c driver.DevicePtr, d driver.DevicePtr, workspace driver.DevicePtr, workspaceSize uint64, stream driver.Stream) error {
+// Contract computes the tensor contraction D=alpha*A*B+beta*C.
+//
+// D_(modes_(D))←α*A_(modes_(A))B_(modes_(B))+βC_(modes_(C))
+// The active CUDA device must match the CUDA device that was active at the time at which the plan was created.
+// Example
+// See NVIDIA/CUDALibrarySamples for a concrete example.
+//
+//   - plan: Opaque handle holding the contraction execution plan (created by [Handle.CreateContraction] followed by [Handle.CreatePlan])
+//   - alpha: Scaling for A*B. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Pointer to the host memory. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - a: Pointer to the data corresponding to A. Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
+//   - b: Pointer to the data corresponding to B. Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
+//   - beta: Scaling for C. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Pointer to the host memory. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - c: Pointer to the data corresponding to C. Pointer to the GPU-accessible memory
+//   - d: Pointer to the data corresponding to D. Pointer to the GPU-accessible memory
+//   - workspace: Optional parameter that may be NULL. This pointer provides additional workspace, in device memory, to the library for additional optimizations; the workspace must be aligned to 256 bytes (i.e., the default alignment of cudaMalloc)
+//   - workspaceSize: Size of the workspace array in bytes; please refer to [Handle.EstimateWorkspaceSize] to query the required workspace. While [Handle.Contract] does not strictly require a workspace for the contraction, it is still recommended to provided some small workspace (e.g., 128 MB)
+//   - stream: The CUDA stream in which all the computation is performed
+//
+// Errors:
+//   - [ErrArchMismatch]: if the plan was created for a different device than the currently active device.
+//   - [ErrCudaError]: if some unknown CUDA error has occurred (e.g., out of memory).
+//   - [ErrInsufficientDriver]: if the driver is insufficient.
+//   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: if operation is not supported.
+//
+// Wraps cutensorContract.
+func (h Handle) Contract(plan Plan, alpha Scalar, a driver.DevicePtr, b driver.DevicePtr, beta Scalar, c driver.DevicePtr, d driver.DevicePtr, workspace driver.DevicePtr, workspaceSize uint64, stream driver.Stream) error {
 	return contract(h, plan, alpha, a, b, beta, c, d, workspace, workspaceSize, stream)
 }
 
-// ContractTrinary wraps cutensorContractTrinary.
-func (h Handle) ContractTrinary(plan Plan, alpha unsafe.Pointer, a driver.DevicePtr, b driver.DevicePtr, c driver.DevicePtr, beta unsafe.Pointer, d driver.DevicePtr, e driver.DevicePtr, workspace driver.DevicePtr, workspaceSize uint64, stream driver.Stream) error {
+// ContractTrinary computes the tensor contraction E=alpha*A*B*C+beta*D.
+//
+// E_(modes_(E))←α*A_(modes_(A))B_(modes_(B))C_(modes_(C))+βD_(modes_(D))
+// The active CUDA device must match the CUDA device that was active at the time at which the plan was created.
+// Example
+// See NVIDIA/CUDALibrarySamples for a concrete example.
+//
+//   - plan: Opaque handle holding the contraction execution plan (created by [Handle.CreateContractionTrinary] followed by [Handle.CreatePlan])
+//   - alpha: Scaling for A*B*C. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Pointer to the host memory. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - a: Pointer to the data corresponding to A. Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to E
+//   - b: Pointer to the data corresponding to B. Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to E
+//   - c: Pointer to the data corresponding to C. Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to E
+//   - beta: Scaling for D. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Pointer to the host memory. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - d: Pointer to the data corresponding to D. Pointer to the GPU-accessible memory
+//   - e: Pointer to the data corresponding to E. Pointer to the GPU-accessible memory
+//   - workspace: Optional parameter that may be NULL. This pointer provides additional workspace, in device memory, to the library for additional optimizations; the workspace must be aligned to 256 bytes (i.e., the default alignment of cudaMalloc)
+//   - workspaceSize: Size of the workspace array in bytes; please refer to [Handle.EstimateWorkspaceSize] to query the required workspace. While [Handle.Contract] does not strictly require a workspace for the contraction, it is still recommended to provided some small workspace (e.g., 128 MB)
+//   - stream: The CUDA stream in which all the computation is performed
+//
+// Errors:
+//   - [ErrArchMismatch]: if the plan was created for a different device than the currently active device.
+//   - [ErrCudaError]: if some unknown CUDA error has occurred (e.g., out of memory).
+//   - [ErrInsufficientDriver]: if the driver is insufficient.
+//   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: if operation is not supported.
+//
+// Wraps cutensorContractTrinary.
+func (h Handle) ContractTrinary(plan Plan, alpha Scalar, a driver.DevicePtr, b driver.DevicePtr, c driver.DevicePtr, beta Scalar, d driver.DevicePtr, e driver.DevicePtr, workspace driver.DevicePtr, workspaceSize uint64, stream driver.Stream) error {
 	return contractTrinary(h, plan, alpha, a, b, c, beta, d, e, workspace, workspaceSize, stream)
 }
 
-// CreateContraction wraps cutensorCreateContraction.
+// CreateContraction allocates a [OperationDescriptor] object that encodes a tensor contraction of the form D=αAB+βC.
+//
+// Allocates data for desc to be used to perform a tensor contraction of the form
+// D_(modes_(D))←αop_(A)(A_(modes_(A)))op_(B)(B_(modes_(B)))+βop_(C)(C_(modes_(C))).
+// See [Handle.CreatePlan] (or cutensorCreatePlanAutotuned) to create the plan (i.e., to select the kernel) followed by a call to [Handle.Contract] to perform the actual contraction.
+// The user is responsible for calling [OperationDescriptor.Destroy] to free the resources associated with the descriptor.
+// Supported data-type combinations are:
+//
+//   - desc: This opaque struct gets allocated and filled with the information that encodes the tensor contraction operation
+//   - descA: The descriptor that holds the information about the data type, modes and strides of A
+//   - modeA: Array with ‘nmodeA’ entries that represent the modes of A. The modeA [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
+//   - opA: Unary operator that will be applied to each element of A before it is further processed. The original data of this tensor remains unchanged
+//   - descB: The descriptor that holds information about the data type, modes, and strides of B
+//   - modeB: Array with ‘nmodeB’ entries that represent the modes of B. The modeB [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
+//   - opB: Unary operator that will be applied to each element of B before it is further processed. The original data of this tensor remains unchanged
+//   - descC: The descriptor that holds information about the data type, modes, and strides of C
+//   - modeC: Array with ‘nmodeC’ entries that represent the modes of C. The modeC [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
+//   - opC: Unary operator applied to each element of C before it is further processed. Currently only [OpIdentity] is supported. The original data of this tensor remains unchanged
+//   - descD: The descriptor that holds information about the data type, modes, and strides of D (must be identical to descC for now)
+//   - modeD: Array with ‘nmodeD’ entries that represent the modes of D (must be identical to modeC for now). The modeD [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
+//   - descCompute: Determines the precision in which this operations is performed
+//
+// Errors:
+//   - [ErrInvalidValue]: if tensor dimensions or modes have an illegal value
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: if the combination of data types or operations is not supported
+//
+// len(modeA) must equal the number of modes of descA; nothing checks it.
+// len(modeB) must equal the number of modes of descB; nothing checks it.
+// len(modeC) must equal the number of modes of descC; nothing checks it.
+// len(modeD) must equal the number of modes of descD; nothing checks it.
+//
+// Wraps cutensorCreateContraction.
 func (h Handle) CreateContraction(descA TensorDescriptor, modeA []int32, opA OperatorT, descB TensorDescriptor, modeB []int32, opB OperatorT, descC TensorDescriptor, modeC []int32, opC OperatorT, descD TensorDescriptor, modeD []int32, descCompute ComputeDescriptor) (OperationDescriptor, error) {
 	return createContraction(h, descA, modeA, opA, descB, modeB, opB, descC, modeC, opC, descD, modeD, descCompute)
 }
 
-// CreateContractionTrinary wraps cutensorCreateContractionTrinary.
+// CreateContractionTrinary allocates a [OperationDescriptor] object that encodes a tensor contraction of the form E=αABC+βD.
+//
+// Allocates data for desc to be used to perform a tensor contraction of the form
+// E_(modes_(E))←αop_(A)(A_(modes_(A)))op_(B)(B_(modes_(B)))op_(C)(C_(modes_(C)))+βop_(D)(D_(modes_(D))).
+// See [Handle.CreatePlan] (or cutensorCreatePlanAutotuned) to create the plan (i.e., to select the kernel) followed by a call to [Handle.ContractTrinary] to perform the actual contraction.
+// The user is responsible for calling [OperationDescriptor.Destroy] to free the resources associated with the descriptor.
+// The performance improvements due to this API are currently especially high if your data resides on the host (i.e. out-of-core), targeting Grace-based systems.
+// Supported data-type combinations are:
+//
+//   - desc: This opaque struct gets allocated and filled with the information that encodes the tensor contraction operation
+//   - descA: The descriptor that holds the information about the data type, modes and strides of A
+//   - modeA: Array with ‘nmodeA’ entries that represent the modes of A. The modeA [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
+//   - opA: Unary operator that will be applied to each element of A before it is further processed. The original data of this tensor remains unchanged
+//   - descB: The descriptor that holds information about the data type, modes, and strides of B
+//   - modeB: Array with ‘nmodeB’ entries that represent the modes of B. The modeB [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
+//   - opB: Unary operator that will be applied to each element of B before it is further processed. The original data of this tensor remains unchanged
+//   - descC: The escriptor that holds information about the data type, modes, and strides of C
+//   - modeC: Array with ‘nmodeC’ entries that represent the modes of C. The modeC [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
+//   - opC: Unary operator that will be applied to each element of C before it is further processed. The original data of this tensor remains unchanged
+//   - descD: The escriptor that holds information about the data type, modes, and strides of D
+//   - modeD: Array with ‘nmodeD’ entries that represent the modes of D. The modeD [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
+//   - opD: Unary operator that will be applied to each element of D before it is further processed. The original data of this tensor remains unchanged
+//   - descE: The descriptor that holds information about the data type, modes, and strides of E (must be identical to descD for now)
+//   - modeE: Array with ‘nmodeE’ entries that represent the modes of E (must be identical to modeD for now). The modeE [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
+//   - descCompute: Determines the precision in which this operations is performed
+//
+// Errors:
+//   - [ErrInvalidValue]: if tensor dimensions or modes have an illegal value
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: if the combination of data types or operations is not supported
+//
+// len(modeA) must equal the number of modes of descA; nothing checks it.
+// len(modeB) must equal the number of modes of descB; nothing checks it.
+// len(modeC) must equal the number of modes of descC; nothing checks it.
+// len(modeD) must equal the number of modes of descD; nothing checks it.
+// len(modeE) must equal the number of modes of descE; nothing checks it.
+//
+// Wraps cutensorCreateContractionTrinary.
 func (h Handle) CreateContractionTrinary(descA TensorDescriptor, modeA []int32, opA OperatorT, descB TensorDescriptor, modeB []int32, opB OperatorT, descC TensorDescriptor, modeC []int32, opC OperatorT, descD TensorDescriptor, modeD []int32, opD OperatorT, descE TensorDescriptor, modeE []int32, descCompute ComputeDescriptor) (OperationDescriptor, error) {
 	return createContractionTrinary(h, descA, modeA, opA, descB, modeB, opB, descC, modeC, opC, descD, modeD, opD, descE, modeE, descCompute)
 }
 
-// CreateElementwiseBinary wraps cutensorCreateElementwiseBinary.
+// CreateElementwiseBinary creates an operation descriptor for an elementwise binary operation.
+//
+// The binary operation has the following general form:
+// D_(Π^(C)(i₀,i₁,...,iₙ))=Φ_(AC)(αop_(A)(A_(Π^(A)(i₀,i₁,...,iₙ))),γop_(C)(C_(Π^(C)(i₀,i₁,...,iₙ))))
+// Call [Handle.ElementwiseBinaryExecute] to perform the actual operation.
+// Supported data-type combinations are:
+//   - typeA: CUDA_R_16F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_16F
+//   - typeA: CUDA_R_16F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_16BF; typeC: CUDA_R_16BF; descCompute: CUTENSOR_COMPUTE_DESC_16BF
+//   - typeA: CUDA_R_16BF; typeC: CUDA_R_16BF; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_32F; typeC: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_64F; typeC: CUDA_R_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//   - typeA: CUDA_C_32F; typeC: CUDA_C_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_C_64F; typeC: CUDA_C_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//   - typeA: CUDA_R_32F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_64F; typeC: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//   - typeA: CUDA_C_64F; typeC: CUDA_C_32F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//
+// Remark:
+// calls asynchronous functions, no reentrant, and thread-safe
+//
+//   - desc: This opaque struct gets allocated and filled with the information that encodes the requested elementwise operation
+//   - descA: The descriptor that holds the information about the data type, modes, and strides of A
+//   - modeA: Array (in host memory) of size descA->numModes that holds the names of the modes of A (e.g., if A_{a,b,c} => modeA = {‘a’,’b’,’c’}). The modeA [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to [Handle.CreateTensorDescriptor]
+//   - opA: Unary operator that will be applied to each element of A before it is further processed. The original data of this tensor remains unchanged
+//   - descC: The descriptor that holds information about the data type, modes, and strides of C
+//   - modeC: Array (in host memory) of size descC->numModes that holds the names of the modes of C. The modeC [i] corresponds to extent [i] and stride [i] of the [Handle.CreateTensorDescriptor]
+//   - opC: Unary operator that will be applied to each element of C before it is further processed. The original data of this tensor remains unchanged
+//   - descD: The descriptor that holds information about the data type, modes, and strides of D. Notice that we currently request descD and descC to be identical
+//   - modeD: Array (in host memory) of size descD->numModes that holds the names of the modes of D. The modeD [i] corresponds to extent [i] and stride [i] of the [Handle.CreateTensorDescriptor]
+//   - opAC: Element-wise binary operator (corresponding to Φ_(AC) above)
+//   - descCompute: Determines the precision in which this operations is performed
+//
+// Errors:
+//   - [ErrInvalidValue]: if tensor dimensions or modes have an illegal value
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: if the combination of data types or operations is not supported
+//
+// len(modeA) must equal the number of modes of descA; nothing checks it.
+// len(modeC) must equal the number of modes of descC; nothing checks it.
+// len(modeD) must equal the number of modes of descD; nothing checks it.
+//
+// Wraps cutensorCreateElementwiseBinary.
 func (h Handle) CreateElementwiseBinary(descA TensorDescriptor, modeA []int32, opA OperatorT, descC TensorDescriptor, modeC []int32, opC OperatorT, descD TensorDescriptor, modeD []int32, opAC OperatorT, descCompute ComputeDescriptor) (OperationDescriptor, error) {
 	return createElementwiseBinary(h, descA, modeA, opA, descC, modeC, opC, descD, modeD, opAC, descCompute)
 }
 
-// CreateElementwiseTrinary wraps cutensorCreateElementwiseTrinary.
+// CreateElementwiseTrinary creates an operation descriptor that encodes an elementwise trinary operation.
+//
+// Said trinary operation has the following general form:
+// D_(Π^(C)(i₀,i₁,...,iₙ))=Φ_(ABC)(Φ_(AB)(αop_(A)(A_(Π^(A)(i₀,i₁,...,iₙ))),βop_(B)(B_(Π^(B)(i₀,i₁,...,iₙ)))),γop_(C)(C_(Π^(C)(i₀,i₁,...,iₙ))))
+// Where
+//   - A,B,C,D are multi-mode tensors (of arbitrary data types).
+//   - Π^(A),Π^(B),Π^(C) are permutation operators that permute the modes of A, B, and C respectively.
+//   - op_(A),op_(B),op_(C) are unary element-wise operators (e.g., IDENTITY, CONJUGATE).
+//   - Φ_(ABC),Φ_(AB) are binary element-wise operators (e.g., ADD, MUL, MAX, MIN).
+//
+// Notice that the broadcasting (of a mode) can be achieved by simply omitting that mode from the respective tensor.
+// Moreover, modes may appear in any order, giving users a greater flexibility. The only restrictions are:
+//   - modes that appear in A or B must also appear in the output tensor; a mode that only appears in the input would be contracted and such an operation would be covered by either [Handle.Contract] or [Handle.Reduce].
+//   - each mode may appear in each tensor at most once.
+//
+// Input tensors may be read even if the value of the corresponding scalar is zero.
+// Examples:
+//   - D_(a,b,c,d)=A_(b,d,a,c)
+//   - D_(a,b,c,d)=2.2*A_(b,d,a,c)+1.3*B_(c,b,d,a)
+//   - D_(a,b,c,d)=2.2*A_(b,d,a,c)+1.3*B_(c,b,d,a)+C_(a,b,c,d)
+//   - D_(a,b,c,d)=min((2.2*A_(b,d,a,c)+1.3*B_(c,b,d,a)),C_(a,b,c,d))
+//
+// Call [Handle.ElementwiseTrinaryExecute] to perform the actual operation.
+// Please use [OperationDescriptor.Destroy] to deallocated the descriptor once it is no longer used.
+// Supported data-type combinations are:
+//   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_16F
+//   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_16BF; typeB: CUDA_R_16BF; typeC: CUDA_R_16BF; descCompute: CUTENSOR_COMPUTE_DESC_16BF
+//   - typeA: CUDA_R_16BF; typeB: CUDA_R_16BF; typeC: CUDA_R_16BF; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_32F; typeB: CUDA_R_32F; typeC: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_64F; typeB: CUDA_R_64F; typeC: CUDA_R_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//   - typeA: CUDA_C_32F; typeB: CUDA_C_32F; typeC: CUDA_C_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_C_64F; typeB: CUDA_C_64F; typeC: CUDA_C_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//   - typeA: CUDA_R_32F; typeB: CUDA_R_32F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_64F; typeB: CUDA_R_64F; typeC: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//   - typeA: CUDA_C_64F; typeB: CUDA_C_64F; typeC: CUDA_C_32F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//
+// Remark:
+// calls asynchronous functions, no reentrant, and thread-safe
+//
+//   - desc: This opaque struct gets allocated and filled with the information that encodes the requested elementwise operation
+//   - descA: A descriptor that holds the information about the data type, modes, and strides of A
+//   - modeA: Array (in host memory) of size descA->numModes that holds the names of the modes of A (e.g., if A_(a,b,c) then modeA = {‘a’,’b’,’c’}). The modeA [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to [Handle.CreateTensorDescriptor]
+//   - opA: Unary operator that will be applied to each element of A before it is further processed. The original data of this tensor remains unchanged
+//   - descB: A descriptor that holds information about the data type, modes, and strides of B
+//   - modeB: Array (in host memory) of size descB->numModes that holds the names of the modes of B. modeB [i] corresponds to extent [i] and stride [i] of the [Handle.CreateTensorDescriptor]
+//   - opB: Unary operator that will be applied to each element of B before it is further processed. The original data of this tensor remains unchanged
+//   - descC: A descriptor that holds information about the data type, modes, and strides of C
+//   - modeC: Array (in host memory) of size descC->numModes that holds the names of the modes of C. The modeC [i] corresponds to extent [i] and stride [i] of the [Handle.CreateTensorDescriptor]
+//   - opC: Unary operator that will be applied to each element of C before it is further processed. The original data of this tensor remains unchanged
+//   - descD: A descriptor that holds information about the data type, modes, and strides of D. Notice that we currently request descD and descC to be identical
+//   - modeD: Array (in host memory) of size descD->numModes that holds the names of the modes of D. The modeD [i] corresponds to extent [i] and stride [i] of the [Handle.CreateTensorDescriptor]
+//   - opAB: Element-wise binary operator (see Φ_(AB) above)
+//   - opABC: Element-wise binary operator (see Φ_(ABC) above)
+//   - descCompute: Determines the precision in which this operations is performed
+//
+// Errors:
+//   - [ErrArchMismatch]: if the device is either not ready, or the target architecture is not supported.
+//   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//
+// len(modeA) must equal the number of modes of descA; nothing checks it.
+// len(modeB) must equal the number of modes of descB; nothing checks it.
+// len(modeC) must equal the number of modes of descC; nothing checks it.
+// len(modeD) must equal the number of modes of descD; nothing checks it.
+//
+// Wraps cutensorCreateElementwiseTrinary.
 func (h Handle) CreateElementwiseTrinary(descA TensorDescriptor, modeA []int32, opA OperatorT, descB TensorDescriptor, modeB []int32, opB OperatorT, descC TensorDescriptor, modeC []int32, opC OperatorT, descD TensorDescriptor, modeD []int32, opAB OperatorT, opABC OperatorT, descCompute ComputeDescriptor) (OperationDescriptor, error) {
 	return createElementwiseTrinary(h, descA, modeA, opA, descB, modeB, opB, descC, modeC, opC, descD, modeD, opAB, opABC, descCompute)
 }
 
-// CreatePermutation wraps cutensorCreatePermutation.
+// CreatePermutation creates an operation descriptor for a tensor permutation.
+//
+// The tensor permutation has the following general form:
+// B_(Π^(B)(i₀,i₁,...,iₙ))=αop_(A)(A_(Π^(A)(i₀,i₁,...,iₙ)))
+// Consequently, this function performs an out-of-place tensor permutation and is a specialization of [Handle.CreateElementwiseBinary].
+// Where
+//   - A and B are multi-mode tensors (of arbitrary data types),
+//   - Π^(A),Π^(B) are permutation operators that permute the modes of A, B respectively,
+//   - op_(A) is an unary element-wise operators (e.g., IDENTITY, SQR, CONJUGATE), and
+//
+// Broadcasting (of a mode) can be achieved by simply omitting that mode from the respective tensor.
+// Modes may appear in any order. The only restrictions are:
+//   - modes that appear in A must also appear in the output tensor.
+//   - each mode may appear in each tensor at most once.
+//
+// Supported data-type combinations are:
+//   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_16F
+//   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_16F; typeB: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_32F; typeB: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_16BF; typeB: CUDA_R_16BF; descCompute: CUTENSOR_COMPUTE_DESC_16BF
+//   - typeA: CUDA_R_16BF; typeB: CUDA_R_16BF; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_32F; typeB: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_64F; typeB: CUDA_R_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//   - typeA: CUDA_R_32F; typeB: CUDA_R_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//   - typeA: CUDA_R_64F; typeB: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//   - typeA: CUDA_C_32F; typeB: CUDA_C_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_C_64F; typeB: CUDA_C_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//   - typeA: CUDA_C_32F; typeB: CUDA_C_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//   - typeA: CUDA_C_64F; typeB: CUDA_C_32F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//
+// Remark:
+// calls asynchronous functions, no reentrant, and thread-safe
+//
+//   - desc: This opaque struct gets allocated and filled with the information that encodes the requested permutation
+//   - descA: The descriptor that holds information about the data type, modes, and strides of A
+//   - modeA: Array of size descA->numModes that holds the names of the modes of A (e.g., if A_{a,b,c} => modeA = {‘a’,’b’,’c’})
+//   - opA: Unary operator that will be applied to each element of A before it is further processed. The original data of this tensor remains unchanged
+//   - descB: The descriptor that holds information about the data type, modes, and strides of B
+//   - modeB: Array of size descB->numModes that holds the names of the modes of B
+//   - descCompute: Determines the precision in which this operations is performed
+//
+// Errors:
+//   - [ErrInvalidValue]: if tensor dimensions or modes have an illegal value
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: if the combination of data types or operations is not supported
+//
+// len(modeA) must equal the number of modes of descA; nothing checks it.
+// len(modeB) must equal the number of modes of descB; nothing checks it.
+//
+// Wraps cutensorCreatePermutation.
 func (h Handle) CreatePermutation(descA TensorDescriptor, modeA []int32, opA OperatorT, descB TensorDescriptor, modeB []int32, descCompute ComputeDescriptor) (OperationDescriptor, error) {
 	return createPermutation(h, descA, modeA, opA, descB, modeB, descCompute)
 }
 
-// CreatePlan wraps cutensorCreatePlan.
+// CreatePlan allocates a [Plan] object, selects an appropriate kernel for a given operation (encoded by desc) and prepares a plan that encodes the execution.
+//
+// This function applies cuTENSOR’s heuristic to select a candidate/kernel for a given operation (created by either [Handle.CreateContraction], [Handle.CreateReduction], [Handle.CreatePermutation], * [Handle.CreateElementwiseBinary], [Handle.CreateElementwiseTrinary], [Handle.CreateContractionTrinary], or cutensorCreateBlockSparseContraction). The created plan can then be be passed to either [Handle.Contract], [Handle.Reduce], [Handle.Permute], [Handle.ElementwiseBinaryExecute], [Handle.ElementwiseTrinaryExecute], or [Handle.ContractTrinary] to perform the actual operation.
+// The plan is created for the active CUDA device.
+//
+// Note: [Handle.CreatePlan] must not be captured via CUDA graphs if Just-In-Time compilation is enabled (i.e., [JitmodeT] is not [JitModeNone]).
+//
+//   - plan: Pointer to the data structure created by this function that holds all information (e.g., selected kernel) necessary to perform the desired operation
+//   - desc: This opaque struct encodes the given operation (see [Handle.CreateContraction], [Handle.CreateReduction], [Handle.CreatePermutation], [Handle.CreateElementwiseBinary], [Handle.CreateElementwiseTrinary], or [Handle.CreateContractionTrinary])
+//   - pref: This opaque struct is used to restrict the space of applicable candidates/kernels (see [Handle.CreatePlanPreference] or [PlanpreferenceattributeT]). May be nullptr, in that case default choices are assumed. Block-sparse contractions currently only support these default settings and ignore other supplied preferences
+//   - workspaceSizeLimit: Denotes the maximal workspace that the corresponding operation is allowed to use (see [Handle.EstimateWorkspaceSize])
+//
+// A nil error means a viable candidate has been found.
+//
+// Errors:
+//   - [ErrInsufficientWorkspace]: if The provided workspace was insufficient.
+//   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: If no viable candidate could be found.
+//
+// Wraps cutensorCreatePlan.
 func (h Handle) CreatePlan(desc OperationDescriptor, pref PlanPreference, workspaceSizeLimit uint64) (Plan, error) {
 	return createPlan(h, desc, pref, workspaceSizeLimit)
 }
 
-// CreatePlanPreference wraps cutensorCreatePlanPreference.
+// CreatePlanPreference allocates the [PlanPreference], enabling users to limit the applicable kernels for a given plan/operation.
+//
+//   - pref: Pointer to the structure holding the [PlanPreference] allocated by this function. See [PlanPreference]
+//   - algo: Allows users to select a specific algorithm. [AlgoDefault] lets the heuristic choose the algorithm. Any value >= 0 selects a specific GEMM-like algorithm and deactivates the heuristic. If a specified algorithm is not supported [ErrNotSupported] is returned. See [AlgoT] for additional choices
+//   - jitMode: Determines if cuTENSOR is allowed to use JIT-compiled kernels (leading to a longer plan-creation phase); see [JitmodeT]
+//
+// Wraps cutensorCreatePlanPreference.
 func (h Handle) CreatePlanPreference(algo AlgoT, jitMode JitmodeT) (PlanPreference, error) {
 	return createPlanPreference(h, algo, jitMode)
 }
 
-// CreateReduction wraps cutensorCreateReduction.
+// CreateReduction creates a cutensorOperatorDescriptor_t object that encodes a tensor reduction of the form D=alpha*opReduce(opA(A))+beta*opC(C).
+//
+// For example this function enables users to reduce an entire tensor to a scalar: C[] = alpha * A [i,j,k];
+// This function is also able to perform partial reductions; for instance: C [i,j] = alpha * A [k,j,i]; in this case only elements along the k-mode are contracted.
+// The binary opReduce operator provides extra control over what kind of a reduction ought to be performed. For instance, setting opReduce to [OpAdd] reduces element of A via a summation while [OpMax] would find the largest element in A.
+// Supported data-type combinations are:
+//   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; typeC: CUDA_R_16F; typeCompute: CUTENSOR_COMPUTE_DESC_16F
+//   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; typeC: CUDA_R_16F; typeCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_16BF; typeB: CUDA_R_16BF; typeC: CUDA_R_16BF; typeCompute: CUTENSOR_COMPUTE_DESC_16BF
+//   - typeA: CUDA_R_16BF; typeB: CUDA_R_16BF; typeC: CUDA_R_16BF; typeCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_32F; typeB: CUDA_R_32F; typeC: CUDA_R_32F; typeCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_64F; typeB: CUDA_R_64F; typeC: CUDA_R_64F; typeCompute: CUTENSOR_COMPUTE_DESC_64F
+//   - typeA: CUDA_C_32F; typeB: CUDA_C_32F; typeC: CUDA_C_32F; typeCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_C_64F; typeB: CUDA_C_64F; typeC: CUDA_C_64F; typeCompute: CUTENSOR_COMPUTE_DESC_64F
+//
+// Parameters:
+//   - desc: This opaque struct gets allocated and filled with the information that encodes the requested tensor reduction operation
+//   - descA: The descriptor that holds the information about the data type, modes and strides of A
+//   - modeA: Array with ‘nmodeA’ entries that represent the modes of A. modeA [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to [Handle.CreateTensorDescriptor]. Modes that only appear in modeA but not in modeC are reduced (contracted)
+//   - opA: Unary operator that will be applied to each element of A before it is further processed. The original data of this tensor remains unchanged
+//   - descC: The descriptor that holds the information about the data type, modes and strides of C
+//   - modeC: Array with ‘nmodeC’ entries that represent the modes of C. modeC [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to [Handle.CreateTensorDescriptor]
+//   - opC: Unary operator that will be applied to each element of C before it is further processed. The original data of this tensor remains unchanged
+//   - descD: Must be identical to descC for now
+//   - modeD: Must be identical to modeC for now
+//   - opReduce: binary operator used to reduce elements of A
+//
+// Errors:
+//   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: if operation is not supported.
+//
+// len(modeA) must equal the number of modes of descA; nothing checks it.
+// len(modeC) must equal the number of modes of descC; nothing checks it.
+// len(modeD) must equal the number of modes of descD; nothing checks it.
+//
+// Wraps cutensorCreateReduction.
 func (h Handle) CreateReduction(descA TensorDescriptor, modeA []int32, opA OperatorT, descC TensorDescriptor, modeC []int32, opC OperatorT, descD TensorDescriptor, modeD []int32, opReduce OperatorT, descCompute ComputeDescriptor) (OperationDescriptor, error) {
 	return createReduction(h, descA, modeA, opA, descC, modeC, opC, descD, modeD, opReduce, descCompute)
 }
 
-// CreateTensorDescriptor wraps cutensorCreateTensorDescriptor.
+// CreateTensorDescriptor creates a tensor descriptor.
+//
+// This allocates a small amount of host-memory.
+// The user is responsible for calling [TensorDescriptor.Destroy] to free the associated resources once the tensor descriptor is no longer used.
+//
+//   - desc: Pointer to the address where the allocated tensor descriptor object will be stored
+//   - numModes: Number of modes
+//   - extent: Extent of each mode (must be larger than zero)
+//   - stride: stride [i] denotes the displacement (a.k.a. stride)—in elements of the base type—between two consecutive elements in the ith-mode. If stride is NULL, a packed generalized column-major memory layout is assumed (i.e., the strides increase monotonically from left to right). Each stride must be larger than zero; to be precise, a stride of zero can be achieved by omitting this mode entirely; for instance instead of writing C [a,b] = A [b,a] with strideA(a) = 0, you can write C [a,b] = A [b] directly; cuTENSOR will then automatically infer that the a-mode in A should be broadcasted
+//   - dataType: Data type of the stored entries
+//   - alignmentRequirement: Alignment (in bytes) to the base pointer that will be used in conjunction with this tensor descriptor (e.g., cudaMalloc has a default alignment of 256 bytes)
+//
+// Errors:
+//   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: if the requested descriptor is not supported (e.g., due to non-supported data type).
+//
+// Wraps cutensorCreateTensorDescriptor.
 func (h Handle) CreateTensorDescriptor(extent []int64, stride []int64, dataType DataType, alignmentRequirement uint32) (TensorDescriptor, error) {
 	return createTensorDescriptor(h, extent, stride, dataType, alignmentRequirement)
 }
 
-// Destroy wraps cutensorDestroy.
+// Destroy frees all resources related to the provided library handle.
+//
+// Remark:
+// blocking, no reentrant, and thread-safe
+//
+// Wraps cutensorDestroy.
 func (h Handle) Destroy() error {
 	return destroy(h)
 }
 
-// ElementwiseBinaryExecute wraps cutensorElementwiseBinaryExecute.
-func (h Handle) ElementwiseBinaryExecute(plan Plan, alpha unsafe.Pointer, a driver.DevicePtr, gamma unsafe.Pointer, c driver.DevicePtr, d driver.DevicePtr, stream driver.Stream) error {
+// ElementwiseBinaryExecute performs an element-wise tensor operation for two input tensors (see [Handle.CreateElementwiseBinary])
+//
+// This function performs a element-wise tensor operation of the form:
+// D_(Π^(C)(i₀,i₁,...,iₙ))=Φ_(AC)(αop_(A)(A_(Π^(A)(i₀,i₁,...,iₙ))),γop_(C)(C_(Π^(C)(i₀,i₁,...,iₙ))))
+// See [Handle.CreateElementwiseBinary] for details.
+// Remark:
+// calls asynchronous functions, no reentrant, and thread-safe
+//
+//   - plan: Opaque handle holding all information about the desired elementwise operation (created by [Handle.CreateElementwiseBinary] followed by [Handle.CreatePlan])
+//   - alpha: Scaling factor for A (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE) to query the expected data type). Pointer to the host memory. If alpha is zero, A is not read and the corresponding unary operator is not applied. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - a: Multi-mode tensor (described by descA as part of [Handle.CreateElementwiseBinary]). Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
+//   - gamma: Scaling factor for C (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE) to query the expected data type). Pointer to the host memory. If gamma is zero, C is not read and the corresponding unary operator is not applied. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - c: Multi-mode tensor (described by descC as part of [Handle.CreateElementwiseBinary]). Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
+//   - d: Multi-mode tensor (described by descD as part of [Handle.CreateElementwiseBinary]). Pointer to the GPU-accessible memory ( C and D may be identical, if and only if descC == descD)
+//   - stream: The CUDA stream used to perform the operation
+//
+// Errors:
+//   - [ErrInvalidValue]: if tensor dimensions or modes have an illegal value
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: if the combination of data types or operations is not supported
+//
+// Wraps cutensorElementwiseBinaryExecute.
+func (h Handle) ElementwiseBinaryExecute(plan Plan, alpha Scalar, a driver.DevicePtr, gamma Scalar, c driver.DevicePtr, d driver.DevicePtr, stream driver.Stream) error {
 	return elementwiseBinaryExecute(h, plan, alpha, a, gamma, c, d, stream)
 }
 
-// ElementwiseTrinaryExecute wraps cutensorElementwiseTrinaryExecute.
-func (h Handle) ElementwiseTrinaryExecute(plan Plan, alpha unsafe.Pointer, a driver.DevicePtr, beta unsafe.Pointer, b driver.DevicePtr, gamma unsafe.Pointer, c driver.DevicePtr, d driver.DevicePtr, stream driver.Stream) error {
+// ElementwiseTrinaryExecute performs an element-wise tensor operation for three input tensors (see [Handle.CreateElementwiseTrinary])
+//
+// This function performs a element-wise tensor operation of the form:
+// D_(Π^(C)(i₀,i₁,...,iₙ))=Φ_(ABC)(Φ_(AB)(αop_(A)(A_(Π^(A)(i₀,i₁,...,iₙ))),βop_(B)(B_(Π^(B)(i₀,i₁,...,iₙ)))),γop_(C)(C_(Π^(C)(i₀,i₁,...,iₙ))))
+// See [Handle.CreateElementwiseTrinary] for details.
+// Remark:
+// calls asynchronous functions, no reentrant, and thread-safe
+//
+//   - plan: Opaque handle holding all information about the desired elementwise operation (created by [Handle.CreateElementwiseTrinary] followed by [Handle.CreatePlan])
+//   - alpha: Scaling factor for A (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE) to query the expected data type). Pointer to the host memory. If alpha is zero, A is not read and the corresponding unary operator is not applied. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - a: Multi-mode tensor (described by descA as part of [Handle.CreateElementwiseTrinary]). Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
+//   - beta: Scaling factor for B (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE) to query the expected data type). Pointer to the host memory. If beta is zero, B is not read and the corresponding unary operator is not applied. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - b: Multi-mode tensor (described by descB as part of [Handle.CreateElementwiseTrinary]). Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
+//   - gamma: Scaling factor for C (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE) to query the expected data type). Pointer to the host memory. If gamma is zero, C is not read and the corresponding unary operator is not applied. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - c: Multi-mode tensor (described by descC as part of [Handle.CreateElementwiseTrinary]). Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
+//   - d: Multi-mode tensor (described by descD as part of [Handle.CreateElementwiseTrinary]). Pointer to the GPU-accessible memory ( C and D may be identical, if and only if descC == descD)
+//   - stream: The CUDA stream used to perform the operation
+//
+// Errors:
+//   - [ErrInvalidValue]: if tensor dimensions or modes have an illegal value
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: if the combination of data types or operations is not supported
+//
+// Wraps cutensorElementwiseTrinaryExecute.
+func (h Handle) ElementwiseTrinaryExecute(plan Plan, alpha Scalar, a driver.DevicePtr, beta Scalar, b driver.DevicePtr, gamma Scalar, c driver.DevicePtr, d driver.DevicePtr, stream driver.Stream) error {
 	return elementwiseTrinaryExecute(h, plan, alpha, a, beta, b, gamma, c, d, stream)
 }
 
-// EstimateWorkspaceSize wraps cutensorEstimateWorkspaceSize.
+// EstimateWorkspaceSize determines the required workspaceSize for the given operation encoded by desc.
+//
+//   - desc: This opaque struct encodes the operation
+//   - planPref: This opaque struct restricts the space of viable candidates
+//   - workspacePref: This parameter influences the size of the workspace; see [WorksizepreferenceT] for details
+//   - workspaceSizeEstimate: The workspace size (in bytes) that is required for the given operation
+//
+// Errors:
+//   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//
+// Wraps cutensorEstimateWorkspaceSize.
 func (h Handle) EstimateWorkspaceSize(desc OperationDescriptor, planPref PlanPreference, workspacePref WorksizepreferenceT) (uint64, error) {
 	return estimateWorkspaceSize(h, desc, planPref, workspacePref)
 }
 
-// Permute wraps cutensorPermute.
-func (h Handle) Permute(plan Plan, alpha unsafe.Pointer, a driver.DevicePtr, b driver.DevicePtr, stream driver.Stream) error {
+// Permute performs the tensor permutation that is encoded by plan (see [Handle.CreatePermutation]).
+//
+// This function performs an elementwise tensor operation of the form:
+// B_(Π^(B)(i₀,i₁,...,iₙ))=αop_(A)(A_(Π^(A)(i₀,i₁,...,iₙ)))
+// Consequently, this function performs an out-of-place tensor permutation.
+// Where
+//   - A and B are multi-mode tensors (of arbitrary data types),
+//   - Π^(A),Π^(B) are permutation operators that permute the modes of A, B respectively,
+//   - op_(A) is an unary element-wise operators (e.g., IDENTITY, SQR, CONJUGATE), and is specified when creating the operation descriptor using [Handle.CreatePermutation]
+//
+// Remark:
+// calls asynchronous functions, no reentrant, and thread-safe
+//
+//   - plan: Opaque handle holding all information about the desired tensor reduction (created by [Handle.CreatePermutation] followed by [Handle.CreatePlan])
+//   - alpha: Scaling factor for A (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Pointer to the host memory. If alpha is zero, A is not read and the corresponding unary operator is not applied. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - a: Multi-mode tensor of type typeA with nmodeA modes. Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
+//   - b: Multi-mode tensor of type typeB with nmodeB modes. Pointer to the GPU-accessible memory
+//   - stream: The CUDA stream
+//
+// Errors:
+//   - [ErrInvalidValue]: if tensor dimensions or modes have an illegal value
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: if the combination of data types or operations is not supported
+//
+// Wraps cutensorPermute.
+func (h Handle) Permute(plan Plan, alpha Scalar, a driver.DevicePtr, b driver.DevicePtr, stream driver.Stream) error {
 	return permute(h, plan, alpha, a, b, stream)
 }
 
-// ReadKernelCacheFromFile wraps cutensorReadKernelCacheFromFile.
+// ReadKernelCacheFromFile reads a kernel cache from file and adds all non-existing JIT compiled kernels to the kernel cache.
+//
+// A cache is only valid for the same cuTENSOR version and CUDA version; moreover, the GPU architecture (incl. multiprocessor count) must match, otherwise [ErrInvalidValue] will be returned.
+// Remark:
+// non-blocking, no reentrant, and thread-safe
+//
+//   - filename: Specifies the filename (including the absolute path) to the file that holds all the cache information that have previously been written by [Handle.WriteKernelCacheToFile]
+//
+// A nil error means the operation completed successfully, or the file pointed to by filename was empty.
+//
+// Errors:
+//   - [ErrInvalidValue]: if the stored cache was created by a different cuTENSOR- or CUDA-version or if the GPU architecture (incl. multiprocessor count) doesn’t match.
+//   - [ErrIoError]: if the file cannot be read.
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: if the function is not available for the operating system, CUDA Toolkit, or compute capability of the device.
+//
+// Wraps cutensorReadKernelCacheFromFile.
 func (h Handle) ReadKernelCacheFromFile(filename *byte) error {
 	return readKernelCacheFromFile(h, filename)
 }
 
-// ReadPlanCacheFromFile wraps cutensorHandleReadPlanCacheFromFile.
+// ReadPlanCacheFromFile reads a Plan-Cache from file and overwrites the cachelines of the provided handle.
+//
+// A cache is only valid for the same cuTENSOR version and CUDA version; moreover, the GPU architecture (incl. multiprocessor count) must match, otherwise [ErrInvalidValue] will be returned.
+// Remark:
+// non-blocking, no reentrant, and thread-safe
+//
+//   - filename: Specifies the filename (including the absolute path) to the file that holds all the cache information that have previously been written by [Handle.WritePlanCacheToFile]
+//   - numCachelinesRead: On exit, this variable will hold the number of successfully-read cachelines, if [Success] is returned. Otherwise, this variable will hold the number of cachelines that are required to read all cachelines associated to the cache pointed to by filename; in that case [ErrInsufficientWorkspace] is returned
+//
+// Errors:
+//   - [ErrInsufficientWorkspace]: if the stored cache requires more cachelines than those that are currently attached to the handle
+//   - [ErrInvalidValue]: if the stored cache was created by a different cuTENSOR- or CUDA-version or if the GPU architecture (incl. multiprocessor count) doesn’t match
+//   - [ErrIoError]: if the file cannot be read
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//
+// Wraps cutensorHandleReadPlanCacheFromFile.
 func (h Handle) ReadPlanCacheFromFile(filename *byte) (uint32, error) {
 	return handleReadPlanCacheFromFile(h, filename)
 }
 
-// Reduce wraps cutensorReduce.
-func (h Handle) Reduce(plan Plan, alpha unsafe.Pointer, a driver.DevicePtr, beta unsafe.Pointer, c driver.DevicePtr, d driver.DevicePtr, workspace driver.DevicePtr, workspaceSize uint64, stream driver.Stream) error {
+// Reduce performs the tensor reduction that is encoded by plan (see [Handle.CreateReduction]).
+//
+//   - plan: Opaque handle holding the reduction execution plan (created by [Handle.CreateReduction] followed by [Handle.CreatePlan])
+//   - alpha: Scaling for A. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Pointer to the host memory. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - a: Pointer to the data corresponding to A in device memory. Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
+//   - beta: Scaling for C. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Pointer to the host memory. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - c: Pointer to the data corresponding to C in device memory. Pointer to the GPU-accessible memory
+//   - d: Pointer to the data corresponding to C in device memory. Pointer to the GPU-accessible memory
+//   - workspace: Scratchpad (device) memory of size —at least— workspaceSize bytes; the workspace must be aligned to 256 bytes (i.e., the default alignment of cudaMalloc)
+//   - workspaceSize: Please use [Handle.EstimateWorkspaceSize] to query the required workspace
+//   - stream: The CUDA stream in which all the computation is performed
+//
+// Wraps cutensorReduce.
+func (h Handle) Reduce(plan Plan, alpha Scalar, a driver.DevicePtr, beta Scalar, c driver.DevicePtr, d driver.DevicePtr, workspace driver.DevicePtr, workspaceSize uint64, stream driver.Stream) error {
 	return reduce(h, plan, alpha, a, beta, c, d, workspace, workspaceSize, stream)
 }
 
-// ResizePlanCache wraps cutensorHandleResizePlanCache.
+// ResizePlanCache Resizes the plan cache.
+//
+// This function changes the number of plans that can be stored in the plan cache of the handle.
+// Resizing invalidates the cache.
+// While this function is not thread-safe, the resulting cache can be shared across different threads in a thread-safe manner.
+// Remark:
+// non-blocking, no reentrant, and not thread-safe
+//
+//   - numEntries: Number of entries the cache will support
+//
+// Errors:
+//   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//
+// Wraps cutensorHandleResizePlanCache.
 func (h Handle) ResizePlanCache(numEntries uint32) error {
 	return handleResizePlanCache(h, numEntries)
 }
 
-// WriteKernelCacheToFile wraps cutensorWriteKernelCacheToFile.
+// WriteKernelCacheToFile writes the —per library— kernel cache to file.
+//
+// Writes the just-in-time compiled kernels to the provided file (those kernels belong to the library—not to the handle).
+// Remark:
+// non-blocking, no reentrant, and thread-safe
+//
+//   - filename: Specifies the filename (including the absolute path) to the file that should hold all the cache information. Warning: an existing file will be overwritten
+//
+// A nil error means the operation completed successfully or there were no kernels in the cache.
+//
+// Errors:
+//   - [ErrIoError]: if the file cannot be written to.
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: if the function is not available for the operating system, CUDA Toolkit, or compute capability of the device.
+//
+// Wraps cutensorWriteKernelCacheToFile.
 func (h Handle) WriteKernelCacheToFile(filename *byte) error {
 	return writeKernelCacheToFile(h, filename)
 }
 
-// WritePlanCacheToFile wraps cutensorHandleWritePlanCacheToFile.
+// WritePlanCacheToFile writes the Plan-Cache (that belongs to the provided handle) to file.
+//
+// Remark:
+// non-blocking, no reentrant, and thread-safe
+//
+//   - filename: Specifies the filename (including the absolute path) to the file that should hold all the cache information. Warning: an existing file will be overwritten
+//
+// Errors:
+//   - [ErrInvalidValue]: if the no cache has been attached
+//   - [ErrIoError]: if the file cannot be written to
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//
+// Wraps cutensorHandleWritePlanCacheToFile.
 func (h Handle) WritePlanCacheToFile(filename *byte) error {
 	return handleWritePlanCacheToFile(h, filename)
 }

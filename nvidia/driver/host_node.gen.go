@@ -16,6 +16,11 @@ type HostNode struct {
 //
 // See also: [GraphNode.Params], [Stream.LaunchHostFunc], [Graph.AddHostNode], [HostNode.SetParams]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuGraphHostNodeGetParams.
 func (h HostNode) Params() (HostNodeParams, error) {
 	return graphHostNodeGetParams(h.GraphNode)
@@ -28,6 +33,11 @@ func (h HostNode) Params() (HostNodeParams, error) {
 // See also: [GraphNode.SetParams], [Stream.LaunchHostFunc], [Graph.AddHostNode], [HostNode.Params]
 //
 //   - nodeParams: Parameters to copy
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuGraphHostNodeSetParams.
 func (h HostNode) SetParams(nodeParams *HostNodeParams) error {

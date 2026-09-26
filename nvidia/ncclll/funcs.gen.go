@@ -18,13 +18,15 @@ var (
 	fnLLPoisonBufferAsync         func(uintptr, uint, nccl.DataType, driver.Stream) nccl.Result
 )
 
-// ffiCall0 through ffiCall6 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+// The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
 //
 // Bit i of floatMask marks argument word i as a floating-point bit
 // pattern, which the C ABI passes in a different register file from the
-// integer and pointer words. Each returns the first integer result
-// register and the first floating-point one; a caller reads whichever the
-// C function sets.
+// integer and pointer words. Bits 2i and 2i+1 of widths give the size of
+// argument word i as a ffi.Width code, which places a narrow argument
+// on the stack where the C ABI expects it. Each funnel returns the first
+// integer result register and the first floating-point one; a caller
+// reads whichever the C function sets.
 //
 // The //go:uintptrescapes directive is what makes a Go pointer safe to
 // pass: a pointer converted to uintptr in one of these argument lists is
@@ -33,7 +35,7 @@ var (
 // movement, which is the failure this avoids.
 
 //go:uintptrescapes
-func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+func ffiCallWidths6(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -41,7 +43,7 @@ func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1,
 	args[3] = a3
 	args[4] = a4
 	args[5] = a5
-	return ffi.CallFloat(fn, 6, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 6, &args, floatMask, widths)
 }
 
 // An outSlot pools the heap cells a wrapper passes to C for its outputs.
@@ -67,7 +69,7 @@ func (s *outSlot[T]) put(p *T) {
 
 // fnCalcMinReductionBufferSize calls ncclCalcMinReductionBufferSize.
 func fnCalcMinReductionBufferSize(a0 LLSyncMode, a1 int32, a2 int32, a3 int32, a4 int32, a5 int32) uint {
-	r1, _ := ffiCall6(symCalcMinReductionBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	r1, _ := ffiCallWidths6(symCalcMinReductionBufferSize, 0, 0xfff, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
 	return uint(r1)
 }
 

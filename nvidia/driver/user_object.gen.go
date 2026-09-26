@@ -12,6 +12,9 @@ package driver
 //
 //   - count: The number of references to release, typically 1. Must be nonzero and not larger than INT_MAX
 //
+// Errors:
+//   - [ErrInvalidValue]
+//
 // Wraps cuUserObjectRelease.
 func (u UserObject) Release(count uint32) error {
 	return userObjectRelease(u, count)
@@ -25,6 +28,9 @@ func (u UserObject) Release(count uint32) error {
 // See also: [NewUserObject], [UserObject.Release], [Graph.RetainUserObject], [Graph.ReleaseUserObject], [NewGraph]
 //
 //   - count: The number of references to retain, typically 1. Must be nonzero and not larger than INT_MAX
+//
+// Errors:
+//   - [ErrInvalidValue]
 //
 // Wraps cuUserObjectRetain.
 func (u UserObject) Retain(count uint32) error {
@@ -43,6 +49,9 @@ func (u UserObject) Retain(count uint32) error {
 //   - destroy: Callback to free the user object when it is no longer in use (see [HostFn])
 //   - initialRefcount: The initial refcount to create the object with, typically 1. The initial references are owned by the calling thread
 //   - flags: Currently it is required to pass [UserObjectNoDestructorSync], which is the only defined flag. This indicates that the destroy callback cannot be waited on by any CUDA API. Users requiring synchronization of the callback should signal its completion manually
+//
+// Errors:
+//   - [ErrInvalidValue]
 //
 // Wraps cuUserObjectCreate.
 func NewUserObject(ptr uintptr, destroy uintptr, initialRefcount uint32, flags UserobjectFlags) (UserObject, error) {

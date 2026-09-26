@@ -2,7 +2,12 @@
 
 package cutensor
 
-// Destroy wraps cutensorDestroyTensorDescriptor.
+// Destroy frees all resources related to the provided tensor descriptor.
+//
+// Remark:
+// blocking, no reentrant, and thread-safe
+//
+// Wraps cutensorDestroyTensorDescriptor.
 func (t TensorDescriptor) Destroy() error {
 	return destroyTensorDescriptor(t)
 }

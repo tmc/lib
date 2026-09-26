@@ -387,13 +387,15 @@ var (
 	symvgpuTypeGetResolution                            uintptr
 )
 
-// ffiCall0 through ffiCall6 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+// The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
 //
 // Bit i of floatMask marks argument word i as a floating-point bit
 // pattern, which the C ABI passes in a different register file from the
-// integer and pointer words. Each returns the first integer result
-// register and the first floating-point one; a caller reads whichever the
-// C function sets.
+// integer and pointer words. Bits 2i and 2i+1 of widths give the size of
+// argument word i as a ffi.Width code, which places a narrow argument
+// on the stack where the C ABI expects it. Each funnel returns the first
+// integer result register and the first floating-point one; a caller
+// reads whichever the C function sets.
 //
 // The //go:uintptrescapes directive is what makes a Go pointer safe to
 // pass: a pointer converted to uintptr in one of these argument lists is
@@ -453,7 +455,52 @@ func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf 
 }
 
 //go:uintptrescapes
-func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+func ffiCallWidths1(fn uintptr, floatMask uint32, widths uint64, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloatWidths(fn, 1, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths2(fn uintptr, floatMask uint32, widths uint64, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloatWidths(fn, 2, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths3(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloatWidths(fn, 3, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths4(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloatWidths(fn, 4, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths5(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloatWidths(fn, 5, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths6(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -461,7 +508,7 @@ func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1,
 	args[3] = a3
 	args[4] = a4
 	args[5] = a5
-	return ffi.CallFloat(fn, 6, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 6, &args, floatMask, widths)
 }
 
 // An outSlot pools the heap cells a wrapper passes to C for its outputs.
@@ -511,25 +558,25 @@ func fndeviceClearCpuAffinity(a0 Device) Result {
 
 // fndeviceClearEccErrorCounts calls nvmlDeviceClearEccErrorCounts.
 func fndeviceClearEccErrorCounts(a0 Device, a1 EccCounterType) Result {
-	r1, _ := ffiCall2(symdeviceClearEccErrorCounts, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symdeviceClearEccErrorCounts, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fndeviceClearFieldValues calls nvmlDeviceClearFieldValues.
 func fndeviceClearFieldValues(a0 Device, a1 int32, a2 *FieldValue) Result {
-	r1, _ := ffiCall3(symdeviceClearFieldValues, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceClearFieldValues, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fndeviceCreateGpuInstance calls nvmlDeviceCreateGpuInstance.
 func fndeviceCreateGpuInstance(a0 Device, a1 uint32, a2 *GpuInstance) Result {
-	r1, _ := ffiCall3(symdeviceCreateGpuInstance, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceCreateGpuInstance, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fndeviceCreateGpuInstanceWithPlacement calls nvmlDeviceCreateGpuInstanceWithPlacement.
 func fndeviceCreateGpuInstanceWithPlacement(a0 Device, a1 uint32, a2 *GpuInstancePlacement, a3 *GpuInstance) Result {
-	r1, _ := ffiCall4(symdeviceCreateGpuInstanceWithPlacement, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symdeviceCreateGpuInstanceWithPlacement, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
@@ -541,13 +588,13 @@ func fnDeviceDiscoverGpus(a0 *PciInfo) Result {
 
 // fndeviceFreezeNvLinkUtilizationCounter calls nvmlDeviceFreezeNvLinkUtilizationCounter.
 func fndeviceFreezeNvLinkUtilizationCounter(a0 Device, a1 uint32, a2 uint32, a3 EnableState) Result {
-	r1, _ := ffiCall4(symdeviceFreezeNvLinkUtilizationCounter, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	r1, _ := ffiCallWidths4(symdeviceFreezeNvLinkUtilizationCounter, 0, 0xfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
 
 // fndeviceGetAPIRestriction calls nvmlDeviceGetAPIRestriction.
 func fndeviceGetAPIRestriction(a0 Device, a1 RestrictedAPI, a2 *EnableState) Result {
-	r1, _ := ffiCall3(symdeviceGetAPIRestriction, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetAPIRestriction, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -571,7 +618,7 @@ func fndeviceGetAccountingPids(a0 Device, a1 *uint32, a2 *uint32) Result {
 
 // fndeviceGetAccountingStats calls nvmlDeviceGetAccountingStats.
 func fndeviceGetAccountingStats(a0 Device, a1 uint32, a2 *AccountingStats) Result {
-	r1, _ := ffiCall3(symdeviceGetAccountingStats, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetAccountingStats, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -595,7 +642,7 @@ func fndeviceGetAddressingMode(a0 Device, a1 *DeviceAddressingMode) Result {
 
 // fndeviceGetApplicationsClock calls nvmlDeviceGetApplicationsClock.
 func fndeviceGetApplicationsClock(a0 Device, a1 ClockType, a2 *uint32) Result {
-	r1, _ := ffiCall3(symdeviceGetApplicationsClock, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetApplicationsClock, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -631,7 +678,7 @@ func fndeviceGetBoardId(a0 Device, a1 *uint32) Result {
 
 // fndeviceGetBoardPartNumber calls nvmlDeviceGetBoardPartNumber.
 func fndeviceGetBoardPartNumber(a0 Device, a1 *byte, a2 uint32) Result {
-	r1, _ := ffiCall3(symdeviceGetBoardPartNumber, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	r1, _ := ffiCallWidths3(symdeviceGetBoardPartNumber, 0, 0x30, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
 	return Result(r1)
 }
 
@@ -673,13 +720,13 @@ func fndeviceGetClkMonStatus(a0 Device, a1 *ClkMonStatus) Result {
 
 // fndeviceGetClock calls nvmlDeviceGetClock.
 func fndeviceGetClock(a0 Device, a1 ClockType, a2 ClockId, a3 *uint32) Result {
-	r1, _ := ffiCall4(symdeviceGetClock, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symdeviceGetClock, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
 // fndeviceGetClockInfo calls nvmlDeviceGetClockInfo.
 func fndeviceGetClockInfo(a0 Device, a1 ClockType, a2 *uint32) Result {
-	r1, _ := ffiCall3(symdeviceGetClockInfo, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetClockInfo, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -745,13 +792,13 @@ func fnDeviceGetCount(a0 *uint32) Result {
 
 // fndeviceGetCpuAffinity calls nvmlDeviceGetCpuAffinity.
 func fndeviceGetCpuAffinity(a0 Device, a1 uint32, a2 *uint) Result {
-	r1, _ := ffiCall3(symdeviceGetCpuAffinity, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetCpuAffinity, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fndeviceGetCpuAffinityWithinScope calls nvmlDeviceGetCpuAffinityWithinScope.
 func fndeviceGetCpuAffinityWithinScope(a0 Device, a1 uint32, a2 *uint, a3 AffinityScope) Result {
-	r1, _ := ffiCall4(symdeviceGetCpuAffinityWithinScope, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
+	r1, _ := ffiCallWidths4(symdeviceGetCpuAffinityWithinScope, 0, 0xcc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
 	return Result(r1)
 }
 
@@ -805,7 +852,7 @@ func fndeviceGetDecoderUtilization(a0 Device, a1 *uint32, a2 *uint32) Result {
 
 // fndeviceGetDefaultApplicationsClock calls nvmlDeviceGetDefaultApplicationsClock.
 func fndeviceGetDefaultApplicationsClock(a0 Device, a1 ClockType, a2 *uint32) Result {
-	r1, _ := ffiCall3(symdeviceGetDefaultApplicationsClock, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetDefaultApplicationsClock, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -817,7 +864,7 @@ func fndeviceGetDefaultEccMode(a0 Device, a1 *EnableState) Result {
 
 // fndeviceGetDetailedEccErrors calls nvmlDeviceGetDetailedEccErrors.
 func fndeviceGetDetailedEccErrors(a0 Device, a1 MemoryErrorType, a2 EccCounterType, a3 *EccErrorCounts) Result {
-	r1, _ := ffiCall4(symdeviceGetDetailedEccErrors, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symdeviceGetDetailedEccErrors, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
@@ -865,7 +912,7 @@ func fndeviceGetEccMode(a0 Device, a1 *EnableState, a2 *EnableState) Result {
 
 // fndeviceGetEncoderCapacity calls nvmlDeviceGetEncoderCapacity.
 func fndeviceGetEncoderCapacity(a0 Device, a1 EncoderType, a2 *uint32) Result {
-	r1, _ := ffiCall3(symdeviceGetEncoderCapacity, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetEncoderCapacity, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -907,7 +954,7 @@ func fndeviceGetFBCStats(a0 Device, a1 *FBCStats) Result {
 
 // fndeviceGetFanControlPolicy calls nvmlDeviceGetFanControlPolicy_v2.
 func fndeviceGetFanControlPolicy(a0 Device, a1 uint32, a2 *FanControlPolicy) Result {
-	r1, _ := ffiCall3(symdeviceGetFanControlPolicy, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetFanControlPolicy, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -919,13 +966,13 @@ func fndeviceGetFanSpeedRPM(a0 Device, a1 *FanSpeedInfo) Result {
 
 // fndeviceGetFanSpeed calls nvmlDeviceGetFanSpeed_v2.
 func fndeviceGetFanSpeed(a0 Device, a1 uint32, a2 *uint32) Result {
-	r1, _ := ffiCall3(symdeviceGetFanSpeed, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetFanSpeed, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fndeviceGetFieldValues calls nvmlDeviceGetFieldValues.
 func fndeviceGetFieldValues(a0 Device, a1 int32, a2 *FieldValue) Result {
-	r1, _ := ffiCall3(symdeviceGetFieldValues, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetFieldValues, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -955,7 +1002,7 @@ func fndeviceGetGpuFabricInfoV(a0 Device, a1 *GpuFabricInfoV) Result {
 
 // fndeviceGetGpuInstanceById calls nvmlDeviceGetGpuInstanceById.
 func fndeviceGetGpuInstanceById(a0 Device, a1 uint32, a2 *GpuInstance) Result {
-	r1, _ := ffiCall3(symdeviceGetGpuInstanceById, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetGpuInstanceById, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -967,37 +1014,37 @@ func fndeviceGetGpuInstanceId(a0 Device, a1 *uint32) Result {
 
 // fndeviceGetGpuInstancePossiblePlacements calls nvmlDeviceGetGpuInstancePossiblePlacements_v2.
 func fndeviceGetGpuInstancePossiblePlacements(a0 Device, a1 uint32, a2 *GpuInstancePlacement, a3 *uint32) Result {
-	r1, _ := ffiCall4(symdeviceGetGpuInstancePossiblePlacements, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symdeviceGetGpuInstancePossiblePlacements, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
 // fndeviceGetGpuInstanceProfileInfo calls nvmlDeviceGetGpuInstanceProfileInfo.
 func fndeviceGetGpuInstanceProfileInfo(a0 Device, a1 uint32, a2 *GpuInstanceProfileInfo) Result {
-	r1, _ := ffiCall3(symdeviceGetGpuInstanceProfileInfo, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetGpuInstanceProfileInfo, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fndeviceGetGpuInstanceProfileInfoByIdV calls nvmlDeviceGetGpuInstanceProfileInfoByIdV.
 func fndeviceGetGpuInstanceProfileInfoByIdV(a0 Device, a1 uint32, a2 *GpuInstanceProfileInfoV2) Result {
-	r1, _ := ffiCall3(symdeviceGetGpuInstanceProfileInfoByIdV, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetGpuInstanceProfileInfoByIdV, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fndeviceGetGpuInstanceProfileInfoV calls nvmlDeviceGetGpuInstanceProfileInfoV.
 func fndeviceGetGpuInstanceProfileInfoV(a0 Device, a1 uint32, a2 *GpuInstanceProfileInfoV2) Result {
-	r1, _ := ffiCall3(symdeviceGetGpuInstanceProfileInfoV, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetGpuInstanceProfileInfoV, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fndeviceGetGpuInstanceRemainingCapacity calls nvmlDeviceGetGpuInstanceRemainingCapacity.
 func fndeviceGetGpuInstanceRemainingCapacity(a0 Device, a1 uint32, a2 *uint32) Result {
-	r1, _ := ffiCall3(symdeviceGetGpuInstanceRemainingCapacity, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetGpuInstanceRemainingCapacity, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fndeviceGetGpuInstances calls nvmlDeviceGetGpuInstances.
 func fndeviceGetGpuInstances(a0 Device, a1 uint32, a2 *GpuInstance, a3 *uint32) Result {
-	r1, _ := ffiCall4(symdeviceGetGpuInstances, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symdeviceGetGpuInstances, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
@@ -1039,7 +1086,7 @@ func fndeviceGetGspFirmwareVersion(a0 Device, a1 *byte) Result {
 
 // fndeviceGetHandleByIndex calls nvmlDeviceGetHandleByIndex_v2.
 func fndeviceGetHandleByIndex(a0 uint32, a1 *Device) Result {
-	r1, _ := ffiCall2(symdeviceGetHandleByIndex, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symdeviceGetHandleByIndex, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
@@ -1093,13 +1140,13 @@ func fndeviceGetInforomConfigurationChecksum(a0 Device, a1 *uint32) Result {
 
 // fndeviceGetInforomImageVersion calls nvmlDeviceGetInforomImageVersion.
 func fndeviceGetInforomImageVersion(a0 Device, a1 *byte, a2 uint32) Result {
-	r1, _ := ffiCall3(symdeviceGetInforomImageVersion, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	r1, _ := ffiCallWidths3(symdeviceGetInforomImageVersion, 0, 0x30, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
 	return Result(r1)
 }
 
 // fndeviceGetInforomVersion calls nvmlDeviceGetInforomVersion.
 func fndeviceGetInforomVersion(a0 Device, a1 InforomObject, a2 *byte, a3 uint32) Result {
-	r1, _ := ffiCall4(symdeviceGetInforomVersion, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
+	r1, _ := ffiCallWidths4(symdeviceGetInforomVersion, 0, 0xcc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
 	return Result(r1)
 }
 
@@ -1135,13 +1182,13 @@ func fndeviceGetMarginTemperature(a0 Device, a1 *MarginTemperature) Result {
 
 // fndeviceGetMaxClockInfo calls nvmlDeviceGetMaxClockInfo.
 func fndeviceGetMaxClockInfo(a0 Device, a1 ClockType, a2 *uint32) Result {
-	r1, _ := ffiCall3(symdeviceGetMaxClockInfo, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetMaxClockInfo, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fndeviceGetMaxCustomerBoostClock calls nvmlDeviceGetMaxCustomerBoostClock.
 func fndeviceGetMaxCustomerBoostClock(a0 Device, a1 ClockType, a2 *uint32) Result {
-	r1, _ := ffiCall3(symdeviceGetMaxCustomerBoostClock, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetMaxCustomerBoostClock, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -1177,7 +1224,7 @@ func fndeviceGetMemClkVfOffset(a0 Device, a1 *int32) Result {
 
 // fndeviceGetMemoryAffinity calls nvmlDeviceGetMemoryAffinity.
 func fndeviceGetMemoryAffinity(a0 Device, a1 uint32, a2 *uint, a3 AffinityScope) Result {
-	r1, _ := ffiCall4(symdeviceGetMemoryAffinity, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
+	r1, _ := ffiCallWidths4(symdeviceGetMemoryAffinity, 0, 0xcc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
 	return Result(r1)
 }
 
@@ -1189,7 +1236,7 @@ func fndeviceGetMemoryBusWidth(a0 Device, a1 *uint32) Result {
 
 // fndeviceGetMemoryErrorCounter calls nvmlDeviceGetMemoryErrorCounter.
 func fndeviceGetMemoryErrorCounter(a0 Device, a1 MemoryErrorType, a2 EccCounterType, a3 MemoryLocation, a4 *uint64) Result {
-	r1, _ := ffiCall5(symdeviceGetMemoryErrorCounter, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symdeviceGetMemoryErrorCounter, 0, 0xfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
@@ -1201,7 +1248,7 @@ func fndeviceGetMemoryInfo(a0 Device, a1 *MemoryV2) Result {
 
 // fndeviceGetMigDeviceHandleByIndex calls nvmlDeviceGetMigDeviceHandleByIndex.
 func fndeviceGetMigDeviceHandleByIndex(a0 Device, a1 uint32, a2 *Device) Result {
-	r1, _ := ffiCall3(symdeviceGetMigDeviceHandleByIndex, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetMigDeviceHandleByIndex, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -1213,7 +1260,7 @@ func fndeviceGetMigMode(a0 Device, a1 *uint32, a2 *uint32) Result {
 
 // fndeviceGetMinMaxClockOfPState calls nvmlDeviceGetMinMaxClockOfPState.
 func fndeviceGetMinMaxClockOfPState(a0 Device, a1 ClockType, a2 Pstates, a3 *uint32, a4 *uint32) Result {
-	r1, _ := ffiCall5(symdeviceGetMinMaxClockOfPState, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symdeviceGetMinMaxClockOfPState, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
@@ -1243,7 +1290,7 @@ func fndeviceGetMultiGpuBoard(a0 Device, a1 *uint32) Result {
 
 // fndeviceGetName calls nvmlDeviceGetName.
 func fndeviceGetName(a0 Device, a1 *byte, a2 uint32) Result {
-	r1, _ := ffiCall3(symdeviceGetName, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	r1, _ := ffiCallWidths3(symdeviceGetName, 0, 0x30, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
 	return Result(r1)
 }
 
@@ -1267,13 +1314,13 @@ func fndeviceGetNumaNodeId(a0 Device, a1 *uint32) Result {
 
 // fndeviceGetNvLinkCapability calls nvmlDeviceGetNvLinkCapability.
 func fndeviceGetNvLinkCapability(a0 Device, a1 uint32, a2 NvLinkCapability, a3 *uint32) Result {
-	r1, _ := ffiCall4(symdeviceGetNvLinkCapability, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symdeviceGetNvLinkCapability, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
 // fndeviceGetNvLinkErrorCounter calls nvmlDeviceGetNvLinkErrorCounter.
 func fndeviceGetNvLinkErrorCounter(a0 Device, a1 uint32, a2 NvLinkErrorCounter, a3 *uint64) Result {
-	r1, _ := ffiCall4(symdeviceGetNvLinkErrorCounter, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symdeviceGetNvLinkErrorCounter, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
@@ -1285,37 +1332,37 @@ func fndeviceGetNvLinkInfo(a0 Device, a1 *NvLinkInfo) Result {
 
 // fndeviceGetNvLinkRemoteDeviceType calls nvmlDeviceGetNvLinkRemoteDeviceType.
 func fndeviceGetNvLinkRemoteDeviceType(a0 Device, a1 uint32, a2 *IntNvLinkDeviceType) Result {
-	r1, _ := ffiCall3(symdeviceGetNvLinkRemoteDeviceType, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetNvLinkRemoteDeviceType, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fndeviceGetNvLinkRemotePciInfo calls nvmlDeviceGetNvLinkRemotePciInfo_v2.
 func fndeviceGetNvLinkRemotePciInfo(a0 Device, a1 uint32, a2 *PciInfo) Result {
-	r1, _ := ffiCall3(symdeviceGetNvLinkRemotePciInfo, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetNvLinkRemotePciInfo, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fndeviceGetNvLinkState calls nvmlDeviceGetNvLinkState.
 func fndeviceGetNvLinkState(a0 Device, a1 uint32, a2 *EnableState) Result {
-	r1, _ := ffiCall3(symdeviceGetNvLinkState, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetNvLinkState, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fndeviceGetNvLinkUtilizationControl calls nvmlDeviceGetNvLinkUtilizationControl.
 func fndeviceGetNvLinkUtilizationControl(a0 Device, a1 uint32, a2 uint32, a3 *NvLinkUtilizationControl) Result {
-	r1, _ := ffiCall4(symdeviceGetNvLinkUtilizationControl, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symdeviceGetNvLinkUtilizationControl, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
 // fndeviceGetNvLinkUtilizationCounter calls nvmlDeviceGetNvLinkUtilizationCounter.
 func fndeviceGetNvLinkUtilizationCounter(a0 Device, a1 uint32, a2 uint32, a3 *uint64, a4 *uint64) Result {
-	r1, _ := ffiCall5(symdeviceGetNvLinkUtilizationCounter, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symdeviceGetNvLinkUtilizationCounter, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
 // fndeviceGetNvLinkVersion calls nvmlDeviceGetNvLinkVersion.
 func fndeviceGetNvLinkVersion(a0 Device, a1 uint32, a2 *uint32) Result {
-	r1, _ := ffiCall3(symdeviceGetNvLinkVersion, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetNvLinkVersion, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -1339,7 +1386,7 @@ func fndeviceGetOfaUtilization(a0 Device, a1 *uint32, a2 *uint32) Result {
 
 // fndeviceGetP2PStatus calls nvmlDeviceGetP2PStatus.
 func fndeviceGetP2PStatus(a0 Device, a1 Device, a2 GpuP2PCapsIndex, a3 *GpuP2PStatus) Result {
-	r1, _ := ffiCall4(symdeviceGetP2PStatus, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symdeviceGetP2PStatus, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
@@ -1375,7 +1422,7 @@ func fndeviceGetPcieSpeed(a0 Device, a1 *uint32) Result {
 
 // fndeviceGetPcieThroughput calls nvmlDeviceGetPcieThroughput.
 func fndeviceGetPcieThroughput(a0 Device, a1 PcieUtilCounter, a2 *uint32) Result {
-	r1, _ := ffiCall3(symdeviceGetPcieThroughput, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetPcieThroughput, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -1495,7 +1542,7 @@ func fndeviceGetRetiredPagesPendingStatus(a0 Device, a1 *EnableState) Result {
 
 // fndeviceGetRetiredPages calls nvmlDeviceGetRetiredPages_v2.
 func fndeviceGetRetiredPages(a0 Device, a1 PageRetirementCause, a2 *uint32, a3 *uint64, a4 *uint64) Result {
-	r1, _ := ffiCall5(symdeviceGetRetiredPages, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symdeviceGetRetiredPages, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
@@ -1513,13 +1560,13 @@ func fndeviceGetRunningProcessDetailList(a0 Device, a1 *ProcessDetailList) Resul
 
 // fndeviceGetSamples calls nvmlDeviceGetSamples.
 func fndeviceGetSamples(a0 Device, a1 SamplingType, a2 uint64, a3 *ValueType, a4 *uint32, a5 *Sample) Result {
-	r1, _ := ffiCall6(symdeviceGetSamples, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symdeviceGetSamples, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fndeviceGetSerial calls nvmlDeviceGetSerial.
 func fndeviceGetSerial(a0 Device, a1 *byte, a2 uint32) Result {
-	r1, _ := ffiCall3(symdeviceGetSerial, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	r1, _ := ffiCallWidths3(symdeviceGetSerial, 0, 0x30, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
 	return Result(r1)
 }
 
@@ -1555,7 +1602,7 @@ func fndeviceGetSupportedEventTypes(a0 Device, a1 *uint64) Result {
 
 // fndeviceGetSupportedGraphicsClocks calls nvmlDeviceGetSupportedGraphicsClocks.
 func fndeviceGetSupportedGraphicsClocks(a0 Device, a1 uint32, a2 *uint32, a3 *uint32) Result {
-	r1, _ := ffiCall4(symdeviceGetSupportedGraphicsClocks, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symdeviceGetSupportedGraphicsClocks, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
@@ -1567,7 +1614,7 @@ func fndeviceGetSupportedMemoryClocks(a0 Device, a1 *uint32, a2 *uint32) Result 
 
 // fndeviceGetSupportedPerformanceStates calls nvmlDeviceGetSupportedPerformanceStates.
 func fndeviceGetSupportedPerformanceStates(a0 Device, a1 *Pstates, a2 uint32) Result {
-	r1, _ := ffiCall3(symdeviceGetSupportedPerformanceStates, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	r1, _ := ffiCallWidths3(symdeviceGetSupportedPerformanceStates, 0, 0x30, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
 	return Result(r1)
 }
 
@@ -1579,19 +1626,19 @@ func fndeviceGetSupportedVgpus(a0 Device, a1 *uint32, a2 *VgpuTypeId) Result {
 
 // fndeviceGetTargetFanSpeed calls nvmlDeviceGetTargetFanSpeed.
 func fndeviceGetTargetFanSpeed(a0 Device, a1 uint32, a2 *uint32) Result {
-	r1, _ := ffiCall3(symdeviceGetTargetFanSpeed, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetTargetFanSpeed, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fndeviceGetTemperature calls nvmlDeviceGetTemperature.
 func fndeviceGetTemperature(a0 Device, a1 TemperatureSensors, a2 *uint32) Result {
-	r1, _ := ffiCall3(symdeviceGetTemperature, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetTemperature, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fndeviceGetTemperatureThreshold calls nvmlDeviceGetTemperatureThreshold.
 func fndeviceGetTemperatureThreshold(a0 Device, a1 TemperatureThresholds, a2 *uint32) Result {
-	r1, _ := ffiCall3(symdeviceGetTemperatureThreshold, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetTemperatureThreshold, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -1603,7 +1650,7 @@ func fndeviceGetTemperatureV(a0 Device, a1 *Temperature) Result {
 
 // fndeviceGetThermalSettings calls nvmlDeviceGetThermalSettings.
 func fndeviceGetThermalSettings(a0 Device, a1 uint32, a2 *GpuThermalSettings) Result {
-	r1, _ := ffiCall3(symdeviceGetThermalSettings, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetThermalSettings, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -1615,13 +1662,13 @@ func fndeviceGetTopologyCommonAncestor(a0 Device, a1 Device, a2 *GpuTopologyLeve
 
 // fndeviceGetTopologyNearestGpus calls nvmlDeviceGetTopologyNearestGpus.
 func fndeviceGetTopologyNearestGpus(a0 Device, a1 GpuTopologyLevel, a2 *uint32, a3 *Device) Result {
-	r1, _ := ffiCall4(symdeviceGetTopologyNearestGpus, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symdeviceGetTopologyNearestGpus, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
 // fndeviceGetTotalEccErrors calls nvmlDeviceGetTotalEccErrors.
 func fndeviceGetTotalEccErrors(a0 Device, a1 MemoryErrorType, a2 EccCounterType, a3 *uint64) Result {
-	r1, _ := ffiCall4(symdeviceGetTotalEccErrors, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symdeviceGetTotalEccErrors, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
@@ -1633,7 +1680,7 @@ func fndeviceGetTotalEnergyConsumption(a0 Device, a1 *uint64) Result {
 
 // fndeviceGetUUID calls nvmlDeviceGetUUID.
 func fndeviceGetUUID(a0 Device, a1 *byte, a2 uint32) Result {
-	r1, _ := ffiCall3(symdeviceGetUUID, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	r1, _ := ffiCallWidths3(symdeviceGetUUID, 0, 0x30, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
 	return Result(r1)
 }
 
@@ -1651,13 +1698,13 @@ func fndeviceGetUtilizationRates(a0 Device, a1 *Utilization) Result {
 
 // fndeviceGetVbiosVersion calls nvmlDeviceGetVbiosVersion.
 func fndeviceGetVbiosVersion(a0 Device, a1 *byte, a2 uint32) Result {
-	r1, _ := ffiCall3(symdeviceGetVbiosVersion, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	r1, _ := ffiCallWidths3(symdeviceGetVbiosVersion, 0, 0x30, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
 	return Result(r1)
 }
 
 // fndeviceGetVgpuCapabilities calls nvmlDeviceGetVgpuCapabilities.
 func fndeviceGetVgpuCapabilities(a0 Device, a1 DeviceVgpuCapability, a2 *uint32) Result {
-	r1, _ := ffiCall3(symdeviceGetVgpuCapabilities, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetVgpuCapabilities, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -1711,13 +1758,13 @@ func fndeviceGetVgpuSchedulerState(a0 Device, a1 *VgpuSchedulerStateInfoV2) Resu
 
 // fndeviceGetVgpuTypeCreatablePlacements calls nvmlDeviceGetVgpuTypeCreatablePlacements.
 func fndeviceGetVgpuTypeCreatablePlacements(a0 Device, a1 VgpuTypeId, a2 *VgpuPlacementList) Result {
-	r1, _ := ffiCall3(symdeviceGetVgpuTypeCreatablePlacements, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetVgpuTypeCreatablePlacements, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fndeviceGetVgpuTypeSupportedPlacements calls nvmlDeviceGetVgpuTypeSupportedPlacements.
 func fndeviceGetVgpuTypeSupportedPlacements(a0 Device, a1 VgpuTypeId, a2 *VgpuPlacementList) Result {
-	r1, _ := ffiCall3(symdeviceGetVgpuTypeSupportedPlacements, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetVgpuTypeSupportedPlacements, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -1729,7 +1776,7 @@ func fndeviceGetVgpuUtilization(a0 Device, a1 uint64, a2 *ValueType, a3 *uint32,
 
 // fndeviceGetViolationStatus calls nvmlDeviceGetViolationStatus.
 func fndeviceGetViolationStatus(a0 Device, a1 PerfPolicyType, a2 *ViolationTime) Result {
-	r1, _ := ffiCall3(symdeviceGetViolationStatus, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceGetViolationStatus, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -1747,7 +1794,7 @@ func fndeviceIsMigDeviceHandle(a0 Device, a1 *uint32) Result {
 
 // fnDeviceModifyDrainState calls nvmlDeviceModifyDrainState.
 func fnDeviceModifyDrainState(a0 *PciInfo, a1 EnableState) Result {
-	r1, _ := ffiCall2(symDeviceModifyDrainState, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	r1, _ := ffiCallWidths2(symDeviceModifyDrainState, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1))
 	return Result(r1)
 }
 
@@ -1801,7 +1848,7 @@ func fndeviceRegisterEvents(a0 Device, a1 uint64, a2 EventSet) Result {
 
 // fnDeviceRemoveGpu calls nvmlDeviceRemoveGpu_v2.
 func fnDeviceRemoveGpu(a0 *PciInfo, a1 DetachGpuState, a2 PcieLinkState) Result {
-	r1, _ := ffiCall3(symDeviceRemoveGpu, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	r1, _ := ffiCallWidths3(symDeviceRemoveGpu, 0, 0x3c, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
 	return Result(r1)
 }
 
@@ -1825,37 +1872,37 @@ func fndeviceResetMemoryLockedClocks(a0 Device) Result {
 
 // fndeviceResetNvLinkErrorCounters calls nvmlDeviceResetNvLinkErrorCounters.
 func fndeviceResetNvLinkErrorCounters(a0 Device, a1 uint32) Result {
-	r1, _ := ffiCall2(symdeviceResetNvLinkErrorCounters, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symdeviceResetNvLinkErrorCounters, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fndeviceResetNvLinkUtilizationCounter calls nvmlDeviceResetNvLinkUtilizationCounter.
 func fndeviceResetNvLinkUtilizationCounter(a0 Device, a1 uint32, a2 uint32) Result {
-	r1, _ := ffiCall3(symdeviceResetNvLinkUtilizationCounter, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	r1, _ := ffiCallWidths3(symdeviceResetNvLinkUtilizationCounter, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2))
 	return Result(r1)
 }
 
 // fndeviceSetAPIRestriction calls nvmlDeviceSetAPIRestriction.
 func fndeviceSetAPIRestriction(a0 Device, a1 RestrictedAPI, a2 EnableState) Result {
-	r1, _ := ffiCall3(symdeviceSetAPIRestriction, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	r1, _ := ffiCallWidths3(symdeviceSetAPIRestriction, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2))
 	return Result(r1)
 }
 
 // fndeviceSetAccountingMode calls nvmlDeviceSetAccountingMode.
 func fndeviceSetAccountingMode(a0 Device, a1 EnableState) Result {
-	r1, _ := ffiCall2(symdeviceSetAccountingMode, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symdeviceSetAccountingMode, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fndeviceSetApplicationsClocks calls nvmlDeviceSetApplicationsClocks.
 func fndeviceSetApplicationsClocks(a0 Device, a1 uint32, a2 uint32) Result {
-	r1, _ := ffiCall3(symdeviceSetApplicationsClocks, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	r1, _ := ffiCallWidths3(symdeviceSetApplicationsClocks, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2))
 	return Result(r1)
 }
 
 // fndeviceSetAutoBoostedClocksEnabled calls nvmlDeviceSetAutoBoostedClocksEnabled.
 func fndeviceSetAutoBoostedClocksEnabled(a0 Device, a1 EnableState) Result {
-	r1, _ := ffiCall2(symdeviceSetAutoBoostedClocksEnabled, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symdeviceSetAutoBoostedClocksEnabled, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
@@ -1867,7 +1914,7 @@ func fndeviceSetClockOffsets(a0 Device, a1 *ClockOffset) Result {
 
 // fndeviceSetComputeMode calls nvmlDeviceSetComputeMode.
 func fndeviceSetComputeMode(a0 Device, a1 ComputeMode) Result {
-	r1, _ := ffiCall2(symdeviceSetComputeMode, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symdeviceSetComputeMode, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
@@ -1885,13 +1932,13 @@ func fndeviceSetCpuAffinity(a0 Device) Result {
 
 // fndeviceSetDefaultAutoBoostedClocksEnabled calls nvmlDeviceSetDefaultAutoBoostedClocksEnabled.
 func fndeviceSetDefaultAutoBoostedClocksEnabled(a0 Device, a1 EnableState, a2 uint32) Result {
-	r1, _ := ffiCall3(symdeviceSetDefaultAutoBoostedClocksEnabled, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	r1, _ := ffiCallWidths3(symdeviceSetDefaultAutoBoostedClocksEnabled, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2))
 	return Result(r1)
 }
 
 // fndeviceSetDefaultFanSpeed calls nvmlDeviceSetDefaultFanSpeed_v2.
 func fndeviceSetDefaultFanSpeed(a0 Device, a1 uint32) Result {
-	r1, _ := ffiCall2(symdeviceSetDefaultFanSpeed, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symdeviceSetDefaultFanSpeed, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
@@ -1903,43 +1950,43 @@ func fndeviceSetDramEncryptionMode(a0 Device, a1 *DramEncryptionInfo) Result {
 
 // fndeviceSetDriverModel calls nvmlDeviceSetDriverModel.
 func fndeviceSetDriverModel(a0 Device, a1 DriverModel, a2 uint32) Result {
-	r1, _ := ffiCall3(symdeviceSetDriverModel, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	r1, _ := ffiCallWidths3(symdeviceSetDriverModel, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2))
 	return Result(r1)
 }
 
 // fndeviceSetEccMode calls nvmlDeviceSetEccMode.
 func fndeviceSetEccMode(a0 Device, a1 EnableState) Result {
-	r1, _ := ffiCall2(symdeviceSetEccMode, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symdeviceSetEccMode, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fndeviceSetFanControlPolicy calls nvmlDeviceSetFanControlPolicy.
 func fndeviceSetFanControlPolicy(a0 Device, a1 uint32, a2 FanControlPolicy) Result {
-	r1, _ := ffiCall3(symdeviceSetFanControlPolicy, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	r1, _ := ffiCallWidths3(symdeviceSetFanControlPolicy, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2))
 	return Result(r1)
 }
 
 // fndeviceSetFanSpeed calls nvmlDeviceSetFanSpeed_v2.
 func fndeviceSetFanSpeed(a0 Device, a1 uint32, a2 uint32) Result {
-	r1, _ := ffiCall3(symdeviceSetFanSpeed, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	r1, _ := ffiCallWidths3(symdeviceSetFanSpeed, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2))
 	return Result(r1)
 }
 
 // fndeviceSetGpcClkVfOffset calls nvmlDeviceSetGpcClkVfOffset.
 func fndeviceSetGpcClkVfOffset(a0 Device, a1 int32) Result {
-	r1, _ := ffiCall2(symdeviceSetGpcClkVfOffset, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symdeviceSetGpcClkVfOffset, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fndeviceSetGpuLockedClocks calls nvmlDeviceSetGpuLockedClocks.
 func fndeviceSetGpuLockedClocks(a0 Device, a1 uint32, a2 uint32) Result {
-	r1, _ := ffiCall3(symdeviceSetGpuLockedClocks, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	r1, _ := ffiCallWidths3(symdeviceSetGpuLockedClocks, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2))
 	return Result(r1)
 }
 
 // fndeviceSetGpuOperationMode calls nvmlDeviceSetGpuOperationMode.
 func fndeviceSetGpuOperationMode(a0 Device, a1 GpuOperationMode) Result {
-	r1, _ := ffiCall2(symdeviceSetGpuOperationMode, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symdeviceSetGpuOperationMode, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
@@ -1951,19 +1998,19 @@ func fndeviceSetHostname(a0 Device, a1 *HostnameV1) Result {
 
 // fndeviceSetMemClkVfOffset calls nvmlDeviceSetMemClkVfOffset.
 func fndeviceSetMemClkVfOffset(a0 Device, a1 int32) Result {
-	r1, _ := ffiCall2(symdeviceSetMemClkVfOffset, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symdeviceSetMemClkVfOffset, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fndeviceSetMemoryLockedClocks calls nvmlDeviceSetMemoryLockedClocks.
 func fndeviceSetMemoryLockedClocks(a0 Device, a1 uint32, a2 uint32) Result {
-	r1, _ := ffiCall3(symdeviceSetMemoryLockedClocks, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	r1, _ := ffiCallWidths3(symdeviceSetMemoryLockedClocks, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2))
 	return Result(r1)
 }
 
 // fndeviceSetMigMode calls nvmlDeviceSetMigMode.
 func fndeviceSetMigMode(a0 Device, a1 uint32, a2 *Result) Result {
-	r1, _ := ffiCall3(symdeviceSetMigMode, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceSetMigMode, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -1975,7 +2022,7 @@ func fndeviceSetNvLinkDeviceLowPowerThreshold(a0 Device, a1 *NvLinkPowerThres) R
 
 // fndeviceSetNvLinkUtilizationControl calls nvmlDeviceSetNvLinkUtilizationControl.
 func fndeviceSetNvLinkUtilizationControl(a0 Device, a1 uint32, a2 uint32, a3 *NvLinkUtilizationControl, a4 uint32) Result {
-	r1, _ := ffiCall5(symdeviceSetNvLinkUtilizationControl, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4))
+	r1, _ := ffiCallWidths5(symdeviceSetNvLinkUtilizationControl, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4))
 	return Result(r1)
 }
 
@@ -1987,7 +2034,7 @@ func fndeviceSetNvlinkBwMode(a0 Device, a1 *NvlinkSetBwMode) Result {
 
 // fndeviceSetPersistenceMode calls nvmlDeviceSetPersistenceMode.
 func fndeviceSetPersistenceMode(a0 Device, a1 EnableState) Result {
-	r1, _ := ffiCall2(symdeviceSetPersistenceMode, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symdeviceSetPersistenceMode, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
@@ -2011,13 +2058,13 @@ func fndeviceSetRusdSettings(a0 Device, a1 *RusdSettingsV1) Result {
 
 // fndeviceSetTemperatureThreshold calls nvmlDeviceSetTemperatureThreshold.
 func fndeviceSetTemperatureThreshold(a0 Device, a1 TemperatureThresholds, a2 *int32) Result {
-	r1, _ := ffiCall3(symdeviceSetTemperatureThreshold, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symdeviceSetTemperatureThreshold, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fndeviceSetVgpuCapabilities calls nvmlDeviceSetVgpuCapabilities.
 func fndeviceSetVgpuCapabilities(a0 Device, a1 DeviceVgpuCapability, a2 EnableState) Result {
-	r1, _ := ffiCall3(symdeviceSetVgpuCapabilities, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	r1, _ := ffiCallWidths3(symdeviceSetVgpuCapabilities, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2))
 	return Result(r1)
 }
 
@@ -2035,7 +2082,7 @@ func fndeviceSetVgpuSchedulerState(a0 Device, a1 *VgpuSchedulerStateV2) Result {
 
 // fndeviceSetVirtualizationMode calls nvmlDeviceSetVirtualizationMode.
 func fndeviceSetVirtualizationMode(a0 Device, a1 GpuVirtualizationMode) Result {
-	r1, _ := ffiCall2(symdeviceSetVirtualizationMode, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symdeviceSetVirtualizationMode, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
@@ -2095,7 +2142,7 @@ func fneventSetFree(a0 EventSet) Result {
 
 // fneventSetWait calls nvmlEventSetWait_v2.
 func fneventSetWait(a0 EventSet, a1 *EventData, a2 uint32) Result {
-	r1, _ := ffiCall3(symeventSetWait, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	r1, _ := ffiCallWidths3(symeventSetWait, 0, 0x30, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
 	return Result(r1)
 }
 
@@ -2107,7 +2154,7 @@ func fnGetExcludedDeviceCount(a0 *uint32) Result {
 
 // fnGetExcludedDeviceInfoByIndex calls nvmlGetExcludedDeviceInfoByIndex.
 func fnGetExcludedDeviceInfoByIndex(a0 uint32, a1 *ExcludedDeviceInfo) Result {
-	r1, _ := ffiCall2(symGetExcludedDeviceInfoByIndex, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symGetExcludedDeviceInfoByIndex, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
@@ -2119,7 +2166,7 @@ func fnGetVgpuCompatibility(a0 *VgpuMetadata, a1 *VgpuPgpuMetadata, a2 *VgpuPgpu
 
 // fnGetVgpuDriverCapabilities calls nvmlGetVgpuDriverCapabilities.
 func fnGetVgpuDriverCapabilities(a0 VgpuDriverCapability, a1 *uint32) Result {
-	r1, _ := ffiCall2(symGetVgpuDriverCapabilities, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symGetVgpuDriverCapabilities, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
@@ -2137,7 +2184,7 @@ func fnGpmMetricsGet(a0 *GpmMetricsGetParams) Result {
 
 // fngpmMigSampleGet calls nvmlGpmMigSampleGet.
 func fngpmMigSampleGet(a0 Device, a1 uint32, a2 GpmSample) Result {
-	r1, _ := ffiCall3(symgpmMigSampleGet, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	r1, _ := ffiCallWidths3(symgpmMigSampleGet, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2))
 	return Result(r1)
 }
 
@@ -2173,19 +2220,19 @@ func fngpmSampleGet(a0 Device, a1 GpmSample) Result {
 
 // fngpmSetStreamingEnabled calls nvmlGpmSetStreamingEnabled.
 func fngpmSetStreamingEnabled(a0 Device, a1 uint32) Result {
-	r1, _ := ffiCall2(symgpmSetStreamingEnabled, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symgpmSetStreamingEnabled, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fngpuInstanceCreateComputeInstance calls nvmlGpuInstanceCreateComputeInstance.
 func fngpuInstanceCreateComputeInstance(a0 GpuInstance, a1 uint32, a2 *ComputeInstance) Result {
-	r1, _ := ffiCall3(symgpuInstanceCreateComputeInstance, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symgpuInstanceCreateComputeInstance, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fngpuInstanceCreateComputeInstanceWithPlacement calls nvmlGpuInstanceCreateComputeInstanceWithPlacement.
 func fngpuInstanceCreateComputeInstanceWithPlacement(a0 GpuInstance, a1 uint32, a2 *ComputeInstancePlacement, a3 *ComputeInstance) Result {
-	r1, _ := ffiCall4(symgpuInstanceCreateComputeInstanceWithPlacement, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symgpuInstanceCreateComputeInstanceWithPlacement, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
@@ -2203,37 +2250,37 @@ func fngpuInstanceGetActiveVgpus(a0 GpuInstance, a1 *ActiveVgpuInstanceInfo) Res
 
 // fngpuInstanceGetComputeInstanceById calls nvmlGpuInstanceGetComputeInstanceById.
 func fngpuInstanceGetComputeInstanceById(a0 GpuInstance, a1 uint32, a2 *ComputeInstance) Result {
-	r1, _ := ffiCall3(symgpuInstanceGetComputeInstanceById, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symgpuInstanceGetComputeInstanceById, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fngpuInstanceGetComputeInstancePossiblePlacements calls nvmlGpuInstanceGetComputeInstancePossiblePlacements.
 func fngpuInstanceGetComputeInstancePossiblePlacements(a0 GpuInstance, a1 uint32, a2 *ComputeInstancePlacement, a3 *uint32) Result {
-	r1, _ := ffiCall4(symgpuInstanceGetComputeInstancePossiblePlacements, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symgpuInstanceGetComputeInstancePossiblePlacements, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
 // fngpuInstanceGetComputeInstanceProfileInfo calls nvmlGpuInstanceGetComputeInstanceProfileInfo.
 func fngpuInstanceGetComputeInstanceProfileInfo(a0 GpuInstance, a1 uint32, a2 uint32, a3 *ComputeInstanceProfileInfo) Result {
-	r1, _ := ffiCall4(symgpuInstanceGetComputeInstanceProfileInfo, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symgpuInstanceGetComputeInstanceProfileInfo, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
 // fngpuInstanceGetComputeInstanceProfileInfoV calls nvmlGpuInstanceGetComputeInstanceProfileInfoV.
 func fngpuInstanceGetComputeInstanceProfileInfoV(a0 GpuInstance, a1 uint32, a2 uint32, a3 *ComputeInstanceProfileInfoV2) Result {
-	r1, _ := ffiCall4(symgpuInstanceGetComputeInstanceProfileInfoV, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symgpuInstanceGetComputeInstanceProfileInfoV, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
 // fngpuInstanceGetComputeInstanceRemainingCapacity calls nvmlGpuInstanceGetComputeInstanceRemainingCapacity.
 func fngpuInstanceGetComputeInstanceRemainingCapacity(a0 GpuInstance, a1 uint32, a2 *uint32) Result {
-	r1, _ := ffiCall3(symgpuInstanceGetComputeInstanceRemainingCapacity, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symgpuInstanceGetComputeInstanceRemainingCapacity, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fngpuInstanceGetComputeInstances calls nvmlGpuInstanceGetComputeInstances.
 func fngpuInstanceGetComputeInstances(a0 GpuInstance, a1 uint32, a2 *ComputeInstance, a3 *uint32) Result {
-	r1, _ := ffiCall4(symgpuInstanceGetComputeInstances, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symgpuInstanceGetComputeInstances, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
@@ -2293,7 +2340,7 @@ func fnInit() Result {
 
 // fnInitWithFlags calls nvmlInitWithFlags.
 func fnInitWithFlags(a0 uint32) Result {
-	r1, _ := ffiCall1(symInitWithFlags, 0, uintptr(a0))
+	r1, _ := ffiCallWidths1(symInitWithFlags, 0, 0x3, uintptr(a0))
 	return Result(r1)
 }
 
@@ -2365,13 +2412,13 @@ func fnSystemGetCudaDriverVersion(a0 *int32) Result {
 
 // fnSystemGetDriverBranch calls nvmlSystemGetDriverBranch.
 func fnSystemGetDriverBranch(a0 *SystemDriverBranchInfo, a1 uint32) Result {
-	r1, _ := ffiCall2(symSystemGetDriverBranch, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	r1, _ := ffiCallWidths2(symSystemGetDriverBranch, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1))
 	return Result(r1)
 }
 
 // fnSystemGetDriverVersion calls nvmlSystemGetDriverVersion.
 func fnSystemGetDriverVersion(a0 *byte, a1 uint32) Result {
-	r1, _ := ffiCall2(symSystemGetDriverVersion, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	r1, _ := ffiCallWidths2(symSystemGetDriverVersion, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1))
 	return Result(r1)
 }
 
@@ -2383,7 +2430,7 @@ func fnSystemGetHicVersion(a0 *uint32, a1 *HwbcEntry) Result {
 
 // fnSystemGetNVMLVersion calls nvmlSystemGetNVMLVersion.
 func fnSystemGetNVMLVersion(a0 *byte, a1 uint32) Result {
-	r1, _ := ffiCall2(symSystemGetNVMLVersion, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	r1, _ := ffiCallWidths2(symSystemGetNVMLVersion, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1))
 	return Result(r1)
 }
 
@@ -2395,13 +2442,13 @@ func fnSystemGetNvlinkBwMode(a0 *uint32) Result {
 
 // fnSystemGetProcessName calls nvmlSystemGetProcessName.
 func fnSystemGetProcessName(a0 uint32, a1 *byte, a2 uint32) Result {
-	r1, _ := ffiCall3(symSystemGetProcessName, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	r1, _ := ffiCallWidths3(symSystemGetProcessName, 0, 0x33, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
 	return Result(r1)
 }
 
 // fnSystemGetTopologyGpuSet calls nvmlSystemGetTopologyGpuSet.
 func fnSystemGetTopologyGpuSet(a0 uint32, a1 *uint32, a2 *Device) Result {
-	r1, _ := ffiCall3(symSystemGetTopologyGpuSet, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symSystemGetTopologyGpuSet, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -2413,7 +2460,7 @@ func fnSystemRegisterEvents(a0 *SystemRegisterEventRequest) Result {
 
 // fnSystemSetConfComputeGpusReadyState calls nvmlSystemSetConfComputeGpusReadyState.
 func fnSystemSetConfComputeGpusReadyState(a0 uint32) Result {
-	r1, _ := ffiCall1(symSystemSetConfComputeGpusReadyState, 0, uintptr(a0))
+	r1, _ := ffiCallWidths1(symSystemSetConfComputeGpusReadyState, 0, 0x3, uintptr(a0))
 	return Result(r1)
 }
 
@@ -2425,7 +2472,7 @@ func fnSystemSetConfComputeKeyRotationThresholdInfo(a0 *ConfComputeSetKeyRotatio
 
 // fnSystemSetNvlinkBwMode calls nvmlSystemSetNvlinkBwMode.
 func fnSystemSetNvlinkBwMode(a0 uint32) Result {
-	r1, _ := ffiCall1(symSystemSetNvlinkBwMode, 0, uintptr(a0))
+	r1, _ := ffiCallWidths1(symSystemSetNvlinkBwMode, 0, 0x3, uintptr(a0))
 	return Result(r1)
 }
 
@@ -2449,7 +2496,7 @@ func fnunitGetFanSpeedInfo(a0 Unit, a1 *UnitFanSpeeds) Result {
 
 // fnunitGetHandleByIndex calls nvmlUnitGetHandleByIndex.
 func fnunitGetHandleByIndex(a0 uint32, a1 *Unit) Result {
-	r1, _ := ffiCall2(symunitGetHandleByIndex, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symunitGetHandleByIndex, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
@@ -2467,7 +2514,7 @@ func fnunitGetPsuInfo(a0 Unit, a1 *PSUInfo) Result {
 
 // fnunitGetTemperature calls nvmlUnitGetTemperature.
 func fnunitGetTemperature(a0 Unit, a1 uint32, a2 *uint32) Result {
-	r1, _ := ffiCall3(symunitGetTemperature, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symunitGetTemperature, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -2479,223 +2526,223 @@ func fnunitGetUnitInfo(a0 Unit, a1 *UnitInfo) Result {
 
 // fnunitSetLedState calls nvmlUnitSetLedState.
 func fnunitSetLedState(a0 Unit, a1 LedColor) Result {
-	r1, _ := ffiCall2(symunitSetLedState, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symunitSetLedState, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fnvgpuInstanceClearAccountingPids calls nvmlVgpuInstanceClearAccountingPids.
 func fnvgpuInstanceClearAccountingPids(a0 VgpuInstance) Result {
-	r1, _ := ffiCall1(symvgpuInstanceClearAccountingPids, 0, uintptr(a0))
+	r1, _ := ffiCallWidths1(symvgpuInstanceClearAccountingPids, 0, 0x3, uintptr(a0))
 	return Result(r1)
 }
 
 // fnvgpuInstanceGetAccountingMode calls nvmlVgpuInstanceGetAccountingMode.
 func fnvgpuInstanceGetAccountingMode(a0 VgpuInstance, a1 *EnableState) Result {
-	r1, _ := ffiCall2(symvgpuInstanceGetAccountingMode, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symvgpuInstanceGetAccountingMode, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
 // fnvgpuInstanceGetAccountingPids calls nvmlVgpuInstanceGetAccountingPids.
 func fnvgpuInstanceGetAccountingPids(a0 VgpuInstance, a1 *uint32, a2 *uint32) Result {
-	r1, _ := ffiCall3(symvgpuInstanceGetAccountingPids, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symvgpuInstanceGetAccountingPids, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fnvgpuInstanceGetAccountingStats calls nvmlVgpuInstanceGetAccountingStats.
 func fnvgpuInstanceGetAccountingStats(a0 VgpuInstance, a1 uint32, a2 *AccountingStats) Result {
-	r1, _ := ffiCall3(symvgpuInstanceGetAccountingStats, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symvgpuInstanceGetAccountingStats, 0, 0xf, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fnvgpuInstanceGetEccMode calls nvmlVgpuInstanceGetEccMode.
 func fnvgpuInstanceGetEccMode(a0 VgpuInstance, a1 *EnableState) Result {
-	r1, _ := ffiCall2(symvgpuInstanceGetEccMode, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symvgpuInstanceGetEccMode, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
 // fnvgpuInstanceGetEncoderCapacity calls nvmlVgpuInstanceGetEncoderCapacity.
 func fnvgpuInstanceGetEncoderCapacity(a0 VgpuInstance, a1 *uint32) Result {
-	r1, _ := ffiCall2(symvgpuInstanceGetEncoderCapacity, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symvgpuInstanceGetEncoderCapacity, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
 // fnvgpuInstanceGetEncoderSessions calls nvmlVgpuInstanceGetEncoderSessions.
 func fnvgpuInstanceGetEncoderSessions(a0 VgpuInstance, a1 *uint32, a2 *EncoderSessionInfo) Result {
-	r1, _ := ffiCall3(symvgpuInstanceGetEncoderSessions, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symvgpuInstanceGetEncoderSessions, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fnvgpuInstanceGetEncoderStats calls nvmlVgpuInstanceGetEncoderStats.
 func fnvgpuInstanceGetEncoderStats(a0 VgpuInstance, a1 *uint32, a2 *uint32, a3 *uint32) Result {
-	r1, _ := ffiCall4(symvgpuInstanceGetEncoderStats, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symvgpuInstanceGetEncoderStats, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
 // fnvgpuInstanceGetFBCSessions calls nvmlVgpuInstanceGetFBCSessions.
 func fnvgpuInstanceGetFBCSessions(a0 VgpuInstance, a1 *uint32, a2 *FBCSessionInfo) Result {
-	r1, _ := ffiCall3(symvgpuInstanceGetFBCSessions, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symvgpuInstanceGetFBCSessions, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fnvgpuInstanceGetFBCStats calls nvmlVgpuInstanceGetFBCStats.
 func fnvgpuInstanceGetFBCStats(a0 VgpuInstance, a1 *FBCStats) Result {
-	r1, _ := ffiCall2(symvgpuInstanceGetFBCStats, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symvgpuInstanceGetFBCStats, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
 // fnvgpuInstanceGetFbUsage calls nvmlVgpuInstanceGetFbUsage.
 func fnvgpuInstanceGetFbUsage(a0 VgpuInstance, a1 *uint64) Result {
-	r1, _ := ffiCall2(symvgpuInstanceGetFbUsage, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symvgpuInstanceGetFbUsage, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
 // fnvgpuInstanceGetFrameRateLimit calls nvmlVgpuInstanceGetFrameRateLimit.
 func fnvgpuInstanceGetFrameRateLimit(a0 VgpuInstance, a1 *uint32) Result {
-	r1, _ := ffiCall2(symvgpuInstanceGetFrameRateLimit, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symvgpuInstanceGetFrameRateLimit, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
 // fnvgpuInstanceGetGpuInstanceId calls nvmlVgpuInstanceGetGpuInstanceId.
 func fnvgpuInstanceGetGpuInstanceId(a0 VgpuInstance, a1 *uint32) Result {
-	r1, _ := ffiCall2(symvgpuInstanceGetGpuInstanceId, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symvgpuInstanceGetGpuInstanceId, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
 // fnvgpuInstanceGetGpuPciId calls nvmlVgpuInstanceGetGpuPciId.
 func fnvgpuInstanceGetGpuPciId(a0 VgpuInstance, a1 *byte, a2 *uint32) Result {
-	r1, _ := ffiCall3(symvgpuInstanceGetGpuPciId, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symvgpuInstanceGetGpuPciId, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fnvgpuInstanceGetLicenseInfo calls nvmlVgpuInstanceGetLicenseInfo_v2.
 func fnvgpuInstanceGetLicenseInfo(a0 VgpuInstance, a1 *VgpuLicenseInfo) Result {
-	r1, _ := ffiCall2(symvgpuInstanceGetLicenseInfo, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symvgpuInstanceGetLicenseInfo, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
 // fnvgpuInstanceGetLicenseStatus calls nvmlVgpuInstanceGetLicenseStatus.
 func fnvgpuInstanceGetLicenseStatus(a0 VgpuInstance, a1 *uint32) Result {
-	r1, _ := ffiCall2(symvgpuInstanceGetLicenseStatus, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symvgpuInstanceGetLicenseStatus, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
 // fnvgpuInstanceGetMdevUUID calls nvmlVgpuInstanceGetMdevUUID.
 func fnvgpuInstanceGetMdevUUID(a0 VgpuInstance, a1 *byte, a2 uint32) Result {
-	r1, _ := ffiCall3(symvgpuInstanceGetMdevUUID, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	r1, _ := ffiCallWidths3(symvgpuInstanceGetMdevUUID, 0, 0x33, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
 	return Result(r1)
 }
 
 // fnvgpuInstanceGetMetadata calls nvmlVgpuInstanceGetMetadata.
 func fnvgpuInstanceGetMetadata(a0 VgpuInstance, a1 *VgpuMetadata, a2 *uint32) Result {
-	r1, _ := ffiCall3(symvgpuInstanceGetMetadata, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symvgpuInstanceGetMetadata, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fnvgpuInstanceGetPlacementId calls nvmlVgpuInstanceGetPlacementId.
 func fnvgpuInstanceGetPlacementId(a0 VgpuInstance, a1 *VgpuPlacementId) Result {
-	r1, _ := ffiCall2(symvgpuInstanceGetPlacementId, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symvgpuInstanceGetPlacementId, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
 // fnvgpuInstanceGetRuntimeStateSize calls nvmlVgpuInstanceGetRuntimeStateSize.
 func fnvgpuInstanceGetRuntimeStateSize(a0 VgpuInstance, a1 *VgpuRuntimeState) Result {
-	r1, _ := ffiCall2(symvgpuInstanceGetRuntimeStateSize, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symvgpuInstanceGetRuntimeStateSize, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
 // fnvgpuInstanceGetType calls nvmlVgpuInstanceGetType.
 func fnvgpuInstanceGetType(a0 VgpuInstance, a1 *VgpuTypeId) Result {
-	r1, _ := ffiCall2(symvgpuInstanceGetType, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symvgpuInstanceGetType, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
 // fnvgpuInstanceGetUUID calls nvmlVgpuInstanceGetUUID.
 func fnvgpuInstanceGetUUID(a0 VgpuInstance, a1 *byte, a2 uint32) Result {
-	r1, _ := ffiCall3(symvgpuInstanceGetUUID, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	r1, _ := ffiCallWidths3(symvgpuInstanceGetUUID, 0, 0x33, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
 	return Result(r1)
 }
 
 // fnvgpuInstanceGetVmDriverVersion calls nvmlVgpuInstanceGetVmDriverVersion.
 func fnvgpuInstanceGetVmDriverVersion(a0 VgpuInstance, a1 *byte, a2 uint32) Result {
-	r1, _ := ffiCall3(symvgpuInstanceGetVmDriverVersion, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	r1, _ := ffiCallWidths3(symvgpuInstanceGetVmDriverVersion, 0, 0x33, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
 	return Result(r1)
 }
 
 // fnvgpuInstanceGetVmID calls nvmlVgpuInstanceGetVmID.
 func fnvgpuInstanceGetVmID(a0 VgpuInstance, a1 *byte, a2 uint32, a3 *VgpuVmIdType) Result {
-	r1, _ := ffiCall4(symvgpuInstanceGetVmID, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symvgpuInstanceGetVmID, 0, 0x33, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
 // fnvgpuInstanceSetEncoderCapacity calls nvmlVgpuInstanceSetEncoderCapacity.
 func fnvgpuInstanceSetEncoderCapacity(a0 VgpuInstance, a1 uint32) Result {
-	r1, _ := ffiCall2(symvgpuInstanceSetEncoderCapacity, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symvgpuInstanceSetEncoderCapacity, 0, 0xf, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fnvgpuTypeGetBAR1Info calls nvmlVgpuTypeGetBAR1Info.
 func fnvgpuTypeGetBAR1Info(a0 VgpuTypeId, a1 *VgpuTypeBar1Info) Result {
-	r1, _ := ffiCall2(symvgpuTypeGetBAR1Info, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symvgpuTypeGetBAR1Info, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
 // fnvgpuTypeGetCapabilities calls nvmlVgpuTypeGetCapabilities.
 func fnvgpuTypeGetCapabilities(a0 VgpuTypeId, a1 VgpuCapability, a2 *uint32) Result {
-	r1, _ := ffiCall3(symvgpuTypeGetCapabilities, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symvgpuTypeGetCapabilities, 0, 0xf, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fnvgpuTypeGetClass calls nvmlVgpuTypeGetClass.
 func fnvgpuTypeGetClass(a0 VgpuTypeId, a1 *byte, a2 *uint32) Result {
-	r1, _ := ffiCall3(symvgpuTypeGetClass, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symvgpuTypeGetClass, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fnvgpuTypeGetDeviceID calls nvmlVgpuTypeGetDeviceID.
 func fnvgpuTypeGetDeviceID(a0 VgpuTypeId, a1 *uint64, a2 *uint64) Result {
-	r1, _ := ffiCall3(symvgpuTypeGetDeviceID, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symvgpuTypeGetDeviceID, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fnvgpuTypeGetFbReservation calls nvmlVgpuTypeGetFbReservation.
 func fnvgpuTypeGetFbReservation(a0 VgpuTypeId, a1 *uint64) Result {
-	r1, _ := ffiCall2(symvgpuTypeGetFbReservation, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symvgpuTypeGetFbReservation, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
 // fnvgpuTypeGetFrameRateLimit calls nvmlVgpuTypeGetFrameRateLimit.
 func fnvgpuTypeGetFrameRateLimit(a0 VgpuTypeId, a1 *uint32) Result {
-	r1, _ := ffiCall2(symvgpuTypeGetFrameRateLimit, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symvgpuTypeGetFrameRateLimit, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
 // fnvgpuTypeGetFramebufferSize calls nvmlVgpuTypeGetFramebufferSize.
 func fnvgpuTypeGetFramebufferSize(a0 VgpuTypeId, a1 *uint64) Result {
-	r1, _ := ffiCall2(symvgpuTypeGetFramebufferSize, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symvgpuTypeGetFramebufferSize, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
 // fnvgpuTypeGetGpuInstanceProfileId calls nvmlVgpuTypeGetGpuInstanceProfileId.
 func fnvgpuTypeGetGpuInstanceProfileId(a0 VgpuTypeId, a1 *uint32) Result {
-	r1, _ := ffiCall2(symvgpuTypeGetGpuInstanceProfileId, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symvgpuTypeGetGpuInstanceProfileId, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
 // fnvgpuTypeGetGspHeapSize calls nvmlVgpuTypeGetGspHeapSize.
 func fnvgpuTypeGetGspHeapSize(a0 VgpuTypeId, a1 *uint64) Result {
-	r1, _ := ffiCall2(symvgpuTypeGetGspHeapSize, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symvgpuTypeGetGspHeapSize, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
 // fnvgpuTypeGetLicense calls nvmlVgpuTypeGetLicense.
 func fnvgpuTypeGetLicense(a0 VgpuTypeId, a1 *byte, a2 uint32) Result {
-	r1, _ := ffiCall3(symvgpuTypeGetLicense, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	r1, _ := ffiCallWidths3(symvgpuTypeGetLicense, 0, 0x33, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
 	return Result(r1)
 }
 
 // fnvgpuTypeGetMaxInstances calls nvmlVgpuTypeGetMaxInstances.
 func fnvgpuTypeGetMaxInstances(a0 Device, a1 VgpuTypeId, a2 *uint32) Result {
-	r1, _ := ffiCall3(symvgpuTypeGetMaxInstances, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symvgpuTypeGetMaxInstances, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -2707,25 +2754,25 @@ func fnVgpuTypeGetMaxInstancesPerGpuInstance(a0 *VgpuTypeMaxInstance) Result {
 
 // fnvgpuTypeGetMaxInstancesPerVm calls nvmlVgpuTypeGetMaxInstancesPerVm.
 func fnvgpuTypeGetMaxInstancesPerVm(a0 VgpuTypeId, a1 *uint32) Result {
-	r1, _ := ffiCall2(symvgpuTypeGetMaxInstancesPerVm, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symvgpuTypeGetMaxInstancesPerVm, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
 // fnvgpuTypeGetName calls nvmlVgpuTypeGetName.
 func fnvgpuTypeGetName(a0 VgpuTypeId, a1 *byte, a2 *uint32) Result {
-	r1, _ := ffiCall3(symvgpuTypeGetName, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	r1, _ := ffiCallWidths3(symvgpuTypeGetName, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
 // fnvgpuTypeGetNumDisplayHeads calls nvmlVgpuTypeGetNumDisplayHeads.
 func fnvgpuTypeGetNumDisplayHeads(a0 VgpuTypeId, a1 *uint32) Result {
-	r1, _ := ffiCall2(symvgpuTypeGetNumDisplayHeads, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symvgpuTypeGetNumDisplayHeads, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
 // fnvgpuTypeGetResolution calls nvmlVgpuTypeGetResolution.
 func fnvgpuTypeGetResolution(a0 VgpuTypeId, a1 uint32, a2 *uint32, a3 *uint32) Result {
-	r1, _ := ffiCall4(symvgpuTypeGetResolution, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symvgpuTypeGetResolution, 0, 0xf, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
@@ -2735,12 +2782,11 @@ func fnvgpuTypeGetResolution(a0 VgpuTypeId, a1 uint32, a2 *uint32, a3 *uint32) R
 //
 //   - computeInstance: The compute instance handle
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If computeInstance is invalid
 //   - [ErrInUse]: If the compute instance is in use. This error would be returned if processes (e.g. CUDA application) are active on the compute instance.
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlComputeInstanceDestroy].
 //
@@ -2759,11 +2805,10 @@ func computeInstanceDestroy(computeInstance ComputeInstance) error {
 //   - computeInstance: The compute instance handle
 //   - info: Return compute instance information
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If computeInstance or info are invalid
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlComputeInstanceGetInfo], bound as nvmlComputeInstanceGetInfo_v2.
 //
@@ -2791,13 +2836,14 @@ var slotComputeInstanceGetInfo outSlot[ComputeInstanceInfo]
 //
 //   - device: The identifier of the target device
 //
-// Returns:
+// A nil error means accounting information has been cleared.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device are invalid
 //   - [ErrNotSupported]: if the device doesn’t support this feature
 //   - [ErrNoPermission]: if the user doesn’t have permission to perform this operation
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if accounting information has been cleared
 //
 // Wraps [nvmlDeviceClearAccountingPids].
 //
@@ -2816,11 +2862,12 @@ func deviceClearAccountingPids(device Device) error {
 //
 //   - device: The identifier of the target device
 //
-// Returns:
+// A nil error means the calling process has been successfully unbound.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the calling process has been successfully unbound
 //
 // Wraps [nvmlDeviceClearCpuAffinity].
 //
@@ -2844,14 +2891,15 @@ func deviceClearCpuAffinity(device Device) error {
 //   - device: The identifier of the target device
 //   - counterType: Flag that indicates which type of errors should be cleared
 //
-// Returns:
+// A nil error means the error counts were cleared.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or counterType is invalid
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrNoPermission]: if the user doesn’t have permission to perform this operation
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the error counts were cleared
 //
 // Wraps [nvmlDeviceClearEccErrorCounts].
 //
@@ -2871,9 +2919,10 @@ func deviceClearEccErrorCounts(device Device, counterType EccCounterType) error 
 //   - valuesCount: Number of entries in values that should be cleared
 //   - values: Array of valuesCount structures to hold field values. Each value’s fieldId must be populated prior to this call
 //
-// Returns:
+// A nil error means any values in values were cleared. Note that you must check the nvmlReturn field of each value for each individual status.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid or values is NULL
-//   - [Success]: if any values in values were cleared. Note that you must check the nvmlReturn field of each value for each individual status
 //
 // Wraps [nvmlDeviceClearFieldValues].
 //
@@ -2894,13 +2943,12 @@ func deviceClearFieldValues(device Device, valuesCount int32, values *FieldValue
 //   - profileId: The GPU instance profile ID. See [Device.GpuInstanceProfileInfo]
 //   - gpuInstance: Returns the GPU instance handle
 //
-// Returns:
+// Errors:
 //   - [ErrInsufficientResources]: If the requested GPU instance could not be created
 //   - [ErrInvalidArgument]: If device, profile, profileId or gpuInstance are invalid
 //   - [ErrNotSupported]: If device doesn’t have MIG mode enabled or in vGPU guest
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlDeviceCreateGpuInstance].
 //
@@ -2931,13 +2979,12 @@ var slotDeviceCreateGpuInstance outSlot[GpuInstance]
 //   - placement: The requested placement. See [Device.GpuInstancePossiblePlacements]
 //   - gpuInstance: Returns the GPU instance handle
 //
-// Returns:
+// Errors:
 //   - [ErrInsufficientResources]: If the requested GPU instance could not be created
 //   - [ErrInvalidArgument]: If device, profile, profileId, placement or gpuInstance are invalid
 //   - [ErrNotSupported]: If device doesn’t have MIG mode enabled or in vGPU guest
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlDeviceCreateGpuInstanceWithPlacement].
 //
@@ -2967,14 +3014,15 @@ var slotDeviceCreateGpuInstanceWithPlacement outSlot[GpuInstance]
 //
 //   - pciInfo: The PCI tree to be searched. Only the domain, bus, and device fields are used in this call
 //
-// Returns:
+// A nil error means counters were successfully reset.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if pciInfo is invalid
 //   - [ErrNotSupported]: if the operating system does not support this feature
 //   - [ErrNoPermission]: if the calling process has insufficient permissions to perform operation
 //   - [ErrOperatingSystem]: if the operating system is denying this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if counters were successfully reset
 //
 // Wraps [nvmlDeviceDiscoverGpus].
 //
@@ -2986,7 +3034,7 @@ func DeviceDiscoverGpus(pciInfo *PciInfo) error {
 	return toError(fnDeviceDiscoverGpus(pciInfo), "nvmlDeviceDiscoverGpus")
 }
 
-// deviceFreezeNvLinkUtilizationCounter wraps [nvmlDeviceFreezeNvLinkUtilizationCounter].
+// deviceFreezeNvLinkUtilizationCounter freezes or unfreezes an NVLink utilization counter.
 //
 // Freeze the NVLINK utilization counters Both the receive and transmit counters are operated on by this function
 // For Pascal or newer fully supported devices.
@@ -2996,14 +3044,17 @@ func DeviceDiscoverGpus(pciInfo *PciInfo) error {
 //   - counter: Specifies the counter that should be frozen (0 or 1)
 //   - freeze: [FeatureEnabled] = freeze the receive and transmit counters [FeatureDisabled] = unfreeze the receive and transmit counters
 //
-// Returns:
+// A nil error means counters were successfully frozen or unfrozen.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device, link, counter, or freeze is invalid
 //   - [ErrNotSupported]: if the device doesn’t support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if counters were successfully frozen or unfrozen
 //
 // Deprecated: Freezing NVLINK utilization counters is no longer supported.
+//
+// Wraps [nvmlDeviceFreezeNvLinkUtilizationCounter].
 //
 // [nvmlDeviceFreezeNvLinkUtilizationCounter]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv440nvmlDeviceFreezeNvLinkUtilizationCounter12nvmlDevice_tjj17nvmlEnableState_t
 func deviceFreezeNvLinkUtilizationCounter(device Device, link uint32, counter uint32, freeze EnableState) error {
@@ -3024,13 +3075,14 @@ func deviceFreezeNvLinkUtilizationCounter(device Device, link uint32, counter ui
 //   - apiType: Target API type for this operation
 //   - isRestricted: Reference in which to return the current restriction [FeatureEnabled] indicates that the API is root-only [FeatureDisabled] indicates that the API is accessible to all users
 //
-// Returns:
+// A nil error means isRestricted has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, apiType incorrect or isRestricted is NULL
 //   - [ErrNotSupported]: if this query is not supported by the device or the device does not support the feature that is being queried (E.G. Enabling/disabling Auto Boosted clocks is not supported by the device)
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if isRestricted has been set
 //
 // Wraps [nvmlDeviceGetAPIRestriction].
 //
@@ -3052,12 +3104,13 @@ func deviceGetAPIRestriction(device Device, apiType RestrictedAPI, isRestricted 
 //   - device: The identifier of the target device
 //   - bufferSize: Reference in which to provide the size (in number of elements) of the circular buffer for accounting stats
 //
-// Returns:
+// A nil error means buffer size was successfully retrieved.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid or bufferSize is NULL
 //   - [ErrNotSupported]: if the device doesn’t support this feature or accounting mode is disabled
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if buffer size was successfully retrieved
 //
 // Wraps [nvmlDeviceGetAccountingBufferSize].
 //
@@ -3077,12 +3130,13 @@ func deviceGetAccountingBufferSize(device Device, bufferSize *uint32) error {
 //   - device: The identifier of the target device
 //   - mode: Reference in which to return the current accounting mode
 //
-// Returns:
+// A nil error means the mode has been successfully retrieved.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid or mode are NULL
 //   - [ErrNotSupported]: if the device doesn’t support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the mode has been successfully retrieved
 //
 // Wraps [nvmlDeviceGetAccountingMode].
 //
@@ -3118,13 +3172,14 @@ var slotDeviceGetAccountingMode outSlot[EnableState]
 //   - count: Reference in which to provide the pids array size, and to return the number of elements ready to be queried
 //   - pids: Reference in which to return list of process ids
 //
-// Returns:
+// A nil error means pids were successfully retrieved.
+//
+// Errors:
 //   - [ErrInsufficientSize]: if count is too small ( count is set to expected value)
 //   - [ErrInvalidArgument]: if device is invalid or count is NULL
 //   - [ErrNotSupported]: if device doesn’t support this feature or accounting mode is disabled or on vGPU host.
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if pids were successfully retrieved
 //
 // Wraps [nvmlDeviceGetAccountingPids].
 //
@@ -3156,13 +3211,14 @@ func deviceGetAccountingPids(device Device, count *uint32, pids *uint32) error {
 //   - pid: Process Id of the target process to query stats for
 //   - stats: Reference in which to return the process’s accounting stats
 //
-// Returns:
+// A nil error means stats have been successfully retrieved.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid or stats are NULL
 //   - [ErrNotFound]: if process stats were not found
 //   - [ErrNotSupported]: if device doesn’t support this feature or accounting mode is disabled or on vGPU host.
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if stats have been successfully retrieved
 //
 // Wraps [nvmlDeviceGetAccountingStats].
 //
@@ -3184,13 +3240,12 @@ func deviceGetAccountingStats(device Device, pid uint32, stats *AccountingStats)
 //   - vgpuCount: Pointer which passes in the array size as well as get back the number of types
 //   - vgpuInstances: Pointer to array in which to return list of vGPU instances
 //
-// Returns:
+// Errors:
 //   - [ErrInsufficientSize]: if size is too small
 //   - [ErrInvalidArgument]: if device is invalid, or vgpuCount is NULL
 //   - [ErrNotSupported]: if vGPU is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlDeviceGetActiveVgpus].
 //
@@ -3207,12 +3262,13 @@ func deviceGetActiveVgpus(device Device, vgpuCount *uint32, vgpuInstances *VgpuI
 //   - device: The identifier of the target device
 //   - adaptiveClockStatus: The current adaptive clocking status, either [AdaptiveClockingInfoStatusDisabled] or [AdaptiveClockingInfoStatusEnabled]
 //
-// Returns:
+// A nil error means the current adaptive clocking status is successfully retrieved.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, or adaptiveClockStatus is NULL
 //   - [ErrNotSupported]: if this query is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
-//   - [Success]: if the current adaptive clocking status is successfully retrieved
 //
 // Wraps [nvmlDeviceGetAdaptiveClockInfoStatus].
 //
@@ -3236,16 +3292,21 @@ var slotDeviceGetAdaptiveClockInfoStatus outSlot[uint32]
 // deviceGetAddressingMode gets the addressing mode for a given GPU.
 //
 // Addressing modes can be one of:
+//   - HMM: System allocated memory (malloc, mmap) is addressable from the device (GPU), via software-based mirroring of the CPU’s page tables, on the GPU.
+//   - ATS: System allocated memory (malloc, mmap) is addressable from the device (GPU), via Address Translation Services. This means that there is (effectively) a single set of page tables, and the CPU and GPU both use them.
+//   - None: Neither HMM nor ATS is active.
+//
 // For Turing or newer fully supported devices. Supported on Linux only.
 //
 //   - device: The device handle
 //   - mode: Pointer to addressing mode of the device
 //
-// Returns:
+// A nil error means mode is retrieved successfully.
+//
+// Errors:
 //   - [ErrArgumentVersionMismatch]: if the provided version is invalid/unsupported
 //   - [ErrInvalidArgument]: if device node is invalid
 //   - [ErrNotSupported]: if request is not supported on the current platform
-//   - [Success]: if mode is retrieved successfully
 //
 // Wraps [nvmlDeviceGetAddressingMode].
 //
@@ -3267,9 +3328,11 @@ func deviceGetAddressingMode(device Device) (DeviceAddressingMode, error) {
 
 var slotDeviceGetAddressingMode outSlot[DeviceAddressingMode]
 
-// deviceGetApplicationsClock wraps [nvmlDeviceGetApplicationsClock].
+// deviceGetApplicationsClock returns the device's applications clock of the given type, in MHz.
 //
 // Deprecated: Applications clocks are deprecated and will be removed in CUDA 14.0.
+//
+// Wraps [nvmlDeviceGetApplicationsClock].
 //
 // [nvmlDeviceGetApplicationsClock]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv430nvmlDeviceGetApplicationsClock12nvmlDevice_t15nvmlClockType_tPj
 func deviceGetApplicationsClock(device Device, clockType ClockType) (uint32, error) {
@@ -3293,10 +3356,9 @@ var slotDeviceGetApplicationsClock outSlot[uint32]
 //   - device: The identifier of the target device
 //   - arch: Reference where architecture is returned, if call successful. Set to NVML_DEVICE_ARCH_* ([DeviceArchitecture]) upon success
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If device or arch (output refererence) are invalid
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlDeviceGetArchitecture].
 //
@@ -3326,12 +3388,13 @@ var slotDeviceGetArchitecture outSlot[DeviceArchitecture]
 //   - device: NVML device handle
 //   - attributes: Device attributes
 //
-// Returns:
+// A nil error means device attributes were successfully retrieved.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device handle is invalid
 //   - [ErrNotSupported]: if this query is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if device attributes were successfully retrieved
 //
 // Wraps [nvmlDeviceGetAttributes], bound as nvmlDeviceGetAttributes_v2.
 //
@@ -3343,7 +3406,7 @@ func deviceGetAttributes(device Device, attributes *DeviceAttributes) error {
 	return toError(fndeviceGetAttributes(device, attributes), "nvmlDeviceGetAttributes_v2")
 }
 
-// deviceGetAutoBoostedClocksEnabled retrieves the current state of Auto Boosted clocks on a device and store it in isEnabled.
+// deviceGetAutoBoostedClocksEnabled retrieves the current state of Auto Boosted clocks on a device and stores it in isEnabled.
 //
 // For Kepler or newer fully supported devices.
 // Auto Boosted clocks are enabled by default on some hardware, allowing the GPU to run at higher clock rates to maximize performance as thermal limits allow.
@@ -3353,13 +3416,14 @@ func deviceGetAttributes(device Device, attributes *DeviceAttributes) error {
 //   - isEnabled: Where to store the current state of Auto Boosted clocks of the target device
 //   - defaultIsEnabled: Where to store the default Auto Boosted clocks behavior of the target device that the device will revert to when no applications are using the GPU
 //
-// Returns:
+// A nil error means isEnabled has been been set with the Auto Boosted clocks state of device.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or isEnabled is NULL
 //   - [ErrNotSupported]: if the device does not support Auto Boosted clocks
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: If isEnabled has been been set with the Auto Boosted clocks state of device
 //
 // Wraps [nvmlDeviceGetAutoBoostedClocksEnabled].
 //
@@ -3381,13 +3445,14 @@ func deviceGetAutoBoostedClocksEnabled(device Device, isEnabled *EnableState, de
 //   - device: The identifier of the target device
 //   - bar1Memory: Reference in which BAR1 memory information is returned
 //
-// Returns:
+// A nil error means BAR1 memory is successfully retrieved.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, bar1Memory is NULL
 //   - [ErrNotSupported]: if this query is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if BAR1 memory is successfully retrieved
 //
 // Wraps [nvmlDeviceGetBAR1MemoryInfo].
 //
@@ -3416,13 +3481,14 @@ var slotDeviceGetBAR1MemoryInfo outSlot[BAR1Memory]
 //   - device: The identifier of the target device
 //   - boardId: Reference in which to return the device’s board ID
 //
-// Returns:
+// A nil error means boardId has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or boardId is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if boardId has been set
 //
 // Wraps [nvmlDeviceGetBoardId].
 //
@@ -3451,13 +3517,14 @@ var slotDeviceGetBoardId outSlot[uint32]
 //   - partNumber: Reference to the buffer to return
 //   - length: Length of the buffer reference
 //
-// Returns:
+// A nil error means partNumber has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or serial is NULL
 //   - [ErrNotSupported]: if the needed VBIOS fields have not been filled
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if partNumber has been set
 //
 // Wraps [nvmlDeviceGetBoardPartNumber].
 //
@@ -3485,12 +3552,13 @@ func deviceGetBoardPartNumber(device Device) (string, error) {
 //   - device: The identifier of the target device
 //   - type_: Reference in which to return the product brand type
 //
-// Returns:
+// A nil error means name has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, or type is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if name has been set
 //
 // Wraps [nvmlDeviceGetBrand].
 //
@@ -3518,13 +3586,14 @@ var slotDeviceGetBrand outSlot[BrandType]
 //   - device: The identifier of the target device
 //   - bridgeHierarchy: Reference to the returned bridge chip Hierarchy
 //
-// Returns:
+// A nil error means bridge chip exists.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, or bridgeInfo is NULL
 //   - [ErrNotSupported]: if bridge chip not supported on the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if bridge chip exists
 //
 // Wraps [nvmlDeviceGetBridgeChipInfo].
 //
@@ -3539,7 +3608,12 @@ func deviceGetBridgeChipInfo(device Device, bridgeHierarchy *BridgeChipHierarchy
 // deviceGetBusType gets the type of the GPU Bus (PCIe, PCI, …)
 //
 // return
+//   - [Success] if the bus type is successfully retreived
+//   - [ErrUninitialized] if the library has not been successfully initialized
+//   - [ErrInvalidArgument] if device is invalid or type is NULL
+//   - [ErrUnknown] on any unexpected error
 //
+// Parameters:
 //   - device: The identifier of the target device
 //   - type_: The PCI Bus type
 //
@@ -3567,12 +3641,13 @@ var slotDeviceGetBusType outSlot[BusType]
 //   - device: The identifier of the target device
 //   - c2cModeInfo: Output struct containing the device’s C2C Mode info
 //
-// Returns:
+// A nil error means C2C Mode Infor query is successful.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, or serial is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if C2C Mode Infor query is successful
 //
 // Wraps [nvmlDeviceGetC2cModeInfoV].
 //
@@ -3615,13 +3690,14 @@ var slotDeviceGetCapabilities outSlot[DeviceCapabilities]
 //   - device: The identifier of the target device
 //   - status: Reference in which to return the clkmon fault status
 //
-// Returns:
+// A nil error means status has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or status is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if status has been set
 //
 // Wraps [nvmlDeviceGetClkMonStatus].
 //
@@ -3642,13 +3718,14 @@ func deviceGetClkMonStatus(device Device, status *ClkMonStatus) error {
 //   - clockId: Identify which clock in the domain to query
 //   - clockMHz: Reference in which to return the clock in MHz
 //
-// Returns:
+// A nil error means clockMHz has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or clockMHz is NULL or clockType is invalid
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if clockMHz has been set
 //
 // Wraps [nvmlDeviceGetClock].
 //
@@ -3678,13 +3755,14 @@ var slotDeviceGetClock outSlot[uint32]
 //   - type_: Identify which clock domain to query
 //   - clock: Reference in which to return the clock speed in MHz
 //
-// Returns:
+// A nil error means clock has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or clock is NULL
 //   - [ErrNotSupported]: if the device cannot report the specified clock
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if clock has been set
 //
 // Wraps [nvmlDeviceGetClockInfo].
 //
@@ -3714,12 +3792,11 @@ var slotDeviceGetClockInfo outSlot[uint32]
 //   - device: The identifier of the target device
 //   - info: Structure specifying the clock type (input) and the pstate (input) retrieved clock offset value (output), min clock offset (output) and max clock offset (output)
 //
-// Returns:
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the provided version is invalid/unsupported
 //   - [ErrInvalidArgument]: If device, type or pstate are invalid or both minClockOffsetMHz and maxClockOffsetMHz are NULL
 //   - [ErrNotSupported]: If the device does not support this feature
 //   - [ErrUninitialized]: If the library has not been successfully initialized
-//   - [Success]: If everything worked
 //
 // Wraps [nvmlDeviceGetClockOffsets].
 //
@@ -3739,12 +3816,13 @@ func deviceGetClockOffsets(device Device, info *ClockOffset) error {
 //   - device: Target MIG device handle
 //   - id: Compute instance ID
 //
-// Returns:
+// A nil error means instance ID was successfully retrieved.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device or id reference is invalid
 //   - [ErrNotSupported]: if this query is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if instance ID was successfully retrieved
 //
 // Wraps [nvmlDeviceGetComputeInstanceId].
 //
@@ -3777,13 +3855,14 @@ var slotDeviceGetComputeInstanceId outSlot[uint32]
 //   - device: The identifier of the target device handle or MIG device handle
 //   - mode: Reference in which to return the current compute mode
 //
-// Returns:
+// A nil error means mode has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or mode is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if mode has been set
 //
 // Wraps [nvmlDeviceGetComputeMode].
 //
@@ -3820,7 +3899,9 @@ var slotDeviceGetComputeMode outSlot[ComputeMode]
 //   - infoCount: Reference in which to provide the infos array size, and to return the number of returned elements
 //   - infos: Reference in which to return the process information
 //
-// Returns:
+// A nil error means infoCount and infos have been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientSize]: if infoCount indicates that the infos array is too small infoCount will contain minimal amount of space necessary for the call to complete
 //   - [ErrInvalidArgument]: if device is invalid, either of infoCount or infos is NULL
@@ -3828,7 +3909,6 @@ var slotDeviceGetComputeMode outSlot[ComputeMode]
 //   - [ErrNoPermission]: if the user doesn’t have permission to perform this operation
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if infoCount and infos have been populated
 //
 // Wraps [nvmlDeviceGetComputeRunningProcesses], bound as nvmlDeviceGetComputeRunningProcesses_v3.
 //
@@ -3847,12 +3927,13 @@ func deviceGetComputeRunningProcesses(device Device, infoCount *uint32, infos *P
 //   - device: The identifier of the target device
 //   - gpuAtstReport: Reference in which to return the gpu attestation report
 //
-// Returns:
+// A nil error means gpu attestation report has been populated.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid or memory is NULL
 //   - [ErrNotSupported]: if this query is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if gpu attestation report has been populated
 //
 // Wraps [nvmlDeviceGetConfComputeGpuAttestationReport].
 //
@@ -3871,12 +3952,13 @@ func deviceGetConfComputeGpuAttestationReport(device Device, gpuAtstReport *Conf
 //   - device: The identifier of the target device
 //   - gpuCert: Reference in which to return the gpu certificate information
 //
-// Returns:
+// A nil error means gpu certificate info has been populated.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid or memory is NULL
 //   - [ErrNotSupported]: if this query is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if gpu certificate info has been populated
 //
 // Wraps [nvmlDeviceGetConfComputeGpuCertificate].
 //
@@ -3895,11 +3977,12 @@ func deviceGetConfComputeGpuCertificate(device Device, gpuCert *ConfComputeGpuCe
 //   - device: Device handle
 //   - memInfo: Protected/Unprotected Memory sizes
 //
-// Returns:
+// A nil error means memInfo were successfully queried.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if memInfo or device is invalid
 //   - [ErrNotSupported]: if this query is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
-//   - [Success]: if memInfo were successfully queried
 //
 // Wraps [nvmlDeviceGetConfComputeMemSizeInfo].
 //
@@ -3918,12 +4001,13 @@ func deviceGetConfComputeMemSizeInfo(device Device, memInfo *ConfComputeMemSizeI
 //   - device: The identifier of the target device
 //   - memory: Reference in which to return the memory information
 //
-// Returns:
+// A nil error means memory has been populated.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid or memory is NULL
 //   - [ErrNotSupported]: if this query is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if memory has been populated
 //
 // Wraps [nvmlDeviceGetConfComputeProtectedMemoryUsage].
 //
@@ -3953,12 +4037,11 @@ var slotDeviceGetConfComputeProtectedMemoryUsage outSlot[Memory]
 //   - device: The identifier of the target device
 //   - coolerInfo: Structure specifying the cooler’s control signal characteristics (out) and the target that cooler cools (out)
 //
-// Returns:
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the provided version is invalid/unsupported
 //   - [ErrInvalidArgument]: If device is invalid, signalType or target is NULL
 //   - [ErrNotSupported]: If the device does not support this feature
 //   - [ErrUninitialized]: If the library has not been successfully initialized
-//   - [Success]: If everything worked
 //
 // Wraps [nvmlDeviceGetCoolerInfo].
 //
@@ -3979,11 +4062,12 @@ func deviceGetCoolerInfo(device Device, coolerInfo *CoolerInfo) error {
 //
 //   - deviceCount: Reference in which to return the number of accessible devices
 //
-// Returns:
+// A nil error means deviceCount has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if deviceCount is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if deviceCount has been set
 //
 // Wraps [nvmlDeviceGetCount], bound as nvmlDeviceGetCount_v2.
 //
@@ -4012,13 +4096,14 @@ var slotDeviceGetCount outSlot[uint32]
 //   - cpuSetSize: The size of the cpuSet array that is safe to access
 //   - cpuSet: Array reference in which to return a bitmask of CPUs, 64 CPUs per unsigned long on 64-bit machines, 32 on 32-bit machines
 //
-// Returns:
+// A nil error means cpuAffinity has been filled.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, cpuSetSize == 0, or cpuSet is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if cpuAffinity has been filled
 //
 // Wraps [nvmlDeviceGetCpuAffinity].
 //
@@ -4042,13 +4127,14 @@ func deviceGetCpuAffinity(device Device, cpuSetSize uint32, cpuSet *uint) error 
 //   - cpuSet: Array reference in which to return a bitmask of CPUs, 64 CPUs per unsigned long on 64-bit machines, 32 on 32-bit machines
 //   - scope: Scope that change the default behavior
 //
-// Returns:
+// A nil error means cpuAffinity has been filled.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, cpuSetSize == 0, cpuSet is NULL or sope is invalid
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if cpuAffinity has been filled
 //
 // Wraps [nvmlDeviceGetCpuAffinityWithinScope].
 //
@@ -4070,12 +4156,11 @@ func deviceGetCpuAffinityWithinScope(device Device, cpuSetSize uint32, cpuSet *u
 //   - vgpuCount: Pointer to caller-supplied array size, and returns number of vGPU types
 //   - vgpuTypeIds: Pointer to caller-supplied array in which to return list of vGPU types
 //
-// Returns:
+// Errors:
 //   - [ErrInsufficientSize]: vgpuTypeIds buffer is too small, array element count is returned in vgpuCount
 //   - [ErrInvalidArgument]: if vgpuCount is NULL
 //   - [ErrNotSupported]: if vGPU is not supported by the device
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlDeviceGetCreatableVgpus].
 //
@@ -4096,12 +4181,13 @@ func deviceGetCreatableVgpus(device Device, vgpuCount *uint32, vgpuTypeIds *Vgpu
 //   - major: Reference in which to return the major CUDA compute capability
 //   - minor: Reference in which to return the minor CUDA compute capability
 //
-// Returns:
+// A nil error means major and minor have been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or major or minor are NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if major and minor have been set
 //
 // Wraps [nvmlDeviceGetCudaComputeCapability].
 //
@@ -4130,13 +4216,14 @@ var slotDeviceGetCudaComputeCapability outSlot[struct {
 //   - device: The identifier of the target device
 //   - currLinkGen: Reference in which to return the current PCIe link generation
 //
-// Returns:
+// A nil error means currLinkGen has been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or currLinkGen is null
 //   - [ErrNotSupported]: if PCIe link information is not available
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if currLinkGen has been populated
 //
 // Wraps [nvmlDeviceGetCurrPcieLinkGeneration].
 //
@@ -4164,13 +4251,14 @@ var slotDeviceGetCurrPcieLinkGeneration outSlot[uint32]
 //   - device: The identifier of the target device
 //   - currLinkWidth: Reference in which to return the current PCIe link generation
 //
-// Returns:
+// A nil error means currLinkWidth has been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or currLinkWidth is null
 //   - [ErrNotSupported]: if PCIe link information is not available
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if currLinkWidth has been populated
 //
 // Wraps [nvmlDeviceGetCurrPcieLinkWidth].
 //
@@ -4204,13 +4292,14 @@ var slotDeviceGetCurrPcieLinkWidth outSlot[uint32]
 //   - device: The identifier of the target device
 //   - currentClockFreqs: Reference in which to return the performance level string
 //
-// Returns:
+// A nil error means currentClockFreqs has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientSize]: if length is too small
 //   - [ErrInvalidArgument]: if device is invalid, or name is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if currentClockFreqs has been set
 //
 // Wraps [nvmlDeviceGetCurrentClockFreqs].
 //
@@ -4233,13 +4322,14 @@ func deviceGetCurrentClockFreqs(device Device, currentClockFreqs *DeviceCurrentC
 //   - device: The identifier of the target device
 //   - clocksEventReasons: Reference in which to return bitmask of active clocks event reasons
 //
-// Returns:
+// A nil error means clocksEventReasons has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or clocksEventReasons is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if clocksEventReasons has been set
 //
 // Wraps [nvmlDeviceGetCurrentClocksEventReasons].
 //
@@ -4261,9 +4351,11 @@ func deviceGetCurrentClocksEventReasons(device Device) (uint64, error) {
 
 var slotDeviceGetCurrentClocksEventReasons outSlot[uint64]
 
-// deviceGetCurrentClocksThrottleReasons wraps [nvmlDeviceGetCurrentClocksThrottleReasons].
+// deviceGetCurrentClocksThrottleReasons stores the reasons the device's clocks are currently throttled in clocksThrottleReasons.
 //
 // Deprecated: Use [Device.CurrentClocksEventReasons] instead.
+//
+// Wraps [nvmlDeviceGetCurrentClocksThrottleReasons].
 //
 // [nvmlDeviceGetCurrentClocksThrottleReasons]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv441nvmlDeviceGetCurrentClocksThrottleReasons12nvmlDevice_tPy
 func deviceGetCurrentClocksThrottleReasons(device Device, clocksThrottleReasons *uint64) error {
@@ -4283,13 +4375,14 @@ func deviceGetCurrentClocksThrottleReasons(device Device, clocksThrottleReasons 
 //   - utilization: Reference to an unsigned int for decoder utilization info
 //   - samplingPeriodUs: Reference to an unsigned int for the sampling period in US
 //
-// Returns:
+// A nil error means utilization has been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, utilization is NULL, or samplingPeriodUs is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if utilization has been populated
 //
 // Wraps [nvmlDeviceGetDecoderUtilization].
 //
@@ -4311,9 +4404,11 @@ var slotDeviceGetDecoderUtilization outSlot[struct {
 	out1 uint32
 }]
 
-// deviceGetDefaultApplicationsClock wraps [nvmlDeviceGetDefaultApplicationsClock].
+// deviceGetDefaultApplicationsClock returns the device's default applications clock of the given type, in MHz.
 //
 // Deprecated: Applications clocks are deprecated and will be removed in CUDA 14.0.
+//
+// Wraps [nvmlDeviceGetDefaultApplicationsClock].
 //
 // [nvmlDeviceGetDefaultApplicationsClock]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv437nvmlDeviceGetDefaultApplicationsClock12nvmlDevice_t15nvmlClockType_tPj
 func deviceGetDefaultApplicationsClock(device Device, clockType ClockType) (uint32, error) {
@@ -4342,13 +4437,14 @@ var slotDeviceGetDefaultApplicationsClock outSlot[uint32]
 //   - device: The identifier of the target device
 //   - defaultMode: Reference in which to return the default ECC mode
 //
-// Returns:
+// A nil error means current and pending have been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or default is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if current and pending have been set
 //
 // Wraps [nvmlDeviceGetDefaultEccMode].
 //
@@ -4381,13 +4477,14 @@ func deviceGetDefaultEccMode(device Device, defaultMode *EnableState) error {
 //   - counterType: Flag that specifies the counter-type of the errors
 //   - eccCounts: Reference in which to return the specified ECC errors
 //
-// Returns:
+// A nil error means eccCounts has been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device, errorType or counterType is invalid, or eccCounts is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if eccCounts has been populated
 //
 // Deprecated: This function is deprecated.
 //
@@ -4417,12 +4514,13 @@ var slotDeviceGetDetailedEccErrors outSlot[EccErrorCounts]
 //   - migDevice: MIG device handle
 //   - device: Device handle
 //
-// Returns:
+// A nil error means device handle was successfully created.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if migDevice or device is invalid
 //   - [ErrNotSupported]: if this query is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if device handle was successfully created
 //
 // Wraps [nvmlDeviceGetDeviceHandleFromMigDeviceHandle].
 //
@@ -4453,13 +4551,14 @@ var slotDeviceGetDeviceHandleFromMigDeviceHandle outSlot[Device]
 //   - device: The identifier of the target device
 //   - isActive: Reference in which to return the display active state
 //
-// Returns:
+// A nil error means isActive has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or isActive is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if isActive has been set
 //
 // Wraps [nvmlDeviceGetDisplayActive].
 //
@@ -4489,13 +4588,14 @@ var slotDeviceGetDisplayActive outSlot[EnableState]
 //   - device: The identifier of the target device
 //   - display: Reference in which to return the display mode
 //
-// Returns:
+// A nil error means display has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or display is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if display has been set
 //
 // Wraps [nvmlDeviceGetDisplayMode].
 //
@@ -4528,14 +4628,15 @@ var slotDeviceGetDisplayMode outSlot[EnableState]
 //   - current: Reference in which to return the current DRAM Encryption mode
 //   - pending: Reference in which to return the pending DRAM Encryption mode
 //
-// Returns:
+// A nil error means current and pending have been set.
+//
+// Errors:
 //   - [ErrArgumentVersionMismatch]: if the argument version is not supported
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or either current or pending is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if current and pending have been set
 //
 // Wraps [nvmlDeviceGetDramEncryptionMode].
 //
@@ -4559,13 +4660,14 @@ func deviceGetDramEncryptionMode(device Device, current *DramEncryptionInfo, pen
 //   - current: Reference in which to return the current driver model
 //   - pending: Reference in which to return the pending driver model
 //
-// Returns:
+// A nil error means either current and/or pending have been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or both current and pending are NULL
 //   - [ErrNotSupported]: if the platform is not windows
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if either current and/or pending have been set
 //
 // Wraps [nvmlDeviceGetDriverModel], bound as nvmlDeviceGetDriverModel_v2.
 //
@@ -4579,13 +4681,14 @@ func deviceGetDriverModel(device Device, current *DriverModel, pending *DriverMo
 
 // deviceGetDynamicPstatesInfo retrieves performance monitor samples from the associated subdevice.
 //
-// Returns:
+// A nil error means pDynamicPstatesInfo has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or pDynamicPstatesInfo is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if pDynamicPstatesInfo has been set
 //
 // Wraps [nvmlDeviceGetDynamicPstatesInfo].
 //
@@ -4609,13 +4712,14 @@ func deviceGetDynamicPstatesInfo(device Device, pDynamicPstatesInfo *GpuDynamicP
 //   - current: Reference in which to return the current ECC mode
 //   - pending: Reference in which to return the pending ECC mode
 //
-// Returns:
+// A nil error means current and pending have been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or either current or pending is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if current and pending have been set
 //
 // Wraps [nvmlDeviceGetEccMode].
 //
@@ -4635,13 +4739,14 @@ func deviceGetEccMode(device Device, current *EnableState, pending *EnableState)
 //   - encoderQueryType: Type of encoder to query
 //   - encoderCapacity: Reference to an unsigned int for the encoder capacity
 //
-// Returns:
+// A nil error means encoderCapacity is fetched.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if encoderCapacity is NULL, or device or encoderQueryType are invalid
 //   - [ErrNotSupported]: if device does not support the encoder specified in encodeQueryType
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if encoderCapacity is fetched
 //
 // Wraps [nvmlDeviceGetEncoderCapacity].
 //
@@ -4672,14 +4777,15 @@ var slotDeviceGetEncoderCapacity outSlot[uint32]
 //   - sessionCount: Reference to caller supplied array size, and returns the number of sessions
 //   - sessionInfos: Reference in which to return the session information
 //
-// Returns:
+// A nil error means sessionInfos is fetched.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientSize]: if sessionCount is too small, array element count is returned in sessionCount
 //   - [ErrInvalidArgument]: if sessionCount is NULL.
 //   - [ErrNotSupported]: if this query is not supported by device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if sessionInfos is fetched
 //
 // Wraps [nvmlDeviceGetEncoderSessions].
 //
@@ -4700,12 +4806,13 @@ func deviceGetEncoderSessions(device Device, sessionCount *uint32, sessionInfos 
 //   - averageFps: Reference to an unsigned int for trailing average FPS of all active sessions
 //   - averageLatency: Reference to an unsigned int for encode latency in microseconds
 //
-// Returns:
+// A nil error means sessionCount, averageFps and averageLatency is fetched.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if sessionCount, or device or averageFps, or averageLatency is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if sessionCount, averageFps and averageLatency is fetched
 //
 // Wraps [nvmlDeviceGetEncoderStats].
 //
@@ -4727,13 +4834,14 @@ func deviceGetEncoderStats(device Device, sessionCount *uint32, averageFps *uint
 //   - utilization: Reference to an unsigned int for encoder utilization info
 //   - samplingPeriodUs: Reference to an unsigned int for the sampling period in US
 //
-// Returns:
+// A nil error means utilization has been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, utilization is NULL, or samplingPeriodUs is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if utilization has been populated
 //
 // Wraps [nvmlDeviceGetEncoderUtilization].
 //
@@ -4763,13 +4871,14 @@ var slotDeviceGetEncoderUtilization outSlot[struct {
 //   - device: The device to communicate with
 //   - limit: Reference in which to return the power management limit in milliwatts
 //
-// Returns:
+// A nil error means limit has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or limit is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if limit has been set
 //
 // Wraps [nvmlDeviceGetEnforcedPowerLimit].
 //
@@ -4802,13 +4911,14 @@ var slotDeviceGetEnforcedPowerLimit outSlot[uint32]
 //   - sessionCount: Reference to caller supplied array size, and returns the number of sessions
 //   - sessionInfo: Reference in which to return the session information
 //
-// Returns:
+// A nil error means sessionInfo is fetched.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientSize]: if sessionCount is too small, array element count is returned in sessionCount
 //   - [ErrInvalidArgument]: if sessionCount is NULL.
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if sessionInfo is fetched
 //
 // Wraps [nvmlDeviceGetFBCSessions].
 //
@@ -4827,12 +4937,13 @@ func deviceGetFBCSessions(device Device, sessionCount *uint32, sessionInfo *FBCS
 //   - device: The identifier of the target device
 //   - fbcStats: Reference to [FBCStats] structure containing NvFBC stats
 //
-// Returns:
+// A nil error means fbcStats is fetched.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if fbcStats is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if fbcStats is fetched
 //
 // Wraps [nvmlDeviceGetFBCStats].
 //
@@ -4853,12 +4964,13 @@ func deviceGetFBCStats(device Device, fbcStats *FBCStats) error {
 //   - fan: The index of the target fan, zero indexed
 //   - policy: Reference in which to return the fan control policy
 //
-// Returns:
+// A nil error means policy has been populated.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid or policy is null or the fan given doesn’t reference a fan that exists.
 //   - [ErrNotSupported]: if the device is older than Maxwell
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if policy has been populated
 //
 // Wraps [nvmlDeviceGetFanControlPolicy_v2].
 //
@@ -4889,12 +5001,11 @@ var slotDeviceGetFanControlPolicy outSlot[FanControlPolicy]
 //   - device: The identifier of the target device
 //   - fanSpeed: Structure specifying the index of the target fan (input) and retrieved fan speed value (output)
 //
-// Returns:
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the provided version is invalid/unsupported
 //   - [ErrInvalidArgument]: If device is invalid, fan is not an acceptable index, or speed is NULL
 //   - [ErrNotSupported]: If the device does not support this feature
 //   - [ErrUninitialized]: If the library has not been successfully initialized
-//   - [Success]: If everything worked
 //
 // Wraps [nvmlDeviceGetFanSpeedRPM].
 //
@@ -4916,13 +5027,14 @@ func deviceGetFanSpeedRPM(device Device, fanSpeed *FanSpeedInfo) error {
 //   - fan: The index of the target fan, zero indexed
 //   - speed: Reference in which to return the fan speed percentage
 //
-// Returns:
+// A nil error means speed has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, fan is not an acceptable index, or speed is NULL
 //   - [ErrNotSupported]: if the device does not have a fan or is newer than Maxwell
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if speed has been set
 //
 // Wraps [nvmlDeviceGetFanSpeed_v2].
 //
@@ -4951,9 +5063,10 @@ var slotDeviceGetFanSpeed outSlot[uint32]
 //   - valuesCount: Number of entries in values that should be retrieved
 //   - values: Array of valuesCount structures to hold field values. Each value’s fieldId must be populated prior to this call
 //
-// Returns:
+// A nil error means any values in values were populated. Note that you must check the nvmlReturn field of each value for each individual status.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid or values is NULL previousField Value Enums nextFrame Buffer Capture Structures
-//   - [Success]: if any values in values were populated. Note that you must check the nvmlReturn field of each value for each individual status
 //
 // Wraps [nvmlDeviceGetFieldValues].
 //
@@ -4971,12 +5084,13 @@ func deviceGetFieldValues(device Device, valuesCount int32, values *FieldValue) 
 //   - minOffset: The retrieved GPCCLK VF min offset value
 //   - maxOffset: The retrieved GPCCLK VF max offset value
 //
-// Returns:
+// A nil error means offset has been successfully queried.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid or offset is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if offset has been successfully queried
 //
 // Wraps [nvmlDeviceGetGpcClkMinMaxVfOffset].
 //
@@ -5003,12 +5117,13 @@ var slotDeviceGetGpcClkMinMaxVfOffset outSlot[struct {
 //   - device: The identifier of the target device
 //   - offset: The retrieved GPCCLK VF offset value
 //
-// Returns:
+// A nil error means offset has been successfully queried.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid or offset is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if offset has been successfully queried
 //
 // Wraps [nvmlDeviceGetGpcClkVfOffset].
 //
@@ -5037,9 +5152,8 @@ var slotDeviceGetGpcClkVfOffset outSlot[int32]
 //   - device: The identifier of the target device
 //   - gpuFabricInfo: Information about GPU fabric state
 //
-// Returns:
+// Errors:
 //   - [ErrNotSupported]: If device doesn’t support gpu fabric
-//   - [Success]: Upon success
 //
 // Deprecated: Will be deprecated in a future release. Use [Device.GpuFabricInfoV] instead.
 //
@@ -5053,7 +5167,9 @@ func deviceGetGpuFabricInfo(device Device, gpuFabricInfo *GpuFabricInfo) error {
 	return toError(fndeviceGetGpuFabricInfo(device, gpuFabricInfo), "nvmlDeviceGetGpuFabricInfo")
 }
 
-// deviceGetGpuFabricInfoV Versioned wrapper around [Device.GpuFabricInfo] that accepts a versioned [GpuFabricInfoV2] or later output structure.
+// deviceGetGpuFabricInfoV returns the device's GPU fabric information in a versioned structure, of version 2 or later.
+//
+// Versioned wrapper around [Device.GpuFabricInfo] that accepts a versioned [GpuFabricInfoV2] or later output structure.
 //
 // For Hopper or newer fully supported devices.
 //
@@ -5062,9 +5178,8 @@ func deviceGetGpuFabricInfo(device Device, gpuFabricInfo *GpuFabricInfo) error {
 //   - device: The identifier of the target device
 //   - gpuFabricInfo: Information about GPU fabric state
 //
-// Returns:
+// Errors:
 //   - [ErrNotSupported]: If device doesn’t support gpu fabric
-//   - [Success]: Upon success
 //
 // Wraps [nvmlDeviceGetGpuFabricInfoV].
 //
@@ -5084,13 +5199,12 @@ func deviceGetGpuFabricInfoV(device Device, gpuFabricInfo *GpuFabricInfoV) error
 //   - id: The GPU instance ID
 //   - gpuInstance: Returns GPU instance
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If device, id or gpuInstance are invalid
 //   - [ErrNotFound]: If the GPU instance is not found.
 //   - [ErrNotSupported]: If device doesn’t have MIG mode enabled
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlDeviceGetGpuInstanceById].
 //
@@ -5119,12 +5233,13 @@ var slotDeviceGetGpuInstanceById outSlot[GpuInstance]
 //   - device: Target MIG device handle
 //   - id: GPU instance ID
 //
-// Returns:
+// A nil error means instance ID was successfully retrieved.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device or id reference is invalid
 //   - [ErrNotSupported]: if this query is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if instance ID was successfully retrieved
 //
 // Wraps [nvmlDeviceGetGpuInstanceId].
 //
@@ -5155,12 +5270,11 @@ var slotDeviceGetGpuInstanceId outSlot[uint32]
 //   - placements: Returns placements allowed for the profile. Can be NULL to discover number of allowed placements for this profile. If non-NULL must be large enough to accommodate the placements supported by the profile
 //   - count: Returns number of allowed placemenets for the profile
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If device, profileId or count are invalid
 //   - [ErrNotSupported]: If device doesn’t support MIG or profileId isn’t supported
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlDeviceGetGpuInstancePossiblePlacements], bound as nvmlDeviceGetGpuInstancePossiblePlacements_v2.
 //
@@ -5183,12 +5297,11 @@ func deviceGetGpuInstancePossiblePlacements(device Device, profileId uint32, pla
 //   - profile: One of the NVML_GPU_INSTANCE_PROFILE_*
 //   - info: Returns detailed profile information
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If device, profile or info are invalid
 //   - [ErrNotSupported]: If device doesn’t support MIG or profile isn’t supported
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlDeviceGetGpuInstanceProfileInfo].
 //
@@ -5220,12 +5333,11 @@ var slotDeviceGetGpuInstanceProfileInfo outSlot[GpuInstanceProfileInfo]
 //   - profileId: One of the profile IDs
 //   - info: Returns detailed profile information
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If device, profileId, info, or info->version are invalid
 //   - [ErrNotSupported]: If device doesn’t have MIG mode enabled or profile isn’t supported
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlDeviceGetGpuInstanceProfileInfoByIdV].
 //
@@ -5247,7 +5359,9 @@ func deviceGetGpuInstanceProfileInfoByIdV(device Device, profileId uint32) (GpuI
 
 var slotDeviceGetGpuInstanceProfileInfoByIdV outSlot[GpuInstanceProfileInfoV2]
 
-// deviceGetGpuInstanceProfileInfoV Versioned wrapper around [Device.GpuInstanceProfileInfo] that accepts a versioned [GpuInstanceProfileInfoV2] or later output structure.
+// deviceGetGpuInstanceProfileInfoV returns information about a GPU instance profile in a versioned structure, of version 2 or later.
+//
+// Versioned wrapper around [Device.GpuInstanceProfileInfo] that accepts a versioned [GpuInstanceProfileInfoV2] or later output structure.
 //
 // For Ampere or newer fully supported devices. Supported on Linux only.
 //
@@ -5257,12 +5371,11 @@ var slotDeviceGetGpuInstanceProfileInfoByIdV outSlot[GpuInstanceProfileInfoV2]
 //   - profile: One of the NVML_GPU_INSTANCE_PROFILE_*
 //   - info: Returns detailed profile information
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If device, profile, info, or info->version are invalid
 //   - [ErrNotSupported]: If device doesn’t have MIG mode enabled or profile isn’t supported
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlDeviceGetGpuInstanceProfileInfoV].
 //
@@ -5292,12 +5405,11 @@ var slotDeviceGetGpuInstanceProfileInfoV outSlot[GpuInstanceProfileInfoV2]
 //   - profileId: The GPU instance profile ID. See [Device.GpuInstanceProfileInfo]
 //   - count: Returns remaining instance count for the profile ID
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If device, profileId or count are invalid
 //   - [ErrNotSupported]: If device doesn’t have MIG mode enabled or profileId isn’t supported
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlDeviceGetGpuInstanceRemainingCapacity].
 //
@@ -5318,12 +5430,11 @@ func deviceGetGpuInstanceRemainingCapacity(device Device, profileId uint32, coun
 //   - gpuInstances: Returns pre-exiting GPU instances, the buffer must be large enough to accommodate the instances supported by the profile. See [Device.GpuInstanceProfileInfo]
 //   - count: The count of returned GPU instances
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If device, profileId, gpuInstances or count are invalid
 //   - [ErrNotSupported]: If device doesn’t have MIG mode enabled
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlDeviceGetGpuInstances].
 //
@@ -5342,13 +5453,14 @@ func deviceGetGpuInstances(device Device, profileId uint32, gpuInstances *GpuIns
 //   - device: The identifier of the target device
 //   - maxLinkGenDevice: Reference in which to return the max PCIe link generation
 //
-// Returns:
+// A nil error means maxLinkGenDevice has been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or maxLinkGenDevice is null
 //   - [ErrNotSupported]: if PCIe link information is not available
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if maxLinkGenDevice has been populated
 //
 // Wraps [nvmlDeviceGetGpuMaxPcieLinkGeneration].
 //
@@ -5379,13 +5491,14 @@ var slotDeviceGetGpuMaxPcieLinkGeneration outSlot[uint32]
 //   - current: Reference in which to return the current GOM
 //   - pending: Reference in which to return the pending GOM
 //
-// Returns:
+// A nil error means mode has been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or current or pending is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if mode has been populated
 //
 // Wraps [nvmlDeviceGetGpuOperationMode].
 //
@@ -5413,7 +5526,9 @@ func deviceGetGpuOperationMode(device Device, current *GpuOperationMode, pending
 //   - infoCount: Reference in which to provide the infos array size, and to return the number of returned elements
 //   - infos: Reference in which to return the process information
 //
-// Returns:
+// A nil error means infoCount and infos have been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientSize]: if infoCount indicates that the infos array is too small infoCount will contain minimal amount of space necessary for the call to complete
 //   - [ErrInvalidArgument]: if device is invalid, either of infoCount or infos is NULL
@@ -5421,7 +5536,6 @@ func deviceGetGpuOperationMode(device Device, current *GpuOperationMode, pending
 //   - [ErrNoPermission]: if the user doesn’t have permission to perform this operation
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if infoCount and infos have been populated
 //
 // Wraps [nvmlDeviceGetGraphicsRunningProcesses], bound as nvmlDeviceGetGraphicsRunningProcesses_v3.
 //
@@ -5440,10 +5554,11 @@ func deviceGetGraphicsRunningProcesses(device Device, infoCount *uint32, infos *
 //   - device: Identifier of the target device
 //   - pGridLicensableFeatures: Pointer to structure in which vGPU software licensable features are returned
 //
-// Returns:
+// A nil error means licensable features are successfully retrieved.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if pGridLicensableFeatures is NULL
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if licensable features are successfully retrieved
 //
 // Wraps [nvmlDeviceGetGridLicensableFeatures], bound as nvmlDeviceGetGridLicensableFeatures_v4.
 //
@@ -5463,11 +5578,12 @@ func deviceGetGridLicensableFeatures(device Device, pGridLicensableFeatures *Gri
 //   - isEnabled: Pointer to specify if GSP firmware is enabled
 //   - defaultMode: Pointer to specify if GSP firmware is supported by default on device
 //
-// Returns:
+// A nil error means GSP firmware mode is sucessfully retrieved.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid or any of isEnabled or defaultMode is NULL
 //   - [ErrNotSupported]: if GSP firmware is not enabled for GPU
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if GSP firmware mode is sucessfully retrieved
 //
 // Wraps [nvmlDeviceGetGspFirmwareMode].
 //
@@ -5486,11 +5602,12 @@ func deviceGetGspFirmwareMode(device Device, isEnabled *uint32, defaultMode *uin
 //   - device: Device handle
 //   - version: The retrieved GSP firmware version
 //
-// Returns:
+// A nil error means GSP firmware version is sucessfully retrieved.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid or GSP version pointer is NULL
 //   - [ErrNotSupported]: if GSP firmware is not enabled for GPU
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if GSP firmware version is sucessfully retrieved
 //
 // Wraps [nvmlDeviceGetGspFirmwareVersion].
 //
@@ -5510,6 +5627,7 @@ func deviceGetGspFirmwareVersion(device Device, version *byte) error {
 //
 // Note: The NVML index may not correlate with other APIs, such as the CUDA device index.
 // Starting from NVML 5, this API causes NVML to initialize the target GPU NVML may initialize additional GPUs if:
+//   - The target GPU is an SLI slave
 //
 // Note: New [DeviceGetCount] (default in NVML 5.319) returns count of all devices in the system even if [NewDeviceByIndex] returns [ErrNoPermission] for such device. Update your code to handle this error, or use NVML 4.304 or older nvml header file. For backward binary compatibility reasons _v1 version of the API is still present in the shared library. Old _v1 version of [DeviceGetCount] doesn’t count devices that NVML has no permission to talk to.
 // This means that [NewDeviceByIndex] and _v1 can return different devices for the same index. If you don’t touch macros that map old (_v1) versions to _v2 versions at the top of the file you don’t need to worry about that.
@@ -5519,7 +5637,9 @@ func deviceGetGspFirmwareVersion(device Device, version *byte) error {
 //   - index: The index of the target GPU, >= 0 and < accessibleDevices
 //   - device: Reference in which to return the device handle
 //
-// Returns:
+// A nil error means device has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientPower]: if any attached devices have improperly attached external power cables
 //   - [ErrInvalidArgument]: if index is invalid or device is NULL
@@ -5527,7 +5647,6 @@ func deviceGetGspFirmwareVersion(device Device, version *byte) error {
 //   - [ErrNoPermission]: if the user doesn’t have permission to talk to this device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if device has been set
 //
 // Wraps [nvmlDeviceGetHandleByIndex], bound as nvmlDeviceGetHandleByIndex_v2.
 //
@@ -5553,13 +5672,16 @@ var slotDeviceGetHandleByIndex outSlot[Device]
 // For all products.
 // This value corresponds to the [PciInfo].busId returned by [Device.PciInfo].
 // Starting from NVML 5, this API causes NVML to initialize the target GPU NVML may initialize additional GPUs if:
+//   - The target GPU is an SLI slave
 //
 // Note: NVML 4.304 and older version of [NewDeviceByPciBusId]”_v1” returns [ErrNotFound] instead of [ErrNoPermission].
 //
 //   - pciBusId: The PCI bus id of the target GPU Accept the following formats (all numbers in hexadecimal): domain:bus:device.function in format x:x:x.x domain:bus:device in format x:x:x bus:device.function in format x:x.x
 //   - device: Reference in which to return the device handle
 //
-// Returns:
+// A nil error means device has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientPower]: if the attached device has improperly attached external power cables
 //   - [ErrInvalidArgument]: if pciBusId is invalid or device is NULL
@@ -5568,7 +5690,6 @@ var slotDeviceGetHandleByIndex outSlot[Device]
 //   - [ErrNoPermission]: if the user doesn’t have permission to talk to this device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if device has been set
 //
 // Wraps [nvmlDeviceGetHandleByPciBusId], bound as nvmlDeviceGetHandleByPciBusId_v2.
 //
@@ -5594,7 +5715,7 @@ var slotDeviceGetHandleByPciBusId outSlot[Device]
 //
 // For Fermi or newer fully supported devices.
 // This number corresponds to the value printed directly on the board, and to the value returned by [Device.Serial].
-// Since more than one GPU can exist on a single board this function is deprecated in favor of [NewDeviceByUUID]. For dual GPU boards this function will return [ErrInvalidArgument].
+// For dual GPU boards this function will return [ErrInvalidArgument].
 // Starting from NVML 5, this API causes NVML to initialize the target GPU NVML may initialize additional GPUs as it searches for the target GPU
 //
 // See also: [Device.Serial], [NewDeviceByUUID]
@@ -5602,7 +5723,9 @@ var slotDeviceGetHandleByPciBusId outSlot[Device]
 //   - serial: The board serial number of the target GPU
 //   - device: Reference in which to return the device handle
 //
-// Returns:
+// A nil error means device has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if any GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientPower]: if any attached devices have improperly attached external power cables
 //   - [ErrInvalidArgument]: if serial is invalid, device is NULL or more than one device has the same serial (dual GPU boards)
@@ -5610,7 +5733,6 @@ var slotDeviceGetHandleByPciBusId outSlot[Device]
 //   - [ErrNotFound]: if serial does not match a valid device on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if device has been set
 //
 // Deprecated: Since more than one GPU can exist on a single board this function is deprecated in favor of [NewDeviceByUUID].
 //
@@ -5643,7 +5765,9 @@ var slotDeviceGetHandleBySerial outSlot[Device]
 //   - uuid: The UUID of the target GPU or MIG instance
 //   - device: Reference in which to return the device handle or MIG device handle
 //
-// Returns:
+// A nil error means device has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if any GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientPower]: if any attached devices have improperly attached external power cables
 //   - [ErrInvalidArgument]: if uuid is invalid or device is null
@@ -5651,7 +5775,6 @@ var slotDeviceGetHandleBySerial outSlot[Device]
 //   - [ErrNotFound]: if uuid does not match a valid device on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if device has been set
 //
 // Wraps [nvmlDeviceGetHandleByUUID].
 //
@@ -5682,14 +5805,15 @@ var slotDeviceGetHandleByUUID outSlot[Device]
 //   - uuid: The UUID of the target GPU or MIG instance
 //   - device: Reference in which to return the device handle or MIG device handle
 //
-// Returns:
+// A nil error means device has been set.
+//
+// Errors:
 //   - [ErrArgumentVersionMismatch]: if the provided version is invalid/unsupported
 //   - [ErrGpuIsLost]: if any GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if uuid is invalid, device is null or uuid->type is invalid
 //   - [ErrNotFound]: if uuid does not match a valid device on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if device has been set
 //
 // Wraps [nvmlDeviceGetHandleByUUIDV].
 //
@@ -5717,11 +5841,12 @@ var slotDeviceGetHandleByUUIDV outSlot[Device]
 //   - device: The identifier of the target device
 //   - pHostVgpuMode: Reference in which to return the current vGPU mode
 //
-// Returns:
+// A nil error means device’s vGPU mode has been successfully retrieved.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device handle is 0 or pVgpuMode is NULL
 //   - [ErrNotSupported]: if device doesn’t support this feature.
 //   - [ErrUnknown]: if any unexpected error occurred
-//   - [Success]: if device’s vGPU mode has been successfully retrieved
 //
 // Wraps [nvmlDeviceGetHostVgpuMode].
 //
@@ -5743,13 +5868,14 @@ func deviceGetHostVgpuMode(device Device, pHostVgpuMode *HostVgpuMode) error {
 //   - device: The identifier of the target device
 //   - hostname: Reference to the caller-provided [HostnameV1] struct to return the hostname
 //
-// Returns:
+// A nil error means the hostname was retrieved successfully.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or hostname is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the hostname was retrieved successfully
 //
 // Wraps [nvmlDeviceGetHostname_v1].
 //
@@ -5775,12 +5901,13 @@ func deviceGetHostname(device Device, hostname *HostnameV1) error {
 //   - device: The identifier of the target device
 //   - index: Reference in which to return the NVML index of the device
 //
-// Returns:
+// A nil error means index has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, or index is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if index has been set
 //
 // Wraps [nvmlDeviceGetIndex].
 //
@@ -5809,14 +5936,15 @@ var slotDeviceGetIndex outSlot[uint32]
 //   - device: The identifier of the target device
 //   - checksum: Reference in which to return the infoROM configuration checksum
 //
-// Returns:
+// A nil error means checksum has been set.
+//
+// Errors:
 //   - [ErrCorruptedInforom]: if the device’s checksum couldn’t be retrieved due to infoROM corruption
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if checksum is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if checksum has been set
 //
 // Wraps [nvmlDeviceGetInforomConfigurationChecksum].
 //
@@ -5848,14 +5976,15 @@ var slotDeviceGetInforomConfigurationChecksum outSlot[uint32]
 //   - version: Reference in which to return the infoROM image version
 //   - length: The maximum allowed length of the string returned in version
 //
-// Returns:
+// A nil error means version has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientSize]: if length is too small
 //   - [ErrInvalidArgument]: if version is NULL
 //   - [ErrNotSupported]: if the device does not have an infoROM
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if version has been set
 //
 // Wraps [nvmlDeviceGetInforomImageVersion].
 //
@@ -5888,14 +6017,15 @@ func deviceGetInforomImageVersion(device Device) (string, error) {
 //   - version: Reference in which to return the infoROM version
 //   - length: The maximum allowed length of the string returned in version
 //
-// Returns:
+// A nil error means version has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientSize]: if length is too small
 //   - [ErrInvalidArgument]: if version is NULL
 //   - [ErrNotSupported]: if the device does not have an infoROM
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if version has been set
 //
 // Wraps [nvmlDeviceGetInforomVersion].
 //
@@ -5920,12 +6050,13 @@ func deviceGetInforomVersion(device Device, object InforomObject) (string, error
 //   - device: The identifier of the target device
 //   - irqNum: The interrupt number associated with the specified device
 //
-// Returns:
+// A nil error means irq number is successfully retrieved.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, or irqNum is NULL
 //   - [ErrNotSupported]: if this query is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
-//   - [Success]: if irq number is successfully retrieved
 //
 // Wraps [nvmlDeviceGetIrqNum].
 //
@@ -5956,13 +6087,14 @@ var slotDeviceGetIrqNum outSlot[uint32]
 //   - utilization: Reference to an unsigned int for jpg utilization info
 //   - samplingPeriodUs: Reference to an unsigned int for the sampling period in US
 //
-// Returns:
+// A nil error means utilization has been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, utilization is NULL, or samplingPeriodUs is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if utilization has been populated
 //
 // Wraps [nvmlDeviceGetJpgUtilization].
 //
@@ -5994,12 +6126,13 @@ var slotDeviceGetJpgUtilization outSlot[struct {
 //   - timestamp: The start timestamp of the last BBX Flush
 //   - durationUs: The duration (us) of the last BBX Flush
 //
-// Returns:
+// A nil error means timestamp and durationUs are successfully retrieved.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrNotReady]: if the BBX object has not been flushed yet
 //   - [ErrNotSupported]: if the device does not have an infoROM
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if timestamp and durationUs are successfully retrieved
 //
 // Wraps [nvmlDeviceGetLastBBXFlushTime].
 //
@@ -6027,14 +6160,15 @@ func deviceGetLastBBXFlushTime(device Device, timestamp *uint64, durationUs *uin
 //   - infoCount: Reference in which to provide the infos array size, and to return the number of returned elements
 //   - infos: Reference in which to return the process information
 //
-// Returns:
+// A nil error means infoCount and infos have been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientSize]: if infoCount indicates that the infos array is too small infoCount will contain minimal amount of space necessary for the call to complete
 //   - [ErrInvalidArgument]: if device is invalid, either of infoCount or infos is NULL
 //   - [ErrNotSupported]: if this query is not supported by device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if infoCount and infos have been populated
 //
 // Wraps [nvmlDeviceGetMPSComputeRunningProcesses], bound as nvmlDeviceGetMPSComputeRunningProcesses_v3.
 //
@@ -6049,15 +6183,16 @@ func deviceGetMPSComputeRunningProcesses(device Device, infoCount *uint32, infos
 // deviceGetMarginTemperature retrieves the thermal margin temperature (distance to nearest slowdown threshold).
 //
 //   - device: The identifier of the target device
-//   - marginTempInfo: [inout] Versioned structure in which to return the temperature reading
+//   - marginTempInfo: Versioned structure in which to return the temperature reading
 //
-// Returns:
+// A nil error means the margin temperature was retrieved successfully.
+//
+// Errors:
 //   - [ErrArgumentVersionMismatch]: if the right versioned structure is not used
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or temperature is NULL
 //   - [ErrNotSupported]: if request is not supported on the current platform
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the margin temperature was retrieved successfully
 //
 // Wraps [nvmlDeviceGetMarginTemperature].
 //
@@ -6090,13 +6225,14 @@ var slotDeviceGetMarginTemperature outSlot[MarginTemperature]
 //   - type_: Identify which clock domain to query
 //   - clock: Reference in which to return the clock speed in MHz
 //
-// Returns:
+// A nil error means clock has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or clock is NULL
 //   - [ErrNotSupported]: if the device cannot report the specified clock
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if clock has been set
 //
 // Wraps [nvmlDeviceGetMaxClockInfo].
 //
@@ -6125,13 +6261,14 @@ var slotDeviceGetMaxClockInfo outSlot[uint32]
 //   - clockType: Identify which clock domain to query
 //   - clockMHz: Reference in which to return the clock in MHz
 //
-// Returns:
+// A nil error means clockMHz has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or clockMHz is NULL or clockType is invalid
 //   - [ErrNotSupported]: if the device or the clockType on this device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if clockMHz has been set
 //
 // Wraps [nvmlDeviceGetMaxCustomerBoostClock].
 //
@@ -6160,11 +6297,12 @@ var slotDeviceGetMaxCustomerBoostClock outSlot[uint32]
 //   - device: Target device handle
 //   - count: Count of MIG devices
 //
-// Returns:
+// A nil error means count was successfully retrieved.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device or count reference is invalid
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if count was successfully retrieved
 //
 // Wraps [nvmlDeviceGetMaxMigDeviceCount].
 //
@@ -6184,13 +6322,14 @@ func deviceGetMaxMigDeviceCount(device Device, count *uint32) error {
 //   - device: The identifier of the target device
 //   - maxLinkGen: Reference in which to return the max PCIe link generation
 //
-// Returns:
+// A nil error means maxLinkGen has been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or maxLinkGen is null
 //   - [ErrNotSupported]: if PCIe link information is not available
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if maxLinkGen has been populated
 //
 // Wraps [nvmlDeviceGetMaxPcieLinkGeneration].
 //
@@ -6219,13 +6358,14 @@ var slotDeviceGetMaxPcieLinkGeneration outSlot[uint32]
 //   - device: The identifier of the target device
 //   - maxLinkWidth: Reference in which to return the max PCIe link generation
 //
-// Returns:
+// A nil error means maxLinkWidth has been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or maxLinkWidth is null
 //   - [ErrNotSupported]: if PCIe link information is not available
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if maxLinkWidth has been populated
 //
 // Wraps [nvmlDeviceGetMaxPcieLinkWidth].
 //
@@ -6252,12 +6392,13 @@ var slotDeviceGetMaxPcieLinkWidth outSlot[uint32]
 //   - minOffset: The retrieved MemClk VF min offset value
 //   - maxOffset: The retrieved MemClk VF max offset value
 //
-// Returns:
+// A nil error means offset has been successfully queried.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid or offset is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if offset has been successfully queried
 //
 // Wraps [nvmlDeviceGetMemClkMinMaxVfOffset].
 //
@@ -6284,12 +6425,13 @@ var slotDeviceGetMemClkMinMaxVfOffset outSlot[struct {
 //   - device: The identifier of the target device
 //   - offset: The retrieved MemClk VF offset value
 //
-// Returns:
+// A nil error means offset has been successfully queried.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid or offset is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if offset has been successfully queried
 //
 // Wraps [nvmlDeviceGetMemClkVfOffset].
 //
@@ -6322,13 +6464,14 @@ var slotDeviceGetMemClkVfOffset outSlot[int32]
 //   - nodeSet: Array reference in which to return a bitmask of NODEs, 64 NODEs per unsigned long on 64-bit machines, 32 on 32-bit machines
 //   - scope: Scope that change the default behavior
 //
-// Returns:
+// A nil error means NUMA node Affinity has been filled.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, nodeSetSize == 0, nodeSet is NULL or scope is invalid
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if NUMA node Affinity has been filled
 //
 // Wraps [nvmlDeviceGetMemoryAffinity].
 //
@@ -6345,12 +6488,13 @@ func deviceGetMemoryAffinity(device Device, nodeSetSize uint32, nodeSet *uint, s
 //   - device: The identifier of the target device
 //   - busWidth: The devices’s memory bus width
 //
-// Returns:
+// A nil error means the memory bus width is successfully retrieved.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, or busWidth is NULL
 //   - [ErrNotSupported]: if this query is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
-//   - [Success]: if the memory bus width is successfully retrieved
 //
 // Wraps [nvmlDeviceGetMemoryBusWidth].
 //
@@ -6392,13 +6536,14 @@ var slotDeviceGetMemoryBusWidth outSlot[uint32]
 //   - locationType: Specifies the location of the counter
 //   - count: Reference in which to return the ECC counter
 //
-// Returns:
+// A nil error means count has been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device, bitTyp,e counterType or locationType is invalid, or count is NULL
 //   - [ErrNotSupported]: if the device does not support ECC error reporting in the specified memory
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if count has been populated
 //
 // Wraps [nvmlDeviceGetMemoryErrorCounter].
 //
@@ -6426,14 +6571,15 @@ func deviceGetMemoryErrorCounter(device Device, errorType MemoryErrorType, count
 //   - device: The identifier of the target device
 //   - memory: Reference in which to return the memory information
 //
-// Returns:
+// A nil error means memory has been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or memory is NULL
 //   - [ErrNotSupported]: if video memory is unsupported on the device
 //   - [ErrNoPermission]: if the user doesn’t have permission to perform this operation
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if memory has been populated
 //
 // Wraps [nvmlDeviceGetMemoryInfo_v2].
 //
@@ -6464,13 +6610,14 @@ var slotDeviceGetMemoryInfo outSlot[MemoryV2]
 //   - index: Index of the MIG device
 //   - migDevice: Reference to the MIG device handle
 //
-// Returns:
+// A nil error means migDevice handle was successfully created.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device, index or migDevice reference is invalid
 //   - [ErrNotFound]: if no valid MIG device was found at index
 //   - [ErrNotSupported]: if this query is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if migDevice handle was successfully created
 //
 // Wraps [nvmlDeviceGetMigDeviceHandleByIndex].
 //
@@ -6500,12 +6647,11 @@ var slotDeviceGetMigDeviceHandleByIndex outSlot[Device]
 //   - currentMode: Returns the current mode, [DeviceMigDisable] or [DeviceMigEnable]
 //   - pendingMode: Returns the pending mode, [DeviceMigDisable] or [DeviceMigEnable]
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If device, currentMode or pendingMode are invalid
 //   - [ErrNotSupported]: If device doesn’t support MIG mode
 //   - [ErrUninitialized]: If library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: Upon success
 //
 // Wraps [nvmlDeviceGetMigMode].
 //
@@ -6535,12 +6681,11 @@ var slotDeviceGetMigMode outSlot[struct {
 //   - minClockMHz: Reference in which to return min clock frequency
 //   - maxClockMHz: Reference in which to return max clock frequency
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if device, type or minClockMHz and maxClockMHz are NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: if type or pstate are invalid or any unexpected error
-//   - [Success]: if everything worked
 //
 // Wraps [nvmlDeviceGetMinMaxClockOfPState].
 //
@@ -6560,12 +6705,13 @@ func deviceGetMinMaxClockOfPState(device Device, type_ ClockType, pstate Pstates
 //   - minSpeed: The minimum speed allowed to set
 //   - maxSpeed: The maximum speed allowed to set
 //
-// Returns:
+// A nil error means speed has been adjusted.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid
 //   - [ErrNotSupported]: if the device does not support this (doesn’t have fans)
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if speed has been adjusted
 //
 // Wraps [nvmlDeviceGetMinMaxFanSpeed].
 //
@@ -6595,13 +6741,14 @@ var slotDeviceGetMinMaxFanSpeed outSlot[struct {
 //   - device: The identifier of the target device
 //   - minorNumber: Reference in which to return the minor number for the device
 //
-// Returns:
+// A nil error means the minor number is successfully retrieved.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or minorNumber is NULL
 //   - [ErrNotSupported]: if this query is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the minor number is successfully retrieved
 //
 // Wraps [nvmlDeviceGetMinorNumber].
 //
@@ -6629,11 +6776,12 @@ var slotDeviceGetMinorNumber outSlot[uint32]
 //   - device: The identifier of the target device
 //   - moduleId: Unique identifier for the GPU module
 //
-// Returns:
+// A nil error means moduleId has been successfully retrieved.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device or moduleId is invalid
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if moduleId has been successfully retrieved
 //
 // Wraps [nvmlDeviceGetModuleId].
 //
@@ -6661,13 +6809,14 @@ var slotDeviceGetModuleId outSlot[uint32]
 //   - device: The identifier of the target device
 //   - multiGpuBool: Reference in which to return a zero or non-zero value to indicate whether the device is on a multi GPU board
 //
-// Returns:
+// A nil error means multiGpuBool has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or multiGpuBool is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if multiGpuBool has been set
 //
 // Wraps [nvmlDeviceGetMultiGpuBoard].
 //
@@ -6698,13 +6847,14 @@ var slotDeviceGetMultiGpuBoard outSlot[uint32]
 //   - name: Reference in which to return the product name
 //   - length: The maximum allowed length of the string returned in name
 //
-// Returns:
+// A nil error means name has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientSize]: if length is too small
 //   - [ErrInvalidArgument]: if device is invalid, or name is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if name has been set
 //
 // Wraps [nvmlDeviceGetName].
 //
@@ -6731,13 +6881,14 @@ func deviceGetName(device Device) (string, error) {
 //   - device: The identifier of the target device
 //   - numFans: The number of fans
 //
-// Returns:
+// A nil error means fan number query was successful.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or numFans is NULL
 //   - [ErrNotSupported]: if the device does not have a fan
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if fan number query was successful
 //
 // Wraps [nvmlDeviceGetNumFans].
 //
@@ -6765,12 +6916,13 @@ var slotDeviceGetNumFans outSlot[uint32]
 //   - device: The identifier of the target device
 //   - numCores: The number of cores for the specified device
 //
-// Returns:
+// A nil error means GPU core count is successfully retrieved.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, or numCores is NULL
 //   - [ErrNotSupported]: if this query is not supported by the device or a mig device.
 //   - [ErrUninitialized]: if the library has not been successfully initialized
-//   - [Success]: if GPU core count is successfully retrieved
 //
 // Wraps [nvmlDeviceGetNumGpuCores].
 //
@@ -6798,10 +6950,11 @@ var slotDeviceGetNumGpuCores outSlot[uint32]
 //   - device: The device handle
 //   - node: NUMA node ID of the device
 //
-// Returns:
+// A nil error means the NUMA node is retrieved successfully.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device node is invalid
 //   - [ErrNotSupported]: if request is not supported on the current platform
-//   - [Success]: if the NUMA node is retrieved successfully
 //
 // Wraps [nvmlDeviceGetNumaNodeId].
 //
@@ -6831,12 +6984,13 @@ var slotDeviceGetNumaNodeId outSlot[uint32]
 //   - capability: Specifies the [NvLinkCapability] to be queried
 //   - capResult: A boolean for the queried capability indicating that feature is available
 //
-// Returns:
+// A nil error means capResult has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device, link, or capability is invalid or capResult is NULL
 //   - [ErrNotSupported]: if the device doesn’t support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if capResult has been set
 //
 // Wraps [nvmlDeviceGetNvLinkCapability].
 //
@@ -6866,12 +7020,13 @@ var slotDeviceGetNvLinkCapability outSlot[uint32]
 //   - counter: Specifies the NvLink counter to be queried
 //   - counterValue: Returned counter value
 //
-// Returns:
+// A nil error means counter has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device, link, or counter is invalid or counterValue is NULL
 //   - [ErrNotSupported]: if the device doesn’t support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if counter has been set
 //
 // Wraps [nvmlDeviceGetNvLinkErrorCounter].
 //
@@ -6897,14 +7052,15 @@ var slotDeviceGetNvLinkErrorCounter outSlot[uint64]
 //   - device: The identifier of the target device
 //   - info: Reference to [NvLinkInfo]
 //
-// Returns:
+// A nil error means query is success.
+//
+// Errors:
 //   - [ErrArgumentVersionMismatch]: if the version is invalid/unsupported
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, or info is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if query is success
 //
 // Wraps [nvmlDeviceGetNvLinkInfo].
 //
@@ -6932,13 +7088,14 @@ var slotDeviceGetNvLinkInfo outSlot[NvLinkInfo]
 //   - link: The NVLink link index on the target GPU
 //   - pNvLinkDeviceType: Pointer in which the output remote device type is returned
 //
-// Returns:
+// A nil error means pNvLinkDeviceType has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device or link is invalid, or pNvLinkDeviceType is NULL
 //   - [ErrNotSupported]: if NVLink is not supported
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if pNvLinkDeviceType has been set
 //
 // Wraps [nvmlDeviceGetNvLinkRemoteDeviceType].
 //
@@ -6958,12 +7115,13 @@ func deviceGetNvLinkRemoteDeviceType(device Device, link uint32, pNvLinkDeviceTy
 //   - link: Specifies the NvLink link to be queried
 //   - pci: [PciInfo] of the remote node for the specified link
 //
-// Returns:
+// A nil error means pci has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device or link is invalid or pci is NULL
 //   - [ErrNotSupported]: if the device doesn’t support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if pci has been set
 //
 // Wraps [nvmlDeviceGetNvLinkRemotePciInfo], bound as nvmlDeviceGetNvLinkRemotePciInfo_v2.
 //
@@ -6992,12 +7150,13 @@ var slotDeviceGetNvLinkRemotePciInfo outSlot[PciInfo]
 //   - link: Specifies the NvLink link to be queried
 //   - isActive: [EnableState] where [FeatureEnabled] indicates that the link is active and [FeatureDisabled] indicates it is inactive
 //
-// Returns:
+// A nil error means isActive has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device or link is invalid or isActive is NULL
 //   - [ErrNotSupported]: if the device doesn’t support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if isActive has been set
 //
 // Wraps [nvmlDeviceGetNvLinkState].
 //
@@ -7028,12 +7187,13 @@ var slotDeviceGetNvLinkState outSlot[EnableState]
 //   - counter: Specifies the counter that should be set (0 or 1)
 //   - control: A reference to the [NvLinkUtilizationControl] to place information
 //
-// Returns:
+// A nil error means the control has been set successfully.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device, counter, link, or control is invalid
 //   - [ErrNotSupported]: if the device doesn’t support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the control has been set successfully
 //
 // Deprecated: Getting utilization counter control is no longer supported.
 //
@@ -7058,12 +7218,13 @@ func deviceGetNvLinkUtilizationControl(device Device, link uint32, counter uint3
 //   - rxcounter: Receive counter return value
 //   - txcounter: Transmit counter return value
 //
-// Returns:
+// A nil error means rxcounter and txcounter have been successfully set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device, counter, or link is invalid or rxcounter or txcounter are NULL
 //   - [ErrNotSupported]: if the device doesn’t support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if rxcounter and txcounter have been successfully set
 //
 // Deprecated: Use [Device.FieldValues] with NVML_FI_DEV_NVLINK_THROUGHPUT_* as field values instead.
 //
@@ -7085,12 +7246,13 @@ func deviceGetNvLinkUtilizationCounter(device Device, link uint32, counter uint3
 //   - link: Specifies the NvLink link to be queried
 //   - version: Requested NvLink version from [NvlinkVersion]
 //
-// Returns:
+// A nil error means version has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device or link is invalid or version is NULL
 //   - [ErrNotSupported]: if the device doesn’t support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if version has been set
 //
 // Wraps [nvmlDeviceGetNvLinkVersion].
 //
@@ -7118,11 +7280,10 @@ var slotDeviceGetNvLinkVersion outSlot[uint32]
 //   - device: The identifier of the target device
 //   - getBwMode: Reference to [NvlinkGetBwMode]
 //
-// Returns:
+// Errors:
 //   - [ErrArgumentVersionMismatch]: if the version specified is not supported
 //   - [ErrInvalidArgument]: if device is invalid or getBwMode is NULL
 //   - [ErrNotSupported]: if this feature is not supported by the device
-//   - [Success]: if the query was successful
 //
 // Wraps [nvmlDeviceGetNvlinkBwMode].
 //
@@ -7141,11 +7302,10 @@ func deviceGetNvlinkBwMode(device Device, getBwMode *NvlinkGetBwMode) error {
 //   - device: The identifier of the target device
 //   - supportedBwMode: Reference to [NvlinkSupportedBwModes]
 //
-// Returns:
+// Errors:
 //   - [ErrArgumentVersionMismatch]: if the version specified is not supported
 //   - [ErrInvalidArgument]: if device is invalid or supportedBwMode is NULL
 //   - [ErrNotSupported]: if this feature is not supported by the device
-//   - [Success]: if the query was successful
 //
 // Wraps [nvmlDeviceGetNvlinkSupportedBwModes].
 //
@@ -7167,13 +7327,14 @@ func deviceGetNvlinkSupportedBwModes(device Device, supportedBwMode *NvlinkSuppo
 //   - utilization: Reference to an unsigned int for ofa utilization info
 //   - samplingPeriodUs: Reference to an unsigned int for the sampling period in US
 //
-// Returns:
+// A nil error means utilization has been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, utilization is NULL, or samplingPeriodUs is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if utilization has been populated
 //
 // Wraps [nvmlDeviceGetOfaUtilization].
 //
@@ -7202,10 +7363,11 @@ var slotDeviceGetOfaUtilization outSlot[struct {
 //   - p2pIndex: p2p Capability Index being looked for between device1 and device2
 //   - p2pStatus: Reference in which to return the status of the p2pIndex between device1 and device2
 //
-// Returns:
+// A nil error means p2pStatus has been populated.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device1 or device2 or p2pIndex is invalid or p2pStatus is NULL
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if p2pStatus has been populated
 //
 // Wraps [nvmlDeviceGetP2PStatus].
 //
@@ -7225,12 +7387,13 @@ func deviceGetP2PStatus(device1 Device, device2 Device, p2pIndex GpuP2PCapsIndex
 //   - device: The identifier of the target device
 //   - pci: Reference in which to return the PCI info
 //
-// Returns:
+// A nil error means pci has been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or pci is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if pci has been populated
 //
 // Wraps [nvmlDeviceGetPciInfo], bound as nvmlDeviceGetPciInfo_v3.
 //
@@ -7259,12 +7422,13 @@ var slotDeviceGetPciInfo outSlot[PciInfo]
 //   - device: The identifier of the target device
 //   - pci: Reference in which to return the PCI info
 //
-// Returns:
+// A nil error means pci has been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or pci is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if pci has been populated
 //
 // Wraps [nvmlDeviceGetPciInfoExt].
 //
@@ -7291,12 +7455,13 @@ var slotDeviceGetPciInfoExt outSlot[PciInfoExt]
 //   - device: The identifier of the target device
 //   - maxSpeed: The devices’s PCIE Max Link speed in MBPS
 //
-// Returns:
+// A nil error means PCIe Max Link Speed is successfully retrieved.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, or maxSpeed is NULL
 //   - [ErrNotSupported]: if this query is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
-//   - [Success]: if PCIe Max Link Speed is successfully retrieved
 //
 // Wraps [nvmlDeviceGetPcieLinkMaxSpeed].
 //
@@ -7324,13 +7489,14 @@ var slotDeviceGetPcieLinkMaxSpeed outSlot[uint32]
 //   - device: The identifier of the target device
 //   - value: Reference in which to return the counter’s value
 //
-// Returns:
+// A nil error means value has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, or value is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if value has been set
 //
 // Wraps [nvmlDeviceGetPcieReplayCounter].
 //
@@ -7356,12 +7522,13 @@ var slotDeviceGetPcieReplayCounter outSlot[uint32]
 //   - device: The identifier of the target device
 //   - pcieSpeed: The devices’s PCIe Max Link speed in Mbps
 //
-// Returns:
+// A nil error means pcieSpeed has been retrieved.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid or pcieSpeed is NULL
 //   - [ErrNotSupported]: if the device does not support PCIe speed getting
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if pcieSpeed has been retrieved
 //
 // Wraps [nvmlDeviceGetPcieSpeed].
 //
@@ -7392,13 +7559,14 @@ var slotDeviceGetPcieSpeed outSlot[uint32]
 //   - counter: The specific counter that should be queried [PcieUtilCounter]
 //   - value: Reference in which to return throughput in KB/s
 //
-// Returns:
+// A nil error means value has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device or counter is invalid, or value is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if value has been set
 //
 // Wraps [nvmlDeviceGetPcieThroughput].
 //
@@ -7427,14 +7595,15 @@ var slotDeviceGetPcieThroughput outSlot[uint32]
 //   - device: The identifier of the target device
 //   - pdi: Reference to the caller-provided structure to return the GPU PDI
 //
-// Returns:
+// A nil error means pdi has been set.
+//
+// Errors:
 //   - [ErrArgumentVersionMismatch]: if the version is invalid/unsupported
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, or pdi is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if pdi has been set
 //
 // Wraps [nvmlDeviceGetPdi].
 //
@@ -7470,13 +7639,14 @@ var slotDeviceGetPdi outSlot[Pdi]
 //   - device: The identifier of the target device
 //   - perfModes: Reference in which to return the performance level string
 //
-// Returns:
+// A nil error means perfModes has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientSize]: if length is too small
 //   - [ErrInvalidArgument]: if device is invalid, or name is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if perfModes has been set
 //
 // Wraps [nvmlDeviceGetPerformanceModes].
 //
@@ -7496,13 +7666,14 @@ func deviceGetPerformanceModes(device Device, perfModes *DevicePerfModes) error 
 //   - device: The identifier of the target device
 //   - pState: Reference in which to return the performance state reading
 //
-// Returns:
+// A nil error means pState has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or pState is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if pState has been set
 //
 // Wraps [nvmlDeviceGetPerformanceState].
 //
@@ -7534,13 +7705,14 @@ var slotDeviceGetPerformanceState outSlot[Pstates]
 //   - device: The identifier of the target device
 //   - mode: Reference in which to return the current driver persistence mode
 //
-// Returns:
+// A nil error means mode has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or mode is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if mode has been set
 //
 // Wraps [nvmlDeviceGetPersistenceMode].
 //
@@ -7569,12 +7741,13 @@ var slotDeviceGetPersistenceMode outSlot[EnableState]
 //   - pgpuMetadata: Pointer to caller-supplied buffer into which pgpuMetadata is written
 //   - bufferSize: Pointer to size of pgpuMetadata buffer
 //
-// Returns:
+// A nil error means GPU metadata structure was successfully returned.
+//
+// Errors:
 //   - [ErrInsufficientSize]: pgpuMetadata buffer is too small, required size is returned in bufferSize
 //   - [ErrInvalidArgument]: If bufferSize is NULL or device is invalid; if pgpuMetadata is NULL and the value of bufferSize is not 0.
 //   - [ErrNotSupported]: If vGPU is not supported by the system
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: GPU metadata structure was successfully returned
 //
 // Wraps [nvmlDeviceGetPgpuMetadataString].
 //
@@ -7594,13 +7767,14 @@ func deviceGetPgpuMetadataString(device Device, pgpuMetadata *byte, bufferSize *
 //   - device: The identifier of the target device
 //   - platformInfo: Pointer to the caller-provided structure of [PlatformInfo]
 //
-// Returns:
+// A nil error means platformInfo has been retrieved.
+//
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the version of [PlatformInfo] is invalid
 //   - [ErrInvalidArgument]: If device is invalid or platformInfo is NULL
 //   - [ErrMemory]: if system memory is insufficient
 //   - [ErrNotSupported]: If the device does not support this feature
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: If platformInfo has been retrieved
 //
 // Wraps [nvmlDeviceGetPlatformInfo].
 //
@@ -7620,13 +7794,14 @@ func deviceGetPlatformInfo(device Device, platformInfo *PlatformInfo) error {
 //   - device: The identifier of the target device
 //   - defaultLimit: Reference in which to return the default power management limit in milliwatts
 //
-// Returns:
+// A nil error means defaultLimit has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or defaultLimit is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if defaultLimit has been set
 //
 // Wraps [nvmlDeviceGetPowerManagementDefaultLimit].
 //
@@ -7656,13 +7831,14 @@ var slotDeviceGetPowerManagementDefaultLimit outSlot[uint32]
 //   - device: The identifier of the target device
 //   - limit: Reference in which to return the power management limit in milliwatts
 //
-// Returns:
+// A nil error means limit has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or limit is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if limit has been set
 //
 // Wraps [nvmlDeviceGetPowerManagementLimit].
 //
@@ -7693,13 +7869,14 @@ var slotDeviceGetPowerManagementLimit outSlot[uint32]
 //   - minLimit: Reference in which to return the minimum power management limit in milliwatts
 //   - maxLimit: Reference in which to return the maximum power management limit in milliwatts
 //
-// Returns:
+// A nil error means minLimit and maxLimit have been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or minLimit or maxLimit is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if minLimit and maxLimit have been set
 //
 // Wraps [nvmlDeviceGetPowerManagementLimitConstraints].
 //
@@ -7714,20 +7891,25 @@ func deviceGetPowerManagementLimitConstraints(device Device, minLimit *uint32, m
 // deviceGetPowerManagementMode retrieves the power management mode associated with this device.
 //
 // For products from the Fermi family.
+//   - Requires [InforomPower] version 3.0 or higher.
+//
 // For from the Kepler or newer families.
-// This flag indicates whether any power management algorithm is currently active on the device. An enabled state does not necessarily mean the device is being actively throttled &#8212; only that that the driver will do so if the appropriate conditions are met.
+//   - Does not require [InforomPower] object.
+//
+// This flag indicates whether any power management algorithm is currently active on the device. An enabled state does not necessarily mean the device is being actively throttled — only that that the driver will do so if the appropriate conditions are met.
 // See [EnableState] for details on allowed modes.
 //
 //   - device: The identifier of the target device
 //   - mode: Reference in which to return the current power management mode
 //
-// Returns:
+// A nil error means mode has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or mode is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if mode has been set
 //
 // Deprecated: This API has been deprecated.
 //
@@ -7758,13 +7940,14 @@ var slotDeviceGetPowerManagementMode outSlot[EnableState]
 //   - device: The identifier of the target device
 //   - powerMizerMode: Reference in which to return the power mizer mode
 //
-// Returns:
+// A nil error means powerMizerMode has been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or powerMizerMode is NULL
 //   - [ErrNotSupported]: if the device does not support powerMizerMode readings
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if powerMizerMode has been populated
 //
 // Wraps [nvmlDeviceGetPowerMizerMode_v1].
 //
@@ -7781,12 +7964,13 @@ func deviceGetPowerMizerMode(device Device, powerMizerMode *DevicePowerMizerMode
 //   - device: The identifier of the target device
 //   - powerSource: The power source of the device
 //
-// Returns:
+// A nil error means the current power source was successfully retrieved.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, or powerSource is NULL
 //   - [ErrNotSupported]: if this query is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
-//   - [Success]: if the current power source was successfully retrieved
 //
 // Wraps [nvmlDeviceGetPowerSource].
 //
@@ -7807,7 +7991,7 @@ func deviceGetPowerSource(device Device) (PowerSource, error) {
 
 var slotDeviceGetPowerSource outSlot[PowerSource]
 
-// deviceGetPowerState wraps [nvmlDeviceGetPowerState].
+// deviceGetPowerState returns the device's current performance state.
 //
 // This function exposes an incorrect generalization.
 // Retrieve the current performance state for the device.
@@ -7817,15 +8001,18 @@ var slotDeviceGetPowerSource outSlot[PowerSource]
 //   - device: The identifier of the target device
 //   - pState: Reference in which to return the performance state reading
 //
-// Returns:
+// A nil error means pState has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or pState is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if pState has been set
 //
 // Deprecated: Use [Device.PerformanceState].
+//
+// Wraps [nvmlDeviceGetPowerState].
 //
 // [nvmlDeviceGetPowerState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv423nvmlDeviceGetPowerState12nvmlDevice_tP13nvmlPstates_t
 func deviceGetPowerState(device Device) (Pstates, error) {
@@ -7855,13 +8042,14 @@ var slotDeviceGetPowerState outSlot[Pstates]
 //   - device: The identifier of the target device
 //   - power: Reference in which to return the power usage information
 //
-// Returns:
+// A nil error means power has been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or power is NULL
 //   - [ErrNotSupported]: if the device does not support power readings
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if power has been populated
 //
 // Wraps [nvmlDeviceGetPowerUsage].
 //
@@ -7897,14 +8085,15 @@ var slotDeviceGetPowerUsage outSlot[uint32]
 //   - processSamplesCount: Pointer to caller-supplied array size, and returns number of processes running
 //   - lastSeenTimeStamp: Return only samples with timestamp greater than lastSeenTimeStamp
 //
-// Returns:
+// A nil error means utilization has been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, utilization is NULL, or samplingPeriodUs is NULL
 //   - [ErrNotFound]: if sample entries are not found
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if utilization has been populated
 //
 // Wraps [nvmlDeviceGetProcessUtilization].
 //
@@ -7930,7 +8119,9 @@ func deviceGetProcessUtilization(device Device, utilization *ProcessUtilizationS
 //   - device: The identifier of the target device
 //   - procesesUtilInfo: Pointer to the caller-provided structure of [ProcessesUtilizationInfo]
 //
-// Returns:
+// A nil error means procesesUtilInfo->procUtilArray has been populated.
+//
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the version of procesesUtilInfo is invalid
 //   - [ErrGpuIsLost]: If the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientSize]: If procesesUtilInfo->procUtilArray is NULL, or the buffer size of procesesUtilInfo->procUtilArray is too small. The caller should check the minimul array size from the returned procesesUtilInfo->processSamplesCount, and call the function again with a buffer no smaller than procesesUtilInfo->processSamplesCount * sizeof(nvmlProcessUtilizationInfo_t)
@@ -7939,7 +8130,6 @@ func deviceGetProcessUtilization(device Device, utilization *ProcessUtilizationS
 //   - [ErrNotSupported]: If the device does not support this feature
 //   - [ErrUninitialized]: If the library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: If procesesUtilInfo->procUtilArray has been populated
 //
 // Wraps [nvmlDeviceGetProcessesUtilizationInfo].
 //
@@ -7964,11 +8154,10 @@ func deviceGetProcessesUtilizationInfo(device Device, procesesUtilInfo *Processe
 //   - isPending: Reference for whether or not remappings are pending
 //   - failureOccurred: Reference that is set when a remapping has failed in the past
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If corrRows, uncRows, isPending or failureOccurred is invalid
 //   - [ErrNotSupported]: If MIG is enabled or if the device doesn’t support this feature
 //   - [ErrUnknown]: Unexpected error
-//   - [Success]: Upon success
 //
 // Wraps [nvmlDeviceGetRemappedRows].
 //
@@ -7999,13 +8188,12 @@ var slotDeviceGetRemappedRows outSlot[struct {
 //   - device: The identifier of the target device
 //   - repairStatus: Reference to [RepairStatus]
 //
-// Returns:
+// Errors:
 //   - [ErrArgumentVersionMismatch]: if the provided version is invalid/unsupported
 //   - [ErrInvalidArgument]: if device is invalid
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the query was successful
 //
 // Wraps [nvmlDeviceGetRepairStatus].
 //
@@ -8034,13 +8222,14 @@ var slotDeviceGetRepairStatus outSlot[RepairStatus]
 //   - device: The identifier of the target device
 //   - isPending: Reference in which to return the pending status
 //
-// Returns:
+// A nil error means isPending was populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or isPending is NULL
 //   - [ErrNotSupported]: if the device doesn’t support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if isPending was populated
 //
 // Wraps [nvmlDeviceGetRetiredPagesPendingStatus].
 //
@@ -8065,14 +8254,15 @@ func deviceGetRetiredPagesPendingStatus(device Device, isPending *EnableState) e
 //   - addresses: Buffer to write the page addresses into
 //   - timestamps: Buffer to write the timestamps of page retirement, additional for _v2
 //
-// Returns:
+// A nil error means pageCount was populated and addresses was filled.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientSize]: if pageCount indicates the buffer is not large enough to store all the matching page addresses. pageCount is set to the needed size.
 //   - [ErrInvalidArgument]: if device is invalid, pageCount is NULL, cause is invalid, or addresses is NULL
 //   - [ErrNotSupported]: if the device doesn’t support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if pageCount was populated and addresses was filled
 //
 // Wraps [nvmlDeviceGetRetiredPages_v2].
 //
@@ -8091,9 +8281,8 @@ func deviceGetRetiredPages(device Device, cause PageRetirementCause, pageCount *
 //   - device: Device handle
 //   - values: Histogram values
 //
-// Returns:
+// Errors:
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: On success
 //
 // Wraps [nvmlDeviceGetRowRemapperHistogram].
 //
@@ -8118,7 +8307,9 @@ func deviceGetRowRemapperHistogram(device Device, values *RowRemapperHistogramVa
 //   - device: The device handle or MIG device handle
 //   - plist: Reference in which to process detail list plist->version The api version plist->mode The process mode plist->procArray Reference in which to return the process information plist->numProcArrayEntries Proc array size of returned entries
 //
-// Returns:
+// A nil error means plist->numprocArrayEntries and plist->procArray have been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientSize]: if plist->numprocArrayEntries indicates that the plist->procArray is too small plist->numprocArrayEntries will contain minimal amount of space necessary for the call to complete
 //   - [ErrInvalidArgument]: if device is invalid, plist is NULL, plist->version is invalid, plist->mode is invalid,
@@ -8126,7 +8317,6 @@ func deviceGetRowRemapperHistogram(device Device, values *RowRemapperHistogramVa
 //   - [ErrNoPermission]: if the user doesn’t have permission to perform this operation
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if plist->numprocArrayEntries and plist->procArray have been populated
 //
 // Wraps [nvmlDeviceGetRunningProcessDetailList].
 //
@@ -8156,14 +8346,15 @@ func deviceGetRunningProcessDetailList(device Device, plist *ProcessDetailList) 
 //   - sampleCount: Reference to provide the number of elements which can be queried in samples array
 //   - samples: Reference in which samples are returned
 //
-// Returns:
+// A nil error means samples are successfully retrieved.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, samplesCount is NULL or reference to sampleCount is 0 for non null samples
 //   - [ErrNotFound]: if sample entries are not found
 //   - [ErrNotSupported]: if this query is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if samples are successfully retrieved
 //
 // Wraps [nvmlDeviceGetSamples].
 //
@@ -8184,14 +8375,15 @@ func deviceGetSamples(device Device, type_ SamplingType, lastSeenTimeStamp uint6
 //   - serial: Reference in which to return the board/module serial number
 //   - length: The maximum allowed length of the string returned in serial
 //
-// Returns:
+// A nil error means serial has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientSize]: if length is too small
 //   - [ErrInvalidArgument]: if device is invalid, or serial is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if serial has been set
 //
 // Wraps [nvmlDeviceGetSerial].
 //
@@ -8219,14 +8411,15 @@ func deviceGetSerial(device Device) (string, error) {
 //   - device: The identifier of the target device
 //   - status: Returns SRAM ECC error status
 //
-// Returns:
+// A nil error means limit has been set.
+//
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the version of [EccSramErrorStatus] is invalid
 //   - [ErrGpuIsLost]: If the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: If device is invalid or counters is NULL
 //   - [ErrNotSupported]: If the device does not support this feature
 //   - [ErrUninitialized]: If the library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: If limit has been set
 //
 // Wraps [nvmlDeviceGetSramEccErrorStatus].
 //
@@ -8253,14 +8446,15 @@ func deviceGetSramEccErrorStatus(device Device, status *EccSramErrorStatus) erro
 //   - device: The identifier of the target device
 //   - errorCounts: Pointer to caller-supplied array which returns the unique error count entries
 //
-// Returns:
+// A nil error means utilization has been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientSize]: if the allocated error entry array is not big enough
 //   - [ErrInvalidArgument]: if device is invalid, errorCounts->entryCount is NULL
 //   - [ErrNotSupported]: if the device does not support this feature or ECC mods is not enabled
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if utilization has been populated
 //
 // Wraps [nvmlDeviceGetSramUniqueUncorrectedEccErrorCounts].
 //
@@ -8282,12 +8476,13 @@ func deviceGetSramUniqueUncorrectedEccErrorCounts(device Device, errorCounts *Ec
 //   - device: The identifier of the target device
 //   - supportedClocksEventReasons: Reference in which to return bitmask of supported clocks event reasons
 //
-// Returns:
+// A nil error means supportedClocksEventReasons has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or supportedClocksEventReasons is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if supportedClocksEventReasons has been set
 //
 // Wraps [nvmlDeviceGetSupportedClocksEventReasons].
 //
@@ -8309,9 +8504,11 @@ func deviceGetSupportedClocksEventReasons(device Device) (uint64, error) {
 
 var slotDeviceGetSupportedClocksEventReasons outSlot[uint64]
 
-// deviceGetSupportedClocksThrottleReasons wraps [nvmlDeviceGetSupportedClocksThrottleReasons].
+// deviceGetSupportedClocksThrottleReasons stores the clocks throttle reasons the device supports in supportedClocksThrottleReasons.
 //
 // Deprecated: Use [Device.SupportedClocksEventReasons] instead.
+//
+// Wraps [nvmlDeviceGetSupportedClocksThrottleReasons].
 //
 // [nvmlDeviceGetSupportedClocksThrottleReasons]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv443nvmlDeviceGetSupportedClocksThrottleReasons12nvmlDevice_tPy
 func deviceGetSupportedClocksThrottleReasons(device Device, supportedClocksThrottleReasons *uint64) error {
@@ -8331,12 +8528,13 @@ func deviceGetSupportedClocksThrottleReasons(device Device, supportedClocksThrot
 //   - device: The identifier of the target device
 //   - eventTypes: Reference in which to return bitmask of supported events
 //
-// Returns:
+// A nil error means the eventTypes has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if eventType is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the eventTypes has been set
 //
 // Wraps [nvmlDeviceGetSupportedEventTypes].
 //
@@ -8368,7 +8566,9 @@ var slotDeviceGetSupportedEventTypes outSlot[uint64]
 //   - count: Reference in which to provide the clocksMHz array size, and to return the number of elements
 //   - clocksMHz: Reference in which to return the clocks in MHz
 //
-// Returns:
+// A nil error means count and clocksMHz have been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientSize]: if count is too small
 //   - [ErrInvalidArgument]: if device is invalid or clock is NULL
@@ -8376,7 +8576,6 @@ var slotDeviceGetSupportedEventTypes outSlot[uint64]
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if count and clocksMHz have been populated
 //
 // Wraps [nvmlDeviceGetSupportedGraphicsClocks].
 //
@@ -8398,14 +8597,15 @@ func deviceGetSupportedGraphicsClocks(device Device, memoryClockMHz uint32, coun
 //   - count: Reference in which to provide the clocksMHz array size, and to return the number of elements
 //   - clocksMHz: Reference in which to return the clock in MHz
 //
-// Returns:
+// A nil error means count and clocksMHz have been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientSize]: if count is too small ( count is set to the number of required elements)
 //   - [ErrInvalidArgument]: if device is invalid or count is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if count and clocksMHz have been populated
 //
 // Wraps [nvmlDeviceGetSupportedMemoryClocks].
 //
@@ -8426,13 +8626,14 @@ func deviceGetSupportedMemoryClocks(device Device, count *uint32, clocksMHz *uin
 //   - pstates: Container to return the list of performance states supported by device
 //   - size: Size of the supplied pstates array in bytes
 //
-// Returns:
+// A nil error means pstates array has been retrieved.
+//
+// Errors:
 //   - [ErrInsufficientSize]: if the the container supplied was not large enough to hold the resulting list
 //   - [ErrInvalidArgument]: if device or pstates is invalid
 //   - [ErrNotSupported]: if the device does not support performance state readings
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if pstates array has been retrieved
 //
 // Wraps [nvmlDeviceGetSupportedPerformanceStates].
 //
@@ -8453,12 +8654,11 @@ func deviceGetSupportedPerformanceStates(device Device, pstates *Pstates, size u
 //   - vgpuCount: Pointer to caller-supplied array size, and returns number of vGPU types
 //   - vgpuTypeIds: Pointer to caller-supplied array in which to return list of vGPU types
 //
-// Returns:
+// Errors:
 //   - [ErrInsufficientSize]: vgpuTypeIds buffer is too small, array element count is returned in vgpuCount
 //   - [ErrInvalidArgument]: if vgpuCount is NULL or device is invalid
 //   - [ErrNotSupported]: if vGPU is not supported by the device
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlDeviceGetSupportedVgpus].
 //
@@ -8480,13 +8680,14 @@ func deviceGetSupportedVgpus(device Device, vgpuCount *uint32, vgpuTypeIds *Vgpu
 //   - fan: The index of the target fan, zero indexed
 //   - targetSpeed: Reference in which to return the fan speed percentage
 //
-// Returns:
+// A nil error means speed has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, fan is not an acceptable index, or speed is NULL
 //   - [ErrNotSupported]: if the device does not have a fan or is newer than Maxwell
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if speed has been set
 //
 // Wraps [nvmlDeviceGetTargetFanSpeed].
 //
@@ -8507,9 +8708,11 @@ func deviceGetTargetFanSpeed(device Device, fan uint32) (uint32, error) {
 
 var slotDeviceGetTargetFanSpeed outSlot[uint32]
 
-// deviceGetTemperature wraps [nvmlDeviceGetTemperature].
+// deviceGetTemperature returns the temperature of the given sensor, in degrees Celsius.
 //
 // Deprecated: Use [Device.TemperatureV] instead.
+//
+// Wraps [nvmlDeviceGetTemperature].
 //
 // [nvmlDeviceGetTemperature]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv424nvmlDeviceGetTemperature12nvmlDevice_t24nvmlTemperatureSensors_tPj
 func deviceGetTemperature(device Device, sensorType TemperatureSensors) (uint32, error) {
@@ -8540,13 +8743,14 @@ var slotDeviceGetTemperature outSlot[uint32]
 //   - thresholdType: The type of threshold value queried
 //   - temp: Reference in which to return the temperature reading
 //
-// Returns:
+// A nil error means temp has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, thresholdType is invalid or temp is NULL
 //   - [ErrNotSupported]: if the device does not have a temperature sensor or is unsupported
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if temp has been set
 //
 // Wraps [nvmlDeviceGetTemperatureThreshold].
 //
@@ -8572,15 +8776,16 @@ var slotDeviceGetTemperatureThreshold outSlot[uint32]
 // For all products.
 //
 //   - device: Target device identifier
-//   - temperature: [inout] Structure specifying the sensor type (input) and retrieved temperature value (output)
+//   - temperature: Structure specifying the sensor type (input) and retrieved temperature value (output)
 //
-// Returns:
+// A nil error means temp has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, sensorType is invalid or temp is NULL
 //   - [ErrNotSupported]: if the device does not have the specified sensor
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if temp has been set
 //
 // Wraps [nvmlDeviceGetTemperatureV].
 //
@@ -8598,13 +8803,14 @@ func deviceGetTemperatureV(device Device, temperature *Temperature) error {
 //   - sensorIndex: The index of the thermal sensor
 //   - pThermalSettings: Reference in which to return the thermal sensor information
 //
-// Returns:
+// A nil error means pThermalSettings has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or pThermalSettings is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if pThermalSettings has been set
 //
 // Wraps [nvmlDeviceGetThermalSettings].
 //
@@ -8624,11 +8830,12 @@ func deviceGetThermalSettings(device Device, sensorIndex uint32, pThermalSetting
 //   - device2: The identifier of the second device
 //   - pathInfo: A [GpuTopologyLevel] that gives the path type
 //
-// Returns:
+// A nil error means pathInfo has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device1, or device2 is invalid, or pathInfo is NULL
 //   - [ErrNotSupported]: if the device or OS does not support this feature
 //   - [ErrUnknown]: an error has occurred in underlying topology discovery
-//   - [Success]: if pathInfo has been set
 //
 // Wraps [nvmlDeviceGetTopologyCommonAncestor].
 //
@@ -8649,11 +8856,12 @@ func deviceGetTopologyCommonAncestor(device1 Device, device2 Device, pathInfo *G
 //   - count: When zero, is set to the number of matching GPUs such that deviceArray can be malloc’d. When non-zero, deviceArray will be filled with count number of device handles
 //   - deviceArray: An array of device handles for GPUs found at level
 //
-// Returns:
+// A nil error means deviceArray or count (if initially zero) has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device, level, or count is invalid, or deviceArray is NULL with a non-zero count
 //   - [ErrNotSupported]: if the device or OS does not support this feature
 //   - [ErrUnknown]: an error has occurred in underlying topology discovery
-//   - [Success]: if deviceArray or count (if initially zero) has been set
 //
 // Wraps [nvmlDeviceGetTopologyNearestGpus].
 //
@@ -8681,13 +8889,14 @@ func deviceGetTopologyNearestGpus(device Device, level GpuTopologyLevel, count *
 //   - counterType: Flag that specifies the counter-type of the errors
 //   - eccCounts: Reference in which to return the specified ECC errors
 //
-// Returns:
+// A nil error means eccCounts has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device, errorType or counterType is invalid, or eccCounts is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if eccCounts has been set
 //
 // Wraps [nvmlDeviceGetTotalEccErrors].
 //
@@ -8715,13 +8924,14 @@ var slotDeviceGetTotalEccErrors outSlot[uint64]
 //   - device: The identifier of the target device
 //   - energy: Reference in which to return the energy consumption information
 //
-// Returns:
+// A nil error means energy has been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or energy is NULL
 //   - [ErrNotSupported]: if the device does not support energy readings
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if energy has been populated
 //
 // Wraps [nvmlDeviceGetTotalEnergyConsumption].
 //
@@ -8752,14 +8962,15 @@ var slotDeviceGetTotalEnergyConsumption outSlot[uint64]
 //   - uuid: Reference in which to return the GPU UUID
 //   - length: The maximum allowed length of the string returned in uuid
 //
-// Returns:
+// A nil error means uuid has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientSize]: if length is too small
 //   - [ErrInvalidArgument]: if device is invalid, or uuid is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if uuid has been set
 //
 // Wraps [nvmlDeviceGetUUID].
 //
@@ -8786,13 +8997,12 @@ func deviceGetUUID(device Device) (string, error) {
 //   - device: The identifier of the target device
 //   - unrepairableMemoryStatus: Reference to [UnrepairableMemoryStatusV1]
 //
-// Returns:
+// Errors:
 //   - [ErrArgumentVersionMismatch]: if the provided version is invalid/unsupported
 //   - [ErrInvalidArgument]: if device is invalid
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the query was successful
 //
 // Wraps [nvmlDeviceGetUnrepairableMemoryFlag_v1].
 //
@@ -8825,13 +9035,14 @@ var slotDeviceGetUnrepairableMemoryFlag outSlot[UnrepairableMemoryStatusV1]
 //   - device: The identifier of the target device
 //   - utilization: Reference in which to return the utilization information
 //
-// Returns:
+// A nil error means utilization has been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or utilization is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if utilization has been populated
 //
 // Wraps [nvmlDeviceGetUtilizationRates].
 //
@@ -8861,13 +9072,14 @@ var slotDeviceGetUtilizationRates outSlot[Utilization]
 //   - version: Reference to which to return the VBIOS version
 //   - length: The maximum allowed length of the string returned in version
 //
-// Returns:
+// A nil error means version has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientSize]: if length is too small
 //   - [ErrInvalidArgument]: if device is invalid, or version is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if version has been set
 //
 // Wraps [nvmlDeviceGetVbiosVersion].
 //
@@ -8896,12 +9108,11 @@ func deviceGetVbiosVersion(device Device) (string, error) {
 //   - capability: Specifies the [DeviceVgpuCapability] to be queried
 //   - capResult: Specifies that the queried capability is supported, and also returns capability’s data
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid, or capability is invalid, or capResult is NULL
 //   - [ErrNotSupported]: the API is not supported in current state or device not in vGPU mode
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlDeviceGetVgpuCapabilities].
 //
@@ -8930,13 +9141,12 @@ var slotDeviceGetVgpuCapabilities outSlot[uint32]
 //   - device: The identifier of the target device
 //   - pHeterogeneousMode: Pointer to the caller-provided structure of [VgpuHeterogeneousMode]
 //
-// Returns:
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the version of pHeterogeneousMode is invalid
 //   - [ErrInvalidArgument]: If device is invalid or pHeterogeneousMode is NULL
 //   - [ErrNotSupported]: If MIG is enabled or device doesn’t support this feature
 //   - [ErrUninitialized]: If library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: Upon success
 //
 // Wraps [nvmlDeviceGetVgpuHeterogeneousMode].
 //
@@ -8959,7 +9169,9 @@ func deviceGetVgpuHeterogeneousMode(device Device, pHeterogeneousMode *VgpuHeter
 //   - device: The identifier for the target device
 //   - vgpuUtilInfo: Pointer to the caller-provided structure of [VgpuInstancesUtilizationInfo]
 //
-// Returns:
+// A nil error means utilization samples are successfully retrieved.
+//
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the version of vgpuUtilInfo is invalid
 //   - [ErrGpuIsLost]: If the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientSize]: If vgpuUtilInfo->vgpuUtilArray is NULL, or the buffer size of vgpuUtilInfo->vgpuInstanceCount is too small. The caller should check the current vGPU instance count from the returned vgpuUtilInfo->vgpuInstanceCount, and call the function again with a buffer of size vgpuUtilInfo->vgpuInstanceCount * sizeof(nvmlVgpuInstanceUtilizationInfo_t)
@@ -8968,7 +9180,6 @@ func deviceGetVgpuHeterogeneousMode(device Device, pHeterogeneousMode *VgpuHeter
 //   - [ErrNotSupported]: If vGPU is not supported by the device
 //   - [ErrUninitialized]: If the library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: If utilization samples are successfully retrieved
 //
 // Wraps [nvmlDeviceGetVgpuInstancesUtilizationInfo].
 //
@@ -8989,12 +9200,13 @@ func deviceGetVgpuInstancesUtilizationInfo(device Device, vgpuUtilInfo *VgpuInst
 //   - pgpuMetadata: Pointer to caller-supplied buffer into which pgpuMetadata is written
 //   - bufferSize: Pointer to size of pgpuMetadata buffer
 //
-// Returns:
+// A nil error means GPU metadata structure was successfully returned.
+//
+// Errors:
 //   - [ErrInsufficientSize]: pgpuMetadata buffer is too small, required size is returned in bufferSize
 //   - [ErrInvalidArgument]: if bufferSize is NULL or device is invalid; if pgpuMetadata is NULL and the value of bufferSize is not 0.
 //   - [ErrNotSupported]: vGPU is not supported by the system
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: GPU metadata structure was successfully returned
 //
 // Wraps [nvmlDeviceGetVgpuMetadata].
 //
@@ -9019,7 +9231,9 @@ func deviceGetVgpuMetadata(device Device, pgpuMetadata *VgpuPgpuMetadata, buffer
 //   - vgpuProcessSamplesCount: Pointer to caller-supplied array size, and returns number of processes running on vGPU instances
 //   - utilizationSamples: Pointer to caller-supplied buffer in which vGPU sub process utilization samples are returned
 //
-// Returns:
+// A nil error means utilization samples are successfully retrieved.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientSize]: if supplied vgpuProcessSamplesCount is too small to return samples for all vGPU instances currently executing on the device
 //   - [ErrInvalidArgument]: if device is invalid, vgpuProcessSamplesCount or a sample count of 0 is passed with a non-NULL utilizationSamples
@@ -9027,7 +9241,6 @@ func deviceGetVgpuMetadata(device Device, pgpuMetadata *VgpuPgpuMetadata, buffer
 //   - [ErrNotSupported]: if vGPU is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if utilization samples are successfully retrieved
 //
 // Wraps [nvmlDeviceGetVgpuProcessUtilization].
 //
@@ -9050,7 +9263,9 @@ func deviceGetVgpuProcessUtilization(device Device, lastSeenTimeStamp uint64, vg
 //   - device: The identifier for the target device
 //   - vgpuProcUtilInfo: Pointer to the caller-provided structure of [VgpuProcessesUtilizationInfo]
 //
-// Returns:
+// A nil error means utilization samples are successfully retrieved.
+//
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the version of vgpuProcUtilInfo is invalid
 //   - [ErrGpuIsLost]: If the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientSize]: If vgpuProcUtilInfo->vgpuProcUtilArray is null, or supplied vgpuProcUtilInfo->vgpuProcessCount is too small to return samples for all processes on vGPU instances currently executing on the device. The caller should check the current processes count from the returned vgpuProcUtilInfo->vgpuProcessCount, and call the function again with a buffer of size vgpuProcUtilInfo->vgpuProcessCount * sizeof([VgpuProcessUtilizationSample])
@@ -9059,7 +9274,6 @@ func deviceGetVgpuProcessUtilization(device Device, lastSeenTimeStamp uint64, vg
 //   - [ErrNotSupported]: If vGPU is not supported by the device
 //   - [ErrUninitialized]: If the library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: If utilization samples are successfully retrieved
 //
 // Wraps [nvmlDeviceGetVgpuProcessesUtilizationInfo].
 //
@@ -9079,11 +9293,12 @@ func deviceGetVgpuProcessesUtilizationInfo(device Device, vgpuProcUtilInfo *Vgpu
 //   - device: The identifier of the target device
 //   - pCapabilities: Reference in which pCapabilities is written
 //
-// Returns:
+// A nil error means vGPU scheduler capabilities were successfully obtained.
+//
+// Errors:
 //   - [ErrInvalidArgument]: If pCapabilities is NULL or device is invalid
 //   - [ErrNotSupported]: The API is not supported in current state or device not in vGPU host mode
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: vGPU scheduler capabilities were successfully obtained
 //
 // Wraps [nvmlDeviceGetVgpuSchedulerCapabilities].
 //
@@ -9104,11 +9319,12 @@ func deviceGetVgpuSchedulerCapabilities(device Device, pCapabilities *VgpuSchedu
 //   - device: The identifier of the target device
 //   - pSchedulerLogInfo: Reference in which pSchedulerLogInfo is written
 //
-// Returns:
+// A nil error means vGPU scheduler logs were successfully obtained.
+//
+// Errors:
 //   - [ErrInvalidArgument]: If pSchedulerLogInfo is NULL or device is invalid
 //   - [ErrNotSupported]: If MIG is enabled or device not in vGPU host mode
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: vGPU scheduler logs were successfully obtained
 //
 // Wraps [nvmlDeviceGetVgpuSchedulerLog_v2].
 //
@@ -9128,11 +9344,12 @@ func deviceGetVgpuSchedulerLog(device Device, pSchedulerLogInfo *VgpuSchedulerLo
 //   - device: The identifier of the target device
 //   - pSchedulerStateInfo: Reference in which pSchedulerStateInfo is returned
 //
-// Returns:
+// A nil error means vGPU scheduler state is successfully obtained.
+//
+// Errors:
 //   - [ErrInvalidArgument]: If pSchedulerStateInfo is NULL or device is invalid
 //   - [ErrNotSupported]: If MIG is enabled or device not in vGPU host mode
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: vGPU scheduler state is successfully obtained
 //
 // Wraps [nvmlDeviceGetVgpuSchedulerState_v2].
 //
@@ -9153,14 +9370,13 @@ func deviceGetVgpuSchedulerState(device Device, pSchedulerStateInfo *VgpuSchedul
 //   - vgpuTypeId: Handle to vGPU type. The vGPU type ID
 //   - pPlacementList: Pointer to the list of vGPU placement structure [VgpuPlacementList]
 //
-// Returns:
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the version of pPlacementList is invalid
 //   - [ErrInvalidArgument]: If device or vgpuTypeId is invalid or pPlacementList is NULL
 //   - [ErrNotSupported]: If MIG is enabled or device or vgpuTypeId isn’t supported
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: Upon success
 //
 // Wraps [nvmlDeviceGetVgpuTypeCreatablePlacements].
 //
@@ -9181,7 +9397,7 @@ func deviceGetVgpuTypeCreatablePlacements(device Device, vgpuTypeId VgpuTypeId, 
 //   - vgpuTypeId: Handle to vGPU type. The vGPU type ID
 //   - pPlacementList: Pointer to the vGPU placement structure [VgpuPlacementList]
 //
-// Returns:
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the version of pPlacementList is invalid
 //   - [ErrInsufficientSize]: If the buffer is small, element count is returned in pPlacementList->count
 //   - [ErrInvalidArgument]: If device or vgpuTypeId is invalid or pPlacementList is NULL
@@ -9189,7 +9405,6 @@ func deviceGetVgpuTypeCreatablePlacements(device Device, vgpuTypeId VgpuTypeId, 
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: Upon success
 //
 // Wraps [nvmlDeviceGetVgpuTypeSupportedPlacements].
 //
@@ -9215,7 +9430,9 @@ func deviceGetVgpuTypeSupportedPlacements(device Device, vgpuTypeId VgpuTypeId, 
 //   - vgpuInstanceSamplesCount: Pointer to caller-supplied array size, and returns number of vGPU instances
 //   - utilizationSamples: Pointer to caller-supplied buffer in which vGPU utilization samples are returned
 //
-// Returns:
+// A nil error means utilization samples are successfully retrieved.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientSize]: if supplied vgpuInstanceSamplesCount is too small to return samples for all vGPU instances currently executing on the device
 //   - [ErrInvalidArgument]: if device is invalid, vgpuInstanceSamplesCount or sampleValType is NULL, or a sample count of 0 is passed with a non-NULL utilizationSamples
@@ -9223,7 +9440,6 @@ func deviceGetVgpuTypeSupportedPlacements(device Device, vgpuTypeId VgpuTypeId, 
 //   - [ErrNotSupported]: if vGPU is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if utilization samples are successfully retrieved
 //
 // Wraps [nvmlDeviceGetVgpuUtilization].
 //
@@ -9235,13 +9451,15 @@ func deviceGetVgpuUtilization(device Device, lastSeenTimeStamp uint64, sampleVal
 	return toError(fndeviceGetVgpuUtilization(device, lastSeenTimeStamp, sampleValType, vgpuInstanceSamplesCount, utilizationSamples), "nvmlDeviceGetVgpuUtilization")
 }
 
-// deviceGetViolationStatus wraps [nvmlDeviceGetViolationStatus].
+// deviceGetViolationStatus stores in violTime how long the device has violated the given performance policy.
 //
 // This API will be removed in CUDA 14.0.
 // Translations are as follows:
 // [PerfPolicyPower] -> [FieldDevClocksEventReasonSwPowerCap] [PerfPolicyThermal] -> [FieldDevClocksEventReasonSwThermSlowdown] [PerfPolicySyncBoost] -> [FieldDevClocksEventReasonSyncBoost] [PerfPolicyBoardLimit] -> [FieldDevPerfPolicyBoardLimit] [PerfPolicyLowUtilization] -> [FieldDevPerfPolicyLowUtilization] [PerfPolicyReliability] -> [FieldDevPerfPolicyReliability] [PerfPolicyTotalAppClocks] -> DEPRECATED, Do not use [PerfPolicyTotalBaseClocks] -> [FieldDevPerfPolicyTotalBaseClocks]
 //
 // Deprecated: Use [Device.FieldValues] to query this data.
+//
+// Wraps [nvmlDeviceGetViolationStatus].
 //
 // [nvmlDeviceGetViolationStatus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv428nvmlDeviceGetViolationStatus12nvmlDevice_t20nvmlPerfPolicyType_tP19nvmlViolationTime_t
 func deviceGetViolationStatus(device Device, perfPolicyType PerfPolicyType, violTime *ViolationTime) error {
@@ -9258,12 +9476,13 @@ func deviceGetViolationStatus(device Device, perfPolicyType PerfPolicyType, viol
 //   - device: Identifier of the target device
 //   - pVirtualMode: Reference to virtualization mode. One of NVML_GPU_VIRTUALIZATION_?
 //
-// Returns:
+// A nil error means pVirtualMode is fetched.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or pVirtualMode is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if pVirtualMode is fetched
 //
 // Wraps [nvmlDeviceGetVirtualizationMode].
 //
@@ -9283,12 +9502,13 @@ func deviceGetVirtualizationMode(device Device, pVirtualMode *GpuVirtualizationM
 //   - device: NVML handle to test
 //   - isMigDevice: True when handle refers to a MIG device
 //
-// Returns:
+// A nil error means device status was successfully retrieved.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device handle or isMigDevice reference is invalid
 //   - [ErrNotSupported]: if this check is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if device status was successfully retrieved
 //
 // Wraps [nvmlDeviceIsMigDeviceHandle].
 //
@@ -9317,14 +9537,15 @@ var slotDeviceIsMigDeviceHandle outSlot[uint32]
 //   - pciInfo: The PCI address of the GPU drain state to be modified
 //   - newState: The drain state that should be entered, see [EnableState]
 //
-// Returns:
+// A nil error means counters were successfully reset.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if nvmlIndex or newState is invalid
 //   - [ErrInUse]: if the device has persistence mode turned on
 //   - [ErrNotSupported]: if the device doesn’t support this feature
 //   - [ErrNoPermission]: if the calling process has insufficient permissions to perform operation
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if counters were successfully reset
 //
 // Wraps [nvmlDeviceModifyDrainState].
 //
@@ -9344,13 +9565,14 @@ func DeviceModifyDrainState(pciInfo *PciInfo, newState EnableState) error {
 //   - device2: The second GPU device
 //   - onSameBoard: Reference in which to return the status. Non-zero indicates that the GPUs are on the same board
 //
-// Returns:
+// A nil error means onSameBoard has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the either GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if dev1 or dev2 are invalid or onSameBoard is NULL
 //   - [ErrNotSupported]: if this check is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if onSameBoard has been set
 //
 // Wraps [nvmlDeviceOnSameBoard].
 //
@@ -9371,7 +9593,9 @@ func deviceOnSameBoard(device1 Device, device2 Device) (int32, error) {
 
 var slotDeviceOnSameBoard outSlot[int32]
 
-// devicePowerSmoothingActivatePresetProfile Activiate a specific preset profile for datacenter power smoothing.
+// devicePowerSmoothingActivatePresetProfile activates a preset profile for datacenter power smoothing.
+//
+// Activiate a specific preset profile for datacenter power smoothing.
 //
 // The API only sets the active preset profile based on the input profileId, and ignores the other parameters of the structure. Requires root/admin permissions.
 // For Blackwell or newer fully supported devices.
@@ -9379,11 +9603,12 @@ var slotDeviceOnSameBoard outSlot[int32]
 //   - device: The identifier of the target device
 //   - profile: Reference to [PowerSmoothingProfile]. Note that only profile->profileId is used and the rest of the structure is ignored
 //
-// Returns:
+// A nil error means the Desired Profile was successfully set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid or structure was NULL
 //   - [ErrNotSupported]: if this feature is not supported by the device
 //   - [ErrNoPermission]: if user does not have permission to change the profile number
-//   - [Success]: if the Desired Profile was successfully set
 //
 // Wraps [nvmlDevicePowerSmoothingActivatePresetProfile].
 //
@@ -9404,11 +9629,12 @@ func devicePowerSmoothingActivatePresetProfile(device Device, profile *PowerSmoo
 //   - device: The identifier of the target device
 //   - state: Reference to [PowerSmoothingState]
 //
-// Returns:
+// A nil error means the feature state was successfully set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid or state is NULL
 //   - [ErrNotSupported]: if this feature is not supported by the device
 //   - [ErrNoPermission]: if user does not have permission to change feature state
-//   - [Success]: if the feature state was successfully set
 //
 // Wraps [nvmlDevicePowerSmoothingSetState].
 //
@@ -9429,11 +9655,12 @@ func devicePowerSmoothingSetState(device Device, state *PowerSmoothingState) err
 //   - device: The identifier of the target device
 //   - profile: Reference to [PowerSmoothingProfile] struct
 //
-// Returns:
+// A nil error means the Active Profile was successfully set.
+//
+// Errors:
 //   - [ErrArgumentVersionMismatch]: if the structure version is not supported
 //   - [ErrInvalidArgument]: if device is invalid or profile parameter/value was invalid
 //   - [ErrNoPermission]: if user does not have permission to change any profile parameters
-//   - [Success]: if the Active Profile was successfully set
 //
 // Wraps [nvmlDevicePowerSmoothingUpdatePresetProfileParam].
 //
@@ -9453,12 +9680,13 @@ func devicePowerSmoothingUpdatePresetProfileParam(device Device, profile *PowerS
 //   - pciInfo: The PCI address of the GPU drain state to be queried
 //   - currentState: The current drain state for this GPU, see [EnableState]
 //
-// Returns:
+// A nil error means counters were successfully reset.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if nvmlIndex or currentState is invalid
 //   - [ErrNotSupported]: if the device doesn’t support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if counters were successfully reset
 //
 // Wraps [nvmlDeviceQueryDrainState].
 //
@@ -9478,12 +9706,11 @@ func DeviceQueryDrainState(pciInfo *PciInfo, currentState *EnableState) error {
 //   - device: Identifer of target GPU device
 //   - counterList: Structure holding the input parameters as well as the retrieved counter values
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid or counterList is NULL
 //   - [ErrNotSupported]: if this feature is not supported by the device
 //   - [ErrNoPermission]: if user does not have permission to perform this operation
 //   - [ErrUnknown]: on any other error
-//   - [Success]: on success
 //
 // Wraps [nvmlDeviceReadPRMCounters_v1].
 //
@@ -9504,11 +9731,10 @@ func deviceReadPRMCounters(device Device, counterList *PRMCounterListV1) error {
 //   - device: Identifer of target GPU device
 //   - buffer: Structure holding the input data in TLV format as well as the PRM register contents in TLV format (in the case of a successful read operation). Note: the input data and any returned data shall be in network byte order
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if device or buffer are invalid
 //   - [ErrNotSupported]: if this feature is not supported by the device previousNvmlClocksEventReasons nextPower Profile Information
 //   - [ErrNoPermission]: if user does not have permission to perform this operation
-//   - [Success]: on success
 //
 // Wraps [nvmlDeviceReadWritePRM_v1].
 //
@@ -9533,13 +9759,14 @@ func deviceReadWritePRM(device Device, buffer *PRMTLVV1) error {
 //   - eventTypes: Bitmask of Event Types to record
 //   - set: Set to which add new event types
 //
-// Returns:
+// A nil error means the event has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if eventTypes is invalid or set is NULL
 //   - [ErrNotSupported]: if the platform does not support this feature or some of requested event types
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the event has been set
 //
 // Wraps [nvmlDeviceRegisterEvents].
 //
@@ -9561,12 +9788,13 @@ func deviceRegisterEvents(device Device, eventTypes uint64, set EventSet) error 
 //   - gpuState: Whether the GPU is to be removed, from the OS see [DetachGpuState]
 //   - linkState: Requested upstream PCIe link state, see [PcieLinkState]
 //
-// Returns:
+// A nil error means counters were successfully reset.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if nvmlIndex is invalid
 //   - [ErrInUse]: if the device is still in use and cannot be removed previousDrain State definitions nextEncoder Structs
 //   - [ErrNotSupported]: if the device doesn’t support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
-//   - [Success]: if counters were successfully reset
 //
 // Wraps [nvmlDeviceRemoveGpu], bound as nvmlDeviceRemoveGpu_v2.
 //
@@ -9578,11 +9806,13 @@ func DeviceRemoveGpu(pciInfo *PciInfo, gpuState DetachGpuState, linkState PcieLi
 	return toError(fnDeviceRemoveGpu(pciInfo, gpuState, linkState), "nvmlDeviceRemoveGpu_v2")
 }
 
-// deviceResetApplicationsClocks wraps [nvmlDeviceResetApplicationsClocks].
+// deviceResetApplicationsClocks resets the device's applications clocks to their defaults.
 //
 // Please use [Device.ResetMemoryLockedClocks] for Memory Clocks and [Device.ResetGpuLockedClocks] for Graphics Clocks.
 //
 // Deprecated: Applications clocks are deprecated and will be removed in CUDA 14.0.
+//
+// Wraps [nvmlDeviceResetApplicationsClocks].
 //
 // [nvmlDeviceResetApplicationsClocks]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv433nvmlDeviceResetApplicationsClocks12nvmlDevice_t
 func deviceResetApplicationsClocks(device Device) error {
@@ -9601,13 +9831,14 @@ func deviceResetApplicationsClocks(device Device) error {
 //
 //   - device: The identifier of the target device
 //
-// Returns:
+// A nil error means new settings were successfully set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if new settings were successfully set
 //
 // Wraps [nvmlDeviceResetGpuLockedClocks].
 //
@@ -9628,13 +9859,14 @@ func deviceResetGpuLockedClocks(device Device) error {
 //
 //   - device: The identifier of the target device
 //
-// Returns:
+// A nil error means new settings were successfully set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if new settings were successfully set
 //
 // Wraps [nvmlDeviceResetMemoryLockedClocks].
 //
@@ -9653,12 +9885,13 @@ func deviceResetMemoryLockedClocks(device Device) error {
 //   - device: The identifier of the target device
 //   - link: Specifies the NvLink link to be queried
 //
-// Returns:
+// A nil error means the reset is successful.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device or link is invalid
 //   - [ErrNotSupported]: if the device doesn’t support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the reset is successful
 //
 // Wraps [nvmlDeviceResetNvLinkErrorCounters].
 //
@@ -9678,12 +9911,13 @@ func deviceResetNvLinkErrorCounters(device Device, link uint32) error {
 //   - link: Specifies the NvLink link to be reset
 //   - counter: Specifies the counter that should be reset (0 or 1)
 //
-// Returns:
+// A nil error means counters were successfully reset.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device, link, or counter is invalid
 //   - [ErrNotSupported]: if the device doesn’t support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if counters were successfully reset
 //
 // Deprecated: Resetting NVLINK utilization counters is no longer supported.
 //
@@ -9708,14 +9942,15 @@ func deviceResetNvLinkUtilizationCounter(device Device, link uint32, counter uin
 //   - apiType: Target API type for this operation
 //   - isRestricted: The target restriction
 //
-// Returns:
+// A nil error means isRestricted has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or apiType incorrect
 //   - [ErrNotSupported]: if the device does not support changing API restrictions or the device does not support the feature that api restrictions are being set for (E.G. Enabling/disabling auto boosted clocks is not supported by the device)
 //   - [ErrNoPermission]: if the user doesn’t have permission to perform this operation
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if isRestricted has been set
 //
 // Wraps [nvmlDeviceSetAPIRestriction].
 //
@@ -9743,13 +9978,14 @@ func deviceSetAPIRestriction(device Device, apiType RestrictedAPI, isRestricted 
 //   - device: The identifier of the target device
 //   - mode: The target accounting mode
 //
-// Returns:
+// A nil error means the new mode has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device or mode are invalid
 //   - [ErrNotSupported]: if the device doesn’t support this feature
 //   - [ErrNoPermission]: if the user doesn’t have permission to perform this operation
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error previousGroups nextCPER (Common Platform Error Record)
-//   - [Success]: if the new mode has been set
 //
 // Wraps [nvmlDeviceSetAccountingMode].
 //
@@ -9761,11 +9997,13 @@ func deviceSetAccountingMode(device Device, mode EnableState) error {
 	return toError(fndeviceSetAccountingMode(device, mode), "nvmlDeviceSetAccountingMode")
 }
 
-// deviceSetApplicationsClocks wraps [nvmlDeviceSetApplicationsClocks].
+// deviceSetApplicationsClocks sets the device's memory and graphics applications clocks, in MHz.
 //
 // Please use [Device.SetMemoryLockedClocks] for Memory Clocks and [Device.SetGpuLockedClocks] for Graphics Clocks.
 //
 // Deprecated: Applications clocks are deprecated and will be removed in CUDA 14.0.
+//
+// Wraps [nvmlDeviceSetApplicationsClocks].
 //
 // [nvmlDeviceSetApplicationsClocks]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv431nvmlDeviceSetApplicationsClocks12nvmlDevice_tjj
 func deviceSetApplicationsClocks(device Device, memClockMHz uint32, graphicsClockMHz uint32) error {
@@ -9785,13 +10023,14 @@ func deviceSetApplicationsClocks(device Device, memClockMHz uint32, graphicsCloc
 //   - device: The identifier of the target device
 //   - enabled: What state to try to set Auto Boosted clocks of the target device to
 //
-// Returns:
+// A nil error means the Auto Boosted clocks were successfully set to the state specified by enabled.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid
 //   - [ErrNotSupported]: if the device does not support Auto Boosted clocks
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: If the Auto Boosted clocks were successfully set to the state specified by enabled
 //
 // Wraps [nvmlDeviceSetAutoBoostedClocksEnabled].
 //
@@ -9811,13 +10050,12 @@ func deviceSetAutoBoostedClocksEnabled(device Device, enabled EnableState) error
 //   - device: The identifier of the target device
 //   - info: Structure specifying the clock type (input), the pstate (input) and clock offset value (input)
 //
-// Returns:
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the provided version is invalid/unsupported
 //   - [ErrInvalidArgument]: If device, type or pstate are invalid or both clockOffsetMHz is out of allowed range.
 //   - [ErrNotSupported]: If the device does not support this feature
 //   - [ErrNoPermission]: If the user doesn’t have permission to perform this operation
 //   - [ErrUninitialized]: If the library has not been successfully initialized
-//   - [Success]: If everything worked
 //
 // Wraps [nvmlDeviceSetClockOffsets].
 //
@@ -9844,14 +10082,15 @@ func deviceSetClockOffsets(device Device, info *ClockOffset) error {
 //   - device: The identifier of the target device handle or MIG device handle
 //   - mode: The target compute mode
 //
-// Returns:
+// A nil error means the compute mode was set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or mode is invalid
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrNoPermission]: if the user doesn’t have permission to perform this operation
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the compute mode was set
 //
 // Wraps [nvmlDeviceSetComputeMode].
 //
@@ -9870,11 +10109,12 @@ func deviceSetComputeMode(device Device, mode ComputeMode) error {
 //   - device: Device Handle
 //   - sizeKiB: Unprotected Memory size to be set in KiB
 //
-// Returns:
+// A nil error means sizeKiB successfully set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid
 //   - [ErrNotSupported]: if this query is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
-//   - [Success]: if sizeKiB successfully set
 //
 // Wraps [nvmlDeviceSetConfComputeUnprotectedMemSize].
 //
@@ -9893,13 +10133,14 @@ func deviceSetConfComputeUnprotectedMemSize(device Device, sizeKiB uint64) error
 //
 //   - device: The identifier of the target device
 //
-// Returns:
+// A nil error means the calling process has been successfully bound.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the calling process has been successfully bound
 //
 // Wraps [nvmlDeviceSetCpuAffinity].
 //
@@ -9922,14 +10163,15 @@ func deviceSetCpuAffinity(device Device) error {
 //   - enabled: What state to try to set default Auto Boosted clocks of the target device to
 //   - flags: Flags that change the default behavior. Currently Unused
 //
-// Returns:
+// A nil error means the Auto Boosted clock’s default state was successfully set to the state specified by enabled.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid
 //   - [ErrNotSupported]: if the device does not support Auto Boosted clocks
 //   - [ErrNoPermission]: If the calling user does not have permission to change Auto Boosted clock’s default state.
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: If the Auto Boosted clock’s default state was successfully set to the state specified by enabled
 //
 // Wraps [nvmlDeviceSetDefaultAutoBoostedClocksEnabled].
 //
@@ -9948,12 +10190,13 @@ func deviceSetDefaultAutoBoostedClocksEnabled(device Device, enabled EnableState
 //   - device: The identifier of the target device
 //   - fan: The index of the fan, starting at zero
 //
-// Returns:
+// A nil error means speed has been adjusted.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid
 //   - [ErrNotSupported]: if the device does not support this (doesn’t have fans)
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if speed has been adjusted
 //
 // Wraps [nvmlDeviceSetDefaultFanSpeed_v2].
 //
@@ -9977,7 +10220,9 @@ func deviceSetDefaultFanSpeed(device Device, fan uint32) error {
 //   - device: The identifier of the target device
 //   - dramEncryption: The target DRAM Encryption mode
 //
-// Returns:
+// A nil error means the DRAM Encryption mode was set.
+//
+// Errors:
 //   - [ErrArgumentVersionMismatch]: if the argument version is not supported
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or DRAM Encryption is invalid
@@ -9985,7 +10230,6 @@ func deviceSetDefaultFanSpeed(device Device, fan uint32) error {
 //   - [ErrNoPermission]: if the user doesn’t have permission to perform this operation
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the DRAM Encryption mode was set
 //
 // Wraps [nvmlDeviceSetDramEncryptionMode].
 //
@@ -10014,14 +10258,15 @@ func deviceSetDramEncryptionMode(device Device, dramEncryption *DramEncryptionIn
 //   - driverModel: The target driver model
 //   - flags: Flags that change the default behavior
 //
-// Returns:
+// A nil error means the driver model has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or driverModel is invalid
 //   - [ErrNotSupported]: if the platform is not windows or the device does not support this feature
 //   - [ErrNoPermission]: if the user doesn’t have permission to perform this operation
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the driver model has been set
 //
 // Wraps [nvmlDeviceSetDriverModel].
 //
@@ -10047,14 +10292,15 @@ func deviceSetDriverModel(device Device, driverModel DriverModel, flags uint32) 
 //   - device: The identifier of the target device
 //   - ecc: The target ECC mode
 //
-// Returns:
+// A nil error means the ECC mode was set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or ecc is invalid
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrNoPermission]: if the user doesn’t have permission to perform this operation
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the ECC mode was set
 //
 // Wraps [nvmlDeviceSetEccMode].
 //
@@ -10076,12 +10322,13 @@ func deviceSetEccMode(device Device, ecc EnableState) error {
 //   - fan: The index of the fan, starting at zero
 //   - policy: The fan control policy to set
 //
-// Returns:
+// A nil error means policy has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid or policy is null or the fan given doesn’t reference a fan that exists.
 //   - [ErrNotSupported]: if the device is older than Maxwell
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if policy has been set
 //
 // Wraps [nvmlDeviceSetFanControlPolicy].
 //
@@ -10098,7 +10345,13 @@ func deviceSetFanControlPolicy(device Device, fan uint32, policy FanControlPolic
 // WARNING: This function changes the fan control policy to manual. It means that YOU have to monitor the temperature and adjust the fan speed accordingly. If you set the fan speed too low you can burn your GPU! Use [Device.SetDefaultFanSpeed] to restore default control policy.
 // For all cuda-capable discrete products with fans that are Maxwell or Newer.
 // return
+//   - [Success] if the fan speed has been set
+//   - [ErrUninitialized] if the library has not been successfully initialized
+//   - [ErrInvalidArgument] if the device is not valid, or the speed is outside acceptable ranges, or if the fan index doesn’t reference an actual fan.
+//   - [ErrNotSupported] if the device is older than Maxwell.
+//   - [ErrUnknown] if there was an unexpected error.
 //
+// Parameters:
 //   - device: The identifier of the target device
 //   - fan: The index of the fan, starting at zero
 //   - speed: The target speed of the fan [0-100] in % of max speed
@@ -10113,23 +10366,26 @@ func deviceSetFanSpeed(device Device, fan uint32, speed uint32) error {
 	return toError(fndeviceSetFanSpeed(device, fan, speed), "nvmlDeviceSetFanSpeed_v2")
 }
 
-// deviceSetGpcClkVfOffset wraps [nvmlDeviceSetGpcClkVfOffset].
+// deviceSetGpcClkVfOffset sets the device's GPCCLK VF offset.
 //
-// Use [Device.SetClockOffsets] instead. It works on Maxwell onwards GPU architectures.
+// It works on Maxwell onwards GPU architectures.
 // Set the GPCCLK VF offset value
 //
 //   - device: The identifier of the target device
 //   - offset: The GPCCLK VF offset value to set
 //
-// Returns:
+// A nil error means offset has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or offset is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if offset has been set
 //
 // Deprecated: Will be deprecated in a future release. Use [Device.SetClockOffsets] instead.
+//
+// Wraps [nvmlDeviceSetGpcClkVfOffset].
 //
 // [nvmlDeviceSetGpcClkVfOffset]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv427nvmlDeviceSetGpcClkVfOffset12nvmlDevice_ti
 func deviceSetGpcClkVfOffset(device Device, offset int32) error {
@@ -10144,7 +10400,7 @@ func deviceSetGpcClkVfOffset(device Device, offset int32) error {
 // Sets the clocks that the device will be running at to the value in the range of minGpuClockMHz to maxGpuClockMHz.
 // Can be used as a setting to request constant performance.
 // This can be called with a pair of integer clock frequencies in MHz, or a pair of /ref [ClockLimitId] values. See the table below for valid combinations of these values.
-// minGpuClock | maxGpuClock | Effect ———&#8212;+———-&#8212;+———————————————–&#8212; tdp | tdp | Lock clock to TDP unlimited | tdp | Upper bound is TDP but clock may drift below this tdp | unlimited | Lower bound is TDP but clock may boost above this unlimited | unlimited | Unlocked (== [Device.ResetGpuLockedClocks])
+// minGpuClock | maxGpuClock | Effect ————+———-—+———————————————–— tdp | tdp | Lock clock to TDP unlimited | tdp | Upper bound is TDP but clock may drift below this tdp | unlimited | Lower bound is TDP but clock may boost above this unlimited | unlimited | Unlocked (== [Device.ResetGpuLockedClocks])
 // If one arg takes one of these values, the other must be one of these values as well. Mixed numeric and symbolic calls return [ErrInvalidArgument].
 // Requires root/admin permissions.
 // After system reboot or driver reload GPU clocks go back to their default value. See [Device.ResetGpuLockedClocks].
@@ -10154,14 +10410,15 @@ func deviceSetGpcClkVfOffset(device Device, offset int32) error {
 //   - minGpuClockMHz: Requested minimum gpu clock in MHz
 //   - maxGpuClockMHz: Requested maximum gpu clock in MHz
 //
-// Returns:
+// A nil error means new settings were successfully set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or minGpuClockMHz and maxGpuClockMHz is not a valid clock combination
 //   - [ErrNotSupported]: if the device doesn’t support this feature
 //   - [ErrNoPermission]: if the user doesn’t have permission to perform this operation
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if new settings were successfully set
 //
 // Wraps [nvmlDeviceSetGpuLockedClocks].
 //
@@ -10185,14 +10442,15 @@ func deviceSetGpuLockedClocks(device Device, minGpuClockMHz uint32, maxGpuClockM
 //   - device: The identifier of the target device
 //   - mode: Target GOM
 //
-// Returns:
+// A nil error means mode has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or mode incorrect
 //   - [ErrNotSupported]: if the device does not support GOM or specific mode
 //   - [ErrNoPermission]: if the user doesn’t have permission to perform this operation
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if mode has been set
 //
 // Wraps [nvmlDeviceSetGpuOperationMode].
 //
@@ -10215,14 +10473,15 @@ func deviceSetGpuOperationMode(device Device, mode GpuOperationMode) error {
 //   - device: The identifier of the target device
 //   - hostname: Reference to the caller-provided [HostnameV1] struct containing the hostname
 //
-// Returns:
+// A nil error means the hostname was set successfully.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or hostname is NULL or contains invalid characters
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrNoPermission]: if the user doesn’t have permission to perform this operation
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the hostname was set successfully
 //
 // Wraps [nvmlDeviceSetHostname_v1].
 //
@@ -10234,23 +10493,26 @@ func deviceSetHostname(device Device, hostname *HostnameV1) error {
 	return toError(fndeviceSetHostname(device, hostname), "nvmlDeviceSetHostname_v1")
 }
 
-// deviceSetMemClkVfOffset wraps [nvmlDeviceSetMemClkVfOffset].
+// deviceSetMemClkVfOffset sets the device's memory clock VF offset.
 //
-// Use [Device.SetClockOffsets] instead. It works on Maxwell onwards GPU architectures.
+// It works on Maxwell onwards GPU architectures.
 // Set the MemClk (Memory Clock) VF offset value. It requires elevated privileges.
 //
 //   - device: The identifier of the target device
 //   - offset: The MemClk VF offset value to set
 //
-// Returns:
+// A nil error means offset has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or offset is NULL
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if offset has been set
 //
 // Deprecated: Will be deprecated in a future release. Use [Device.SetClockOffsets] instead.
+//
+// Wraps [nvmlDeviceSetMemClkVfOffset].
 //
 // [nvmlDeviceSetMemClkVfOffset]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv427nvmlDeviceSetMemClkVfOffset12nvmlDevice_ti
 func deviceSetMemClkVfOffset(device Device, offset int32) error {
@@ -10272,14 +10534,15 @@ func deviceSetMemClkVfOffset(device Device, offset int32) error {
 //   - minMemClockMHz: Requested minimum memory clock in MHz
 //   - maxMemClockMHz: Requested maximum memory clock in MHz
 //
-// Returns:
+// A nil error means new settings were successfully set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or minGpuClockMHz and maxGpuClockMHz is not a valid clock combination
 //   - [ErrNotSupported]: if the device doesn’t support this feature
 //   - [ErrNoPermission]: if the user doesn’t have permission to perform this operation
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if new settings were successfully set
 //
 // Wraps [nvmlDeviceSetMemoryLockedClocks].
 //
@@ -10305,12 +10568,11 @@ func deviceSetMemoryLockedClocks(device Device, minMemClockMHz uint32, maxMemClo
 //   - mode: The mode to be set, [DeviceMigDisable] or [DeviceMigEnable]
 //   - activationStatus: The activationStatus status
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If device, mode or activationStatus are invalid
 //   - [ErrNotSupported]: If device doesn’t support MIG mode
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlDeviceSetMigMode].
 //
@@ -10329,12 +10591,13 @@ func deviceSetMigMode(device Device, mode uint32, activationStatus *Result) erro
 //   - device: The identifier of the target device
 //   - info: Reference to [NvLinkPowerThres] struct input parameters
 //
-// Returns:
+// A nil error means the Threshold is successfully set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid or Threshold is not within range
 //   - [ErrNotReady]: if an internal driver setting prevents the threshold from being used
 //   - [ErrNotSupported]: if this query is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
-//   - [Success]: if the Threshold is successfully set
 //
 // Wraps [nvmlDeviceSetNvLinkDeviceLowPowerThreshold].
 //
@@ -10357,12 +10620,13 @@ func deviceSetNvLinkDeviceLowPowerThreshold(device Device, info *NvLinkPowerThre
 //   - control: A reference to the [NvLinkUtilizationControl] to set
 //   - reset: Resets the counters on set if non-zero
 //
-// Returns:
+// A nil error means the control has been set successfully.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device, counter, link, or control is invalid
 //   - [ErrNotSupported]: if the device doesn’t support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the control has been set successfully
 //
 // Deprecated: Setting utilization counter control is no longer supported.
 //
@@ -10383,12 +10647,13 @@ func deviceSetNvLinkUtilizationControl(device Device, link uint32, counter uint3
 //   - device: The identifier of the target device
 //   - setBwMode: Reference to [NvlinkSetBwMode]
 //
-// Returns:
+// A nil error means the Bandwidth mode was successfully set.
+//
+// Errors:
 //   - [ErrArgumentVersionMismatch]: if the version specified is not supported
 //   - [ErrInvalidArgument]: if device is invalid or setBwMode is NULL
 //   - [ErrNotSupported]: if this feature is not supported by the device
 //   - [ErrNoPermission]: if user does not have permission to change Bandwidth mode
-//   - [Success]: if the Bandwidth mode was successfully set
 //
 // Wraps [nvmlDeviceSetNvlinkBwMode].
 //
@@ -10413,14 +10678,15 @@ func deviceSetNvlinkBwMode(device Device, setBwMode *NvlinkSetBwMode) error {
 //   - device: The identifier of the target device
 //   - mode: The target persistence mode
 //
-// Returns:
+// A nil error means the persistence mode was set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or mode is invalid
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrNoPermission]: if the user doesn’t have permission to perform this operation
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the persistence mode was set
 //
 // Wraps [nvmlDeviceSetPersistenceMode].
 //
@@ -10446,13 +10712,14 @@ func deviceSetPersistenceMode(device Device, mode EnableState) error {
 //   - device: The identifier of the target device
 //   - powerValue: Power management limit in milliwatts to set
 //
-// Returns:
+// A nil error means limit has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or powerValue is NULL or contains invalid values
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if limit has been set
 //
 // Wraps [nvmlDeviceSetPowerManagementLimit_v2].
 //
@@ -10471,13 +10738,14 @@ func deviceSetPowerManagementLimit(device Device, powerValue *PowerValueV2) erro
 //   - device: The identifier of the target device
 //   - powerMizerMode: Reference in which to set the power mizer mode
 //
-// Returns:
+// A nil error means powerMizerMode has been populated.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or powerMizerMode is NULL
 //   - [ErrNotSupported]: if the device does not support powerMizerMode readings
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if powerMizerMode has been populated
 //
 // Wraps [nvmlDeviceSetPowerMizerMode_v1].
 //
@@ -10496,12 +10764,13 @@ func deviceSetPowerMizerMode(device Device, powerMizerMode *DevicePowerMizerMode
 //   - device: The identifier of the target device
 //   - settings: Reference to [RusdSettingsV1] struct
 //
-// Returns:
+// A nil error means the RUSD setting was successfully set.
+//
+// Errors:
 //   - [ErrArgumentVersionMismatch]: if the input version is not supported
 //   - [ErrInvalidArgument]: if device is invalid or state is NULL
 //   - [ErrNotSupported]: if this feature is not supported by NVIDIA kernel driver
 //   - [ErrNoPermission]: if user does not have permission to change feature state
-//   - [Success]: if the RUSD setting was successfully set
 //
 // Wraps [nvmlDeviceSetRusdSettings_v1].
 //
@@ -10522,13 +10791,14 @@ func deviceSetRusdSettings(device Device, settings *RusdSettingsV1) error {
 //   - thresholdType: The type of threshold value to be set
 //   - temp: Reference which hold the value to be set
 //
-// Returns:
+// A nil error means temp has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid, thresholdType is invalid or temp is NULL
 //   - [ErrNotSupported]: if the device does not have a temperature sensor or is unsupported
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error previousConstants nextDevice Enums
-//   - [Success]: if temp has been set
 //
 // Wraps [nvmlDeviceSetTemperatureThreshold].
 //
@@ -10548,12 +10818,11 @@ func deviceSetTemperatureThreshold(device Device, thresholdType TemperatureThres
 //   - capability: Specifies the [DeviceVgpuCapability] to be set
 //   - state: The target capability mode
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If device is invalid, or capability is invalid, or state is invalid
 //   - [ErrNotSupported]: The API is not supported in current state, or device not in vGPU mode
 //   - [ErrUninitialized]: If the library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: Successful completion
 //
 // Wraps [nvmlDeviceSetVgpuCapabilities].
 //
@@ -10573,7 +10842,7 @@ func deviceSetVgpuCapabilities(device Device, capability DeviceVgpuCapability, s
 //   - device: Identifier of the target device
 //   - pHeterogeneousMode: Pointer to the caller-provided structure of [VgpuHeterogeneousMode]
 //
-// Returns:
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the version of pHeterogeneousMode is invalid
 //   - [ErrInvalidArgument]: If device or pHeterogeneousMode is NULL or pHeterogeneousMode->mode is invalid
 //   - [ErrInUse]: If the device is in use
@@ -10581,7 +10850,6 @@ func deviceSetVgpuCapabilities(device Device, capability DeviceVgpuCapability, s
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: Upon success
 //
 // Wraps [nvmlDeviceSetVgpuHeterogeneousMode].
 //
@@ -10601,12 +10869,13 @@ func deviceSetVgpuHeterogeneousMode(device Device, pHeterogeneousMode *VgpuHeter
 //   - device: The identifier of the target device
 //   - pSchedulerState: vGPU pSchedulerState to set
 //
-// Returns:
+// A nil error means vGPU scheduler state has been successfully set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: If pSchedulerState is NULL or device is invalid
 //   - [ErrNotSupported]: If MIG is enabled or device not in vGPU host mode or if any vGPU instance currently exists on the device
 //   - [ErrResetRequired]: If setting pSchedulerState failed with fatal error, reboot is required to overcome from this error.
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: vGPU scheduler state has been successfully set
 //
 // Wraps [nvmlDeviceSetVgpuSchedulerState_v2].
 //
@@ -10625,13 +10894,14 @@ func deviceSetVgpuSchedulerState(device Device, pSchedulerState *VgpuSchedulerSt
 //   - device: Identifier of the target device
 //   - virtualMode: virtualization mode. One of NVML_GPU_VIRTUALIZATION_?
 //
-// Returns:
+// A nil error means virtualMode is set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if device is invalid or virtualMode is NULL
 //   - [ErrNotSupported]: if setting of virtualization mode is not supported.
 //   - [ErrNoPermission]: if setting of virtualization mode is not allowed for this client.
 //   - [ErrUninitialized]: if the library has not been successfully initialized
-//   - [Success]: if virtualMode is set
 //
 // Wraps [nvmlDeviceSetVirtualizationMode].
 //
@@ -10649,13 +10919,14 @@ func deviceSetVirtualizationMode(device Device, virtualMode GpuVirtualizationMod
 //
 //   - device: The identifier of the target device
 //
-// Returns:
+// A nil error means infoROM is not corrupted.
+//
+// Errors:
 //   - [ErrCorruptedInforom]: if the device’s infoROM is corrupted
 //   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrNotSupported]: if the device does not support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if infoROM is not corrupted
 //
 // Wraps [nvmlDeviceValidateInforom].
 //
@@ -10677,13 +10948,14 @@ func deviceValidateInforom(device Device) error {
 //
 //   - device: The identifier of the target device
 //
-// Returns:
+// A nil error means GSP reset completed successfully.
+//
+// Errors:
 //   - [ErrInvalidArgument]: If device is invalid or null
 //   - [ErrNotSupported]: The API is not supported in current state, or device not in vGPU mode
 //   - [ErrNoPermission]: The user doesn’t have permission to perform this operation
 //   - [ErrUninitialized]: If the library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error during GSP reset operation
-//   - [Success]: GSP reset completed successfully
 //
 // Wraps [nvmlDeviceVgpuForceGspUnload].
 //
@@ -10702,14 +10974,13 @@ func deviceVgpuForceGspUnload(device Device) error {
 //   - device: The identifier of the target device
 //   - requestedProfiles: Reference to struct [WorkloadPowerProfileRequestedProfiles]
 //
-// Returns:
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the provided version is invalid/unsupported
 //   - [ErrGpuIsLost]: If the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: If device is invalid or pointer to struct is NULL
 //   - [ErrNotSupported]: If the device does not support this feature
 //   - [ErrUninitialized]: If the library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: If the query is successful
 //
 // Deprecated: Use [Device.WorkloadPowerProfileUpdateProfiles] instead.
 //
@@ -10730,14 +11001,13 @@ func deviceWorkloadPowerProfileClearRequestedProfiles(device Device, requestedPr
 //   - device: The identifier of the target device
 //   - currentProfiles: Reference to struct [WorkloadPowerProfileCurrentProfiles]
 //
-// Returns:
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the provided version is invalid/unsupported
 //   - [ErrGpuIsLost]: If the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: If device is invalid or the pointer to struct is NULL
 //   - [ErrNotSupported]: If the device does not support this feature
 //   - [ErrUninitialized]: If the library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: If the query is successful
 //
 // Wraps [nvmlDeviceWorkloadPowerProfileGetCurrentProfiles].
 //
@@ -10756,7 +11026,7 @@ func deviceWorkloadPowerProfileGetCurrentProfiles(device Device, currentProfiles
 //   - device: The identifier of the target device
 //   - profilesInfo: Reference to struct [WorkloadPowerProfileProfilesInfo]
 //
-// Returns:
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the provided version is invalid/unsupported
 //   - [ErrGpuIsLost]: If the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInsufficientSize]: If struct is fully allocated
@@ -10764,7 +11034,6 @@ func deviceWorkloadPowerProfileGetCurrentProfiles(device Device, currentProfiles
 //   - [ErrNotSupported]: If the device does not support this feature
 //   - [ErrUninitialized]: If the library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: If the query is successful
 //
 // Wraps [nvmlDeviceWorkloadPowerProfileGetProfilesInfo].
 //
@@ -10783,14 +11052,13 @@ func deviceWorkloadPowerProfileGetProfilesInfo(device Device, profilesInfo *Work
 //   - device: The identifier of the target device
 //   - requestedProfiles: Reference to struct [WorkloadPowerProfileRequestedProfiles]
 //
-// Returns:
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the provided version is invalid/unsupported
 //   - [ErrGpuIsLost]: If the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: If device is invalid or pointer to struct is NULL
 //   - [ErrNotSupported]: If the device does not support this feature
 //   - [ErrUninitialized]: If the library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: If the query is successful
 //
 // Deprecated: Use [Device.WorkloadPowerProfileUpdateProfiles] instead.
 //
@@ -10811,13 +11079,12 @@ func deviceWorkloadPowerProfileSetRequestedProfiles(device Device, requestedProf
 //   - device: The identifier of the target device
 //   - updateProfiles: Reference to struct [WorkloadPowerProfileUpdateProfilesV1]
 //
-// Returns:
+// Errors:
 //   - [ErrGpuIsLost]: If the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: If device is invalid or pointer to struct is NULL
 //   - [ErrNotSupported]: If the device does not support this feature
 //   - [ErrUninitialized]: If the library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: If the query is successful
 //
 // Wraps [nvmlDeviceWorkloadPowerProfileUpdateProfiles_v1].
 //
@@ -10838,11 +11105,12 @@ func deviceWorkloadPowerProfileUpdateProfiles(device Device, updateProfiles *Wor
 //
 //   - set: Reference in which to return the event handle
 //
-// Returns:
+// A nil error means the event has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if set is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the event has been set
 //
 // Wraps [nvmlEventSetCreate].
 //
@@ -10871,10 +11139,11 @@ var slotEventSetCreate outSlot[EventSet]
 //
 //   - set: Reference to events to be released
 //
-// Returns:
+// A nil error means the event has been successfully released.
+//
+// Errors:
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the event has been successfully released
 //
 // Wraps [nvmlEventSetFree].
 //
@@ -10901,13 +11170,14 @@ func eventSetFree(set EventSet) error {
 //   - data: Reference in which to return event data
 //   - timeoutms: Maximum amount of wait time in milliseconds for registered event
 //
-// Returns:
+// A nil error means the data has been set.
+//
+// Errors:
 //   - [ErrGpuIsLost]: if a GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: if set or data is NULL
 //   - [ErrTimeout]: if no event arrived in specified timeout or interrupt arrived
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the data has been set
 //
 // Wraps [nvmlEventSetWait], bound as nvmlEventSetWait_v2.
 //
@@ -10925,9 +11195,10 @@ func eventSetWait(set EventSet, data *EventData, timeoutms uint32) error {
 //
 //   - deviceCount: Reference in which to return the number of excluded devices
 //
-// Returns:
+// A nil error means deviceCount has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if deviceCount is NULL
-//   - [Success]: if deviceCount has been set
 //
 // Wraps [nvmlGetExcludedDeviceCount].
 //
@@ -10958,9 +11229,10 @@ var slotGetExcludedDeviceCount outSlot[uint32]
 //   - index: The index of the target GPU, >= 0 and < deviceCount
 //   - info: Reference in which to return the device information
 //
-// Returns:
+// A nil error means device has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if index is invalid or info is NULL previousEvent Types nextFabric definitions
-//   - [Success]: if device has been set
 //
 // Wraps [nvmlGetExcludedDeviceInfoByIndex].
 //
@@ -10991,10 +11263,11 @@ var slotGetExcludedDeviceInfoByIndex outSlot[ExcludedDeviceInfo]
 //   - pgpuMetadata: Pointer to caller-supplied GPU metadata structure
 //   - compatibilityInfo: Pointer to caller-supplied buffer to hold compatibility info
 //
-// Returns:
+// A nil error means vGPU metadata structure was successfully returned.
+//
+// Errors:
 //   - [ErrInvalidArgument]: If vgpuMetadata or pgpuMetadata or bufferSize are NULL
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: vGPU metadata structure was successfully returned
 //
 // Wraps [nvmlGetVgpuCompatibility].
 //
@@ -11014,12 +11287,11 @@ func GetVgpuCompatibility(vgpuMetadata *VgpuMetadata, pgpuMetadata *VgpuPgpuMeta
 //   - capability: Specifies the [VgpuDriverCapability] to be queried
 //   - capResult: A boolean for the queried capability indicating that feature is supported
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if capability is invalid, or capResult is NULL
 //   - [ErrNotSupported]: the API is not supported in current state or devices not in vGPU mode
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlGetVgpuDriverCapabilities].
 //
@@ -11044,15 +11316,19 @@ var slotGetVgpuDriverCapabilities outSlot[uint32]
 //
 // This function gets the linear range of supported vGPU versions that is preset for the NVIDIA vGPU Manager and the range set by an administrator. If the preset range has not been overridden by [SetVgpuVersion], both ranges are the same.
 // The caller passes pointers to the following [VgpuVersion] structures, into which the NVIDIA vGPU Manager writes the ranges:
+//   - supported structure that represents the preset range of vGPU versions supported by the NVIDIA vGPU Manager.
+//   - current structure that represents the range of supported vGPU versions set by an administrator. By default, this range is the same as the preset range.
 //
+// Parameters:
 //   - supported: Pointer to the structure in which the preset range of vGPU versions supported by the NVIDIA vGPU Manager is written
 //   - current: Pointer to the structure in which the range of supported vGPU versions set by an administrator is written
 //
-// Returns:
+// A nil error means the vGPU version range structures were successfully obtained.
+//
+// Errors:
 //   - [ErrInvalidArgument]: The supported parameter or the current parameter is NULL.
 //   - [ErrNotSupported]: The API is not supported.
 //   - [ErrUnknown]: An error occurred while the data was being fetched.
-//   - [Success]: The vGPU version range structures were successfully obtained.
 //
 // Wraps [nvmlGetVgpuVersion].
 //
@@ -11072,9 +11348,6 @@ func GetVgpuVersion(supported *VgpuVersion, current *VgpuVersion) error {
 // Note: The interval between these two [GpmSample.Get] calls should be greater than 100ms due to the internal sample refresh rate. Finally, the user calls [GpmMetricsGet] to retrieve the metrics, which will be stored at metricsGet->metrics
 //
 //   - metricsGet: IN/OUT: populated [GpmMetricsGetParams] struct
-//
-// Returns:
-//   - [Success]: on success Nonzero NVML_ERROR_? enum on error
 //
 // Wraps [nvmlGpmMetricsGet].
 //
@@ -11097,9 +11370,6 @@ func GpmMetricsGet(metricsGet *GpmMetricsGetParams) error {
 //   - gpuInstanceId: MIG GPU Instance ID
 //   - gpmSample: Buffer to read samples into
 //
-// Returns:
-//   - [Success]: on success Nonzero NVML_ERROR_? enum on error
-//
 // Wraps [nvmlGpmMigSampleGet].
 //
 // [nvmlGpmMigSampleGet]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlGpmFunctions.html#_CPPv419nvmlGpmMigSampleGet12nvmlDevice_tj15nvmlGpmSample_t
@@ -11119,9 +11389,6 @@ func gpmMigSampleGet(device Device, gpuInstanceId uint32, gpmSample GpmSample) e
 //   - device: The device handle or MIG device handle to query for
 //   - gpmSupport: Structure to indicate GPM support [GpmSupport]. Indicates GPM support per system for the supplied device
 //
-// Returns:
-//   - [Success]: on success Nonzero NVML_ERROR_? enum if there is an error in processing the query
-//
 // Wraps [nvmlGpmQueryDeviceSupport].
 //
 // [nvmlGpmQueryDeviceSupport]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlGpmFunctions.html#_CPPv425nvmlGpmQueryDeviceSupport12nvmlDevice_tP16nvmlGpmSupport_t
@@ -11139,11 +11406,12 @@ func gpmQueryDeviceSupport(device Device, gpmSupport *GpmSupport) error {
 //   - device: The identifier of the target device
 //   - state: Returns GPM stream state [FeatureDisabled] or [FeatureEnabled]
 //
-// Returns:
+// A nil error means current GPM stream state were successfully queried.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid or state is NULL
 //   - [ErrNotSupported]: if this query is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
-//   - [Success]: if current GPM stream state were successfully queried
 //
 // Wraps [nvmlGpmQueryIfStreamingEnabled].
 //
@@ -11171,10 +11439,9 @@ var slotGpmQueryIfStreamingEnabled outSlot[uint32]
 //
 //   - gpmSample: Where the allocated sample will be stored
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if an invalid pointer is provided
 //   - [ErrMemory]: if system memory is insufficient
-//   - [Success]: on success
 //
 // Wraps [nvmlGpmSampleAlloc].
 //
@@ -11201,9 +11468,8 @@ var slotGpmSampleAlloc outSlot[GpmSample]
 //
 //   - gpmSample: Sample to free
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if an invalid pointer is provided
-//   - [Success]: on success
 //
 // Wraps [nvmlGpmSampleFree].
 //
@@ -11227,9 +11493,6 @@ func gpmSampleFree(gpmSample GpmSample) error {
 //   - device: The device handle or MIG device handle to get samples for
 //   - gpmSample: Buffer to read samples into
 //
-// Returns:
-//   - [Success]: on success Nonzero NVML_ERROR_? enum on error
-//
 // Wraps [nvmlGpmSampleGet].
 //
 // [nvmlGpmSampleGet]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlGpmFunctions.html#_CPPv416nvmlGpmSampleGet12nvmlDevice_t15nvmlGpmSample_t
@@ -11247,11 +11510,12 @@ func gpmSampleGet(device Device, gpmSample GpmSample) error {
 //   - device: The identifier of the target device
 //   - state: GPM stream state, [FeatureDisabled] or [FeatureEnabled]
 //
-// Returns:
+// A nil error means current GPM stream state is successfully set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid
 //   - [ErrNotSupported]: if this query is not supported by the device previousGPM Enums nextGPM Structs
 //   - [ErrUninitialized]: if the library has not been successfully initialized
-//   - [Success]: if current GPM stream state is successfully set
 //
 // Wraps [nvmlGpmSetStreamingEnabled].
 //
@@ -11272,13 +11536,12 @@ func gpmSetStreamingEnabled(device Device, state uint32) error {
 //   - profileId: The compute instance profile ID. See [GpuInstance.ComputeInstanceProfileInfo]
 //   - computeInstance: Returns the compute instance handle
 //
-// Returns:
+// Errors:
 //   - [ErrInsufficientResources]: If the requested compute instance could not be created
 //   - [ErrInvalidArgument]: If gpuInstance, profile, profileId or computeInstance are invalid
 //   - [ErrNotSupported]: If profileId isn’t supported
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceCreateComputeInstance].
 //
@@ -11309,13 +11572,12 @@ var slotGpuInstanceCreateComputeInstance outSlot[ComputeInstance]
 //   - placement: The requested placement. See [GpuInstance.ComputeInstancePossiblePlacements]
 //   - computeInstance: Returns the compute instance handle
 //
-// Returns:
+// Errors:
 //   - [ErrInsufficientResources]: If the requested compute instance could not be created
 //   - [ErrInvalidArgument]: If gpuInstance, profile, profileId or computeInstance are invalid
 //   - [ErrNotSupported]: If profileId isn’t supported
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceCreateComputeInstanceWithPlacement].
 //
@@ -11342,13 +11604,12 @@ var slotGpuInstanceCreateComputeInstanceWithPlacement outSlot[ComputeInstance]
 //
 //   - gpuInstance: The GPU instance handle
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If gpuInstance is invalid
 //   - [ErrInUse]: If the GPU instance is in use. This error would be returned if processes (e.g. CUDA application) or compute instances are active on the GPU instance.
 //   - [ErrNotSupported]: If device doesn’t have MIG mode enabled or in vGPU guest
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceDestroy].
 //
@@ -11368,14 +11629,13 @@ func gpuInstanceDestroy(gpuInstance GpuInstance) error {
 //   - gpuInstance: The GPU instance handle
 //   - pVgpuInstanceInfo: Pointer to the vGPU instance information structure [ActiveVgpuInstanceInfo]
 //
-// Returns:
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the version of pVgpuInstanceInfo is invalid
 //   - [ErrInsufficientSize]: pVgpuInstanceInfo->vgpuTypeIds buffer is too small, array element count is returned in pVgpuInstanceInfo->vgpuCount
 //   - [ErrInvalidArgument]: If gpuInstance is NULL or invalid, or pVgpuInstanceInfo is NULL or GPU Instance Id is invalid
 //   - [ErrNotSupported]: If not on a vGPU host or an unsupported GPU
 //   - [ErrUninitialized]: If the library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: Successful completion
 //
 // Wraps [nvmlGpuInstanceGetActiveVgpus].
 //
@@ -11395,13 +11655,12 @@ func gpuInstanceGetActiveVgpus(gpuInstance GpuInstance, pVgpuInstanceInfo *Activ
 //   - id: The compute instance ID
 //   - computeInstance: Returns compute instance
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If device, ID or computeInstance are invalid
 //   - [ErrNotFound]: If the compute instance is not found.
 //   - [ErrNotSupported]: If device doesn’t have MIG mode enabled
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceGetComputeInstanceById].
 //
@@ -11432,12 +11691,11 @@ var slotGpuInstanceGetComputeInstanceById outSlot[ComputeInstance]
 //   - placements: Returns placements allowed for the profile. Can be NULL to discover number of allowed placements for this profile. If non-NULL must be large enough to accommodate the placements supported by the profile
 //   - count: Returns number of allowed placemenets for the profile
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If gpuInstance, profileId or count are invalid
 //   - [ErrNotSupported]: If device doesn’t have MIG mode enabled or profileId isn’t supported
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceGetComputeInstancePossiblePlacements].
 //
@@ -11461,12 +11719,11 @@ func gpuInstanceGetComputeInstancePossiblePlacements(gpuInstance GpuInstance, pr
 //   - engProfile: One of the NVML_COMPUTE_INSTANCE_ENGINE_PROFILE_*
 //   - info: Returns detailed profile information
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If gpuInstance, profile, engProfile or info are invalid
 //   - [ErrNotSupported]: If profile isn’t supported
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceGetComputeInstanceProfileInfo].
 //
@@ -11487,7 +11744,9 @@ func gpuInstanceGetComputeInstanceProfileInfo(gpuInstance GpuInstance, profile u
 
 var slotGpuInstanceGetComputeInstanceProfileInfo outSlot[ComputeInstanceProfileInfo]
 
-// gpuInstanceGetComputeInstanceProfileInfoV Versioned wrapper around [GpuInstance.ComputeInstanceProfileInfo] that accepts a versioned [ComputeInstanceProfileInfoV2] or later output structure.
+// gpuInstanceGetComputeInstanceProfileInfoV returns information about a compute instance profile in a versioned structure, of version 2 or later.
+//
+// Versioned wrapper around [GpuInstance.ComputeInstanceProfileInfo] that accepts a versioned [ComputeInstanceProfileInfoV2] or later output structure.
 //
 // For Ampere or newer fully supported devices. Supported on Linux only.
 //
@@ -11498,12 +11757,11 @@ var slotGpuInstanceGetComputeInstanceProfileInfo outSlot[ComputeInstanceProfileI
 //   - engProfile: One of the NVML_COMPUTE_INSTANCE_ENGINE_PROFILE_*
 //   - info: Returns detailed profile information
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If gpuInstance, profile, engProfile, info, or info->version are invalid
 //   - [ErrNotSupported]: If profile isn’t supported
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceGetComputeInstanceProfileInfoV].
 //
@@ -11533,12 +11791,11 @@ var slotGpuInstanceGetComputeInstanceProfileInfoV outSlot[ComputeInstanceProfile
 //   - profileId: The compute instance profile ID. See [GpuInstance.ComputeInstanceProfileInfo]
 //   - count: Returns remaining instance count for the profile ID
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If gpuInstance, profileId or availableCount are invalid
 //   - [ErrNotSupported]: If profileId isn’t supported
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceGetComputeInstanceRemainingCapacity].
 //
@@ -11559,12 +11816,11 @@ func gpuInstanceGetComputeInstanceRemainingCapacity(gpuInstance GpuInstance, pro
 //   - computeInstances: Returns pre-exiting compute instances, the buffer must be large enough to accommodate the instances supported by the profile. See [GpuInstance.ComputeInstanceProfileInfo]
 //   - count: The count of returned compute instances
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If gpuInstance, profileId, computeInstances or count are invalid
 //   - [ErrNotSupported]: If profileId isn’t supported
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceGetComputeInstances].
 //
@@ -11585,14 +11841,13 @@ func gpuInstanceGetComputeInstances(gpuInstance GpuInstance, profileId uint32, c
 //   - gpuInstance: The GPU instance handle
 //   - pVgpus: Pointer to the caller-provided structure of [VgpuTypeIdInfo]
 //
-// Returns:
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the version of pVgpus is invalid
 //   - [ErrInsufficientSize]: If pVgpus->vgpuTypeIds buffer is small
 //   - [ErrInvalidArgument]: If gpuInstance is NULL or invalid, or pVgpus is NULL or GPU Instance Id is invalid
 //   - [ErrNotSupported]: If not on a vGPU host or an unsupported GPU
 //   - [ErrUninitialized]: If library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceGetCreatableVgpus].
 //
@@ -11611,11 +11866,10 @@ func gpuInstanceGetCreatableVgpus(gpuInstance GpuInstance, pVgpus *VgpuTypeIdInf
 //   - gpuInstance: The GPU instance handle
 //   - info: Return GPU instance information
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If gpuInstance or info are invalid
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceGetInfo].
 //
@@ -11645,13 +11899,12 @@ var slotGpuInstanceGetInfo outSlot[GpuInstanceInfo]
 //   - gpuInstance: The GPU instance handle
 //   - pHeterogeneousMode: Pointer to the caller-provided structure of [VgpuHeterogeneousMode]
 //
-// Returns:
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the version of pHeterogeneousMode is invalid
 //   - [ErrInvalidArgument]: If gpuInstance is NULL or invalid, or pHeterogeneousMode is NULL or GPU Instance Id is invalid
 //   - [ErrNotSupported]: If not on a vGPU host or an unsupported GPU or not in MIG mode
 //   - [ErrUninitialized]: If library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceGetVgpuHeterogeneousMode].
 //
@@ -11672,12 +11925,13 @@ func gpuInstanceGetVgpuHeterogeneousMode(gpuInstance GpuInstance, pHeterogeneous
 //   - gpuInstance: The GPU instance handle
 //   - pSchedulerLogInfo: Reference in which pSchedulerLogInfo is written
 //
-// Returns:
+// A nil error means vGPU scheduler logs are successfully obtained.
+//
+// Errors:
 //   - [ErrInvalidArgument]: If gpuInstance is NULL or invalid, or pSchedulerLogInfo is NULL or GPU Instance Id is invalid
 //   - [ErrNotSupported]: If not on a vGPU host or an unsupported GPU
 //   - [ErrUninitialized]: If library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: vGPU scheduler logs are successfully obtained
 //
 // Wraps [nvmlGpuInstanceGetVgpuSchedulerLog_v2].
 //
@@ -11697,12 +11951,13 @@ func gpuInstanceGetVgpuSchedulerLog(gpuInstance GpuInstance, pSchedulerLogInfo *
 //   - gpuInstance: The GPU instance handle
 //   - pSchedulerStateInfo: Reference in which pSchedulerStateInfo is returned
 //
-// Returns:
+// A nil error means vGPU scheduler state is successfully obtained.
+//
+// Errors:
 //   - [ErrInvalidArgument]: If gpuInstance is NULL or invalid, or pSchedulerStateInfo is NULL or GPU Instance Id is invalid
 //   - [ErrNotSupported]: If not on a vGPU host or an unsupported GPU
 //   - [ErrUninitialized]: If library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: vGPU scheduler state is successfully obtained
 //
 // Wraps [nvmlGpuInstanceGetVgpuSchedulerState_v2].
 //
@@ -11722,14 +11977,13 @@ func gpuInstanceGetVgpuSchedulerState(gpuInstance GpuInstance, pSchedulerStateIn
 //   - gpuInstance: The GPU instance handle
 //   - pCreatablePlacementInfo: Pointer to the list of vGPU creatable placement structure [VgpuCreatablePlacementInfo]
 //
-// Returns:
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the version of pCreatablePlacementInfo is invalid
 //   - [ErrInsufficientSize]: If the buffer is small, element count is returned in pCreatablePlacementInfo->count
 //   - [ErrInvalidArgument]: If gpuInstance is NULL or invalid, or pCreatablePlacementInfo is NULL or GPU Instance Id is invalid
 //   - [ErrNotSupported]: If not on a vGPU host or an unsupported GPU or vGPU heterogeneous mode is not enabled
 //   - [ErrUninitialized]: If the library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: Successful completion
 //
 // Wraps [nvmlGpuInstanceGetVgpuTypeCreatablePlacements].
 //
@@ -11749,14 +12003,13 @@ func gpuInstanceGetVgpuTypeCreatablePlacements(gpuInstance GpuInstance, pCreatab
 //   - gpuInstance: The GPU instance handle
 //   - pHeterogeneousMode: Pointer to the caller-provided structure of [VgpuHeterogeneousMode]
 //
-// Returns:
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the version of pHeterogeneousMode is invalid
 //   - [ErrInvalidArgument]: If gpuInstance is NULL or invalid, or pHeterogeneousMode is NULL or pHeterogeneousMode->mode is invalid or GPU Instance Id is invalid
 //   - [ErrInUse]: If the gpuInstance is in use
 //   - [ErrNotSupported]: If not on a vGPU host or an unsupported GPU
 //   - [ErrUninitialized]: If library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceSetVgpuHeterogeneousMode].
 //
@@ -11777,12 +12030,11 @@ func gpuInstanceSetVgpuHeterogeneousMode(gpuInstance GpuInstance, pHeterogeneous
 //   - gpuInstance: The GPU instance handle
 //   - pSchedulerState: Pointer to the caller-provided structure of [VgpuSchedulerStateV2]
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If gpuInstance is NULL or invalid, or pSchedulerState is NULL or GPU Instance Id is invalid
 //   - [ErrNotSupported]: If not on a vGPU host or an unsupported GPU or if any vGPU instance exists
 //   - [ErrResetRequired]: If setting the state failed with fatal error, reboot is required
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: Upon success
 //
 // Wraps [nvmlGpuInstanceSetVgpuSchedulerState_v2].
 //
@@ -11804,11 +12056,12 @@ func gpuInstanceSetVgpuSchedulerState(gpuInstance GpuInstance, pSchedulerState *
 //
 // See also: [Shutdown]
 //
-// Returns:
+// A nil error means the NVML Library was properly initialized.
+//
+// Errors:
 //   - [ErrDriverNotLoaded]: if the NVIDIA driver is not running.
 //   - [ErrNoPermission]: if the NVML Library does not have permission to talk to the driver.
 //   - [ErrUnknown]: if there is an unexpected error.
-//   - [Success]: if the NVML Library was properly initialized.
 //
 // Wraps [nvmlInit], bound as nvmlInit_v2.
 //
@@ -11832,11 +12085,12 @@ func Init() error {
 //
 //   - flags: NVML_INIT_FLAG_* flags that can modify NVML Init behavior
 //
-// Returns:
+// A nil error means the NVML Library was properly initialized.
+//
+// Errors:
 //   - [ErrDriverNotLoaded]: if the NVIDIA driver is not running.
 //   - [ErrNoPermission]: if the NVML Library does not have permission to talk to the driver.
 //   - [ErrUnknown]: if there is an unexpected error.
-//   - [Success]: if the NVML Library was properly initialized.
 //
 // Wraps [nvmlInitWithFlags].
 //
@@ -11855,14 +12109,19 @@ func InitWithFlags(flags uint32) error {
 // After host system reboot or driver reload, the range of supported versions reverts to the range that is preset for the NVIDIA vGPU Manager.
 //
 // Note: 1. The range set by the administrator must be a subset of the preset range that the NVIDIA vGPU Manager supports. Otherwise, an error is returned.
+//   - If the range of supported guest driver versions does not overlap the range set by the administrator, the guest driver fails to load.
+//   - If the range of supported guest driver versions overlaps the range set by the administrator, the guest driver will load with a negotiated vGPU version that is the maximum value in the overlapping range.
+//   - No VMs must be running on the host when this function is called. If a VM is running on the host, the call to this function fails.
 //
+// Parameters:
 //   - vgpuVersion: Pointer to a caller-supplied range of supported vGPU versions
 //
-// Returns:
+// A nil error means the preset range of supported vGPU versions was successfully overridden.
+//
+// Errors:
 //   - [ErrInvalidArgument]: The vgpuVersion parameter specifies a range that is outside the range supported by the NVIDIA vGPU Manager or if vgpuVersion is NULL.
 //   - [ErrInUse]: The range was not overridden because a VM is running on the host.
 //   - [ErrNotSupported]: The API is not supported.
-//   - [Success]: The preset range of supported vGPU versions was successfully overridden.
 //
 // Wraps [nvmlSetVgpuVersion].
 //
@@ -11880,10 +12139,11 @@ func SetVgpuVersion(vgpuVersion *VgpuVersion) error {
 // Complete shutdown will only occur when the reference count of all prior NVML initializations reaches zero. No error will be reported if this is called more times than [Init] or [InitWithFlags].
 // For all products.
 //
-// Returns:
+// A nil error means the NVML Library was properly shut down.
+//
+// Errors:
 //   - [ErrUninitialized]: if the NVML Library was not previously initialized.
 //   - [ErrUnknown]: if there is an unexpected error. previousFrame Buffer Capture Structures nextMulti Instance GPU Management
-//   - [Success]: if the NVML Library was properly shut down.
 //
 // Wraps [nvmlShutdown].
 //
@@ -11904,12 +12164,13 @@ func Shutdown() error {
 //
 //   - request: Reference to [SystemEventSetCreateRequest]
 //
-// Returns:
+// A nil error means the event has been set.
+//
+// Errors:
 //   - [ErrArgumentVersionMismatch]: for unsupported version
 //   - [ErrInvalidArgument]: if request is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the event has been set
 //
 // Wraps [nvmlSystemEventSetCreate].
 //
@@ -11929,12 +12190,13 @@ func SystemEventSetCreate(request *SystemEventSetCreateRequest) error {
 //
 //   - request: Reference to [SystemEventSetFreeRequest]
 //
-// Returns:
+// A nil error means the event has been set.
+//
+// Errors:
 //   - [ErrArgumentVersionMismatch]: for unsupported version
 //   - [ErrInvalidArgument]: if request is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the event has been set
 //
 // Wraps [nvmlSystemEventSetFree].
 //
@@ -11956,13 +12218,14 @@ func SystemEventSetFree(request *SystemEventSetFreeRequest) error {
 //
 //   - request: Reference in which to [SystemEventSetWaitRequest]
 //
-// Returns:
+// A nil error means the event has been set.
+//
+// Errors:
 //   - [ErrArgumentVersionMismatch]: for unsupported version
 //   - [ErrInvalidArgument]: if request is NULL
 //   - [ErrTimeout]: if no event notification after timeoutms
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the event has been set
 //
 // Wraps [nvmlSystemEventSetWait].
 //
@@ -11980,11 +12243,12 @@ func SystemEventSetWait(request *SystemEventSetWaitRequest) error {
 //
 //   - capabilities: System CC capabilities
 //
-// Returns:
+// A nil error means capabilities were successfully queried.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if capabilities is invalid
 //   - [ErrNotSupported]: if this query is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
-//   - [Success]: if capabilities were successfully queried
 //
 // Wraps [nvmlSystemGetConfComputeCapabilities].
 //
@@ -12000,7 +12264,12 @@ func SystemGetConfComputeCapabilities(capabilities *ConfComputeSystemCaps) error
 //
 // For Ampere or newer fully supported devices. Supported on Linux, Windows TCC.
 // return
+//   - [Success] if current GPUs ready state were successfully queried
+//   - [ErrUninitialized] if the library has not been successfully initialized
+//   - [ErrInvalidArgument] if isAcceptingWork is NULL
+//   - [ErrNotSupported] if this query is not supported by the device
 //
+// Parameters:
 //   - isAcceptingWork: Returns GPU current work accepting state, [CcAcceptingClientRequestsTrue] or [CcAcceptingClientRequestsFalse]
 //
 // Wraps [nvmlSystemGetConfComputeGpusReadyState].
@@ -12028,12 +12297,13 @@ var slotSystemGetConfComputeGpusReadyState outSlot[uint32]
 //
 //   - pKeyRotationThrInfo: Reference in which to return the key rotation threshold data
 //
-// Returns:
+// A nil error means gpu key rotation threshold info has been populated.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid or memory is NULL
 //   - [ErrNotSupported]: if this query is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if gpu key rotation threshold info has been populated
 //
 // Wraps [nvmlSystemGetConfComputeKeyRotationThresholdInfo].
 //
@@ -12051,14 +12321,15 @@ func SystemGetConfComputeKeyRotationThresholdInfo(pKeyRotationThrInfo *ConfCompu
 //
 //   - settings: System CC settings
 //
-// Returns:
+// A nil error means the query is success.
+//
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the provided version is invalid/unsupported
 //   - [ErrGpuIsLost]: If the target GPU has fallen off the bus or is otherwise inaccessible
 //   - [ErrInvalidArgument]: If device is invalid or counters is NULL
 //   - [ErrNotSupported]: If the device does not support this feature
 //   - [ErrUninitialized]: If the library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: If the query is success
 //
 // Wraps [nvmlSystemGetConfComputeSettings].
 //
@@ -12076,11 +12347,12 @@ func SystemGetConfComputeSettings(settings *SystemConfComputeSettings) error {
 //
 //   - state: System CC State
 //
-// Returns:
+// A nil error means state were successfully queried.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if state is invalid
 //   - [ErrNotSupported]: if this query is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
-//   - [Success]: if state were successfully queried
 //
 // Wraps [nvmlSystemGetConfComputeState].
 //
@@ -12108,11 +12380,12 @@ var slotSystemGetConfComputeState outSlot[ConfComputeSystemState]
 //
 //   - cudaDriverVersion: Reference in which to return the version identifier
 //
-// Returns:
+// A nil error means cudaDriverVersion has been set.
+//
+// Errors:
 //   - [ErrFunctionNotFound]: if cuDriverGetVersion() is not found in the shared library
 //   - [ErrInvalidArgument]: if cudaDriverVersion is NULL
 //   - [ErrLibraryNotFound]: if libcuda.so.1 or libcuda.dll is not found
-//   - [Success]: if cudaDriverVersion has been set
 //
 // Wraps [nvmlSystemGetCudaDriverVersion_v2].
 //
@@ -12141,12 +12414,11 @@ var slotSystemGetCudaDriverVersion outSlot[int32]
 //   - branchInfo: Pointer to the driver branch information structure [SystemDriverBranchInfo]
 //   - length: The maximum allowed length of the driver branch string
 //
-// Returns:
+// Errors:
 //   - [ErrInsufficientSize]: if length is too small
 //   - [ErrInvalidArgument]: if branchInfo is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlSystemGetDriverBranch].
 //
@@ -12166,11 +12438,12 @@ func SystemGetDriverBranch(branchInfo *SystemDriverBranchInfo, length uint32) er
 //   - version: Reference in which to return the version identifier
 //   - length: The maximum allowed length of the string returned in version
 //
-// Returns:
+// A nil error means version has been set.
+//
+// Errors:
 //   - [ErrInsufficientSize]: if length is too small
 //   - [ErrInvalidArgument]: if version is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
-//   - [Success]: if version has been set
 //
 // Wraps [nvmlSystemGetDriverVersion].
 //
@@ -12198,11 +12471,12 @@ func SystemGetDriverVersion() (string, error) {
 //   - hwbcCount: Size of hwbcEntries array
 //   - hwbcEntries: Array holding information about hwbc
 //
-// Returns:
+// A nil error means hwbcCount and hwbcEntries have been populated.
+//
+// Errors:
 //   - [ErrInsufficientSize]: if hwbcCount indicates that the hwbcEntries array is too small
 //   - [ErrInvalidArgument]: if either hwbcCount or hwbcEntries is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
-//   - [Success]: if hwbcCount and hwbcEntries have been populated
 //
 // Wraps [nvmlSystemGetHicVersion].
 //
@@ -12222,10 +12496,11 @@ func SystemGetHicVersion(hwbcCount *uint32, hwbcEntries *HwbcEntry) error {
 //   - version: Reference in which to return the version identifier
 //   - length: The maximum allowed length of the string returned in version
 //
-// Returns:
+// A nil error means version has been set.
+//
+// Errors:
 //   - [ErrInsufficientSize]: if length is too small
 //   - [ErrInvalidArgument]: if version is NULL
-//   - [Success]: if version has been set
 //
 // Wraps [nvmlSystemGetNVMLVersion].
 //
@@ -12249,11 +12524,10 @@ func SystemGetNVMLVersion() (string, error) {
 //
 //   - nvlinkBwMode: reference of nvlink bandwidth mode
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if an invalid pointer is provided
 //   - [ErrNotSupported]: if GPU is not Hopper or newer architecture.
 //   - [ErrNoPermission]: if not root user
-//   - [Success]: on success
 //
 // Wraps [nvmlSystemGetNvlinkBwMode].
 //
@@ -12283,13 +12557,14 @@ var slotSystemGetNvlinkBwMode outSlot[uint32]
 //   - name: Reference in which to return the process name
 //   - length: The maximum allowed length of the string returned in name
 //
-// Returns:
+// A nil error means name has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if name is NULL or length is 0.
 //   - [ErrNotFound]: if process doesn’t exists
 //   - [ErrNoPermission]: if the user doesn’t have permission to perform this operation
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if name has been set
 //
 // Wraps [nvmlSystemGetProcessName].
 //
@@ -12317,11 +12592,12 @@ func SystemGetProcessName(pid uint32) (string, error) {
 //   - count: When zero, is set to the number of matching GPUs such that deviceArray can be malloc’d. When non-zero, deviceArray will be filled with count number of device handles
 //   - deviceArray: An array of device handles for GPUs found with affinity to cpuNumber
 //
-// Returns:
+// A nil error means deviceArray or count (if initially zero) has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if cpuNumber, or count is invalid, or deviceArray is NULL with a non-zero count
 //   - [ErrNotSupported]: if the device or OS does not support this feature
 //   - [ErrUnknown]: an error has occurred in underlying topology discovery
-//   - [Success]: if deviceArray or count (if initially zero) has been set
 //
 // Wraps [nvmlSystemGetTopologyGpuSet].
 //
@@ -12343,12 +12619,13 @@ func SystemGetTopologyGpuSet(cpuNumber uint32, count *uint32, deviceArray *Devic
 //
 //   - request: Reference to the struct [SystemRegisterEventRequest]
 //
-// Returns:
+// A nil error means the event has been set.
+//
+// Errors:
 //   - [ErrArgumentVersionMismatch]: for unsupported version
 //   - [ErrInvalidArgument]: if request is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the event has been set
 //
 // Wraps [nvmlSystemRegisterEvents].
 //
@@ -12364,7 +12641,12 @@ func SystemRegisterEvents(request *SystemRegisterEventRequest) error {
 //
 // For Ampere or newer fully supported devices. Supported on Linux, Windows TCC.
 // return
+//   - [Success] if current GPUs ready state is successfully set
+//   - [ErrUninitialized] if the library has not been successfully initialized
+//   - [ErrInvalidArgument] if isAcceptingWork is invalid
+//   - [ErrNotSupported] if this query is not supported by the device
 //
+// Parameters:
 //   - isAcceptingWork: GPU accepting new work, [CcAcceptingClientRequestsTrue] or [CcAcceptingClientRequestsFalse]
 //
 // Wraps [nvmlSystemSetConfComputeGpusReadyState].
@@ -12384,13 +12666,14 @@ func SystemSetConfComputeGpusReadyState(isAcceptingWork uint32) error {
 //
 //   - pKeyRotationThrInfo: Reference to the key rotation threshold data
 //
-// Returns:
+// A nil error means key rotation threashold max attacker advantage has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if device is invalid or memory is NULL
 //   - [ErrInvalidState]: if confidential compute GPU ready state is enabled
 //   - [ErrNotSupported]: if this query is not supported by the device
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if key rotation threashold max attacker advantage has been set
 //
 // Wraps [nvmlSystemSetConfComputeKeyRotationThresholdInfo].
 //
@@ -12406,12 +12689,11 @@ func SystemSetConfComputeKeyRotationThresholdInfo(pKeyRotationThrInfo *ConfCompu
 //
 //   - nvlinkBwMode: nvlink bandwidth mode
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if an invalid argument is provided
 //   - [ErrInUse]: if P2P object exists
 //   - [ErrNotSupported]: if GPU is not Hopper or newer architecture.
 //   - [ErrNoPermission]: if not root user
-//   - [Success]: on success
 //
 // Wraps [nvmlSystemSetNvlinkBwMode].
 //
@@ -12429,11 +12711,12 @@ func SystemSetNvlinkBwMode(nvlinkBwMode uint32) error {
 //
 //   - unitCount: Reference in which to return the number of units
 //
-// Returns:
+// A nil error means unitCount has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if unitCount is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if unitCount has been set
 //
 // Wraps [nvmlUnitGetCount].
 //
@@ -12463,12 +12746,13 @@ var slotUnitGetCount outSlot[uint32]
 //   - deviceCount: Reference in which to provide the devices array size, and to return the number of attached GPU devices
 //   - devices: Reference in which to return the references to the attached GPU devices
 //
-// Returns:
+// A nil error means deviceCount and devices have been populated.
+//
+// Errors:
 //   - [ErrInsufficientSize]: if deviceCount indicates that the devices array is too small
 //   - [ErrInvalidArgument]: if unit is invalid, either of deviceCount or devices is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if deviceCount and devices have been populated
 //
 // Wraps [nvmlUnitGetDevices].
 //
@@ -12488,12 +12772,13 @@ func unitGetDevices(unit Unit, deviceCount *uint32, devices *Device) error {
 //   - unit: The identifier of the target unit
 //   - fanSpeeds: Reference in which to return the fan speed information
 //
-// Returns:
+// A nil error means fanSpeeds has been populated.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if unit is invalid or fanSpeeds is NULL
 //   - [ErrNotSupported]: if this is not an S-class product
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if fanSpeeds has been populated
 //
 // Wraps [nvmlUnitGetFanSpeedInfo].
 //
@@ -12514,11 +12799,12 @@ func unitGetFanSpeedInfo(unit Unit, fanSpeeds *UnitFanSpeeds) error {
 //   - index: The index of the target unit, >= 0 and < unitCount
 //   - unit: Reference in which to return the unit handle
 //
-// Returns:
+// A nil error means unit has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if index is invalid or unit is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if unit has been set
 //
 // Wraps [nvmlUnitGetHandleByIndex].
 //
@@ -12549,12 +12835,13 @@ var slotUnitGetHandleByIndex outSlot[Unit]
 //   - unit: The identifier of the target unit
 //   - state: Reference in which to return the current LED state
 //
-// Returns:
+// A nil error means state has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if unit is invalid or state is NULL
 //   - [ErrNotSupported]: if this is not an S-class product
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if state has been set
 //
 // Wraps [nvmlUnitGetLedState].
 //
@@ -12583,12 +12870,13 @@ var slotUnitGetLedState outSlot[LedState]
 //   - unit: The identifier of the target unit
 //   - psu: Reference in which to return the PSU information
 //
-// Returns:
+// A nil error means psu has been populated.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if unit is invalid or psu is NULL
 //   - [ErrNotSupported]: if this is not an S-class product
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if psu has been populated
 //
 // Wraps [nvmlUnitGetPsuInfo].
 //
@@ -12609,12 +12897,13 @@ func unitGetPsuInfo(unit Unit, psu *PSUInfo) error {
 //   - type_: The type of reading to take
 //   - temp: Reference in which to return the intake temperature
 //
-// Returns:
+// A nil error means temp has been populated.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if unit or type is invalid or temp is NULL
 //   - [ErrNotSupported]: if this is not an S-class product
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if temp has been populated
 //
 // Wraps [nvmlUnitGetTemperature].
 //
@@ -12643,10 +12932,11 @@ var slotUnitGetTemperature outSlot[uint32]
 //   - unit: The identifier of the target unit
 //   - info: Reference in which to return the unit information
 //
-// Returns:
+// A nil error means info has been populated.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if unit is invalid or info is NULL previousUnit Commands nextUnit Structs
 //   - [ErrUninitialized]: if the library has not been successfully initialized
-//   - [Success]: if info has been populated
 //
 // Wraps [nvmlUnitGetUnitInfo].
 //
@@ -12680,13 +12970,14 @@ var slotUnitGetUnitInfo outSlot[UnitInfo]
 //   - unit: The identifier of the target unit
 //   - color: The target LED color
 //
-// Returns:
+// A nil error means the LED color has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if unit or color is invalid
 //   - [ErrNotSupported]: if this is not an S-class product
 //   - [ErrNoPermission]: if the user doesn’t have permission to perform this operation
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error previousSystem Queries nextUnit Queries
-//   - [Success]: if the LED color has been set
 //
 // Wraps [nvmlUnitSetLedState].
 //
@@ -12708,13 +12999,14 @@ func unitSetLedState(unit Unit, color LedColor) error {
 //
 //   - vgpuInstance: The identifier of the target vGPU instance
 //
-// Returns:
+// A nil error means accounting information has been cleared.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuInstance is invalid
 //   - [ErrNotSupported]: if the vGPU doesn’t support this feature or accounting mode is disabled
 //   - [ErrNoPermission]: if the user doesn’t have permission to perform this operation
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if accounting information has been cleared
 //
 // Wraps [nvmlVgpuInstanceClearAccountingPids].
 //
@@ -12733,14 +13025,15 @@ func vgpuInstanceClearAccountingPids(vgpuInstance VgpuInstance) error {
 //   - vgpuInstance: The identifier of the target vGPU instance
 //   - mode: Reference in which to return the current accounting mode
 //
-// Returns:
+// A nil error means the mode has been successfully retrieved.
+//
+// Errors:
 //   - [ErrDriverNotLoaded]: if NVIDIA driver is not running on the vGPU instance
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or mode is NULL
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrNotSupported]: if the vGPU doesn’t support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the mode has been successfully retrieved
 //
 // Wraps [nvmlVgpuInstanceGetAccountingMode].
 //
@@ -12776,14 +13069,15 @@ var slotVgpuInstanceGetAccountingMode outSlot[EnableState]
 //   - count: Reference in which to provide the pids array size, and to return the number of elements ready to be queried
 //   - pids: Reference in which to return list of process ids
 //
-// Returns:
+// A nil error means pids were successfully retrieved.
+//
+// Errors:
 //   - [ErrInsufficientSize]: if count is too small ( count is set to expected value)
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or count is NULL
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrNotSupported]: if the vGPU doesn’t support this feature or accounting mode is disabled
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if pids were successfully retrieved
 //
 // Wraps [nvmlVgpuInstanceGetAccountingPids].
 //
@@ -12811,13 +13105,14 @@ func vgpuInstanceGetAccountingPids(vgpuInstance VgpuInstance, count *uint32, pid
 //   - pid: Process Id of the target process to query stats for
 //   - stats: Reference in which to return the process’s accounting stats
 //
-// Returns:
+// A nil error means stats have been successfully retrieved.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or stats is NULL
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system or stats is not found
 //   - [ErrNotSupported]: if the vGPU doesn’t support this feature or accounting mode is disabled
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if stats have been successfully retrieved
 //
 // Wraps [nvmlVgpuInstanceGetAccountingStats].
 //
@@ -12834,13 +13129,14 @@ func vgpuInstanceGetAccountingStats(vgpuInstance VgpuInstance, pid uint32, stats
 //   - vgpuInstance: The identifier of the target vGPU instance
 //   - eccMode: Reference in which to return the current ECC mode
 //
-// Returns:
+// A nil error means the vgpuInstance’s ECC mode has been successfully retrieved.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or mode is NULL
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrNotSupported]: if the vGPU doesn’t support this feature
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if the vgpuInstance’s ECC mode has been successfully retrieved
 //
 // Wraps [nvmlVgpuInstanceGetEccMode].
 //
@@ -12859,12 +13155,13 @@ func vgpuInstanceGetEccMode(vgpuInstance VgpuInstance, eccMode *EnableState) err
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - encoderCapacity: Reference to an unsigned int for the encoder capacity
 //
-// Returns:
+// A nil error means encoderCapacity has been retrieved.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or encoderQueryType is invalid
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if encoderCapacity has been retrieved
 //
 // Wraps [nvmlVgpuInstanceGetEncoderCapacity].
 //
@@ -12895,13 +13192,14 @@ var slotVgpuInstanceGetEncoderCapacity outSlot[uint32]
 //   - sessionCount: Reference to caller supplied array size, and returns the number of sessions
 //   - sessionInfo: Reference to caller supplied array in which the list of session information us returned
 //
-// Returns:
+// A nil error means sessionInfo is fetched.
+//
+// Errors:
 //   - [ErrInsufficientSize]: if sessionCount is too small, array element count is returned in sessionCount
 //   - [ErrInvalidArgument]: if sessionCount is NULL, or vgpuInstance is 0.
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if sessionInfo is fetched
 //
 // Wraps [nvmlVgpuInstanceGetEncoderSessions].
 //
@@ -12922,12 +13220,13 @@ func vgpuInstanceGetEncoderSessions(vgpuInstance VgpuInstance, sessionCount *uin
 //   - averageFps: Reference to an unsigned int for trailing average FPS of all active sessions
 //   - averageLatency: Reference to an unsigned int for encode latency in microseconds
 //
-// Returns:
+// A nil error means sessionCount, averageFps and averageLatency is fetched.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if sessionCount , or averageFps or averageLatency is NULL or vgpuInstance is 0.
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if sessionCount, averageFps and averageLatency is fetched
 //
 // Wraps [nvmlVgpuInstanceGetEncoderStats].
 //
@@ -12951,13 +13250,14 @@ func vgpuInstanceGetEncoderStats(vgpuInstance VgpuInstance, sessionCount *uint32
 //   - sessionCount: Reference to caller supplied array size, and returns the number of sessions
 //   - sessionInfo: Reference in which to return the session information
 //
-// Returns:
+// A nil error means sessionInfo is fetched.
+//
+// Errors:
 //   - [ErrInsufficientSize]: if sessionCount is too small, array element count is returned in sessionCount
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or sessionCount is NULL.
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if sessionInfo is fetched
 //
 // Wraps [nvmlVgpuInstanceGetFBCSessions].
 //
@@ -12976,12 +13276,13 @@ func vgpuInstanceGetFBCSessions(vgpuInstance VgpuInstance, sessionCount *uint32,
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - fbcStats: Reference to [FBCStats] structure containing NvFBC stats
 //
-// Returns:
+// A nil error means fbcStats is fetched.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or fbcStats is NULL
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if fbcStats is fetched
 //
 // Wraps [nvmlVgpuInstanceGetFBCStats].
 //
@@ -13001,12 +13302,11 @@ func vgpuInstanceGetFBCStats(vgpuInstance VgpuInstance, fbcStats *FBCStats) erro
 //   - vgpuInstance: The identifier of the target instance
 //   - fbUsage: Pointer to framebuffer usage in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or fbUsage is NULL
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuInstanceGetFbUsage].
 //
@@ -13035,13 +13335,14 @@ var slotVgpuInstanceGetFbUsage outSlot[uint64]
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - frameRateLimit: Reference to return the frame rate limit
 //
-// Returns:
+// A nil error means frameRateLimit has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or frameRateLimit is NULL
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrNotSupported]: if frame rate limiter is turned off for the vGPU type
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if frameRateLimit has been set
 //
 // Wraps [nvmlVgpuInstanceGetFrameRateLimit].
 //
@@ -13070,12 +13371,11 @@ var slotVgpuInstanceGetFrameRateLimit outSlot[uint32]
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - gpuInstanceId: GPU Instance ID
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or gpuInstanceId is NULL.
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuInstanceGetGpuInstanceId].
 //
@@ -13106,14 +13406,15 @@ var slotVgpuInstanceGetGpuInstanceId outSlot[uint32]
 //   - vgpuPciId: Caller-supplied buffer to return vGPU PCI Id string
 //   - length: Size of the vgpuPciId buffer
 //
-// Returns:
+// A nil error means vGPU PCI Id is sucessfully retrieved.
+//
+// Errors:
 //   - [ErrDriverNotLoaded]: if NVIDIA driver is not running on the vGPU instance
 //   - [ErrInsufficientSize]: if length is too small, length is set to required length
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or vgpuPciId is NULL
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if vGPU PCI Id is sucessfully retrieved
 //
 // Wraps [nvmlVgpuInstanceGetGpuPciId].
 //
@@ -13132,12 +13433,13 @@ func vgpuInstanceGetGpuPciId(vgpuInstance VgpuInstance, vgpuPciId *byte, length 
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - licenseInfo: Pointer to vGPU license information structure
 //
-// Returns:
+// A nil error means information is successfully retrieved.
+//
+// Errors:
 //   - [ErrDriverNotLoaded]: if NVIDIA driver is not running on the vGPU instance
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or licenseInfo is NULL
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUnknown]: on any unexpected error previousvGPU Migration nextPages
-//   - [Success]: if information is successfully retrieved
 //
 // Wraps [nvmlVgpuInstanceGetLicenseInfo], bound as nvmlVgpuInstanceGetLicenseInfo_v2.
 //
@@ -13157,12 +13459,13 @@ func vgpuInstanceGetLicenseInfo(vgpuInstance VgpuInstance, licenseInfo *VgpuLice
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - licensed: Reference to return the licensing status
 //
-// Returns:
+// A nil error means licensed has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or licensed is NULL
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if licensed has been set
 //
 // Deprecated: Use [VgpuInstance.LicenseInfo].
 //
@@ -13185,14 +13488,13 @@ func vgpuInstanceGetLicenseStatus(vgpuInstance VgpuInstance, licensed *uint32) e
 //   - mdevUuid: Pointer to caller-supplied buffer to hold MDEV UUID
 //   - size: Size of buffer in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrInsufficientSize]: if size is too small
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or mdevUuid is NULL
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrNotSupported]: on any hypervisor other than KVM
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuInstanceGetMdevUUID].
 //
@@ -13223,12 +13525,13 @@ func vgpuInstanceGetMdevUUID(vgpuInstance VgpuInstance) (string, error) {
 //   - vgpuMetadata: Pointer to caller-supplied buffer into which vGPU metadata is written
 //   - bufferSize: Size of vgpuMetadata buffer
 //
-// Returns:
+// A nil error means vGPU metadata structure was successfully returned.
+//
+// Errors:
 //   - [ErrInsufficientSize]: vgpuMetadata buffer is too small, required size is returned in bufferSize
 //   - [ErrInvalidArgument]: if bufferSize is NULL or vgpuInstance is 0; if vgpuMetadata is NULL and the value of bufferSize is not 0.
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUnknown]: on any unexpected error previousvGPU Management nextvGPU Utilization and Accounting
-//   - [Success]: vGPU metadata structure was successfully returned
 //
 // Wraps [nvmlVgpuInstanceGetMetadata].
 //
@@ -13247,12 +13550,13 @@ func vgpuInstanceGetMetadata(vgpuInstance VgpuInstance, vgpuMetadata *VgpuMetada
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - pPlacement: Pointer to vGPU placement ID structure [VgpuPlacementId]
 //
-// Returns:
+// A nil error means information is successfully retrieved.
+//
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the version of pPlacement is invalid
 //   - [ErrInvalidArgument]: If vgpuInstance is invalid or pPlacement is NULL
 //   - [ErrNotFound]: If vgpuInstance does not match a valid active vGPU instance
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: If information is successfully retrieved
 //
 // Wraps [nvmlVgpuInstanceGetPlacementId].
 //
@@ -13272,13 +13576,14 @@ func vgpuInstanceGetPlacementId(vgpuInstance VgpuInstance, pPlacement *VgpuPlace
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - pState: Pointer to the vGPU runtime state’s structure [VgpuRuntimeState]
 //
-// Returns:
+// A nil error means information is successfully retrieved.
+//
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the version of pState is invalid
 //   - [ErrInvalidArgument]: If vgpuInstance is invalid, or pState is NULL
 //   - [ErrNotFound]: If vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: If the library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: If information is successfully retrieved
 //
 // Wraps [nvmlVgpuInstanceGetRuntimeStateSize].
 //
@@ -13308,12 +13613,13 @@ var slotVgpuInstanceGetRuntimeStateSize outSlot[VgpuRuntimeState]
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - vgpuTypeId: Reference to return the vgpuTypeId
 //
-// Returns:
+// A nil error means vgpuTypeId has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or vgpuTypeId is NULL
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if vgpuTypeId has been set
 //
 // Wraps [nvmlVgpuInstanceGetType].
 //
@@ -13343,13 +13649,12 @@ var slotVgpuInstanceGetType outSlot[VgpuTypeId]
 //   - uuid: Pointer to caller-supplied buffer to hold vGPU UUID
 //   - size: Size of buffer in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrInsufficientSize]: if size is too small
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or uuid is NULL
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuInstanceGetUUID].
 //
@@ -13379,13 +13684,14 @@ func vgpuInstanceGetUUID(vgpuInstance VgpuInstance) (string, error) {
 //   - version: Caller-supplied buffer to return driver version string
 //   - length: Size of version buffer
 //
-// Returns:
+// A nil error means version has been set.
+//
+// Errors:
 //   - [ErrInsufficientSize]: if length is too small
 //   - [ErrInvalidArgument]: if vgpuInstance is 0
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if version has been set
 //
 // Wraps [nvmlVgpuInstanceGetVmDriverVersion].
 //
@@ -13416,13 +13722,12 @@ func vgpuInstanceGetVmDriverVersion(vgpuInstance VgpuInstance) (string, error) {
 //   - size: Size of buffer in bytes
 //   - vmIdType: Pointer to hold VM ID type
 //
-// Returns:
+// Errors:
 //   - [ErrInsufficientSize]: if size is too small
 //   - [ErrInvalidArgument]: if vmId or vmIdType is NULL, or vgpuInstance is 0
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuInstanceGetVmID].
 //
@@ -13441,12 +13746,13 @@ func vgpuInstanceGetVmID(vgpuInstance VgpuInstance, vmId *byte, size uint32, vmI
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - encoderCapacity: Unsigned int for the encoder capacity value
 //
-// Returns:
+// A nil error means encoderCapacity has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuInstance is 0, or encoderCapacity is out of range of 0-100.
 //   - [ErrNotFound]: if vgpuInstance does not match a valid active vGPU instance on the system
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if encoderCapacity has been set
 //
 // Wraps [nvmlVgpuInstanceSetEncoderCapacity].
 //
@@ -13465,11 +13771,10 @@ func vgpuInstanceSetEncoderCapacity(vgpuInstance VgpuInstance, encoderCapacity u
 //   - vgpuTypeId: Handle to vGPU type
 //   - bar1Info: Pointer to the vGPU type BAR1 information structure [VgpuTypeBar1Info]
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuTypeId is invalid, or bar1Info is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuTypeGetBAR1Info].
 //
@@ -13490,11 +13795,10 @@ func vgpuTypeGetBAR1Info(vgpuTypeId VgpuTypeId, bar1Info *VgpuTypeBar1Info) erro
 //   - capability: Specifies the [VgpuCapability] to be queried
 //   - capResult: A boolean for the queried capability indicating that feature is supported
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuTypeId is invalid, or capability is invalid, or capResult is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuTypeGetCapabilities].
 //
@@ -13524,11 +13828,10 @@ var slotVgpuTypeGetCapabilities outSlot[uint32]
 //   - vgpuTypeClass: Pointer to string array to return class in
 //   - size: Size of string
 //
-// Returns:
+// Errors:
 //   - [ErrInsufficientSize]: if size is too small
 //   - [ErrInvalidArgument]: if vgpuTypeId is invalid, or vgpuTypeClass is NULL
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuTypeGetClass].
 //
@@ -13548,11 +13851,10 @@ func vgpuTypeGetClass(vgpuTypeId VgpuTypeId, vgpuTypeClass *byte, size *uint32) 
 //   - deviceID: Device ID and vendor ID of the device contained in single 32 bit value
 //   - subsystemID: Subsystem ID and subsystem vendor ID of the device contained in single 32 bit value
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuTypeId is invalid, or deviceId or subsystemID are NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuTypeGetDeviceID].
 //
@@ -13569,11 +13871,10 @@ func vgpuTypeGetDeviceID(vgpuTypeId VgpuTypeId, deviceID *uint64, subsystemID *u
 //   - vgpuTypeId: Handle to vGPU type
 //   - fbReservation: Reference to return the framebuffer reservation
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If vgpuTypeId is invalid, or fbReservation is NULL
 //   - [ErrUninitialized]: If the library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: Successful completion
 //
 // Wraps [nvmlVgpuTypeGetFbReservation].
 //
@@ -13601,12 +13902,11 @@ var slotVgpuTypeGetFbReservation outSlot[uint64]
 //   - vgpuTypeId: Handle to vGPU type
 //   - frameRateLimit: Reference to return the frame rate limit value
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuTypeId is invalid, or frameRateLimit is NULL
 //   - [ErrNotSupported]: if frame rate limiter is turned off for the vGPU type
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuTypeGetFrameRateLimit].
 //
@@ -13634,11 +13934,10 @@ var slotVgpuTypeGetFrameRateLimit outSlot[uint32]
 //   - vgpuTypeId: Handle to vGPU type
 //   - fbSize: Pointer to framebuffer size in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuTypeId is invalid, or fbSize is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuTypeGetFramebufferSize].
 //
@@ -13667,11 +13966,10 @@ var slotVgpuTypeGetFramebufferSize outSlot[uint64]
 //   - vgpuTypeId: Handle to vGPU type
 //   - gpuInstanceProfileId: GPU Instance Profile ID
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuTypeId is invalid, or gpuInstanceProfileId is NULL
 //   - [ErrNotSupported]: if device is not in vGPU Host virtualization mode
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuTypeGetGpuInstanceProfileId].
 //
@@ -13698,11 +13996,10 @@ var slotVgpuTypeGetGpuInstanceProfileId outSlot[uint32]
 //   - vgpuTypeId: Handle to vGPU type
 //   - gspHeapSize: Reference to return the GSP heap size value
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: If vgpuTypeId is invalid, or gspHeapSize is NULL
 //   - [ErrUninitialized]: If the library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error previousUnit Structs nextvGPU Enums, Constants, Structs
-//   - [Success]: Successful completion
 //
 // Wraps [nvmlVgpuTypeGetGspHeapSize].
 //
@@ -13733,12 +14030,11 @@ var slotVgpuTypeGetGspHeapSize outSlot[uint64]
 //   - vgpuTypeLicenseString: Pointer to buffer to return license info
 //   - size: Size of vgpuTypeLicenseString buffer
 //
-// Returns:
+// Errors:
 //   - [ErrInsufficientSize]: if size is too small
 //   - [ErrInvalidArgument]: if vgpuTypeId is invalid, or vgpuTypeLicenseString is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuTypeGetLicense].
 //
@@ -13766,11 +14062,10 @@ func vgpuTypeGetLicense(vgpuTypeId VgpuTypeId) (string, error) {
 //   - vgpuTypeId: Handle to vGPU type
 //   - vgpuInstanceCount: Pointer to get the max number of vGPU instances that can be created on a deicve for given vgpuTypeId
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuTypeId is invalid or is not supported on target device, or vgpuInstanceCount is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuTypeGetMaxInstances].
 //
@@ -13795,13 +14090,12 @@ var slotVgpuTypeGetMaxInstances outSlot[uint32]
 //
 //   - pMaxInstance: Pointer to the caller-provided structure of [VgpuTypeMaxInstance]
 //
-// Returns:
+// Errors:
 //   - [ErrArgumentVersionMismatch]: If the version of pMaxInstance is invalid
 //   - [ErrInvalidArgument]: If pMaxInstance is NULL or pMaxInstance->vgpuTypeId is invalid
 //   - [ErrNotSupported]: If not on a vGPU host or an unsupported GPU or non-MIG vGPU type
 //   - [ErrUninitialized]: If library has not been successfully initialized
 //   - [ErrUnknown]: On any unexpected error
-//   - [Success]: Upon success
 //
 // Wraps [nvmlVgpuTypeGetMaxInstancesPerGpuInstance].
 //
@@ -13820,11 +14114,10 @@ func VgpuTypeGetMaxInstancesPerGpuInstance(pMaxInstance *VgpuTypeMaxInstance) er
 //   - vgpuTypeId: Handle to vGPU type
 //   - vgpuInstanceCountPerVm: Pointer to get the max number of vGPU instances supported per VM for given vgpuTypeId
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuTypeId is invalid, or vgpuInstanceCountPerVm is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuTypeGetMaxInstancesPerVm].
 //
@@ -13854,11 +14147,10 @@ var slotVgpuTypeGetMaxInstancesPerVm outSlot[uint32]
 //   - vgpuTypeName: Pointer to buffer to return name
 //   - size: Size of buffer
 //
-// Returns:
+// Errors:
 //   - [ErrInsufficientSize]: if size is too small
 //   - [ErrInvalidArgument]: if vgpuTypeId is invalid, or name is NULL
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuTypeGetName].
 //
@@ -13877,11 +14169,10 @@ func vgpuTypeGetName(vgpuTypeId VgpuTypeId, vgpuTypeName *byte, size *uint32) er
 //   - vgpuTypeId: Handle to vGPU type
 //   - numDisplayHeads: Pointer to number of display heads
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuTypeId is invalid, or numDisplayHeads is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuTypeGetNumDisplayHeads].
 //
@@ -13911,11 +14202,10 @@ var slotVgpuTypeGetNumDisplayHeads outSlot[uint32]
 //   - xdim: Pointer to maximum number of pixels in X dimension
 //   - ydim: Pointer to maximum number of pixels in Y dimension
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidArgument]: if vgpuTypeId is invalid, or xdim or ydim are NULL, or displayIndex is out of range.
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error previousvGPU Structs nextvGPU Migration
-//   - [Success]: successful completion
 //
 // Wraps [nvmlVgpuTypeGetResolution].
 //

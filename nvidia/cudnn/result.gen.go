@@ -64,12 +64,18 @@ const (
 	ErrExecutionFailedCublas                  Result = 5002
 	ErrExecutionFailedCudart                  Result = 5003
 	ErrExecutionFailedCurand                  Result = 5004
-	ErrAllocFailed                            Result = ErrInternalErrorHostAllocationFailed
-	ErrInvalidValue                           Result = 2001
-	ErrArchMismatch                           Result = ErrNotSupportedArchMismatch
-	ErrMappingError                           Result = ErrInternalErrorTextureCreationFailed
-	ErrRuntimePrerequisiteMissing             Result = ErrNotSupportedRuntimePrerequisiteMissing
-	ErrVersionMismatch                        Result = ErrSublibraryVersionMismatch
+	// Deprecated: This constant is deprecated.
+	ErrAllocFailed Result = ErrInternalErrorHostAllocationFailed
+	// Deprecated: This constant is deprecated.
+	ErrInvalidValue Result = 2001
+	// Deprecated: This constant is deprecated.
+	ErrArchMismatch Result = ErrNotSupportedArchMismatch
+	// Deprecated: This constant is deprecated.
+	ErrMappingError Result = ErrInternalErrorTextureCreationFailed
+	// Deprecated: This constant is deprecated.
+	ErrRuntimePrerequisiteMissing Result = ErrNotSupportedRuntimePrerequisiteMissing
+	// Deprecated: This constant is deprecated.
+	ErrVersionMismatch Result = ErrSublibraryVersionMismatch
 )
 
 // Error implements the error interface. When the library is loaded,

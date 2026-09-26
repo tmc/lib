@@ -15,11 +15,12 @@ import (
 //   - index: The index of the target unit, >= 0 and < unitCount
 //   - unit: Reference in which to return the unit handle
 //
-// Returns:
+// A nil error means unit has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if index is invalid or unit is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if unit has been set
 //
 // Wraps [nvmlUnitGetHandleByIndex].
 //
@@ -36,12 +37,13 @@ func NewUnitByIndex(index uint32) (Unit, error) {
 //   - deviceCount: Reference in which to provide the devices array size, and to return the number of attached GPU devices
 //   - devices: Reference in which to return the references to the attached GPU devices
 //
-// Returns:
+// A nil error means deviceCount and devices have been populated.
+//
+// Errors:
 //   - [ErrInsufficientSize]: if deviceCount indicates that the devices array is too small
 //   - [ErrInvalidArgument]: if unit is invalid, either of deviceCount or devices is NULL
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if deviceCount and devices have been populated
 //
 // Wraps [nvmlUnitGetDevices].
 //
@@ -77,12 +79,13 @@ func (u Unit) Devices(buf []Device) ([]Device, error) {
 //
 //   - fanSpeeds: Reference in which to return the fan speed information
 //
-// Returns:
+// A nil error means fanSpeeds has been populated.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if unit is invalid or fanSpeeds is NULL
 //   - [ErrNotSupported]: if this is not an S-class product
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if fanSpeeds has been populated
 //
 // Wraps [nvmlUnitGetFanSpeedInfo].
 //
@@ -98,10 +101,11 @@ func (u Unit) FanSpeedInfo(fanSpeeds *UnitFanSpeeds) error {
 //
 //   - info: Reference in which to return the unit information
 //
-// Returns:
+// A nil error means info has been populated.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if unit is invalid or info is NULL previousUnit Commands nextUnit Structs
 //   - [ErrUninitialized]: if the library has not been successfully initialized
-//   - [Success]: if info has been populated
 //
 // Wraps [nvmlUnitGetUnitInfo].
 //
@@ -119,12 +123,13 @@ func (u Unit) Info() (UnitInfo, error) {
 //
 //   - state: Reference in which to return the current LED state
 //
-// Returns:
+// A nil error means state has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if unit is invalid or state is NULL
 //   - [ErrNotSupported]: if this is not an S-class product
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if state has been set
 //
 // Wraps [nvmlUnitGetLedState].
 //
@@ -140,12 +145,13 @@ func (u Unit) LedState() (LedState, error) {
 //
 //   - psu: Reference in which to return the PSU information
 //
-// Returns:
+// A nil error means psu has been populated.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if unit is invalid or psu is NULL
 //   - [ErrNotSupported]: if this is not an S-class product
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if psu has been populated
 //
 // Wraps [nvmlUnitGetPsuInfo].
 //
@@ -166,13 +172,14 @@ func (u Unit) PsuInfo(psu *PSUInfo) error {
 //
 //   - color: The target LED color
 //
-// Returns:
+// A nil error means the LED color has been set.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if unit or color is invalid
 //   - [ErrNotSupported]: if this is not an S-class product
 //   - [ErrNoPermission]: if the user doesn’t have permission to perform this operation
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error previousSystem Queries nextUnit Queries
-//   - [Success]: if the LED color has been set
 //
 // Wraps [nvmlUnitSetLedState].
 //
@@ -189,12 +196,13 @@ func (u Unit) SetLedState(color LedColor) error {
 //   - type_: The type of reading to take
 //   - temp: Reference in which to return the intake temperature
 //
-// Returns:
+// A nil error means temp has been populated.
+//
+// Errors:
 //   - [ErrInvalidArgument]: if unit or type is invalid or temp is NULL
 //   - [ErrNotSupported]: if this is not an S-class product
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
-//   - [Success]: if temp has been populated
 //
 // Wraps [nvmlUnitGetTemperature].
 //

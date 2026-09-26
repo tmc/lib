@@ -406,13 +406,15 @@ var (
 	symzunmtrBufferSize                          uintptr
 )
 
-// ffiCall0 through ffiCall26 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+// The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
 //
 // Bit i of floatMask marks argument word i as a floating-point bit
 // pattern, which the C ABI passes in a different register file from the
-// integer and pointer words. Each returns the first integer result
-// register and the first floating-point one; a caller reads whichever the
-// C function sets.
+// integer and pointer words. Bits 2i and 2i+1 of widths give the size of
+// argument word i as a ffi.Width code, which places a narrow argument
+// on the stack where the C ABI expects it. Each funnel returns the first
+// integer result register and the first floating-point one; a caller
+// reads whichever the C function sets.
 //
 // The //go:uintptrescapes directive is what makes a Go pointer safe to
 // pass: a pointer converted to uintptr in one of these argument lists is
@@ -451,28 +453,52 @@ func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr)
 }
 
 //go:uintptrescapes
-func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+func ffiCallWidths1(fn uintptr, floatMask uint32, widths uint64, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloatWidths(fn, 1, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths2(fn uintptr, floatMask uint32, widths uint64, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloatWidths(fn, 2, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths3(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloatWidths(fn, 3, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths4(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
 	args[2] = a2
 	args[3] = a3
-	return ffi.CallFloat(fn, 4, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 4, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+func ffiCallWidths5(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
 	args[2] = a2
 	args[3] = a3
 	args[4] = a4
-	return ffi.CallFloat(fn, 5, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 5, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+func ffiCallWidths6(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -480,11 +506,11 @@ func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1,
 	args[3] = a3
 	args[4] = a4
 	args[5] = a5
-	return ffi.CallFloat(fn, 6, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 6, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall7(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
+func ffiCallWidths7(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -493,11 +519,11 @@ func ffiCall7(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6 uintptr) 
 	args[4] = a4
 	args[5] = a5
 	args[6] = a6
-	return ffi.CallFloat(fn, 7, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 7, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall8(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7 uintptr) (r1, rf uintptr) {
+func ffiCallWidths8(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -507,11 +533,11 @@ func ffiCall8(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7 uintp
 	args[5] = a5
 	args[6] = a6
 	args[7] = a7
-	return ffi.CallFloat(fn, 8, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 8, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall9(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8 uintptr) (r1, rf uintptr) {
+func ffiCallWidths9(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -522,11 +548,11 @@ func ffiCall9(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8 u
 	args[6] = a6
 	args[7] = a7
 	args[8] = a8
-	return ffi.CallFloat(fn, 9, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 9, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall10(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9 uintptr) (r1, rf uintptr) {
+func ffiCallWidths10(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -538,11 +564,11 @@ func ffiCall10(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8,
 	args[7] = a7
 	args[8] = a8
 	args[9] = a9
-	return ffi.CallFloat(fn, 10, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 10, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall11(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10 uintptr) (r1, rf uintptr) {
+func ffiCallWidths11(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -555,11 +581,11 @@ func ffiCall11(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8,
 	args[8] = a8
 	args[9] = a9
 	args[10] = a10
-	return ffi.CallFloat(fn, 11, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 11, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall12(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11 uintptr) (r1, rf uintptr) {
+func ffiCallWidths12(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -573,11 +599,11 @@ func ffiCall12(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8,
 	args[9] = a9
 	args[10] = a10
 	args[11] = a11
-	return ffi.CallFloat(fn, 12, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 12, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall13(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12 uintptr) (r1, rf uintptr) {
+func ffiCallWidths13(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -592,11 +618,11 @@ func ffiCall13(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8,
 	args[10] = a10
 	args[11] = a11
 	args[12] = a12
-	return ffi.CallFloat(fn, 13, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 13, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall14(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13 uintptr) (r1, rf uintptr) {
+func ffiCallWidths14(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -612,11 +638,11 @@ func ffiCall14(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8,
 	args[11] = a11
 	args[12] = a12
 	args[13] = a13
-	return ffi.CallFloat(fn, 14, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 14, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall15(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14 uintptr) (r1, rf uintptr) {
+func ffiCallWidths15(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -633,11 +659,11 @@ func ffiCall15(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8,
 	args[12] = a12
 	args[13] = a13
 	args[14] = a14
-	return ffi.CallFloat(fn, 15, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 15, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall16(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15 uintptr) (r1, rf uintptr) {
+func ffiCallWidths16(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -655,11 +681,11 @@ func ffiCall16(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8,
 	args[13] = a13
 	args[14] = a14
 	args[15] = a15
-	return ffi.CallFloat(fn, 16, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 16, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall17(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16 uintptr) (r1, rf uintptr) {
+func ffiCallWidths17(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -678,11 +704,11 @@ func ffiCall17(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8,
 	args[14] = a14
 	args[15] = a15
 	args[16] = a16
-	return ffi.CallFloat(fn, 17, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 17, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall18(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17 uintptr) (r1, rf uintptr) {
+func ffiCallWidths18(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -702,11 +728,11 @@ func ffiCall18(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8,
 	args[15] = a15
 	args[16] = a16
 	args[17] = a17
-	return ffi.CallFloat(fn, 18, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 18, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall19(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18 uintptr) (r1, rf uintptr) {
+func ffiCallWidths19(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -727,11 +753,11 @@ func ffiCall19(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8,
 	args[16] = a16
 	args[17] = a17
 	args[18] = a18
-	return ffi.CallFloat(fn, 19, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 19, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall20(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19 uintptr) (r1, rf uintptr) {
+func ffiCallWidths20(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -753,11 +779,11 @@ func ffiCall20(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8,
 	args[17] = a17
 	args[18] = a18
 	args[19] = a19
-	return ffi.CallFloat(fn, 20, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 20, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall21(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20 uintptr) (r1, rf uintptr) {
+func ffiCallWidths21(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -780,11 +806,11 @@ func ffiCall21(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8,
 	args[18] = a18
 	args[19] = a19
 	args[20] = a20
-	return ffi.CallFloat(fn, 21, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 21, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall22(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21 uintptr) (r1, rf uintptr) {
+func ffiCallWidths22(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -808,11 +834,11 @@ func ffiCall22(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8,
 	args[19] = a19
 	args[20] = a20
 	args[21] = a21
-	return ffi.CallFloat(fn, 22, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 22, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall23(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22 uintptr) (r1, rf uintptr) {
+func ffiCallWidths23(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -837,11 +863,11 @@ func ffiCall23(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8,
 	args[20] = a20
 	args[21] = a21
 	args[22] = a22
-	return ffi.CallFloat(fn, 23, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 23, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall24(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23 uintptr) (r1, rf uintptr) {
+func ffiCallWidths24(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -867,11 +893,11 @@ func ffiCall24(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8,
 	args[21] = a21
 	args[22] = a22
 	args[23] = a23
-	return ffi.CallFloat(fn, 24, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 24, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall26(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 uintptr) (r1, rf uintptr) {
+func ffiCallWidths26(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -899,7 +925,7 @@ func ffiCall26(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8,
 	args[23] = a23
 	args[24] = a24
 	args[25] = a25
-	return ffi.CallFloat(fn, 26, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 26, &args, floatMask, widths)
 }
 
 // An outSlot pools the heap cells a wrapper passes to C for its outputs.
@@ -925,343 +951,343 @@ func (s *outSlot[T]) put(p *T) {
 
 // fncCgels calls cusolverDnCCgels.
 func fncCgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symcCgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symcCgels, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fncCgelsBufferSize calls cusolverDnCCgels_bufferSize.
 func fncCgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symcCgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symcCgelsBufferSize, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fncCgesv calls cusolverDnCCgesv.
 func fncCgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symcCgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symcCgesv, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fncCgesvBufferSize calls cusolverDnCCgesv_bufferSize.
 func fncCgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symcCgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symcCgesvBufferSize, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fncEgels calls cusolverDnCEgels.
 func fncEgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symcEgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symcEgels, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fncEgelsBufferSize calls cusolverDnCEgels_bufferSize.
 func fncEgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symcEgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symcEgelsBufferSize, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fncEgesv calls cusolverDnCEgesv.
 func fncEgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symcEgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symcEgesv, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fncEgesvBufferSize calls cusolverDnCEgesv_bufferSize.
 func fncEgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symcEgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symcEgesvBufferSize, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fncKgels calls cusolverDnCKgels.
 func fncKgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symcKgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symcKgels, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fncKgelsBufferSize calls cusolverDnCKgels_bufferSize.
 func fncKgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symcKgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symcKgelsBufferSize, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fncKgesv calls cusolverDnCKgesv.
 func fncKgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symcKgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symcKgesv, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fncKgesvBufferSize calls cusolverDnCKgesv_bufferSize.
 func fncKgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symcKgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symcKgesvBufferSize, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fncYgels calls cusolverDnCYgels.
 func fncYgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symcYgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symcYgels, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fncYgelsBufferSize calls cusolverDnCYgels_bufferSize.
 func fncYgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symcYgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symcYgelsBufferSize, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fncYgesv calls cusolverDnCYgesv.
 func fncYgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symcYgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symcYgesv, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fncYgesvBufferSize calls cusolverDnCYgesv_bufferSize.
 func fncYgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symcYgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symcYgesvBufferSize, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fncgebrd calls cusolverDnCgebrd.
 func fncgebrd(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr, a8 uintptr, a9 uintptr, a10 int32, a11 uintptr) Result {
-	r1, _ := ffiCall12(symcgebrd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	r1, _ := ffiCallWidths12(symcgebrd, 0, 0x30033c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
 	return Result(r1)
 }
 
 // fncgebrdBufferSize calls cusolverDnCgebrd_bufferSize.
 func fncgebrdBufferSize(a0 Handle, a1 int32, a2 int32, a3 *int32) Result {
-	r1, _ := ffiCall4(symcgebrdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symcgebrdBufferSize, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
 // fncgeqrf calls cusolverDnCgeqrf.
 func fncgeqrf(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
-	r1, _ := ffiCall9(symcgeqrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	r1, _ := ffiCallWidths9(symcgeqrf, 0, 0xc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
 	return Result(r1)
 }
 
 // fncgeqrfBufferSize calls cusolverDnCgeqrf_bufferSize.
 func fncgeqrfBufferSize(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
-	r1, _ := ffiCall6(symcgeqrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symcgeqrfBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fncgesvd calls cusolverDnCgesvd.
 func fncgesvd(a0 Handle, a1 int8, a2 int8, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 uintptr, a13 int32, a14 uintptr, a15 uintptr) Result {
-	r1, _ := ffiCall16(symcgesvd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	r1, _ := ffiCallWidths16(symcgesvd, 0, 0xccc33d4, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
 	return Result(r1)
 }
 
 // fncgesvdBufferSize calls cusolverDnCgesvd_bufferSize.
 func fncgesvdBufferSize(a0 Handle, a1 int32, a2 int32, a3 *int32) Result {
-	r1, _ := ffiCall4(symcgesvdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symcgesvdBufferSize, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
 // fncgesvdaStridedBatched calls cusolverDnCgesvdaStridedBatched.
 func fncgesvdaStridedBatched(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 int64, a8 uintptr, a9 int64, a10 uintptr, a11 int32, a12 int64, a13 uintptr, a14 int32, a15 int64, a16 uintptr, a17 int32, a18 uintptr, a19 *float64, a20 int32) Result {
-	r1, _ := ffiCall21(symcgesvdaStridedBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(unsafe.Pointer(a19)), uintptr(a20))
+	r1, _ := ffiCallWidths21(symcgesvdaStridedBatched, 0, 0x30c30c033fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(unsafe.Pointer(a19)), uintptr(a20))
 	return Result(r1)
 }
 
 // fncgesvdaStridedBatchedBufferSize calls cusolverDnCgesvdaStridedBatched_bufferSize.
 func fncgesvdaStridedBatchedBufferSize(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 int64, a8 uintptr, a9 int64, a10 uintptr, a11 int32, a12 int64, a13 uintptr, a14 int32, a15 int64, a16 *int32, a17 int32) Result {
-	r1, _ := ffiCall18(symcgesvdaStridedBatchedBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(unsafe.Pointer(a16)), uintptr(a17))
+	r1, _ := ffiCallWidths18(symcgesvdaStridedBatchedBufferSize, 0, 0xc30c033fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(unsafe.Pointer(a16)), uintptr(a17))
 	return Result(r1)
 }
 
 // fncgesvdj calls cusolverDnCgesvdj.
 func fncgesvdj(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 uintptr, a13 int32, a14 uintptr, a15 GesvdjInfo) Result {
-	r1, _ := ffiCall16(symcgesvdj, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	r1, _ := ffiCallWidths16(symcgesvdj, 0, 0xccc33fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
 	return Result(r1)
 }
 
 // fncgesvdjBatched calls cusolverDnCgesvdjBatched.
 func fncgesvdjBatched(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 uintptr, a12 int32, a13 uintptr, a14 GesvdjInfo, a15 int32) Result {
-	r1, _ := ffiCall16(symcgesvdjBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	r1, _ := ffiCallWidths16(symcgesvdjBatched, 0, 0xc3330cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
 	return Result(r1)
 }
 
 // fncgesvdjBatchedBufferSize calls cusolverDnCgesvdjBatched_bufferSize.
 func fncgesvdjBatchedBufferSize(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 *int32, a12 GesvdjInfo, a13 int32) Result {
-	r1, _ := ffiCall14(symcgesvdjBatchedBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	r1, _ := ffiCallWidths14(symcgesvdjBatchedBufferSize, 0, 0xc330cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
 	return Result(r1)
 }
 
 // fncgesvdjBufferSize calls cusolverDnCgesvdj_bufferSize.
 func fncgesvdjBufferSize(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 *int32, a13 GesvdjInfo) Result {
-	r1, _ := ffiCall14(symcgesvdjBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symcgesvdjBufferSize, 0, 0xcc33fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fncgetrf calls cusolverDnCgetrf.
 func fncgetrf(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr) Result {
-	r1, _ := ffiCall8(symcgetrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	r1, _ := ffiCallWidths8(symcgetrf, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
 	return Result(r1)
 }
 
 // fncgetrfBufferSize calls cusolverDnCgetrf_bufferSize.
 func fncgetrfBufferSize(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
-	r1, _ := ffiCall6(symcgetrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symcgetrfBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fncgetrs calls cusolverDnCgetrs.
 func fncgetrs(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr) Result {
-	r1, _ := ffiCall10(symcgetrs, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	r1, _ := ffiCallWidths10(symcgetrs, 0, 0x30cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
 	return Result(r1)
 }
 
 // fncheevd calls cusolverDnCheevd.
 func fncheevd(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr) Result {
-	r1, _ := ffiCall10(symcheevd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	r1, _ := ffiCallWidths10(symcheevd, 0, 0x30cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
 	return Result(r1)
 }
 
 // fncheevdBufferSize calls cusolverDnCheevd_bufferSize.
 func fncheevdBufferSize(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32) Result {
-	r1, _ := ffiCall8(symcheevdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	r1, _ := ffiCallWidths8(symcheevdBufferSize, 0, 0xcfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
 	return Result(r1)
 }
 
 // fncheevdx calls cusolverDnCheevdx.
 func fncheevdx(a0 Handle, a1 EigMode, a2 EigRange, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 float32, a8 float32, a9 int32, a10 int32, a11 *int32, a12 uintptr, a13 uintptr, a14 int32, a15 uintptr) Result {
-	r1, _ := ffiCall16(symcheevdx, 0b110000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(math.Float32bits(a7)), uintptr(math.Float32bits(a8)), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	r1, _ := ffiCallWidths16(symcheevdx, 0b110000000, 0x303ff3fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(math.Float32bits(a7)), uintptr(math.Float32bits(a8)), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
 	return Result(r1)
 }
 
 // fncheevdxBufferSize calls cusolverDnCheevdx_bufferSize.
 func fncheevdxBufferSize(a0 Handle, a1 EigMode, a2 EigRange, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 float32, a8 float32, a9 int32, a10 int32, a11 *int32, a12 uintptr, a13 *int32) Result {
-	r1, _ := ffiCall14(symcheevdxBufferSize, 0b110000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(math.Float32bits(a7)), uintptr(math.Float32bits(a8)), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(unsafe.Pointer(a13)))
+	r1, _ := ffiCallWidths14(symcheevdxBufferSize, 0b110000000, 0x3ff3fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(math.Float32bits(a7)), uintptr(math.Float32bits(a8)), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(unsafe.Pointer(a13)))
 	return Result(r1)
 }
 
 // fncheevj calls cusolverDnCheevj.
 func fncheevj(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 SyevjInfo) Result {
-	r1, _ := ffiCall11(symcheevj, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	r1, _ := ffiCallWidths11(symcheevj, 0, 0x30cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
 	return Result(r1)
 }
 
 // fncheevjBatched calls cusolverDnCheevjBatched.
 func fncheevjBatched(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 SyevjInfo, a11 int32) Result {
-	r1, _ := ffiCall12(symcheevjBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	r1, _ := ffiCallWidths12(symcheevjBatched, 0, 0xc30cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
 	return Result(r1)
 }
 
 // fncheevjBatchedBufferSize calls cusolverDnCheevjBatched_bufferSize.
 func fncheevjBatchedBufferSize(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32, a8 SyevjInfo, a9 int32) Result {
-	r1, _ := ffiCall10(symcheevjBatchedBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9))
+	r1, _ := ffiCallWidths10(symcheevjBatchedBufferSize, 0, 0xc0cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9))
 	return Result(r1)
 }
 
 // fncheevjBufferSize calls cusolverDnCheevj_bufferSize.
 func fncheevjBufferSize(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32, a8 SyevjInfo) Result {
-	r1, _ := ffiCall9(symcheevjBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8))
+	r1, _ := ffiCallWidths9(symcheevjBufferSize, 0, 0xcfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8))
 	return Result(r1)
 }
 
 // fnchegvd calls cusolverDnChegvd.
 func fnchegvd(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 uintptr, a11 int32, a12 uintptr) Result {
-	r1, _ := ffiCall13(symchegvd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	r1, _ := ffiCallWidths13(symchegvd, 0, 0xc333fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
 	return Result(r1)
 }
 
 // fnchegvdBufferSize calls cusolverDnChegvd_bufferSize.
 func fnchegvdBufferSize(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 *int32) Result {
-	r1, _ := ffiCall11(symchegvdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)))
+	r1, _ := ffiCallWidths11(symchegvdBufferSize, 0, 0x333fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)))
 	return Result(r1)
 }
 
 // fnchegvdx calls cusolverDnChegvdx.
 func fnchegvdx(a0 Handle, a1 EigType, a2 EigMode, a3 EigRange, a4 FillMode, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 float32, a11 float32, a12 int32, a13 int32, a14 *int32, a15 uintptr, a16 uintptr, a17 int32, a18 uintptr) Result {
-	r1, _ := ffiCall19(symchegvdx, 0b110000000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(math.Float32bits(a10)), uintptr(math.Float32bits(a11)), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18))
+	r1, _ := ffiCallWidths19(symchegvdx, 0b110000000000, 0xc0ffccffc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(math.Float32bits(a10)), uintptr(math.Float32bits(a11)), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18))
 	return Result(r1)
 }
 
 // fnchegvdxBufferSize calls cusolverDnChegvdx_bufferSize.
 func fnchegvdxBufferSize(a0 Handle, a1 EigType, a2 EigMode, a3 EigRange, a4 FillMode, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 float32, a11 float32, a12 int32, a13 int32, a14 *int32, a15 uintptr, a16 *int32) Result {
-	r1, _ := ffiCall17(symchegvdxBufferSize, 0b110000000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(math.Float32bits(a10)), uintptr(math.Float32bits(a11)), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(a15), uintptr(unsafe.Pointer(a16)))
+	r1, _ := ffiCallWidths17(symchegvdxBufferSize, 0b110000000000, 0xffccffc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(math.Float32bits(a10)), uintptr(math.Float32bits(a11)), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(a15), uintptr(unsafe.Pointer(a16)))
 	return Result(r1)
 }
 
 // fnchegvj calls cusolverDnChegvj.
 func fnchegvj(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 uintptr, a11 int32, a12 uintptr, a13 SyevjInfo) Result {
-	r1, _ := ffiCall14(symchegvj, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	r1, _ := ffiCallWidths14(symchegvj, 0, 0xc333fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
 	return Result(r1)
 }
 
 // fnchegvjBufferSize calls cusolverDnChegvj_bufferSize.
 func fnchegvjBufferSize(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 *int32, a11 SyevjInfo) Result {
-	r1, _ := ffiCall12(symchegvjBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11))
+	r1, _ := ffiCallWidths12(symchegvjBufferSize, 0, 0x333fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11))
 	return Result(r1)
 }
 
 // fnchetrd calls cusolverDnChetrd.
 func fnchetrd(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr) Result {
-	r1, _ := ffiCall11(symchetrd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	r1, _ := ffiCallWidths11(symchetrd, 0, 0xc033c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
 	return Result(r1)
 }
 
 // fnchetrdBufferSize calls cusolverDnChetrd_bufferSize.
 func fnchetrdBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr, a8 *int32) Result {
-	r1, _ := ffiCall9(symchetrdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
+	r1, _ := ffiCallWidths9(symchetrdBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
 	return Result(r1)
 }
 
 // fnclaswp calls cusolverDnClaswp.
 func fnclaswp(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 int32, a5 int32, a6 uintptr, a7 int32) Result {
-	r1, _ := ffiCall8(symclaswp, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	r1, _ := ffiCallWidths8(symclaswp, 0, 0xcfcc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
 	return Result(r1)
 }
 
 // fnclauum calls cusolverDnClauum.
 func fnclauum(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32, a7 uintptr) Result {
-	r1, _ := ffiCall8(symclauum, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	r1, _ := ffiCallWidths8(symclauum, 0, 0x333c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
 	return Result(r1)
 }
 
 // fnclauumBufferSize calls cusolverDnClauum_bufferSize.
 func fnclauumBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
-	r1, _ := ffiCall6(symclauumBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symclauumBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fncpotrf calls cusolverDnCpotrf.
 func fncpotrf(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32, a7 uintptr) Result {
-	r1, _ := ffiCall8(symcpotrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	r1, _ := ffiCallWidths8(symcpotrf, 0, 0x333c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
 	return Result(r1)
 }
 
 // fncpotrfBatched calls cusolverDnCpotrfBatched.
 func fncpotrfBatched(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32) Result {
-	r1, _ := ffiCall7(symcpotrfBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	r1, _ := ffiCallWidths7(symcpotrfBatched, 0, 0x333c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
 	return Result(r1)
 }
 
 // fncpotrfBufferSize calls cusolverDnCpotrf_bufferSize.
 func fncpotrfBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
-	r1, _ := ffiCall6(symcpotrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symcpotrfBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fncpotri calls cusolverDnCpotri.
 func fncpotri(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32, a7 uintptr) Result {
-	r1, _ := ffiCall8(symcpotri, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	r1, _ := ffiCallWidths8(symcpotri, 0, 0x333c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
 	return Result(r1)
 }
 
 // fncpotriBufferSize calls cusolverDnCpotri_bufferSize.
 func fncpotriBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
-	r1, _ := ffiCall6(symcpotriBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symcpotriBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fncpotrs calls cusolverDnCpotrs.
 func fncpotrs(a0 Handle, a1 FillMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr) Result {
-	r1, _ := ffiCall9(symcpotrs, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	r1, _ := ffiCallWidths9(symcpotrs, 0, 0xccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
 	return Result(r1)
 }
 
 // fncpotrsBatched calls cusolverDnCpotrsBatched.
 func fncpotrsBatched(a0 Handle, a1 FillMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
-	r1, _ := ffiCall10(symcpotrsBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	r1, _ := ffiCallWidths10(symcpotrsBatched, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
 	return Result(r1)
 }
 
@@ -1291,205 +1317,205 @@ func fnCreateSyevjInfo(a0 *SyevjInfo) Result {
 
 // fncsytrf calls cusolverDnCsytrf.
 func fncsytrf(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
-	r1, _ := ffiCall9(symcsytrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	r1, _ := ffiCallWidths9(symcsytrf, 0, 0xc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
 	return Result(r1)
 }
 
 // fncsytrfBufferSize calls cusolverDnCsytrf_bufferSize.
 func fncsytrfBufferSize(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 *int32) Result {
-	r1, _ := ffiCall5(symcsytrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symcsytrfBufferSize, 0, 0xcc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
 // fncsytri calls cusolverDnCsytri.
 func fncsytri(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
-	r1, _ := ffiCall9(symcsytri, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	r1, _ := ffiCallWidths9(symcsytri, 0, 0xc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
 	return Result(r1)
 }
 
 // fncsytriBufferSize calls cusolverDnCsytri_bufferSize.
 func fncsytriBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 *int32) Result {
-	r1, _ := ffiCall7(symcsytriBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	r1, _ := ffiCallWidths7(symcsytriBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
 	return Result(r1)
 }
 
 // fncungbr calls cusolverDnCungbr.
 func fncungbr(a0 Handle, a1 SideMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr) Result {
-	r1, _ := ffiCall11(symcungbr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	r1, _ := ffiCallWidths11(symcungbr, 0, 0xc33fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
 	return Result(r1)
 }
 
 // fncungbrBufferSize calls cusolverDnCungbr_bufferSize.
 func fncungbrBufferSize(a0 Handle, a1 SideMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 *int32) Result {
-	r1, _ := ffiCall9(symcungbrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
+	r1, _ := ffiCallWidths9(symcungbrBufferSize, 0, 0x33fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
 	return Result(r1)
 }
 
 // fncungqr calls cusolverDnCungqr.
 func fncungqr(a0 Handle, a1 int32, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr) Result {
-	r1, _ := ffiCall10(symcungqr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	r1, _ := ffiCallWidths10(symcungqr, 0, 0x30cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
 	return Result(r1)
 }
 
 // fncungqrBufferSize calls cusolverDnCungqr_bufferSize.
 func fncungqrBufferSize(a0 Handle, a1 int32, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32) Result {
-	r1, _ := ffiCall8(symcungqrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	r1, _ := ffiCallWidths8(symcungqrBufferSize, 0, 0xcfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
 	return Result(r1)
 }
 
 // fncungtr calls cusolverDnCungtr.
 func fncungtr(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
-	r1, _ := ffiCall9(symcungtr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	r1, _ := ffiCallWidths9(symcungtr, 0, 0xc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
 	return Result(r1)
 }
 
 // fncungtrBufferSize calls cusolverDnCungtr_bufferSize.
 func fncungtrBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 *int32) Result {
-	r1, _ := ffiCall7(symcungtrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	r1, _ := ffiCallWidths7(symcungtrBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
 	return Result(r1)
 }
 
 // fncunmqr calls cusolverDnCunmqr.
 func fncunmqr(a0 Handle, a1 SideMode, a2 Operation, a3 int32, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 uintptr, a12 int32, a13 uintptr) Result {
-	r1, _ := ffiCall14(symcunmqr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	r1, _ := ffiCallWidths14(symcunmqr, 0, 0x330cffc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
 	return Result(r1)
 }
 
 // fncunmqrBufferSize calls cusolverDnCunmqr_bufferSize.
 func fncunmqrBufferSize(a0 Handle, a1 SideMode, a2 Operation, a3 int32, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 *int32) Result {
-	r1, _ := ffiCall12(symcunmqrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symcunmqrBufferSize, 0, 0x30cffc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fncunmtr calls cusolverDnCunmtr.
 func fncunmtr(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 uintptr, a12 int32, a13 uintptr) Result {
-	r1, _ := ffiCall14(symcunmtr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	r1, _ := ffiCallWidths14(symcunmtr, 0, 0x330cffc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
 	return Result(r1)
 }
 
 // fncunmtrBufferSize calls cusolverDnCunmtr_bufferSize.
 func fncunmtrBufferSize(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 *int32) Result {
-	r1, _ := ffiCall12(symcunmtrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symcunmtrBufferSize, 0, 0x30cffc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fndBgels calls cusolverDnDBgels.
 func fndBgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symdBgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symdBgels, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fndBgelsBufferSize calls cusolverDnDBgels_bufferSize.
 func fndBgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symdBgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symdBgelsBufferSize, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fndBgesv calls cusolverDnDBgesv.
 func fndBgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symdBgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symdBgesv, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fndBgesvBufferSize calls cusolverDnDBgesv_bufferSize.
 func fndBgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symdBgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symdBgesvBufferSize, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fndDgels calls cusolverDnDDgels.
 func fndDgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symdDgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symdDgels, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fndDgelsBufferSize calls cusolverDnDDgels_bufferSize.
 func fndDgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symdDgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symdDgelsBufferSize, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fndDgesv calls cusolverDnDDgesv.
 func fndDgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symdDgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symdDgesv, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fndDgesvBufferSize calls cusolverDnDDgesv_bufferSize.
 func fndDgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symdDgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symdDgesvBufferSize, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fndHgels calls cusolverDnDHgels.
 func fndHgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symdHgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symdHgels, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fndHgelsBufferSize calls cusolverDnDHgels_bufferSize.
 func fndHgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symdHgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symdHgelsBufferSize, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fndHgesv calls cusolverDnDHgesv.
 func fndHgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symdHgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symdHgesv, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fndHgesvBufferSize calls cusolverDnDHgesv_bufferSize.
 func fndHgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symdHgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symdHgesvBufferSize, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fndSgels calls cusolverDnDSgels.
 func fndSgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symdSgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symdSgels, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fndSgelsBufferSize calls cusolverDnDSgels_bufferSize.
 func fndSgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symdSgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symdSgelsBufferSize, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fndSgesv calls cusolverDnDSgesv.
 func fndSgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symdSgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symdSgesv, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fndSgesvBufferSize calls cusolverDnDSgesv_bufferSize.
 func fndSgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symdSgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symdSgesvBufferSize, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fndXgels calls cusolverDnDXgels.
 func fndXgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symdXgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symdXgels, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fndXgelsBufferSize calls cusolverDnDXgels_bufferSize.
 func fndXgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symdXgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symdXgelsBufferSize, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fndXgesv calls cusolverDnDXgesv.
 func fndXgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symdXgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symdXgesv, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fndXgesvBufferSize calls cusolverDnDXgesv_bufferSize.
 func fndXgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symdXgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symdXgesvBufferSize, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
@@ -1519,331 +1545,331 @@ func fndestroySyevjInfo(a0 SyevjInfo) Result {
 
 // fndgebrd calls cusolverDnDgebrd.
 func fndgebrd(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr, a8 uintptr, a9 uintptr, a10 int32, a11 uintptr) Result {
-	r1, _ := ffiCall12(symdgebrd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	r1, _ := ffiCallWidths12(symdgebrd, 0, 0x30033c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
 	return Result(r1)
 }
 
 // fndgebrdBufferSize calls cusolverDnDgebrd_bufferSize.
 func fndgebrdBufferSize(a0 Handle, a1 int32, a2 int32, a3 *int32) Result {
-	r1, _ := ffiCall4(symdgebrdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symdgebrdBufferSize, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
 // fndgeqrf calls cusolverDnDgeqrf.
 func fndgeqrf(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
-	r1, _ := ffiCall9(symdgeqrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	r1, _ := ffiCallWidths9(symdgeqrf, 0, 0xc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
 	return Result(r1)
 }
 
 // fndgeqrfBufferSize calls cusolverDnDgeqrf_bufferSize.
 func fndgeqrfBufferSize(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
-	r1, _ := ffiCall6(symdgeqrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symdgeqrfBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fndgesvd calls cusolverDnDgesvd.
 func fndgesvd(a0 Handle, a1 int8, a2 int8, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 uintptr, a13 int32, a14 uintptr, a15 uintptr) Result {
-	r1, _ := ffiCall16(symdgesvd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	r1, _ := ffiCallWidths16(symdgesvd, 0, 0xccc33d4, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
 	return Result(r1)
 }
 
 // fndgesvdBufferSize calls cusolverDnDgesvd_bufferSize.
 func fndgesvdBufferSize(a0 Handle, a1 int32, a2 int32, a3 *int32) Result {
-	r1, _ := ffiCall4(symdgesvdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symdgesvdBufferSize, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
 // fndgesvdaStridedBatched calls cusolverDnDgesvdaStridedBatched.
 func fndgesvdaStridedBatched(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 int64, a8 uintptr, a9 int64, a10 uintptr, a11 int32, a12 int64, a13 uintptr, a14 int32, a15 int64, a16 uintptr, a17 int32, a18 uintptr, a19 *float64, a20 int32) Result {
-	r1, _ := ffiCall21(symdgesvdaStridedBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(unsafe.Pointer(a19)), uintptr(a20))
+	r1, _ := ffiCallWidths21(symdgesvdaStridedBatched, 0, 0x30c30c033fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(unsafe.Pointer(a19)), uintptr(a20))
 	return Result(r1)
 }
 
 // fndgesvdaStridedBatchedBufferSize calls cusolverDnDgesvdaStridedBatched_bufferSize.
 func fndgesvdaStridedBatchedBufferSize(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 int64, a8 uintptr, a9 int64, a10 uintptr, a11 int32, a12 int64, a13 uintptr, a14 int32, a15 int64, a16 *int32, a17 int32) Result {
-	r1, _ := ffiCall18(symdgesvdaStridedBatchedBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(unsafe.Pointer(a16)), uintptr(a17))
+	r1, _ := ffiCallWidths18(symdgesvdaStridedBatchedBufferSize, 0, 0xc30c033fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(unsafe.Pointer(a16)), uintptr(a17))
 	return Result(r1)
 }
 
 // fndgesvdj calls cusolverDnDgesvdj.
 func fndgesvdj(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 uintptr, a13 int32, a14 uintptr, a15 GesvdjInfo) Result {
-	r1, _ := ffiCall16(symdgesvdj, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	r1, _ := ffiCallWidths16(symdgesvdj, 0, 0xccc33fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
 	return Result(r1)
 }
 
 // fndgesvdjBatched calls cusolverDnDgesvdjBatched.
 func fndgesvdjBatched(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 uintptr, a12 int32, a13 uintptr, a14 GesvdjInfo, a15 int32) Result {
-	r1, _ := ffiCall16(symdgesvdjBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	r1, _ := ffiCallWidths16(symdgesvdjBatched, 0, 0xc3330cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
 	return Result(r1)
 }
 
 // fndgesvdjBatchedBufferSize calls cusolverDnDgesvdjBatched_bufferSize.
 func fndgesvdjBatchedBufferSize(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 *int32, a12 GesvdjInfo, a13 int32) Result {
-	r1, _ := ffiCall14(symdgesvdjBatchedBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	r1, _ := ffiCallWidths14(symdgesvdjBatchedBufferSize, 0, 0xc330cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
 	return Result(r1)
 }
 
 // fndgesvdjBufferSize calls cusolverDnDgesvdj_bufferSize.
 func fndgesvdjBufferSize(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 *int32, a13 GesvdjInfo) Result {
-	r1, _ := ffiCall14(symdgesvdjBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symdgesvdjBufferSize, 0, 0xcc33fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fndgetrf calls cusolverDnDgetrf.
 func fndgetrf(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr) Result {
-	r1, _ := ffiCall8(symdgetrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	r1, _ := ffiCallWidths8(symdgetrf, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
 	return Result(r1)
 }
 
 // fndgetrfBufferSize calls cusolverDnDgetrf_bufferSize.
 func fndgetrfBufferSize(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
-	r1, _ := ffiCall6(symdgetrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symdgetrfBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fndgetrs calls cusolverDnDgetrs.
 func fndgetrs(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr) Result {
-	r1, _ := ffiCall10(symdgetrs, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	r1, _ := ffiCallWidths10(symdgetrs, 0, 0x30cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
 	return Result(r1)
 }
 
 // fndlaswp calls cusolverDnDlaswp.
 func fndlaswp(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 int32, a5 int32, a6 uintptr, a7 int32) Result {
-	r1, _ := ffiCall8(symdlaswp, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	r1, _ := ffiCallWidths8(symdlaswp, 0, 0xcfcc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
 	return Result(r1)
 }
 
 // fndlauum calls cusolverDnDlauum.
 func fndlauum(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32, a7 uintptr) Result {
-	r1, _ := ffiCall8(symdlauum, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	r1, _ := ffiCallWidths8(symdlauum, 0, 0x333c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
 	return Result(r1)
 }
 
 // fndlauumBufferSize calls cusolverDnDlauum_bufferSize.
 func fndlauumBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
-	r1, _ := ffiCall6(symdlauumBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symdlauumBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fndorgbr calls cusolverDnDorgbr.
 func fndorgbr(a0 Handle, a1 SideMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr) Result {
-	r1, _ := ffiCall11(symdorgbr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	r1, _ := ffiCallWidths11(symdorgbr, 0, 0xc33fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
 	return Result(r1)
 }
 
 // fndorgbrBufferSize calls cusolverDnDorgbr_bufferSize.
 func fndorgbrBufferSize(a0 Handle, a1 SideMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 *int32) Result {
-	r1, _ := ffiCall9(symdorgbrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
+	r1, _ := ffiCallWidths9(symdorgbrBufferSize, 0, 0x33fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
 	return Result(r1)
 }
 
 // fndorgqr calls cusolverDnDorgqr.
 func fndorgqr(a0 Handle, a1 int32, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr) Result {
-	r1, _ := ffiCall10(symdorgqr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	r1, _ := ffiCallWidths10(symdorgqr, 0, 0x30cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
 	return Result(r1)
 }
 
 // fndorgqrBufferSize calls cusolverDnDorgqr_bufferSize.
 func fndorgqrBufferSize(a0 Handle, a1 int32, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32) Result {
-	r1, _ := ffiCall8(symdorgqrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	r1, _ := ffiCallWidths8(symdorgqrBufferSize, 0, 0xcfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
 	return Result(r1)
 }
 
 // fndorgtr calls cusolverDnDorgtr.
 func fndorgtr(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
-	r1, _ := ffiCall9(symdorgtr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	r1, _ := ffiCallWidths9(symdorgtr, 0, 0xc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
 	return Result(r1)
 }
 
 // fndorgtrBufferSize calls cusolverDnDorgtr_bufferSize.
 func fndorgtrBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 *int32) Result {
-	r1, _ := ffiCall7(symdorgtrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	r1, _ := ffiCallWidths7(symdorgtrBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
 	return Result(r1)
 }
 
 // fndormqr calls cusolverDnDormqr.
 func fndormqr(a0 Handle, a1 SideMode, a2 Operation, a3 int32, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 uintptr, a12 int32, a13 uintptr) Result {
-	r1, _ := ffiCall14(symdormqr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	r1, _ := ffiCallWidths14(symdormqr, 0, 0x330cffc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
 	return Result(r1)
 }
 
 // fndormqrBufferSize calls cusolverDnDormqr_bufferSize.
 func fndormqrBufferSize(a0 Handle, a1 SideMode, a2 Operation, a3 int32, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 *int32) Result {
-	r1, _ := ffiCall12(symdormqrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symdormqrBufferSize, 0, 0x30cffc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fndormtr calls cusolverDnDormtr.
 func fndormtr(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 uintptr, a12 int32, a13 uintptr) Result {
-	r1, _ := ffiCall14(symdormtr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	r1, _ := ffiCallWidths14(symdormtr, 0, 0x330cffc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
 	return Result(r1)
 }
 
 // fndormtrBufferSize calls cusolverDnDormtr_bufferSize.
 func fndormtrBufferSize(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 *int32) Result {
-	r1, _ := ffiCall12(symdormtrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symdormtrBufferSize, 0, 0x30cffc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fndpotrf calls cusolverDnDpotrf.
 func fndpotrf(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32, a7 uintptr) Result {
-	r1, _ := ffiCall8(symdpotrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	r1, _ := ffiCallWidths8(symdpotrf, 0, 0x333c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
 	return Result(r1)
 }
 
 // fndpotrfBatched calls cusolverDnDpotrfBatched.
 func fndpotrfBatched(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32) Result {
-	r1, _ := ffiCall7(symdpotrfBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	r1, _ := ffiCallWidths7(symdpotrfBatched, 0, 0x333c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
 	return Result(r1)
 }
 
 // fndpotrfBufferSize calls cusolverDnDpotrf_bufferSize.
 func fndpotrfBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
-	r1, _ := ffiCall6(symdpotrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symdpotrfBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fndpotri calls cusolverDnDpotri.
 func fndpotri(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32, a7 uintptr) Result {
-	r1, _ := ffiCall8(symdpotri, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	r1, _ := ffiCallWidths8(symdpotri, 0, 0x333c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
 	return Result(r1)
 }
 
 // fndpotriBufferSize calls cusolverDnDpotri_bufferSize.
 func fndpotriBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
-	r1, _ := ffiCall6(symdpotriBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symdpotriBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fndpotrs calls cusolverDnDpotrs.
 func fndpotrs(a0 Handle, a1 FillMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr) Result {
-	r1, _ := ffiCall9(symdpotrs, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	r1, _ := ffiCallWidths9(symdpotrs, 0, 0xccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
 	return Result(r1)
 }
 
 // fndpotrsBatched calls cusolverDnDpotrsBatched.
 func fndpotrsBatched(a0 Handle, a1 FillMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
-	r1, _ := ffiCall10(symdpotrsBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	r1, _ := ffiCallWidths10(symdpotrsBatched, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
 	return Result(r1)
 }
 
 // fndsyevd calls cusolverDnDsyevd.
 func fndsyevd(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr) Result {
-	r1, _ := ffiCall10(symdsyevd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	r1, _ := ffiCallWidths10(symdsyevd, 0, 0x30cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
 	return Result(r1)
 }
 
 // fndsyevdBufferSize calls cusolverDnDsyevd_bufferSize.
 func fndsyevdBufferSize(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32) Result {
-	r1, _ := ffiCall8(symdsyevdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	r1, _ := ffiCallWidths8(symdsyevdBufferSize, 0, 0xcfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
 	return Result(r1)
 }
 
 // fndsyevdx calls cusolverDnDsyevdx.
 func fndsyevdx(a0 Handle, a1 EigMode, a2 EigRange, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 float64, a8 float64, a9 int32, a10 int32, a11 *int32, a12 uintptr, a13 uintptr, a14 int32, a15 uintptr) Result {
-	r1, _ := ffiCall16(symdsyevdx, 0b110000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(math.Float64bits(a7)), uintptr(math.Float64bits(a8)), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	r1, _ := ffiCallWidths16(symdsyevdx, 0b110000000, 0x303c33fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(math.Float64bits(a7)), uintptr(math.Float64bits(a8)), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
 	return Result(r1)
 }
 
 // fndsyevdxBufferSize calls cusolverDnDsyevdx_bufferSize.
 func fndsyevdxBufferSize(a0 Handle, a1 EigMode, a2 EigRange, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 float64, a8 float64, a9 int32, a10 int32, a11 *int32, a12 uintptr, a13 *int32) Result {
-	r1, _ := ffiCall14(symdsyevdxBufferSize, 0b110000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(math.Float64bits(a7)), uintptr(math.Float64bits(a8)), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(unsafe.Pointer(a13)))
+	r1, _ := ffiCallWidths14(symdsyevdxBufferSize, 0b110000000, 0x3c33fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(math.Float64bits(a7)), uintptr(math.Float64bits(a8)), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(unsafe.Pointer(a13)))
 	return Result(r1)
 }
 
 // fndsyevj calls cusolverDnDsyevj.
 func fndsyevj(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 SyevjInfo) Result {
-	r1, _ := ffiCall11(symdsyevj, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	r1, _ := ffiCallWidths11(symdsyevj, 0, 0x30cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
 	return Result(r1)
 }
 
 // fndsyevjBatched calls cusolverDnDsyevjBatched.
 func fndsyevjBatched(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 SyevjInfo, a11 int32) Result {
-	r1, _ := ffiCall12(symdsyevjBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	r1, _ := ffiCallWidths12(symdsyevjBatched, 0, 0xc30cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
 	return Result(r1)
 }
 
 // fndsyevjBatchedBufferSize calls cusolverDnDsyevjBatched_bufferSize.
 func fndsyevjBatchedBufferSize(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32, a8 SyevjInfo, a9 int32) Result {
-	r1, _ := ffiCall10(symdsyevjBatchedBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9))
+	r1, _ := ffiCallWidths10(symdsyevjBatchedBufferSize, 0, 0xc0cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9))
 	return Result(r1)
 }
 
 // fndsyevjBufferSize calls cusolverDnDsyevj_bufferSize.
 func fndsyevjBufferSize(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32, a8 SyevjInfo) Result {
-	r1, _ := ffiCall9(symdsyevjBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8))
+	r1, _ := ffiCallWidths9(symdsyevjBufferSize, 0, 0xcfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8))
 	return Result(r1)
 }
 
 // fndsygvd calls cusolverDnDsygvd.
 func fndsygvd(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 uintptr, a11 int32, a12 uintptr) Result {
-	r1, _ := ffiCall13(symdsygvd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	r1, _ := ffiCallWidths13(symdsygvd, 0, 0xc333fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
 	return Result(r1)
 }
 
 // fndsygvdBufferSize calls cusolverDnDsygvd_bufferSize.
 func fndsygvdBufferSize(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 *int32) Result {
-	r1, _ := ffiCall11(symdsygvdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)))
+	r1, _ := ffiCallWidths11(symdsygvdBufferSize, 0, 0x333fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)))
 	return Result(r1)
 }
 
 // fndsygvdx calls cusolverDnDsygvdx.
 func fndsygvdx(a0 Handle, a1 EigType, a2 EigMode, a3 EigRange, a4 FillMode, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 float64, a11 float64, a12 int32, a13 int32, a14 *int32, a15 uintptr, a16 uintptr, a17 int32, a18 uintptr) Result {
-	r1, _ := ffiCall19(symdsygvdx, 0b110000000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(math.Float64bits(a10)), uintptr(math.Float64bits(a11)), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18))
+	r1, _ := ffiCallWidths19(symdsygvdx, 0b110000000000, 0xc0f0ccffc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(math.Float64bits(a10)), uintptr(math.Float64bits(a11)), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18))
 	return Result(r1)
 }
 
 // fndsygvdxBufferSize calls cusolverDnDsygvdx_bufferSize.
 func fndsygvdxBufferSize(a0 Handle, a1 EigType, a2 EigMode, a3 EigRange, a4 FillMode, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 float64, a11 float64, a12 int32, a13 int32, a14 *int32, a15 uintptr, a16 *int32) Result {
-	r1, _ := ffiCall17(symdsygvdxBufferSize, 0b110000000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(math.Float64bits(a10)), uintptr(math.Float64bits(a11)), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(a15), uintptr(unsafe.Pointer(a16)))
+	r1, _ := ffiCallWidths17(symdsygvdxBufferSize, 0b110000000000, 0xf0ccffc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(math.Float64bits(a10)), uintptr(math.Float64bits(a11)), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(a15), uintptr(unsafe.Pointer(a16)))
 	return Result(r1)
 }
 
 // fndsygvj calls cusolverDnDsygvj.
 func fndsygvj(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 uintptr, a11 int32, a12 uintptr, a13 SyevjInfo) Result {
-	r1, _ := ffiCall14(symdsygvj, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	r1, _ := ffiCallWidths14(symdsygvj, 0, 0xc333fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
 	return Result(r1)
 }
 
 // fndsygvjBufferSize calls cusolverDnDsygvj_bufferSize.
 func fndsygvjBufferSize(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 *int32, a11 SyevjInfo) Result {
-	r1, _ := ffiCall12(symdsygvjBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11))
+	r1, _ := ffiCallWidths12(symdsygvjBufferSize, 0, 0x333fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11))
 	return Result(r1)
 }
 
 // fndsytrd calls cusolverDnDsytrd.
 func fndsytrd(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr) Result {
-	r1, _ := ffiCall11(symdsytrd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	r1, _ := ffiCallWidths11(symdsytrd, 0, 0xc033c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
 	return Result(r1)
 }
 
 // fndsytrdBufferSize calls cusolverDnDsytrd_bufferSize.
 func fndsytrdBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr, a8 *int32) Result {
-	r1, _ := ffiCall9(symdsytrdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
+	r1, _ := ffiCallWidths9(symdsytrdBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
 	return Result(r1)
 }
 
 // fndsytrf calls cusolverDnDsytrf.
 func fndsytrf(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
-	r1, _ := ffiCall9(symdsytrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	r1, _ := ffiCallWidths9(symdsytrf, 0, 0xc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
 	return Result(r1)
 }
 
 // fndsytrfBufferSize calls cusolverDnDsytrf_bufferSize.
 func fndsytrfBufferSize(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 *int32) Result {
-	r1, _ := ffiCall5(symdsytrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symdsytrfBufferSize, 0, 0xcc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
 // fndsytri calls cusolverDnDsytri.
 func fndsytri(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
-	r1, _ := ffiCall9(symdsytri, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	r1, _ := ffiCallWidths9(symdsytri, 0, 0xc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
 	return Result(r1)
 }
 
 // fndsytriBufferSize calls cusolverDnDsytri_bufferSize.
 func fndsytriBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 *int32) Result {
-	r1, _ := ffiCall7(symdsytriBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	r1, _ := ffiCallWidths7(symdsytriBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
 	return Result(r1)
 }
 
@@ -1891,7 +1917,7 @@ func fngetMathMode(a0 Handle, a1 *MathMode) Result {
 
 // fnGetProperty calls cusolverGetProperty.
 func fnGetProperty(a0 LibraryPropertyType, a1 *int32) Result {
-	r1, _ := ffiCall2(symGetProperty, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symGetProperty, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
@@ -1975,37 +2001,37 @@ func fniRSParamsGetMaxIters(a0 IRSParams, a1 *CusolverInt) Result {
 
 // fniRSParamsSetMaxIters calls cusolverDnIRSParamsSetMaxIters.
 func fniRSParamsSetMaxIters(a0 IRSParams, a1 CusolverInt) Result {
-	r1, _ := ffiCall2(symiRSParamsSetMaxIters, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symiRSParamsSetMaxIters, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fniRSParamsSetMaxItersInner calls cusolverDnIRSParamsSetMaxItersInner.
 func fniRSParamsSetMaxItersInner(a0 IRSParams, a1 CusolverInt) Result {
-	r1, _ := ffiCall2(symiRSParamsSetMaxItersInner, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symiRSParamsSetMaxItersInner, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fniRSParamsSetRefinementSolver calls cusolverDnIRSParamsSetRefinementSolver.
 func fniRSParamsSetRefinementSolver(a0 IRSParams, a1 IRSRefinement) Result {
-	r1, _ := ffiCall2(symiRSParamsSetRefinementSolver, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symiRSParamsSetRefinementSolver, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fniRSParamsSetSolverLowestPrecision calls cusolverDnIRSParamsSetSolverLowestPrecision.
 func fniRSParamsSetSolverLowestPrecision(a0 IRSParams, a1 PrecType) Result {
-	r1, _ := ffiCall2(symiRSParamsSetSolverLowestPrecision, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symiRSParamsSetSolverLowestPrecision, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fniRSParamsSetSolverMainPrecision calls cusolverDnIRSParamsSetSolverMainPrecision.
 func fniRSParamsSetSolverMainPrecision(a0 IRSParams, a1 PrecType) Result {
-	r1, _ := ffiCall2(symiRSParamsSetSolverMainPrecision, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symiRSParamsSetSolverMainPrecision, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fniRSParamsSetSolverPrecisions calls cusolverDnIRSParamsSetSolverPrecisions.
 func fniRSParamsSetSolverPrecisions(a0 IRSParams, a1 PrecType, a2 PrecType) Result {
-	r1, _ := ffiCall3(symiRSParamsSetSolverPrecisions, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	r1, _ := ffiCallWidths3(symiRSParamsSetSolverPrecisions, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2))
 	return Result(r1)
 }
 
@@ -2023,25 +2049,25 @@ func fniRSParamsSetTolInner(a0 IRSParams, a1 float64) Result {
 
 // fniRSXgels calls cusolverDnIRSXgels.
 func fniRSXgels(a0 Handle, a1 IRSParams, a2 IRSInfos, a3 CusolverInt, a4 CusolverInt, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 CusolverInt, a12 uintptr, a13 uint, a14 *CusolverInt, a15 uintptr) Result {
-	r1, _ := ffiCall16(symiRSXgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(a15))
+	r1, _ := ffiCallWidths16(symiRSXgels, 0, 0xcccfc0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(a15))
 	return Result(r1)
 }
 
 // fniRSXgelsBufferSize calls cusolverDnIRSXgels_bufferSize.
 func fniRSXgelsBufferSize(a0 Handle, a1 IRSParams, a2 CusolverInt, a3 CusolverInt, a4 CusolverInt, a5 *uint) Result {
-	r1, _ := ffiCall6(symiRSXgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symiRSXgelsBufferSize, 0, 0x3f0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fniRSXgesv calls cusolverDnIRSXgesv.
 func fniRSXgesv(a0 Handle, a1 IRSParams, a2 IRSInfos, a3 CusolverInt, a4 CusolverInt, a5 uintptr, a6 CusolverInt, a7 uintptr, a8 CusolverInt, a9 uintptr, a10 CusolverInt, a11 uintptr, a12 uint, a13 *CusolverInt, a14 uintptr) Result {
-	r1, _ := ffiCall15(symiRSXgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14))
+	r1, _ := ffiCallWidths15(symiRSXgesv, 0, 0x3333c0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14))
 	return Result(r1)
 }
 
 // fniRSXgesvBufferSize calls cusolverDnIRSXgesv_bufferSize.
 func fniRSXgesvBufferSize(a0 Handle, a1 IRSParams, a2 CusolverInt, a3 CusolverInt, a4 *uint) Result {
-	r1, _ := ffiCall5(symiRSXgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symiRSXgesvBufferSize, 0, 0xf0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
@@ -2071,523 +2097,523 @@ func fnLoggerSetFile(a0 *FILE) Result {
 
 // fnLoggerSetLevel calls cusolverDnLoggerSetLevel.
 func fnLoggerSetLevel(a0 int32) Result {
-	r1, _ := ffiCall1(symLoggerSetLevel, 0, uintptr(a0))
+	r1, _ := ffiCallWidths1(symLoggerSetLevel, 0, 0x3, uintptr(a0))
 	return Result(r1)
 }
 
 // fnLoggerSetMask calls cusolverDnLoggerSetMask.
 func fnLoggerSetMask(a0 int32) Result {
-	r1, _ := ffiCall1(symLoggerSetMask, 0, uintptr(a0))
+	r1, _ := ffiCallWidths1(symLoggerSetMask, 0, 0x3, uintptr(a0))
 	return Result(r1)
 }
 
 // fnsBgels calls cusolverDnSBgels.
 func fnsBgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symsBgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symsBgels, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fnsBgelsBufferSize calls cusolverDnSBgels_bufferSize.
 func fnsBgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symsBgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symsBgelsBufferSize, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fnsBgesv calls cusolverDnSBgesv.
 func fnsBgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symsBgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symsBgesv, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fnsBgesvBufferSize calls cusolverDnSBgesv_bufferSize.
 func fnsBgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symsBgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symsBgesvBufferSize, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fnsHgels calls cusolverDnSHgels.
 func fnsHgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symsHgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symsHgels, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fnsHgelsBufferSize calls cusolverDnSHgels_bufferSize.
 func fnsHgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symsHgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symsHgelsBufferSize, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fnsHgesv calls cusolverDnSHgesv.
 func fnsHgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symsHgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symsHgesv, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fnsHgesvBufferSize calls cusolverDnSHgesv_bufferSize.
 func fnsHgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symsHgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symsHgesvBufferSize, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fnsSgels calls cusolverDnSSgels.
 func fnsSgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symsSgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symsSgels, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fnsSgelsBufferSize calls cusolverDnSSgels_bufferSize.
 func fnsSgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symsSgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symsSgelsBufferSize, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fnsSgesv calls cusolverDnSSgesv.
 func fnsSgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symsSgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symsSgesv, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fnsSgesvBufferSize calls cusolverDnSSgesv_bufferSize.
 func fnsSgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symsSgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symsSgesvBufferSize, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fnsXgels calls cusolverDnSXgels.
 func fnsXgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symsXgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symsXgels, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fnsXgelsBufferSize calls cusolverDnSXgels_bufferSize.
 func fnsXgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symsXgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symsXgelsBufferSize, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fnsXgesv calls cusolverDnSXgesv.
 func fnsXgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symsXgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symsXgesv, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fnsXgesvBufferSize calls cusolverDnSXgesv_bufferSize.
 func fnsXgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symsXgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symsXgesvBufferSize, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fnsetAdvOptions calls cusolverDnSetAdvOptions.
 func fnsetAdvOptions(a0 Params, a1 Function, a2 AlgMode) Result {
-	r1, _ := ffiCall3(symsetAdvOptions, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	r1, _ := ffiCallWidths3(symsetAdvOptions, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2))
 	return Result(r1)
 }
 
 // fnsetDeterministicMode calls cusolverDnSetDeterministicMode.
 func fnsetDeterministicMode(a0 Handle, a1 DeterministicMode) Result {
-	r1, _ := ffiCall2(symsetDeterministicMode, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symsetDeterministicMode, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fnsetEmulationSpecialValuesSupport calls cusolverDnSetEmulationSpecialValuesSupport.
 func fnsetEmulationSpecialValuesSupport(a0 Handle, a1 EmulationSpecialValuesSupport) Result {
-	r1, _ := ffiCall2(symsetEmulationSpecialValuesSupport, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symsetEmulationSpecialValuesSupport, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fnsetEmulationStrategy calls cusolverDnSetEmulationStrategy.
 func fnsetEmulationStrategy(a0 Handle, a1 EmulationStrategy) Result {
-	r1, _ := ffiCall2(symsetEmulationStrategy, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symsetEmulationStrategy, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fnsetFixedPointEmulationMantissaBitOffset calls cusolverDnSetFixedPointEmulationMantissaBitOffset.
 func fnsetFixedPointEmulationMantissaBitOffset(a0 Handle, a1 int32) Result {
-	r1, _ := ffiCall2(symsetFixedPointEmulationMantissaBitOffset, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symsetFixedPointEmulationMantissaBitOffset, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fnsetFixedPointEmulationMantissaControl calls cusolverDnSetFixedPointEmulationMantissaControl.
 func fnsetFixedPointEmulationMantissaControl(a0 Handle, a1 EmulationMantissaControl) Result {
-	r1, _ := ffiCall2(symsetFixedPointEmulationMantissaControl, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symsetFixedPointEmulationMantissaControl, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fnsetFixedPointEmulationMaxMantissaBitCount calls cusolverDnSetFixedPointEmulationMaxMantissaBitCount.
 func fnsetFixedPointEmulationMaxMantissaBitCount(a0 Handle, a1 int32) Result {
-	r1, _ := ffiCall2(symsetFixedPointEmulationMaxMantissaBitCount, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symsetFixedPointEmulationMaxMantissaBitCount, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fnsetMathMode calls cusolverDnSetMathMode.
 func fnsetMathMode(a0 Handle, a1 MathMode) Result {
-	r1, _ := ffiCall2(symsetMathMode, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symsetMathMode, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fnsgebrd calls cusolverDnSgebrd.
 func fnsgebrd(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr, a8 uintptr, a9 uintptr, a10 int32, a11 uintptr) Result {
-	r1, _ := ffiCall12(symsgebrd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	r1, _ := ffiCallWidths12(symsgebrd, 0, 0x30033c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
 	return Result(r1)
 }
 
 // fnsgebrdBufferSize calls cusolverDnSgebrd_bufferSize.
 func fnsgebrdBufferSize(a0 Handle, a1 int32, a2 int32, a3 *int32) Result {
-	r1, _ := ffiCall4(symsgebrdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symsgebrdBufferSize, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
 // fnsgeqrf calls cusolverDnSgeqrf.
 func fnsgeqrf(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
-	r1, _ := ffiCall9(symsgeqrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	r1, _ := ffiCallWidths9(symsgeqrf, 0, 0xc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
 	return Result(r1)
 }
 
 // fnsgeqrfBufferSize calls cusolverDnSgeqrf_bufferSize.
 func fnsgeqrfBufferSize(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
-	r1, _ := ffiCall6(symsgeqrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symsgeqrfBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fnsgesvd calls cusolverDnSgesvd.
 func fnsgesvd(a0 Handle, a1 int8, a2 int8, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 uintptr, a13 int32, a14 uintptr, a15 uintptr) Result {
-	r1, _ := ffiCall16(symsgesvd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	r1, _ := ffiCallWidths16(symsgesvd, 0, 0xccc33d4, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
 	return Result(r1)
 }
 
 // fnsgesvdBufferSize calls cusolverDnSgesvd_bufferSize.
 func fnsgesvdBufferSize(a0 Handle, a1 int32, a2 int32, a3 *int32) Result {
-	r1, _ := ffiCall4(symsgesvdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symsgesvdBufferSize, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
 // fnsgesvdaStridedBatched calls cusolverDnSgesvdaStridedBatched.
 func fnsgesvdaStridedBatched(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 int64, a8 uintptr, a9 int64, a10 uintptr, a11 int32, a12 int64, a13 uintptr, a14 int32, a15 int64, a16 uintptr, a17 int32, a18 uintptr, a19 *float64, a20 int32) Result {
-	r1, _ := ffiCall21(symsgesvdaStridedBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(unsafe.Pointer(a19)), uintptr(a20))
+	r1, _ := ffiCallWidths21(symsgesvdaStridedBatched, 0, 0x30c30c033fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(unsafe.Pointer(a19)), uintptr(a20))
 	return Result(r1)
 }
 
 // fnsgesvdaStridedBatchedBufferSize calls cusolverDnSgesvdaStridedBatched_bufferSize.
 func fnsgesvdaStridedBatchedBufferSize(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 int64, a8 uintptr, a9 int64, a10 uintptr, a11 int32, a12 int64, a13 uintptr, a14 int32, a15 int64, a16 *int32, a17 int32) Result {
-	r1, _ := ffiCall18(symsgesvdaStridedBatchedBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(unsafe.Pointer(a16)), uintptr(a17))
+	r1, _ := ffiCallWidths18(symsgesvdaStridedBatchedBufferSize, 0, 0xc30c033fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(unsafe.Pointer(a16)), uintptr(a17))
 	return Result(r1)
 }
 
 // fnsgesvdj calls cusolverDnSgesvdj.
 func fnsgesvdj(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 uintptr, a13 int32, a14 uintptr, a15 GesvdjInfo) Result {
-	r1, _ := ffiCall16(symsgesvdj, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	r1, _ := ffiCallWidths16(symsgesvdj, 0, 0xccc33fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
 	return Result(r1)
 }
 
 // fnsgesvdjBatched calls cusolverDnSgesvdjBatched.
 func fnsgesvdjBatched(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 uintptr, a12 int32, a13 uintptr, a14 GesvdjInfo, a15 int32) Result {
-	r1, _ := ffiCall16(symsgesvdjBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	r1, _ := ffiCallWidths16(symsgesvdjBatched, 0, 0xc3330cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
 	return Result(r1)
 }
 
 // fnsgesvdjBatchedBufferSize calls cusolverDnSgesvdjBatched_bufferSize.
 func fnsgesvdjBatchedBufferSize(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 *int32, a12 GesvdjInfo, a13 int32) Result {
-	r1, _ := ffiCall14(symsgesvdjBatchedBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	r1, _ := ffiCallWidths14(symsgesvdjBatchedBufferSize, 0, 0xc330cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
 	return Result(r1)
 }
 
 // fnsgesvdjBufferSize calls cusolverDnSgesvdj_bufferSize.
 func fnsgesvdjBufferSize(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 *int32, a13 GesvdjInfo) Result {
-	r1, _ := ffiCall14(symsgesvdjBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symsgesvdjBufferSize, 0, 0xcc33fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fnsgetrf calls cusolverDnSgetrf.
 func fnsgetrf(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr) Result {
-	r1, _ := ffiCall8(symsgetrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	r1, _ := ffiCallWidths8(symsgetrf, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
 	return Result(r1)
 }
 
 // fnsgetrfBufferSize calls cusolverDnSgetrf_bufferSize.
 func fnsgetrfBufferSize(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
-	r1, _ := ffiCall6(symsgetrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symsgetrfBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fnsgetrs calls cusolverDnSgetrs.
 func fnsgetrs(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr) Result {
-	r1, _ := ffiCall10(symsgetrs, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	r1, _ := ffiCallWidths10(symsgetrs, 0, 0x30cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
 	return Result(r1)
 }
 
 // fnslaswp calls cusolverDnSlaswp.
 func fnslaswp(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 int32, a5 int32, a6 uintptr, a7 int32) Result {
-	r1, _ := ffiCall8(symslaswp, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	r1, _ := ffiCallWidths8(symslaswp, 0, 0xcfcc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
 	return Result(r1)
 }
 
 // fnslauum calls cusolverDnSlauum.
 func fnslauum(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32, a7 uintptr) Result {
-	r1, _ := ffiCall8(symslauum, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	r1, _ := ffiCallWidths8(symslauum, 0, 0x333c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
 	return Result(r1)
 }
 
 // fnslauumBufferSize calls cusolverDnSlauum_bufferSize.
 func fnslauumBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
-	r1, _ := ffiCall6(symslauumBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symslauumBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fnsorgbr calls cusolverDnSorgbr.
 func fnsorgbr(a0 Handle, a1 SideMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr) Result {
-	r1, _ := ffiCall11(symsorgbr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	r1, _ := ffiCallWidths11(symsorgbr, 0, 0xc33fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
 	return Result(r1)
 }
 
 // fnsorgbrBufferSize calls cusolverDnSorgbr_bufferSize.
 func fnsorgbrBufferSize(a0 Handle, a1 SideMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 *int32) Result {
-	r1, _ := ffiCall9(symsorgbrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
+	r1, _ := ffiCallWidths9(symsorgbrBufferSize, 0, 0x33fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
 	return Result(r1)
 }
 
 // fnsorgqr calls cusolverDnSorgqr.
 func fnsorgqr(a0 Handle, a1 int32, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr) Result {
-	r1, _ := ffiCall10(symsorgqr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	r1, _ := ffiCallWidths10(symsorgqr, 0, 0x30cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
 	return Result(r1)
 }
 
 // fnsorgqrBufferSize calls cusolverDnSorgqr_bufferSize.
 func fnsorgqrBufferSize(a0 Handle, a1 int32, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32) Result {
-	r1, _ := ffiCall8(symsorgqrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	r1, _ := ffiCallWidths8(symsorgqrBufferSize, 0, 0xcfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
 	return Result(r1)
 }
 
 // fnsorgtr calls cusolverDnSorgtr.
 func fnsorgtr(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
-	r1, _ := ffiCall9(symsorgtr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	r1, _ := ffiCallWidths9(symsorgtr, 0, 0xc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
 	return Result(r1)
 }
 
 // fnsorgtrBufferSize calls cusolverDnSorgtr_bufferSize.
 func fnsorgtrBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 *int32) Result {
-	r1, _ := ffiCall7(symsorgtrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	r1, _ := ffiCallWidths7(symsorgtrBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
 	return Result(r1)
 }
 
 // fnsormqr calls cusolverDnSormqr.
 func fnsormqr(a0 Handle, a1 SideMode, a2 Operation, a3 int32, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 uintptr, a12 int32, a13 uintptr) Result {
-	r1, _ := ffiCall14(symsormqr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	r1, _ := ffiCallWidths14(symsormqr, 0, 0x330cffc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
 	return Result(r1)
 }
 
 // fnsormqrBufferSize calls cusolverDnSormqr_bufferSize.
 func fnsormqrBufferSize(a0 Handle, a1 SideMode, a2 Operation, a3 int32, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 *int32) Result {
-	r1, _ := ffiCall12(symsormqrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symsormqrBufferSize, 0, 0x30cffc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fnsormtr calls cusolverDnSormtr.
 func fnsormtr(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 uintptr, a12 int32, a13 uintptr) Result {
-	r1, _ := ffiCall14(symsormtr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	r1, _ := ffiCallWidths14(symsormtr, 0, 0x330cffc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
 	return Result(r1)
 }
 
 // fnsormtrBufferSize calls cusolverDnSormtr_bufferSize.
 func fnsormtrBufferSize(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 *int32) Result {
-	r1, _ := ffiCall12(symsormtrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symsormtrBufferSize, 0, 0x30cffc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fnspotrf calls cusolverDnSpotrf.
 func fnspotrf(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32, a7 uintptr) Result {
-	r1, _ := ffiCall8(symspotrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	r1, _ := ffiCallWidths8(symspotrf, 0, 0x333c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
 	return Result(r1)
 }
 
 // fnspotrfBatched calls cusolverDnSpotrfBatched.
 func fnspotrfBatched(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32) Result {
-	r1, _ := ffiCall7(symspotrfBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	r1, _ := ffiCallWidths7(symspotrfBatched, 0, 0x333c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
 	return Result(r1)
 }
 
 // fnspotrfBufferSize calls cusolverDnSpotrf_bufferSize.
 func fnspotrfBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
-	r1, _ := ffiCall6(symspotrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symspotrfBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fnspotri calls cusolverDnSpotri.
 func fnspotri(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32, a7 uintptr) Result {
-	r1, _ := ffiCall8(symspotri, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	r1, _ := ffiCallWidths8(symspotri, 0, 0x333c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
 	return Result(r1)
 }
 
 // fnspotriBufferSize calls cusolverDnSpotri_bufferSize.
 func fnspotriBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
-	r1, _ := ffiCall6(symspotriBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symspotriBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fnspotrs calls cusolverDnSpotrs.
 func fnspotrs(a0 Handle, a1 FillMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr) Result {
-	r1, _ := ffiCall9(symspotrs, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	r1, _ := ffiCallWidths9(symspotrs, 0, 0xccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
 	return Result(r1)
 }
 
 // fnspotrsBatched calls cusolverDnSpotrsBatched.
 func fnspotrsBatched(a0 Handle, a1 FillMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
-	r1, _ := ffiCall10(symspotrsBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	r1, _ := ffiCallWidths10(symspotrsBatched, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
 	return Result(r1)
 }
 
 // fnssyevd calls cusolverDnSsyevd.
 func fnssyevd(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr) Result {
-	r1, _ := ffiCall10(symssyevd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	r1, _ := ffiCallWidths10(symssyevd, 0, 0x30cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
 	return Result(r1)
 }
 
 // fnssyevdBufferSize calls cusolverDnSsyevd_bufferSize.
 func fnssyevdBufferSize(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32) Result {
-	r1, _ := ffiCall8(symssyevdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	r1, _ := ffiCallWidths8(symssyevdBufferSize, 0, 0xcfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
 	return Result(r1)
 }
 
 // fnssyevdx calls cusolverDnSsyevdx.
 func fnssyevdx(a0 Handle, a1 EigMode, a2 EigRange, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 float32, a8 float32, a9 int32, a10 int32, a11 *int32, a12 uintptr, a13 uintptr, a14 int32, a15 uintptr) Result {
-	r1, _ := ffiCall16(symssyevdx, 0b110000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(math.Float32bits(a7)), uintptr(math.Float32bits(a8)), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	r1, _ := ffiCallWidths16(symssyevdx, 0b110000000, 0x303ff3fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(math.Float32bits(a7)), uintptr(math.Float32bits(a8)), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
 	return Result(r1)
 }
 
 // fnssyevdxBufferSize calls cusolverDnSsyevdx_bufferSize.
 func fnssyevdxBufferSize(a0 Handle, a1 EigMode, a2 EigRange, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 float32, a8 float32, a9 int32, a10 int32, a11 *int32, a12 uintptr, a13 *int32) Result {
-	r1, _ := ffiCall14(symssyevdxBufferSize, 0b110000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(math.Float32bits(a7)), uintptr(math.Float32bits(a8)), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(unsafe.Pointer(a13)))
+	r1, _ := ffiCallWidths14(symssyevdxBufferSize, 0b110000000, 0x3ff3fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(math.Float32bits(a7)), uintptr(math.Float32bits(a8)), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(unsafe.Pointer(a13)))
 	return Result(r1)
 }
 
 // fnssyevj calls cusolverDnSsyevj.
 func fnssyevj(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 SyevjInfo) Result {
-	r1, _ := ffiCall11(symssyevj, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	r1, _ := ffiCallWidths11(symssyevj, 0, 0x30cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
 	return Result(r1)
 }
 
 // fnssyevjBatched calls cusolverDnSsyevjBatched.
 func fnssyevjBatched(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 SyevjInfo, a11 int32) Result {
-	r1, _ := ffiCall12(symssyevjBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	r1, _ := ffiCallWidths12(symssyevjBatched, 0, 0xc30cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
 	return Result(r1)
 }
 
 // fnssyevjBatchedBufferSize calls cusolverDnSsyevjBatched_bufferSize.
 func fnssyevjBatchedBufferSize(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32, a8 SyevjInfo, a9 int32) Result {
-	r1, _ := ffiCall10(symssyevjBatchedBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9))
+	r1, _ := ffiCallWidths10(symssyevjBatchedBufferSize, 0, 0xc0cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9))
 	return Result(r1)
 }
 
 // fnssyevjBufferSize calls cusolverDnSsyevj_bufferSize.
 func fnssyevjBufferSize(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32, a8 SyevjInfo) Result {
-	r1, _ := ffiCall9(symssyevjBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8))
+	r1, _ := ffiCallWidths9(symssyevjBufferSize, 0, 0xcfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8))
 	return Result(r1)
 }
 
 // fnssygvd calls cusolverDnSsygvd.
 func fnssygvd(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 uintptr, a11 int32, a12 uintptr) Result {
-	r1, _ := ffiCall13(symssygvd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	r1, _ := ffiCallWidths13(symssygvd, 0, 0xc333fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
 	return Result(r1)
 }
 
 // fnssygvdBufferSize calls cusolverDnSsygvd_bufferSize.
 func fnssygvdBufferSize(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 *int32) Result {
-	r1, _ := ffiCall11(symssygvdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)))
+	r1, _ := ffiCallWidths11(symssygvdBufferSize, 0, 0x333fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)))
 	return Result(r1)
 }
 
 // fnssygvdx calls cusolverDnSsygvdx.
 func fnssygvdx(a0 Handle, a1 EigType, a2 EigMode, a3 EigRange, a4 FillMode, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 float32, a11 float32, a12 int32, a13 int32, a14 *int32, a15 uintptr, a16 uintptr, a17 int32, a18 uintptr) Result {
-	r1, _ := ffiCall19(symssygvdx, 0b110000000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(math.Float32bits(a10)), uintptr(math.Float32bits(a11)), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18))
+	r1, _ := ffiCallWidths19(symssygvdx, 0b110000000000, 0xc0ffccffc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(math.Float32bits(a10)), uintptr(math.Float32bits(a11)), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18))
 	return Result(r1)
 }
 
 // fnssygvdxBufferSize calls cusolverDnSsygvdx_bufferSize.
 func fnssygvdxBufferSize(a0 Handle, a1 EigType, a2 EigMode, a3 EigRange, a4 FillMode, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 float32, a11 float32, a12 int32, a13 int32, a14 *int32, a15 uintptr, a16 *int32) Result {
-	r1, _ := ffiCall17(symssygvdxBufferSize, 0b110000000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(math.Float32bits(a10)), uintptr(math.Float32bits(a11)), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(a15), uintptr(unsafe.Pointer(a16)))
+	r1, _ := ffiCallWidths17(symssygvdxBufferSize, 0b110000000000, 0xffccffc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(math.Float32bits(a10)), uintptr(math.Float32bits(a11)), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(a15), uintptr(unsafe.Pointer(a16)))
 	return Result(r1)
 }
 
 // fnssygvj calls cusolverDnSsygvj.
 func fnssygvj(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 uintptr, a11 int32, a12 uintptr, a13 SyevjInfo) Result {
-	r1, _ := ffiCall14(symssygvj, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	r1, _ := ffiCallWidths14(symssygvj, 0, 0xc333fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
 	return Result(r1)
 }
 
 // fnssygvjBufferSize calls cusolverDnSsygvj_bufferSize.
 func fnssygvjBufferSize(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 *int32, a11 SyevjInfo) Result {
-	r1, _ := ffiCall12(symssygvjBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11))
+	r1, _ := ffiCallWidths12(symssygvjBufferSize, 0, 0x333fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11))
 	return Result(r1)
 }
 
 // fnssytrd calls cusolverDnSsytrd.
 func fnssytrd(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr) Result {
-	r1, _ := ffiCall11(symssytrd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	r1, _ := ffiCallWidths11(symssytrd, 0, 0xc033c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
 	return Result(r1)
 }
 
 // fnssytrdBufferSize calls cusolverDnSsytrd_bufferSize.
 func fnssytrdBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr, a8 *int32) Result {
-	r1, _ := ffiCall9(symssytrdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
+	r1, _ := ffiCallWidths9(symssytrdBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
 	return Result(r1)
 }
 
 // fnssytrf calls cusolverDnSsytrf.
 func fnssytrf(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
-	r1, _ := ffiCall9(symssytrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	r1, _ := ffiCallWidths9(symssytrf, 0, 0xc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
 	return Result(r1)
 }
 
 // fnssytrfBufferSize calls cusolverDnSsytrf_bufferSize.
 func fnssytrfBufferSize(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 *int32) Result {
-	r1, _ := ffiCall5(symssytrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symssytrfBufferSize, 0, 0xcc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
 // fnssytri calls cusolverDnSsytri.
 func fnssytri(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
-	r1, _ := ffiCall9(symssytri, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	r1, _ := ffiCallWidths9(symssytri, 0, 0xc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
 	return Result(r1)
 }
 
 // fnssytriBufferSize calls cusolverDnSsytri_bufferSize.
 func fnssytriBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 *int32) Result {
-	r1, _ := ffiCall7(symssytriBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	r1, _ := ffiCallWidths7(symssytriBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
 	return Result(r1)
 }
 
 // fnxgeev calls cusolverDnXgeev.
 func fnxgeev(a0 Handle, a1 Params, a2 EigMode, a3 EigMode, a4 int64, a5 DataType, a6 uintptr, a7 int64, a8 DataType, a9 uintptr, a10 DataType, a11 uintptr, a12 int64, a13 DataType, a14 uintptr, a15 int64, a16 DataType, a17 uintptr, a18 uint, a19 uintptr, a20 uint, a21 uintptr) Result {
-	r1, _ := ffiCall22(symxgeev, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21))
+	r1, _ := ffiCallWidths22(symxgeev, 0, 0x30c330cf0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21))
 	return Result(r1)
 }
 
 // fnxgeevBufferSize calls cusolverDnXgeev_bufferSize.
 func fnxgeevBufferSize(a0 Handle, a1 Params, a2 EigMode, a3 EigMode, a4 int64, a5 DataType, a6 uintptr, a7 int64, a8 DataType, a9 uintptr, a10 DataType, a11 uintptr, a12 int64, a13 DataType, a14 uintptr, a15 int64, a16 DataType, a17 *uint, a18 *uint) Result {
-	r1, _ := ffiCall19(symxgeevBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(unsafe.Pointer(a17)), uintptr(unsafe.Pointer(a18)))
+	r1, _ := ffiCallWidths19(symxgeevBufferSize, 0, 0x30c330cf0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(unsafe.Pointer(a17)), uintptr(unsafe.Pointer(a18)))
 	return Result(r1)
 }
 
 // fnxgeqrf calls cusolverDnXgeqrf.
 func fnxgeqrf(a0 Handle, a1 Params, a2 int64, a3 int64, a4 DataType, a5 uintptr, a6 int64, a7 DataType, a8 uintptr, a9 DataType, a10 uintptr, a11 uint, a12 uintptr, a13 uint, a14 uintptr) Result {
-	r1, _ := ffiCall15(symxgeqrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14))
+	r1, _ := ffiCallWidths15(symxgeqrf, 0, 0xcc300, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14))
 	return Result(r1)
 }
 
 // fnxgeqrfBufferSize calls cusolverDnXgeqrf_bufferSize.
 func fnxgeqrfBufferSize(a0 Handle, a1 Params, a2 int64, a3 int64, a4 DataType, a5 uintptr, a6 int64, a7 DataType, a8 uintptr, a9 DataType, a10 *uint, a11 *uint) Result {
-	r1, _ := ffiCall12(symxgeqrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symxgeqrfBufferSize, 0, 0xcc300, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fnxgesvd calls cusolverDnXgesvd.
 func fnxgesvd(a0 Handle, a1 Params, a2 int8, a3 int8, a4 int64, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 DataType, a10 uintptr, a11 DataType, a12 uintptr, a13 int64, a14 DataType, a15 uintptr, a16 int64, a17 DataType, a18 uintptr, a19 uint, a20 uintptr, a21 uint, a22 uintptr) Result {
-	r1, _ := ffiCall23(symxgesvd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21), uintptr(a22))
+	r1, _ := ffiCallWidths23(symxgesvd, 0, 0xc30cc3050, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21), uintptr(a22))
 	return Result(r1)
 }
 
 // fnxgesvdBufferSize calls cusolverDnXgesvd_bufferSize.
 func fnxgesvdBufferSize(a0 Handle, a1 Params, a2 int8, a3 int8, a4 int64, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 DataType, a10 uintptr, a11 DataType, a12 uintptr, a13 int64, a14 DataType, a15 uintptr, a16 int64, a17 DataType, a18 *uint, a19 *uint) Result {
-	r1, _ := ffiCall20(symxgesvdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(unsafe.Pointer(a18)), uintptr(unsafe.Pointer(a19)))
+	r1, _ := ffiCallWidths20(symxgesvdBufferSize, 0, 0xc30cc3050, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(unsafe.Pointer(a18)), uintptr(unsafe.Pointer(a19)))
 	return Result(r1)
 }
 
@@ -2605,13 +2631,13 @@ func fnxgesvdjGetSweeps(a0 Handle, a1 GesvdjInfo, a2 *int32) Result {
 
 // fnxgesvdjSetMaxSweeps calls cusolverDnXgesvdjSetMaxSweeps.
 func fnxgesvdjSetMaxSweeps(a0 GesvdjInfo, a1 int32) Result {
-	r1, _ := ffiCall2(symxgesvdjSetMaxSweeps, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symxgesvdjSetMaxSweeps, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fnxgesvdjSetSortEig calls cusolverDnXgesvdjSetSortEig.
 func fnxgesvdjSetSortEig(a0 GesvdjInfo, a1 int32) Result {
-	r1, _ := ffiCall2(symxgesvdjSetSortEig, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symxgesvdjSetSortEig, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
@@ -2623,109 +2649,109 @@ func fnxgesvdjSetTolerance(a0 GesvdjInfo, a1 float64) Result {
 
 // fnxgesvdp calls cusolverDnXgesvdp.
 func fnxgesvdp(a0 Handle, a1 Params, a2 EigMode, a3 int32, a4 int64, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 DataType, a10 uintptr, a11 DataType, a12 uintptr, a13 int64, a14 DataType, a15 uintptr, a16 int64, a17 DataType, a18 uintptr, a19 uint, a20 uintptr, a21 uint, a22 uintptr, a23 *float64) Result {
-	r1, _ := ffiCall24(symxgesvdp, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21), uintptr(a22), uintptr(unsafe.Pointer(a23)))
+	r1, _ := ffiCallWidths24(symxgesvdp, 0, 0xc30cc30f0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21), uintptr(a22), uintptr(unsafe.Pointer(a23)))
 	return Result(r1)
 }
 
 // fnxgesvdpBufferSize calls cusolverDnXgesvdp_bufferSize.
 func fnxgesvdpBufferSize(a0 Handle, a1 Params, a2 EigMode, a3 int32, a4 int64, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 DataType, a10 uintptr, a11 DataType, a12 uintptr, a13 int64, a14 DataType, a15 uintptr, a16 int64, a17 DataType, a18 *uint, a19 *uint) Result {
-	r1, _ := ffiCall20(symxgesvdpBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(unsafe.Pointer(a18)), uintptr(unsafe.Pointer(a19)))
+	r1, _ := ffiCallWidths20(symxgesvdpBufferSize, 0, 0xc30cc30f0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(unsafe.Pointer(a18)), uintptr(unsafe.Pointer(a19)))
 	return Result(r1)
 }
 
 // fnxgesvdr calls cusolverDnXgesvdr.
 func fnxgesvdr(a0 Handle, a1 Params, a2 int8, a3 int8, a4 int64, a5 int64, a6 int64, a7 int64, a8 int64, a9 DataType, a10 uintptr, a11 int64, a12 DataType, a13 uintptr, a14 DataType, a15 uintptr, a16 int64, a17 DataType, a18 uintptr, a19 int64, a20 DataType, a21 uintptr, a22 uint, a23 uintptr, a24 uint, a25 uintptr) Result {
-	r1, _ := ffiCall26(symxgesvdr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21), uintptr(a22), uintptr(a23), uintptr(a24), uintptr(a25))
+	r1, _ := ffiCallWidths26(symxgesvdr, 0, 0x30c330c0050, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21), uintptr(a22), uintptr(a23), uintptr(a24), uintptr(a25))
 	return Result(r1)
 }
 
 // fnxgesvdrBufferSize calls cusolverDnXgesvdr_bufferSize.
 func fnxgesvdrBufferSize(a0 Handle, a1 Params, a2 int8, a3 int8, a4 int64, a5 int64, a6 int64, a7 int64, a8 int64, a9 DataType, a10 uintptr, a11 int64, a12 DataType, a13 uintptr, a14 DataType, a15 uintptr, a16 int64, a17 DataType, a18 uintptr, a19 int64, a20 DataType, a21 *uint, a22 *uint) Result {
-	r1, _ := ffiCall23(symxgesvdrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(unsafe.Pointer(a21)), uintptr(unsafe.Pointer(a22)))
+	r1, _ := ffiCallWidths23(symxgesvdrBufferSize, 0, 0x30c330c0050, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(unsafe.Pointer(a21)), uintptr(unsafe.Pointer(a22)))
 	return Result(r1)
 }
 
 // fnxgetrf calls cusolverDnXgetrf.
 func fnxgetrf(a0 Handle, a1 Params, a2 int64, a3 int64, a4 DataType, a5 uintptr, a6 int64, a7 uintptr, a8 DataType, a9 uintptr, a10 uint, a11 uintptr, a12 uint, a13 uintptr) Result {
-	r1, _ := ffiCall14(symxgetrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	r1, _ := ffiCallWidths14(symxgetrf, 0, 0x30300, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
 	return Result(r1)
 }
 
 // fnxgetrfBufferSize calls cusolverDnXgetrf_bufferSize.
 func fnxgetrfBufferSize(a0 Handle, a1 Params, a2 int64, a3 int64, a4 DataType, a5 uintptr, a6 int64, a7 DataType, a8 *uint, a9 *uint) Result {
-	r1, _ := ffiCall10(symxgetrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)))
+	r1, _ := ffiCallWidths10(symxgetrfBufferSize, 0, 0xc300, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)))
 	return Result(r1)
 }
 
 // fnxgetrs calls cusolverDnXgetrs.
 func fnxgetrs(a0 Handle, a1 Params, a2 Operation, a3 int64, a4 int64, a5 DataType, a6 uintptr, a7 int64, a8 uintptr, a9 DataType, a10 uintptr, a11 int64, a12 uintptr) Result {
-	r1, _ := ffiCall13(symxgetrs, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	r1, _ := ffiCallWidths13(symxgetrs, 0, 0xc0c30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
 	return Result(r1)
 }
 
 // fnxlarft calls cusolverDnXlarft.
 func fnxlarft(a0 Handle, a1 Params, a2 DirectMode, a3 StorevMode, a4 int64, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 DataType, a10 uintptr, a11 DataType, a12 uintptr, a13 int64, a14 DataType, a15 uintptr, a16 uint, a17 uintptr, a18 uint) Result {
-	r1, _ := ffiCall19(symxlarft, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18))
+	r1, _ := ffiCallWidths19(symxlarft, 0, 0x30cc30f0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18))
 	return Result(r1)
 }
 
 // fnxlarftBufferSize calls cusolverDnXlarft_bufferSize.
 func fnxlarftBufferSize(a0 Handle, a1 Params, a2 DirectMode, a3 StorevMode, a4 int64, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 DataType, a10 uintptr, a11 DataType, a12 uintptr, a13 int64, a14 DataType, a15 *uint, a16 *uint) Result {
-	r1, _ := ffiCall17(symxlarftBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(unsafe.Pointer(a15)), uintptr(unsafe.Pointer(a16)))
+	r1, _ := ffiCallWidths17(symxlarftBufferSize, 0, 0x30cc30f0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(unsafe.Pointer(a15)), uintptr(unsafe.Pointer(a16)))
 	return Result(r1)
 }
 
 // fnxpotrf calls cusolverDnXpotrf.
 func fnxpotrf(a0 Handle, a1 Params, a2 FillMode, a3 int64, a4 DataType, a5 uintptr, a6 int64, a7 DataType, a8 uintptr, a9 uint, a10 uintptr, a11 uint, a12 uintptr) Result {
-	r1, _ := ffiCall13(symxpotrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	r1, _ := ffiCallWidths13(symxpotrf, 0, 0xc330, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
 	return Result(r1)
 }
 
 // fnxpotrfBufferSize calls cusolverDnXpotrf_bufferSize.
 func fnxpotrfBufferSize(a0 Handle, a1 Params, a2 FillMode, a3 int64, a4 DataType, a5 uintptr, a6 int64, a7 DataType, a8 *uint, a9 *uint) Result {
-	r1, _ := ffiCall10(symxpotrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)))
+	r1, _ := ffiCallWidths10(symxpotrfBufferSize, 0, 0xc330, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)))
 	return Result(r1)
 }
 
 // fnxpotrs calls cusolverDnXpotrs.
 func fnxpotrs(a0 Handle, a1 Params, a2 FillMode, a3 int64, a4 int64, a5 DataType, a6 uintptr, a7 int64, a8 DataType, a9 uintptr, a10 int64, a11 uintptr) Result {
-	r1, _ := ffiCall12(symxpotrs, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	r1, _ := ffiCallWidths12(symxpotrs, 0, 0x30c30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
 	return Result(r1)
 }
 
 // fnxsyevBatched calls cusolverDnXsyevBatched.
 func fnxsyevBatched(a0 Handle, a1 Params, a2 EigMode, a3 FillMode, a4 int64, a5 DataType, a6 uintptr, a7 int64, a8 DataType, a9 uintptr, a10 DataType, a11 uintptr, a12 uint, a13 uintptr, a14 uint, a15 uintptr, a16 int64) Result {
-	r1, _ := ffiCall17(symxsyevBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16))
+	r1, _ := ffiCallWidths17(symxsyevBatched, 0, 0x330cf0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16))
 	return Result(r1)
 }
 
 // fnxsyevBatchedBufferSize calls cusolverDnXsyevBatched_bufferSize.
 func fnxsyevBatchedBufferSize(a0 Handle, a1 Params, a2 EigMode, a3 FillMode, a4 int64, a5 DataType, a6 uintptr, a7 int64, a8 DataType, a9 uintptr, a10 DataType, a11 *uint, a12 *uint, a13 int64) Result {
-	r1, _ := ffiCall14(symxsyevBatchedBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symxsyevBatchedBufferSize, 0, 0x330cf0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fnxsyevd calls cusolverDnXsyevd.
 func fnxsyevd(a0 Handle, a1 Params, a2 EigMode, a3 FillMode, a4 int64, a5 DataType, a6 uintptr, a7 int64, a8 DataType, a9 uintptr, a10 DataType, a11 uintptr, a12 uint, a13 uintptr, a14 uint, a15 uintptr) Result {
-	r1, _ := ffiCall16(symxsyevd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	r1, _ := ffiCallWidths16(symxsyevd, 0, 0x330cf0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
 	return Result(r1)
 }
 
 // fnxsyevdBufferSize calls cusolverDnXsyevd_bufferSize.
 func fnxsyevdBufferSize(a0 Handle, a1 Params, a2 EigMode, a3 FillMode, a4 int64, a5 DataType, a6 uintptr, a7 int64, a8 DataType, a9 uintptr, a10 DataType, a11 *uint, a12 *uint) Result {
-	r1, _ := ffiCall13(symxsyevdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(unsafe.Pointer(a12)))
+	r1, _ := ffiCallWidths13(symxsyevdBufferSize, 0, 0x330cf0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(unsafe.Pointer(a12)))
 	return Result(r1)
 }
 
 // fnxsyevdx calls cusolverDnXsyevdx.
 func fnxsyevdx(a0 Handle, a1 Params, a2 EigMode, a3 EigRange, a4 FillMode, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 uintptr, a10 uintptr, a11 int64, a12 int64, a13 *int64, a14 DataType, a15 uintptr, a16 DataType, a17 uintptr, a18 uint, a19 uintptr, a20 uint, a21 uintptr) Result {
-	r1, _ := ffiCall22(symxsyevdx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21))
+	r1, _ := ffiCallWidths22(symxsyevdx, 0, 0x3300033f0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21))
 	return Result(r1)
 }
 
 // fnxsyevdxBufferSize calls cusolverDnXsyevdx_bufferSize.
 func fnxsyevdxBufferSize(a0 Handle, a1 Params, a2 EigMode, a3 EigRange, a4 FillMode, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 uintptr, a10 uintptr, a11 int64, a12 int64, a13 *int64, a14 DataType, a15 uintptr, a16 DataType, a17 *uint, a18 *uint) Result {
-	r1, _ := ffiCall19(symxsyevdxBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(unsafe.Pointer(a17)), uintptr(unsafe.Pointer(a18)))
+	r1, _ := ffiCallWidths19(symxsyevdxBufferSize, 0, 0x3300033f0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(unsafe.Pointer(a17)), uintptr(unsafe.Pointer(a18)))
 	return Result(r1)
 }
 
@@ -2743,13 +2769,13 @@ func fnxsyevjGetSweeps(a0 Handle, a1 SyevjInfo, a2 *int32) Result {
 
 // fnxsyevjSetMaxSweeps calls cusolverDnXsyevjSetMaxSweeps.
 func fnxsyevjSetMaxSweeps(a0 SyevjInfo, a1 int32) Result {
-	r1, _ := ffiCall2(symxsyevjSetMaxSweeps, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symxsyevjSetMaxSweeps, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
 // fnxsyevjSetSortEig calls cusolverDnXsyevjSetSortEig.
 func fnxsyevjSetSortEig(a0 SyevjInfo, a1 int32) Result {
-	r1, _ := ffiCall2(symxsyevjSetSortEig, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symxsyevjSetSortEig, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
@@ -2761,499 +2787,499 @@ func fnxsyevjSetTolerance(a0 SyevjInfo, a1 float64) Result {
 
 // fnxsygvd calls cusolverDnXsygvd.
 func fnxsygvd(a0 Handle, a1 Params, a2 EigType, a3 EigMode, a4 FillMode, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 DataType, a10 uintptr, a11 int64, a12 DataType, a13 uintptr, a14 DataType, a15 uintptr, a16 uint, a17 uintptr, a18 uint, a19 uintptr) Result {
-	r1, _ := ffiCall20(symxsygvd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19))
+	r1, _ := ffiCallWidths20(symxsygvd, 0, 0x330c33f0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19))
 	return Result(r1)
 }
 
 // fnxsygvdBufferSize calls cusolverDnXsygvd_bufferSize.
 func fnxsygvdBufferSize(a0 Handle, a1 Params, a2 EigType, a3 EigMode, a4 FillMode, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 DataType, a10 uintptr, a11 int64, a12 DataType, a13 uintptr, a14 DataType, a15 *uint, a16 *uint) Result {
-	r1, _ := ffiCall17(symxsygvdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(unsafe.Pointer(a15)), uintptr(unsafe.Pointer(a16)))
+	r1, _ := ffiCallWidths17(symxsygvdBufferSize, 0, 0x330c33f0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(unsafe.Pointer(a15)), uintptr(unsafe.Pointer(a16)))
 	return Result(r1)
 }
 
 // fnxsygvdx calls cusolverDnXsygvdx.
 func fnxsygvdx(a0 Handle, a1 Params, a2 EigType, a3 EigMode, a4 EigRange, a5 FillMode, a6 int64, a7 DataType, a8 uintptr, a9 int64, a10 DataType, a11 uintptr, a12 int64, a13 uintptr, a14 uintptr, a15 int64, a16 int64, a17 *int64, a18 DataType, a19 uintptr, a20 DataType, a21 uintptr, a22 uint, a23 uintptr, a24 uint, a25 uintptr) Result {
-	r1, _ := ffiCall26(symxsygvdx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(unsafe.Pointer(a17)), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21), uintptr(a22), uintptr(a23), uintptr(a24), uintptr(a25))
+	r1, _ := ffiCallWidths26(symxsygvdx, 0, 0x3300030cff0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(unsafe.Pointer(a17)), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21), uintptr(a22), uintptr(a23), uintptr(a24), uintptr(a25))
 	return Result(r1)
 }
 
 // fnxsygvdxBufferSize calls cusolverDnXsygvdx_bufferSize.
 func fnxsygvdxBufferSize(a0 Handle, a1 Params, a2 EigType, a3 EigMode, a4 FillMode, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 DataType, a10 uintptr, a11 int64, a12 uintptr, a13 uintptr, a14 int64, a15 int64, a16 *int64, a17 DataType, a18 uintptr, a19 DataType, a20 *uint, a21 *uint) Result {
-	r1, _ := ffiCall22(symxsygvdxBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(unsafe.Pointer(a16)), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(unsafe.Pointer(a20)), uintptr(unsafe.Pointer(a21)))
+	r1, _ := ffiCallWidths22(symxsygvdxBufferSize, 0, 0xcc000c33f0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(unsafe.Pointer(a16)), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(unsafe.Pointer(a20)), uintptr(unsafe.Pointer(a21)))
 	return Result(r1)
 }
 
 // fnxsytrs calls cusolverDnXsytrs.
 func fnxsytrs(a0 Handle, a1 FillMode, a2 int64, a3 int64, a4 DataType, a5 uintptr, a6 int64, a7 uintptr, a8 DataType, a9 uintptr, a10 int64, a11 uintptr, a12 uint, a13 uintptr, a14 uint, a15 uintptr) Result {
-	r1, _ := ffiCall16(symxsytrs, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	r1, _ := ffiCallWidths16(symxsytrs, 0, 0x3030c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
 	return Result(r1)
 }
 
 // fnxsytrsBufferSize calls cusolverDnXsytrs_bufferSize.
 func fnxsytrsBufferSize(a0 Handle, a1 FillMode, a2 int64, a3 int64, a4 DataType, a5 uintptr, a6 int64, a7 uintptr, a8 DataType, a9 uintptr, a10 int64, a11 *uint, a12 *uint) Result {
-	r1, _ := ffiCall13(symxsytrsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(unsafe.Pointer(a12)))
+	r1, _ := ffiCallWidths13(symxsytrsBufferSize, 0, 0x3030c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(unsafe.Pointer(a12)))
 	return Result(r1)
 }
 
 // fnxtrtri calls cusolverDnXtrtri.
 func fnxtrtri(a0 Handle, a1 FillMode, a2 DiagType, a3 int64, a4 DataType, a5 uintptr, a6 int64, a7 uintptr, a8 uint, a9 uintptr, a10 uint, a11 uintptr) Result {
-	r1, _ := ffiCall12(symxtrtri, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	r1, _ := ffiCallWidths12(symxtrtri, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
 	return Result(r1)
 }
 
 // fnxtrtriBufferSize calls cusolverDnXtrtri_bufferSize.
 func fnxtrtriBufferSize(a0 Handle, a1 FillMode, a2 DiagType, a3 int64, a4 DataType, a5 uintptr, a6 int64, a7 *uint, a8 *uint) Result {
-	r1, _ := ffiCall9(symxtrtriBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)))
+	r1, _ := ffiCallWidths9(symxtrtriBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)))
 	return Result(r1)
 }
 
 // fnzCgels calls cusolverDnZCgels.
 func fnzCgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symzCgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symzCgels, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fnzCgelsBufferSize calls cusolverDnZCgels_bufferSize.
 func fnzCgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symzCgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symzCgelsBufferSize, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fnzCgesv calls cusolverDnZCgesv.
 func fnzCgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symzCgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symzCgesv, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fnzCgesvBufferSize calls cusolverDnZCgesv_bufferSize.
 func fnzCgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symzCgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symzCgesvBufferSize, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fnzEgels calls cusolverDnZEgels.
 func fnzEgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symzEgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symzEgels, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fnzEgelsBufferSize calls cusolverDnZEgels_bufferSize.
 func fnzEgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symzEgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symzEgelsBufferSize, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fnzEgesv calls cusolverDnZEgesv.
 func fnzEgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symzEgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symzEgesv, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fnzEgesvBufferSize calls cusolverDnZEgesv_bufferSize.
 func fnzEgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symzEgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symzEgesvBufferSize, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fnzKgels calls cusolverDnZKgels.
 func fnzKgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symzKgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symzKgels, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fnzKgelsBufferSize calls cusolverDnZKgels_bufferSize.
 func fnzKgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symzKgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symzKgelsBufferSize, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fnzKgesv calls cusolverDnZKgesv.
 func fnzKgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symzKgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symzKgesv, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fnzKgesvBufferSize calls cusolverDnZKgesv_bufferSize.
 func fnzKgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symzKgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symzKgesvBufferSize, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fnzYgels calls cusolverDnZYgels.
 func fnzYgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symzYgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symzYgels, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fnzYgelsBufferSize calls cusolverDnZYgels_bufferSize.
 func fnzYgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symzYgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symzYgelsBufferSize, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fnzYgesv calls cusolverDnZYgesv.
 func fnzYgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symzYgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symzYgesv, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fnzYgesvBufferSize calls cusolverDnZYgesv_bufferSize.
 func fnzYgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symzYgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symzYgesvBufferSize, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fnzZgels calls cusolverDnZZgels.
 func fnzZgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symzZgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symzZgels, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fnzZgelsBufferSize calls cusolverDnZZgels_bufferSize.
 func fnzZgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symzZgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symzZgelsBufferSize, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fnzZgesv calls cusolverDnZZgesv.
 func fnzZgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
-	r1, _ := ffiCall14(symzZgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symzZgesv, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fnzZgesvBufferSize calls cusolverDnZZgesv_bufferSize.
 func fnzZgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
-	r1, _ := ffiCall12(symzZgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symzZgesvBufferSize, 0, 0xcc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fnzgebrd calls cusolverDnZgebrd.
 func fnzgebrd(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr, a8 uintptr, a9 uintptr, a10 int32, a11 uintptr) Result {
-	r1, _ := ffiCall12(symzgebrd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	r1, _ := ffiCallWidths12(symzgebrd, 0, 0x30033c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
 	return Result(r1)
 }
 
 // fnzgebrdBufferSize calls cusolverDnZgebrd_bufferSize.
 func fnzgebrdBufferSize(a0 Handle, a1 int32, a2 int32, a3 *int32) Result {
-	r1, _ := ffiCall4(symzgebrdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symzgebrdBufferSize, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
 // fnzgeqrf calls cusolverDnZgeqrf.
 func fnzgeqrf(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
-	r1, _ := ffiCall9(symzgeqrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	r1, _ := ffiCallWidths9(symzgeqrf, 0, 0xc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
 	return Result(r1)
 }
 
 // fnzgeqrfBufferSize calls cusolverDnZgeqrf_bufferSize.
 func fnzgeqrfBufferSize(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
-	r1, _ := ffiCall6(symzgeqrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symzgeqrfBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fnzgesvd calls cusolverDnZgesvd.
 func fnzgesvd(a0 Handle, a1 int8, a2 int8, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 uintptr, a13 int32, a14 uintptr, a15 uintptr) Result {
-	r1, _ := ffiCall16(symzgesvd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	r1, _ := ffiCallWidths16(symzgesvd, 0, 0xccc33d4, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
 	return Result(r1)
 }
 
 // fnzgesvdBufferSize calls cusolverDnZgesvd_bufferSize.
 func fnzgesvdBufferSize(a0 Handle, a1 int32, a2 int32, a3 *int32) Result {
-	r1, _ := ffiCall4(symzgesvdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symzgesvdBufferSize, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
 // fnzgesvdaStridedBatched calls cusolverDnZgesvdaStridedBatched.
 func fnzgesvdaStridedBatched(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 int64, a8 uintptr, a9 int64, a10 uintptr, a11 int32, a12 int64, a13 uintptr, a14 int32, a15 int64, a16 uintptr, a17 int32, a18 uintptr, a19 *float64, a20 int32) Result {
-	r1, _ := ffiCall21(symzgesvdaStridedBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(unsafe.Pointer(a19)), uintptr(a20))
+	r1, _ := ffiCallWidths21(symzgesvdaStridedBatched, 0, 0x30c30c033fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(unsafe.Pointer(a19)), uintptr(a20))
 	return Result(r1)
 }
 
 // fnzgesvdaStridedBatchedBufferSize calls cusolverDnZgesvdaStridedBatched_bufferSize.
 func fnzgesvdaStridedBatchedBufferSize(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 int64, a8 uintptr, a9 int64, a10 uintptr, a11 int32, a12 int64, a13 uintptr, a14 int32, a15 int64, a16 *int32, a17 int32) Result {
-	r1, _ := ffiCall18(symzgesvdaStridedBatchedBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(unsafe.Pointer(a16)), uintptr(a17))
+	r1, _ := ffiCallWidths18(symzgesvdaStridedBatchedBufferSize, 0, 0xc30c033fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(unsafe.Pointer(a16)), uintptr(a17))
 	return Result(r1)
 }
 
 // fnzgesvdj calls cusolverDnZgesvdj.
 func fnzgesvdj(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 uintptr, a13 int32, a14 uintptr, a15 GesvdjInfo) Result {
-	r1, _ := ffiCall16(symzgesvdj, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	r1, _ := ffiCallWidths16(symzgesvdj, 0, 0xccc33fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
 	return Result(r1)
 }
 
 // fnzgesvdjBatched calls cusolverDnZgesvdjBatched.
 func fnzgesvdjBatched(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 uintptr, a12 int32, a13 uintptr, a14 GesvdjInfo, a15 int32) Result {
-	r1, _ := ffiCall16(symzgesvdjBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	r1, _ := ffiCallWidths16(symzgesvdjBatched, 0, 0xc3330cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
 	return Result(r1)
 }
 
 // fnzgesvdjBatchedBufferSize calls cusolverDnZgesvdjBatched_bufferSize.
 func fnzgesvdjBatchedBufferSize(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 *int32, a12 GesvdjInfo, a13 int32) Result {
-	r1, _ := ffiCall14(symzgesvdjBatchedBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	r1, _ := ffiCallWidths14(symzgesvdjBatchedBufferSize, 0, 0xc330cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
 	return Result(r1)
 }
 
 // fnzgesvdjBufferSize calls cusolverDnZgesvdj_bufferSize.
 func fnzgesvdjBufferSize(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 *int32, a13 GesvdjInfo) Result {
-	r1, _ := ffiCall14(symzgesvdjBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symzgesvdjBufferSize, 0, 0xcc33fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fnzgetrf calls cusolverDnZgetrf.
 func fnzgetrf(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr) Result {
-	r1, _ := ffiCall8(symzgetrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	r1, _ := ffiCallWidths8(symzgetrf, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
 	return Result(r1)
 }
 
 // fnzgetrfBufferSize calls cusolverDnZgetrf_bufferSize.
 func fnzgetrfBufferSize(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
-	r1, _ := ffiCall6(symzgetrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symzgetrfBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fnzgetrs calls cusolverDnZgetrs.
 func fnzgetrs(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr) Result {
-	r1, _ := ffiCall10(symzgetrs, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	r1, _ := ffiCallWidths10(symzgetrs, 0, 0x30cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
 	return Result(r1)
 }
 
 // fnzheevd calls cusolverDnZheevd.
 func fnzheevd(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr) Result {
-	r1, _ := ffiCall10(symzheevd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	r1, _ := ffiCallWidths10(symzheevd, 0, 0x30cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
 	return Result(r1)
 }
 
 // fnzheevdBufferSize calls cusolverDnZheevd_bufferSize.
 func fnzheevdBufferSize(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32) Result {
-	r1, _ := ffiCall8(symzheevdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	r1, _ := ffiCallWidths8(symzheevdBufferSize, 0, 0xcfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
 	return Result(r1)
 }
 
 // fnzheevdx calls cusolverDnZheevdx.
 func fnzheevdx(a0 Handle, a1 EigMode, a2 EigRange, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 float64, a8 float64, a9 int32, a10 int32, a11 *int32, a12 uintptr, a13 uintptr, a14 int32, a15 uintptr) Result {
-	r1, _ := ffiCall16(symzheevdx, 0b110000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(math.Float64bits(a7)), uintptr(math.Float64bits(a8)), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	r1, _ := ffiCallWidths16(symzheevdx, 0b110000000, 0x303c33fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(math.Float64bits(a7)), uintptr(math.Float64bits(a8)), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
 	return Result(r1)
 }
 
 // fnzheevdxBufferSize calls cusolverDnZheevdx_bufferSize.
 func fnzheevdxBufferSize(a0 Handle, a1 EigMode, a2 EigRange, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 float64, a8 float64, a9 int32, a10 int32, a11 *int32, a12 uintptr, a13 *int32) Result {
-	r1, _ := ffiCall14(symzheevdxBufferSize, 0b110000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(math.Float64bits(a7)), uintptr(math.Float64bits(a8)), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(unsafe.Pointer(a13)))
+	r1, _ := ffiCallWidths14(symzheevdxBufferSize, 0b110000000, 0x3c33fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(math.Float64bits(a7)), uintptr(math.Float64bits(a8)), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(unsafe.Pointer(a13)))
 	return Result(r1)
 }
 
 // fnzheevj calls cusolverDnZheevj.
 func fnzheevj(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 SyevjInfo) Result {
-	r1, _ := ffiCall11(symzheevj, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	r1, _ := ffiCallWidths11(symzheevj, 0, 0x30cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
 	return Result(r1)
 }
 
 // fnzheevjBatched calls cusolverDnZheevjBatched.
 func fnzheevjBatched(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 SyevjInfo, a11 int32) Result {
-	r1, _ := ffiCall12(symzheevjBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	r1, _ := ffiCallWidths12(symzheevjBatched, 0, 0xc30cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
 	return Result(r1)
 }
 
 // fnzheevjBatchedBufferSize calls cusolverDnZheevjBatched_bufferSize.
 func fnzheevjBatchedBufferSize(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32, a8 SyevjInfo, a9 int32) Result {
-	r1, _ := ffiCall10(symzheevjBatchedBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9))
+	r1, _ := ffiCallWidths10(symzheevjBatchedBufferSize, 0, 0xc0cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9))
 	return Result(r1)
 }
 
 // fnzheevjBufferSize calls cusolverDnZheevj_bufferSize.
 func fnzheevjBufferSize(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32, a8 SyevjInfo) Result {
-	r1, _ := ffiCall9(symzheevjBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8))
+	r1, _ := ffiCallWidths9(symzheevjBufferSize, 0, 0xcfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8))
 	return Result(r1)
 }
 
 // fnzhegvd calls cusolverDnZhegvd.
 func fnzhegvd(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 uintptr, a11 int32, a12 uintptr) Result {
-	r1, _ := ffiCall13(symzhegvd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	r1, _ := ffiCallWidths13(symzhegvd, 0, 0xc333fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
 	return Result(r1)
 }
 
 // fnzhegvdBufferSize calls cusolverDnZhegvd_bufferSize.
 func fnzhegvdBufferSize(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 *int32) Result {
-	r1, _ := ffiCall11(symzhegvdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)))
+	r1, _ := ffiCallWidths11(symzhegvdBufferSize, 0, 0x333fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)))
 	return Result(r1)
 }
 
 // fnzhegvdx calls cusolverDnZhegvdx.
 func fnzhegvdx(a0 Handle, a1 EigType, a2 EigMode, a3 EigRange, a4 FillMode, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 float64, a11 float64, a12 int32, a13 int32, a14 *int32, a15 uintptr, a16 uintptr, a17 int32, a18 uintptr) Result {
-	r1, _ := ffiCall19(symzhegvdx, 0b110000000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(math.Float64bits(a10)), uintptr(math.Float64bits(a11)), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18))
+	r1, _ := ffiCallWidths19(symzhegvdx, 0b110000000000, 0xc0f0ccffc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(math.Float64bits(a10)), uintptr(math.Float64bits(a11)), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18))
 	return Result(r1)
 }
 
 // fnzhegvdxBufferSize calls cusolverDnZhegvdx_bufferSize.
 func fnzhegvdxBufferSize(a0 Handle, a1 EigType, a2 EigMode, a3 EigRange, a4 FillMode, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 float64, a11 float64, a12 int32, a13 int32, a14 *int32, a15 uintptr, a16 *int32) Result {
-	r1, _ := ffiCall17(symzhegvdxBufferSize, 0b110000000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(math.Float64bits(a10)), uintptr(math.Float64bits(a11)), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(a15), uintptr(unsafe.Pointer(a16)))
+	r1, _ := ffiCallWidths17(symzhegvdxBufferSize, 0b110000000000, 0xf0ccffc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(math.Float64bits(a10)), uintptr(math.Float64bits(a11)), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(a15), uintptr(unsafe.Pointer(a16)))
 	return Result(r1)
 }
 
 // fnzhegvj calls cusolverDnZhegvj.
 func fnzhegvj(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 uintptr, a11 int32, a12 uintptr, a13 SyevjInfo) Result {
-	r1, _ := ffiCall14(symzhegvj, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	r1, _ := ffiCallWidths14(symzhegvj, 0, 0xc333fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
 	return Result(r1)
 }
 
 // fnzhegvjBufferSize calls cusolverDnZhegvj_bufferSize.
 func fnzhegvjBufferSize(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 *int32, a11 SyevjInfo) Result {
-	r1, _ := ffiCall12(symzhegvjBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11))
+	r1, _ := ffiCallWidths12(symzhegvjBufferSize, 0, 0x333fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11))
 	return Result(r1)
 }
 
 // fnzhetrd calls cusolverDnZhetrd.
 func fnzhetrd(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr) Result {
-	r1, _ := ffiCall11(symzhetrd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	r1, _ := ffiCallWidths11(symzhetrd, 0, 0xc033c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
 	return Result(r1)
 }
 
 // fnzhetrdBufferSize calls cusolverDnZhetrd_bufferSize.
 func fnzhetrdBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr, a8 *int32) Result {
-	r1, _ := ffiCall9(symzhetrdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
+	r1, _ := ffiCallWidths9(symzhetrdBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
 	return Result(r1)
 }
 
 // fnzlaswp calls cusolverDnZlaswp.
 func fnzlaswp(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 int32, a5 int32, a6 uintptr, a7 int32) Result {
-	r1, _ := ffiCall8(symzlaswp, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	r1, _ := ffiCallWidths8(symzlaswp, 0, 0xcfcc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
 	return Result(r1)
 }
 
 // fnzlauum calls cusolverDnZlauum.
 func fnzlauum(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32, a7 uintptr) Result {
-	r1, _ := ffiCall8(symzlauum, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	r1, _ := ffiCallWidths8(symzlauum, 0, 0x333c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
 	return Result(r1)
 }
 
 // fnzlauumBufferSize calls cusolverDnZlauum_bufferSize.
 func fnzlauumBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
-	r1, _ := ffiCall6(symzlauumBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symzlauumBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fnzpotrf calls cusolverDnZpotrf.
 func fnzpotrf(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32, a7 uintptr) Result {
-	r1, _ := ffiCall8(symzpotrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	r1, _ := ffiCallWidths8(symzpotrf, 0, 0x333c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
 	return Result(r1)
 }
 
 // fnzpotrfBatched calls cusolverDnZpotrfBatched.
 func fnzpotrfBatched(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32) Result {
-	r1, _ := ffiCall7(symzpotrfBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	r1, _ := ffiCallWidths7(symzpotrfBatched, 0, 0x333c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
 	return Result(r1)
 }
 
 // fnzpotrfBufferSize calls cusolverDnZpotrf_bufferSize.
 func fnzpotrfBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
-	r1, _ := ffiCall6(symzpotrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symzpotrfBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fnzpotri calls cusolverDnZpotri.
 func fnzpotri(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32, a7 uintptr) Result {
-	r1, _ := ffiCall8(symzpotri, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	r1, _ := ffiCallWidths8(symzpotri, 0, 0x333c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
 	return Result(r1)
 }
 
 // fnzpotriBufferSize calls cusolverDnZpotri_bufferSize.
 func fnzpotriBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
-	r1, _ := ffiCall6(symzpotriBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	r1, _ := ffiCallWidths6(symzpotriBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
 // fnzpotrs calls cusolverDnZpotrs.
 func fnzpotrs(a0 Handle, a1 FillMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr) Result {
-	r1, _ := ffiCall9(symzpotrs, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	r1, _ := ffiCallWidths9(symzpotrs, 0, 0xccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
 	return Result(r1)
 }
 
 // fnzpotrsBatched calls cusolverDnZpotrsBatched.
 func fnzpotrsBatched(a0 Handle, a1 FillMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
-	r1, _ := ffiCall10(symzpotrsBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	r1, _ := ffiCallWidths10(symzpotrsBatched, 0, 0xcccfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
 	return Result(r1)
 }
 
 // fnzsytrf calls cusolverDnZsytrf.
 func fnzsytrf(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
-	r1, _ := ffiCall9(symzsytrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	r1, _ := ffiCallWidths9(symzsytrf, 0, 0xc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
 	return Result(r1)
 }
 
 // fnzsytrfBufferSize calls cusolverDnZsytrf_bufferSize.
 func fnzsytrfBufferSize(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 *int32) Result {
-	r1, _ := ffiCall5(symzsytrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symzsytrfBufferSize, 0, 0xcc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
 // fnzsytri calls cusolverDnZsytri.
 func fnzsytri(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
-	r1, _ := ffiCall9(symzsytri, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	r1, _ := ffiCallWidths9(symzsytri, 0, 0xc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
 	return Result(r1)
 }
 
 // fnzsytriBufferSize calls cusolverDnZsytri_bufferSize.
 func fnzsytriBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 *int32) Result {
-	r1, _ := ffiCall7(symzsytriBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	r1, _ := ffiCallWidths7(symzsytriBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
 	return Result(r1)
 }
 
 // fnzungbr calls cusolverDnZungbr.
 func fnzungbr(a0 Handle, a1 SideMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr) Result {
-	r1, _ := ffiCall11(symzungbr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	r1, _ := ffiCallWidths11(symzungbr, 0, 0xc33fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
 	return Result(r1)
 }
 
 // fnzungbrBufferSize calls cusolverDnZungbr_bufferSize.
 func fnzungbrBufferSize(a0 Handle, a1 SideMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 *int32) Result {
-	r1, _ := ffiCall9(symzungbrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
+	r1, _ := ffiCallWidths9(symzungbrBufferSize, 0, 0x33fc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
 	return Result(r1)
 }
 
 // fnzungqr calls cusolverDnZungqr.
 func fnzungqr(a0 Handle, a1 int32, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr) Result {
-	r1, _ := ffiCall10(symzungqr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	r1, _ := ffiCallWidths10(symzungqr, 0, 0x30cfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
 	return Result(r1)
 }
 
 // fnzungqrBufferSize calls cusolverDnZungqr_bufferSize.
 func fnzungqrBufferSize(a0 Handle, a1 int32, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32) Result {
-	r1, _ := ffiCall8(symzungqrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	r1, _ := ffiCallWidths8(symzungqrBufferSize, 0, 0xcfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
 	return Result(r1)
 }
 
 // fnzungtr calls cusolverDnZungtr.
 func fnzungtr(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
-	r1, _ := ffiCall9(symzungtr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	r1, _ := ffiCallWidths9(symzungtr, 0, 0xc33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
 	return Result(r1)
 }
 
 // fnzungtrBufferSize calls cusolverDnZungtr_bufferSize.
 func fnzungtrBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 *int32) Result {
-	r1, _ := ffiCall7(symzungtrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	r1, _ := ffiCallWidths7(symzungtrBufferSize, 0, 0x33c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
 	return Result(r1)
 }
 
 // fnzunmqr calls cusolverDnZunmqr.
 func fnzunmqr(a0 Handle, a1 SideMode, a2 Operation, a3 int32, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 uintptr, a12 int32, a13 uintptr) Result {
-	r1, _ := ffiCall14(symzunmqr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	r1, _ := ffiCallWidths14(symzunmqr, 0, 0x330cffc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
 	return Result(r1)
 }
 
 // fnzunmqrBufferSize calls cusolverDnZunmqr_bufferSize.
 func fnzunmqrBufferSize(a0 Handle, a1 SideMode, a2 Operation, a3 int32, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 *int32) Result {
-	r1, _ := ffiCall12(symzunmqrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symzunmqrBufferSize, 0, 0x30cffc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
 // fnzunmtr calls cusolverDnZunmtr.
 func fnzunmtr(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 uintptr, a12 int32, a13 uintptr) Result {
-	r1, _ := ffiCall14(symzunmtr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	r1, _ := ffiCallWidths14(symzunmtr, 0, 0x330cffc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
 	return Result(r1)
 }
 
 // fnzunmtrBufferSize calls cusolverDnZunmtr_bufferSize.
 func fnzunmtrBufferSize(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 *int32) Result {
-	r1, _ := ffiCall12(symzunmtrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	r1, _ := ffiCallWidths12(symzunmtrBufferSize, 0, 0x30cffc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
 	return Result(r1)
 }
 
@@ -3268,10 +3294,35 @@ func fnzunmtrBufferSize(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 in
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK<t1>LAMCH('Epsilon')
+//
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+//   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
@@ -3286,15 +3337,15 @@ func fnzunmtrBufferSize(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 in
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCCgels.
 func cCgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -3318,14 +3369,13 @@ func cCgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCCgelsBufferSize, bound as cusolverDnCCgels_bufferSize.
 func cCgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -3353,10 +3403,35 @@ var slotCCgelsBufferSize outSlot[uint]
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK LAMCH(‘Epsilon’)
+//
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+//   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgesv]*; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // * Has LAPACK counterparts
 // cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
@@ -3372,15 +3447,15 @@ var slotCCgelsBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid. If dinfo = i, then U(i,i) computed in main precision is exactly zero. The factorization has been completed, but the factor U is exactly singular, so the solution could not be computed
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCCgesv.
 func cCgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -3404,14 +3479,13 @@ func cCgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCCgesvBufferSize, bound as cusolverDnCCgesv_bufferSize.
 func cCgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -3441,10 +3515,35 @@ var slotCCgesvBufferSize outSlot[uint]
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK<t1>LAMCH('Epsilon')
+//
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+//   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
@@ -3459,15 +3558,15 @@ var slotCCgesvBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCEgels.
 func cEgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -3491,14 +3590,13 @@ func cEgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCEgelsBufferSize, bound as cusolverDnCEgels_bufferSize.
 func cEgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -3526,10 +3624,35 @@ var slotCEgelsBufferSize outSlot[uint]
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK LAMCH(‘Epsilon’)
+//
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+//   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgesv]*; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // * Has LAPACK counterparts
 // cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
@@ -3545,15 +3668,15 @@ var slotCEgelsBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid. If dinfo = i, then U(i,i) computed in main precision is exactly zero. The factorization has been completed, but the factor U is exactly singular, so the solution could not be computed
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCEgesv.
 func cEgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -3577,14 +3700,13 @@ func cEgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCEgesvBufferSize, bound as cusolverDnCEgesv_bufferSize.
 func cEgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -3614,10 +3736,35 @@ var slotCEgesvBufferSize outSlot[uint]
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK<t1>LAMCH('Epsilon')
+//
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+//   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
@@ -3632,15 +3779,15 @@ var slotCEgesvBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCKgels.
 func cKgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -3664,14 +3811,13 @@ func cKgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCKgelsBufferSize, bound as cusolverDnCKgels_bufferSize.
 func cKgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -3699,10 +3845,35 @@ var slotCKgelsBufferSize outSlot[uint]
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK LAMCH(‘Epsilon’)
+//
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+//   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgesv]*; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // * Has LAPACK counterparts
 // cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
@@ -3718,15 +3889,15 @@ var slotCKgelsBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid. If dinfo = i, then U(i,i) computed in main precision is exactly zero. The factorization has been completed, but the factor U is exactly singular, so the solution could not be computed
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCKgesv.
 func cKgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -3750,14 +3921,13 @@ func cKgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCKgesvBufferSize, bound as cusolverDnCKgesv_bufferSize.
 func cKgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -3787,10 +3957,35 @@ var slotCKgesvBufferSize outSlot[uint]
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK<t1>LAMCH('Epsilon')
+//
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+//   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
@@ -3805,15 +4000,15 @@ var slotCKgesvBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCYgels.
 func cYgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -3837,14 +4032,13 @@ func cYgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCYgelsBufferSize, bound as cusolverDnCYgels_bufferSize.
 func cYgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -3872,10 +4066,35 @@ var slotCYgelsBufferSize outSlot[uint]
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK LAMCH(‘Epsilon’)
+//
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+//   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgesv]*; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // * Has LAPACK counterparts
 // cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
@@ -3891,15 +4110,15 @@ var slotCYgelsBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid. If dinfo = i, then U(i,i) computed in main precision is exactly zero. The factorization has been completed, but the factor U is exactly singular, so the solution could not be computed
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCYgesv.
 func cYgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -3923,14 +4142,13 @@ func cYgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCYgesvBufferSize, bound as cusolverDnCYgesv_bufferSize.
 func cYgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -3953,7 +4171,10 @@ var slotCYgesvBufferSize outSlot[uint]
 //
 // If m>=n, B is upper bidiagonal; if m<n, B is lower bidiagonal.
 // The matrix Q and P are overwritten into matrix A in the following sense:
-// The user has to provide working space which is pointed by input parameter Work. The input parameter Lwork is size of the working space, and it is returned by gebrd_bufferSize().
+//   - if m>=n, the diagonal and the first superdiagonal are overwritten with the upper bidiagonal matrix B; the elements below the diagonal, with the array TAUQ, represent the orthogonal matrix Q as a product of elementary reflectors, and the elements above the first superdiagonal, with the array TAUP, represent the orthogonal matrix P as a product of elementary reflectors.
+//   - if m<n, the diagonal and the first subdiagonal are overwritten with the lower bidiagonal matrix B; the elements below the first subdiagonal, with the array TAUQ, represent the orthogonal matrix Q as a product of elementary reflectors, and the elements above the diagonal, with the array TAUP, represent the orthogonal matrix P as a product of elementary reflectors.
+//
+// The input parameter Lwork is size of the working space, and it is returned by gebrd_bufferSize().
 // Remark: gebrd only supports m>=n.
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -3969,12 +4190,11 @@ var slotCYgesvBufferSize outSlot[uint]
 //   - lwork: Size of Work, returned by gebrd_bufferSize
 //   - devInfo: If devInfo = 0, the operation is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle)
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0, or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCgebrd.
 func cgebrd(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tauq driver.DevicePtr, taup driver.DevicePtr, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
@@ -3991,12 +4211,11 @@ func cgebrd(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, d dr
 //   - n: Number of columns of matrix A
 //   - lwork: Size of Work, in elements of complex64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0, or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCgebrdBufferSize, bound as cusolverDnCgebrd_bufferSize.
 func cgebrdBufferSize(handle Handle, m int32, n int32) (int32, error) {
@@ -4018,7 +4237,7 @@ var slotCgebrdBufferSize outSlot[int32]
 // cgeqrf computes the QR factorization of an m×n matrix.
 //
 // A=Q*R, where A is an m×n matrix, Q is an m×n matrix, and R is a n×n upper triangular matrix.
-// The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by geqrf_bufferSize().
+// The input parameter Lwork is size of the working space, and it is returned by geqrf_bufferSize().
 // The matrix R is overwritten in upper triangular part of A, including diagonal elements.
 // The matrix Q is not formed explicitly, instead, a sequence of householder vectors are stored in lower triangular part of A. The leading nonzero element of householder vector is assumed to be 1 such that output parameter TAU contains the scaling factor τ. If v is original householder vector, q is the new householder vector corresponding to τ, satisfying the following relation
 // I−2*v*vᴴ=I−τ*q*qᴴ
@@ -4033,12 +4252,11 @@ var slotCgebrdBufferSize outSlot[int32]
 //   - lwork: Size of working array Workspace
 //   - devInfo: If devInfo = 0, the LU factorization is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle)
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCgeqrf.
 func cgeqrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, workspace driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
@@ -4055,13 +4273,13 @@ func cgeqrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, tau 
 //   - n: Number of columns of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
+//   - lwork: Size of Workspace, in elements of complex64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCgeqrfBufferSize, bound as cusolverDnCgeqrf_bufferSize.
 func cgeqrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32) (int32, error) {
@@ -4106,12 +4324,11 @@ var slotCgeqrfBufferSize outSlot[int32]
 //   - lwork: Size of work, returned by gesvd_bufferSize
 //   - rwork: Real array of dimension min(m,n)-1. It contains the unconverged superdiagonal elements of an upper bidiagonal matrix if devInfo > 0
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldvt<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCgesvd.
 func cgesvd(handle Handle, jobu int8, jobvt int8, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, vt driver.DevicePtr, ldvt int32, work driver.DevicePtr, lwork int32, rwork driver.DevicePtr, info driver.DevicePtr) error {
@@ -4128,12 +4345,11 @@ func cgesvd(handle Handle, jobu int8, jobvt int8, m int32, n int32, a driver.Dev
 //   - n: Number of columns of matrix A
 //   - lwork: Size of work, in elements of complex64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldvt<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCgesvdBufferSize, bound as cusolverDnCgesvd_bufferSize.
 func cgesvdBufferSize(handle Handle, m int32, n int32) (int32, error) {
@@ -4189,13 +4405,13 @@ var slotCgesvdBufferSize outSlot[int32]
 //   - ldv: Leading dimension of two-dimensional array used to store matrix Vj. ldv is not less than max(1,n)
 //   - strideV: Value of type long long int that gives the address offset between V [i] and V [i+1]. strideV is not less than ldv*rank
 //   - lwork: Size of work, returned by gesvdaStridedBatched_bufferSize
+//   - hRNrmF: array of size batchSize. h_RnrmF [i] is norm of residual of i-th matrix. If 0 < info [i] < min(m,n)+1, h_RnrmF [i] reports the residual as if rank of the i-th matrix had been set to info [i]-1
 //   - batchSize: Number of matrices. batchSize is not less than 1
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or batchSize*stride{A/S/U/V}>INT32_MAX or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n) or strideA<lda*n or strideS<rank or strideU<ldu*rank or strideV<ldv*rank or batchSize<1 or jobz is not [EigModeNovector] or [EigModeVector]).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCgesvdaStridedBatched.
 func cgesvdaStridedBatched(handle Handle, jobz EigMode, rank int32, m int32, n int32, dA driver.DevicePtr, lda int32, strideA int64, dS driver.DevicePtr, strideS int64, dU driver.DevicePtr, ldu int32, strideU int64, dV driver.DevicePtr, ldv int32, strideV int64, dWork driver.DevicePtr, lwork int32, dInfo driver.DevicePtr, hRNrmF *float64, batchSize int32) error {
@@ -4222,11 +4438,10 @@ func cgesvdaStridedBatched(handle Handle, jobz EigMode, rank int32, m int32, n i
 //   - lwork: Size of work, in elements of complex64
 //   - batchSize: Number of matrices. batchSize is not less than 1
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or batchSize*stride{A/S/U/V}>INT32_MAX or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n) or strideA<lda*n or strideS<rank or strideU<ldu*rank or strideV<ldv*rank or batchSize<1 or jobz is not [EigModeNovector] or [EigModeVector]).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCgesvdaStridedBatchedBufferSize, bound as cusolverDnCgesvdaStridedBatched_bufferSize.
 func cgesvdaStridedBatchedBufferSize(handle Handle, jobz EigMode, rank int32, m int32, n int32, dA driver.DevicePtr, lda int32, strideA int64, dS driver.DevicePtr, strideS int64, dU driver.DevicePtr, ldu int32, strideU int64, dV driver.DevicePtr, ldv int32, strideV int64, lwork *int32, batchSize int32) error {
@@ -4278,11 +4493,10 @@ func cgesvdaStridedBatchedBufferSize(handle Handle, jobz EigMode, rank int32, m 
 //   - info: If info = 0, the operation is successful. if info = -i, the i-th parameter is wrong (not counting handle). if info =  min(m,n)+1, gesvdj dose not converge under given tolerance and maximum sweeps
 //   - params: Structure filled with parameters of Jacobi algorithm and results of gesvdj. params can be destroyed after the host thread exits the routine
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n) or jobz is not [EigModeNovector] or [EigModeVector] ).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCgesvdj.
 func cgesvdj(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params GesvdjInfo) error {
@@ -4303,7 +4517,7 @@ func cgesvdj(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver
 // The formula for random access of S is Sₖ(j)=S [j+min(m,n)*k] .
 // Except for tolerance and maximum sweeps, gesvdjBatched can either sort the singular values in descending order (default) or chose as-is (without sorting) by the function [GesvdjInfo.XgesvdjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate singular values of those tiny matrices.
 // gesvdjBatched cannot report residual and executed sweeps by function [Handle.XgesvdjGetResidual] and [Handle.XgesvdjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
-// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdjBatched_bufferSize().
+// The input parameter lwork is the size of the working space, and it is returned by gesvdjBatched_bufferSize().
 // The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
 // Please visit cuSOLVER Library Samples - gesvdjBatched for a code example.
 //
@@ -4324,11 +4538,10 @@ func cgesvdj(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver
 //   - params: Structure filled with parameters of Jacobi algorithm. params can be destroyed after the host thread exits the routine
 //   - batchSize: Number of matrices
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n) or jobz is not [EigModeNovector] or [EigModeVector] , or batchSize<0).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCgesvdjBatched.
 func cgesvdjBatched(handle Handle, jobz EigMode, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params GesvdjInfo, batchSize int32) error {
@@ -4355,11 +4568,10 @@ func cgesvdjBatched(handle Handle, jobz EigMode, m int32, n int32, a driver.Devi
 //   - params: Structure filled with parameters of Jacobi algorithm. params can be destroyed after the host thread exits the routine
 //   - batchSize: Number of matrices
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n) or jobz is not [EigModeNovector] or [EigModeVector] , or batchSize<0).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCgesvdjBatchedBufferSize, bound as cusolverDnCgesvdjBatched_bufferSize.
 func cgesvdjBatchedBufferSize(handle Handle, jobz EigMode, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
@@ -4386,11 +4598,10 @@ func cgesvdjBatchedBufferSize(handle Handle, jobz EigMode, m int32, n int32, a d
 //   - lwork: Size of work, in elements of complex64
 //   - params: Structure filled with parameters of Jacobi algorithm and results of gesvdj. params can be destroyed after the host thread exits the routine
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n) or jobz is not [EigModeNovector] or [EigModeVector] ).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCgesvdjBufferSize, bound as cusolverDnCgesvdj_bufferSize.
 func cgesvdjBufferSize(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, lwork *int32, params GesvdjInfo) error {
@@ -4403,7 +4614,7 @@ func cgesvdjBufferSize(handle Handle, jobz EigMode, econ int32, m int32, n int32
 // cgetrf computes the LU factorization of an m×n matrix.
 //
 // P*A=L*U, where A is an m×n matrix, P is a permutation matrix, L is a lower triangular matrix with unit diagonal, and U is an upper triangular matrix.
-// The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by getrf_bufferSize().
+// The input parameter Lwork is size of the working space, and it is returned by getrf_bufferSize().
 // If LU factorization failed, i.e. matrix A ( U) is singular, The output parameter devInfo=i indicates U(i,i) = 0.
 // If devIpiv is null, no pivoting is performed. The factorization is A=L*U, which is not numerically stable.
 // No matter LU factorization failed or not, the output parameter devIpiv contains pivoting sequence, row i is interchanged with row devIpiv(i).
@@ -4419,12 +4630,11 @@ func cgesvdjBufferSize(handle Handle, jobz EigMode, econ int32, m int32, n int32
 //   - devIpiv: Array of size at least min(m,n), containing pivot indices
 //   - devInfo: If devInfo = 0, the LU factorization is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle). if devInfo = i, the U(i,i) = 0
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCgetrf.
 func cgetrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, workspace driver.DevicePtr, devIpiv driver.DevicePtr, devInfo driver.DevicePtr) error {
@@ -4443,12 +4653,11 @@ func cgetrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, work
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - lwork: Size of Workspace, in elements of complex64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCgetrfBufferSize, bound as cusolverDnCgetrf_bufferSize.
 func cgetrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32) (int32, error) {
@@ -4485,12 +4694,11 @@ var slotCgetrfBufferSize outSlot[int32]
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - devInfo: If devInfo = 0, the operation is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle)
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n) or ldb<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCgetrs.
 func cgetrs(handle Handle, trans Operation, n int32, nrhs int32, a driver.DevicePtr, lda int32, devIpiv driver.DevicePtr, b driver.DevicePtr, ldb int32, devInfo driver.DevicePtr) error {
@@ -4516,13 +4724,13 @@ func cgetrs(handle Handle, trans Operation, n int32, nrhs int32, a driver.Device
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
 //   - work: Working space, array of size lwork
+//   - lwork: Size of work, returned by syevd_bufferSize
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCheevd.
 func cheevd(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -4543,12 +4751,11 @@ func cheevd(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.Device
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
 //   - lwork: Size of work, in elements of complex64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCheevdBufferSize, bound as cusolverDnCheevd_bufferSize.
 func cheevdBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr) (int32, error) {
@@ -4592,12 +4799,11 @@ var slotCheevdBufferSize outSlot[int32]
 //   - work: Working space, array of size lwork
 //   - lwork: Size of work, returned by syevdx_bufferSize
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or range is not [EigRangeAll] or [EigRangeV] or [EigRangeI], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCheevdx.
 func cheevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -4623,12 +4829,11 @@ func cheevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int3
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
 //   - lwork: Size of work, in elements of complex64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or range is not [EigRangeAll] or [EigRangeV] or [EigRangeI], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCheevdxBufferSize, bound as cusolverDnCheevdx_bufferSize.
 func cheevdxBufferSize(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float32, vu float32, il int32, iu int32, w driver.DevicePtr) (meig int32, lwork int32, err error) {
@@ -4663,7 +4868,7 @@ var slotCheevdxBufferSize outSlot[struct {
 // The Jacobi method has quadratic convergence, so the accuracy is not proportional to number of sweeps. To guarantee certain accuracy, the user should configure tolerance only.
 // After syevj, the user can query residual by function [Handle.XsyevjGetResidual] and number of executed sweeps by function [Handle.XsyevjGetSweeps]. However the user needs to be aware that residual is the Frobenius norm of E, not accuracy of individual eigenvalue, i.e.
 // residual=‖E‖_(F)=‖Λ−W‖_(F)
-// The same as syevd, the user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevj_bufferSize().
+// The input parameter lwork is the size of the working space, and it is returned by syevj_bufferSize().
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = n+1, syevj does not converge under given tolerance and maximum sweeps.
 // If the user sets an improper tolerance, syevj may not converge. For example, tolerance should not be smaller than machine accuracy.
 // If jobz = [EigModeVector], A contains the orthonormal eigenvectors V.
@@ -4681,11 +4886,10 @@ var slotCheevdxBufferSize outSlot[struct {
 //   - info: If info = 0, the operation is successful. If info = -i, the i-th parameter is wrong (not counting handle). If info = n+1, syevj does not converge under given tolerance and maximum sweeps
 //   - params: Structure filled with parameters of Jacobi algorithm and results of syevj
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCheevj.
 func cheevj(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo) error {
@@ -4706,7 +4910,7 @@ func cheevj(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.Device
 // The formula for random access of W is Wₖ(j)=W [j+n*k] .
 // Except for tolerance and maximum sweeps, syevjBatched can either sort the eigenvalues in ascending order (default) or chose as-is (without sorting) by the function [SyevjInfo.XsyevjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate spectrum of those tiny matrices.
 // syevjBatched cannot report residual and executed sweeps by function [Handle.XsyevjGetResidual] and [Handle.XsyevjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
-// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevjBatched_bufferSize().
+// The input parameter lwork is the size of the working space, and it is returned by syevjBatched_bufferSize().
 // The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
 // If jobz = [EigModeVector], Aⱼ contains the orthonormal eigenvectors Vⱼ.
 // Please visit cuSOLVER Library Samples - syevjBatched for a code example.
@@ -4724,11 +4928,10 @@ func cheevj(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.Device
 //   - params: Structure filled with parameters of Jacobi algorithm
 //   - batchSize: Number of matrices
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER), or batchSize<0.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCheevjBatched.
 func cheevjBatched(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo, batchSize int32) error {
@@ -4751,11 +4954,10 @@ func cheevjBatched(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver
 //   - params: Structure filled with parameters of Jacobi algorithm
 //   - batchSize: Number of matrices
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER), or batchSize<0.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCheevjBatchedBufferSize, bound as cusolverDnCheevjBatched_bufferSize.
 func cheevjBatchedBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, lwork *int32, params SyevjInfo, batchSize int32) error {
@@ -4777,11 +4979,10 @@ func cheevjBatchedBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32
 //   - lwork: Size of work, in elements of complex64
 //   - params: Structure filled with parameters of Jacobi algorithm and results of syevj
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCheevjBufferSize, bound as cusolverDnCheevj_bufferSize.
 func cheevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, lwork *int32, params SyevjInfo) error {
@@ -4800,7 +5001,7 @@ func cheevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a dri
 // Please visit cuSOLVER Library Samples - sygvd for a code example.
 //
 //   - handle: Handle to the cuSolverDN library context
-//   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x. - itype =[EigType2]: A*B*x = (lambda)*x. - itype =[EigType3]: B*A*x = (lambda)*x
+//   - itype: Specifies the problem type to be solved: itype =[EigType1]: A*x = (lambda)*B*x. itype =[EigType2]: A*B*x = (lambda)*x. itype =[EigType3]: B*A*x = (lambda)*x
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - uplo: Specifies which part of A and B are stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A and B are stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A and B are stored
 //   - n: Number of rows (or columns) of matrix A and B
@@ -4810,13 +5011,13 @@ func cheevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a dri
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B. ldb is not less than max(1,n)
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
 //   - work: Working space, array of size lwork
+//   - lwork: Size of work, returned by sygvd_bufferSize
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not 1, 2 or 3, or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnChegvd.
 func chegvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -4829,7 +5030,7 @@ func chegvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 // chegvdBufferSize returns the workspace size, in elements of complex64, for [Handle.Chegvd].
 //
 //   - handle: Handle to the cuSolverDN library context
-//   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x. - itype =[EigType2]: A*B*x = (lambda)*x. - itype =[EigType3]: B*A*x = (lambda)*x
+//   - itype: Specifies the problem type to be solved: itype =[EigType1]: A*x = (lambda)*B*x. itype =[EigType2]: A*B*x = (lambda)*x. itype =[EigType3]: B*A*x = (lambda)*x
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - uplo: Specifies which part of A and B are stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A and B are stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A and B are stored
 //   - n: Number of rows (or columns) of matrix A and B
@@ -4840,12 +5041,11 @@ func chegvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
 //   - lwork: Size of work, in elements of complex64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not 1, 2 or 3, or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnChegvdBufferSize, bound as cusolverDnChegvd_bufferSize.
 func chegvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr) (int32, error) {
@@ -4873,7 +5073,7 @@ var slotChegvdBufferSize outSlot[int32]
 // Please visit cuSOLVER Library Samples - sygvdx for a code example.
 //
 //   - handle: Handle to the cuSolverDN library context
-//   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x - itype =[EigType2]: A*B*x = (lambda)*x - itype =[EigType3]: B*A*x = (lambda)*x
+//   - itype: Specifies the problem type to be solved: itype =[EigType1]: A*x = (lambda)*B*x; itype =[EigType2]: A*B*x = (lambda)*x; itype =[EigType3]: B*A*x = (lambda)*x
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - range_: Specifies options to which selection of eigenvalues and optionally eigenvectors that need to be computed: range = [EigRangeAll] : all eigenvalues/eigenvectors will be found, will becomes the classical syevd/heevd routine; range = [EigRangeV] : all eigenvalues/eigenvectors in the half-open interval (vl,vu] will be found; range = [EigRangeI] : the il-th through iu-th eigenvalues/eigenvectors will be found
 //   - uplo: Specifies which part of A and B are stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A and B are stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A and B are stored
@@ -4890,12 +5090,11 @@ var slotChegvdBufferSize outSlot[int32]
 //   - work: Working space, array of size lwork
 //   - lwork: Size of work, returned by sygvdx_bufferSize
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not [EigType1] or [EigType2] or [EigType3] or jobz is not [EigModeNovector] or CUSOLVER_EIG_MODE_VECTORL, or range is not [EigRangeAll] or [EigRangeV] or [EigRangeI], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnChegvdx.
 func chegvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -4908,7 +5107,7 @@ func chegvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo F
 // chegvdxBufferSize returns the workspace size, in elements of complex64, for [Handle.Chegvdx].
 //
 //   - handle: Handle to the cuSolverDN library context
-//   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x - itype =[EigType2]: A*B*x = (lambda)*x - itype =[EigType3]: B*A*x = (lambda)*x
+//   - itype: Specifies the problem type to be solved: itype =[EigType1]: A*x = (lambda)*B*x; itype =[EigType2]: A*B*x = (lambda)*x; itype =[EigType3]: B*A*x = (lambda)*x
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - range_: Specifies options to which selection of eigenvalues and optionally eigenvectors that need to be computed: range = [EigRangeAll] : all eigenvalues/eigenvectors will be found, will becomes the classical syevd/heevd routine; range = [EigRangeV] : all eigenvalues/eigenvectors in the half-open interval (vl,vu] will be found; range = [EigRangeI] : the il-th through iu-th eigenvalues/eigenvectors will be found
 //   - uplo: Specifies which part of A and B are stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A and B are stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A and B are stored
@@ -4924,12 +5123,11 @@ func chegvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo F
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
 //   - lwork: Size of work, in elements of complex64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not [EigType1] or [EigType2] or [EigType3] or jobz is not [EigModeNovector] or CUSOLVER_EIG_MODE_VECTORL, or range is not [EigRangeAll] or [EigRangeV] or [EigRangeI], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnChegvdxBufferSize, bound as cusolverDnChegvdx_bufferSize.
 func chegvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float32, vu float32, il int32, iu int32, w driver.DevicePtr) (meig int32, lwork int32, err error) {
@@ -4980,11 +5178,10 @@ var slotChegvdxBufferSize outSlot[struct {
 //   - lwork: Size of work, returned by sygvj_bufferSize
 //   - info: If info = 0, the operation is successful. if info = -i, the i-th parameter is wrong (not counting handle). If info = i (> 0), info indicates either B is not positive definite or syevj (called by sygvj) does not converge
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not 1, 2 or 3, or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnChegvj.
 func chegvj(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo) error {
@@ -5008,11 +5205,10 @@ func chegvj(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
 //   - lwork: Size of work, in elements of complex64
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not 1, 2 or 3, or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnChegvjBufferSize, bound as cusolverDnChegvj_bufferSize.
 func chegvjBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, lwork *int32, params SyevjInfo) error {
@@ -5033,16 +5229,17 @@ func chegvjBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode,
 //   - n: Number of rows (columns) of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A, and the strictly lower triangular part of A is not referenced. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A, and the strictly upper triangular part of A is not referenced. On exit, A is overwritten by T and householder reflection vectors
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda >= max(1,n)
+//   - d: Real array of dimension n. The diagonal elements of the tridiagonal matrix T: D(i) = A(i,i)
+//   - e: Real array of dimension (n-1). The off-diagonal elements of the tridiagonal matrix T: if uplo = CUBLAS_FILL_MODE_UPPER, E(i) = A(i,i+1). if uplo = CUBLAS_FILL_MODE_LOWER E(i) = A(i+1,i)
 //   - tau: array of dimension (n-1). The scalar factors of the elementary reflectors which represent the orthogonal matrix Q
 //   - work: Working space, array of size lwork
 //   - lwork: Size of work, returned by sytrd_bufferSize
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnChetrd.
 func chetrd(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -5062,12 +5259,11 @@ func chetrd(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - tau: array of dimension (n-1). The scalar factors of the elementary reflectors which represent the orthogonal matrix Q
 //   - lwork: Size of work, in elements of complex64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnChetrdBufferSize, bound as cusolverDnChetrd_bufferSize.
 func chetrdBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tau driver.DevicePtr) (int32, error) {
@@ -5126,7 +5322,7 @@ var slotClauumBufferSize outSlot[int32]
 // A=L*Lᴴ
 // If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular Cholesky factor U.
 // A=Uᴴ*U
-// The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by potrf_bufferSize().
+// The input parameter Lwork is size of the working space, and it is returned by potrf_bufferSize().
 // If Cholesky factorization failed, i.e. some leading minor of A is not positive definite, or equivalently some diagonal elements of L or U is not a real number. The output parameter devInfo would indicate smallest leading minor of A which is not positive definite.
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -5138,12 +5334,11 @@ var slotClauumBufferSize outSlot[int32]
 //   - lwork: Size of Workspace, returned by potrf_bufferSize
 //   - devInfo: If devInfo = 0, the Cholesky factorization is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle). if devInfo = i, the leading minor of order i is not positive definite
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCpotrf.
 func cpotrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, workspace driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
@@ -5172,11 +5367,10 @@ func cpotrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - infoArray: Array of size batchSize. infoArray [i] contains information of factorization of Aarray [i]. if potrfBatched returns [ErrInvalidValue], infoArray [0] = -i (less than zero) means the i-th parameter is wrong (not counting handle). if potrfBatched returns [Success], infoArray [i] = 0 means the Cholesky factorization of i-th matrix is successful, and infoArray [i] = k means the leading submatrix of order k of i-th matrix is not positive definite
 //   - batchSize: Number of pointers in Aarray
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n) or batchSize<1).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCpotrfBatched.
 func cpotrfBatched(handle Handle, uplo FillMode, n int32, aarray driver.DevicePtr, lda int32, infoArray driver.DevicePtr, batchSize int32) error {
@@ -5195,12 +5389,11 @@ func cpotrfBatched(handle Handle, uplo FillMode, n int32, aarray driver.DevicePt
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - lwork: Size of Workspace, in elements of complex64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCpotrfBufferSize, bound as cusolverDnCpotrf_bufferSize.
 func cpotrfBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
@@ -5225,7 +5418,7 @@ var slotCpotrfBufferSize outSlot[int32]
 // A is an n×n matrix containing the triangular factor L or U computed by the Cholesky factorization. Only lower or upper part is meaningful and the input parameter uplo indicates which part of the matrix is used. The function would leave the other part untouched.
 // If the input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced the by lower triangular part of the inverse of A.
 // If the input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by the upper triangular part of the inverse of A.
-// The user has to provide the working space which is pointed to by input parameter Workspace. The input parameter Lwork is the size of the working space, returned by potri_bufferSize().
+// The input parameter Lwork is the size of the working space, returned by potri_bufferSize().
 // If the computation of the inverse fails, i.e. some leading minor of L or U, is null, the output parameter devInfo would indicate the smallest leading minor of L or U which is not positive definite.
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -5233,14 +5426,14 @@ var slotCpotrfBufferSize outSlot[int32]
 //   - n: Number of rows and columns of matrix A
 //   - a: array of dimension lda * n where lda is not less than max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
+//   - lwork: Size of Workspace, returned by potri_bufferSize
 //   - devInfo: If devInfo = 0, the computation of the inverse is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle). if devInfo = i, the leading minor of order i is zero
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCpotri.
 func cpotri(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
@@ -5257,13 +5450,13 @@ func cpotri(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - n: Number of rows and columns of matrix A
 //   - a: array of dimension lda * n where lda is not less than max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
+//   - lwork: Size of Workspace, in elements of complex64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCpotriBufferSize, bound as cusolverDnCpotri_bufferSize.
 func cpotriBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
@@ -5297,12 +5490,11 @@ var slotCpotriBufferSize outSlot[int32]
 //   - b: array of dimension ldb * nrhs. ldb is not less than max(1,n). As an input, B is right hand side matrix. As an output, B is the solution matrix
 //   - devInfo: If devInfo = 0, the Cholesky factorization is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle)
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, nrhs<0, lda<max(1,n) or ldb<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCpotrs.
 func cpotrs(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, devInfo driver.DevicePtr) error {
@@ -5331,11 +5523,10 @@ func cpotrs(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.DevicePt
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix Barray [i]
 //   - batchSize: Number of pointers in Aarray
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, nrhs<0, lda<max(1,n), ldb<max(1,n) or batchSize<0).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCpotrsBatched.
 func cpotrsBatched(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, dInfo driver.DevicePtr, batchSize int32) error {
@@ -5351,11 +5542,12 @@ func cpotrsBatched(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.D
 //
 //   - handle: The pointer to the handle to the cuSolverDN context
 //
-// Returns:
+// A nil error means the initialization succeeded.
+//
+// Errors:
 //   - [ErrAllocFailed]: The resources could not be allocated.
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrNotInitialized]: The CUDA Runtime initialization failed.
-//   - [Success]: The initialization succeeded.
 //
 // Wraps cusolverDnCreate.
 func Create() (Handle, error) {
@@ -5378,9 +5570,8 @@ var slotCreate outSlot[Handle]
 //
 //   - info: The pointer to the structure of gesvdj
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The resources could not be allocated.
-//   - [Success]: The structure was initialized successfully.
 //
 // Wraps cusolverDnCreateGesvdjInfo.
 func CreateGesvdjInfo() (GesvdjInfo, error) {
@@ -5403,9 +5594,8 @@ var slotCreateGesvdjInfo outSlot[GesvdjInfo]
 //
 //   - params: The pointer to the structure of 64-bit API
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The resources could not be allocated.
-//   - [Success]: The structure was initialized successfully.
 //
 // Wraps cusolverDnCreateParams.
 func CreateParams() (Params, error) {
@@ -5428,9 +5618,8 @@ var slotCreateParams outSlot[Params]
 //
 //   - info: The pointer to the structure of syevj
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The resources could not be allocated.
-//   - [Success]: The structure was initialized successfully.
 //
 // Wraps cusolverDnCreateSyevjInfo.
 func CreateSyevjInfo() (SyevjInfo, error) {
@@ -5468,12 +5657,11 @@ var slotCreateSyevjInfo outSlot[SyevjInfo]
 //   - work: Working space, array of size lwork
 //   - lwork: Size of working space work
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCsytrf.
 func csytrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -5491,12 +5679,11 @@ func csytrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - lwork: Size of work, in elements of complex64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCsytrfBufferSize, bound as cusolverDnCsytrf_bufferSize.
 func csytrfBufferSize(handle Handle, n int32, a driver.DevicePtr, lda int32) (int32, error) {
@@ -5556,12 +5743,11 @@ var slotCsytriBufferSize outSlot[int32]
 //   - work: Working space, array of size lwork
 //   - lwork: Size of working array work
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or wrong lda ).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCungbr.
 func cungbr(handle Handle, side SideMode, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -5583,12 +5769,11 @@ func cungbr(handle Handle, side SideMode, m int32, n int32, k int32, a driver.De
 //   - tau: array of dimension min(m,k) if side is CUBLAS_SIDE_LEFT; of dimension min(n,k) if side is CUBLAS_SIDE_RIGHT; tau(i) must contain the scalar factor of the elementary reflector H(i) or G(i), which determines Q or P**T, as returned by gebrd in its array argument TAUQ or TAUP
 //   - lwork: Size of work, in elements of complex64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or wrong lda ).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCungbrBufferSize, bound as cusolverDnCungbr_bufferSize.
 func cungbrBufferSize(handle Handle, side SideMode, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
@@ -5623,12 +5808,11 @@ var slotCungbrBufferSize outSlot[int32]
 //   - work: Working space, array of size lwork
 //   - lwork: Size of working array work
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n,k<0, n>m, k>n or lda<m).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCungqr.
 func cungqr(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -5649,12 +5833,11 @@ func cungqr(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda in
 //   - tau: array of dimension k. tau(i) is the scalar of i-th elementary reflection vector
 //   - lwork: Size of work, in elements of complex64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n,k<0, n>m, k>n or lda<m).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCungqrBufferSize, bound as cusolverDnCungqr_bufferSize.
 func cungqrBufferSize(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
@@ -5686,12 +5869,11 @@ var slotCungqrBufferSize outSlot[int32]
 //   - work: Working space, array of size lwork
 //   - lwork: Size of working array work
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or wrong lda).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCungtr.
 func cungtr(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -5711,12 +5893,11 @@ func cungtr(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - tau: array of dimension (n-1) tau(i) is the scalar of i-th elementary reflection vector
 //   - lwork: Size of work, in elements of complex64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or wrong lda).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCungtrBufferSize, bound as cusolverDnCungtr_bufferSize.
 func cungtrBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
@@ -5760,12 +5941,11 @@ var slotCungtrBufferSize outSlot[int32]
 //   - lwork: Size of working array work
 //   - devInfo: If devInfo = 0, the ormqr is successful. If devInfo = -i, the i-th parameter is wrong (not counting handle)
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n,k<0, k > m if CUBLAS_SIDE_LEFT, k > n if CUBLAS_SIDE_RIGHT, wrong lda or ldc or invalid trans).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCunmqr.
 func cunmqr(handle Handle, side SideMode, trans Operation, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
@@ -5790,12 +5970,11 @@ func cunmqr(handle Handle, side SideMode, trans Operation, m int32, n int32, k i
 //   - ldc: Leading dimension of two-dimensional array of matrix C. ldc >= max(1,m)
 //   - lwork: Size of work, in elements of complex64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n,k<0, k > m if CUBLAS_SIDE_LEFT, k > n if CUBLAS_SIDE_RIGHT, wrong lda or ldc or invalid trans).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCunmqrBufferSize, bound as cusolverDnCunmqr_bufferSize.
 func cunmqrBufferSize(handle Handle, side SideMode, trans Operation, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32) (int32, error) {
@@ -5834,12 +6013,11 @@ var slotCunmqrBufferSize outSlot[int32]
 //   - work: Working space, array of size lwork
 //   - lwork: Size of working array work
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or wrong lda or ldc).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCunmtr.
 func cunmtr(handle Handle, side SideMode, uplo FillMode, trans Operation, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -5864,12 +6042,11 @@ func cunmtr(handle Handle, side SideMode, uplo FillMode, trans Operation, m int3
 //   - ldc: Leading dimension of two-dimensional array of matrix C. ldc >= max(1,m)
 //   - lwork: Size of work, in elements of complex64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or wrong lda or ldc).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCunmtrBufferSize, bound as cusolverDnCunmtr_bufferSize.
 func cunmtrBufferSize(handle Handle, side SideMode, uplo FillMode, trans Operation, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32) (int32, error) {
@@ -5899,10 +6076,35 @@ var slotCunmtrBufferSize outSlot[int32]
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK<t1>LAMCH('Epsilon')
+//
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+//   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
@@ -5917,15 +6119,15 @@ var slotCunmtrBufferSize outSlot[int32]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDBgels.
 func dBgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -5949,14 +6151,13 @@ func dBgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDBgelsBufferSize, bound as cusolverDnDBgels_bufferSize.
 func dBgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -5984,10 +6185,35 @@ var slotDBgelsBufferSize outSlot[uint]
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK LAMCH(‘Epsilon’)
+//
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+//   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgesv]*; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // * Has LAPACK counterparts
 // cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
@@ -6003,15 +6229,15 @@ var slotDBgelsBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid. If dinfo = i, then U(i,i) computed in main precision is exactly zero. The factorization has been completed, but the factor U is exactly singular, so the solution could not be computed
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDBgesv.
 func dBgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -6035,14 +6261,13 @@ func dBgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDBgesvBufferSize, bound as cusolverDnDBgesv_bufferSize.
 func dBgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -6072,10 +6297,35 @@ var slotDBgesvBufferSize outSlot[uint]
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK<t1>LAMCH('Epsilon')
+//
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+//   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
@@ -6090,15 +6340,15 @@ var slotDBgesvBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDDgels.
 func dDgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -6122,14 +6372,13 @@ func dDgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDDgelsBufferSize, bound as cusolverDnDDgels_bufferSize.
 func dDgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -6157,10 +6406,35 @@ var slotDDgelsBufferSize outSlot[uint]
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK LAMCH(‘Epsilon’)
+//
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+//   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgesv]*; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // * Has LAPACK counterparts
 // cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
@@ -6176,15 +6450,15 @@ var slotDDgelsBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid. If dinfo = i, then U(i,i) computed in main precision is exactly zero. The factorization has been completed, but the factor U is exactly singular, so the solution could not be computed
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDDgesv.
 func dDgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -6208,14 +6482,13 @@ func dDgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDDgesvBufferSize, bound as cusolverDnDDgesv_bufferSize.
 func dDgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -6245,10 +6518,35 @@ var slotDDgesvBufferSize outSlot[uint]
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK<t1>LAMCH('Epsilon')
+//
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+//   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
@@ -6263,15 +6561,15 @@ var slotDDgesvBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDHgels.
 func dHgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -6295,14 +6593,13 @@ func dHgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDHgelsBufferSize, bound as cusolverDnDHgels_bufferSize.
 func dHgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -6330,10 +6627,35 @@ var slotDHgelsBufferSize outSlot[uint]
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK LAMCH(‘Epsilon’)
+//
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+//   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgesv]*; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // * Has LAPACK counterparts
 // cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
@@ -6349,15 +6671,15 @@ var slotDHgelsBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid. If dinfo = i, then U(i,i) computed in main precision is exactly zero. The factorization has been completed, but the factor U is exactly singular, so the solution could not be computed
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDHgesv.
 func dHgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -6381,14 +6703,13 @@ func dHgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDHgesvBufferSize, bound as cusolverDnDHgesv_bufferSize.
 func dHgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -6418,10 +6739,35 @@ var slotDHgesvBufferSize outSlot[uint]
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK<t1>LAMCH('Epsilon')
+//
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+//   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
@@ -6436,15 +6782,15 @@ var slotDHgesvBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDSgels.
 func dSgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -6468,14 +6814,13 @@ func dSgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDSgelsBufferSize, bound as cusolverDnDSgels_bufferSize.
 func dSgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -6503,10 +6848,35 @@ var slotDSgelsBufferSize outSlot[uint]
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK LAMCH(‘Epsilon’)
+//
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+//   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgesv]*; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // * Has LAPACK counterparts
 // cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
@@ -6522,15 +6892,15 @@ var slotDSgelsBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid. If dinfo = i, then U(i,i) computed in main precision is exactly zero. The factorization has been completed, but the factor U is exactly singular, so the solution could not be computed
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDSgesv.
 func dSgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -6554,14 +6924,13 @@ func dSgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDSgesvBufferSize, bound as cusolverDnDSgesv_bufferSize.
 func dSgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -6591,10 +6960,35 @@ var slotDSgesvBufferSize outSlot[uint]
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK<t1>LAMCH('Epsilon')
+//
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+//   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
@@ -6609,15 +7003,15 @@ var slotDSgesvBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDXgels.
 func dXgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -6641,14 +7035,13 @@ func dXgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDXgelsBufferSize, bound as cusolverDnDXgels_bufferSize.
 func dXgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -6676,10 +7069,35 @@ var slotDXgelsBufferSize outSlot[uint]
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK LAMCH(‘Epsilon’)
+//
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+//   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgesv]*; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // * Has LAPACK counterparts
 // cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
@@ -6695,15 +7113,15 @@ var slotDXgelsBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid. If dinfo = i, then U(i,i) computed in main precision is exactly zero. The factorization has been completed, but the factor U is exactly singular, so the solution could not be computed
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDXgesv.
 func dXgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -6727,14 +7145,13 @@ func dXgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDXgesvBufferSize, bound as cusolverDnDXgesv_bufferSize.
 func dXgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -6757,9 +7174,10 @@ var slotDXgesvBufferSize outSlot[uint]
 //
 //   - handle: Handle to the cuSolverDN library context
 //
-// Returns:
+// A nil error means the shutdown succeeded.
+//
+// Errors:
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The shutdown succeeded.
 //
 // Wraps cusolverDnDestroy.
 func destroy(handle Handle) error {
@@ -6773,9 +7191,6 @@ func destroy(handle Handle) error {
 //
 //   - info: The structure of gesvdj
 //
-// Returns:
-//   - [Success]: The resources were released successfully.
-//
 // Wraps cusolverDnDestroyGesvdjInfo.
 func destroyGesvdjInfo(info GesvdjInfo) error {
 	if err := checkLibSym("cusolverDnDestroyGesvdjInfo"); err != nil {
@@ -6787,9 +7202,6 @@ func destroyGesvdjInfo(info GesvdjInfo) error {
 // destroyParams destroys and releases any memory required by the structure.
 //
 //   - params: The structure of 64-bit API
-//
-// Returns:
-//   - [Success]: The resources were released successfully.
 //
 // Wraps cusolverDnDestroyParams.
 func destroyParams(params Params) error {
@@ -6803,9 +7215,6 @@ func destroyParams(params Params) error {
 //
 //   - info: The structure of syevj
 //
-// Returns:
-//   - [Success]: The resources were released successfully.
-//
 // Wraps cusolverDnDestroySyevjInfo.
 func destroySyevjInfo(info SyevjInfo) error {
 	if err := checkLibSym("cusolverDnDestroySyevjInfo"); err != nil {
@@ -6818,7 +7227,10 @@ func destroySyevjInfo(info SyevjInfo) error {
 //
 // If m>=n, B is upper bidiagonal; if m<n, B is lower bidiagonal.
 // The matrix Q and P are overwritten into matrix A in the following sense:
-// The user has to provide working space which is pointed by input parameter Work. The input parameter Lwork is size of the working space, and it is returned by gebrd_bufferSize().
+//   - if m>=n, the diagonal and the first superdiagonal are overwritten with the upper bidiagonal matrix B; the elements below the diagonal, with the array TAUQ, represent the orthogonal matrix Q as a product of elementary reflectors, and the elements above the first superdiagonal, with the array TAUP, represent the orthogonal matrix P as a product of elementary reflectors.
+//   - if m<n, the diagonal and the first subdiagonal are overwritten with the lower bidiagonal matrix B; the elements below the first subdiagonal, with the array TAUQ, represent the orthogonal matrix Q as a product of elementary reflectors, and the elements above the diagonal, with the array TAUP, represent the orthogonal matrix P as a product of elementary reflectors.
+//
+// The input parameter Lwork is size of the working space, and it is returned by gebrd_bufferSize().
 // Remark: gebrd only supports m>=n.
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -6834,12 +7246,11 @@ func destroySyevjInfo(info SyevjInfo) error {
 //   - lwork: Size of Work, returned by gebrd_bufferSize
 //   - devInfo: If devInfo = 0, the operation is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle)
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0, or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDgebrd.
 func dgebrd(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tauq driver.DevicePtr, taup driver.DevicePtr, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
@@ -6856,12 +7267,11 @@ func dgebrd(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, d dr
 //   - n: Number of columns of matrix A
 //   - lwork: Size of Work, in elements of float64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0, or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDgebrdBufferSize, bound as cusolverDnDgebrd_bufferSize.
 func dgebrdBufferSize(handle Handle, m int32, n int32) (int32, error) {
@@ -6883,7 +7293,7 @@ var slotDgebrdBufferSize outSlot[int32]
 // dgeqrf computes the QR factorization of an m×n matrix.
 //
 // A=Q*R, where A is an m×n matrix, Q is an m×n matrix, and R is a n×n upper triangular matrix.
-// The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by geqrf_bufferSize().
+// The input parameter Lwork is size of the working space, and it is returned by geqrf_bufferSize().
 // The matrix R is overwritten in upper triangular part of A, including diagonal elements.
 // The matrix Q is not formed explicitly, instead, a sequence of householder vectors are stored in lower triangular part of A. The leading nonzero element of householder vector is assumed to be 1 such that output parameter TAU contains the scaling factor τ. If v is original householder vector, q is the new householder vector corresponding to τ, satisfying the following relation
 // I−2*v*vᴴ=I−τ*q*qᴴ
@@ -6898,12 +7308,11 @@ var slotDgebrdBufferSize outSlot[int32]
 //   - lwork: Size of working array Workspace
 //   - devInfo: If devInfo = 0, the LU factorization is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle)
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDgeqrf.
 func dgeqrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, workspace driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
@@ -6920,13 +7329,13 @@ func dgeqrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, tau 
 //   - n: Number of columns of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
+//   - lwork: Size of Workspace, in elements of float64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDgeqrfBufferSize, bound as cusolverDnDgeqrf_bufferSize.
 func dgeqrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32) (int32, error) {
@@ -6971,12 +7380,11 @@ var slotDgeqrfBufferSize outSlot[int32]
 //   - lwork: Size of work, returned by gesvd_bufferSize
 //   - rwork: Real array of dimension min(m,n)-1. It contains the unconverged superdiagonal elements of an upper bidiagonal matrix if devInfo > 0
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldvt<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDgesvd.
 func dgesvd(handle Handle, jobu int8, jobvt int8, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, vt driver.DevicePtr, ldvt int32, work driver.DevicePtr, lwork int32, rwork driver.DevicePtr, info driver.DevicePtr) error {
@@ -6993,12 +7401,11 @@ func dgesvd(handle Handle, jobu int8, jobvt int8, m int32, n int32, a driver.Dev
 //   - n: Number of columns of matrix A
 //   - lwork: Size of work, in elements of float64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldvt<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDgesvdBufferSize, bound as cusolverDnDgesvd_bufferSize.
 func dgesvdBufferSize(handle Handle, m int32, n int32) (int32, error) {
@@ -7054,13 +7461,13 @@ var slotDgesvdBufferSize outSlot[int32]
 //   - ldv: Leading dimension of two-dimensional array used to store matrix Vj. ldv is not less than max(1,n)
 //   - strideV: Value of type long long int that gives the address offset between V [i] and V [i+1]. strideV is not less than ldv*rank
 //   - lwork: Size of work, returned by gesvdaStridedBatched_bufferSize
+//   - hRNrmF: array of size batchSize. h_RnrmF [i] is norm of residual of i-th matrix. If 0 < info [i] < min(m,n)+1, h_RnrmF [i] reports the residual as if rank of the i-th matrix had been set to info [i]-1
 //   - batchSize: Number of matrices. batchSize is not less than 1
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or batchSize*stride{A/S/U/V}>INT32_MAX or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n) or strideA<lda*n or strideS<rank or strideU<ldu*rank or strideV<ldv*rank or batchSize<1 or jobz is not [EigModeNovector] or [EigModeVector]).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDgesvdaStridedBatched.
 func dgesvdaStridedBatched(handle Handle, jobz EigMode, rank int32, m int32, n int32, dA driver.DevicePtr, lda int32, strideA int64, dS driver.DevicePtr, strideS int64, dU driver.DevicePtr, ldu int32, strideU int64, dV driver.DevicePtr, ldv int32, strideV int64, dWork driver.DevicePtr, lwork int32, dInfo driver.DevicePtr, hRNrmF *float64, batchSize int32) error {
@@ -7087,11 +7494,10 @@ func dgesvdaStridedBatched(handle Handle, jobz EigMode, rank int32, m int32, n i
 //   - lwork: Size of work, in elements of float64
 //   - batchSize: Number of matrices. batchSize is not less than 1
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or batchSize*stride{A/S/U/V}>INT32_MAX or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n) or strideA<lda*n or strideS<rank or strideU<ldu*rank or strideV<ldv*rank or batchSize<1 or jobz is not [EigModeNovector] or [EigModeVector]).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDgesvdaStridedBatchedBufferSize, bound as cusolverDnDgesvdaStridedBatched_bufferSize.
 func dgesvdaStridedBatchedBufferSize(handle Handle, jobz EigMode, rank int32, m int32, n int32, dA driver.DevicePtr, lda int32, strideA int64, dS driver.DevicePtr, strideS int64, dU driver.DevicePtr, ldu int32, strideU int64, dV driver.DevicePtr, ldv int32, strideV int64, lwork *int32, batchSize int32) error {
@@ -7143,11 +7549,10 @@ func dgesvdaStridedBatchedBufferSize(handle Handle, jobz EigMode, rank int32, m 
 //   - info: If info = 0, the operation is successful. if info = -i, the i-th parameter is wrong (not counting handle). if info =  min(m,n)+1, gesvdj dose not converge under given tolerance and maximum sweeps
 //   - params: Structure filled with parameters of Jacobi algorithm and results of gesvdj. params can be destroyed after the host thread exits the routine
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n) or jobz is not [EigModeNovector] or [EigModeVector] ).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDgesvdj.
 func dgesvdj(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params GesvdjInfo) error {
@@ -7168,7 +7573,7 @@ func dgesvdj(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver
 // The formula for random access of S is Sₖ(j)=S [j+min(m,n)*k] .
 // Except for tolerance and maximum sweeps, gesvdjBatched can either sort the singular values in descending order (default) or chose as-is (without sorting) by the function [GesvdjInfo.XgesvdjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate singular values of those tiny matrices.
 // gesvdjBatched cannot report residual and executed sweeps by function [Handle.XgesvdjGetResidual] and [Handle.XgesvdjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
-// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdjBatched_bufferSize().
+// The input parameter lwork is the size of the working space, and it is returned by gesvdjBatched_bufferSize().
 // The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
 // Please visit cuSOLVER Library Samples - gesvdjBatched for a code example.
 //
@@ -7189,11 +7594,10 @@ func dgesvdj(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver
 //   - params: Structure filled with parameters of Jacobi algorithm. params can be destroyed after the host thread exits the routine
 //   - batchSize: Number of matrices
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n) or jobz is not [EigModeNovector] or [EigModeVector] , or batchSize<0).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDgesvdjBatched.
 func dgesvdjBatched(handle Handle, jobz EigMode, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params GesvdjInfo, batchSize int32) error {
@@ -7220,11 +7624,10 @@ func dgesvdjBatched(handle Handle, jobz EigMode, m int32, n int32, a driver.Devi
 //   - params: Structure filled with parameters of Jacobi algorithm. params can be destroyed after the host thread exits the routine
 //   - batchSize: Number of matrices
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n) or jobz is not [EigModeNovector] or [EigModeVector] , or batchSize<0).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDgesvdjBatchedBufferSize, bound as cusolverDnDgesvdjBatched_bufferSize.
 func dgesvdjBatchedBufferSize(handle Handle, jobz EigMode, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
@@ -7251,11 +7654,10 @@ func dgesvdjBatchedBufferSize(handle Handle, jobz EigMode, m int32, n int32, a d
 //   - lwork: Size of work, in elements of float64
 //   - params: Structure filled with parameters of Jacobi algorithm and results of gesvdj. params can be destroyed after the host thread exits the routine
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n) or jobz is not [EigModeNovector] or [EigModeVector] ).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDgesvdjBufferSize, bound as cusolverDnDgesvdj_bufferSize.
 func dgesvdjBufferSize(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, lwork *int32, params GesvdjInfo) error {
@@ -7268,7 +7670,7 @@ func dgesvdjBufferSize(handle Handle, jobz EigMode, econ int32, m int32, n int32
 // dgetrf computes the LU factorization of an m×n matrix.
 //
 // P*A=L*U, where A is an m×n matrix, P is a permutation matrix, L is a lower triangular matrix with unit diagonal, and U is an upper triangular matrix.
-// The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by getrf_bufferSize().
+// The input parameter Lwork is size of the working space, and it is returned by getrf_bufferSize().
 // If LU factorization failed, i.e. matrix A ( U) is singular, The output parameter devInfo=i indicates U(i,i) = 0.
 // If devIpiv is null, no pivoting is performed. The factorization is A=L*U, which is not numerically stable.
 // No matter LU factorization failed or not, the output parameter devIpiv contains pivoting sequence, row i is interchanged with row devIpiv(i).
@@ -7284,12 +7686,11 @@ func dgesvdjBufferSize(handle Handle, jobz EigMode, econ int32, m int32, n int32
 //   - devIpiv: Array of size at least min(m,n), containing pivot indices
 //   - devInfo: If devInfo = 0, the LU factorization is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle). if devInfo = i, the U(i,i) = 0
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDgetrf.
 func dgetrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, workspace driver.DevicePtr, devIpiv driver.DevicePtr, devInfo driver.DevicePtr) error {
@@ -7308,12 +7709,11 @@ func dgetrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, work
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - lwork: Size of Workspace, in elements of float64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDgetrfBufferSize, bound as cusolverDnDgetrf_bufferSize.
 func dgetrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32) (int32, error) {
@@ -7350,12 +7750,11 @@ var slotDgetrfBufferSize outSlot[int32]
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - devInfo: If devInfo = 0, the operation is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle)
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n) or ldb<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDgetrs.
 func dgetrs(handle Handle, trans Operation, n int32, nrhs int32, a driver.DevicePtr, lda int32, devIpiv driver.DevicePtr, b driver.DevicePtr, ldb int32, devInfo driver.DevicePtr) error {
@@ -7414,12 +7813,11 @@ var slotDlauumBufferSize outSlot[int32]
 //   - work: Working space, array of size lwork
 //   - lwork: Size of working array work
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or wrong lda ).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDorgbr.
 func dorgbr(handle Handle, side SideMode, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -7441,12 +7839,11 @@ func dorgbr(handle Handle, side SideMode, m int32, n int32, k int32, a driver.De
 //   - tau: array of dimension min(m,k) if side is CUBLAS_SIDE_LEFT; of dimension min(n,k) if side is CUBLAS_SIDE_RIGHT; tau(i) must contain the scalar factor of the elementary reflector H(i) or G(i), which determines Q or P**T, as returned by gebrd in its array argument TAUQ or TAUP
 //   - lwork: Size of work, in elements of float64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or wrong lda ).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDorgbrBufferSize, bound as cusolverDnDorgbr_bufferSize.
 func dorgbrBufferSize(handle Handle, side SideMode, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
@@ -7481,12 +7878,11 @@ var slotDorgbrBufferSize outSlot[int32]
 //   - work: Working space, array of size lwork
 //   - lwork: Size of working array work
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n,k<0, n>m, k>n or lda<m).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDorgqr.
 func dorgqr(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -7507,12 +7903,11 @@ func dorgqr(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda in
 //   - tau: array of dimension k. tau(i) is the scalar of i-th elementary reflection vector
 //   - lwork: Size of work, in elements of float64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n,k<0, n>m, k>n or lda<m).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDorgqrBufferSize, bound as cusolverDnDorgqr_bufferSize.
 func dorgqrBufferSize(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
@@ -7544,12 +7939,11 @@ var slotDorgqrBufferSize outSlot[int32]
 //   - work: Working space, array of size lwork
 //   - lwork: Size of working array work
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or wrong lda).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDorgtr.
 func dorgtr(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -7569,12 +7963,11 @@ func dorgtr(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - tau: array of dimension (n-1) tau(i) is the scalar of i-th elementary reflection vector
 //   - lwork: Size of work, in elements of float64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or wrong lda).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDorgtrBufferSize, bound as cusolverDnDorgtr_bufferSize.
 func dorgtrBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
@@ -7618,12 +8011,11 @@ var slotDorgtrBufferSize outSlot[int32]
 //   - lwork: Size of working array work
 //   - devInfo: If devInfo = 0, the ormqr is successful. If devInfo = -i, the i-th parameter is wrong (not counting handle)
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n,k<0, k > m if CUBLAS_SIDE_LEFT, k > n if CUBLAS_SIDE_RIGHT, wrong lda or ldc or invalid trans).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDormqr.
 func dormqr(handle Handle, side SideMode, trans Operation, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
@@ -7648,12 +8040,11 @@ func dormqr(handle Handle, side SideMode, trans Operation, m int32, n int32, k i
 //   - ldc: Leading dimension of two-dimensional array of matrix C. ldc >= max(1,m)
 //   - lwork: Size of work, in elements of float64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n,k<0, k > m if CUBLAS_SIDE_LEFT, k > n if CUBLAS_SIDE_RIGHT, wrong lda or ldc or invalid trans).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDormqrBufferSize, bound as cusolverDnDormqr_bufferSize.
 func dormqrBufferSize(handle Handle, side SideMode, trans Operation, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32) (int32, error) {
@@ -7692,12 +8083,11 @@ var slotDormqrBufferSize outSlot[int32]
 //   - work: Working space, array of size lwork
 //   - lwork: Size of working array work
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or wrong lda or ldc).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDormtr.
 func dormtr(handle Handle, side SideMode, uplo FillMode, trans Operation, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -7722,12 +8112,11 @@ func dormtr(handle Handle, side SideMode, uplo FillMode, trans Operation, m int3
 //   - ldc: Leading dimension of two-dimensional array of matrix C. ldc >= max(1,m)
 //   - lwork: Size of work, in elements of float64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or wrong lda or ldc).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDormtrBufferSize, bound as cusolverDnDormtr_bufferSize.
 func dormtrBufferSize(handle Handle, side SideMode, uplo FillMode, trans Operation, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32) (int32, error) {
@@ -7753,7 +8142,7 @@ var slotDormtrBufferSize outSlot[int32]
 // A=L*Lᴴ
 // If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular Cholesky factor U.
 // A=Uᴴ*U
-// The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by potrf_bufferSize().
+// The input parameter Lwork is size of the working space, and it is returned by potrf_bufferSize().
 // If Cholesky factorization failed, i.e. some leading minor of A is not positive definite, or equivalently some diagonal elements of L or U is not a real number. The output parameter devInfo would indicate smallest leading minor of A which is not positive definite.
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -7765,12 +8154,11 @@ var slotDormtrBufferSize outSlot[int32]
 //   - lwork: Size of Workspace, returned by potrf_bufferSize
 //   - devInfo: If devInfo = 0, the Cholesky factorization is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle). if devInfo = i, the leading minor of order i is not positive definite
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDpotrf.
 func dpotrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, workspace driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
@@ -7799,11 +8187,10 @@ func dpotrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - infoArray: Array of size batchSize. infoArray [i] contains information of factorization of Aarray [i]. if potrfBatched returns [ErrInvalidValue], infoArray [0] = -i (less than zero) means the i-th parameter is wrong (not counting handle). if potrfBatched returns [Success], infoArray [i] = 0 means the Cholesky factorization of i-th matrix is successful, and infoArray [i] = k means the leading submatrix of order k of i-th matrix is not positive definite
 //   - batchSize: Number of pointers in Aarray
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n) or batchSize<1).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDpotrfBatched.
 func dpotrfBatched(handle Handle, uplo FillMode, n int32, aarray driver.DevicePtr, lda int32, infoArray driver.DevicePtr, batchSize int32) error {
@@ -7822,12 +8209,11 @@ func dpotrfBatched(handle Handle, uplo FillMode, n int32, aarray driver.DevicePt
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - lwork: Size of Workspace, in elements of float64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDpotrfBufferSize, bound as cusolverDnDpotrf_bufferSize.
 func dpotrfBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
@@ -7852,7 +8238,7 @@ var slotDpotrfBufferSize outSlot[int32]
 // A is an n×n matrix containing the triangular factor L or U computed by the Cholesky factorization. Only lower or upper part is meaningful and the input parameter uplo indicates which part of the matrix is used. The function would leave the other part untouched.
 // If the input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced the by lower triangular part of the inverse of A.
 // If the input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by the upper triangular part of the inverse of A.
-// The user has to provide the working space which is pointed to by input parameter Workspace. The input parameter Lwork is the size of the working space, returned by potri_bufferSize().
+// The input parameter Lwork is the size of the working space, returned by potri_bufferSize().
 // If the computation of the inverse fails, i.e. some leading minor of L or U, is null, the output parameter devInfo would indicate the smallest leading minor of L or U which is not positive definite.
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -7860,14 +8246,14 @@ var slotDpotrfBufferSize outSlot[int32]
 //   - n: Number of rows and columns of matrix A
 //   - a: array of dimension lda * n where lda is not less than max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
+//   - lwork: Size of Workspace, returned by potri_bufferSize
 //   - devInfo: If devInfo = 0, the computation of the inverse is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle). if devInfo = i, the leading minor of order i is zero
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDpotri.
 func dpotri(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
@@ -7884,13 +8270,13 @@ func dpotri(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - n: Number of rows and columns of matrix A
 //   - a: array of dimension lda * n where lda is not less than max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
+//   - lwork: Size of Workspace, in elements of float64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDpotriBufferSize, bound as cusolverDnDpotri_bufferSize.
 func dpotriBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
@@ -7924,12 +8310,11 @@ var slotDpotriBufferSize outSlot[int32]
 //   - b: array of dimension ldb * nrhs. ldb is not less than max(1,n). As an input, B is right hand side matrix. As an output, B is the solution matrix
 //   - devInfo: If devInfo = 0, the Cholesky factorization is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle)
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, nrhs<0, lda<max(1,n) or ldb<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDpotrs.
 func dpotrs(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, devInfo driver.DevicePtr) error {
@@ -7958,11 +8343,10 @@ func dpotrs(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.DevicePt
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix Barray [i]
 //   - batchSize: Number of pointers in Aarray
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, nrhs<0, lda<max(1,n), ldb<max(1,n) or batchSize<0).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDpotrsBatched.
 func dpotrsBatched(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, dInfo driver.DevicePtr, batchSize int32) error {
@@ -7988,13 +8372,13 @@ func dpotrsBatched(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.D
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
 //   - work: Working space, array of size lwork
+//   - lwork: Size of work, returned by syevd_bufferSize
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDsyevd.
 func dsyevd(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -8015,12 +8399,11 @@ func dsyevd(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.Device
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
 //   - lwork: Size of work, in elements of float64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDsyevdBufferSize, bound as cusolverDnDsyevd_bufferSize.
 func dsyevdBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr) (int32, error) {
@@ -8064,12 +8447,11 @@ var slotDsyevdBufferSize outSlot[int32]
 //   - work: Working space, array of size lwork
 //   - lwork: Size of work, returned by syevdx_bufferSize
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or range is not [EigRangeAll] or [EigRangeV] or [EigRangeI], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDsyevdx.
 func dsyevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -8095,12 +8477,11 @@ func dsyevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int3
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
 //   - lwork: Size of work, in elements of float64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or range is not [EigRangeAll] or [EigRangeV] or [EigRangeI], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDsyevdxBufferSize, bound as cusolverDnDsyevdx_bufferSize.
 func dsyevdxBufferSize(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float64, vu float64, il int32, iu int32, w driver.DevicePtr) (meig int32, lwork int32, err error) {
@@ -8135,7 +8516,7 @@ var slotDsyevdxBufferSize outSlot[struct {
 // The Jacobi method has quadratic convergence, so the accuracy is not proportional to number of sweeps. To guarantee certain accuracy, the user should configure tolerance only.
 // After syevj, the user can query residual by function [Handle.XsyevjGetResidual] and number of executed sweeps by function [Handle.XsyevjGetSweeps]. However the user needs to be aware that residual is the Frobenius norm of E, not accuracy of individual eigenvalue, i.e.
 // residual=‖E‖_(F)=‖Λ−W‖_(F)
-// The same as syevd, the user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevj_bufferSize().
+// The input parameter lwork is the size of the working space, and it is returned by syevj_bufferSize().
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = n+1, syevj does not converge under given tolerance and maximum sweeps.
 // If the user sets an improper tolerance, syevj may not converge. For example, tolerance should not be smaller than machine accuracy.
 // If jobz = [EigModeVector], A contains the orthonormal eigenvectors V.
@@ -8153,11 +8534,10 @@ var slotDsyevdxBufferSize outSlot[struct {
 //   - info: If info = 0, the operation is successful. If info = -i, the i-th parameter is wrong (not counting handle). If info = n+1, syevj does not converge under given tolerance and maximum sweeps
 //   - params: Structure filled with parameters of Jacobi algorithm and results of syevj
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDsyevj.
 func dsyevj(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo) error {
@@ -8178,7 +8558,7 @@ func dsyevj(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.Device
 // The formula for random access of W is Wₖ(j)=W [j+n*k] .
 // Except for tolerance and maximum sweeps, syevjBatched can either sort the eigenvalues in ascending order (default) or chose as-is (without sorting) by the function [SyevjInfo.XsyevjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate spectrum of those tiny matrices.
 // syevjBatched cannot report residual and executed sweeps by function [Handle.XsyevjGetResidual] and [Handle.XsyevjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
-// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevjBatched_bufferSize().
+// The input parameter lwork is the size of the working space, and it is returned by syevjBatched_bufferSize().
 // The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
 // If jobz = [EigModeVector], Aⱼ contains the orthonormal eigenvectors Vⱼ.
 // Please visit cuSOLVER Library Samples - syevjBatched for a code example.
@@ -8196,11 +8576,10 @@ func dsyevj(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.Device
 //   - params: Structure filled with parameters of Jacobi algorithm
 //   - batchSize: Number of matrices
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER), or batchSize<0.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDsyevjBatched.
 func dsyevjBatched(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo, batchSize int32) error {
@@ -8223,11 +8602,10 @@ func dsyevjBatched(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver
 //   - params: Structure filled with parameters of Jacobi algorithm
 //   - batchSize: Number of matrices
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER), or batchSize<0.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDsyevjBatchedBufferSize, bound as cusolverDnDsyevjBatched_bufferSize.
 func dsyevjBatchedBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, lwork *int32, params SyevjInfo, batchSize int32) error {
@@ -8249,11 +8627,10 @@ func dsyevjBatchedBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32
 //   - lwork: Size of work, in elements of float64
 //   - params: Structure filled with parameters of Jacobi algorithm and results of syevj
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDsyevjBufferSize, bound as cusolverDnDsyevj_bufferSize.
 func dsyevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, lwork *int32, params SyevjInfo) error {
@@ -8272,7 +8649,7 @@ func dsyevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a dri
 // Please visit cuSOLVER Library Samples - sygvd for a code example.
 //
 //   - handle: Handle to the cuSolverDN library context
-//   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x. - itype =[EigType2]: A*B*x = (lambda)*x. - itype =[EigType3]: B*A*x = (lambda)*x
+//   - itype: Specifies the problem type to be solved: itype =[EigType1]: A*x = (lambda)*B*x. itype =[EigType2]: A*B*x = (lambda)*x. itype =[EigType3]: B*A*x = (lambda)*x
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - uplo: Specifies which part of A and B are stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A and B are stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A and B are stored
 //   - n: Number of rows (or columns) of matrix A and B
@@ -8282,13 +8659,13 @@ func dsyevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a dri
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B. ldb is not less than max(1,n)
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
 //   - work: Working space, array of size lwork
+//   - lwork: Size of work, returned by sygvd_bufferSize
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not 1, 2 or 3, or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDsygvd.
 func dsygvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -8301,7 +8678,7 @@ func dsygvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 // dsygvdBufferSize returns the workspace size, in elements of float64, for [Handle.Dsygvd].
 //
 //   - handle: Handle to the cuSolverDN library context
-//   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x. - itype =[EigType2]: A*B*x = (lambda)*x. - itype =[EigType3]: B*A*x = (lambda)*x
+//   - itype: Specifies the problem type to be solved: itype =[EigType1]: A*x = (lambda)*B*x. itype =[EigType2]: A*B*x = (lambda)*x. itype =[EigType3]: B*A*x = (lambda)*x
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - uplo: Specifies which part of A and B are stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A and B are stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A and B are stored
 //   - n: Number of rows (or columns) of matrix A and B
@@ -8312,12 +8689,11 @@ func dsygvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
 //   - lwork: Size of work, in elements of float64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not 1, 2 or 3, or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDsygvdBufferSize, bound as cusolverDnDsygvd_bufferSize.
 func dsygvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr) (int32, error) {
@@ -8345,7 +8721,7 @@ var slotDsygvdBufferSize outSlot[int32]
 // Please visit cuSOLVER Library Samples - sygvdx for a code example.
 //
 //   - handle: Handle to the cuSolverDN library context
-//   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x - itype =[EigType2]: A*B*x = (lambda)*x - itype =[EigType3]: B*A*x = (lambda)*x
+//   - itype: Specifies the problem type to be solved: itype =[EigType1]: A*x = (lambda)*B*x; itype =[EigType2]: A*B*x = (lambda)*x; itype =[EigType3]: B*A*x = (lambda)*x
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - range_: Specifies options to which selection of eigenvalues and optionally eigenvectors that need to be computed: range = [EigRangeAll] : all eigenvalues/eigenvectors will be found, will becomes the classical syevd/heevd routine; range = [EigRangeV] : all eigenvalues/eigenvectors in the half-open interval (vl,vu] will be found; range = [EigRangeI] : the il-th through iu-th eigenvalues/eigenvectors will be found
 //   - uplo: Specifies which part of A and B are stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A and B are stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A and B are stored
@@ -8362,12 +8738,11 @@ var slotDsygvdBufferSize outSlot[int32]
 //   - work: Working space, array of size lwork
 //   - lwork: Size of work, returned by sygvdx_bufferSize
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not [EigType1] or [EigType2] or [EigType3] or jobz is not [EigModeNovector] or CUSOLVER_EIG_MODE_VECTORL, or range is not [EigRangeAll] or [EigRangeV] or [EigRangeI], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDsygvdx.
 func dsygvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -8380,7 +8755,7 @@ func dsygvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo F
 // dsygvdxBufferSize returns the workspace size, in elements of float64, for [Handle.Dsygvdx].
 //
 //   - handle: Handle to the cuSolverDN library context
-//   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x - itype =[EigType2]: A*B*x = (lambda)*x - itype =[EigType3]: B*A*x = (lambda)*x
+//   - itype: Specifies the problem type to be solved: itype =[EigType1]: A*x = (lambda)*B*x; itype =[EigType2]: A*B*x = (lambda)*x; itype =[EigType3]: B*A*x = (lambda)*x
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - range_: Specifies options to which selection of eigenvalues and optionally eigenvectors that need to be computed: range = [EigRangeAll] : all eigenvalues/eigenvectors will be found, will becomes the classical syevd/heevd routine; range = [EigRangeV] : all eigenvalues/eigenvectors in the half-open interval (vl,vu] will be found; range = [EigRangeI] : the il-th through iu-th eigenvalues/eigenvectors will be found
 //   - uplo: Specifies which part of A and B are stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A and B are stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A and B are stored
@@ -8396,12 +8771,11 @@ func dsygvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo F
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
 //   - lwork: Size of work, in elements of float64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not [EigType1] or [EigType2] or [EigType3] or jobz is not [EigModeNovector] or CUSOLVER_EIG_MODE_VECTORL, or range is not [EigRangeAll] or [EigRangeV] or [EigRangeI], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDsygvdxBufferSize, bound as cusolverDnDsygvdx_bufferSize.
 func dsygvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float64, vu float64, il int32, iu int32, w driver.DevicePtr) (meig int32, lwork int32, err error) {
@@ -8452,11 +8826,10 @@ var slotDsygvdxBufferSize outSlot[struct {
 //   - lwork: Size of work, returned by sygvj_bufferSize
 //   - info: If info = 0, the operation is successful. if info = -i, the i-th parameter is wrong (not counting handle). If info = i (> 0), info indicates either B is not positive definite or syevj (called by sygvj) does not converge
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not 1, 2 or 3, or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDsygvj.
 func dsygvj(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo) error {
@@ -8480,11 +8853,10 @@ func dsygvj(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
 //   - lwork: Size of work, in elements of float64
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not 1, 2 or 3, or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDsygvjBufferSize, bound as cusolverDnDsygvj_bufferSize.
 func dsygvjBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, lwork *int32, params SyevjInfo) error {
@@ -8505,16 +8877,17 @@ func dsygvjBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode,
 //   - n: Number of rows (columns) of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A, and the strictly lower triangular part of A is not referenced. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A, and the strictly upper triangular part of A is not referenced. On exit, A is overwritten by T and householder reflection vectors
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda >= max(1,n)
+//   - d: Real array of dimension n. The diagonal elements of the tridiagonal matrix T: D(i) = A(i,i)
+//   - e: Real array of dimension (n-1). The off-diagonal elements of the tridiagonal matrix T: if uplo = CUBLAS_FILL_MODE_UPPER, E(i) = A(i,i+1). if uplo = CUBLAS_FILL_MODE_LOWER E(i) = A(i+1,i)
 //   - tau: array of dimension (n-1). The scalar factors of the elementary reflectors which represent the orthogonal matrix Q
 //   - work: Working space, array of size lwork
 //   - lwork: Size of work, returned by sytrd_bufferSize
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDsytrd.
 func dsytrd(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -8534,12 +8907,11 @@ func dsytrd(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - tau: array of dimension (n-1). The scalar factors of the elementary reflectors which represent the orthogonal matrix Q
 //   - lwork: Size of work, in elements of float64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDsytrdBufferSize, bound as cusolverDnDsytrd_bufferSize.
 func dsytrdBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tau driver.DevicePtr) (int32, error) {
@@ -8577,12 +8949,11 @@ var slotDsytrdBufferSize outSlot[int32]
 //   - work: Working space, array of size lwork
 //   - lwork: Size of working space work
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDsytrf.
 func dsytrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -8600,12 +8971,11 @@ func dsytrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - lwork: Size of work, in elements of float64
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDsytrfBufferSize, bound as cusolverDnDsytrf_bufferSize.
 func dsytrfBufferSize(handle Handle, n int32, a driver.DevicePtr, lda int32) (int32, error) {
@@ -8654,10 +9024,11 @@ var slotDsytriBufferSize outSlot[int32]
 //   - handle: Handle to the cuSolverDN library context
 //   - mode: The deterministic mode of handle
 //
-// Returns:
+// A nil error means the modes were queried successfully.
+//
+// Errors:
 //   - [ErrInvalidValue]: mode is a NULL pointer.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The modes were queried successfully.
 //
 // Wraps cusolverDnGetDeterministicMode.
 func getDeterministicMode(handle Handle) (DeterministicMode, error) {
@@ -8679,15 +9050,20 @@ var slotGetDeterministicMode outSlot[DeterministicMode]
 // getEmulationSpecialValuesSupport queries the special floating point value support which is set for handle if floating point emulation is allowed.
 //
 // The special floating point value support returned by this API only has an effect, once one of the following math modes is enabled (see also [MathMode]):
+//   - [FP32EmulatedBf16x9Math]
+//   - [FP64EmulatedFixedpointMath]
+//   - [FP32FP64EmulatedMath]
+//
 // Otherwise, special floating point values are handled as expected.
 //
 //   - handle: Handle to the cuSolverDN library context
-//   - mask: The special value support of handle. Please seecudaEmulationSpecialValuesSupport_t for moreinformation about the allowed values of mask
+//   - mask: The special value support of handle. Please see [EmulationSpecialValuesSupport] for more information about the allowed values of mask
 //
-// Returns:
+// A nil error means the special value handling was queried successfully.
+//
+// Errors:
 //   - [ErrInvalidValue]: mask is a NULL pointer.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The special value handling was queried successfully.
 //
 // Wraps cusolverDnGetEmulationSpecialValuesSupport.
 func getEmulationSpecialValuesSupport(handle Handle) (EmulationSpecialValuesSupport, error) {
@@ -8709,14 +9085,19 @@ var slotGetEmulationSpecialValuesSupport outSlot[EmulationSpecialValuesSupport]
 // getEmulationStrategy queries the emulation strategy which is set for handle.
 //
 // The emulation strategy returned by this API only has an effect, once one of the following math modes is enabled (see also [MathMode]):
+//   - [FP32EmulatedBf16x9Math]
+//   - [FP64EmulatedFixedpointMath]
+//   - [FP32FP64EmulatedMath]
 //
+// Parameters:
 //   - handle: Handle to the cuSolverDN library context
 //   - strategy: The emulation strategy of handle
 //
-// Returns:
+// A nil error means the strategy was queried successfully.
+//
+// Errors:
 //   - [ErrInvalidValue]: emulationStrategy is a NULL pointer.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The strategy was queried successfully.
 //
 // Wraps cusolverDnGetEmulationStrategy.
 func getEmulationStrategy(handle Handle) (EmulationStrategy, error) {
@@ -8738,16 +9119,22 @@ var slotGetEmulationStrategy outSlot[EmulationStrategy]
 // getFixedPointEmulationMantissaBitOffset queries the mantissa bit offset for fixed point FP64 emulation in case of dynamic mantissa control mode.
 //
 // The mantissa bit offset, which is returned by this API only has an effect, once one of the following math modes is enabled (see also [MathMode]):
+//   - [FP64EmulatedFixedpointMath]
+//   - [FP32FP64EmulatedMath]
+//
 // And the following mantissa control is enabled (see also [Handle.SetFixedPointEmulationMantissaControl]):
+//   - CUDA_EMULATION_MANTISSA_CONTROL_DYNAMIC
+//
 // Please note that values of mantissaBitOffset which are unequal to zero require the mantissa control to be equal to CUDA_EMULATION_MANTISSA_CONTROL_DYNAMIC. Otherwise, the computational cuSOLVER routines will return [ErrInvalidValue], indicating an unsupported handle state.
 //
 //   - handle: Handle to the cuSolverDN library context
-//   - mantissaBitOffset: The mantissa bit offset used whenCUDA_EMULATION_MANTISSA_CONTROL_DYNAMIC is in use
+//   - mantissaBitOffset: The mantissa bit offset used when CUDA_EMULATION_MANTISSA_CONTROL_DYNAMIC is in use
 //
-// Returns:
+// A nil error means the mantissa bit offset was queried successfully.
+//
+// Errors:
 //   - [ErrInvalidValue]: mantissaBitOffset is a NULL pointer.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The mantissa bit offset was queried successfully.
 //
 // Wraps cusolverDnGetFixedPointEmulationMantissaBitOffset.
 func getFixedPointEmulationMantissaBitOffset(handle Handle) (int32, error) {
@@ -8769,14 +9156,18 @@ var slotGetFixedPointEmulationMantissaBitOffset outSlot[int32]
 // getFixedPointEmulationMantissaControl queries how the number of mantissa bits is determined for fixed point FP64 emulation.
 //
 // The mantissa control returned by this API only has an effect, once one of the following math modes is enabled (see also [MathMode]):
+//   - [FP64EmulatedFixedpointMath]
+//   - [FP32FP64EmulatedMath]
 //
+// Parameters:
 //   - handle: Handle to the cuSolverDN library context
 //   - control: The mantissa control mode of handle
 //
-// Returns:
+// A nil error means the mantissa control was queried successfully.
+//
+// Errors:
 //   - [ErrInvalidValue]: control is a NULL pointer.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The mantissa control was queried successfully.
 //
 // Wraps cusolverDnGetFixedPointEmulationMantissaControl.
 func getFixedPointEmulationMantissaControl(handle Handle) (EmulationMantissaControl, error) {
@@ -8798,14 +9189,18 @@ var slotGetFixedPointEmulationMantissaControl outSlot[EmulationMantissaControl]
 // getFixedPointEmulationMaxMantissaBitCount queries the maximum number of mantissa bits used for fixed point FP64 emulation.
 //
 // The mantissa bit count returned by this API only has an effect, once one of the following math modes is enabled (see also [MathMode]):
+//   - [FP64EmulatedFixedpointMath]
+//   - [FP32FP64EmulatedMath]
 //
+// Parameters:
 //   - handle: Handle to the cuSolverDN library context
 //   - mantissaBitCount: The maximum number of mantissa bits used
 //
-// Returns:
+// A nil error means the mantissa bit count was queried successfully.
+//
+// Errors:
 //   - [ErrInvalidValue]: mantissaBitCount is a NULL pointer.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The mantissa bit count was queried successfully.
 //
 // Wraps cusolverDnGetFixedPointEmulationMaxMantissaBitCount.
 func getFixedPointEmulationMaxMantissaBitCount(handle Handle) (int32, error) {
@@ -8830,10 +9225,11 @@ var slotGetFixedPointEmulationMaxMantissaBitCount outSlot[int32]
 //
 //   - handle: Handle to the cuSolverDN library context
 //
-// Returns:
+// A nil error means the mode was set successfully.
+//
+// Errors:
 //   - [ErrInvalidValue]: modes is a NULL pointer.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The mode was set successfully.
 //
 // Wraps cusolverDnGetMathMode.
 func getMathMode(handle Handle) (MathMode, error) {
@@ -8874,9 +9270,8 @@ var slotGetProperty outSlot[int32]
 //   - handle: Handle to the cuSolverDN library context
 //   - streamId: The stream which is used by handle
 //
-// Returns:
+// Errors:
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The stream was set successfully.
 //
 // Wraps cusolverDnGetStream.
 func getStream(handle Handle) (driver.Stream, error) {
@@ -8913,9 +9308,8 @@ func GetVersion() (int32, error) {
 //
 // Such information includes the total number of iterations that was needed to converge ( Niters), the outer number of iterations (meaningful when two-levels preconditioner such as [IrsRefineClassicalGmres] is used ), the maximal number of iterations that was allowed for that call, and a pointer to the matrix of the convergence history residual norms. The Infos structure needs to be created before a call to an IRS solver. The Infos structure is valid for only one call to an IRS solver, since it holds info about that solve and thus each solve will requires its own Infos structure.
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The resources could not be allocated.
-//   - [Success]: The structure was initialized successfully.
 //
 // Wraps cusolverDnIRSInfosCreate.
 func iRSInfosCreate() (IRSInfos, error) {
@@ -8938,9 +9332,8 @@ var slotIRSInfosCreate outSlot[IRSInfos]
 //
 // This function destroys all the information (for example, Niters performed, OuterNiters performed, residual history etc.) about a solver call; thus, this function should only be called after the user is finished with the information.
 //
-// Returns:
+// Errors:
 //   - [ErrIrsInfosNotInitialized]: The Infos structure was not created.
-//   - [Success]: The resources were released successfully.
 //
 // Wraps cusolverDnIRSInfosDestroy.
 func iRSInfosDestroy(infos IRSInfos) error {
@@ -8957,9 +9350,8 @@ func iRSInfosDestroy(infos IRSInfos) error {
 //   - infos: The [IRSInfos] Infos structure
 //   - maxiters: The maximal number of iterations that is currently set
 //
-// Returns:
+// Errors:
 //   - [ErrIrsInfosNotInitialized]: The Infos structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSInfosGetMaxIters.
 func iRSInfosGetMaxIters(infos IRSInfos) (CusolverInt, error) {
@@ -8985,9 +9377,8 @@ var slotIRSInfosGetMaxIters outSlot[CusolverInt]
 //   - infos: The [IRSInfos] Infos structure
 //   - niters: The total number of iterations performed by the IRS solver
 //
-// Returns:
+// Errors:
 //   - [ErrIrsInfosNotInitialized]: The Infos structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSInfosGetNiters.
 func iRSInfosGetNiters(infos IRSInfos) (CusolverInt, error) {
@@ -9013,9 +9404,8 @@ var slotIRSInfosGetNiters outSlot[CusolverInt]
 //   - infos: The [IRSInfos] Infos structure
 //   - outerNiters: The number of iterations of the outer refinement loop of the IRS solver
 //
-// Returns:
+// Errors:
 //   - [ErrIrsInfosNotInitialized]: The Infos structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSInfosGetOuterNiters.
 func iRSInfosGetOuterNiters(infos IRSInfos) (CusolverInt, error) {
@@ -9034,7 +9424,9 @@ func iRSInfosGetOuterNiters(infos IRSInfos) (CusolverInt, error) {
 
 var slotIRSInfosGetOuterNiters outSlot[CusolverInt]
 
-// iRSInfosGetResidualHistory If the user called [IRSInfos.RequestResidual] before the call to the IRS function, then the IRS solver will store the convergence history (residual norms) of the refinement phase in a matrix that can be accessed via a pointer returned by this function.
+// iRSInfosGetResidualHistory returns the residual norms of the refinement phase, when their history was requested before the solve.
+//
+// If the user called [IRSInfos.RequestResidual] before the call to the IRS function, then the IRS solver will store the convergence history (residual norms) of the refinement phase in a matrix that can be accessed via a pointer returned by this function.
 //
 // The datatype of the residual norms depends on the input and output data type. If the Inputs/Outputs datatype is double precision real or complex (CUSOLVER_R_FP64 or CUSOLVER_C_FP64), this residual will be of type real double precision (FP64) double, otherwise if the Inputs/Outputs datatype is single precision real or complex (CUSOLVER_R_FP32 or CUSOLVER_C_FP32), this residual will be real single precision FP32 float.
 // The residual history matrix consists of two columns (even for the multiple right-hand side case NRHS) of MaxIters+1 row, thus a matrix of size ( MaxIters+1,2). Only the first OuterNiters+1 rows contains the residual norms the other (e.g., OuterNiters+2:Maxiters+1) are garbage. On the first column, each row “i” specify the total number of iterations happened till this outer iteration “i” and on the second columns the residual norm corresponding to this outer iteration “i”. Thus, the first row (e.g., outer iteration “0”) consists of the initial residual (e.g., the residual before the refinement loop start) then the consecutive rows are the residual obtained at each outer iteration of the refinement loop. Note, it only consists of the history of the outer loop.
@@ -9046,10 +9438,9 @@ var slotIRSInfosGetOuterNiters outSlot[CusolverInt]
 //   - infos: The [IRSInfos] Infos structure
 //   - residualHistory: Returns a void pointer to the matrix of the convergence history residual norms. See the description above for the relation between the residual norm datatype and the inout datatype
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidValue]: This function was called without calling [IRSInfos.RequestResidual] in advance.
 //   - [ErrIrsInfosNotInitialized]: The Infos structure was not created
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSInfosGetResidualHistory.
 func iRSInfosGetResidualHistory(infos IRSInfos, residualHistory *uintptr) error {
@@ -9063,9 +9454,8 @@ func iRSInfosGetResidualHistory(infos IRSInfos, residualHistory *uintptr) error 
 //
 //   - infos: The [IRSInfos] Infos structure
 //
-// Returns:
+// Errors:
 //   - [ErrIrsInfosNotInitialized]: The Infos structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSInfosRequestResidual.
 func iRSInfosRequestResidual(infos IRSInfos) error {
@@ -9079,9 +9469,10 @@ func iRSInfosRequestResidual(infos IRSInfos) error {
 //
 // The params structure created by this function can be used by one or more call to the same or to a different IRS solver. Note that in CUDA 10.2, the behavior was different and a new params structure was needed to be created per each call to an IRS solver. Also note that the user can also change configurations of the params and then call a new IRS instance, but be careful that the previous call was done because any change to the configuration before the previous call was done could affect it.
 //
-// Returns:
+// A nil error means the structure was created and initialized successfully.
+//
+// Errors:
 //   - [ErrAllocFailed]: The resources could not be allocated.
-//   - [Success]: The structure was created and initialized successfully.
 //
 // Wraps cusolverDnIRSParamsCreate.
 func iRSParamsCreate() (IRSParams, error) {
@@ -9104,10 +9495,9 @@ var slotIRSParamsCreate outSlot[IRSParams]
 //
 //   - params: The [IRSParams] Params structure
 //
-// Returns:
+// Errors:
 //   - [ErrIrsInfosNotDestroyed]: Not all the Infos structure associated with this Params structure have been destroyed yet.
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
-//   - [Success]: The resources were released successfully.
 //
 // Wraps cusolverDnIRSParamsDestroy.
 func iRSParamsDestroy(params IRSParams) error {
@@ -9123,9 +9513,8 @@ func iRSParamsDestroy(params IRSParams) error {
 //
 //   - params: The [IRSParams] Params structure
 //
-// Returns:
+// Errors:
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSParamsDisableFallback.
 func iRSParamsDisableFallback(params IRSParams) error {
@@ -9141,9 +9530,8 @@ func iRSParamsDisableFallback(params IRSParams) error {
 //
 //   - params: The [IRSParams] Params structure
 //
-// Returns:
+// Errors:
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSParamsEnableFallback.
 func iRSParamsEnableFallback(params IRSParams) error {
@@ -9160,9 +9548,8 @@ func iRSParamsEnableFallback(params IRSParams) error {
 //   - params: The [IRSParams] Params structure
 //   - maxiters: The maximal number of iterations that is currently set
 //
-// Returns:
+// Errors:
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSParamsGetMaxIters.
 func iRSParamsGetMaxIters(params IRSParams) (CusolverInt, error) {
@@ -9186,10 +9573,10 @@ var slotIRSParamsGetMaxIters outSlot[CusolverInt]
 // Total means any iteration which means the sum of the outer and the inner iterations (inner is meaningful when two-levels refinement solver is set). Default value is set to 50. Our goal is to give the user more control such a way he can investigate and control every detail of the IRS solver.
 //
 //   - params: The [IRSParams] Params structure
+//   - maxiters: Maximum total number of iterations allowed for the refinement solver
 //
-// Returns:
+// Errors:
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSParamsSetMaxIters.
 func iRSParamsSetMaxIters(params IRSParams, maxiters CusolverInt) error {
@@ -9206,10 +9593,9 @@ func iRSParamsSetMaxIters(params IRSParams, maxiters CusolverInt) error {
 //   - params: The [IRSParams] Params structure
 //   - maxitersInner: Maximum number of allowed inner iterations for the inner refinement solver. Meaningful when the refinement solver is a two-levels solver such as [IrsRefineClassicalGmres] or [IrsRefineGmresGmres]. Value should be less or equal to MaxIters
 //
-// Returns:
+// Errors:
 //   - [ErrIrsParamsInvalid]: If the value was larger than MaxIters.
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSParamsSetMaxItersInner.
 func iRSParamsSetMaxItersInner(params IRSParams, maxitersInner CusolverInt) error {
@@ -9225,7 +9611,7 @@ func iRSParamsSetMaxItersInner(params IRSParams, maxitersInner CusolverInt) erro
 //
 //   - params: The [IRSParams] Params structure
 //
-// Returns:
+// Errors:
 //   - [IrsRefineClassical]: Classical iterative refinement solver. Similar to the one used in LAPACK routines.
 //   - [IrsRefineClassicalGmres]: Classical iterative refinement solver that uses the GMRES (Generalized Minimal Residual) internally to solve the correction equation at each iteration. We call the classical refinement iteration the outer iteration while the GMRES is called inner iteration. Note that if the tolerance of the inner GMRES is set very low, let say to machine precision, then the outer classical refinement iteration will performs only one iteration and thus this option will behaves like [IrsRefineGmres].
 //   - [IrsRefineGmres]: GMRES (Generalized Minimal Residual) based iterative refinement solver. In recent study, the GMRES method has drawn the scientific community attention for its ability to be used as refinement solver that outperforms the classical iterative refinement method. Based on our experimentation, we recommend this setting.
@@ -9233,7 +9619,6 @@ func iRSParamsSetMaxItersInner(params IRSParams, maxitersInner CusolverInt) erro
 //   - [IrsRefineNone]: No refinement solver; the IRS solver performs a factorization followed by a solve without any refinement. For example, if the IRS solver was [Handle.IRSXgesv], this is equivalent to a Xgesv routine without refinement and where the factorization is carried out in the lowest precision. If for example the main precision was R64F and the lowest was R64F as well, then this is equivalent to a call to cusolverDnDgesv().
 //   - [IrsRefineNotSet]: Solver is not set, this value is what is set when creating the params structure. IRS solver will return an error.
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSParamsSetRefinementSolver.
 func iRSParamsSetRefinementSolver(params IRSParams, refinementSolver IRSRefinement) error {
@@ -9249,9 +9634,8 @@ func iRSParamsSetRefinementSolver(params IRSParams, refinementSolver IRSRefineme
 //
 //   - params: The [IRSParams] Params structure
 //
-// Returns:
+// Errors:
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSParamsSetSolverLowestPrecision.
 func iRSParamsSetSolverLowestPrecision(params IRSParams, solverLowestPrecision PrecType) error {
@@ -9268,9 +9652,8 @@ func iRSParamsSetSolverLowestPrecision(params IRSParams, solverLowestPrecision P
 //   - params: The [IRSParams] Params structure
 //   - solverMainPrecision: Allowed Inputs/Outputs datatype (for example CUSOLVER_R_FP64 for a real double precision data). See the table in the [IRSParams.SetSolverPrecisions] section above for the supported precisions
 //
-// Returns:
+// Errors:
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSParamsSetSolverMainPrecision.
 func iRSParamsSetSolverMainPrecision(params IRSParams, solverMainPrecision PrecType) error {
@@ -9283,14 +9666,18 @@ func iRSParamsSetSolverMainPrecision(params IRSParams, solverMainPrecision PrecT
 // iRSParamsSetSolverPrecisions sets both the main and the lowest precision for the Iterative Refinement Solver (IRS).
 //
 // By main precision, we mean the precision of the Input and Output datatype. By lowest precision, we mean the solver is allowed to use as lowest computational precision during the LU factorization process. Note that the user has to set both the main and lowest precision before the first call to the IRS solver because they are NOT set by default with the params structure creation, as it depends on the Input Output data type and user request. It is a wrapper to both [IRSParams.SetSolverMainPrecision] and [IRSParams.SetSolverLowestPrecision]. All possible combinations of main/lowest precision are described in the table below. Usually the lowest precision defines the speedup that can be achieved. The ratio of the performance of the lowest precision over the main precision (e.g., Inputs/Outputs datatype) define the upper bound of the speedup that could be obtained. More precisely, it depends on many factors, but for large matrices sizes, it is the ratio of the matrix-matrix rank-k product (e.g., GEMM where K is 256 and M=N=size of the matrix) that define the possible speedup. For instance, if the inout precision is real double precision R64F and the lowest precision is R32F, then we can expect a speedup of at most 2X for large problem sizes. If the lowest precision was R16F, then we can expect 3X-4X. A reasonable strategy should take the number of right-hand sides, the size of the matrix as well as the convergence rate into account.
+//   - Inputs/Outputs Data Type (e.g., main precision): C64F; Supported values for the lowest precision: C64F, C32F, C16F, C16BF, CTF32
+//   - Inputs/Outputs Data Type (e.g., main precision): C32F; Supported values for the lowest precision: C32F, C16F, C16BF, CTF32
+//   - Inputs/Outputs Data Type (e.g., main precision): R64F; Supported values for the lowest precision: R64F, R32F, R16F, R16BF, RTF32
+//   - Inputs/Outputs Data Type (e.g., main precision): R32F; Supported values for the lowest precision: R32F, R16F, R16BF, RTF32
 //
+// Parameters:
 //   - params: The [IRSParams] Params structure
 //   - solverMainPrecision: Allowed Inputs/Outputs datatype (for example CUSOLVER_R_FP64 for a real double precision data). See the table below for the supported precisions
 //   - solverLowestPrecision: Allowed lowest compute type (for example R16F for half precision computation). See the table below for the supported precisions
 //
-// Returns:
+// Errors:
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created. Supported Inputs/Outputs data type and lower precision for the IRS solver
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSParamsSetSolverPrecisions.
 func iRSParamsSetSolverPrecisions(params IRSParams, solverMainPrecision PrecType, solverLowestPrecision PrecType) error {
@@ -9304,14 +9691,19 @@ func iRSParamsSetSolverPrecisions(params IRSParams, solverMainPrecision PrecType
 //
 // By default it is such that all the RHS satisfy:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX where
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon for the Inputs/Outputs datatype that matches LAPACK LAMCH(‘Epsilon’)
+//   - BWDMAX, the value BWDMAX is fixed to 1.0
+//
 // The user can use this function to change the tolerance to a lower or higher value. Our goal is to give the user more control such a way he can investigate and control every detail of the IRS solver. Note that the tolerance value is always in real double precision whatever the Inputs/Outputs datatype is.
 //
 //   - params: The [IRSParams] Params structure
 //   - val: Double precision real value to which the refinement tolerance will be set
 //
-// Returns:
+// Errors:
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSParamsSetTol.
 func iRSParamsSetTol(params IRSParams, val float64) error {
@@ -9328,9 +9720,8 @@ func iRSParamsSetTol(params IRSParams, val float64) error {
 //   - params: The [IRSParams] Params structure
 //   - val: Double precision real value to which the tolerance of the inner refinement solver will be set
 //
-// Returns:
+// Errors:
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSParamsSetTolInner.
 func iRSParamsSetTolInner(params IRSParams, val float64) error {
@@ -9343,10 +9734,23 @@ func iRSParamsSetTolInner(params IRSParams, val float64) error {
 // iRSXgels is designed to perform same functionality as cusolverDn<T1><T2>gels() functions, but wrapped in a more generic and expert interface that gives user more control to parametrize the function as well as it provides more information on output.
 //
 // [Handle.IRSXgels] allows additional control of the solver parameters such as setting:
+//   - the main precision (Inputs/Outputs precision) of the solver,
+//   - the lowest precision to be used internally by the solver,
+//   - the refinement solver type
+//   - the maximum allowed number of iterations in the refinement phase
+//   - the tolerance of the refinement solver
+//   - the fallback to main precision
+//   - and others
+//
 // through the configuration parameters structure gelsIrsParams and its helper functions. For more details about what configuration can be set and its meaning please refer to all the functions in the cuSolverDN Helper Function Section that start with cusolverDnIRSParamsxxxx(). Moreover, [Handle.IRSXgels] provides additional information on the output such as the convergence history (e.g., the residual norms) at each iteration and the number of iterations needed to converge. For more details about what information can be retrieved and its meaning please refer to all the functions in the cuSolverDN Helper Function Section that start with cusolverDnIRSInfosxxxx().
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the configurations of params/infos structure is incorrect or if the function did not finish with success. More details about the error can be found by checking the niters and the dinfo API parameters. See their description below for further details. Users should provide the required workspace allocated on device for the [Handle.IRSXgels] function. The amount of bytes required for the function can be queried by calling the respective function [Handle.IRSXgelsBufferSize]. Note that, if the user would like a particular configuration to be set via the params structure, it should be set before the call to [Handle.IRSXgelsBufferSize] to get the size of the required workspace.
 // The following table provides all possible combinations values for the lowest precision corresponding to the Inputs/Outputs data type. Note that if the lowest precision matches the Inputs/Outputs datatype, then main precision factorization will be used
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision.
+//   - Inputs/Outputs Data Type (e.g., main precision): C64F; Supported values for the lowest precision: C64F, C32F, C16F, C16BF, CTF32
+//   - Inputs/Outputs Data Type (e.g., main precision): C32F; Supported values for the lowest precision: C32F, C16F, C16BF, CTF32
+//   - Inputs/Outputs Data Type (e.g., main precision): R64F; Supported values for the lowest precision: R64F, R32F, R16F, R16BF, RTF32
+//   - Inputs/Outputs Data Type (e.g., main precision): R32F; Supported values for the lowest precision: R32F, R16F, R16BF, RTF32
+//
 // The [Handle.IRSXgelsBufferSize] function return the required workspace buffer size in bytes for the corresponding cusolverDnXgels() call with given gelsIrsParams configuration.
 //
 //   - handle: Handle to the cusolverDn library context
@@ -9363,9 +9767,10 @@ func iRSParamsSetTolInner(params IRSParams, val float64) error {
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by [Handle.IRSXgelsBufferSize] function
-//   - niters: If iter is- <0 : iterative refinement has failed, main precision (Inputs/Outputs precision) factorization has been performed if fallback is enabled - -1 : taking into account machine parameters, n, nrhs, it is a priori not worth working in lower precision - -2 : overflow of an entry when moving from main to lower precision - -3 : failure during the factorization - -5 : overflow occurred during computation - -maxiter: solver stopped the iterative refinement after reaching maximum allowed iterations - >0 : iter is a number of iterations solver performed to reach convergence criteria
+//   - niters: If iter is: <0 : iterative refinement has failed, main precision (Inputs/Outputs precision) factorization has been performed if fallback is enabled; -1 : taking into account machine parameters, n, nrhs, it is a priori not worth working in lower precision; -2 : overflow of an entry when moving from main to lower precision; -3 : failure during the factorization; -5 : overflow occurred during computation; -maxiter: solver stopped the iterative refinement after reaching maximum allowed iterations; >0 : iter is a number of iterations solver performed to reach convergence criteria
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: CPU memory allocation failed, most likely during the allocation of the residual array that store the residual norms.
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
@@ -9380,7 +9785,6 @@ func iRSParamsSetTolInner(params IRSParams, val float64) error {
 //   - [ErrIrsParamsInvalidRefine]: The refinement solver configuration parameter in the gels_irs_params structure is not valid.
 //   - [ErrIrsParamsNotInitialized]: The configuration parameter gels_irs_params structure was not created.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSXgels.
 func iRSXgels(handle Handle, gelsIrsParams IRSParams, gelsIrsInfos IRSInfos, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, niters *CusolverInt, dInfo driver.DevicePtr) error {
@@ -9398,7 +9802,7 @@ func iRSXgels(handle Handle, gelsIrsParams IRSParams, gelsIrsInfos IRSInfos, m C
 //   - nrhs: Number of right hand sides to solve. Should be non-negative. Note that, nrhs is limited to 1 if the selected IRS refinement solver is [IrsRefineGmres], [IrsRefineGmresGmres], [IrsRefineClassicalGmres]
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: CPU memory allocation failed, most likely during the allocation of the residual array that store the residual norms.
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
@@ -9413,7 +9817,6 @@ func iRSXgels(handle Handle, gelsIrsParams IRSParams, gelsIrsInfos IRSInfos, m C
 //   - [ErrIrsParamsInvalidRefine]: The refinement solver configuration parameter in the gels_irs_params structure is not valid.
 //   - [ErrIrsParamsNotInitialized]: The configuration parameter gels_irs_params structure was not created.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSXgelsBufferSize, bound as cusolverDnIRSXgels_bufferSize.
 func iRSXgelsBufferSize(handle Handle, params IRSParams, m CusolverInt, n CusolverInt, nrhs CusolverInt) (uint, error) {
@@ -9435,10 +9838,23 @@ var slotIRSXgelsBufferSize outSlot[uint]
 // iRSXgesv is designed to perform same functionality as cusolverDn<T1><T2>gesv() functions, but wrapped in a more generic and expert interface that gives user more control to parametrize the function as well as it provides more information on output.
 //
 // [Handle.IRSXgesv] allows additional control of the solver parameters such as setting:
+//   - the main precision (Inputs/Outputs precision) of the solver
+//   - the lowest precision to be used internally by the solver
+//   - the refinement solver type
+//   - the maximum allowed number of iterations in the refinement phase
+//   - the tolerance of the refinement solver
+//   - the fallback to main precision
+//   - and more
+//
 // through the configuration parameters structure gesvIrsParams and its helper functions. For more details about what configuration can be set and its meaning please refer to all the functions in the cuSolverDN Helper Function Section that start with cusolverDnIRSParamsxxxx(). Moreover, [Handle.IRSXgesv] provides additional information on the output such as the convergence history (e.g., the residual norms) at each iteration and the number of iterations needed to converge. For more details about what information can be retrieved and its meaning please refer to all the functions in the cuSolverDN Helper Function Section that start with cusolverDnIRSInfosxxxx()
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the configurations of params/infos structure is incorrect or if the function did not finish with success. More details about the error can be found by checking the niters and the dinfo API parameters. See their description below for further details. User should provide the required workspace allocated on device for the [Handle.IRSXgesv] function. The amount of bytes required for the function can be queried by calling the respective function [Handle.IRSXgesvBufferSize]. Note that, if the user would like a particular configuration to be set via the params structure, it should be set before the call to [Handle.IRSXgesvBufferSize] to get the size of the required workspace.
 // Tensor Float (TF32), introduced with NVIDIA Ampere architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision.
 // The following table provides all possible combinations values for the lowest precision corresponding to the Inputs/Outputs data type. Note that if the lowest precision matches the Inputs/Outputs datatype, then the main precision factorization will be used.
+//   - Inputs/Outputs Data Type (e.g., main precision): C64F; Supported values for the lowest precision: C64F, C32F, C16F, C16BF, CTF32
+//   - Inputs/Outputs Data Type (e.g., main precision): C32F; Supported values for the lowest precision: C32F, C16F, C16BF, CTF32
+//   - Inputs/Outputs Data Type (e.g., main precision): R64F; Supported values for the lowest precision: R64F, R32F, R16F, R16BF, RTF32
+//   - Inputs/Outputs Data Type (e.g., main precision): R32F; Supported values for the lowest precision: R32F, R16F, R16BF, RTF32
+//
 // The [Handle.IRSXgesvBufferSize] function returns the required workspace buffer size in bytes for the corresponding cusolverDnXgesv() call with the given gesvIrsParams configuration.
 //
 //   - handle: Handle to the cusolverDn library context
@@ -9454,9 +9870,10 @@ var slotIRSXgelsBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by [Handle.IRSXgesvBufferSize] function
-//   - niters: If iter is- <0 : iterative refinement has failed, main precision (Inputs/Outputs precision) factorization has been performed if fallback is enabled. - -1 : taking into account machine parameters, n, nrhs, it is a priori not worth working in lower precision - -2 : overflow of an entry when moving from main to lower precision - -3 : failure during the factorization - -5 : overflow occurred during computation - -maxiter: solver stopped the iterative refinement after reaching maximum allowed iterations. - >0 : iter is a number of iterations solver performed to reach convergence criteria
+//   - niters: If iter is: <0 : iterative refinement has failed, main precision (Inputs/Outputs precision) factorization has been performed if fallback is enabled. -1 : taking into account machine parameters, n, nrhs, it is a priori not worth working in lower precision; -2 : overflow of an entry when moving from main to lower precision; -3 : failure during the factorization; -5 : overflow occurred during computation; -maxiter: solver stopped the iterative refinement after reaching maximum allowed iterations. >0 : iter is a number of iterations solver performed to reach convergence criteria
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid. If dinfo = i, then U(i,i) computed in main precision is exactly zero. The factorization has been completed, but the factor U is exactly singular, so the solution could not be computed
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: CPU memory allocation failed, most likely during the allocation of the residual array that store the residual norms.
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
@@ -9471,7 +9888,6 @@ var slotIRSXgelsBufferSize outSlot[uint]
 //   - [ErrIrsParamsInvalidRefine]: The refinement solver configuration parameter in the gesv_irs_params structure is not valid.
 //   - [ErrIrsParamsNotInitialized]: The configuration parameter gesv_irs_params structure was not created.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSXgesv.
 func iRSXgesv(handle Handle, gesvIrsParams IRSParams, gesvIrsInfos IRSInfos, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, niters *CusolverInt, dInfo driver.DevicePtr) error {
@@ -9488,7 +9904,7 @@ func iRSXgesv(handle Handle, gesvIrsParams IRSParams, gesvIrsInfos IRSInfos, n C
 //   - nrhs: Number of right hand sides to solve. Should be non-negative. Note that, nrhs is limited to 1 if the selected IRS refinement solver is [IrsRefineGmres], [IrsRefineGmresGmres], [IrsRefineClassicalGmres]
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: CPU memory allocation failed, most likely during the allocation of the residual array that store the residual norms.
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
@@ -9503,7 +9919,6 @@ func iRSXgesv(handle Handle, gesvIrsParams IRSParams, gesvIrsInfos IRSInfos, n C
 //   - [ErrIrsParamsInvalidRefine]: The refinement solver configuration parameter in the gesv_irs_params structure is not valid.
 //   - [ErrIrsParamsNotInitialized]: The configuration parameter gesv_irs_params structure was not created.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSXgesvBufferSize, bound as cusolverDnIRSXgesv_bufferSize.
 func iRSXgesvBufferSize(handle Handle, params IRSParams, n CusolverInt, nrhs CusolverInt) (uint, error) {
@@ -9524,8 +9939,7 @@ var slotIRSXgesvBufferSize outSlot[uint]
 
 // LoggerForceDisable disables logging for the entire run.
 //
-// Returns:
-//   - [Success]: If logging was successfully disabled. See [Result] for a complete list of valid return codes.
+// A nil error means logging was successfully disabled. See [Result] for a complete list of valid return codes.
 //
 // Wraps cusolverDnLoggerForceDisable.
 func LoggerForceDisable() error {
@@ -9539,8 +9953,7 @@ func LoggerForceDisable() error {
 //
 //   - logFile: Path of the logging output file
 //
-// Returns:
-//   - [Success]: If the logging file was successfully opened. See [Result] for a complete list of valid return codes.
+// A nil error means the logging file was successfully opened. See [Result] for a complete list of valid return codes.
 //
 // Wraps cusolverDnLoggerOpenFile.
 func LoggerOpenFile(logFile *byte) error {
@@ -9554,8 +9967,7 @@ func LoggerOpenFile(logFile *byte) error {
 //
 //   - callback: Pointer to a callback function. See cusolverDnLoggerCallback_t (see [LoggerCallback])
 //
-// Returns:
-//   - [Success]: If the callback function was successfully set. See [Result] for a complete list of valid return codes.
+// A nil error means the callback function was successfully set. See [Result] for a complete list of valid return codes.
 //
 // Wraps cusolverDnLoggerSetCallback.
 func LoggerSetCallback(callback LoggerCallback) error {
@@ -9571,8 +9983,7 @@ func LoggerSetCallback(callback LoggerCallback) error {
 //
 //   - file: Pointer to an open file. File should have write permission
 //
-// Returns:
-//   - [Success]: If logging file was successfully set. See [Result] for a complete list of valid return codes.
+// A nil error means logging file was successfully set. See [Result] for a complete list of valid return codes.
 //
 // Wraps cusolverDnLoggerSetFile.
 func LoggerSetFile(file *FILE) error {
@@ -9586,9 +9997,10 @@ func LoggerSetFile(file *FILE) error {
 //
 //   - level: Value of the logging level. See cuSOLVERDn Logging
 //
-// Returns:
+// A nil error means the logging level was successfully set. See [Result] for a complete list of valid return codes.
+//
+// Errors:
 //   - [ErrInvalidValue]: If the value was not a valid logging level. See cuSOLVERDn Logging.
-//   - [Success]: If the logging level was successfully set. See [Result] for a complete list of valid return codes.
 //
 // Wraps cusolverDnLoggerSetLevel.
 func LoggerSetLevel(level int32) error {
@@ -9602,8 +10014,7 @@ func LoggerSetLevel(level int32) error {
 //
 //   - mask: Value of the logging mask. See cuSOLVERDn Logging
 //
-// Returns:
-//   - [Success]: If the logging mask was successfully set. See [Result] for a complete list of valid return codes.
+// A nil error means the logging mask was successfully set. See [Result] for a complete list of valid return codes.
 //
 // Wraps cusolverDnLoggerSetMask.
 func LoggerSetMask(mask int32) error {
@@ -9624,10 +10035,35 @@ func LoggerSetMask(mask int32) error {
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK<t1>LAMCH('Epsilon')
+//
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+//   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
@@ -9642,15 +10078,15 @@ func LoggerSetMask(mask int32) error {
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSBgels.
 func sBgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -9674,14 +10110,13 @@ func sBgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSBgelsBufferSize, bound as cusolverDnSBgels_bufferSize.
 func sBgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -9709,10 +10144,35 @@ var slotSBgelsBufferSize outSlot[uint]
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK LAMCH(‘Epsilon’)
+//
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+//   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgesv]*; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // * Has LAPACK counterparts
 // cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
@@ -9728,15 +10188,15 @@ var slotSBgelsBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid. If dinfo = i, then U(i,i) computed in main precision is exactly zero. The factorization has been completed, but the factor U is exactly singular, so the solution could not be computed
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSBgesv.
 func sBgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -9760,14 +10220,13 @@ func sBgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSBgesvBufferSize, bound as cusolverDnSBgesv_bufferSize.
 func sBgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -9797,10 +10256,35 @@ var slotSBgesvBufferSize outSlot[uint]
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK<t1>LAMCH('Epsilon')
+//
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+//   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
@@ -9815,15 +10299,15 @@ var slotSBgesvBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSHgels.
 func sHgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -9847,14 +10331,13 @@ func sHgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSHgelsBufferSize, bound as cusolverDnSHgels_bufferSize.
 func sHgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -9882,10 +10365,35 @@ var slotSHgelsBufferSize outSlot[uint]
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK LAMCH(‘Epsilon’)
+//
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+//   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgesv]*; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // * Has LAPACK counterparts
 // cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
@@ -9901,15 +10409,15 @@ var slotSHgelsBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid. If dinfo = i, then U(i,i) computed in main precision is exactly zero. The factorization has been completed, but the factor U is exactly singular, so the solution could not be computed
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSHgesv.
 func sHgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -9933,14 +10441,13 @@ func sHgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSHgesvBufferSize, bound as cusolverDnSHgesv_bufferSize.
 func sHgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -9970,10 +10477,35 @@ var slotSHgesvBufferSize outSlot[uint]
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK<t1>LAMCH('Epsilon')
+//
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+//   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
@@ -9988,15 +10520,15 @@ var slotSHgesvBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSSgels.
 func sSgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -10020,14 +10552,13 @@ func sSgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSSgelsBufferSize, bound as cusolverDnSSgels_bufferSize.
 func sSgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -10055,10 +10586,35 @@ var slotSSgelsBufferSize outSlot[uint]
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK LAMCH(‘Epsilon’)
+//
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+//   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgesv]*; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // * Has LAPACK counterparts
 // cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
@@ -10074,15 +10630,15 @@ var slotSSgelsBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid. If dinfo = i, then U(i,i) computed in main precision is exactly zero. The factorization has been completed, but the factor U is exactly singular, so the solution could not be computed
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSSgesv.
 func sSgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -10106,14 +10662,13 @@ func sSgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSSgesvBufferSize, bound as cusolverDnSSgesv_bufferSize.
 func sSgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -10143,10 +10698,35 @@ var slotSSgesvBufferSize outSlot[uint]
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK<t1>LAMCH('Epsilon')
+//
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+//   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
@@ -10161,15 +10741,15 @@ var slotSSgesvBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSXgels.
 func sXgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -10193,14 +10773,13 @@ func sXgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSXgelsBufferSize, bound as cusolverDnSXgels_bufferSize.
 func sXgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -10228,10 +10807,35 @@ var slotSXgelsBufferSize outSlot[uint]
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK LAMCH(‘Epsilon’)
+//
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+//   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgesv]*; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // * Has LAPACK counterparts
 // cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
@@ -10247,15 +10851,15 @@ var slotSXgelsBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid. If dinfo = i, then U(i,i) computed in main precision is exactly zero. The factorization has been completed, but the factor U is exactly singular, so the solution could not be computed
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSXgesv.
 func sXgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -10279,14 +10883,13 @@ func sXgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSXgesvBufferSize, bound as cusolverDnSXgesv_bufferSize.
 func sXgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -10311,9 +10914,8 @@ var slotSXgesvBufferSize outSlot[uint]
 //   - function: The routine to be configured
 //   - algo: The algorithm to be configured
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidValue]: Wrong combination of function and algo.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSetAdvOptions.
 func setAdvOptions(params Params, function Function, algo AlgMode) error {
@@ -10330,10 +10932,11 @@ func setAdvOptions(params Params, function Function, algo AlgMode) error {
 //   - handle: Handle to the cuSolverDN library context
 //   - mode: The deterministic mode to be used with handle
 //
-// Returns:
+// A nil error means the modes were set successfully.
+//
+// Errors:
 //   - [ErrInternalError]: An internal error occurred.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The modes were set successfully.
 //
 // Wraps cusolverDnSetDeterministicMode.
 func setDeterministicMode(handle Handle, mode DeterministicMode) error {
@@ -10346,14 +10949,19 @@ func setDeterministicMode(handle Handle, mode DeterministicMode) error {
 // setEmulationSpecialValuesSupport sets the handling of special floating point values for handle, which is used once floating point emulation is allowed.
 //
 // The special value support set by this API only has an effect, once one of the following math modes is enabled (see also [MathMode]):
+//   - [FP32EmulatedBf16x9Math]
+//   - [FP64EmulatedFixedpointMath]
+//   - [FP32FP64EmulatedMath]
 //
+// Parameters:
 //   - handle: Handle to the cuSolverDN library context
-//   - mask: If set to CUDA_EMULATION_SPECIAL_VALUE_SUPPORT_DEFAULT, values are propagated as expected. Performance of floating pointemulated math may improve if set to CUDA_EMULATION_SPECIAL_VALUES_SUPPORT_NONE for which the propagation of special values isundefined
+//   - mask: If set to CUDA_EMULATION_SPECIAL_VALUE_SUPPORT_DEFAULT, values are propagated as expected. Performance of floating point emulated math may improve if set to CUDA_EMULATION_SPECIAL_VALUES_SUPPORT_NONE for which the propagation of special values is undefined
 //
-// Returns:
+// A nil error means the special value support was set successfully.
+//
+// Errors:
 //   - [ErrInternalError]: An internal error occurred.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The special value support was set successfully.
 //
 // Wraps cusolverDnSetEmulationSpecialValuesSupport.
 func setEmulationSpecialValuesSupport(handle Handle, mask EmulationSpecialValuesSupport) error {
@@ -10367,17 +10975,21 @@ func setEmulationSpecialValuesSupport(handle Handle, mask EmulationSpecialValues
 //
 // For more information about the effects of the corresponding strategies, please refer to the analogous definition of cublasEmulationStrategy_t.
 // The emulation strategy set by this API only has an effect, once one of the following math modes is enabled (see also [MathMode]):
+//   - [FP32EmulatedBf16x9Math]
+//   - [FP64EmulatedFixedpointMath]
+//   - [FP32FP64EmulatedMath]
 //
 // Note: Please note that the workspace sizes returned by *_bufferSize APIs may depend on the emulation strategy.
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - strategy: The emulation strategy to be used with handle
 //
-// Returns:
+// A nil error means the strategy was set successfully.
+//
+// Errors:
 //   - [ErrInternalError]: An internal error occurred.
 //   - [ErrInvalidValue]: strategy was not a supported emulation strategy
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The strategy was set successfully.
 //
 // Wraps cusolverDnSetEmulationStrategy.
 func setEmulationStrategy(handle Handle, strategy EmulationStrategy) error {
@@ -10390,17 +11002,23 @@ func setEmulationStrategy(handle Handle, strategy EmulationStrategy) error {
 // setFixedPointEmulationMantissaBitOffset sets the mantissa bit offset for fixed point FP64 emulation in case of dynamic mantissa control mode.
 //
 // The mantissa bit offset, which is set by this API only has an effect, once one of the following math modes is enabled (see also [MathMode]):
+//   - [FP64EmulatedFixedpointMath]
+//   - [FP32FP64EmulatedMath]
+//
 // And the following mantissa control is enabled (see also [Handle.SetFixedPointEmulationMantissaControl]):
+//   - CUDA_EMULATION_MANTISSA_CONTROL_DYNAMIC
+//
 // You may tune values for mantissaBitOffset based on your accuracy and performance requirements, e.g., choose negative values -8, -16, … for better performance while fewer mantissa bits may reduce accuracy.
 // Please note that values of mantissaBitOffset which are unequal to zero require the mantissa control to be equal to CUDA_EMULATION_MANTISSA_CONTROL_DYNAMIC. Otherwise, the computational cuSOLVER routines will return [ErrInvalidValue], indicating an unsupported handle state.
 //
 //   - handle: Handle to the cuSolverDN library context
-//   - mantissaBitOffset: The mantissa bit offset (default = 0) to be used when themantissa control is CUDA_EMULATION_MANTISSA_CONTROL_DYNAMIC
+//   - mantissaBitOffset: The mantissa bit offset (default = 0) to be used when the mantissa control is CUDA_EMULATION_MANTISSA_CONTROL_DYNAMIC
 //
-// Returns:
+// A nil error means the mantissa bit offset was set successfully.
+//
+// Errors:
 //   - [ErrInternalError]: An internal error occurred.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The mantissa bit offset was set successfully.
 //
 // Wraps cusolverDnSetFixedPointEmulationMantissaBitOffset.
 func setFixedPointEmulationMantissaBitOffset(handle Handle, mantissaBitOffset int32) error {
@@ -10414,15 +11032,19 @@ func setFixedPointEmulationMantissaBitOffset(handle Handle, mantissaBitOffset in
 //
 // For more information about the effects of the corresponding control modes, please refer to [EmulationMantissaControl].
 // The mantissa control set by this API only has an effect, once one of the following math modes is enabled (see also [MathMode]):
+//   - [FP64EmulatedFixedpointMath]
+//   - [FP32FP64EmulatedMath]
 //
+// Parameters:
 //   - handle: Handle to the cuSolverDN library context
 //   - control: The mantissa control mode to be used with handle
 //
-// Returns:
+// A nil error means the mantissa control was set successfully.
+//
+// Errors:
 //   - [ErrInternalError]: An internal error occurred.
 //   - [ErrInvalidValue]: control is not a valid [EmulationMantissaControl] value.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The mantissa control was set successfully.
 //
 // Wraps cusolverDnSetFixedPointEmulationMantissaControl.
 func setFixedPointEmulationMantissaControl(handle Handle, control EmulationMantissaControl) error {
@@ -10435,15 +11057,19 @@ func setFixedPointEmulationMantissaControl(handle Handle, control EmulationManti
 // setFixedPointEmulationMaxMantissaBitCount sets the maximum number of mantissa bits for fixed point FP64 emulation.
 //
 // The maximum mantissa bit count set by this API only has an effect, once one of the following math modes is enabled (see also [MathMode]):
+//   - [FP64EmulatedFixedpointMath]
+//   - [FP32FP64EmulatedMath]
 //
+// Parameters:
 //   - handle: Handle to the cuSolverDN library context
-//   - mantissaBitCount: The number of mantissa bits to be used. Setting mantissaBitCount = 0 resetsto the default configuration as described incuBLAS defaults
+//   - mantissaBitCount: The number of mantissa bits to be used. Setting mantissaBitCount = 0 resets to the default configuration as described in cuBLAS defaults
 //
-// Returns:
+// A nil error means the mantissa bit count was set successfully.
+//
+// Errors:
 //   - [ErrInternalError]: An internal error occurred.
 //   - [ErrInvalidValue]: mantissaBitCount is less than 0.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The mantissa bit count was set successfully.
 //
 // Wraps cusolverDnSetFixedPointEmulationMaxMantissaBitCount.
 func setFixedPointEmulationMaxMantissaBitCount(handle Handle, mantissaBitCount int32) error {
@@ -10461,11 +11087,12 @@ func setFixedPointEmulationMaxMantissaBitCount(handle Handle, mantissaBitCount i
 //
 //   - handle: Handle to the cuSolverDN library context
 //
-// Returns:
+// A nil error means the mode was set successfully.
+//
+// Errors:
 //   - [ErrInternalError]: An internal error occurred.
 //   - [ErrInvalidValue]: An invalid mode was given.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The mode was set successfully.
 //
 // Wraps cusolverDnSetMathMode.
 func setMathMode(handle Handle, mode MathMode) error {
@@ -10480,9 +11107,8 @@ func setMathMode(handle Handle, mode MathMode) error {
 //   - handle: Handle to the cuSolverDN library context
 //   - streamId: The stream to be used by the library
 //
-// Returns:
+// Errors:
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The stream was set successfully.
 //
 // Wraps cusolverDnSetStream.
 func setStream(handle Handle, streamId driver.Stream) error {
@@ -10496,7 +11122,10 @@ func setStream(handle Handle, streamId driver.Stream) error {
 //
 // If m>=n, B is upper bidiagonal; if m<n, B is lower bidiagonal.
 // The matrix Q and P are overwritten into matrix A in the following sense:
-// The user has to provide working space which is pointed by input parameter Work. The input parameter Lwork is size of the working space, and it is returned by gebrd_bufferSize().
+//   - if m>=n, the diagonal and the first superdiagonal are overwritten with the upper bidiagonal matrix B; the elements below the diagonal, with the array TAUQ, represent the orthogonal matrix Q as a product of elementary reflectors, and the elements above the first superdiagonal, with the array TAUP, represent the orthogonal matrix P as a product of elementary reflectors.
+//   - if m<n, the diagonal and the first subdiagonal are overwritten with the lower bidiagonal matrix B; the elements below the first subdiagonal, with the array TAUQ, represent the orthogonal matrix Q as a product of elementary reflectors, and the elements above the diagonal, with the array TAUP, represent the orthogonal matrix P as a product of elementary reflectors.
+//
+// The input parameter Lwork is size of the working space, and it is returned by gebrd_bufferSize().
 // Remark: gebrd only supports m>=n.
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -10512,12 +11141,11 @@ func setStream(handle Handle, streamId driver.Stream) error {
 //   - lwork: Size of Work, returned by gebrd_bufferSize
 //   - devInfo: If devInfo = 0, the operation is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle)
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0, or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSgebrd.
 func sgebrd(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tauq driver.DevicePtr, taup driver.DevicePtr, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
@@ -10534,12 +11162,11 @@ func sgebrd(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, d dr
 //   - n: Number of columns of matrix A
 //   - lwork: Size of Work, in elements of float32
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0, or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSgebrdBufferSize, bound as cusolverDnSgebrd_bufferSize.
 func sgebrdBufferSize(handle Handle, m int32, n int32) (int32, error) {
@@ -10561,7 +11188,7 @@ var slotSgebrdBufferSize outSlot[int32]
 // sgeqrf computes the QR factorization of an m×n matrix.
 //
 // A=Q*R, where A is an m×n matrix, Q is an m×n matrix, and R is a n×n upper triangular matrix.
-// The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by geqrf_bufferSize().
+// The input parameter Lwork is size of the working space, and it is returned by geqrf_bufferSize().
 // The matrix R is overwritten in upper triangular part of A, including diagonal elements.
 // The matrix Q is not formed explicitly, instead, a sequence of householder vectors are stored in lower triangular part of A. The leading nonzero element of householder vector is assumed to be 1 such that output parameter TAU contains the scaling factor τ. If v is original householder vector, q is the new householder vector corresponding to τ, satisfying the following relation
 // I−2*v*vᴴ=I−τ*q*qᴴ
@@ -10576,12 +11203,11 @@ var slotSgebrdBufferSize outSlot[int32]
 //   - lwork: Size of working array Workspace
 //   - devInfo: If devInfo = 0, the LU factorization is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle)
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSgeqrf.
 func sgeqrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, workspace driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
@@ -10598,13 +11224,13 @@ func sgeqrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, tau 
 //   - n: Number of columns of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
+//   - lwork: Size of Workspace, in elements of float32
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSgeqrfBufferSize, bound as cusolverDnSgeqrf_bufferSize.
 func sgeqrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32) (int32, error) {
@@ -10649,12 +11275,11 @@ var slotSgeqrfBufferSize outSlot[int32]
 //   - lwork: Size of work, returned by gesvd_bufferSize
 //   - rwork: Real array of dimension min(m,n)-1. It contains the unconverged superdiagonal elements of an upper bidiagonal matrix if devInfo > 0
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldvt<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSgesvd.
 func sgesvd(handle Handle, jobu int8, jobvt int8, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, vt driver.DevicePtr, ldvt int32, work driver.DevicePtr, lwork int32, rwork driver.DevicePtr, info driver.DevicePtr) error {
@@ -10671,12 +11296,11 @@ func sgesvd(handle Handle, jobu int8, jobvt int8, m int32, n int32, a driver.Dev
 //   - n: Number of columns of matrix A
 //   - lwork: Size of work, in elements of float32
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldvt<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSgesvdBufferSize, bound as cusolverDnSgesvd_bufferSize.
 func sgesvdBufferSize(handle Handle, m int32, n int32) (int32, error) {
@@ -10732,13 +11356,13 @@ var slotSgesvdBufferSize outSlot[int32]
 //   - ldv: Leading dimension of two-dimensional array used to store matrix Vj. ldv is not less than max(1,n)
 //   - strideV: Value of type long long int that gives the address offset between V [i] and V [i+1]. strideV is not less than ldv*rank
 //   - lwork: Size of work, returned by gesvdaStridedBatched_bufferSize
+//   - hRNrmF: array of size batchSize. h_RnrmF [i] is norm of residual of i-th matrix. If 0 < info [i] < min(m,n)+1, h_RnrmF [i] reports the residual as if rank of the i-th matrix had been set to info [i]-1
 //   - batchSize: Number of matrices. batchSize is not less than 1
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or batchSize*stride{A/S/U/V}>INT32_MAX or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n) or strideA<lda*n or strideS<rank or strideU<ldu*rank or strideV<ldv*rank or batchSize<1 or jobz is not [EigModeNovector] or [EigModeVector]).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSgesvdaStridedBatched.
 func sgesvdaStridedBatched(handle Handle, jobz EigMode, rank int32, m int32, n int32, dA driver.DevicePtr, lda int32, strideA int64, dS driver.DevicePtr, strideS int64, dU driver.DevicePtr, ldu int32, strideU int64, dV driver.DevicePtr, ldv int32, strideV int64, dWork driver.DevicePtr, lwork int32, dInfo driver.DevicePtr, hRNrmF *float64, batchSize int32) error {
@@ -10765,11 +11389,10 @@ func sgesvdaStridedBatched(handle Handle, jobz EigMode, rank int32, m int32, n i
 //   - lwork: Size of work, in elements of float32
 //   - batchSize: Number of matrices. batchSize is not less than 1
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or batchSize*stride{A/S/U/V}>INT32_MAX or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n) or strideA<lda*n or strideS<rank or strideU<ldu*rank or strideV<ldv*rank or batchSize<1 or jobz is not [EigModeNovector] or [EigModeVector]).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSgesvdaStridedBatchedBufferSize, bound as cusolverDnSgesvdaStridedBatched_bufferSize.
 func sgesvdaStridedBatchedBufferSize(handle Handle, jobz EigMode, rank int32, m int32, n int32, dA driver.DevicePtr, lda int32, strideA int64, dS driver.DevicePtr, strideS int64, dU driver.DevicePtr, ldu int32, strideU int64, dV driver.DevicePtr, ldv int32, strideV int64, lwork *int32, batchSize int32) error {
@@ -10821,11 +11444,10 @@ func sgesvdaStridedBatchedBufferSize(handle Handle, jobz EigMode, rank int32, m 
 //   - info: If info = 0, the operation is successful. if info = -i, the i-th parameter is wrong (not counting handle). if info =  min(m,n)+1, gesvdj dose not converge under given tolerance and maximum sweeps
 //   - params: Structure filled with parameters of Jacobi algorithm and results of gesvdj. params can be destroyed after the host thread exits the routine
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n) or jobz is not [EigModeNovector] or [EigModeVector] ).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSgesvdj.
 func sgesvdj(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params GesvdjInfo) error {
@@ -10846,7 +11468,7 @@ func sgesvdj(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver
 // The formula for random access of S is Sₖ(j)=S [j+min(m,n)*k] .
 // Except for tolerance and maximum sweeps, gesvdjBatched can either sort the singular values in descending order (default) or chose as-is (without sorting) by the function [GesvdjInfo.XgesvdjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate singular values of those tiny matrices.
 // gesvdjBatched cannot report residual and executed sweeps by function [Handle.XgesvdjGetResidual] and [Handle.XgesvdjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
-// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdjBatched_bufferSize().
+// The input parameter lwork is the size of the working space, and it is returned by gesvdjBatched_bufferSize().
 // The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
 // Please visit cuSOLVER Library Samples - gesvdjBatched for a code example.
 //
@@ -10867,11 +11489,10 @@ func sgesvdj(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver
 //   - params: Structure filled with parameters of Jacobi algorithm. params can be destroyed after the host thread exits the routine
 //   - batchSize: Number of matrices
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n) or jobz is not [EigModeNovector] or [EigModeVector] , or batchSize<0).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSgesvdjBatched.
 func sgesvdjBatched(handle Handle, jobz EigMode, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params GesvdjInfo, batchSize int32) error {
@@ -10898,11 +11519,10 @@ func sgesvdjBatched(handle Handle, jobz EigMode, m int32, n int32, a driver.Devi
 //   - params: Structure filled with parameters of Jacobi algorithm. params can be destroyed after the host thread exits the routine
 //   - batchSize: Number of matrices
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n) or jobz is not [EigModeNovector] or [EigModeVector] , or batchSize<0).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSgesvdjBatchedBufferSize, bound as cusolverDnSgesvdjBatched_bufferSize.
 func sgesvdjBatchedBufferSize(handle Handle, jobz EigMode, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
@@ -10929,11 +11549,10 @@ func sgesvdjBatchedBufferSize(handle Handle, jobz EigMode, m int32, n int32, a d
 //   - lwork: Size of work, in elements of float32
 //   - params: Structure filled with parameters of Jacobi algorithm and results of gesvdj. params can be destroyed after the host thread exits the routine
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n) or jobz is not [EigModeNovector] or [EigModeVector] ).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSgesvdjBufferSize, bound as cusolverDnSgesvdj_bufferSize.
 func sgesvdjBufferSize(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, lwork *int32, params GesvdjInfo) error {
@@ -10946,7 +11565,7 @@ func sgesvdjBufferSize(handle Handle, jobz EigMode, econ int32, m int32, n int32
 // sgetrf computes the LU factorization of an m×n matrix.
 //
 // P*A=L*U, where A is an m×n matrix, P is a permutation matrix, L is a lower triangular matrix with unit diagonal, and U is an upper triangular matrix.
-// The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by getrf_bufferSize().
+// The input parameter Lwork is size of the working space, and it is returned by getrf_bufferSize().
 // If LU factorization failed, i.e. matrix A ( U) is singular, The output parameter devInfo=i indicates U(i,i) = 0.
 // If devIpiv is null, no pivoting is performed. The factorization is A=L*U, which is not numerically stable.
 // No matter LU factorization failed or not, the output parameter devIpiv contains pivoting sequence, row i is interchanged with row devIpiv(i).
@@ -10962,12 +11581,11 @@ func sgesvdjBufferSize(handle Handle, jobz EigMode, econ int32, m int32, n int32
 //   - devIpiv: Array of size at least min(m,n), containing pivot indices
 //   - devInfo: If devInfo = 0, the LU factorization is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle). if devInfo = i, the U(i,i) = 0
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSgetrf.
 func sgetrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, workspace driver.DevicePtr, devIpiv driver.DevicePtr, devInfo driver.DevicePtr) error {
@@ -10986,12 +11604,11 @@ func sgetrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, work
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - lwork: Size of Workspace, in elements of float32
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSgetrfBufferSize, bound as cusolverDnSgetrf_bufferSize.
 func sgetrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32) (int32, error) {
@@ -11028,12 +11645,11 @@ var slotSgetrfBufferSize outSlot[int32]
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - devInfo: If devInfo = 0, the operation is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle)
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n) or ldb<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSgetrs.
 func sgetrs(handle Handle, trans Operation, n int32, nrhs int32, a driver.DevicePtr, lda int32, devIpiv driver.DevicePtr, b driver.DevicePtr, ldb int32, devInfo driver.DevicePtr) error {
@@ -11092,12 +11708,11 @@ var slotSlauumBufferSize outSlot[int32]
 //   - work: Working space, array of size lwork
 //   - lwork: Size of working array work
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or wrong lda ).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSorgbr.
 func sorgbr(handle Handle, side SideMode, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -11119,12 +11734,11 @@ func sorgbr(handle Handle, side SideMode, m int32, n int32, k int32, a driver.De
 //   - tau: array of dimension min(m,k) if side is CUBLAS_SIDE_LEFT; of dimension min(n,k) if side is CUBLAS_SIDE_RIGHT; tau(i) must contain the scalar factor of the elementary reflector H(i) or G(i), which determines Q or P**T, as returned by gebrd in its array argument TAUQ or TAUP
 //   - lwork: Size of work, in elements of float32
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or wrong lda ).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSorgbrBufferSize, bound as cusolverDnSorgbr_bufferSize.
 func sorgbrBufferSize(handle Handle, side SideMode, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
@@ -11159,12 +11773,11 @@ var slotSorgbrBufferSize outSlot[int32]
 //   - work: Working space, array of size lwork
 //   - lwork: Size of working array work
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n,k<0, n>m, k>n or lda<m).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSorgqr.
 func sorgqr(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -11185,12 +11798,11 @@ func sorgqr(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda in
 //   - tau: array of dimension k. tau(i) is the scalar of i-th elementary reflection vector
 //   - lwork: Size of work, in elements of float32
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n,k<0, n>m, k>n or lda<m).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSorgqrBufferSize, bound as cusolverDnSorgqr_bufferSize.
 func sorgqrBufferSize(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
@@ -11222,12 +11834,11 @@ var slotSorgqrBufferSize outSlot[int32]
 //   - work: Working space, array of size lwork
 //   - lwork: Size of working array work
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or wrong lda).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSorgtr.
 func sorgtr(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -11247,12 +11858,11 @@ func sorgtr(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - tau: array of dimension (n-1) tau(i) is the scalar of i-th elementary reflection vector
 //   - lwork: Size of work, in elements of float32
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or wrong lda).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSorgtrBufferSize, bound as cusolverDnSorgtr_bufferSize.
 func sorgtrBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
@@ -11296,12 +11906,11 @@ var slotSorgtrBufferSize outSlot[int32]
 //   - lwork: Size of working array work
 //   - devInfo: If devInfo = 0, the ormqr is successful. If devInfo = -i, the i-th parameter is wrong (not counting handle)
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n,k<0, k > m if CUBLAS_SIDE_LEFT, k > n if CUBLAS_SIDE_RIGHT, wrong lda or ldc or invalid trans).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSormqr.
 func sormqr(handle Handle, side SideMode, trans Operation, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
@@ -11326,12 +11935,11 @@ func sormqr(handle Handle, side SideMode, trans Operation, m int32, n int32, k i
 //   - ldc: Leading dimension of two-dimensional array of matrix C. ldc >= max(1,m)
 //   - lwork: Size of work, in elements of float32
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n,k<0, k > m if CUBLAS_SIDE_LEFT, k > n if CUBLAS_SIDE_RIGHT, wrong lda or ldc or invalid trans).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSormqrBufferSize, bound as cusolverDnSormqr_bufferSize.
 func sormqrBufferSize(handle Handle, side SideMode, trans Operation, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32) (int32, error) {
@@ -11370,12 +11978,11 @@ var slotSormqrBufferSize outSlot[int32]
 //   - work: Working space, array of size lwork
 //   - lwork: Size of working array work
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or wrong lda or ldc).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSormtr.
 func sormtr(handle Handle, side SideMode, uplo FillMode, trans Operation, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -11400,12 +12007,11 @@ func sormtr(handle Handle, side SideMode, uplo FillMode, trans Operation, m int3
 //   - ldc: Leading dimension of two-dimensional array of matrix C. ldc >= max(1,m)
 //   - lwork: Size of work, in elements of float32
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or wrong lda or ldc).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSormtrBufferSize, bound as cusolverDnSormtr_bufferSize.
 func sormtrBufferSize(handle Handle, side SideMode, uplo FillMode, trans Operation, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32) (int32, error) {
@@ -11431,7 +12037,7 @@ var slotSormtrBufferSize outSlot[int32]
 // A=L*Lᴴ
 // If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular Cholesky factor U.
 // A=Uᴴ*U
-// The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by potrf_bufferSize().
+// The input parameter Lwork is size of the working space, and it is returned by potrf_bufferSize().
 // If Cholesky factorization failed, i.e. some leading minor of A is not positive definite, or equivalently some diagonal elements of L or U is not a real number. The output parameter devInfo would indicate smallest leading minor of A which is not positive definite.
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -11443,12 +12049,11 @@ var slotSormtrBufferSize outSlot[int32]
 //   - lwork: Size of Workspace, returned by potrf_bufferSize
 //   - devInfo: If devInfo = 0, the Cholesky factorization is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle). if devInfo = i, the leading minor of order i is not positive definite
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSpotrf.
 func spotrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, workspace driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
@@ -11477,11 +12082,10 @@ func spotrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - infoArray: Array of size batchSize. infoArray [i] contains information of factorization of Aarray [i]. if potrfBatched returns [ErrInvalidValue], infoArray [0] = -i (less than zero) means the i-th parameter is wrong (not counting handle). if potrfBatched returns [Success], infoArray [i] = 0 means the Cholesky factorization of i-th matrix is successful, and infoArray [i] = k means the leading submatrix of order k of i-th matrix is not positive definite
 //   - batchSize: Number of pointers in Aarray
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n) or batchSize<1).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSpotrfBatched.
 func spotrfBatched(handle Handle, uplo FillMode, n int32, aarray driver.DevicePtr, lda int32, infoArray driver.DevicePtr, batchSize int32) error {
@@ -11500,12 +12104,11 @@ func spotrfBatched(handle Handle, uplo FillMode, n int32, aarray driver.DevicePt
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - lwork: Size of Workspace, in elements of float32
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSpotrfBufferSize, bound as cusolverDnSpotrf_bufferSize.
 func spotrfBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
@@ -11530,7 +12133,7 @@ var slotSpotrfBufferSize outSlot[int32]
 // A is an n×n matrix containing the triangular factor L or U computed by the Cholesky factorization. Only lower or upper part is meaningful and the input parameter uplo indicates which part of the matrix is used. The function would leave the other part untouched.
 // If the input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced the by lower triangular part of the inverse of A.
 // If the input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by the upper triangular part of the inverse of A.
-// The user has to provide the working space which is pointed to by input parameter Workspace. The input parameter Lwork is the size of the working space, returned by potri_bufferSize().
+// The input parameter Lwork is the size of the working space, returned by potri_bufferSize().
 // If the computation of the inverse fails, i.e. some leading minor of L or U, is null, the output parameter devInfo would indicate the smallest leading minor of L or U which is not positive definite.
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -11538,14 +12141,14 @@ var slotSpotrfBufferSize outSlot[int32]
 //   - n: Number of rows and columns of matrix A
 //   - a: array of dimension lda * n where lda is not less than max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
+//   - lwork: Size of Workspace, returned by potri_bufferSize
 //   - devInfo: If devInfo = 0, the computation of the inverse is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle). if devInfo = i, the leading minor of order i is zero
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSpotri.
 func spotri(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
@@ -11562,13 +12165,13 @@ func spotri(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - n: Number of rows and columns of matrix A
 //   - a: array of dimension lda * n where lda is not less than max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
+//   - lwork: Size of Workspace, in elements of float32
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSpotriBufferSize, bound as cusolverDnSpotri_bufferSize.
 func spotriBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
@@ -11602,12 +12205,11 @@ var slotSpotriBufferSize outSlot[int32]
 //   - b: array of dimension ldb * nrhs. ldb is not less than max(1,n). As an input, B is right hand side matrix. As an output, B is the solution matrix
 //   - devInfo: If devInfo = 0, the Cholesky factorization is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle)
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, nrhs<0, lda<max(1,n) or ldb<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSpotrs.
 func spotrs(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, devInfo driver.DevicePtr) error {
@@ -11636,11 +12238,10 @@ func spotrs(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.DevicePt
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix Barray [i]
 //   - batchSize: Number of pointers in Aarray
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, nrhs<0, lda<max(1,n), ldb<max(1,n) or batchSize<0).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSpotrsBatched.
 func spotrsBatched(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, dInfo driver.DevicePtr, batchSize int32) error {
@@ -11666,13 +12267,13 @@ func spotrsBatched(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.D
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
 //   - work: Working space, array of size lwork
+//   - lwork: Size of work, returned by syevd_bufferSize
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSsyevd.
 func ssyevd(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -11693,12 +12294,11 @@ func ssyevd(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.Device
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
 //   - lwork: Size of work, in elements of float32
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSsyevdBufferSize, bound as cusolverDnSsyevd_bufferSize.
 func ssyevdBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr) (int32, error) {
@@ -11742,12 +12342,11 @@ var slotSsyevdBufferSize outSlot[int32]
 //   - work: Working space, array of size lwork
 //   - lwork: Size of work, returned by syevdx_bufferSize
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or range is not [EigRangeAll] or [EigRangeV] or [EigRangeI], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSsyevdx.
 func ssyevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -11773,12 +12372,11 @@ func ssyevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int3
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
 //   - lwork: Size of work, in elements of float32
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or range is not [EigRangeAll] or [EigRangeV] or [EigRangeI], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSsyevdxBufferSize, bound as cusolverDnSsyevdx_bufferSize.
 func ssyevdxBufferSize(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float32, vu float32, il int32, iu int32, w driver.DevicePtr) (meig int32, lwork int32, err error) {
@@ -11813,7 +12411,7 @@ var slotSsyevdxBufferSize outSlot[struct {
 // The Jacobi method has quadratic convergence, so the accuracy is not proportional to number of sweeps. To guarantee certain accuracy, the user should configure tolerance only.
 // After syevj, the user can query residual by function [Handle.XsyevjGetResidual] and number of executed sweeps by function [Handle.XsyevjGetSweeps]. However the user needs to be aware that residual is the Frobenius norm of E, not accuracy of individual eigenvalue, i.e.
 // residual=‖E‖_(F)=‖Λ−W‖_(F)
-// The same as syevd, the user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevj_bufferSize().
+// The input parameter lwork is the size of the working space, and it is returned by syevj_bufferSize().
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = n+1, syevj does not converge under given tolerance and maximum sweeps.
 // If the user sets an improper tolerance, syevj may not converge. For example, tolerance should not be smaller than machine accuracy.
 // If jobz = [EigModeVector], A contains the orthonormal eigenvectors V.
@@ -11831,11 +12429,10 @@ var slotSsyevdxBufferSize outSlot[struct {
 //   - info: If info = 0, the operation is successful. If info = -i, the i-th parameter is wrong (not counting handle). If info = n+1, syevj does not converge under given tolerance and maximum sweeps
 //   - params: Structure filled with parameters of Jacobi algorithm and results of syevj
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSsyevj.
 func ssyevj(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo) error {
@@ -11856,7 +12453,7 @@ func ssyevj(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.Device
 // The formula for random access of W is Wₖ(j)=W [j+n*k] .
 // Except for tolerance and maximum sweeps, syevjBatched can either sort the eigenvalues in ascending order (default) or chose as-is (without sorting) by the function [SyevjInfo.XsyevjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate spectrum of those tiny matrices.
 // syevjBatched cannot report residual and executed sweeps by function [Handle.XsyevjGetResidual] and [Handle.XsyevjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
-// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevjBatched_bufferSize().
+// The input parameter lwork is the size of the working space, and it is returned by syevjBatched_bufferSize().
 // The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
 // If jobz = [EigModeVector], Aⱼ contains the orthonormal eigenvectors Vⱼ.
 // Please visit cuSOLVER Library Samples - syevjBatched for a code example.
@@ -11874,11 +12471,10 @@ func ssyevj(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.Device
 //   - params: Structure filled with parameters of Jacobi algorithm
 //   - batchSize: Number of matrices
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER), or batchSize<0.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSsyevjBatched.
 func ssyevjBatched(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo, batchSize int32) error {
@@ -11901,11 +12497,10 @@ func ssyevjBatched(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver
 //   - params: Structure filled with parameters of Jacobi algorithm
 //   - batchSize: Number of matrices
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER), or batchSize<0.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSsyevjBatchedBufferSize, bound as cusolverDnSsyevjBatched_bufferSize.
 func ssyevjBatchedBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, lwork *int32, params SyevjInfo, batchSize int32) error {
@@ -11927,11 +12522,10 @@ func ssyevjBatchedBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32
 //   - lwork: Size of work, in elements of float32
 //   - params: Structure filled with parameters of Jacobi algorithm and results of syevj
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSsyevjBufferSize, bound as cusolverDnSsyevj_bufferSize.
 func ssyevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, lwork *int32, params SyevjInfo) error {
@@ -11950,7 +12544,7 @@ func ssyevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a dri
 // Please visit cuSOLVER Library Samples - sygvd for a code example.
 //
 //   - handle: Handle to the cuSolverDN library context
-//   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x. - itype =[EigType2]: A*B*x = (lambda)*x. - itype =[EigType3]: B*A*x = (lambda)*x
+//   - itype: Specifies the problem type to be solved: itype =[EigType1]: A*x = (lambda)*B*x. itype =[EigType2]: A*B*x = (lambda)*x. itype =[EigType3]: B*A*x = (lambda)*x
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - uplo: Specifies which part of A and B are stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A and B are stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A and B are stored
 //   - n: Number of rows (or columns) of matrix A and B
@@ -11960,13 +12554,13 @@ func ssyevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a dri
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B. ldb is not less than max(1,n)
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
 //   - work: Working space, array of size lwork
+//   - lwork: Size of work, returned by sygvd_bufferSize
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not 1, 2 or 3, or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSsygvd.
 func ssygvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -11979,7 +12573,7 @@ func ssygvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 // ssygvdBufferSize returns the workspace size, in elements of float32, for [Handle.Ssygvd].
 //
 //   - handle: Handle to the cuSolverDN library context
-//   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x. - itype =[EigType2]: A*B*x = (lambda)*x. - itype =[EigType3]: B*A*x = (lambda)*x
+//   - itype: Specifies the problem type to be solved: itype =[EigType1]: A*x = (lambda)*B*x. itype =[EigType2]: A*B*x = (lambda)*x. itype =[EigType3]: B*A*x = (lambda)*x
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - uplo: Specifies which part of A and B are stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A and B are stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A and B are stored
 //   - n: Number of rows (or columns) of matrix A and B
@@ -11990,12 +12584,11 @@ func ssygvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
 //   - lwork: Size of work, in elements of float32
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not 1, 2 or 3, or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSsygvdBufferSize, bound as cusolverDnSsygvd_bufferSize.
 func ssygvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr) (int32, error) {
@@ -12023,7 +12616,7 @@ var slotSsygvdBufferSize outSlot[int32]
 // Please visit cuSOLVER Library Samples - sygvdx for a code example.
 //
 //   - handle: Handle to the cuSolverDN library context
-//   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x - itype =[EigType2]: A*B*x = (lambda)*x - itype =[EigType3]: B*A*x = (lambda)*x
+//   - itype: Specifies the problem type to be solved: itype =[EigType1]: A*x = (lambda)*B*x; itype =[EigType2]: A*B*x = (lambda)*x; itype =[EigType3]: B*A*x = (lambda)*x
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - range_: Specifies options to which selection of eigenvalues and optionally eigenvectors that need to be computed: range = [EigRangeAll] : all eigenvalues/eigenvectors will be found, will becomes the classical syevd/heevd routine; range = [EigRangeV] : all eigenvalues/eigenvectors in the half-open interval (vl,vu] will be found; range = [EigRangeI] : the il-th through iu-th eigenvalues/eigenvectors will be found
 //   - uplo: Specifies which part of A and B are stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A and B are stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A and B are stored
@@ -12040,12 +12633,11 @@ var slotSsygvdBufferSize outSlot[int32]
 //   - work: Working space, array of size lwork
 //   - lwork: Size of work, returned by sygvdx_bufferSize
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not [EigType1] or [EigType2] or [EigType3] or jobz is not [EigModeNovector] or CUSOLVER_EIG_MODE_VECTORL, or range is not [EigRangeAll] or [EigRangeV] or [EigRangeI], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSsygvdx.
 func ssygvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -12058,7 +12650,7 @@ func ssygvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo F
 // ssygvdxBufferSize returns the workspace size, in elements of float32, for [Handle.Ssygvdx].
 //
 //   - handle: Handle to the cuSolverDN library context
-//   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x - itype =[EigType2]: A*B*x = (lambda)*x - itype =[EigType3]: B*A*x = (lambda)*x
+//   - itype: Specifies the problem type to be solved: itype =[EigType1]: A*x = (lambda)*B*x; itype =[EigType2]: A*B*x = (lambda)*x; itype =[EigType3]: B*A*x = (lambda)*x
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - range_: Specifies options to which selection of eigenvalues and optionally eigenvectors that need to be computed: range = [EigRangeAll] : all eigenvalues/eigenvectors will be found, will becomes the classical syevd/heevd routine; range = [EigRangeV] : all eigenvalues/eigenvectors in the half-open interval (vl,vu] will be found; range = [EigRangeI] : the il-th through iu-th eigenvalues/eigenvectors will be found
 //   - uplo: Specifies which part of A and B are stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A and B are stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A and B are stored
@@ -12074,12 +12666,11 @@ func ssygvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo F
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
 //   - lwork: Size of work, in elements of float32
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not [EigType1] or [EigType2] or [EigType3] or jobz is not [EigModeNovector] or CUSOLVER_EIG_MODE_VECTORL, or range is not [EigRangeAll] or [EigRangeV] or [EigRangeI], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSsygvdxBufferSize, bound as cusolverDnSsygvdx_bufferSize.
 func ssygvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float32, vu float32, il int32, iu int32, w driver.DevicePtr) (meig int32, lwork int32, err error) {
@@ -12130,11 +12721,10 @@ var slotSsygvdxBufferSize outSlot[struct {
 //   - lwork: Size of work, returned by sygvj_bufferSize
 //   - info: If info = 0, the operation is successful. if info = -i, the i-th parameter is wrong (not counting handle). If info = i (> 0), info indicates either B is not positive definite or syevj (called by sygvj) does not converge
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not 1, 2 or 3, or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSsygvj.
 func ssygvj(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo) error {
@@ -12158,11 +12748,10 @@ func ssygvj(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
 //   - lwork: Size of work, in elements of float32
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not 1, 2 or 3, or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSsygvjBufferSize, bound as cusolverDnSsygvj_bufferSize.
 func ssygvjBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, lwork *int32, params SyevjInfo) error {
@@ -12183,16 +12772,17 @@ func ssygvjBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode,
 //   - n: Number of rows (columns) of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A, and the strictly lower triangular part of A is not referenced. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A, and the strictly upper triangular part of A is not referenced. On exit, A is overwritten by T and householder reflection vectors
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda >= max(1,n)
+//   - d: Real array of dimension n. The diagonal elements of the tridiagonal matrix T: D(i) = A(i,i)
+//   - e: Real array of dimension (n-1). The off-diagonal elements of the tridiagonal matrix T: if uplo = CUBLAS_FILL_MODE_UPPER, E(i) = A(i,i+1). if uplo = CUBLAS_FILL_MODE_LOWER E(i) = A(i+1,i)
 //   - tau: array of dimension (n-1). The scalar factors of the elementary reflectors which represent the orthogonal matrix Q
 //   - work: Working space, array of size lwork
 //   - lwork: Size of work, returned by sytrd_bufferSize
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSsytrd.
 func ssytrd(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -12212,12 +12802,11 @@ func ssytrd(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - tau: array of dimension (n-1). The scalar factors of the elementary reflectors which represent the orthogonal matrix Q
 //   - lwork: Size of work, in elements of float32
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSsytrdBufferSize, bound as cusolverDnSsytrd_bufferSize.
 func ssytrdBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tau driver.DevicePtr) (int32, error) {
@@ -12255,12 +12844,11 @@ var slotSsytrdBufferSize outSlot[int32]
 //   - work: Working space, array of size lwork
 //   - lwork: Size of working space work
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSsytrf.
 func ssytrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -12278,12 +12866,11 @@ func ssytrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - lwork: Size of work, in elements of float32
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSsytrfBufferSize, bound as cusolverDnSsytrf_bufferSize.
 func ssytrfBufferSize(handle Handle, n int32, a driver.DevicePtr, lda int32) (int32, error) {
@@ -12342,7 +12929,8 @@ var slotSsytriBufferSize outSlot[int32]
 // Currently, [Handle.Xgeev] supports only the default algorithm.
 // Please visit cuSOLVER Library Samples - [Handle.Xgeev] for a code example.
 // Table of algorithms supported by [Handle.Xgeev]
-// List of input arguments for [Handle.XgeevBufferSize] and [Handle.Xgeev]:
+//   - [Alg0], the zero value: Default algorithm.
+//
 // The generic API has five different types, dataTypeA is the data type of the matrix A, dataTypeW is the data type of the array W, dataTypeVL is the data type of the matrix VL, dataTypeVR is the data type of the matrix VR and computeType is compute type of the operation. [Handle.Xgeev] only supports the following four combinations:
 // Valid combination of data type and compute type
 //
@@ -12369,11 +12957,10 @@ var slotSsytriBufferSize outSlot[int32]
 //   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XgeevBufferSize]
 //   - info: If info = 0, the operation is successful. If info = -i, the i-th parameter is wrong (not counting handle). If info = i (greater than zero), the QR algorithm failed to compute all the eigenvalues and no eigenvectors have been computed; elements i+1:n of W contain eigenvalues which have converged
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( jobvl is not [EigModeNovector] or [EigModeVector], or jobvr is not [EigModeNovector] or [EigModeVector], n<0, or lda < max(1,n), or ldvl < n if jobvl is [EigModeVector], or ldvr < n if jobvr is [EigModeVector]).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXgeev.
 func xgeev(handle Handle, params Params, jobvl EigMode, jobvr EigMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeW DataType, w driver.DevicePtr, dataTypeVL DataType, vl driver.DevicePtr, ldvl int64, dataTypeVR DataType, vr driver.DevicePtr, ldvr int64, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr) error {
@@ -12405,11 +12992,10 @@ func xgeev(handle Handle, params Params, jobvl EigMode, jobvr EigMode, n int64, 
 //   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
 //   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( jobvl is not [EigModeNovector] or [EigModeVector], or jobvr is not [EigModeNovector] or [EigModeVector], n<0, or lda < max(1,n), or ldvl < n if jobvl is [EigModeVector], or ldvr < n if jobvr is [EigModeVector]).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXgeevBufferSize, bound as cusolverDnXgeev_bufferSize.
 func xgeevBufferSize(handle Handle, params Params, jobvl EigMode, jobvr EigMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeW DataType, w driver.DevicePtr, dataTypeVL DataType, vl driver.DevicePtr, ldvl int64, dataTypeVR DataType, vr driver.DevicePtr, ldvr int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
@@ -12440,10 +13026,16 @@ var slotXgeevBufferSize outSlot[struct {
 // Currently, [Handle.Xgeqrf] supports only the default algorithm.
 // Please visit cuSOLVER Library Samples - [Handle.Xgeqrf] for a code example.
 // Algorithms supported by [Handle.Xgeqrf]
-// List of input arguments for [Handle.XgeqrfBufferSize] and [Handle.Xgeqrf]:
+//   - [Alg0], the zero value: Default algorithm.
+//
 // The generic API has two different types, dataTypeA is data type of the matrix A, dataTypeTau is data type of the array tau and computeType is compute type of the operation. [Handle.Xgeqrf] only supports the following four combinations.
 // Valid combination of data type and compute type
+//   - DataTypeA: CUDA_R_32F; ComputeType: CUDA_R_32F; Meaning: SGEQRF
+//   - DataTypeA: CUDA_R_64F; ComputeType: CUDA_R_64F; Meaning: DGEQRF
+//   - DataTypeA: CUDA_C_32F; ComputeType: CUDA_C_32F; Meaning: CGEQRF
+//   - DataTypeA: CUDA_C_64F; ComputeType: CUDA_C_64F; Meaning: ZGEQRF
 //
+// Parameters:
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
 //   - m: Number of rows of matrix A
@@ -12460,11 +13052,10 @@ var slotXgeevBufferSize outSlot[struct {
 //   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XgeqrfBufferSize]
 //   - info: If info = 0, the QR factorization is successful. If info = -i, the i-th parameter is wrong (not counting handle)
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXgeqrf.
 func xgeqrf(handle Handle, params Params, m int64, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeTau DataType, tau driver.DevicePtr, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr) error {
@@ -12489,11 +13080,10 @@ func xgeqrf(handle Handle, params Params, m int64, n int64, dataTypeA DataType, 
 //   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
 //   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXgeqrfBufferSize, bound as cusolverDnXgeqrf_bufferSize.
 func xgeqrfBufferSize(handle Handle, params Params, m int64, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeTau DataType, tau driver.DevicePtr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
@@ -12520,10 +13110,11 @@ var slotXgeqrfBufferSize outSlot[struct {
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). if bdsqr did not converge, info specifies how many superdiagonals of an intermediate bidiagonal form did not converge to zero.
 // Currently, [Handle.Xgesvd] supports only the default algorithm.
 // Algorithms supported by [Handle.Xgesvd]
+//   - [Alg0], the zero value: Default algorithm.
+//
 // Please visit cuSOLVER Library Samples - [Handle.Xgesvd] for a code example.
 // Remark 1: gesvd only supports m>=n.
 // Remark 2: the routine returns Vᴴ , not V.
-// List of input arguments for [Handle.XgesvdBufferSize] and [Handle.Xgesvd]:
 // The generic API has three different types, dataTypeA is data type of the matrix A, dataTypeS is data type of the vector S and dataTypeU is data type of the matrix U, dataTypeVT is data type of the matrix VT, computeType is compute type of the operation. [Handle.Xgesvd] only supports the following four combinations.
 // Valid combination of data type and compute type
 //
@@ -12551,11 +13142,10 @@ var slotXgeqrfBufferSize outSlot[struct {
 //   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XgesvdBufferSize]
 //   - info: If info = 0, the operation is successful. If info = -i, the i-th parameter is wrong (not counting handle). If info > 0, info indicates how many superdiagonals of an intermediate bidiagonal form did not converge to zero
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0, or lda<max(1,m), or ldu<1, or if jobu“='S' or 'A' “ldu<m, or ldvt<1, or if jobvt = ‘A’ ldvt<n, or if jobvt = ‘S’ ldvt<min(m,n), or jobu, jobvt are none of ‘N’, ‘O’, ‘S’, ‘A’, or jobu = jobvt = ‘O’ ).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXgesvd.
 func xgesvd(handle Handle, params Params, jobu int8, jobvt int8, m int64, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeS DataType, s driver.DevicePtr, dataTypeU DataType, u driver.DevicePtr, ldu int64, dataTypeVT DataType, vt driver.DevicePtr, ldvt int64, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr) error {
@@ -12588,11 +13178,10 @@ func xgesvd(handle Handle, params Params, jobu int8, jobvt int8, m int64, n int6
 //   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
 //   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0, or lda<max(1,m), or ldu<1, or if jobu“='S' or 'A' “ldu<m, or ldvt<1, or if jobvt = ‘A’ ldvt<n, or if jobvt = ‘S’ ldvt<min(m,n), or jobu, jobvt are none of ‘N’, ‘O’, ‘S’, ‘A’, or jobu = jobvt = ‘O’ ).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXgesvdBufferSize, bound as cusolverDnXgesvd_bufferSize.
 func xgesvdBufferSize(handle Handle, params Params, jobu int8, jobvt int8, m int64, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeS DataType, s driver.DevicePtr, dataTypeU DataType, u driver.DevicePtr, ldu int64, dataTypeVT DataType, vt driver.DevicePtr, ldvt int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
@@ -12622,9 +13211,8 @@ var slotXgesvdBufferSize outSlot[struct {
 //   - info: The pointer to the structure of gesvdj
 //   - residual: Residual of gesvdj
 //
-// Returns:
+// Errors:
 //   - [ErrNotSupported]: Does not support batched version
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXgesvdjGetResidual.
 func xgesvdjGetResidual(handle Handle, info GesvdjInfo) (float64, error) {
@@ -12651,9 +13239,8 @@ var slotXgesvdjGetResidual outSlot[float64]
 //   - info: The pointer to the structure of gesvdj
 //   - executedSweeps: Number of executed sweeps
 //
-// Returns:
+// Errors:
 //   - [ErrNotSupported]: Does not support batched version
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXgesvdjGetSweeps.
 func xgesvdjGetSweeps(handle Handle, info GesvdjInfo) (int32, error) {
@@ -12679,9 +13266,6 @@ var slotXgesvdjGetSweeps outSlot[int32]
 //   - info: The pointer to the structure of gesvdj
 //   - maxSweeps: Maximum number of sweeps
 //
-// Returns:
-//   - [Success]: The operation completed successfully.
-//
 // Wraps cusolverDnXgesvdjSetMaxSweeps.
 func xgesvdjSetMaxSweeps(info GesvdjInfo, maxSweeps int32) error {
 	if err := checkLibSym("cusolverDnXgesvdjSetMaxSweeps"); err != nil {
@@ -12690,15 +13274,14 @@ func xgesvdjSetMaxSweeps(info GesvdjInfo, maxSweeps int32) error {
 	return toError(fnxgesvdjSetMaxSweeps(info, maxSweeps), "cusolverDnXgesvdjSetMaxSweeps")
 }
 
-// xgesvdjSetSortEig If sortSvd is zero, the singular values are not sorted.
+// xgesvdjSetSortEig sets whether the batched Jacobi SVD sorts the singular values it computes.
+//
+// If sortSvd is zero, the singular values are not sorted.
 //
 // This function only works for gesvdjBatched. gesvdj always sorts singular values in descending order. By default, singular values are always sorted in descending order.
 //
 //   - info: The pointer to the structure of gesvdj
 //   - sortSvd: If sortSvd is zero, the singular values are not sorted
-//
-// Returns:
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXgesvdjSetSortEig.
 func xgesvdjSetSortEig(info GesvdjInfo, sortSvd int32) error {
@@ -12712,9 +13295,6 @@ func xgesvdjSetSortEig(info GesvdjInfo, sortSvd int32) error {
 //
 //   - info: The pointer to the structure of gesvdj
 //   - tolerance: Accuracy of numerical singular values
-//
-// Returns:
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXgesvdjSetTolerance.
 func xgesvdjSetTolerance(info GesvdjInfo, tolerance float64) error {
@@ -12732,16 +13312,17 @@ func xgesvdjSetTolerance(info GesvdjInfo, tolerance float64) error {
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // Currently, [Handle.Xgesvdp] supports only the default algorithm.
 // Algorithms supported by [Handle.Xgesvdp]
+//   - [Alg0], the zero value: Default algorithm.
+//
 // Please visit cuSOLVER Library Samples - [Handle.Xgesvdp] for a code example.
 // Remark 1: gesvdp supports n>=m as well.
 // Remark 2: the routine returns V, not Vᴴ
-// List of input arguments for [Handle.XgesvdpBufferSize] and [Handle.Xgesvdp]:
 // The generic API has three different types, dataTypeA is data type of the matrix A, dataTypeS is data type of the vector S and dataTypeU is data type of the matrix U, dataTypeV is data type of the matrix V, computeType is compute type of the operation. [Handle.Xgesvdp] only supports the following four combinations:
 // Valid combination of data type and compute type
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
-//   - jobz: Specifies options to either compute singular values only or compute singular vectors as well:jobz = [EigModeNovector] : Compute singular values only.jobz = [EigModeVector] : Compute singular values and singular vectors
+//   - jobz: Specifies options to either compute singular values only or compute singular vectors as well: jobz = [EigModeNovector] : Compute singular values only. jobz = [EigModeVector] : Compute singular values and singular vectors
 //   - econ: econ = 1 for economy size for U and V
 //   - m: Number of rows of matrix A
 //   - n: Number of columns of matrix A
@@ -12763,11 +13344,10 @@ func xgesvdjSetTolerance(info GesvdjInfo, tolerance float64) error {
 //   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XgesvdpBufferSize]
 //   - hErrSigma: Magnitude of the perturbation, showing the accuracy of SVD
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXgesvdp.
 func xgesvdp(handle Handle, params Params, jobz EigMode, econ int32, m int64, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeS DataType, s driver.DevicePtr, dataTypeU DataType, u driver.DevicePtr, ldu int64, dataTypeV DataType, v driver.DevicePtr, ldv int64, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, dInfo driver.DevicePtr, hErrSigma *float64) error {
@@ -12781,7 +13361,7 @@ func xgesvdp(handle Handle, params Params, jobz EigMode, econ int32, m int64, n 
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
-//   - jobz: Specifies options to either compute singular values only or compute singular vectors as well:jobz = [EigModeNovector] : Compute singular values only.jobz = [EigModeVector] : Compute singular values and singular vectors
+//   - jobz: Specifies options to either compute singular values only or compute singular vectors as well: jobz = [EigModeNovector] : Compute singular values only. jobz = [EigModeVector] : Compute singular values and singular vectors
 //   - econ: econ = 1 for economy size for U and V
 //   - m: Number of rows of matrix A
 //   - n: Number of columns of matrix A
@@ -12800,11 +13380,10 @@ func xgesvdp(handle Handle, params Params, jobz EigMode, econ int32, m int64, n 
 //   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
 //   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXgesvdpBufferSize, bound as cusolverDnXgesvdp_bufferSize.
 func xgesvdpBufferSize(handle Handle, params Params, jobz EigMode, econ int32, m int64, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeS DataType, s driver.DevicePtr, dataTypeU DataType, u driver.DevicePtr, ldu int64, dataTypeV DataType, v driver.DevicePtr, ldv int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
@@ -12834,10 +13413,11 @@ var slotXgesvdpBufferSize outSlot[struct {
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // Currently, [Handle.Xgesvdr] supports only the default algorithm.
 // Algorithms supported by [Handle.Xgesvdr]
+//   - [Alg0], the zero value: Default algorithm.
+//
 // Please visit cuSOLVER Library Samples - [Handle.Xgesvdr] for a code example.
 // Remark 1: gesvdr supports n>=m as well.
 // Remark 2: the routine returns V, not Vᴴ
-// List of input arguments for [Handle.XgesvdrBufferSize] and [Handle.Xgesvdr]:
 // The generic API has five different types, dataTypeA is data type of the matrix A, dataTypeS is data type of the vector S and dataTypeU is data type of the matrix U, dataTypeV is data type of the matrix V, computeType is compute type of the operation. [Handle.Xgesvdr] only supports the following four combinations.
 // Valid combination of data type and compute type
 //
@@ -12860,11 +13440,10 @@ var slotXgesvdpBufferSize outSlot[struct {
 //   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XgesvdrBufferSize]
 //   - dInfo: If info = 0, the operation is successful. If info = -i, the i-th parameter is wrong (not counting handle)
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n) ).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXgesvdr.
 func xgesvdr(handle Handle, params Params, jobu int8, jobv int8, m int64, n int64, k int64, p int64, niters int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeSrand DataType, srand driver.DevicePtr, dataTypeUrand DataType, urand driver.DevicePtr, ldUrand int64, dataTypeVrand DataType, vrand driver.DevicePtr, ldVrand int64, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, dInfo driver.DevicePtr) error {
@@ -12892,11 +13471,10 @@ func xgesvdr(handle Handle, params Params, jobu int8, jobv int8, m int64, n int6
 //   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
 //   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n) ).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXgesvdrBufferSize, bound as cusolverDnXgesvdr_bufferSize.
 func xgesvdrBufferSize(handle Handle, params Params, jobu int8, jobv int8, m int64, n int64, k int64, p int64, niters int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeSrand DataType, srand driver.DevicePtr, dataTypeUrand DataType, urand driver.DevicePtr, ldUrand int64, dataTypeVrand DataType, vrand driver.DevicePtr, ldVrand int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
@@ -12928,10 +13506,17 @@ var slotXgesvdrBufferSize outSlot[struct {
 // Currently, [Handle.Xgetrf] supports two algorithms. To select legacy implementation, the user has to call [Params.SetAdvOptions].
 // Please visit cuSOLVER Library Samples - [Handle.Xgetrf] for a code example.
 // Algorithms supported by [Handle.Xgetrf]
-// List of input arguments for [Handle.XgetrfBufferSize] and [Handle.Xgetrf]:
+//   - [Alg0], the zero value: Default algorithm. The fastest, requires a large workspace of m*n elements.
+//   - [Alg1]: Legacy implementation
+//
 // The generic API has two different types, dataTypeA is data type of the matrix A, computeType is compute type of the operation. [Handle.Xgetrf] only supports the following four combinations.
 // Valid combination of data type and compute type
+//   - DataTypeA: CUDA_R_32F; ComputeType: CUDA_R_32F; Meaning: SGETRF
+//   - DataTypeA: CUDA_R_64F; ComputeType: CUDA_R_64F; Meaning: DGETRF
+//   - DataTypeA: CUDA_C_32F; ComputeType: CUDA_C_32F; Meaning: CGETRF
+//   - DataTypeA: CUDA_C_64F; ComputeType: CUDA_C_64F; Meaning: ZGETRF
 //
+// Parameters:
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
 //   - m: Number of rows of matrix A
@@ -12947,11 +13532,10 @@ var slotXgesvdrBufferSize outSlot[struct {
 //   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XgetrfBufferSize]
 //   - info: If info = 0, the LU factorization is successful. if info = -i, the i-th parameter is wrong (not counting handle). If info = i, the U(i,i) = 0
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXgetrf.
 func xgetrf(handle Handle, params Params, m int64, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, ipiv driver.DevicePtr, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr) error {
@@ -12974,11 +13558,10 @@ func xgetrf(handle Handle, params Params, m int64, n int64, dataTypeA DataType, 
 //   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
 //   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXgetrfBufferSize, bound as cusolverDnXgetrf_bufferSize.
 func xgetrfBufferSize(handle Handle, params Params, m int64, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
@@ -13008,10 +13591,16 @@ var slotXgetrfBufferSize outSlot[struct {
 // Currently, [Handle.Xgetrs] supports only the default algorithm.
 // Please visit cuSOLVER Library Samples - [Handle.Xgetrf] for a code example.
 // Algorithms supported by [Handle.Xgetrs]
-// List of input arguments for [Handle.Xgetrs]:
+//   - [Alg0], the zero value: Default algorithm.
+//
 // The generic API has two different types: dataTypeA is data type of the matrix A and dataTypeB is data type of the matrix B. [Handle.Xgetrs] only supports the following four combinations:
 // Valid combination of data type and compute type
+//   - DataTypeA: CUDA_R_32F; dataTypeB: CUDA_R_32F; Meaning: SGETRS
+//   - DataTypeA: CUDA_R_64F; dataTypeB: CUDA_R_64F; Meaning: DGETRS
+//   - DataTypeA: CUDA_C_32F; dataTypeB: CUDA_C_32F; Meaning: CGETRS
+//   - DataTypeA: CUDA_C_64F; dataTypeB: CUDA_C_64F; Meaning: ZGETRS
 //
+// Parameters:
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
 //   - trans: Operation op(A) that is non- or (conj.) transpose
@@ -13026,11 +13615,10 @@ var slotXgetrfBufferSize outSlot[struct {
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - info: If info = 0, the operation is successful. If info = -i, the i-th parameter is wrong (not counting handle)
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n) or ldb<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXgetrs.
 func xgetrs(handle Handle, params Params, trans Operation, n int64, nrhs int64, dataTypeA DataType, a driver.DevicePtr, lda int64, ipiv driver.DevicePtr, dataTypeB DataType, b driver.DevicePtr, ldb int64, info driver.DevicePtr) error {
@@ -13070,11 +13658,10 @@ func xgetrs(handle Handle, params Params, trans Operation, n int64, nrhs int64, 
 //   - bufferOnHost: Host workspace. Array of type void of size workspaceInBytesOnHost bytes
 //   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XlarftBufferSize]
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n == 0, k > n, or storev == CUBLAS_STOREV_ROWWISE).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXlarft.
 func xlarft(handle Handle, params Params, direct DirectMode, storev StorevMode, n int64, k int64, dataTypeV DataType, v driver.DevicePtr, ldv int64, dataTypeTau DataType, tau driver.DevicePtr, dataTypeT DataType, t driver.DevicePtr, ldt int64, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint) error {
@@ -13104,11 +13691,10 @@ func xlarft(handle Handle, params Params, direct DirectMode, storev StorevMode, 
 //   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
 //   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n == 0, k > n, or storev == CUBLAS_STOREV_ROWWISE).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXlarftBufferSize, bound as cusolverDnXlarft_bufferSize.
 func xlarftBufferSize(handle Handle, params Params, direct DirectMode, storev StorevMode, n int64, k int64, dataTypeV DataType, v driver.DevicePtr, ldv int64, dataTypeTau DataType, tau driver.DevicePtr, dataTypeT DataType, t driver.DevicePtr, ldt int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
@@ -13141,10 +13727,16 @@ var slotXlarftBufferSize outSlot[struct {
 // Currently, [Handle.Xpotrf] supports only the default algorithm.
 // Please visit cuSOLVER Library Samples - [Handle.Xpotrf] for a code example.
 // Algorithms supported by [Handle.Xpotrf]
-// List of input arguments for [Handle.XpotrfBufferSize] and [Handle.Xpotrf]:
+//   - [Alg0], the zero value: Default algorithm.
+//
 // The generic API has two different types, dataTypeA is data type of the matrix A, computeType is compute type of the operation. [Handle.Xpotrf] only supports the following four combinations.
 // Valid combination of data type and compute type
+//   - DataTypeA: CUDA_R_32F; ComputeType: CUDA_R_32F; Meaning: SPOTRF
+//   - DataTypeA: CUDA_R_64F; ComputeType: CUDA_R_64F; Meaning: DPOTRF
+//   - DataTypeA: CUDA_C_32F; ComputeType: CUDA_C_32F; Meaning: CPOTRF
+//   - DataTypeA: CUDA_C_64F; ComputeType: CUDA_C_64F; Meaning: ZPOTRF
 //
+// Parameters:
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
 //   - uplo: Indicates if matrix A lower or upper part is stored, the other part is not referenced
@@ -13159,11 +13751,10 @@ var slotXlarftBufferSize outSlot[struct {
 //   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XpotrfBufferSize]
 //   - info: If info = 0, the Cholesky factorization is successful. If info = -i, the i-th parameter is wrong (not counting handle). If info = i, the leading minor of order i is not positive definite
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXpotrf.
 func xpotrf(handle Handle, params Params, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr) error {
@@ -13186,11 +13777,10 @@ func xpotrf(handle Handle, params Params, uplo FillMode, n int64, dataTypeA Data
 //   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
 //   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXpotrfBufferSize, bound as cusolverDnXpotrf_bufferSize.
 func xpotrfBufferSize(handle Handle, params Params, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
@@ -13219,10 +13809,16 @@ var slotXpotrfBufferSize outSlot[struct {
 // Currently, [Handle.Xpotrs] supports only the default algorithm.
 // Please visit cuSOLVER Library Samples - [Handle.Xpotrf] for a code example.
 // Algorithms supported by [Handle.Xpotrs]
-// List of input arguments for [Handle.Xpotrs]:
+//   - [Alg0], the zero value: Default algorithm.
+//
 // The generic API has two different types, dataTypeA is data type of the matrix A, dataTypeB is data type of the matrix B. [Handle.Xpotrs] only supports the following four combinations.
 // Valid combination of data type and compute type
+//   - dataTypeA: CUDA_R_32F; dataTypeB: CUDA_R_32F; Meaning: SPOTRS
+//   - dataTypeA: CUDA_R_64F; dataTypeB: CUDA_R_64F; Meaning: DPOTRS
+//   - dataTypeA: CUDA_C_32F; dataTypeB: CUDA_C_32F; Meaning: CPOTRS
+//   - dataTypeA: CUDA_C_64F; dataTypeB: CUDA_C_64F; Meaning: ZPOTRS
 //
+// Parameters:
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
 //   - uplo: Indicates if matrix A lower or upper part is stored, the other part is not referenced
@@ -13235,11 +13831,10 @@ var slotXpotrfBufferSize outSlot[struct {
 //   - b: Array of dimension ldb * nrhs. ldb is not less than max(1,n). As an input, B is right hand side matrix. As an output, B is the solution matrix
 //   - info: If info = 0, the Cholesky factorization is successful. if info = -i, the i-th parameter is wrong (not counting handle)
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, nrhs<0, lda<max(1,n) or ldb<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXpotrs.
 func xpotrs(handle Handle, params Params, uplo FillMode, n int64, nrhs int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeB DataType, b driver.DevicePtr, ldb int64, info driver.DevicePtr) error {
@@ -13262,10 +13857,17 @@ func xpotrs(handle Handle, params Params, uplo FillMode, n int64, nrhs int64, da
 // The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates the i-th parameter is wrong (not counting handle). Otherwise, if info [i] > 0, syevBatched does not converge on the i-th matrix.
 // If jobz = [EigModeVector], Aⱼ contains the orthonormal eigenvectors of the matrix Aⱼ.
 // Note that the problem size is limited by the condition n*lda*batchSize<=INT32_MAX primarily due to the current implementation constraints.
-// List of input arguments for [Handle.XsyevBatchedBufferSize] and [Handle.XsyevBatched]:
+//   - [Alg0], the zero value: Default. May switch between algorithms for best performance.
+//   - [Alg1]: Uses a single algorithm for consistent accuracy over all n.
+//
 // The generic API has three different types, dataTypeA is data type of the matrix A, dataTypeW is data type of the array W and computeType is compute type of the operation. [Handle.XsyevBatched] only supports the following four combinations:
 // Valid combination of data type and compute type
+//   - DataTypeA: CUDA_R_32F; DataTypeW: CUDA_R_32F; ComputeType: CUDA_R_32F; Meaning: SSYEVBATCHED
+//   - DataTypeA: CUDA_R_64F; DataTypeW: CUDA_R_64F; ComputeType: CUDA_R_64F; Meaning: DSYEVBATCHED
+//   - DataTypeA: CUDA_C_32F; DataTypeW: CUDA_R_32F; ComputeType: CUDA_C_32F; Meaning: CSYEVBATCHED
+//   - DataTypeA: CUDA_C_64F; DataTypeW: CUDA_R_64F; ComputeType: CUDA_C_64F; Meaning: ZSYEVBATCHED
 //
+// Parameters:
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
@@ -13284,11 +13886,10 @@ func xpotrs(handle Handle, params Params, uplo FillMode, n int64, nrhs int64, da
 //   - info: An integer array of dimension batchSize. If [ErrInvalidValue] is returned, info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = 0, the operation is successful. If info [i] > 0, syevBatched does not converge on the i-th matrix
 //   - batchSize: Number of matrices. batchSize is not less than 1
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or n*lda*batchSize>INT32_MAX, or lda<max(1,n), or jobz is not [EigModeNovector] or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER or batchSize<0).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXsyevBatched.
 func xsyevBatched(handle Handle, params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeW DataType, w driver.DevicePtr, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr, batchSize int64) error {
@@ -13315,11 +13916,10 @@ func xsyevBatched(handle Handle, params Params, jobz EigMode, uplo FillMode, n i
 //   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //   - batchSize: Number of matrices. batchSize is not less than 1
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or n*lda*batchSize>INT32_MAX, or lda<max(1,n), or jobz is not [EigModeNovector] or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER or batchSize<0).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXsyevBatchedBufferSize, bound as cusolverDnXsyevBatched_bufferSize.
 func xsyevBatchedBufferSize(handle Handle, params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeW DataType, w driver.DevicePtr, computeType DataType, workspaceInBytesOnDevice *uint, workspaceInBytesOnHost *uint, batchSize int64) error {
@@ -13338,10 +13938,16 @@ func xsyevBatchedBufferSize(handle Handle, params Params, jobz EigMode, uplo Fil
 // Please visit cuSOLVER Library Samples - [Handle.Xsyevd] for a code example.
 // Currently, [Handle.Xsyevd] supports only the default algorithm.
 // Algorithms supported by [Handle.Xsyevd]
-// List of input arguments for [Handle.XsyevdBufferSize] and [Handle.Xsyevd]:
+//   - [Alg0], the zero value: Default algorithm.
+//
 // The generic API has three different types, dataTypeA is data type of the matrix A, dataTypeW is data type of the matrix W and computeType is compute type of the operation. [Handle.Xsyevd] only supports the following four combinations.
 // Valid combination of data type and compute type
+//   - DataTypeA: CUDA_R_32F; DataTypeW: CUDA_R_32F; ComputeType: CUDA_R_32F; Meaning: SSYEVD
+//   - DataTypeA: CUDA_R_64F; DataTypeW: CUDA_R_64F; ComputeType: CUDA_R_64F; Meaning: DSYEVD
+//   - DataTypeA: CUDA_C_32F; DataTypeW: CUDA_R_32F; ComputeType: CUDA_C_32F; Meaning: CHEEVD
+//   - DataTypeA: CUDA_C_64F; DataTypeW: CUDA_R_64F; ComputeType: CUDA_C_64F; Meaning: ZHEEVD
 //
+// Parameters:
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
@@ -13359,11 +13965,10 @@ func xsyevBatchedBufferSize(handle Handle, params Params, jobz EigMode, uplo Fil
 //   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XsyevdBufferSize]
 //   - info: If info = 0, the operation is successful. If info = -i, the i-th parameter is wrong (not counting handle). If info = i (> 0), info indicates i off-diagonal elements of an intermediate tridiagonal form did not converge to zero
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXsyevd.
 func xsyevd(handle Handle, params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeW DataType, w driver.DevicePtr, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr) error {
@@ -13389,11 +13994,10 @@ func xsyevd(handle Handle, params Params, jobz EigMode, uplo FillMode, n int64, 
 //   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
 //   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXsyevdBufferSize, bound as cusolverDnXsyevd_bufferSize.
 func xsyevdBufferSize(handle Handle, params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeW DataType, w driver.DevicePtr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
@@ -13422,10 +14026,16 @@ var slotXsyevdBufferSize outSlot[struct {
 // Currently, [Handle.Xsyevdx] supports only the default algorithm.
 // Please visit cuSOLVER Library Samples - [Handle.Xsyevdx] for a code example.
 // Algorithms supported by [Handle.Xsyevdx]
-// List of input arguments for [Handle.XsyevdxBufferSize] and [Handle.Xsyevdx]:
+//   - [Alg0], the zero value: Default algorithm.
+//
 // The generic API has three different types, dataTypeA is data type of the matrix A, dataTypeW is data type of the matrix W and computeType is compute type of the operation. [Handle.Xsyevdx] only supports the following four combinations:
 // Valid combination of data type and compute type
+//   - DataTypeA: CUDA_R_32F; DataTypeW: CUDA_R_32F; ComputeType: CUDA_R_32F; Meaning: SSYEVDX
+//   - DataTypeA: CUDA_R_64F; DataTypeW: CUDA_R_64F; ComputeType: CUDA_R_64F; Meaning: DSYEVDX
+//   - DataTypeA: CUDA_C_32F; DataTypeW: CUDA_R_32F; ComputeType: CUDA_C_32F; Meaning: CHEEVDX
+//   - DataTypeA: CUDA_C_64F; DataTypeW: CUDA_R_64F; ComputeType: CUDA_C_64F; Meaning: ZHEEVDX
 //
+// Parameters:
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
@@ -13448,11 +14058,10 @@ var slotXsyevdBufferSize outSlot[struct {
 //   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XsyevdxBufferSize]
 //   - info: If info = 0, the operation is successful. if info =  -i, the i-th parameter is wrong (not counting handle). If info = i (> 0), info indicates i off-diagonal elements of an intermediate tridiagonal form did not converge to zero
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or range is not [EigRangeAll] or [EigRangeV] or [EigRangeI], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXsyevdx.
 func xsyevdx(handle Handle, params Params, jobz EigMode, range_ EigRange, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, vl uintptr, vu uintptr, il int64, iu int64, meig64 *int64, dataTypeW DataType, w driver.DevicePtr, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr) error {
@@ -13484,11 +14093,10 @@ func xsyevdx(handle Handle, params Params, jobz EigMode, range_ EigRange, uplo F
 //   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
 //   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or range is not [EigRangeAll] or [EigRangeV] or [EigRangeI], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXsyevdxBufferSize, bound as cusolverDnXsyevdx_bufferSize.
 func xsyevdxBufferSize(handle Handle, params Params, jobz EigMode, range_ EigRange, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, vl uintptr, vu uintptr, il int64, iu int64, dataTypeW DataType, w driver.DevicePtr, computeType DataType) (hMeig int64, workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
@@ -13517,9 +14125,8 @@ var slotXsyevdxBufferSize outSlot[struct {
 //   - info: The pointer to the structure of syevj
 //   - residual: Residual of syevj
 //
-// Returns:
+// Errors:
 //   - [ErrNotSupported]: Does not support batched version.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXsyevjGetResidual.
 func xsyevjGetResidual(handle Handle, info SyevjInfo) (float64, error) {
@@ -13546,9 +14153,8 @@ var slotXsyevjGetResidual outSlot[float64]
 //   - info: The pointer to the structure of syevj
 //   - executedSweeps: Number of executed sweeps
 //
-// Returns:
+// Errors:
 //   - [ErrNotSupported]: Does not support batched version.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXsyevjGetSweeps.
 func xsyevjGetSweeps(handle Handle, info SyevjInfo) (int32, error) {
@@ -13574,9 +14180,6 @@ var slotXsyevjGetSweeps outSlot[int32]
 //   - info: The pointer to the structure of syevj
 //   - maxSweeps: Maximum number of sweeps
 //
-// Returns:
-//   - [Success]: The operation completed successfully.
-//
 // Wraps cusolverDnXsyevjSetMaxSweeps.
 func xsyevjSetMaxSweeps(info SyevjInfo, maxSweeps int32) error {
 	if err := checkLibSym("cusolverDnXsyevjSetMaxSweeps"); err != nil {
@@ -13585,15 +14188,14 @@ func xsyevjSetMaxSweeps(info SyevjInfo, maxSweeps int32) error {
 	return toError(fnxsyevjSetMaxSweeps(info, maxSweeps), "cusolverDnXsyevjSetMaxSweeps")
 }
 
-// xsyevjSetSortEig If sortEig is zero, the eigenvalues are not sorted.
+// xsyevjSetSortEig sets whether the batched Jacobi eigensolver sorts the eigenvalues it computes.
+//
+// If sortEig is zero, the eigenvalues are not sorted.
 //
 // This function only works for syevjBatched. syevj and sygvj always sort eigenvalues in ascending order. By default, eigenvalues are always sorted in ascending order.
 //
 //   - info: The pointer to the structure of syevj
 //   - sortEig: If sortEig is zero, the eigenvalues are not sorted
-//
-// Returns:
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXsyevjSetSortEig.
 func xsyevjSetSortEig(info SyevjInfo, sortEig int32) error {
@@ -13608,9 +14210,6 @@ func xsyevjSetSortEig(info SyevjInfo, sortEig int32) error {
 //   - info: The pointer to the structure of syevj
 //   - tolerance: Accuracy of numerical eigenvalues
 //
-// Returns:
-//   - [Success]: The operation completed successfully.
-//
 // Wraps cusolverDnXsyevjSetTolerance.
 func xsyevjSetTolerance(info SyevjInfo, tolerance float64) error {
 	if err := checkLibSym("cusolverDnXsyevjSetTolerance"); err != nil {
@@ -13619,7 +14218,9 @@ func xsyevjSetTolerance(info SyevjInfo, tolerance float64) error {
 	return toError(fnxsyevjSetTolerance(info, tolerance), "cusolverDnXsyevjSetTolerance")
 }
 
-// xsygvd The following routine computes all the eigenvalues, and optionally, the eigenvectors of a generalized symmetric (Hermitian) definite eigenproblem.
+// xsygvd computes all the eigenvalues, and optionally the eigenvectors, of a generalized symmetric (Hermitian) definite eigenproblem.
+//
+// The following routine computes all the eigenvalues, and optionally, the eigenvectors of a generalized symmetric (Hermitian) definite eigenproblem.
 //
 // The generalized symmetric (Hermitian) definite eigenvalue problem is A*V = B*V*Λ if itype == [EigType1], A*B*V = V*Λ if itype == [EigType2], and B*A*V = V*Λ if itype == [EigType3], where the matrix A and B are n×n; A is symmetric/Hermitian and B is symmetrix/Hermitian positive definite. The eigenvalues of ( A, B) are computed and stored in the W vector in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows:v: Vᴴ*B*V = I if itype == [EigType1] or [EigType2], and Vᴴ*inv(B)*V = I if itype == [EigType3].
 // The user has to provide device and host working spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice (and workspaceInBytesOnHost) is size in bytes of the device (and host) working space, and it is returned by [Handle.XsygvdBufferSize].
@@ -13627,13 +14228,14 @@ func xsyevjSetTolerance(info SyevjInfo, tolerance float64) error {
 // If jobz = [EigModeVector], A contains the orthonormal eigenvectors of the matrix A. The eigenvectors are computed by a divide and conquer algorithm.
 // Currently, [Handle.Xsygvd] supports only the default algorithm.
 // Algorithms supported by [Handle.Xsygvd]
-// List of input arguments for [Handle.XsygvdBufferSize] and [Handle.Xsygvd]:
+//   - [Alg0], the zero value: Default algorithm.
+//
 // The generic API has four different data types, dataTypeA is data type of the matrix A, dataTypeB is data type of the matrix B, dataTypeW is data type of the matrix W and computeType is compute type of the operation. [Handle.Xsygvd] only supports the following four combinations.
 // Valid combination of data type and compute type
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
-//   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x. - itype =[EigType2]: A*B*x = (lambda)*x. - itype =[EigType3]: B*A*x = (lambda)*x
+//   - itype: Specifies the problem type to be solved: itype =[EigType1]: A*x = (lambda)*B*x. itype =[EigType2]: A*B*x = (lambda)*x. itype =[EigType3]: B*A*x = (lambda)*x
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - uplo: Specifies which part of A is stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A is stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A is stored
 //   - n: Number of rows (or columns) of matrix A
@@ -13648,11 +14250,10 @@ func xsyevjSetTolerance(info SyevjInfo, tolerance float64) error {
 //   - bufferOnHost: Host workspace. Array of type void of size workspaceInBytesOnHost bytes
 //   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XsygvdBufferSize]
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not 1, 2 or 3, or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER), or the combination of dataType{A,B,C} and computeType are not supported.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXsygvd.
 func xsygvd(handle Handle, params Params, itype EigType, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, dA driver.DevicePtr, lda int64, dataTypeB DataType, dB driver.DevicePtr, ldb int64, dataTypeW DataType, dW driver.DevicePtr, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, dInfo driver.DevicePtr) error {
@@ -13666,7 +14267,7 @@ func xsygvd(handle Handle, params Params, itype EigType, jobz EigMode, uplo Fill
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
-//   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x. - itype =[EigType2]: A*B*x = (lambda)*x. - itype =[EigType3]: B*A*x = (lambda)*x
+//   - itype: Specifies the problem type to be solved: itype =[EigType1]: A*x = (lambda)*B*x. itype =[EigType2]: A*B*x = (lambda)*x. itype =[EigType3]: B*A*x = (lambda)*x
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - uplo: Specifies which part of A is stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A is stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A is stored
 //   - n: Number of rows (or columns) of matrix A
@@ -13679,11 +14280,10 @@ func xsygvd(handle Handle, params Params, itype EigType, jobz EigMode, uplo Fill
 //   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
 //   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not 1, 2 or 3, or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER), or the combination of dataType{A,B,C} and computeType are not supported.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXsygvdBufferSize, bound as cusolverDnXsygvd_bufferSize.
 func xsygvdBufferSize(handle Handle, params Params, itype EigType, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, dA driver.DevicePtr, lda int64, dataTypeB DataType, dB driver.DevicePtr, ldb int64, dataTypeW DataType, dW driver.DevicePtr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
@@ -13703,20 +14303,23 @@ var slotXsygvdBufferSize outSlot[struct {
 	out1 uint
 }]
 
-// xsygvdx The following routine computes all or selection of the eigenvalues, and optionally, the eigenvectors of a generalized symmetric (Hermitian) definite eigenproblem.
+// xsygvdx computes all or a selection of the eigenvalues, and optionally the eigenvectors, of a generalized symmetric (Hermitian) definite eigenproblem.
+//
+// The following routine computes all or selection of the eigenvalues, and optionally, the eigenvectors of a generalized symmetric (Hermitian) definite eigenproblem.
 //
 // The generalized symmetric-definite eigenvalue problem is A*V = B*V*Λ if itype == [EigType1], A*B*V = V*Λ if itype == [EigType2], and B*A*V = V*Λ if itype == [EigType3], where the matrix A and B are n×n; A is symmetric/Hermitian and B is symmetrix/Hermitian positive definite. The eigenvalues of ( A, B) are computed and stored in the W vector in ascending order. h_meig represents the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (for example, range = [EigRangeAll]) is requested. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows: Vᴴ*B*V = I if itype == [EigType1] or [EigType2], and Vᴴ*inv(B)*V = I if itype == [EigType3].
 // The user has to provide device and host working spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice (and workspaceInBytesOnHost) is size in bytes of the device (and host) working space, and it is returned by [Handle.XsygvdxBufferSize].
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If info = n + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
 // If jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
 // Algorithms supported by [Handle.Xsygvdx]
-// List of input arguments for [Handle.XsygvdxBufferSize] and [Handle.Xsygvdx]:
+//   - [Alg0], the zero value: Default algorithm.
+//
 // The generic API has four different types, dataTypeA is data type of the matrix A, dataTypeB is data type of the matrix B, dataTypeW is data type of the matrix W and computeType is compute type of the operation. [Handle.Xsygvdx] only supports the following four combinations:
 // Valid combination of data type and compute type
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
-//   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x. - itype =[EigType2]: A*B*x = (lambda)*x. - itype =[EigType3]: B*A*x = (lambda)*x
+//   - itype: Specifies the problem type to be solved: itype =[EigType1]: A*x = (lambda)*B*x. itype =[EigType2]: A*B*x = (lambda)*x. itype =[EigType3]: B*A*x = (lambda)*x
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - range_: Specifies options to which selection of eigenvalues and optionally eigenvectors that need to be computed: range = [EigRangeAll] : all eigenvalues/eigenvectors will be found, will becomes the classical sygvd/hegvd routine; range = [EigRangeV] : all eigenvalues/eigenvectors in the half-open interval (vl,vu] will be found; range = [EigRangeI] : the il-th through iu-th eigenvalues/eigenvectors will be found
 //   - uplo: Specifies which part of A is stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A is stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A is stored
@@ -13725,8 +14328,8 @@ var slotXsygvdBufferSize outSlot[struct {
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda is not less than max(1,n)
 //   - dataTypeB: Data type of array B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
-//   - vl: If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. The values are treated as dataTypeW. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI].Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
-//   - vu: If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. The values are treated as dataTypeW. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI].Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - vl: If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. The values are treated as dataTypeW. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - vu: If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. The values are treated as dataTypeW. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
 //   - il: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
 //   - iu: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
 //   - dataTypeW: Data type of array W
@@ -13736,11 +14339,10 @@ var slotXsygvdBufferSize outSlot[struct {
 //   - bufferOnHost: Host workspace. Array of type void of size workspaceInBytesOnHost bytes
 //   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XsygvdxBufferSize]
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not 1, 2 or 3, or jobz is not [EigModeNovector] or [EigModeVector], or range is not [EigRangeAll] or [EigRangeV] or [EigRangeI], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER), or the combination of dataType{A,B,C} and computeType are not supported.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXsygvdx.
 func xsygvdx(handle Handle, params Params, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int64, dataTypeA DataType, dA driver.DevicePtr, lda int64, dataTypeB DataType, dB driver.DevicePtr, ldb int64, vl uintptr, vu uintptr, il int64, iu int64, meig *int64, dataTypeW DataType, dW driver.DevicePtr, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, dInfo driver.DevicePtr) error {
@@ -13754,7 +14356,7 @@ func xsygvdx(handle Handle, params Params, itype EigType, jobz EigMode, range_ E
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
-//   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x. - itype =[EigType2]: A*B*x = (lambda)*x. - itype =[EigType3]: B*A*x = (lambda)*x
+//   - itype: Specifies the problem type to be solved: itype =[EigType1]: A*x = (lambda)*B*x. itype =[EigType2]: A*B*x = (lambda)*x. itype =[EigType3]: B*A*x = (lambda)*x
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - uplo: Specifies which part of A is stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A is stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A is stored
 //   - n: Number of rows (or columns) of matrix A
@@ -13762,8 +14364,8 @@ func xsygvdx(handle Handle, params Params, itype EigType, jobz EigMode, range_ E
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda is not less than max(1,n)
 //   - dataTypeB: Data type of array B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
-//   - vl: If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. The values are treated as dataTypeW. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI].Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
-//   - vu: If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. The values are treated as dataTypeW. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI].Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - vl: If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. The values are treated as dataTypeW. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - vu: If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. The values are treated as dataTypeW. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
 //   - il: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
 //   - iu: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
 //   - dataTypeW: Data type of array W
@@ -13771,11 +14373,10 @@ func xsygvdx(handle Handle, params Params, itype EigType, jobz EigMode, range_ E
 //   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
 //   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not 1, 2 or 3, or jobz is not [EigModeNovector] or [EigModeVector], or range is not [EigRangeAll] or [EigRangeV] or [EigRangeI], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER), or the combination of dataType{A,B,C} and computeType are not supported.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXsygvdxBufferSize, bound as cusolverDnXsygvdx_bufferSize.
 func xsygvdxBufferSize(handle Handle, params Params, itype EigType, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, dA driver.DevicePtr, lda int64, dataTypeB DataType, dB driver.DevicePtr, ldb int64, vl uintptr, vu uintptr, il int64, iu int64, dataTypeW DataType, dW driver.DevicePtr, computeType DataType) (meig int64, workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
@@ -13804,10 +14405,14 @@ var slotXsygvdxBufferSize outSlot[struct {
 // If input parameter uplo is CUBLAS_FILL_MODE_UPPER, the details of the factorization are stores as:
 // A=U*D*Uᵀ
 // The user has to provide the pivot indices that can be obtained by cusolverDn<t>sytrf() as well as device and host work spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice and workspaceInBytesOnHost are sizes in bytes of the device and host work spaces, and they are returned by [Handle.XsytrsBufferSize]. To factorize and solve the symmetric system without pivoting, the user should set devIpiv = NULL when calling cusolverDn<t>sytrf and [Handle.Xsytrs].
-// List of input arguments for [Handle.XsytrsBufferSize] and [Handle.Xsytrs]:
 // The generic API has two different types: dataTypeA is data type of the matrix A, dataTypeB is data type of the matrix A. [Handle.Xsytrs] only supports the following four combinations:
 // Valid combination of data type and compute type
+//   - DataTypeA: CUDA_R_32F; DataTypeB: CUDA_R_32F; Meaning: SSYTRS
+//   - DataTypeA: CUDA_R_64F; DataTypeB: CUDA_R_64F; Meaning: DSYTRS
+//   - DataTypeA: CUDA_C_32F; DataTypeB: CUDA_C_32F; Meaning: CSYTRS
+//   - DataTypeA: CUDA_C_64F; DataTypeB: CUDA_C_64F; Meaning: ZSYTRS
 //
+// Parameters:
 //   - handle: Handle to the cuSolverDN library context
 //   - uplo: Indicates if matrix A lower or upper part is stored, the other part is not referenced
 //   - n: Number of rows and columns of matrix A
@@ -13823,12 +14428,11 @@ var slotXsygvdxBufferSize outSlot[struct {
 //   - bufferOnHost: Host workspace. Array of type void of size workspaceInBytesOnHost bytes
 //   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XsytrsBufferSize]
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrMatrixTypeNotSupported]: Data type is not supported.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXsytrs.
 func xsytrs(handle Handle, uplo FillMode, n int64, nrhs int64, dataTypeA DataType, a driver.DevicePtr, lda int64, ipiv driver.DevicePtr, dataTypeB DataType, b driver.DevicePtr, ldb int64, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr) error {
@@ -13853,12 +14457,11 @@ func xsytrs(handle Handle, uplo FillMode, n int64, nrhs int64, dataTypeA DataTyp
 //   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
 //   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrMatrixTypeNotSupported]: Data type is not supported.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXsytrsBufferSize, bound as cusolverDnXsytrs_bufferSize.
 func xsytrsBufferSize(handle Handle, uplo FillMode, n int64, nrhs int64, dataTypeA DataType, a driver.DevicePtr, lda int64, ipiv driver.DevicePtr, dataTypeB DataType, b driver.DevicePtr, ldb int64) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
@@ -13887,9 +14490,14 @@ var slotXsytrsBufferSize outSlot[struct {
 // If matrix inversion fails, the output parameter info = i shows A(i,i) = 0.
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // Please visit cuSOLVER Library Samples - [Handle.Xtrtri] for a code example.
-// List of input arguments for [Handle.XtrtriBufferSize] and [Handle.Xtrtri]:
 // Valid data types
+//   - DataTypeA: Meaning
+//   - CUDA_R_32F: STRTRI
+//   - CUDA_R_64F: DTRTRI
+//   - CUDA_C_32F: CTRTRI
+//   - CUDA_C_64F: ZTRTRI
 //
+// Parameters:
 //   - handle: Handle to the cuSolverDN library context
 //   - uplo: Indicates if matrix A lower or upper part is stored, the other part is not referenced
 //   - diag: The enumerated unit diagonal type
@@ -13902,12 +14510,11 @@ var slotXsytrsBufferSize outSlot[struct {
 //   - bufferOnHost: Host workspace. Array of type void of size workspaceInBytesOnHost bytes
 //   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XtrtriBufferSize]
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
 //   - [ErrNotSupported]: Data type is not supported.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXtrtri.
 func xtrtri(handle Handle, uplo FillMode, diag DiagType, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, devInfo driver.DevicePtr) error {
@@ -13929,12 +14536,11 @@ func xtrtri(handle Handle, uplo FillMode, diag DiagType, n int64, dataTypeA Data
 //   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
 //   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
 //   - [ErrNotSupported]: Data type is not supported.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXtrtriBufferSize, bound as cusolverDnXtrtri_bufferSize.
 func xtrtriBufferSize(handle Handle, uplo FillMode, diag DiagType, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
@@ -13965,10 +14571,35 @@ var slotXtrtriBufferSize outSlot[struct {
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK<t1>LAMCH('Epsilon')
+//
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+//   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
@@ -13983,15 +14614,15 @@ var slotXtrtriBufferSize outSlot[struct {
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZCgels.
 func zCgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -14015,14 +14646,13 @@ func zCgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZCgelsBufferSize, bound as cusolverDnZCgels_bufferSize.
 func zCgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -14050,10 +14680,35 @@ var slotZCgelsBufferSize outSlot[uint]
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK LAMCH(‘Epsilon’)
+//
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+//   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgesv]*; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // * Has LAPACK counterparts
 // cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
@@ -14069,15 +14724,15 @@ var slotZCgelsBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid. If dinfo = i, then U(i,i) computed in main precision is exactly zero. The factorization has been completed, but the factor U is exactly singular, so the solution could not be computed
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZCgesv.
 func zCgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -14101,14 +14756,13 @@ func zCgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZCgesvBufferSize, bound as cusolverDnZCgesv_bufferSize.
 func zCgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -14138,10 +14792,35 @@ var slotZCgesvBufferSize outSlot[uint]
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK<t1>LAMCH('Epsilon')
+//
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+//   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
@@ -14156,15 +14835,15 @@ var slotZCgesvBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZEgels.
 func zEgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -14188,14 +14867,13 @@ func zEgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZEgelsBufferSize, bound as cusolverDnZEgels_bufferSize.
 func zEgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -14223,10 +14901,35 @@ var slotZEgelsBufferSize outSlot[uint]
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK LAMCH(‘Epsilon’)
+//
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+//   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgesv]*; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // * Has LAPACK counterparts
 // cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
@@ -14242,15 +14945,15 @@ var slotZEgelsBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid. If dinfo = i, then U(i,i) computed in main precision is exactly zero. The factorization has been completed, but the factor U is exactly singular, so the solution could not be computed
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZEgesv.
 func zEgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -14274,14 +14977,13 @@ func zEgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZEgesvBufferSize, bound as cusolverDnZEgesv_bufferSize.
 func zEgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -14311,10 +15013,35 @@ var slotZEgesvBufferSize outSlot[uint]
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK<t1>LAMCH('Epsilon')
+//
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+//   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
@@ -14329,15 +15056,15 @@ var slotZEgesvBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZKgels.
 func zKgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -14361,14 +15088,13 @@ func zKgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZKgelsBufferSize, bound as cusolverDnZKgels_bufferSize.
 func zKgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -14396,10 +15122,35 @@ var slotZKgelsBufferSize outSlot[uint]
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK LAMCH(‘Epsilon’)
+//
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+//   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgesv]*; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // * Has LAPACK counterparts
 // cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
@@ -14415,15 +15166,15 @@ var slotZKgelsBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid. If dinfo = i, then U(i,i) computed in main precision is exactly zero. The factorization has been completed, but the factor U is exactly singular, so the solution could not be computed
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZKgesv.
 func zKgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -14447,14 +15198,13 @@ func zKgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZKgesvBufferSize, bound as cusolverDnZKgesv_bufferSize.
 func zKgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -14484,10 +15234,35 @@ var slotZKgesvBufferSize outSlot[uint]
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK<t1>LAMCH('Epsilon')
+//
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+//   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
@@ -14502,15 +15277,15 @@ var slotZKgesvBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZYgels.
 func zYgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -14534,14 +15309,13 @@ func zYgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZYgelsBufferSize, bound as cusolverDnZYgels_bufferSize.
 func zYgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -14569,10 +15343,35 @@ var slotZYgelsBufferSize outSlot[uint]
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK LAMCH(‘Epsilon’)
+//
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+//   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgesv]*; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // * Has LAPACK counterparts
 // cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
@@ -14588,15 +15387,15 @@ var slotZYgelsBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid. If dinfo = i, then U(i,i) computed in main precision is exactly zero. The factorization has been completed, but the factor U is exactly singular, so the solution could not be computed
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZYgesv.
 func zYgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -14620,14 +15419,13 @@ func zYgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZYgesvBufferSize, bound as cusolverDnZYgesv_bufferSize.
 func zYgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -14657,10 +15455,35 @@ var slotZYgesvBufferSize outSlot[uint]
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK<t1>LAMCH('Epsilon')
+//
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+//   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgels]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgels]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgels]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
@@ -14675,15 +15498,15 @@ var slotZYgesvBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZZgels.
 func zZgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -14707,14 +15530,13 @@ func zZgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred; check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 ldda<max(1,m) lddb<max(1,m) lddx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZZgelsBufferSize, bound as cusolverDnZZgels_bufferSize.
 func zZgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -14742,10 +15564,35 @@ var slotZZgelsBufferSize outSlot[uint]
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
+//   - ITER is the number of the current iteration in the iterative refinement process
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon that matches LAPACK LAMCH(‘Epsilon’)
+//
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+//   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
+//   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.ZEgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.ZYgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.CCgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: single complex
+//   - Interface function: [Handle.CKgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: half complex
+//   - Interface function: [Handle.CEgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: bfloat complex
+//   - Interface function: [Handle.CYgesv]; Main precision (matrix, rhs and solution datatype): cuComplex; Lowest precision allowed to be used internally: tensorfloat complex
+//   - Interface function: [Handle.DDgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: double
+//   - Interface function: [Handle.DSgesv]*; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.DHgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.DBgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.DXgesv]; Main precision (matrix, rhs and solution datatype): double; Lowest precision allowed to be used internally: tensorfloat
+//   - Interface function: [Handle.SSgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: single
+//   - Interface function: [Handle.SHgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: half
+//   - Interface function: [Handle.SBgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: bfloat
+//   - Interface function: [Handle.SXgesv]; Main precision (matrix, rhs and solution datatype): float; Lowest precision allowed to be used internally: tensorfloat
+//
 // * Has LAPACK counterparts
 // cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
@@ -14761,15 +15608,15 @@ var slotZZgelsBufferSize outSlot[uint]
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
 //   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
+//   - dInfo: Status of the IRS solver on the return. If 0 - solve was successful. If dinfo = - i then i-th argument is not valid. If dinfo = i, then U(i,i) computed in main precision is exactly zero. The factorization has been completed, but the factor U is exactly singular, so the solution could not be computed
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZZgesv.
 func zZgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
@@ -14793,14 +15640,13 @@ func zZgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
 //   - [ErrInternalError]: An internal error occurred, check the dinfo and the niters arguments for more details.
 //   - [ErrInvalidValue]: Invalid parameters were passed, for example: n<0 lda<max(1,n) ldb<max(1,n) ldx<max(1,n)
 //   - [ErrInvalidWorkspace]: lwork_bytes is smaller than the required workspace.
 //   - [ErrIrsOutOfRange]: Numerical error related to niters <0, see niters description for more details.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZZgesvBufferSize, bound as cusolverDnZZgesv_bufferSize.
 func zZgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
@@ -14823,7 +15669,10 @@ var slotZZgesvBufferSize outSlot[uint]
 //
 // If m>=n, B is upper bidiagonal; if m<n, B is lower bidiagonal.
 // The matrix Q and P are overwritten into matrix A in the following sense:
-// The user has to provide working space which is pointed by input parameter Work. The input parameter Lwork is size of the working space, and it is returned by gebrd_bufferSize().
+//   - if m>=n, the diagonal and the first superdiagonal are overwritten with the upper bidiagonal matrix B; the elements below the diagonal, with the array TAUQ, represent the orthogonal matrix Q as a product of elementary reflectors, and the elements above the first superdiagonal, with the array TAUP, represent the orthogonal matrix P as a product of elementary reflectors.
+//   - if m<n, the diagonal and the first subdiagonal are overwritten with the lower bidiagonal matrix B; the elements below the first subdiagonal, with the array TAUQ, represent the orthogonal matrix Q as a product of elementary reflectors, and the elements above the diagonal, with the array TAUP, represent the orthogonal matrix P as a product of elementary reflectors.
+//
+// The input parameter Lwork is size of the working space, and it is returned by gebrd_bufferSize().
 // Remark: gebrd only supports m>=n.
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -14839,12 +15688,11 @@ var slotZZgesvBufferSize outSlot[uint]
 //   - lwork: Size of Work, returned by gebrd_bufferSize
 //   - devInfo: If devInfo = 0, the operation is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle)
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0, or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZgebrd.
 func zgebrd(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tauq driver.DevicePtr, taup driver.DevicePtr, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
@@ -14861,12 +15709,11 @@ func zgebrd(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, d dr
 //   - n: Number of columns of matrix A
 //   - lwork: Size of Work, in elements of complex128
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0, or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZgebrdBufferSize, bound as cusolverDnZgebrd_bufferSize.
 func zgebrdBufferSize(handle Handle, m int32, n int32) (int32, error) {
@@ -14888,7 +15735,7 @@ var slotZgebrdBufferSize outSlot[int32]
 // zgeqrf computes the QR factorization of an m×n matrix.
 //
 // A=Q*R, where A is an m×n matrix, Q is an m×n matrix, and R is a n×n upper triangular matrix.
-// The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by geqrf_bufferSize().
+// The input parameter Lwork is size of the working space, and it is returned by geqrf_bufferSize().
 // The matrix R is overwritten in upper triangular part of A, including diagonal elements.
 // The matrix Q is not formed explicitly, instead, a sequence of householder vectors are stored in lower triangular part of A. The leading nonzero element of householder vector is assumed to be 1 such that output parameter TAU contains the scaling factor τ. If v is original householder vector, q is the new householder vector corresponding to τ, satisfying the following relation
 // I−2*v*vᴴ=I−τ*q*qᴴ
@@ -14903,12 +15750,11 @@ var slotZgebrdBufferSize outSlot[int32]
 //   - lwork: Size of working array Workspace
 //   - devInfo: If devInfo = 0, the LU factorization is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle)
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZgeqrf.
 func zgeqrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, workspace driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
@@ -14925,13 +15771,13 @@ func zgeqrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, tau 
 //   - n: Number of columns of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
+//   - lwork: Size of Workspace, in elements of complex128
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZgeqrfBufferSize, bound as cusolverDnZgeqrf_bufferSize.
 func zgeqrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32) (int32, error) {
@@ -14976,12 +15822,11 @@ var slotZgeqrfBufferSize outSlot[int32]
 //   - lwork: Size of work, returned by gesvd_bufferSize
 //   - rwork: Real array of dimension min(m,n)-1. It contains the unconverged superdiagonal elements of an upper bidiagonal matrix if devInfo > 0
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldvt<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZgesvd.
 func zgesvd(handle Handle, jobu int8, jobvt int8, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, vt driver.DevicePtr, ldvt int32, work driver.DevicePtr, lwork int32, rwork driver.DevicePtr, info driver.DevicePtr) error {
@@ -14998,12 +15843,11 @@ func zgesvd(handle Handle, jobu int8, jobvt int8, m int32, n int32, a driver.Dev
 //   - n: Number of columns of matrix A
 //   - lwork: Size of work, in elements of complex128
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldvt<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZgesvdBufferSize, bound as cusolverDnZgesvd_bufferSize.
 func zgesvdBufferSize(handle Handle, m int32, n int32) (int32, error) {
@@ -15059,13 +15903,13 @@ var slotZgesvdBufferSize outSlot[int32]
 //   - ldv: Leading dimension of two-dimensional array used to store matrix Vj. ldv is not less than max(1,n)
 //   - strideV: Value of type long long int that gives the address offset between V [i] and V [i+1]. strideV is not less than ldv*rank
 //   - lwork: Size of work, returned by gesvdaStridedBatched_bufferSize
+//   - hRNrmF: array of size batchSize. h_RnrmF [i] is norm of residual of i-th matrix. If 0 < info [i] < min(m,n)+1, h_RnrmF [i] reports the residual as if rank of the i-th matrix had been set to info [i]-1
 //   - batchSize: Number of matrices. batchSize is not less than 1
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or batchSize*stride{A/S/U/V}>INT32_MAX or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n) or strideA<lda*n or strideS<rank or strideU<ldu*rank or strideV<ldv*rank or batchSize<1 or jobz is not [EigModeNovector] or [EigModeVector]).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZgesvdaStridedBatched.
 func zgesvdaStridedBatched(handle Handle, jobz EigMode, rank int32, m int32, n int32, dA driver.DevicePtr, lda int32, strideA int64, dS driver.DevicePtr, strideS int64, dU driver.DevicePtr, ldu int32, strideU int64, dV driver.DevicePtr, ldv int32, strideV int64, dWork driver.DevicePtr, lwork int32, dInfo driver.DevicePtr, hRNrmF *float64, batchSize int32) error {
@@ -15092,11 +15936,10 @@ func zgesvdaStridedBatched(handle Handle, jobz EigMode, rank int32, m int32, n i
 //   - lwork: Size of work, in elements of complex128
 //   - batchSize: Number of matrices. batchSize is not less than 1
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or batchSize*stride{A/S/U/V}>INT32_MAX or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n) or strideA<lda*n or strideS<rank or strideU<ldu*rank or strideV<ldv*rank or batchSize<1 or jobz is not [EigModeNovector] or [EigModeVector]).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZgesvdaStridedBatchedBufferSize, bound as cusolverDnZgesvdaStridedBatched_bufferSize.
 func zgesvdaStridedBatchedBufferSize(handle Handle, jobz EigMode, rank int32, m int32, n int32, dA driver.DevicePtr, lda int32, strideA int64, dS driver.DevicePtr, strideS int64, dU driver.DevicePtr, ldu int32, strideU int64, dV driver.DevicePtr, ldv int32, strideV int64, lwork *int32, batchSize int32) error {
@@ -15148,11 +15991,10 @@ func zgesvdaStridedBatchedBufferSize(handle Handle, jobz EigMode, rank int32, m 
 //   - info: If info = 0, the operation is successful. if info = -i, the i-th parameter is wrong (not counting handle). if info =  min(m,n)+1, gesvdj dose not converge under given tolerance and maximum sweeps
 //   - params: Structure filled with parameters of Jacobi algorithm and results of gesvdj. params can be destroyed after the host thread exits the routine
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n) or jobz is not [EigModeNovector] or [EigModeVector] ).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZgesvdj.
 func zgesvdj(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params GesvdjInfo) error {
@@ -15173,7 +16015,7 @@ func zgesvdj(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver
 // The formula for random access of S is Sₖ(j)=S [j+min(m,n)*k] .
 // Except for tolerance and maximum sweeps, gesvdjBatched can either sort the singular values in descending order (default) or chose as-is (without sorting) by the function [GesvdjInfo.XgesvdjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate singular values of those tiny matrices.
 // gesvdjBatched cannot report residual and executed sweeps by function [Handle.XgesvdjGetResidual] and [Handle.XgesvdjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
-// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdjBatched_bufferSize().
+// The input parameter lwork is the size of the working space, and it is returned by gesvdjBatched_bufferSize().
 // The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
 // Please visit cuSOLVER Library Samples - gesvdjBatched for a code example.
 //
@@ -15194,11 +16036,10 @@ func zgesvdj(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver
 //   - params: Structure filled with parameters of Jacobi algorithm. params can be destroyed after the host thread exits the routine
 //   - batchSize: Number of matrices
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n) or jobz is not [EigModeNovector] or [EigModeVector] , or batchSize<0).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZgesvdjBatched.
 func zgesvdjBatched(handle Handle, jobz EigMode, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params GesvdjInfo, batchSize int32) error {
@@ -15225,11 +16066,10 @@ func zgesvdjBatched(handle Handle, jobz EigMode, m int32, n int32, a driver.Devi
 //   - params: Structure filled with parameters of Jacobi algorithm. params can be destroyed after the host thread exits the routine
 //   - batchSize: Number of matrices
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n) or jobz is not [EigModeNovector] or [EigModeVector] , or batchSize<0).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZgesvdjBatchedBufferSize, bound as cusolverDnZgesvdjBatched_bufferSize.
 func zgesvdjBatchedBufferSize(handle Handle, jobz EigMode, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
@@ -15256,11 +16096,10 @@ func zgesvdjBatchedBufferSize(handle Handle, jobz EigMode, m int32, n int32, a d
 //   - lwork: Size of work, in elements of complex128
 //   - params: Structure filled with parameters of Jacobi algorithm and results of gesvdj. params can be destroyed after the host thread exits the routine
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m) or ldu<max(1,m) or ldv<max(1,n) or jobz is not [EigModeNovector] or [EigModeVector] ).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZgesvdjBufferSize, bound as cusolverDnZgesvdj_bufferSize.
 func zgesvdjBufferSize(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, lwork *int32, params GesvdjInfo) error {
@@ -15273,7 +16112,7 @@ func zgesvdjBufferSize(handle Handle, jobz EigMode, econ int32, m int32, n int32
 // zgetrf computes the LU factorization of an m×n matrix.
 //
 // P*A=L*U, where A is an m×n matrix, P is a permutation matrix, L is a lower triangular matrix with unit diagonal, and U is an upper triangular matrix.
-// The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by getrf_bufferSize().
+// The input parameter Lwork is size of the working space, and it is returned by getrf_bufferSize().
 // If LU factorization failed, i.e. matrix A ( U) is singular, The output parameter devInfo=i indicates U(i,i) = 0.
 // If devIpiv is null, no pivoting is performed. The factorization is A=L*U, which is not numerically stable.
 // No matter LU factorization failed or not, the output parameter devIpiv contains pivoting sequence, row i is interchanged with row devIpiv(i).
@@ -15289,12 +16128,11 @@ func zgesvdjBufferSize(handle Handle, jobz EigMode, econ int32, m int32, n int32
 //   - devIpiv: Array of size at least min(m,n), containing pivot indices
 //   - devInfo: If devInfo = 0, the LU factorization is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle). if devInfo = i, the U(i,i) = 0
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZgetrf.
 func zgetrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, workspace driver.DevicePtr, devIpiv driver.DevicePtr, devInfo driver.DevicePtr) error {
@@ -15313,12 +16151,11 @@ func zgetrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, work
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - lwork: Size of Workspace, in elements of complex128
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or lda<max(1,m)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZgetrfBufferSize, bound as cusolverDnZgetrf_bufferSize.
 func zgetrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32) (int32, error) {
@@ -15355,12 +16192,11 @@ var slotZgetrfBufferSize outSlot[int32]
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - devInfo: If devInfo = 0, the operation is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle)
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n) or ldb<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZgetrs.
 func zgetrs(handle Handle, trans Operation, n int32, nrhs int32, a driver.DevicePtr, lda int32, devIpiv driver.DevicePtr, b driver.DevicePtr, ldb int32, devInfo driver.DevicePtr) error {
@@ -15386,13 +16222,13 @@ func zgetrs(handle Handle, trans Operation, n int32, nrhs int32, a driver.Device
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
 //   - work: Working space, array of size lwork
+//   - lwork: Size of work, returned by syevd_bufferSize
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZheevd.
 func zheevd(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -15413,12 +16249,11 @@ func zheevd(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.Device
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
 //   - lwork: Size of work, in elements of complex128
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZheevdBufferSize, bound as cusolverDnZheevd_bufferSize.
 func zheevdBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr) (int32, error) {
@@ -15462,12 +16297,11 @@ var slotZheevdBufferSize outSlot[int32]
 //   - work: Working space, array of size lwork
 //   - lwork: Size of work, returned by syevdx_bufferSize
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or range is not [EigRangeAll] or [EigRangeV] or [EigRangeI], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZheevdx.
 func zheevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -15493,12 +16327,11 @@ func zheevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int3
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
 //   - lwork: Size of work, in elements of complex128
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or range is not [EigRangeAll] or [EigRangeV] or [EigRangeI], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZheevdxBufferSize, bound as cusolverDnZheevdx_bufferSize.
 func zheevdxBufferSize(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float64, vu float64, il int32, iu int32, w driver.DevicePtr) (meig int32, lwork int32, err error) {
@@ -15533,7 +16366,7 @@ var slotZheevdxBufferSize outSlot[struct {
 // The Jacobi method has quadratic convergence, so the accuracy is not proportional to number of sweeps. To guarantee certain accuracy, the user should configure tolerance only.
 // After syevj, the user can query residual by function [Handle.XsyevjGetResidual] and number of executed sweeps by function [Handle.XsyevjGetSweeps]. However the user needs to be aware that residual is the Frobenius norm of E, not accuracy of individual eigenvalue, i.e.
 // residual=‖E‖_(F)=‖Λ−W‖_(F)
-// The same as syevd, the user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevj_bufferSize().
+// The input parameter lwork is the size of the working space, and it is returned by syevj_bufferSize().
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = n+1, syevj does not converge under given tolerance and maximum sweeps.
 // If the user sets an improper tolerance, syevj may not converge. For example, tolerance should not be smaller than machine accuracy.
 // If jobz = [EigModeVector], A contains the orthonormal eigenvectors V.
@@ -15551,11 +16384,10 @@ var slotZheevdxBufferSize outSlot[struct {
 //   - info: If info = 0, the operation is successful. If info = -i, the i-th parameter is wrong (not counting handle). If info = n+1, syevj does not converge under given tolerance and maximum sweeps
 //   - params: Structure filled with parameters of Jacobi algorithm and results of syevj
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZheevj.
 func zheevj(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo) error {
@@ -15576,7 +16408,7 @@ func zheevj(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.Device
 // The formula for random access of W is Wₖ(j)=W [j+n*k] .
 // Except for tolerance and maximum sweeps, syevjBatched can either sort the eigenvalues in ascending order (default) or chose as-is (without sorting) by the function [SyevjInfo.XsyevjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate spectrum of those tiny matrices.
 // syevjBatched cannot report residual and executed sweeps by function [Handle.XsyevjGetResidual] and [Handle.XsyevjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
-// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevjBatched_bufferSize().
+// The input parameter lwork is the size of the working space, and it is returned by syevjBatched_bufferSize().
 // The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
 // If jobz = [EigModeVector], Aⱼ contains the orthonormal eigenvectors Vⱼ.
 // Please visit cuSOLVER Library Samples - syevjBatched for a code example.
@@ -15594,11 +16426,10 @@ func zheevj(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.Device
 //   - params: Structure filled with parameters of Jacobi algorithm
 //   - batchSize: Number of matrices
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER), or batchSize<0.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZheevjBatched.
 func zheevjBatched(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo, batchSize int32) error {
@@ -15621,11 +16452,10 @@ func zheevjBatched(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver
 //   - params: Structure filled with parameters of Jacobi algorithm
 //   - batchSize: Number of matrices
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER), or batchSize<0.
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZheevjBatchedBufferSize, bound as cusolverDnZheevjBatched_bufferSize.
 func zheevjBatchedBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, lwork *int32, params SyevjInfo, batchSize int32) error {
@@ -15647,11 +16477,10 @@ func zheevjBatchedBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32
 //   - lwork: Size of work, in elements of complex128
 //   - params: Structure filled with parameters of Jacobi algorithm and results of syevj
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZheevjBufferSize, bound as cusolverDnZheevj_bufferSize.
 func zheevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, lwork *int32, params SyevjInfo) error {
@@ -15670,7 +16499,7 @@ func zheevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a dri
 // Please visit cuSOLVER Library Samples - sygvd for a code example.
 //
 //   - handle: Handle to the cuSolverDN library context
-//   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x. - itype =[EigType2]: A*B*x = (lambda)*x. - itype =[EigType3]: B*A*x = (lambda)*x
+//   - itype: Specifies the problem type to be solved: itype =[EigType1]: A*x = (lambda)*B*x. itype =[EigType2]: A*B*x = (lambda)*x. itype =[EigType3]: B*A*x = (lambda)*x
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - uplo: Specifies which part of A and B are stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A and B are stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A and B are stored
 //   - n: Number of rows (or columns) of matrix A and B
@@ -15680,13 +16509,13 @@ func zheevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a dri
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B. ldb is not less than max(1,n)
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
 //   - work: Working space, array of size lwork
+//   - lwork: Size of work, returned by sygvd_bufferSize
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not 1, 2 or 3, or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZhegvd.
 func zhegvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -15699,7 +16528,7 @@ func zhegvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 // zhegvdBufferSize returns the workspace size, in elements of complex128, for [Handle.Zhegvd].
 //
 //   - handle: Handle to the cuSolverDN library context
-//   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x. - itype =[EigType2]: A*B*x = (lambda)*x. - itype =[EigType3]: B*A*x = (lambda)*x
+//   - itype: Specifies the problem type to be solved: itype =[EigType1]: A*x = (lambda)*B*x. itype =[EigType2]: A*B*x = (lambda)*x. itype =[EigType3]: B*A*x = (lambda)*x
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - uplo: Specifies which part of A and B are stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A and B are stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A and B are stored
 //   - n: Number of rows (or columns) of matrix A and B
@@ -15710,12 +16539,11 @@ func zhegvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
 //   - lwork: Size of work, in elements of complex128
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not 1, 2 or 3, or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZhegvdBufferSize, bound as cusolverDnZhegvd_bufferSize.
 func zhegvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr) (int32, error) {
@@ -15743,7 +16571,7 @@ var slotZhegvdBufferSize outSlot[int32]
 // Please visit cuSOLVER Library Samples - sygvdx for a code example.
 //
 //   - handle: Handle to the cuSolverDN library context
-//   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x - itype =[EigType2]: A*B*x = (lambda)*x - itype =[EigType3]: B*A*x = (lambda)*x
+//   - itype: Specifies the problem type to be solved: itype =[EigType1]: A*x = (lambda)*B*x; itype =[EigType2]: A*B*x = (lambda)*x; itype =[EigType3]: B*A*x = (lambda)*x
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - range_: Specifies options to which selection of eigenvalues and optionally eigenvectors that need to be computed: range = [EigRangeAll] : all eigenvalues/eigenvectors will be found, will becomes the classical syevd/heevd routine; range = [EigRangeV] : all eigenvalues/eigenvectors in the half-open interval (vl,vu] will be found; range = [EigRangeI] : the il-th through iu-th eigenvalues/eigenvectors will be found
 //   - uplo: Specifies which part of A and B are stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A and B are stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A and B are stored
@@ -15760,12 +16588,11 @@ var slotZhegvdBufferSize outSlot[int32]
 //   - work: Working space, array of size lwork
 //   - lwork: Size of work, returned by sygvdx_bufferSize
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not [EigType1] or [EigType2] or [EigType3] or jobz is not [EigModeNovector] or CUSOLVER_EIG_MODE_VECTORL, or range is not [EigRangeAll] or [EigRangeV] or [EigRangeI], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZhegvdx.
 func zhegvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -15778,7 +16605,7 @@ func zhegvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo F
 // zhegvdxBufferSize returns the workspace size, in elements of complex128, for [Handle.Zhegvdx].
 //
 //   - handle: Handle to the cuSolverDN library context
-//   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x - itype =[EigType2]: A*B*x = (lambda)*x - itype =[EigType3]: B*A*x = (lambda)*x
+//   - itype: Specifies the problem type to be solved: itype =[EigType1]: A*x = (lambda)*B*x; itype =[EigType2]: A*B*x = (lambda)*x; itype =[EigType3]: B*A*x = (lambda)*x
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - range_: Specifies options to which selection of eigenvalues and optionally eigenvectors that need to be computed: range = [EigRangeAll] : all eigenvalues/eigenvectors will be found, will becomes the classical syevd/heevd routine; range = [EigRangeV] : all eigenvalues/eigenvectors in the half-open interval (vl,vu] will be found; range = [EigRangeI] : the il-th through iu-th eigenvalues/eigenvectors will be found
 //   - uplo: Specifies which part of A and B are stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A and B are stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A and B are stored
@@ -15794,12 +16621,11 @@ func zhegvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo F
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
 //   - lwork: Size of work, in elements of complex128
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not [EigType1] or [EigType2] or [EigType3] or jobz is not [EigModeNovector] or CUSOLVER_EIG_MODE_VECTORL, or range is not [EigRangeAll] or [EigRangeV] or [EigRangeI], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZhegvdxBufferSize, bound as cusolverDnZhegvdx_bufferSize.
 func zhegvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float64, vu float64, il int32, iu int32, w driver.DevicePtr) (meig int32, lwork int32, err error) {
@@ -15850,11 +16676,10 @@ var slotZhegvdxBufferSize outSlot[struct {
 //   - lwork: Size of work, returned by sygvj_bufferSize
 //   - info: If info = 0, the operation is successful. if info = -i, the i-th parameter is wrong (not counting handle). If info = i (> 0), info indicates either B is not positive definite or syevj (called by sygvj) does not converge
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not 1, 2 or 3, or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZhegvj.
 func zhegvj(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo) error {
@@ -15878,11 +16703,10 @@ func zhegvj(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
 //   - lwork: Size of work, in elements of complex128
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or ldb<max(1,n), or itype is not 1, 2 or 3, or jobz is not [EigModeNovector] or [EigModeVector], or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZhegvjBufferSize, bound as cusolverDnZhegvj_bufferSize.
 func zhegvjBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, lwork *int32, params SyevjInfo) error {
@@ -15903,16 +16727,17 @@ func zhegvjBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode,
 //   - n: Number of rows (columns) of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A, and the strictly lower triangular part of A is not referenced. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A, and the strictly upper triangular part of A is not referenced. On exit, A is overwritten by T and householder reflection vectors
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda >= max(1,n)
+//   - d: Real array of dimension n. The diagonal elements of the tridiagonal matrix T: D(i) = A(i,i)
+//   - e: Real array of dimension (n-1). The off-diagonal elements of the tridiagonal matrix T: if uplo = CUBLAS_FILL_MODE_UPPER, E(i) = A(i,i+1). if uplo = CUBLAS_FILL_MODE_LOWER E(i) = A(i+1,i)
 //   - tau: array of dimension (n-1). The scalar factors of the elementary reflectors which represent the orthogonal matrix Q
 //   - work: Working space, array of size lwork
 //   - lwork: Size of work, returned by sytrd_bufferSize
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZhetrd.
 func zhetrd(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -15932,12 +16757,11 @@ func zhetrd(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - tau: array of dimension (n-1). The scalar factors of the elementary reflectors which represent the orthogonal matrix Q
 //   - lwork: Size of work, in elements of complex128
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZhetrdBufferSize, bound as cusolverDnZhetrd_bufferSize.
 func zhetrdBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tau driver.DevicePtr) (int32, error) {
@@ -15996,7 +16820,7 @@ var slotZlauumBufferSize outSlot[int32]
 // A=L*Lᴴ
 // If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular Cholesky factor U.
 // A=Uᴴ*U
-// The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by potrf_bufferSize().
+// The input parameter Lwork is size of the working space, and it is returned by potrf_bufferSize().
 // If Cholesky factorization failed, i.e. some leading minor of A is not positive definite, or equivalently some diagonal elements of L or U is not a real number. The output parameter devInfo would indicate smallest leading minor of A which is not positive definite.
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -16008,12 +16832,11 @@ var slotZlauumBufferSize outSlot[int32]
 //   - lwork: Size of Workspace, returned by potrf_bufferSize
 //   - devInfo: If devInfo = 0, the Cholesky factorization is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle). if devInfo = i, the leading minor of order i is not positive definite
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZpotrf.
 func zpotrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, workspace driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
@@ -16042,11 +16865,10 @@ func zpotrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - infoArray: Array of size batchSize. infoArray [i] contains information of factorization of Aarray [i]. if potrfBatched returns [ErrInvalidValue], infoArray [0] = -i (less than zero) means the i-th parameter is wrong (not counting handle). if potrfBatched returns [Success], infoArray [i] = 0 means the Cholesky factorization of i-th matrix is successful, and infoArray [i] = k means the leading submatrix of order k of i-th matrix is not positive definite
 //   - batchSize: Number of pointers in Aarray
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n) or batchSize<1).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZpotrfBatched.
 func zpotrfBatched(handle Handle, uplo FillMode, n int32, aarray driver.DevicePtr, lda int32, infoArray driver.DevicePtr, batchSize int32) error {
@@ -16065,12 +16887,11 @@ func zpotrfBatched(handle Handle, uplo FillMode, n int32, aarray driver.DevicePt
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - lwork: Size of Workspace, in elements of complex128
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZpotrfBufferSize, bound as cusolverDnZpotrf_bufferSize.
 func zpotrfBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
@@ -16095,7 +16916,7 @@ var slotZpotrfBufferSize outSlot[int32]
 // A is an n×n matrix containing the triangular factor L or U computed by the Cholesky factorization. Only lower or upper part is meaningful and the input parameter uplo indicates which part of the matrix is used. The function would leave the other part untouched.
 // If the input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced the by lower triangular part of the inverse of A.
 // If the input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by the upper triangular part of the inverse of A.
-// The user has to provide the working space which is pointed to by input parameter Workspace. The input parameter Lwork is the size of the working space, returned by potri_bufferSize().
+// The input parameter Lwork is the size of the working space, returned by potri_bufferSize().
 // If the computation of the inverse fails, i.e. some leading minor of L or U, is null, the output parameter devInfo would indicate the smallest leading minor of L or U which is not positive definite.
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -16103,14 +16924,14 @@ var slotZpotrfBufferSize outSlot[int32]
 //   - n: Number of rows and columns of matrix A
 //   - a: array of dimension lda * n where lda is not less than max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
+//   - lwork: Size of Workspace, returned by potri_bufferSize
 //   - devInfo: If devInfo = 0, the computation of the inverse is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle). if devInfo = i, the leading minor of order i is zero
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZpotri.
 func zpotri(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
@@ -16127,13 +16948,13 @@ func zpotri(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - n: Number of rows and columns of matrix A
 //   - a: array of dimension lda * n where lda is not less than max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
+//   - lwork: Size of Workspace, in elements of complex128
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZpotriBufferSize, bound as cusolverDnZpotri_bufferSize.
 func zpotriBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
@@ -16167,12 +16988,11 @@ var slotZpotriBufferSize outSlot[int32]
 //   - b: array of dimension ldb * nrhs. ldb is not less than max(1,n). As an input, B is right hand side matrix. As an output, B is the solution matrix
 //   - devInfo: If devInfo = 0, the Cholesky factorization is successful. if devInfo = -i, the i-th parameter is wrong (not counting handle)
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, nrhs<0, lda<max(1,n) or ldb<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZpotrs.
 func zpotrs(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, devInfo driver.DevicePtr) error {
@@ -16201,11 +17021,10 @@ func zpotrs(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.DevicePt
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix Barray [i]
 //   - batchSize: Number of pointers in Aarray
 //
-// Returns:
+// Errors:
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, nrhs<0, lda<max(1,n), ldb<max(1,n) or batchSize<0).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZpotrsBatched.
 func zpotrsBatched(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, dInfo driver.DevicePtr, batchSize int32) error {
@@ -16234,12 +17053,11 @@ func zpotrsBatched(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.D
 //   - work: Working space, array of size lwork
 //   - lwork: Size of working space work
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZsytrf.
 func zsytrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -16257,12 +17075,11 @@ func zsytrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - lwork: Size of work, in elements of complex128
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or lda<max(1,n)).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZsytrfBufferSize, bound as cusolverDnZsytrf_bufferSize.
 func zsytrfBufferSize(handle Handle, n int32, a driver.DevicePtr, lda int32) (int32, error) {
@@ -16322,12 +17139,11 @@ var slotZsytriBufferSize outSlot[int32]
 //   - work: Working space, array of size lwork
 //   - lwork: Size of working array work
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or wrong lda ).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZungbr.
 func zungbr(handle Handle, side SideMode, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -16349,12 +17165,11 @@ func zungbr(handle Handle, side SideMode, m int32, n int32, k int32, a driver.De
 //   - tau: array of dimension min(m,k) if side is CUBLAS_SIDE_LEFT; of dimension min(n,k) if side is CUBLAS_SIDE_RIGHT; tau(i) must contain the scalar factor of the elementary reflector H(i) or G(i), which determines Q or P**T, as returned by gebrd in its array argument TAUQ or TAUP
 //   - lwork: Size of work, in elements of complex128
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or wrong lda ).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZungbrBufferSize, bound as cusolverDnZungbr_bufferSize.
 func zungbrBufferSize(handle Handle, side SideMode, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
@@ -16389,12 +17204,11 @@ var slotZungbrBufferSize outSlot[int32]
 //   - work: Working space, array of size lwork
 //   - lwork: Size of working array work
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n,k<0, n>m, k>n or lda<m).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZungqr.
 func zungqr(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -16415,12 +17229,11 @@ func zungqr(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda in
 //   - tau: array of dimension k. tau(i) is the scalar of i-th elementary reflection vector
 //   - lwork: Size of work, in elements of complex128
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n,k<0, n>m, k>n or lda<m).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZungqrBufferSize, bound as cusolverDnZungqr_bufferSize.
 func zungqrBufferSize(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
@@ -16452,12 +17265,11 @@ var slotZungqrBufferSize outSlot[int32]
 //   - work: Working space, array of size lwork
 //   - lwork: Size of working array work
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or wrong lda).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZungtr.
 func zungtr(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -16477,12 +17289,11 @@ func zungtr(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - tau: array of dimension (n-1) tau(i) is the scalar of i-th elementary reflection vector
 //   - lwork: Size of work, in elements of complex128
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( n<0 or wrong lda).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZungtrBufferSize, bound as cusolverDnZungtr_bufferSize.
 func zungtrBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
@@ -16526,12 +17337,11 @@ var slotZungtrBufferSize outSlot[int32]
 //   - lwork: Size of working array work
 //   - devInfo: If devInfo = 0, the ormqr is successful. If devInfo = -i, the i-th parameter is wrong (not counting handle)
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n,k<0, k > m if CUBLAS_SIDE_LEFT, k > n if CUBLAS_SIDE_RIGHT, wrong lda or ldc or invalid trans).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZunmqr.
 func zunmqr(handle Handle, side SideMode, trans Operation, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
@@ -16556,12 +17366,11 @@ func zunmqr(handle Handle, side SideMode, trans Operation, m int32, n int32, k i
 //   - ldc: Leading dimension of two-dimensional array of matrix C. ldc >= max(1,m)
 //   - lwork: Size of work, in elements of complex128
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n,k<0, k > m if CUBLAS_SIDE_LEFT, k > n if CUBLAS_SIDE_RIGHT, wrong lda or ldc or invalid trans).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZunmqrBufferSize, bound as cusolverDnZunmqr_bufferSize.
 func zunmqrBufferSize(handle Handle, side SideMode, trans Operation, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32) (int32, error) {
@@ -16600,12 +17409,11 @@ var slotZunmqrBufferSize outSlot[int32]
 //   - work: Working space, array of size lwork
 //   - lwork: Size of working array work
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or wrong lda or ldc).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZunmtr.
 func zunmtr(handle Handle, side SideMode, uplo FillMode, trans Operation, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -16630,12 +17438,11 @@ func zunmtr(handle Handle, side SideMode, uplo FillMode, trans Operation, m int3
 //   - ldc: Leading dimension of two-dimensional array of matrix C. ldc >= max(1,m)
 //   - lwork: Size of work, in elements of complex128
 //
-// Returns:
+// Errors:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
 //   - [ErrInternalError]: An internal operation failed.
 //   - [ErrInvalidValue]: Invalid parameters were passed ( m,n<0 or wrong lda or ldc).
 //   - [ErrNotInitialized]: The library was not initialized.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZunmtrBufferSize, bound as cusolverDnZunmtr_bufferSize.
 func zunmtrBufferSize(handle Handle, side SideMode, uplo FillMode, trans Operation, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32) (int32, error) {

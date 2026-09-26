@@ -17,6 +17,9 @@ package driver
 //   - hNode: Batch mem op node from the graph from which graphExec was instantiated
 //   - nodeParams: Updated Parameters to set
 //
+// Errors:
+//   - [ErrInvalidValue]
+//
 // Wraps cuGraphExecBatchMemOpNodeSetParams.
 func (g GraphExec) BatchMemOpNodeSetParams(hNode BatchMemOpNode, nodeParams *BatchMemOpNodeParams) error {
 	return graphExecBatchMemOpNodeSetParams(g, hNode.GraphNode, nodeParams)
@@ -33,6 +36,9 @@ func (g GraphExec) BatchMemOpNodeSetParams(hNode BatchMemOpNode, nodeParams *Bat
 //   - hNode: Host node from the graph which was used to instantiate graphExec
 //   - childGraph: The graph supplying the updated parameters
 //
+// Errors:
+//   - [ErrInvalidValue]
+//
 // Wraps cuGraphExecChildGraphNodeSetParams.
 func (g GraphExec) ChildGraphNodeSetParams(hNode ChildGraphNode, childGraph Graph) error {
 	return graphExecChildGraphNodeSetParams(g, hNode.GraphNode, childGraph)
@@ -43,6 +49,11 @@ func (g GraphExec) ChildGraphNodeSetParams(hNode ChildGraphNode, childGraph Grap
 // Destroys the executable graph specified by hGraphExec, as well as all of its executable nodes. If the executable graph is in-flight, it will not be terminated, but rather freed asynchronously on completion.
 //
 // See also: [Graph.Instantiate], [GraphExec.Upload], [GraphExec.Launch]
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuGraphExecDestroy.
 func (g GraphExec) Destroy() error {
@@ -59,6 +70,9 @@ func (g GraphExec) Destroy() error {
 //   - hNode: event record node from the graph from which graphExec was instantiated
 //   - event: Updated event to use
 //
+// Errors:
+//   - [ErrInvalidValue]
+//
 // Wraps cuGraphExecEventRecordNodeSetEvent.
 func (g GraphExec) EventRecordNodeSetEvent(hNode EventRecordNode, event Event) error {
 	return graphExecEventRecordNodeSetEvent(g, hNode.GraphNode, event)
@@ -73,6 +87,9 @@ func (g GraphExec) EventRecordNodeSetEvent(hNode EventRecordNode, event Event) e
 //
 //   - hNode: event wait node from the graph from which graphExec was instantiated
 //   - event: Updated event to use
+//
+// Errors:
+//   - [ErrInvalidValue]
 //
 // Wraps cuGraphExecEventWaitNodeSetEvent.
 func (g GraphExec) EventWaitNodeSetEvent(hNode EventWaitNode, event Event) error {
@@ -91,6 +108,9 @@ func (g GraphExec) EventWaitNodeSetEvent(hNode EventWaitNode, event Event) error
 //   - hNode: semaphore signal node from the graph from which graphExec was instantiated
 //   - nodeParams: Updated Parameters to set
 //
+// Errors:
+//   - [ErrInvalidValue]
+//
 // Wraps cuGraphExecExternalSemaphoresSignalNodeSetParams.
 func (g GraphExec) ExternalSemaphoresSignalNodeSetParams(hNode ExternalSemaphoresSignalNode, nodeParams *ExtSemSignalNodeParams) error {
 	return graphExecExternalSemaphoresSignalNodeSetParams(g, hNode.GraphNode, nodeParams)
@@ -108,6 +128,9 @@ func (g GraphExec) ExternalSemaphoresSignalNodeSetParams(hNode ExternalSemaphore
 //   - hNode: semaphore wait node from the graph from which graphExec was instantiated
 //   - nodeParams: Updated Parameters to set
 //
+// Errors:
+//   - [ErrInvalidValue]
+//
 // Wraps cuGraphExecExternalSemaphoresWaitNodeSetParams.
 func (g GraphExec) ExternalSemaphoresWaitNodeSetParams(hNode ExternalSemaphoresWaitNode, nodeParams *ExtSemWaitNodeParams) error {
 	return graphExecExternalSemaphoresWaitNodeSetParams(g, hNode.GraphNode, nodeParams)
@@ -119,6 +142,9 @@ func (g GraphExec) ExternalSemaphoresWaitNodeSetParams(hNode ExternalSemaphoresW
 //
 // See also: [Graph.Instantiate], [Graph.InstantiateWithParams]
 //
+// Errors:
+//   - [ErrInvalidValue]
+//
 // Wraps cuGraphExecGetFlags.
 func (g GraphExec) Flags() (uint64, error) {
 	return graphExecGetFlags(g)
@@ -129,6 +155,9 @@ func (g GraphExec) Flags() (uint64, error) {
 // Returns the id of hGraphExec in *graphId. The value in *graphId will match that referenced by [Graph.DebugDotPrint].
 //
 // See also: [Graph.GetNodes], [Graph.DebugDotPrint] [GraphNode.ContainingGraph] [GraphNode.LocalId] [GraphNode.ToolsId] [Graph.Id]
+//
+// Errors:
+//   - [ErrInvalidValue]
 //
 // Wraps cuGraphExecGetId.
 func (g GraphExec) Id() (uint32, error) {
@@ -145,6 +174,9 @@ func (g GraphExec) Id() (uint32, error) {
 //   - hNode: Host node from the graph which was used to instantiate graphExec
 //   - nodeParams: The updated parameters to set
 //
+// Errors:
+//   - [ErrInvalidValue]
+//
 // Wraps cuGraphExecHostNodeSetParams.
 func (g GraphExec) HostNodeSetParams(hNode HostNode, nodeParams *HostNodeParams) error {
 	return graphExecHostNodeSetParams(g, hNode.GraphNode, nodeParams)
@@ -154,6 +186,11 @@ func (g GraphExec) HostNodeSetParams(hNode HostNode, nodeParams *HostNodeParams)
 //
 // Sets the parameters of a kernel node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated.
 // hNode must not have been removed from the original graph. All nodeParams fields may change, but the following restrictions apply to func updates:
+//   - The owning context of the function cannot change.
+//   - A node whose function originally did not use CUDA dynamic parallelism cannot be updated to a function which uses CDP
+//   - A node whose function originally did not make device-side update calls cannot be updated to a function which makes device-side update calls.
+//   - If hGraphExec was not instantiated for device launch, a node whose function originally did not use device-side cudaGraphLaunch() cannot be updated to a function which uses device-side cudaGraphLaunch() unless the node resides on the same context as nodes which contained such calls at instantiate-time. If no such calls were present at instantiation, these updates cannot be performed at all.
+//
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
 // If hNode is a device-updatable kernel node, the next upload/launch of hGraphExec will overwrite any previous device-side updates. Additionally, applying host updates to a device-updatable kernel node while it is being updated from the device will result in undefined behavior.
 //
@@ -161,6 +198,9 @@ func (g GraphExec) HostNodeSetParams(hNode HostNode, nodeParams *HostNodeParams)
 //
 //   - hNode: kernel node from the graph from which graphExec was instantiated
 //   - nodeParams: Updated Parameters to set
+//
+// Errors:
+//   - [ErrInvalidValue]
 //
 // Wraps cuGraphExecKernelNodeSetParams, bound as cuGraphExecKernelNodeSetParams_v2.
 func (g GraphExec) KernelNodeSetParams(hNode KernelNode, nodeParams *KernelNodeParams) error {
@@ -179,6 +219,9 @@ func (g GraphExec) KernelNodeSetParams(hNode KernelNode, nodeParams *KernelNodeP
 //   - hNode: Memcpy node from the graph which was used to instantiate graphExec
 //   - copyParams: The updated parameters to set
 //   - ctx: Context on which to run the node
+//
+// Errors:
+//   - [ErrInvalidValue]
 //
 // Wraps cuGraphExecMemcpyNodeSetParams.
 func (g GraphExec) MemcpyNodeSetParams(hNode MemcpyNode, copyParams *Memcpy3d, ctx Context) error {
@@ -200,6 +243,9 @@ func (g GraphExec) MemcpyNodeSetParams(hNode MemcpyNode, copyParams *Memcpy3d, c
 //   - memsetParams: The updated parameters to set
 //   - ctx: Context on which to run the node
 //
+// Errors:
+//   - [ErrInvalidValue]
+//
 // Wraps cuGraphExecMemsetNodeSetParams.
 func (g GraphExec) MemsetNodeSetParams(hNode MemsetNode, memsetParams *MemsetNodeParams, ctx Context) error {
 	return graphExecMemsetNodeSetParams(g, hNode.GraphNode, memsetParams, ctx)
@@ -210,11 +256,27 @@ func (g GraphExec) MemsetNodeSetParams(hNode MemsetNode, memsetParams *MemsetNod
 // Sets the parameters of a node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph from which the executable graph was instantiated. hNode must not have been removed from the original graph.
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
 // Allowed changes to parameters on executable graphs are as follows:
+//   - kernel: See [GraphExec.KernelNodeSetParams]
+//   - memcpy: Addresses for 1-dimensional copies if allocated in same context; see [GraphExec.MemcpyNodeSetParams]
+//   - memset: Addresses for 1-dimensional memsets if allocated in same context; see [GraphExec.MemsetNodeSetParams]
+//   - host: Context changes are not allowed
+//   - child graph: Topology must match and restrictions apply recursively; see [GraphExec.Update]
+//   - event wait: Unrestricted
+//   - event record: Event only, context changes are not allowed
+//   - external semaphore signal: Number of semaphore operations and context cannot change
+//   - external semaphore wait: Number of semaphore operations and context cannot change
+//   - memory allocation: API unsupported
+//   - memory free: API unsupported
+//   - batch memops: Addresses, values, and operation type for wait operations; see [GraphExec.BatchMemOpNodeSetParams]
 //
 // See also: [Graph.AddNode], [GraphNode.SetParams] [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hNode: Corresponding node from the graph from which graphExec was instantiated
 //   - nodeParams: Updated Parameters to set
+//
+// Errors:
+//   - [ErrInvalidValue]
+//   - [ErrNotSupported]
 //
 // Wraps cuGraphExecNodeSetParams.
 func (g GraphExec) NodeSetParams(hNode GraphNode, nodeParams *GraphNodeParams) error {
@@ -225,10 +287,28 @@ func (g GraphExec) NodeSetParams(hNode GraphNode, nodeParams *GraphNodeParams) e
 //
 // Updates the node parameters in the instantiated graph specified by hGraphExec with the node parameters in a topologically identical graph specified by hGraph.
 // Limitations:
+//   - Kernel nodes: The owning context of the function cannot change. A node whose function originally did not use CUDA dynamic parallelism cannot be updated to a function which uses CDP. A node whose function originally did not make device-side update calls cannot be updated to a function which makes device-side update calls. A cooperative node cannot be updated to a non-cooperative node, and vice-versa. If the graph was instantiated with [GraphInstantiateFlagUseNodePriority], the priority attribute cannot change. Equality is checked on the originally requested priority values, before they are clamped to the device’s supported range. If hGraphExec was not instantiated for device launch, a node whose function originally did not use device-side cudaGraphLaunch() cannot be updated to a function which uses device-side cudaGraphLaunch() unless the node resides on the same context as nodes which contained such calls at instantiate-time. If no such calls were present at instantiation, these updates cannot be performed at all. Neither hGraph nor hGraphExec may contain device-updatable kernel nodes.
+//   - Memset and memcpy nodes: The CUDA device(s) to which the operand(s) was allocated/mapped cannot change. The source/destination memory must be allocated from the same contexts as the original source/destination memory. For 2d memsets, only address and assigned value may be updated. For 1d memsets, updating dimensions is also allowed, but may fail if the resulting operation doesn’t map onto the work resources already allocated for the node.
+//   - Additional memcpy node restrictions: Changing either the source or destination memory type(i.e. [MemoryTypeDevice], [MemoryTypeArray], etc.) is not supported.
+//   - External semaphore wait nodes and record nodes: Changing the number of semaphores is not supported.
+//   - Conditional nodes: Changing node parameters is not supported. Changing parameters of nodes within the conditional body graph is subject to the rules above. Conditional handle flags and default values are updated as part of the graph update.
 //
 // Note: The API may add further restrictions in future releases. The return code should always be checked.
 // [GraphExec.Update] sets the result member of resultInfo to [GraphExecUpdateErrorTopologyChanged] under the following conditions:
+//   - The count of nodes directly in hGraphExec and hGraph differ, in which case resultInfo->errorNode is set to NULL.
+//   - hGraph has more exit nodes than hGraph, in which case resultInfo->errorNode is set to one of the exit nodes in hGraph.
+//   - A node in hGraph has a different number of dependencies than the node from hGraphExec it is paired with, in which case resultInfo->errorNode is set to the node from hGraph.
+//   - A node in hGraph has a dependency that does not match with the corresponding dependency of the paired node from hGraphExec. resultInfo->errorNode will be set to the node from hGraph. resultInfo->errorFromNode will be set to the mismatched dependency. The dependencies are paired based on edge order and a dependency does not match when the nodes are already paired based on other edges examined in the graph.
+//
 // [GraphExec.Update] sets the result member of resultInfo to:
+//   - [GraphExecUpdateError] if passed an invalid value.
+//   - [GraphExecUpdateErrorTopologyChanged] if the graph topology changed
+//   - [GraphExecUpdateErrorNodeTypeChanged] if the type of a node changed, in which case hErrorNode_out is set to the node from hGraph.
+//   - [GraphExecUpdateErrorUnsupportedFunctionChange] if the function changed in an unsupported way(see note above), in which case hErrorNode_out is set to the node from hGraph
+//   - [GraphExecUpdateErrorParametersChanged] if any parameters to a node changed in a way that is not supported, in which case hErrorNode_out is set to the node from hGraph.
+//   - [GraphExecUpdateErrorAttributesChanged] if any attributes of a node changed in a way that is not supported, in which case hErrorNode_out is set to the node from hGraph.
+//   - [GraphExecUpdateErrorNotSupported] if something about a node is unsupported, like the node’s type or configuration, in which case hErrorNode_out is set to the node from hGraph
+//
 // If the update fails for a reason not listed above, the result member of resultInfo will be set to [GraphExecUpdateError]. If the update succeeds, the result member will be set to [GraphExecUpdateSuccess].
 // [GraphExec.Update] returns [Success] when the updated was performed successfully. It returns [ErrGraphExecUpdateFailure] if the graph update was not performed because it included changes which violated constraints specific to instantiated graph update.
 //
@@ -236,6 +316,9 @@ func (g GraphExec) NodeSetParams(hNode GraphNode, nodeParams *GraphNodeParams) e
 //
 //   - hGraph: The graph containing the updated parameters
 //   - resultInfo: the error info structure
+//
+// Errors:
+//   - [ErrGraphExecUpdateFailure]
 //
 // Wraps cuGraphExecUpdate, bound as cuGraphExecUpdate_v2.
 func (g GraphExec) Update(hGraph Graph, resultInfo *GraphExecUpdateResultInfo) error {
@@ -251,6 +334,11 @@ func (g GraphExec) Update(hGraph Graph, resultInfo *GraphExecUpdateResultInfo) e
 //
 //   - hStream: Stream in which to launch the graph
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuGraphLaunch.
 func (g GraphExec) Launch(hStream Stream) error {
 	return graphLaunch(g, hStream)
@@ -263,6 +351,11 @@ func (g GraphExec) Launch(hStream Stream) error {
 // See also: [Graph.Instantiate], [GraphExec.Launch], [GraphExec.Destroy]
 //
 //   - hStream: Stream in which to upload the graph
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuGraphUpload.
 func (g GraphExec) Upload(hStream Stream) error {

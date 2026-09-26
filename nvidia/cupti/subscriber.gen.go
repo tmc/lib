@@ -11,8 +11,9 @@ import "unsafe"
 //   - kind: The kind of activity record to stop collecting
 //   - pActivityConfig: The activity config. It can be NULL
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidKind]: if the activity kind is not supported
+//   - [ErrNotInitialized]
 //
 // Wraps cuptiActivityDisable_v2.
 func (s Subscriber) ActivityDisableV2(kind ActivityKind, pActivityConfig *ActivityConfig) error {
@@ -29,9 +30,10 @@ func (s Subscriber) ActivityDisableV2(kind ActivityKind, pActivityConfig *Activi
 //   - kind: The kind of activity record to collect
 //   - activityConfig: The activity config. It can be NULL
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidKind]: if the activity kind is not supported
 //   - [ErrNotCompatible]: if the activity kind cannot be enabled
+//   - [ErrNotInitialized]
 //   - [ErrUnknown]: if buffer is not initialized.
 //
 // Wraps cuptiActivityEnableAndDump_v2.
@@ -46,9 +48,10 @@ func (s Subscriber) ActivityEnableAndDumpV2(kind ActivityKind, activityConfig *A
 //   - kind: The kind of activity record to collect
 //   - pActivityConfig: The activity config. It can be NULL
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidKind]: if the activity kind is not supported
 //   - [ErrNotCompatible]: if the activity kind cannot be enabled
+//   - [ErrNotInitialized]
 //
 // Wraps cuptiActivityEnable_v2.
 func (s Subscriber) ActivityEnableV2(kind ActivityKind, pActivityConfig *ActivityConfig) error {
@@ -64,8 +67,9 @@ func (s Subscriber) ActivityEnableV2(kind ActivityKind, pActivityConfig *Activit
 //   - valueSize: Size of buffer pointed by the value, and returns the number of bytes written to value
 //   - value: Returns the value of the attribute
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidParameter]: if valueSize or value is NULL, or if attr is not an activity attribute
+//   - [ErrNotInitialized]
 //   - [ErrParameterSizeNotSufficient]: Indicates that the value buffer is too small to hold the attribute value.
 //
 // Wraps cuptiActivityGetAttribute_v2.
@@ -80,7 +84,7 @@ func (s Subscriber) ActivityGetAttributeV2(attr ActivityAttribute, valueSize *ui
 //   - buffer: The buffer to store the enabled activity kinds. If NULL, the number of enabled activity kinds is returned in enabledKindsCount
 //   - bufferSize: The size of the buffer. If NULL, only the number of enabled activity kinds is returned in enabledKindsCount. If NULL and buffer is not NULL, [ErrInvalidParameter] is returned
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidParameter]: if enabledKindsCount is NULL or if subscriber is invalid.
 //
 // Wraps cuptiActivityGetEnabledKinds.
@@ -96,7 +100,7 @@ func (s Subscriber) ActivityGetEnabledKinds(buffer *ActivityKind, bufferSize *ui
 //   - funcBufferRequested: callback which is invoked when an empty buffer is requested by CUPTI (see [BuffersCallbackRequestFuncV2])
 //   - funcBufferCompleted: callback which is invoked when a buffer containing activity records is available from CUPTI (see [BuffersCallbackCompleteFuncV2])
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidParameter]: if either funcBufferRequested or funcBufferCompleted_v2 is NULL
 //
 // Wraps cuptiActivityRegisterCallbacks_v2.
@@ -112,8 +116,9 @@ func (s Subscriber) ActivityRegisterCallbacksV2(funcBufferRequested uintptr, fun
 //   - valueSize: The size, in bytes, of the value
 //   - value: The attribute value to write
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidParameter]: if valueSize or value is NULL, or if attr is not an activity attribute
+//   - [ErrNotInitialized]
 //   - [ErrParameterSizeNotSufficient]: Indicates that the value buffer is too small to hold the attribute value.
 //
 // Wraps cuptiActivitySetAttribute_v2.
@@ -129,10 +134,9 @@ func (s Subscriber) ActivitySetAttributeV2(attr ActivityAttribute, valueSize *ui
 //
 //   - enable: New enable state for all callbacks in all domain. Zero disables all callbacks, non-zero enables all callbacks
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidParameter]: if subscriber is invalid
 //   - [ErrNotInitialized]: if unable to initialized CUPTI
-//   - [Success]: on success
 //
 // Wraps cuptiEnableAllDomains.
 func (s Subscriber) EnableAllDomains(enable uint32) error {
@@ -151,10 +155,9 @@ func (s Subscriber) EnableAllDomains(enable uint32) error {
 //   - domain: The domain of the callback
 //   - cbid: The ID of the callback
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidParameter]: if subscriber, domain or cbid is invalid.
 //   - [ErrNotInitialized]: if unable to initialized CUPTI
-//   - [Success]: on success
 //
 // Wraps cuptiEnableCallback.
 func (s Subscriber) EnableCallback(enable uint32, domain CallbackDomain, cbid uint32) error {
@@ -170,10 +173,9 @@ func (s Subscriber) EnableCallback(enable uint32, domain CallbackDomain, cbid ui
 //   - enable: New enable state for all callbacks in the domain. Zero disables all callbacks, non-zero enables all callbacks
 //   - domain: The domain of the callback
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidParameter]: if subscriber or domain is invalid
 //   - [ErrNotInitialized]: if unable to initialized CUPTI
-//   - [Success]: on success
 //
 // Wraps cuptiEnableDomain.
 func (s Subscriber) EnableDomain(enable uint32, domain CallbackDomain) error {
@@ -191,10 +193,9 @@ func (s Subscriber) EnableDomain(enable uint32, domain CallbackDomain) error {
 //   - domain: The domain of the callback
 //   - cbid: The ID of the callback
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidParameter]: if enabled is NULL, or if subscriber, domain or cbid is invalid.
 //   - [ErrNotInitialized]: if unable to initialized CUPTI
-//   - [Success]: on success
 //
 // Wraps cuptiGetCallbackState.
 func (s Subscriber) CallbackState(domain CallbackDomain, cbid uint32) (uint32, error) {
@@ -209,7 +210,7 @@ func (s Subscriber) CallbackState(domain CallbackDomain, cbid uint32) (uint32, e
 //   - buffer: The buffer to store the enabled callbacks. If NULL, the number of enabled callbacks is returned in enabledCallbacksCount
 //   - bufferSize: The size of the buffer. If NULL, only the number of enabled callbacks is returned in enabledCallbacksCount. If NULL and buffer is not NULL, [ErrInvalidParameter] is returned
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidParameter]: if enabledCallbacksCount is NULL, or if subscriber or domain is invalid.
 //
 // Wraps cuptiGetEnabledCallbacks.
@@ -223,10 +224,9 @@ func (s Subscriber) EnabledCallbacks(domain CallbackDomain, buffer *uint32, buff
 //
 // Note: Thread-safety: this function is thread safe.
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidParameter]: if subscriber is NULL or not initialized
 //   - [ErrNotInitialized]: if unable to initialized CUPTI
-//   - [Success]: on success
 //
 // Wraps cuptiUnsubscribe.
 func (s Subscriber) Unsubscribe() error {

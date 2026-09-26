@@ -136,7 +136,7 @@ func TestPhysicalContraction(t *testing.T) {
 		cleanup(workspace.Free)
 	}
 	alpha, beta := float32(2), float32(-1)
-	check(h.Contract(plan, unsafe.Pointer(&alpha), pa, pb, unsafe.Pointer(&beta), pc, pc, workspace, wsSize, 0))
+	check(h.Contract(plan, cutensor.Float32Scalar(alpha), pa, pb, cutensor.Float32Scalar(beta), pc, pc, workspace, wsSize, 0))
 	check(driver.CtxSynchronize())
 	check(pc.CopyToHostPtr(unsafe.Pointer(&c[0]), uint(len(c)*4)))
 	for i, v := range c {

@@ -87,13 +87,15 @@ var (
 	symVendorGetVersionInfoRaw   uintptr
 )
 
-// ffiCall0 through ffiCall8 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+// The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
 //
 // Bit i of floatMask marks argument word i as a floating-point bit
 // pattern, which the C ABI passes in a different register file from the
-// integer and pointer words. Each returns the first integer result
-// register and the first floating-point one; a caller reads whichever the
-// C function sets.
+// integer and pointer words. Bits 2i and 2i+1 of widths give the size of
+// argument word i as a ffi.Width code, which places a narrow argument
+// on the stack where the C ABI expects it. Each funnel returns the first
+// integer result register and the first floating-point one; a caller
+// reads whichever the C function sets.
 //
 // The //go:uintptrescapes directive is what makes a Go pointer safe to
 // pass: a pointer converted to uintptr in one of these argument lists is
@@ -132,28 +134,52 @@ func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr)
 }
 
 //go:uintptrescapes
-func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+func ffiCallWidths1(fn uintptr, floatMask uint32, widths uint64, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloatWidths(fn, 1, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths2(fn uintptr, floatMask uint32, widths uint64, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloatWidths(fn, 2, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths3(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloatWidths(fn, 3, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths4(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
 	args[2] = a2
 	args[3] = a3
-	return ffi.CallFloat(fn, 4, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 4, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+func ffiCallWidths5(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
 	args[2] = a2
 	args[3] = a3
 	args[4] = a4
-	return ffi.CallFloat(fn, 5, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 5, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall7(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
+func ffiCallWidths7(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -162,11 +188,11 @@ func ffiCall7(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6 uintptr) 
 	args[4] = a4
 	args[5] = a5
 	args[6] = a6
-	return ffi.CallFloat(fn, 7, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 7, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall8(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7 uintptr) (r1, rf uintptr) {
+func ffiCallWidths8(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -176,7 +202,7 @@ func ffiCall8(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7 uintp
 	args[5] = a5
 	args[6] = a6
 	args[7] = a7
-	return ffi.CallFloat(fn, 8, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 8, &args, floatMask, widths)
 }
 
 // An outSlot pools the heap cells a wrapper passes to C for its outputs.
@@ -208,13 +234,13 @@ func fnAlign(a0 uint, a1 uint) uintptr {
 
 // fnAllToAllMem calls nvshmem_alltoallmem.
 func fnAllToAllMem(a0 Team, a1 uintptr, a2 uintptr, a3 uint) Status {
-	r1, _ := ffiCall4(symAllToAllMem, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	r1, _ := ffiCallWidths4(symAllToAllMem, 0, 0x3, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 	return Status(r1)
 }
 
 // fnBarrier calls nvshmem_barrier.
 func fnBarrier(a0 Team) Status {
-	r1, _ := ffiCall1(symBarrier, 0, uintptr(a0))
+	r1, _ := ffiCallWidths1(symBarrier, 0, 0x3, uintptr(a0))
 	return Status(r1)
 }
 
@@ -225,7 +251,7 @@ func fnBarrierAll() {
 
 // fnBroadcastMem calls nvshmem_broadcastmem.
 func fnBroadcastMem(a0 Team, a1 uintptr, a2 uintptr, a3 uint, a4 int32) Status {
-	r1, _ := ffiCall5(symBroadcastMem, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	r1, _ := ffiCallWidths5(symBroadcastMem, 0, 0x303, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Status(r1)
 }
 
@@ -237,7 +263,7 @@ func fnCalloc(a0 uint, a1 uint) uintptr {
 
 // fnFCollectMem calls nvshmem_fcollectmem.
 func fnFCollectMem(a0 Team, a1 uintptr, a2 uintptr, a3 uint) Status {
-	r1, _ := ffiCall4(symFCollectMem, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	r1, _ := ffiCallWidths4(symFCollectMem, 0, 0x3, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 	return Status(r1)
 }
 
@@ -253,17 +279,17 @@ func fnFree(a0 uintptr) {
 
 // fnGetMem calls nvshmem_getmem.
 func fnGetMem(a0 uintptr, a1 uintptr, a2 uint, a3 int32) {
-	ffiCall4(symGetMem, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	ffiCallWidths4(symGetMem, 0, 0xc0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 }
 
 // fnGetMemNBI calls nvshmem_getmem_nbi.
 func fnGetMemNBI(a0 uintptr, a1 uintptr, a2 uint, a3 int32) {
-	ffiCall4(symGetMemNBI, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	ffiCallWidths4(symGetMemNBI, 0, 0xc0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 }
 
 // fnGlobalExit calls nvshmem_global_exit.
 func fnGlobalExit(a0 int32) {
-	ffiCall1(symGlobalExit, 0, uintptr(a0))
+	ffiCallWidths1(symGlobalExit, 0, 0x3, uintptr(a0))
 }
 
 // fnInfoGetNameRaw calls nvshmem_info_get_name.
@@ -296,18 +322,18 @@ func fnNPEs() int32 {
 
 // fnPtr calls nvshmem_ptr.
 func fnPtr(a0 uintptr, a1 int32) uintptr {
-	r1, _ := ffiCall2(symPtr, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symPtr, 0, 0xc, uintptr(a0), uintptr(a1))
 	return uintptr(r1)
 }
 
 // fnPutMem calls nvshmem_putmem.
 func fnPutMem(a0 uintptr, a1 uintptr, a2 uint, a3 int32) {
-	ffiCall4(symPutMem, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	ffiCallWidths4(symPutMem, 0, 0xc0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 }
 
 // fnPutMemNBI calls nvshmem_putmem_nbi.
 func fnPutMemNBI(a0 uintptr, a1 uintptr, a2 uint, a3 int32) {
-	ffiCall4(symPutMemNBI, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	ffiCallWidths4(symPutMemNBI, 0, 0xc0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 }
 
 // fnQueryThreadRaw calls nvshmem_query_thread.
@@ -333,47 +359,47 @@ func fnSyncAll() {
 
 // fnTeamDestroy calls nvshmem_team_destroy.
 func fnTeamDestroy(a0 Team) {
-	ffiCall1(symTeamDestroy, 0, uintptr(a0))
+	ffiCallWidths1(symTeamDestroy, 0, 0x3, uintptr(a0))
 }
 
 // fnTeamGetConfig calls nvshmem_team_get_config.
 func fnTeamGetConfig(a0 Team, a1 *TeamConfig) {
-	ffiCall2(symTeamGetConfig, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	ffiCallWidths2(symTeamGetConfig, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 }
 
 // fnTeamMyPE calls nvshmem_team_my_pe.
 func fnTeamMyPE(a0 Team) int32 {
-	r1, _ := ffiCall1(symTeamMyPE, 0, uintptr(a0))
+	r1, _ := ffiCallWidths1(symTeamMyPE, 0, 0x3, uintptr(a0))
 	return int32(r1)
 }
 
 // fnTeamNPEs calls nvshmem_team_n_pes.
 func fnTeamNPEs(a0 Team) int32 {
-	r1, _ := ffiCall1(symTeamNPEs, 0, uintptr(a0))
+	r1, _ := ffiCallWidths1(symTeamNPEs, 0, 0x3, uintptr(a0))
 	return int32(r1)
 }
 
 // fnTeamSplit2D calls nvshmem_team_split_2d.
 func fnTeamSplit2D(a0 Team, a1 int32, a2 *TeamConfig, a3 int, a4 *Team, a5 *TeamConfig, a6 int, a7 *Team) Status {
-	r1, _ := ffiCall8(symTeamSplit2D, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	r1, _ := ffiCallWidths8(symTeamSplit2D, 0, 0xf, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(unsafe.Pointer(a7)))
 	return Status(r1)
 }
 
 // fnTeamSplitStrided calls nvshmem_team_split_strided.
 func fnTeamSplitStrided(a0 Team, a1 int32, a2 int32, a3 int32, a4 *TeamConfig, a5 int, a6 *Team) Status {
-	r1, _ := ffiCall7(symTeamSplitStrided, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	r1, _ := ffiCallWidths7(symTeamSplitStrided, 0, 0xff, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(unsafe.Pointer(a6)))
 	return Status(r1)
 }
 
 // fnTeamSync calls nvshmem_team_sync.
 func fnTeamSync(a0 Team) Status {
-	r1, _ := ffiCall1(symTeamSync, 0, uintptr(a0))
+	r1, _ := ffiCallWidths1(symTeamSync, 0, 0x3, uintptr(a0))
 	return Status(r1)
 }
 
 // fnTeamTranslatePE calls nvshmem_team_translate_pe.
 func fnTeamTranslatePE(a0 Team, a1 int32, a2 Team) int32 {
-	r1, _ := ffiCall3(symTeamTranslatePE, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	r1, _ := ffiCallWidths3(symTeamTranslatePE, 0, 0x3f, uintptr(a0), uintptr(a1), uintptr(a2))
 	return int32(r1)
 }
 
@@ -385,13 +411,13 @@ func fnBufferRegister(a0 uintptr, a1 uint) Status {
 
 // fnBufferRegisterSymmetric calls nvshmemx_buffer_register_symmetric.
 func fnBufferRegisterSymmetric(a0 uintptr, a1 uint, a2 int32) uintptr {
-	r1, _ := ffiCall3(symBufferRegisterSymmetric, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	r1, _ := ffiCallWidths3(symBufferRegisterSymmetric, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2))
 	return uintptr(r1)
 }
 
 // fnBufferRegisterSymmetricAt calls nvshmemx_buffer_register_symmetric_at_preferred_address.
 func fnBufferRegisterSymmetricAt(a0 uintptr, a1 uint, a2 uintptr, a3 int32) uintptr {
-	r1, _ := ffiCall4(symBufferRegisterSymmetricAt, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	r1, _ := ffiCallWidths4(symBufferRegisterSymmetricAt, 0, 0xc0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 	return uintptr(r1)
 }
 
@@ -430,7 +456,7 @@ func fnHostlibFinalize() {
 
 // fnHostlibInitAttr calls nvshmemx_hostlib_init_attr.
 func fnHostlibInitAttr(a0 uint32, a1 *InitAttr) Status {
-	r1, _ := ffiCall2(symHostlibInitAttr, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symHostlibInitAttr, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Status(r1)
 }
 
@@ -442,7 +468,7 @@ func fnQueryInitStatus() InitStatus {
 
 // fnMulticastPtr calls nvshmemx_mc_ptr.
 func fnMulticastPtr(a0 Team, a1 uintptr) uintptr {
-	r1, _ := ffiCall2(symMulticastPtr, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symMulticastPtr, 0, 0x3, uintptr(a0), uintptr(a1))
 	return uintptr(r1)
 }
 
@@ -454,7 +480,7 @@ func fnSetAttrMPICommArgs(a0 uintptr, a1 *InitAttr) Status {
 
 // fnSetAttrUniqueIDArgs calls nvshmemx_set_attr_uniqueid_args.
 func fnSetAttrUniqueIDArgs(a0 int32, a1 int32, a2 *UniqueID, a3 *InitAttr) Status {
-	r1, _ := ffiCall4(symSetAttrUniqueIDArgs, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symSetAttrUniqueIDArgs, 0, 0xf, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
 	return Status(r1)
 }
 
@@ -466,7 +492,7 @@ func fnTeamGetUniqueID(a0 *uint64) Status {
 
 // fnTeamInit calls nvshmemx_team_init.
 func fnTeamInit(a0 *Team, a1 *TeamConfig, a2 int, a3 int32, a4 int32) Status {
-	r1, _ := ffiCall5(symTeamInit, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3), uintptr(a4))
+	r1, _ := ffiCallWidths5(symTeamInit, 0, 0x3c0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Status(r1)
 }
 

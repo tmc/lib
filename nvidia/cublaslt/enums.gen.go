@@ -2479,7 +2479,7 @@ func (e MatrixLayoutAttribute) String() string {
 	return fmt.Sprintf("MatrixLayoutAttribute(%d)", e)
 }
 
-// MatmulDescAttributes represents [Handle.Matmul] descriptor attributes to define details of the operation.
+// MatmulDescAttributes represents matmul descriptor attributes to define details of the operation.
 type MatmulDescAttributes int32
 
 const (
@@ -2726,7 +2726,7 @@ func (e Epilogue) String() string {
 	return fmt.Sprintf("Epilogue(%d)", e)
 }
 
-// MatmulSearch represents [Handle.Matmul] heuristic search mode.
+// MatmulSearch represents matmul heuristic search mode.
 type MatmulSearch int32
 
 const (

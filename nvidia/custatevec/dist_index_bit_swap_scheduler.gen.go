@@ -2,7 +2,7 @@
 
 package custatevec
 
-// NewDistIndexBitSwapScheduler [Create] distributed index bit swap scheduler.
+// NewDistIndexBitSwapScheduler creates distributed index bit swap scheduler.
 //
 //   - handle: in the handle to cuStateVec library
 //   - scheduler: out a pointer to a batch swap scheduler

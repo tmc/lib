@@ -12,6 +12,11 @@ import "unsafe"
 //
 //   - peerDev: Device on which the allocations to be directly accessed by dev reside
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidDevice]
+//   - [ErrNotInitialized]
+//
 // Wraps cuDeviceCanAccessPeer.
 func (d Device) CanAccessPeer(peerDev Device) (int32, error) {
 	return deviceCanAccessPeer(d, peerDev)
@@ -32,6 +37,13 @@ func (d Device) ComputeCapability() (major int, minor int, err error) {
 //
 //   - attrib: Device attribute to query
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuDeviceGetAttribute.
 func (d Device) Attribute(attrib DeviceAttribute) (int32, error) {
 	return deviceGetAttribute(attrib, d)
@@ -42,6 +54,13 @@ func (d Device) Attribute(attrib DeviceAttribute) (int32, error) {
 // The default mempool of a device contains device memory from that device.
 //
 // See also: [Stream.MemAllocAsync], [MemoryPool.TrimTo], [MemoryPool.Attribute], [MemoryPool.SetAttribute], [MemoryPool.SetAccess], [Device.MemPool], [NewMemoryPool]
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
 //
 // Wraps cuDeviceGetDefaultMemPool.
 func (d Device) DefaultMemPool() (MemoryPool, error) {
@@ -56,6 +75,15 @@ func (d Device) DefaultMemPool() (MemoryPool, error) {
 //
 // See also: [DevResourceGenerateDesc]
 //
+//   - type_: Type of resource to retrieve
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidResourceType]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuDeviceGetDevResource.
 func (d Device) DevResource(type_ DevResourceType) (DevResource, error) {
 	return deviceGetDevResource(d, type_)
@@ -64,8 +92,18 @@ func (d Device) DevResource(type_ DevResourceType) (DevResource, error) {
 // ExecAffinitySupport returns information about the execution affinity support of the device.
 //
 // Returns in *pi whether execution affinity type type is supported by device dev. The supported types are:
+//   - [ExecAffinityTypeSmCount]: 1 if context with limited SMs is supported by the device, or 0 if not;
 //
 // See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Uuid], [DeviceGet], [Device.TotalMem]
+//
+//   - type_: Execution affinity type to query
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuDeviceGetExecAffinitySupport.
 func (d Device) ExecAffinitySupport(type_ ExecAffinityType) (int32, error) {
@@ -75,11 +113,18 @@ func (d Device) ExecAffinitySupport(type_ ExecAffinityType) (int32, error) {
 // GraphMemAttribute queries asynchronous allocation attributes related to graphs.
 //
 // Valid attributes are:
+//   - [GraphMemAttrUsedMemCurrent]: Amount of memory, in bytes, currently associated with graphs
+//   - [GraphMemAttrUsedMemHigh]: High watermark of memory, in bytes, associated with graphs since the last time it was reset. High watermark can only be reset to zero.
+//   - [GraphMemAttrReservedMemCurrent]: Amount of memory, in bytes, currently allocated for use by the CUDA graphs asynchronous allocator.
+//   - [GraphMemAttrReservedMemHigh]: High watermark of memory, in bytes, currently allocated for use by the CUDA graphs asynchronous allocator.
 //
 // See also: [Device.SetGraphMemAttribute], [Graph.AddMemAllocNode], [Graph.AddMemFreeNode]
 //
 //   - attr: attribute to get
 //   - value: retrieved value
+//
+// Errors:
+//   - [ErrInvalidDevice]
 //
 // Wraps cuDeviceGetGraphMemAttribute.
 func (d Device) GraphMemAttribute(attr GraphmemAttribute, value unsafe.Pointer) error {
@@ -98,6 +143,10 @@ func (d Device) GraphMemAttribute(attr GraphmemAttribute, value unsafe.Pointer) 
 //   - operations: Requested operations
 //   - count: Count of requested operations and size of capabilities
 //
+// Errors:
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//
 // Wraps cuDeviceGetHostAtomicCapabilities.
 func (d Device) HostAtomicCapabilities(operations *AtomicOperation, count uint32) (uint32, error) {
 	return deviceGetHostAtomicCapabilities(operations, count, d)
@@ -111,6 +160,12 @@ func (d Device) HostAtomicCapabilities(operations *AtomicOperation, count uint32
 //
 //   - luid: Returned LUID
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuDeviceGetLuid.
 func (d Device) Luid(luid *byte) (uint32, error) {
 	return deviceGetLuid(luid, d)
@@ -121,6 +176,9 @@ func (d Device) Luid(luid *byte) (uint32, error) {
 // Returns the last pool provided to [Device.SetMemPool] for this device or the device’s default memory pool if [Device.SetMemPool] has never been called. By default the current mempool is the default mempool for a device. Otherwise the returned pool must have been set with [Device.SetMemPool].
 //
 // See also: [Device.DefaultMemPool], [NewMemoryPool], [Device.SetMemPool]
+//
+// Errors:
+//   - [ErrInvalidValue]
 //
 // Wraps cuDeviceGetMemPool.
 func (d Device) MemPool() (MemoryPool, error) {
@@ -133,6 +191,13 @@ func (d Device) MemPool() (MemoryPool, error) {
 //
 // See also: [Device.Attribute], [Device.Uuid], [Device.Luid], [DeviceGetCount], [DeviceGet], [Device.TotalMem], [Device.ExecAffinitySupport], cudaGetDeviceProperties
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuDeviceGetName.
 func (d Device) Name() (string, error) {
 	return deviceGetName(d)
@@ -144,14 +209,31 @@ func (d Device) Name() (string, error) {
 // If NvSciSyncAttrKey_RequiredPerm field in nvSciSyncAttrList is already set this API will return [ErrInvalidValue].
 // The applications should set nvSciSyncAttrList to a valid NvSciSyncAttrList failing which this API will return [ErrInvalidHandle].
 // The flags controls how applications intends to use the NvSciSync created from the nvSciSyncAttrList. The valid flags are:
+//   - CUDA_NVSCISYNC_ATTR_SIGNAL, specifies that the applications intends to signal an NvSciSync on this CUDA device.
+//   - CUDA_NVSCISYNC_ATTR_WAIT, specifies that the applications intends to wait on an NvSciSync on this CUDA device.
+//
 // At least one of these flags must be set, failing which the API returns [ErrInvalidValue]. Both the flags are orthogonal to one another: a developer may set both these flags that allows to set both wait and signal specific attributes in the same nvSciSyncAttrList.
 // Note that this API updates the input nvSciSyncAttrList with values equivalent to the following public attribute key-values: NvSciSyncAttrKey_RequiredPerm is set to
-// [Success], [ErrDeinitialized], [ErrNotInitialized], [ErrInvalidValue], [ErrInvalidHandle], [ErrInvalidDevice], [ErrNotSupported], [ErrOutOfMemory]
+//   - NvSciSyncAccessPerm_SignalOnly if CUDA_NVSCISYNC_ATTR_SIGNAL is set in flags.
+//   - NvSciSyncAccessPerm_WaitOnly if CUDA_NVSCISYNC_ATTR_WAIT is set in flags.
+//   - NvSciSyncAccessPerm_WaitSignal if both CUDA_NVSCISYNC_ATTR_WAIT and CUDA_NVSCISYNC_ATTR_SIGNAL are set in flags. NvSciSyncAttrKey_PrimitiveInfo is set to
+//   - NvSciSyncAttrValPrimitiveType_SysmemSemaphore on any valid device.
+//   - NvSciSyncAttrValPrimitiveType_Syncpoint if device is a Tegra device.
+//   - NvSciSyncAttrValPrimitiveType_SysmemSemaphorePayload64b if device is GA10X+. NvSciSyncAttrKey_GpuId is set to the same UUID that is returned for this device from [Device.Uuid].
 //
 // See also: [ImportExternalSemaphore], [ExternalSemaphore.Destroy], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
 //   - nvSciSyncAttrList: Return NvSciSync attributes supported
 //   - flags: flags describing NvSciSync usage
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
+//   - [ErrOutOfMemory]
 //
 // Wraps cuDeviceGetNvSciSyncAttributes.
 func (d Device) NvSciSyncAttributes(nvSciSyncAttrList unsafe.Pointer, flags int32) error {
@@ -171,6 +253,10 @@ func (d Device) NvSciSyncAttributes(nvSciSyncAttrList unsafe.Pointer, flags int3
 //   - count: Count of requested operations and size of capabilities
 //   - dstDevice: The destination device of the target link
 //
+// Errors:
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//
 // Wraps cuDeviceGetP2PAtomicCapabilities.
 func (d Device) P2PAtomicCapabilities(operations *AtomicOperation, count uint32, dstDevice Device) (uint32, error) {
 	return deviceGetP2PAtomicCapabilities(operations, count, d, dstDevice)
@@ -179,6 +265,12 @@ func (d Device) P2PAtomicCapabilities(operations *AtomicOperation, count uint32,
 // P2PAttribute queries attributes of the link between two devices.
 //
 // Returns in *value the value of the requested attribute attrib of the link between srcDevice and dstDevice. The supported attributes are:
+//   - [DeviceP2PAttributePerformanceRank]: A relative value indicating the performance of the link between two devices.
+//   - [DeviceP2PAttributeAccessSupported] P2P: 1 if P2P Access is enable.
+//   - [DeviceP2PAttributeNativeAtomicSupported]: 1 if all CUDA-valid atomic operations over the link are supported.
+//   - [DeviceP2PAttributeCudaArrayAccessSupported]: 1 if cudaArray can be accessed over the link.
+//   - [DeviceP2PAttributeOnlyPartialNativeAtomicSupported]: 1 if some CUDA-valid atomic operations over the link are supported. Information about specific operations can be retrieved with [Device.P2PAtomicCapabilities].
+//
 // Returns [ErrInvalidDevice] if srcDevice or dstDevice are not valid or if they represent the same device.
 // Returns [ErrInvalidValue] if attrib is not valid or if value is a null pointer.
 //
@@ -186,6 +278,12 @@ func (d Device) P2PAtomicCapabilities(operations *AtomicOperation, count uint32,
 //
 //   - attrib: The requested attribute of the link between srcDevice and dstDevice
 //   - dstDevice: The destination device of the target link
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuDeviceGetP2PAttribute.
 func (d Device) P2PAttribute(attrib DeviceP2pattribute, dstDevice Device) (int32, error) {
@@ -199,6 +297,12 @@ func (d Device) P2PAttribute(attrib DeviceP2pattribute, dstDevice Device) (int32
 //
 // See also: [DeviceGet], [Device.Attribute], [DeviceGetByPCIBusId], cudaDeviceGetPCIBusId
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuDeviceGetPCIBusId.
 func (d Device) PCIBusId() (string, error) {
 	return deviceGetPCIBusId(d)
@@ -208,8 +312,25 @@ func (d Device) PCIBusId() (string, error) {
 //
 // Returns in *prop the properties of device dev. The [Devprop] structure is defined as:
 // where:
+//   - maxThreadsPerBlock is the maximum number of threads per block;
+//   - maxThreadsDim [3] is the maximum sizes of each dimension of a block;
+//   - maxGridSize [3] is the maximum sizes of each dimension of a grid;
+//   - sharedMemPerBlock is the total amount of shared memory available per block in bytes;
+//   - totalConstantMemory is the total amount of constant memory available on the device in bytes;
+//   - SIMDWidth is the warp size;
+//   - memPitch is the maximum pitch allowed by the memory copy functions that involve memory regions allocated through [MemAllocPitch];
+//   - regsPerBlock is the total number of registers available per block;
+//   - clockRate is the clock frequency in kilohertz;
+//   - textureAlign is the alignment requirement; texture base addresses that are aligned to textureAlign bytes do not need an offset applied to texture fetches.
 //
 // See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Uuid], [DeviceGet], [Device.TotalMem]
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Deprecated: This function was deprecated as of CUDA 5.0 and replaced by [Device.Attribute].
 //
@@ -227,6 +348,13 @@ func (d Device) Properties() (Devprop, error) {
 //   - format: Texture format
 //   - numChannels: Number of channels per texture element
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuDeviceGetTexture1DLinearMaxWidth.
 func (d Device) Texture1DLinearMaxWidth(format ArrayFormat, numChannels uint32) (uint, error) {
 	return deviceGetTexture1DLinearMaxWidth(format, numChannels, d)
@@ -237,6 +365,12 @@ func (d Device) Texture1DLinearMaxWidth(format ArrayFormat, numChannels uint32) 
 // Returns 16-octets identifying the device dev in the structure pointed by the uuid. If the device is in MIG mode, returns its MIG UUID which uniquely identifies the subscribed MIG compute instance.
 //
 // See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Luid], [DeviceGet], [Device.TotalMem], cudaGetDeviceProperties
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuDeviceGetUuid, bound as cuDeviceGetUuid_v2.
 func (d Device) Uuid() (Uuid, error) {
@@ -249,6 +383,9 @@ func (d Device) Uuid() (Uuid, error) {
 //
 // See also: [Graph.AddMemAllocNode], [Graph.AddMemFreeNode], [Device.SetGraphMemAttribute], [Device.GraphMemAttribute]
 //
+// Errors:
+//   - [ErrInvalidDevice]
+//
 // Wraps cuDeviceGraphMemTrim.
 func (d Device) GraphMemTrim() error {
 	return deviceGraphMemTrim(d)
@@ -259,6 +396,12 @@ func (d Device) GraphMemTrim() error {
 // Returns in *flags the flags for the primary context of dev, and in *active whether it is active. See [Device.PrimaryCtxSetFlags] for flag values.
 //
 // See also: [Device.PrimaryCtxSetFlags], [CtxGetFlags], [CtxSetFlags], cudaGetDeviceFlags
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuDevicePrimaryCtxGetState.
 func (d Device) PrimaryCtxGetState() (flags uint32, active int32, err error) {
@@ -273,6 +416,12 @@ func (d Device) PrimaryCtxGetState() (flags uint32, active int32, err error) {
 //
 // See also: [Device.PrimaryCtxRetain], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidDevice]
+//   - [ErrNotInitialized]
+//
 // Wraps cuDevicePrimaryCtxRelease, bound as cuDevicePrimaryCtxRelease_v2.
 func (d Device) PrimaryCtxRelease() error {
 	return devicePrimaryCtxRelease(d)
@@ -284,6 +433,12 @@ func (d Device) PrimaryCtxRelease() error {
 // Note that it is responsibility of the calling function to ensure that no other module in the process is using the device any more. For that reason it is recommended to use [Device.PrimaryCtxRelease] in most cases. However it is safe for other modules to call [Device.PrimaryCtxRelease] even after resetting the device. Resetting the primary context does not release it, an application that has retained the primary context should explicitly release its usage.
 //
 // See also: [Device.PrimaryCtxRetain], [Device.PrimaryCtxRelease], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize], cudaDeviceReset
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidDevice]
+//   - [ErrNotInitialized]
+//   - [ErrPrimaryContextActive]
 //
 // Wraps cuDevicePrimaryCtxReset, bound as cuDevicePrimaryCtxReset_v2.
 func (d Device) PrimaryCtxReset() error {
@@ -298,6 +453,15 @@ func (d Device) PrimaryCtxReset() error {
 //
 // See also: [Device.PrimaryCtxRelease], [Device.PrimaryCtxSetFlags], [NewContext], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrOutOfMemory]
+//   - [ErrUnknown]
+//
 // Wraps cuDevicePrimaryCtxRetain.
 func (d Device) PrimaryCtxRetain() (Context, error) {
 	return devicePrimaryCtxRetain(d)
@@ -307,10 +471,25 @@ func (d Device) PrimaryCtxRetain() (Context, error) {
 //
 // Sets the flags for the primary context on the device overwriting perviously set ones.
 // The three LSBs of the flags parameter can be used to control how the OS thread, which owns the CUDA context at the time of an API call, interacts with the OS scheduler when waiting for results from the GPU. Only one of the scheduling flags can be set when creating a context.
+//   - [CtxSchedSpin]: Instruct CUDA to actively spin when waiting for results from the GPU. This can decrease latency when waiting for the GPU, but may lower the performance of CPU threads if they are performing work in parallel with the CUDA thread.
+//   - [CtxSchedYield]: Instruct CUDA to yield its thread when waiting for results from the GPU. This can increase latency when waiting for the GPU, but can increase the performance of CPU threads performing work in parallel with the GPU.
+//   - [CtxSchedBlockingSync]: Instruct CUDA to block the CPU thread on a synchronization primitive when waiting for the GPU to finish work.
+//   - [CtxBlockingSync]: Instruct CUDA to block the CPU thread on a synchronization primitive when waiting for the GPU to finish work. Deprecated: This flag was deprecated as of CUDA 4.0 and was replaced with [CtxSchedBlockingSync].
+//   - [CtxSchedAuto]: The default value if the flags parameter is zero, uses a heuristic based on the number of active CUDA contexts in the process C and the number of logical processors in the system P. If C > P, then CUDA will yield to other OS threads when waiting for the GPU ( [CtxSchedYield]), otherwise CUDA will not yield while waiting for results and actively spin on the processor ( [CtxSchedSpin]). Additionally, on Tegra devices, [CtxSchedAuto] uses a heuristic based on the power profile of the platform and may choose [CtxSchedBlockingSync] for low-powered devices.
+//   - [CtxLmemResizeToMax]: Instruct CUDA to not reduce local memory after resizing local memory for a kernel. This can prevent thrashing by local memory allocations when launching many kernels with high local memory usage at the cost of potentially increased memory usage. Deprecated: This flag is deprecated and the behavior enabled by this flag is now the default and cannot be disabled.
+//   - [CtxCoredumpEnable]: If GPU coredumps have not been enabled globally with [CoredumpSetAttributeGlobal] or environment variables, this flag can be set during context creation to instruct CUDA to create a coredump if this context raises an exception during execution. These environment variables are described in the CUDA-GDB user guide under the “GPU core dump support” section. The initial settings will be taken from the global settings at the time of context creation. The other settings that control coredump output can be modified by calling [CoredumpSetAttribute] from the created context after it becomes current.
+//   - [CtxUserCoredumpEnable]: If user-triggered GPU coredumps have not been enabled globally with [CoredumpSetAttributeGlobal] or environment variables, this flag can be set during context creation to instruct CUDA to create a coredump if data is written to a certain pipe that is present in the OS space. These environment variables are described in the CUDA-GDB user guide under the “GPU core dump support” section. It is important to note that the pipe name must be set with [CoredumpSetAttributeGlobal] before creating the context if this flag is used. Setting this flag implies that [CtxCoredumpEnable] is set. The initial settings will be taken from the global settings at the time of context creation. The other settings that control coredump output can be modified by calling [CoredumpSetAttribute] from the created context after it becomes current.
+//   - [CtxSyncMemops]: Ensures that synchronous memory operations initiated on this context will always synchronize. See further documentation in the section titled “API Synchronization behavior” to learn more about cases when synchronous memory operations can exhibit asynchronous behavior.
 //
 // See also: [Device.PrimaryCtxRetain], [Device.PrimaryCtxGetState], [NewContext], [CtxGetFlags], [CtxSetFlags], cudaSetDeviceFlags
 //
 //   - flags: New flags for the device
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuDevicePrimaryCtxSetFlags, bound as cuDevicePrimaryCtxSetFlags_v2.
 func (d Device) PrimaryCtxSetFlags(flags CtxFlags) error {
@@ -334,6 +513,13 @@ func (d Device) PrimaryCtxSetFlags(flags CtxFlags) error {
 //   - callbackFunc: The function to register as a callback (see [AsyncCallback])
 //   - userData: A generic pointer to user data. This is passed into the callback function
 //
+// Errors:
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//   - [ErrUnknown]
+//
 // Wraps cuDeviceRegisterAsyncNotification.
 func (d Device) RegisterAsyncNotification(callbackFunc uintptr, userData uintptr) (AsyncCallbackHandle, error) {
 	return deviceRegisterAsyncNotification(d, callbackFunc, userData)
@@ -342,11 +528,16 @@ func (d Device) RegisterAsyncNotification(callbackFunc uintptr, userData uintptr
 // SetGraphMemAttribute sets asynchronous allocation attributes related to graphs.
 //
 // Valid attributes are:
+//   - [GraphMemAttrUsedMemHigh]: High watermark of memory, in bytes, associated with graphs since the last time it was reset. High watermark can only be reset to zero.
+//   - [GraphMemAttrReservedMemHigh]: High watermark of memory, in bytes, currently allocated for use by the CUDA graphs asynchronous allocator.
 //
 // See also: [Device.GraphMemAttribute], [Graph.AddMemAllocNode], [Graph.AddMemFreeNode]
 //
 //   - attr: attribute to get
 //   - value: pointer to value to set
+//
+// Errors:
+//   - [ErrInvalidDevice]
 //
 // Wraps cuDeviceSetGraphMemAttribute.
 func (d Device) SetGraphMemAttribute(attr GraphmemAttribute, value uintptr) error {
@@ -361,6 +552,9 @@ func (d Device) SetGraphMemAttribute(attr GraphmemAttribute, value uintptr) erro
 //
 // See also: [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool], [MemoryPool.Destroy], [MemoryPool.MemAllocFromPoolAsync]
 //
+// Errors:
+//   - [ErrInvalidValue]
+//
 // Wraps cuDeviceSetMemPool.
 func (d Device) SetMemPool(pool MemoryPool) error {
 	return deviceSetMemPool(d, pool)
@@ -371,6 +565,13 @@ func (d Device) SetMemPool(pool MemoryPool) error {
 // Returns in *bytes the total amount of memory available on the device dev in bytes.
 //
 // See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Uuid], [DeviceGet], [Device.ExecAffinitySupport], cudaMemGetInfo
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuDeviceTotalMem, bound as cuDeviceTotalMem_v2.
 func (d Device) TotalMem() (uint, error) {
@@ -385,6 +586,13 @@ func (d Device) TotalMem() (uint, error) {
 //
 //   - callback: The callback instance to unregister from receiving async notifications
 //
+// Errors:
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//   - [ErrUnknown]
+//
 // Wraps cuDeviceUnregisterAsyncNotification.
 func (d Device) UnregisterAsyncNotification(callback AsyncCallbackHandle) error {
 	return deviceUnregisterAsyncNotification(d, callback)
@@ -398,6 +606,15 @@ func (d Device) UnregisterAsyncNotification(callback AsyncCallbackHandle) error 
 // See also: [MulticastCreate], [MulticastBindMem], [DevicePtr.MulticastBindAddr]
 //
 //   - mcHandle: Handle representing a multicast object
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//   - [ErrOutOfMemory]
 //
 // Wraps cuMulticastAddDevice.
 func (d Device) MulticastAdd(mcHandle uint64) error {
@@ -421,6 +638,18 @@ func (d Device) MulticastAdd(mcHandle uint64) error {
 //   - memptr: Virtual address of the memory allocation
 //   - size: Size of memory that will be bound to the multicast object
 //   - flags: Flags for future use, must be zero now
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrIllegalState]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - CUDA_ERROR_MULTICAST_RESOURCE_FULL
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//   - [ErrOutOfMemory]
+//   - [ErrSystemNotReady]
 //
 // Wraps cuMulticastBindAddr_v2.
 func (d Device) MulticastBindAddrV2(mcHandle uint64, mcOffset uint, memptr DevicePtr, size uint, flags uint64) error {
@@ -446,6 +675,18 @@ func (d Device) MulticastBindAddrV2(mcHandle uint64, mcOffset uint, memptr Devic
 //   - size: Size of the memory that will be bound to the multicast object
 //   - flags: Flags for future use, must be zero for now
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrIllegalState]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - CUDA_ERROR_MULTICAST_RESOURCE_FULL
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//   - [ErrOutOfMemory]
+//   - [ErrSystemNotReady]
+//
 // Wraps cuMulticastBindMem_v2.
 func (d Device) MulticastBindMemV2(mcHandle uint64, mcOffset uint, memHandle uint64, memOffset uint, size uint, flags uint64) error {
 	return multicastBindMemV2(mcHandle, d, mcOffset, memHandle, memOffset, size, flags)
@@ -463,6 +704,14 @@ func (d Device) MulticastBindMemV2(mcHandle uint64, mcOffset uint, memHandle uin
 //   - mcOffset: Offset into the multicast object
 //   - size: Desired size to unbind
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//
 // Wraps cuMulticastUnbind.
 func (d Device) MulticastUnbind(mcHandle uint64, mcOffset uint, size uint) error {
 	return multicastUnbind(mcHandle, d, mcOffset, size)
@@ -475,6 +724,13 @@ func (d Device) MulticastUnbind(mcHandle uint64, mcOffset uint, size uint) error
 // See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Uuid], [Device.Luid], [Device.TotalMem], [Device.ExecAffinitySupport]
 //
 //   - ordinal: Device number to get handle for
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuDeviceGet.
 func DeviceGet(ordinal int) (Device, error) {
@@ -489,6 +745,12 @@ func DeviceGet(ordinal int) (Device, error) {
 // See also: [DeviceGet], [Device.Attribute], [Device.PCIBusId], cudaDeviceGetByPCIBusId
 //
 //   - pciBusId: String in one of the following forms:
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuDeviceGetByPCIBusId.
 func DeviceGetByPCIBusId(pciBusId string) (Device, error) {

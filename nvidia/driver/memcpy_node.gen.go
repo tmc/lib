@@ -16,6 +16,11 @@ type MemcpyNode struct {
 //
 // See also: [GraphNode.Params], [Memcpy3D], [Graph.AddMemcpyNode], [MemcpyNode.SetParams]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuGraphMemcpyNodeGetParams.
 func (m MemcpyNode) Params() (Memcpy3d, error) {
 	return graphMemcpyNodeGetParams(m.GraphNode)
@@ -28,6 +33,11 @@ func (m MemcpyNode) Params() (Memcpy3d, error) {
 // See also: [GraphNode.SetParams], [Memcpy3D], [Graph.AddMemcpyNode], [MemcpyNode.Params]
 //
 //   - nodeParams: Parameters to copy
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuGraphMemcpyNodeSetParams.
 func (m MemcpyNode) SetParams(nodeParams *Memcpy3d) error {

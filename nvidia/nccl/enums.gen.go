@@ -90,7 +90,7 @@ func (e RedOp) String() string {
 	return fmt.Sprintf("RedOp(%d)", e)
 }
 
-// DataType represents NCCL defines the following integral and floating data-types.
+// DataType represents the integral and floating data-types that NCCL defines.
 type DataType int32
 
 const (

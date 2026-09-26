@@ -26,13 +26,15 @@ var (
 	symGetStatusString                uintptr
 )
 
-// ffiCall0 through ffiCall1 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+// The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
 //
 // Bit i of floatMask marks argument word i as a floating-point bit
 // pattern, which the C ABI passes in a different register file from the
-// integer and pointer words. Each returns the first integer result
-// register and the first floating-point one; a caller reads whichever the
-// C function sets.
+// integer and pointer words. Bits 2i and 2i+1 of widths give the size of
+// argument word i as a ffi.Width code, which places a narrow argument
+// on the stack where the C ABI expects it. Each funnel returns the first
+// integer result register and the first floating-point one; a caller
+// reads whichever the C function sets.
 //
 // The //go:uintptrescapes directive is what makes a Go pointer safe to
 // pass: a pointer converted to uintptr in one of these argument lists is
@@ -45,6 +47,13 @@ func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCallWidths1(fn uintptr, floatMask uint32, widths uint64, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloatWidths(fn, 1, &args, floatMask, widths)
 }
 
 // ffiPointer reinterprets an address a C function returned as a pointer.
@@ -82,7 +91,7 @@ func fnGetProperties(a0 *Properties) Result {
 
 // fnGetStatusString calls nvcompGetStatusString.
 func fnGetStatusString(a0 Result) *byte {
-	r1, _ := ffiCall1(symGetStatusString, 0, uintptr(a0))
+	r1, _ := ffiCallWidths1(symGetStatusString, 0, 0x3, uintptr(a0))
 	return (*byte)(ffiPointer(r1))
 }
 

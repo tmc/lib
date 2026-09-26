@@ -6,17 +6,43 @@ package cusparse
 //
 // It performs the multiplication of a sparse matrix matA and a dense vector vecX.
 // This function is experimental.
-// Zᵢ=epilogue(α∑k(op(Aᵢₖ)⋅Xₖ)+βYᵢ)
+// Zᵢ=epilogue(α∑_(k)(op(Aᵢₖ)⋅Xₖ)+βYᵢ)
 // where
+//   - op(A) is a sparse matrix of size m×k
+//   - X is a dense vector of size k
+//   - Y is a dense vector of size m
+//   - Z is a dense vector of size m. It is allowed to alias Y.
+//   - α and β are scalars
+//   - epilogue is a custom function with the following signature
+//
 // [Handle.SpMVOp] supports sparse format [FormatCsr] and opA=[OperationNonTranspose]. The following index type combinations are supported:
+//   - csrRowOffsetsType: [Index32I]; csrColIndType: [Index32I]
+//   - csrRowOffsetsType: [Index64I]; csrColIndType: [Index32I]
+//
 // [Handle.SpMVOp] supports the following type combinations:
+//   - A: CUDA_R_32F; X/Y/Z/computeType: CUDA_R_32F
+//   - A: CUDA_R_32F; X/Y/Z/computeType: CUDA_R_64F
+//   - A: CUDA_R_64F; X/Y/Z/computeType: CUDA_R_64F
+//
 // [Handle.SpMVOp] supports the following algorithms:
+//   - CUSPARSE_SPMVOP_ALG_DEFAULT: Default algorithm; currently equivalent to CUSPARSE_SPMVOP_ALG1.
+//   - CUSPARSE_SPMVOP_ALG1: Deterministic algorithm. Supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan, either in-place or via [SpMatDescr.CsrSetPointers].
+//   - CUSPARSE_SPMVOP_ALG2: Alternative deterministic algorithm. Compared to CUSPARSE_SPMVOP_ALG1, it may offer higher performance at the cost of significantly more buffer usage and more expensive preprocessing in [Handle.SpMVOpCreateDescr]. Does not support updating the values of matA between calls without rebuilding the descriptor and the execution plan.
+//
 // The function [Handle.SpMVOpBufferSize] returns the size of the workspace needed by [Handle.SpMVOpCreateDescr] and [Handle.SpMVOp]. Currently, it accepts NULL for vecX, vecY and vecZ.
 // The function [Handle.SpMVOpCreateDescr] prepares the internal data represented by the descriptor which is needed by [Handle.SpMVOpCreatePlan] and [Handle.SpMVOp]. The passed-in device buffer must remain valid and unmodified until the associated descriptor is destroyed. It supports passing dummy vecX, vecY and vecZ objects, as long as their data type attributes are valid. Other attributes are ignored during the descriptor creation. If epilogueLTOBuffer is NULL or epilogueLTOBufferSize is 0, the built-in default epilogue will be employed without Link-Time-Optimization (LTO):
 // The function [Handle.SpMVOpCreatePlan] takes in the descriptor and the LTO-IR of the custom epilogue, and returns the execution plan. The same descriptor can be used to create multiple execution plans, each with its own epilogue and epilogue auxiliary data. A caching system is employed to avoid redundant JIT compilation: plans compiled from identical LTO-IR (same epilogueLTOBuffer content and epilogueLTOBufferSize) share a single CUmodule.
 // The function [Handle.SpMVOpSetGlobalUserData] copies epilogueDataSize bytes from the host buffer epilogueData to the device __device__ or __constant__ variable named epilogueDataName in the compiled epilogue module. epilogueDataName must match the symbol name of the variable as declared in the epilogue device code. The invocation is optional; it should be called only if the epilogue requires auxiliary data. It can be invoked repeatedly before [Handle.SpMVOp] to update the auxiliary data. As a consequence of the plan caching, calling [Handle.SpMVOpSetGlobalUserData] affects every plan that links to the same compiled epilogue, not only the plan passed as argument. If multiple plans share the same LTO-IR but require different runtime constant values, the caller is responsible for serializing each [Handle.SpMVOpSetGlobalUserData] + [Handle.SpMVOp] pair so that each plan’s constants are current at the time it executes.
 // [Handle.SpMVOp] has the following properties:
-// See [Result] for the description of the return status.
+//   - It supports a customizable epilogue function, enabling users to apply additional elementwise and more complex operations to the output vector.
+//   - It provides improved numerical accuracy than [Handle.SpMV] due to the fact that accumulation is partially performed using Kahan’s summation.
+//   - The routine produces deterministic (bit-wise) results for each run, assuming that the epilogue function is deterministic.
+//   - In general, it is significantly faster than [Handle.SpMV] with the deterministic algorithm [SpmvCsrALG2], at the cost of more buffer usage.
+//   - CUSPARSE_SPMVOP_ALG1 (and CUSPARSE_SPMVOP_ALG_DEFAULT) supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan. The updated values can be provided in-place (by modifying the device memory previously registered in the matrix descriptor) or by calling [SpMatDescr.CsrSetPointers] with the new value pointer before each [Handle.SpMVOp] call.
+//   - The routine supports asynchronous execution.
+//   - The routine allows the indices of matA to be unsorted.
+//   - It supports CUDA graph capture optimizations.
+//
 // Please visit cuSPARSE Library Samples - [Handle.SpMVOp] for a code example.
 //
 // Wraps cusparseSpMVOpDestroyPlan, bound as cusparseSpMVOp_destroyPlan.

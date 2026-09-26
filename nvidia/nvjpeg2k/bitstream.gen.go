@@ -43,12 +43,10 @@ func (b Bitstream) ComponentInfo(componentId uint32) (ImageComponentInfo, error)
 // marker precision.
 //
 // Use this to choose the destination type for an NLT-type-3 stream:
-// - FP16 — when every component BDnlt = 16.
-// - FP32 — when every component BDnlt in {16, 32}
-// and at least one is >= 16. BDnlt = 16 components are widened
-// via __half2float at decode time. See [ImageType]
-// for the full destination-type restrictions.
+//   - FP16 — when every component BDnlt = 16.
+//   - FP32 — when every component BDnlt in {16, 32} and at least one is >= 16. BDnlt = 16 components are widened via __half2float at decode time. See [ImageType] for the full destination-type restrictions.
 //
+// Parameters:
 //   - componentId: [in] Component index (0..num_components-1)
 //
 // Wraps nvjpeg2kStreamGetComponentNLTInfo.
@@ -76,10 +74,11 @@ func (b Bitstream) ImageInfo() (ImageInfo, error) {
 // ResolutionComponentDim returns one tile component's width and height at a resolution level.
 //
 // The resolution dimensions are computed as follows:
-// - res_scale = 1 << (num_resolutions - resLevel - 1)
-// - resWidth = (tile_width + res_scale - 1) >> res_scale
-// - resHeight = (tile_height + res_scale - 1) >> res_scale
+//   - res_scale = 1 << (num_resolutions - resLevel - 1)
+//   - resWidth = (tile_width + res_scale - 1) >> res_scale
+//   - resHeight = (tile_height + res_scale - 1) >> res_scale
 //
+// Parameters:
 //   - componentId: [in] Component index
 //   - tileId: [in] Raster scan based tile index
 //   - resLevel: [in] Resolution level

@@ -4,6 +4,12 @@
 //
 // The legacy typed cuSPARSE API is intentionally unbound because it is deprecated upstream.
 //
+// # Errors
+//
+// A function whose C call reports a failure returns a [CallError] pointer
+// naming the C function and holding the status as a [Result], so
+// errors.Is(err, [ErrInvalidValue]) reports an invalid argument.
+//
 // # Sparse Matrix Descriptors
 //
 //   - [SpMatDescr.BlockedEllGet]: returns the fields of the sparse matrix descriptor spMatDescr stored in Blocked-Ellpack (ELL) format.
@@ -130,8 +136,8 @@
 //   - [Handle.SpGEMMEstimateMemory]: performs the multiplication of two sparse matrices matA and matB.
 //   - [SpGEMMDescr.GEMMGetNumProducts]: performs the multiplication of two sparse matrices matA and matB.
 //   - [Handle.SpGEMMWorkEstimation]: performs the multiplication of two sparse matrices matA and matB.
-//   - [Handle.SpGEMMreuseCompute].
-//   - [Handle.SpGEMMreuseCopy].
+//   - [Handle.SpGEMMreuseCompute]: performs the multiplication of two sparse matrices matA and matB where the structure of the output matrix matC can be reused for multiple computations with different values.
+//   - [Handle.SpGEMMreuseCopy]: performs the multiplication of two sparse matrices matA and matB where the structure of the output matrix matC can be reused for multiple computations with different values.
 //   - [Handle.SpGEMMreuseNnz]: performs the multiplication of two sparse matrices matA and matB where the structure of the output matrix matC can be reused for multiple computations with different values.
 //   - [Handle.SpGEMMreuseWorkEstimation]: performs the multiplication of two sparse matrices matA and matB where the structure of the output matrix matC can be reused for multiple computations with different values.
 //

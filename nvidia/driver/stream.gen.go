@@ -8,6 +8,10 @@ package driver
 // The callback may be passed [Success] or an error code. In the event of a device error, all subsequently executed callbacks will receive an appropriate [Result].
 // Callbacks must not make any CUDA API calls. Attempting to use a CUDA API will result in [ErrNotPermitted]. Callbacks must not perform any synchronization that may depend on outstanding device work or other callbacks that are not mandated to run earlier. Callbacks without a mandated order (in independent streams) execute in undefined order and may be serialized.
 // For the purposes of Unified Memory, callback execution makes a number of guarantees:
+//   - The callback stream is considered idle for the duration of the callback. Thus, for example, a callback may always use memory attached to the callback stream.
+//   - The start of execution of a callback has the same effect as synchronizing an event recorded in the same stream immediately prior to the callback. It thus synchronizes streams which have been “joined” prior to the callback.
+//   - Adding device work to any stream does not have the effect of making the stream active until all preceding host functions and stream callbacks have executed. Thus, for example, a callback might use global attached memory even if work has been added to another stream, if the work has been ordered behind the callback with an event.
+//   - Completion of a callback does not cause a stream to become active except as described above. The callback stream will remain idle if no device work follows the callback, and will remain idle across consecutive callbacks without device work in between. Thus, for example, stream synchronization can be done by signaling from a callback at the end of the stream.
 //
 // Note: This function is slated for eventual deprecation and removal. If you do not require the callback to execute in case of a device error, consider using [Stream.LaunchHostFunc]. Additionally, this function is not supported with [Stream.BeginCapture] and [Stream.EndCapture], unlike [Stream.LaunchHostFunc].
 //
@@ -19,6 +23,13 @@ package driver
 //   - userData: User specified data to be passed to the callback function
 //   - flags: Reserved for future use, must be 0
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
+//
 // Wraps cuStreamAddCallback.
 func (s Stream) AddCallback(callback uintptr, userData uintptr, flags uint32) error {
 	return streamAddCallback(s, callback, userData, flags)
@@ -28,6 +39,9 @@ func (s Stream) AddCallback(callback uintptr, userData uintptr, flags uint32) er
 //
 // Enqueues an operation in hStream to specify stream association of length bytes of memory starting from dptr. This function is a stream-ordered operation, meaning that it is dependent on, and will only take effect when, previous work in stream has completed. Any previous association is automatically replaced.
 // dptr must point to one of the following types of memories:
+//   - managed memory declared using the managed keyword or allocated with [MemAllocManaged].
+//   - a valid host-accessible region of system-allocated pageable memory. This type of memory may only be specified if the device associated with the stream reports a non-zero value for the device attribute [DevAttrPageableMemoryAccess].
+//
 // For managed allocations, length must be either zero or the entire allocation’s size. Both indicate that the entire allocation’s stream association is being changed. Currently, it is not possible to change stream association for a portion of a managed allocation.
 // For pageable host allocations, length must be non-zero.
 // The stream association is specified using flags which must be one of [MemattachFlags]. If the [MemAttachGlobal] flag is specified, the memory can be accessed by any stream on any device. If the [MemAttachHost] flag is specified, the program makes a guarantee that it won’t access the memory on the device from any stream on a device that has a zero value for the device attribute [DevAttrConcurrentManagedAccess]. If the [MemAttachSingle] flag is specified and hStream is associated with a device that has a zero value for the device attribute [DevAttrConcurrentManagedAccess], the program makes a guarantee that it will only access the memory on the device from hStream. It is illegal to attach singly to the NULL stream, because the NULL stream is a virtual global stream and not a specific stream. An error will be returned in this case.
@@ -44,12 +58,21 @@ func (s Stream) AddCallback(callback uintptr, userData uintptr, flags uint32) er
 //   - length: Length of memory
 //   - flags: Must be one of [MemattachFlags]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
+//
 // Wraps cuStreamAttachMemAsync.
 func (s Stream) AttachMemAsync(dptr DevicePtr, length uint, flags MemattachFlags) error {
 	return streamAttachMemAsync(s, dptr, length, flags)
 }
 
-// BatchMemOp Batch operations to synchronize the stream via memory operations.
+// BatchMemOp enqueues a batch of memory operations that synchronize the stream.
+//
+// Batch operations to synchronize the stream via memory operations.
 //
 // This is a batch version of [Stream.WaitValue32] and [Stream.WriteValue32]. Batching operations may avoid some performance overhead in both the API call and the device execution versus adding them to the stream in separate API calls. The operations are enqueued in the order they appear in the array.
 // See [StreamBatchMemOpType] for the full set of supported operations, and [Stream.WaitValue32], [Stream.WaitValue64], [Stream.WriteValue32], and [Stream.WriteValue64] for details of specific operations.
@@ -62,6 +85,10 @@ func (s Stream) AttachMemAsync(dptr DevicePtr, length uint, flags MemattachFlags
 //   - count: The number of operations in the array. Must be less than 256
 //   - paramArray: The types and parameters of the individual operations
 //   - flags: Reserved for future expansion; must be 0
+//
+// Errors:
+//   - [ErrInvalidValue]
+//   - [ErrNotSupported]
 //
 // Wraps cuStreamBatchMemOp, bound as cuStreamBatchMemOp_v2.
 func (s Stream) BatchMemOp(count uint32, paramArray *[6]uint64, flags uint32) error {
@@ -78,6 +105,11 @@ func (s Stream) BatchMemOp(count uint32, paramArray *[6]uint64, flags uint32) er
 // See also: [NewStream], [Stream.IsCapturing], [Stream.EndCapture], [ThreadExchangeStreamCaptureMode]
 //
 //   - mode: Controls the interaction of this capture sequence with other API calls that are potentially unsafe. For more details see [ThreadExchangeStreamCaptureMode]
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuStreamBeginCapture, bound as cuStreamBeginCapture_v2.
 func (s Stream) BeginCapture(mode StreamCaptureMode) error {
@@ -100,6 +132,13 @@ func (s Stream) BeginCapture(mode StreamCaptureMode) error {
 //
 //   - streamCigCaptureParams: CIG capture parameters
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
+//
 // Wraps cuStreamBeginCaptureToCig.
 func (s Stream) BeginCaptureToCig(streamCigCaptureParams *StreamCigCaptureParams) error {
 	return streamBeginCaptureToCig(s, streamCigCaptureParams)
@@ -121,6 +160,11 @@ func (s Stream) BeginCaptureToCig(streamCigCaptureParams *StreamCigCaptureParams
 //   - numDependencies: Number of dependencies
 //   - mode: Controls the interaction of this capture sequence with other API calls that are potentially unsafe. For more details see [ThreadExchangeStreamCaptureMode]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuStreamBeginCaptureToGraph.
 func (s Stream) BeginCaptureToGraph(hGraph Graph, dependencies *GraphNode, dependencyData *GraphEdgeData, numDependencies uint, mode StreamCaptureMode) error {
 	return streamBeginCaptureToGraph(s, hGraph, dependencies, dependencyData, numDependencies, mode)
@@ -134,6 +178,9 @@ func (s Stream) BeginCaptureToGraph(hGraph Graph, dependencies *GraphNode, depen
 //
 //   - src: Source stream For list of attributes see CUstreamAttrID
 //
+// Errors:
+//   - [ErrInvalidValue]
+//
 // Wraps cuStreamCopyAttributes.
 func (s Stream) CopyAttributes(src Stream) error {
 	return streamCopyAttributes(s, src)
@@ -145,6 +192,14 @@ func (s Stream) CopyAttributes(src Stream) error {
 // In case the device is still doing work in the stream hStream when [Stream.Destroy] is called, the function will return immediately and the resources associated with hStream will be released automatically once the device has completed all work in hStream.
 //
 // See also: [NewStream], [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback], cudaStreamDestroy
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrExternalDevice]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuStreamDestroy, bound as cuStreamDestroy_v2.
 func (s Stream) Destroy() error {
@@ -158,6 +213,12 @@ func (s Stream) Destroy() error {
 //
 // See also: [NewStream], [Stream.BeginCapture], [Stream.IsCapturing], [Graph.Destroy]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrStreamCaptureWrongThread]
+//
 // Wraps cuStreamEndCapture.
 func (s Stream) EndCapture() (Graph, error) {
 	return streamEndCapture(s)
@@ -168,6 +229,12 @@ func (s Stream) EndCapture() (Graph, error) {
 // End CIG capture on hStream. Capture must have been initiated on hStream via a call to [Stream.BeginCaptureToCig]. Once this function is called, hStream will exit CIG capture mode and return to its original state, thus removing all CIG stream restrictions. Also, the command list/command buffer that was associated with hStream in the previous call to [Stream.BeginCaptureToCig] is now allowed to be submitted for execution on the graphics API. However, the stream may not be destroyed until execution of the command list is fully done on the GPU. This requirements extends also to all streams dependant on the CIG stream (e.g. via event waits).
 //
 // See also: [Stream.BeginCaptureToCig]
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrStreamCaptureWrongThread]
 //
 // Wraps cuStreamEndCaptureToCig.
 func (s Stream) EndCaptureToCig() error {
@@ -180,6 +247,10 @@ func (s Stream) EndCaptureToCig() error {
 //
 // See also: [AccessPolicyWindow]
 //
+// Errors:
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//
 // Wraps cuStreamGetAttribute.
 func (s Stream) Attribute(attr int32) ([8]uint64, error) {
 	return streamGetAttribute(s, attr)
@@ -190,6 +261,9 @@ func (s Stream) Attribute(attr int32) ([8]uint64, error) {
 // Query stream state related to stream capture.
 // If called on CU_STREAM_LEGACY (the “null stream”) while a stream not created with [StreamNonBlocking] is capturing, returns [ErrStreamCaptureImplicit].
 // Valid data (other than capture status) is returned only if both of the following are true:
+//   - the call returns [Success]
+//   - the returned capture status is [StreamCaptureStatusActive]
+//
 // If edgeDataOut is non-NULL then dependenciesOut must be as well. If dependenciesOut is non-NULL and edgeDataOut is NULL, but there is non-zero edge data for one or more of the current stream dependencies, the call will return [ErrLossyQuery].
 //
 // See also: [Stream.BeginCapture], [Stream.IsCapturing], [Stream.UpdateCaptureDependencies]
@@ -200,6 +274,11 @@ func (s Stream) Attribute(attr int32) ([8]uint64, error) {
 //   - dependenciesOut: Optional location to store a pointer to an array of nodes. The next node to be captured in the stream will depend on this set of nodes, absent operations such as event wait which modify this set. The array pointer is valid until the next API call which operates on the stream or until the capture is terminated. The node handles may be copied out and are valid until they or the graph is destroyed. The driver-owned array may also be passed directly to APIs that operate on the graph (not the stream) without copying
 //   - edgeDataOut: Optional location to store a pointer to an array of graph edge data. This array parallels dependenciesOut; the next node to be added has an edge to dependencies_outi with annotation edgeData_outi for each i. The array pointer is valid until the next API call which operates on the stream or until the capture is terminated
 //   - numDependenciesOut: Optional location to store the size of the array returned in dependenciesOut
+//
+// Errors:
+//   - [ErrInvalidValue]
+//   - [ErrLossyQuery]
+//   - [ErrStreamCaptureImplicit]
 //
 // Wraps cuStreamGetCaptureInfo, bound as cuStreamGetCaptureInfo_v3.
 func (s Stream) CaptureInfo(captureStatusOut *StreamCaptureStatus, idOut *uint64, graphOut *Graph, dependenciesOut uintptr, edgeDataOut uintptr, numDependenciesOut *uint) error {
@@ -212,8 +291,16 @@ func (s Stream) CaptureInfo(captureStatusOut *StreamCaptureStatus, idOut *uint64
 // If the stream is associated with a green context, the API returns the green context in pGreenCtx and the primary context of the associated device in pCtx.
 // If the stream is associated with a regular context, the API returns the regular context in pCtx and NULL in pGreenCtx.
 // The stream handle hStream can refer to any of the following:
+//   - a stream created via any of the CUDA driver APIs such as [NewStream], [StreamCreateWithPriority] and [GreenCtx.StreamCreate], or their runtime API equivalents such as cudaStreamCreate, cudaStreamCreateWithFlags and cudaStreamCreateWithPriority. Passing an invalid handle will result in undefined behavior.
+//   - any of the special streams such as the NULL stream, CU_STREAM_LEGACY and CU_STREAM_PER_THREAD. The runtime API equivalents of these are also accepted, which are NULL, cudaStreamLegacy and cudaStreamPerThread respectively. If any of the special handles are specified, the API will operate on the context current to the calling thread. If a green context (that was converted via [CtxFromGreenCtx] before setting it current) is current to the calling thread, the API will return the green context in pGreenCtx and the primary context of the associated device in pCtx. If a regular context is current, the API returns the regular context in pCtx and NULL in pGreenCtx. Note that specifying CU_STREAM_PER_THREAD or cudaStreamPerThread will return [ErrInvalidHandle] if a green context is current to the calling thread. If no context is current to the calling thread, [ErrInvalidContext] is returned.
 //
 // See also: [Stream.Destroy], [NewStream] [StreamCreateWithPriority], [GreenCtx.StreamCreate], [Stream.Priority], [Stream.Flags], [Stream.Device], [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback], cudaStreamCreate, cudaStreamCreateWithFlags
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
 //
 // Wraps cuStreamGetCtx_v2.
 func (s Stream) Ctx() (pCtx Context, pGreenCtx GreenCtx, err error) {
@@ -228,6 +315,15 @@ func (s Stream) Ctx() (pCtx Context, pGreenCtx GreenCtx, err error) {
 //
 // See also: [NewGreenCtx], [GreenCtx.StreamCreate], [NewStream], [DevSmResourceSplitByCount], [DevResourceGenerateDesc], cudaStreamGetDevResource
 //
+//   - type_: Type of resource to retrieve
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidResourceType]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuStreamGetDevResource.
 func (s Stream) DevResource(type_ DevResourceType) (DevResource, error) {
 	return streamGetDevResource(s, type_)
@@ -238,6 +334,14 @@ func (s Stream) DevResource(type_ DevResourceType) (DevResource, error) {
 // Returns in *device the device handle of the stream
 //
 // See also: [Stream.Destroy], [NewStream], [GreenCtx.StreamCreate], [Stream.Flags]
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrOutOfMemory]
 //
 // Wraps cuStreamGetDevice.
 func (s Stream) Device() (Device, error) {
@@ -250,6 +354,14 @@ func (s Stream) Device() (Device, error) {
 //
 // See also: [Stream.Destroy], [NewStream], [GreenCtx.StreamCreate], [Stream.Priority], cudaStreamGetFlags, [Stream.Device]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrOutOfMemory]
+//
 // Wraps cuStreamGetFlags.
 func (s Stream) Flags() (uint32, error) {
 	return streamGetFlags(s)
@@ -259,9 +371,18 @@ func (s Stream) Flags() (uint32, error) {
 //
 // Returns the CUDA green context that the stream is associated with, or NULL if the stream is not associated with any green context.
 // The stream handle hStream can refer to any of the following:
+//   - a stream created via any of the CUDA driver APIs such as [NewStream], [StreamCreateWithPriority] and [GreenCtx.StreamCreate], or their runtime API equivalents such as cudaStreamCreate, cudaStreamCreateWithFlags and cudaStreamCreateWithPriority. If during stream creation the context that was active in the calling thread was obtained with [CtxFromGreenCtx], that green context is returned in phCtx. Otherwise, *phCtx is set to NULL instead.
+//   - special stream such as the NULL stream or CU_STREAM_LEGACY. In that case if context that is active in the calling thread was obtained with [CtxFromGreenCtx], that green context is returned. Otherwise, *phCtx is set to NULL instead.
+//
 // Passing an invalid handle will result in undefined behavior.
 //
 // See also: [Stream.Destroy], [NewStream], [StreamCreateWithPriority], [Stream.Ctx], [GreenCtx.StreamCreate], [Stream.Priority], [Stream.Flags], [Stream.Device], [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback], cudaStreamCreate, cudaStreamCreateWithFlags
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
 //
 // Wraps cuStreamGetGreenCtx.
 func (s Stream) GreenCtx() (GreenCtx, error) {
@@ -272,8 +393,14 @@ func (s Stream) GreenCtx() (GreenCtx, error) {
 //
 // Returns in streamId the unique Id which is associated with the given stream handle. The Id is unique for the life of the program.
 // The stream handle hStream can refer to any of the following:
+//   - a stream created via any of the CUDA driver APIs such as [NewStream] and [StreamCreateWithPriority], or their runtime API equivalents such as cudaStreamCreate, cudaStreamCreateWithFlags and cudaStreamCreateWithPriority. Passing an invalid handle will result in undefined behavior.
+//   - any of the special streams such as the NULL stream, CU_STREAM_LEGACY and CU_STREAM_PER_THREAD. The runtime API equivalents of these are also accepted, which are NULL, cudaStreamLegacy and cudaStreamPerThread respectively.
 //
 // See also: [Stream.Destroy], [NewStream], [Stream.Priority], cudaStreamGetId
+//
+// Errors:
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
 //
 // Wraps cuStreamGetId.
 func (s Stream) Id() (uint64, error) {
@@ -286,6 +413,14 @@ func (s Stream) Id() (uint64, error) {
 //
 // See also: [Stream.Destroy], [NewStream], [StreamCreateWithPriority], [GreenCtx.StreamCreate], [CtxGetStreamPriorityRange], [Stream.Flags], [Stream.Device], cudaStreamGetPriority
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrOutOfMemory]
+//
 // Wraps cuStreamGetPriority.
 func (s Stream) Priority() (int32, error) {
 	return streamGetPriority(s)
@@ -294,10 +429,20 @@ func (s Stream) Priority() (int32, error) {
 // IsCapturing returns a stream’s capture status.
 //
 // Return the capture status of hStream via captureStatus. After a successful call, *captureStatus will contain one of the following:
+//   - [StreamCaptureStatusNone]: The stream is not capturing.
+//   - [StreamCaptureStatusActive]: The stream is capturing.
+//   - [StreamCaptureStatusInvalidated]: The stream was capturing but an error has invalidated the capture sequence. The capture sequence must be terminated with [Stream.EndCapture] on the stream where it was initiated in order to continue using hStream.
+//
 // Note that, if this is called on CU_STREAM_LEGACY (the “null stream”) while a blocking stream in the same context is capturing, it will return [ErrStreamCaptureImplicit] and *captureStatus is unspecified after the call. The blocking stream capture is not invalidated.
 // When a blocking stream is capturing, the legacy stream is in an unusable state until the blocking stream capture is terminated. The legacy stream is not supported for stream capture, but attempted use would have an implicit dependency on the capturing stream(s).
 //
 // See also: [NewStream], [Stream.BeginCapture], [Stream.EndCapture]
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrStreamCaptureImplicit]
 //
 // Wraps cuStreamIsCapturing.
 func (s Stream) IsCapturing() (StreamCaptureStatus, error) {
@@ -313,6 +458,13 @@ func (s Stream) IsCapturing() (StreamCaptureStatus, error) {
 //
 // See also: [NewStream], [Stream.WaitEvent], [Stream.Destroy], [Stream.Synchronize], [Stream.AddCallback], cudaStreamQuery
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
+//   - [ErrNotReady]
+//
 // Wraps cuStreamQuery.
 func (s Stream) Query() error {
 	return streamQuery(s)
@@ -323,6 +475,10 @@ func (s Stream) Query() error {
 // Sets attribute attr on hStream from corresponding attribute of value. The updated attribute will be applied to subsequent work submitted to the stream. It will not affect previously submitted work.
 //
 // See also: [AccessPolicyWindow]
+//
+// Errors:
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
 //
 // Wraps cuStreamSetAttribute.
 func (s Stream) SetAttribute(attr int32, value *[8]uint64) error {
@@ -336,6 +492,12 @@ func (s Stream) SetAttribute(attr int32, value *[8]uint64) error {
 // Note: This function uses standard default stream semantics.
 //
 // See also: [NewStream], [Stream.Destroy], [Stream.WaitEvent], [Stream.Query], [Stream.AddCallback], cudaStreamSynchronize
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
 //
 // Wraps cuStreamSynchronize.
 func (s Stream) Synchronize() error {
@@ -356,6 +518,10 @@ func (s Stream) Synchronize() error {
 //   - numDependencies: The size of the dependencies array
 //   - flags: See above
 //
+// Errors:
+//   - [ErrIllegalState]
+//   - [ErrInvalidValue]
+//
 // Wraps cuStreamUpdateCaptureDependencies, bound as cuStreamUpdateCaptureDependencies_v2.
 func (s Stream) UpdateCaptureDependencies(dependencies *GraphNode, dependencyData *GraphEdgeData, numDependencies uint, flags StreamupdatecapturedependenciesFlags) error {
 	return streamUpdateCaptureDependencies(s, dependencies, dependencyData, numDependencies, flags)
@@ -365,6 +531,8 @@ func (s Stream) UpdateCaptureDependencies(dependencies *GraphNode, dependencyDat
 //
 // Makes all future work submitted to hStream wait for all work captured in hEvent. See [Event.Record] for details on what is captured by an event. The synchronization will be performed efficiently on the device when applicable. hEvent may be from a different context or device than hStream.
 // flags include:
+//   - [EventWaitDefault]: Default event creation flag.
+//   - [EventWaitExternal]: Event is captured in the graph as an external event node when performing stream capture. This flag is invalid outside of stream capture.
 //
 // Note: This function uses standard default stream semantics.
 //
@@ -372,6 +540,12 @@ func (s Stream) UpdateCaptureDependencies(dependencies *GraphNode, dependencyDat
 //
 //   - hEvent: Event to wait on (may not be NULL)
 //   - flags: See CUevent_capture_flags
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
 //
 // Wraps cuStreamWaitEvent.
 func (s Stream) WaitEvent(hEvent Event, flags EventWaitFlags) error {
@@ -392,6 +566,10 @@ func (s Stream) WaitEvent(hEvent Event, flags EventWaitFlags) error {
 //   - value: The value to compare with the memory location
 //   - flags: See [StreamwaitvalueFlags]
 //
+// Errors:
+//   - [ErrInvalidValue]
+//   - [ErrNotSupported]
+//
 // Wraps cuStreamWaitValue32, bound as cuStreamWaitValue32_v2.
 func (s Stream) WaitValue32(addr DevicePtr, value uint32, flags StreamwaitvalueFlags) error {
 	return streamWaitValue32(s, addr, value, flags)
@@ -411,6 +589,10 @@ func (s Stream) WaitValue32(addr DevicePtr, value uint32, flags StreamwaitvalueF
 //   - value: The value to compare with the memory location
 //   - flags: See [StreamwaitvalueFlags]
 //
+// Errors:
+//   - [ErrInvalidValue]
+//   - [ErrNotSupported]
+//
 // Wraps cuStreamWaitValue64, bound as cuStreamWaitValue64_v2.
 func (s Stream) WaitValue64(addr DevicePtr, value uint64, flags StreamwaitvalueFlags) error {
 	return streamWaitValue64(s, addr, value, flags)
@@ -425,6 +607,10 @@ func (s Stream) WaitValue64(addr DevicePtr, value uint64, flags StreamwaitvalueF
 //   - addr: The device address to write to
 //   - value: The value to write
 //   - flags: See [StreamwritevalueFlags]
+//
+// Errors:
+//   - [ErrInvalidValue]
+//   - [ErrNotSupported]
 //
 // Wraps cuStreamWriteValue32, bound as cuStreamWriteValue32_v2.
 func (s Stream) WriteValue32(addr DevicePtr, value uint32, flags StreamwritevalueFlags) error {
@@ -441,6 +627,10 @@ func (s Stream) WriteValue32(addr DevicePtr, value uint32, flags Streamwritevalu
 //   - addr: The device address to write to
 //   - value: The value to write
 //   - flags: See [StreamwritevalueFlags]
+//
+// Errors:
+//   - [ErrInvalidValue]
+//   - [ErrNotSupported]
 //
 // Wraps cuStreamWriteValue64, bound as cuStreamWriteValue64_v2.
 func (s Stream) WriteValue64(addr DevicePtr, value uint64, flags StreamwritevalueFlags) error {
@@ -461,6 +651,14 @@ func (s Stream) WriteValue64(addr DevicePtr, value uint64, flags Streamwritevalu
 //   - count: Number of resources to map
 //   - resources: Resources to map for CUDA usage
 //
+// Errors:
+//   - [ErrAlreadyMapped]
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
+//   - [ErrUnknown]
+//
 // Wraps cuGraphicsMapResources.
 func (s Stream) GraphicsMapResources(count uint32, resources *GraphicsResource) error {
 	return graphicsMapResources(count, resources, s)
@@ -480,6 +678,14 @@ func (s Stream) GraphicsMapResources(count uint32, resources *GraphicsResource) 
 //   - count: Number of resources to unmap
 //   - resources: Resources to unmap
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
+//   - [ErrNotMapped]
+//   - [ErrUnknown]
+//
 // Wraps cuGraphicsUnmapResources.
 func (s Stream) GraphicsUnmapResources(count uint32, resources *GraphicsResource) error {
 	return graphicsUnmapResources(count, resources, s)
@@ -490,6 +696,11 @@ func (s Stream) GraphicsUnmapResources(count uint32, resources *GraphicsResource
 // Enqueues a host function to run in a stream. The function will be called after currently enqueued work and will block work added after it.
 // The host function must not make any CUDA API calls. Attempting to use a CUDA API may result in [ErrNotPermitted], but this is not required. The host function must not perform any synchronization that may depend on outstanding CUDA work not mandated to run earlier. Host functions without a mandated order (such as in independent streams) execute in undefined order and may be serialized.
 // For the purposes of Unified Memory, execution makes a number of guarantees:
+//   - The stream is considered idle for the duration of the function’s execution. Thus, for example, the function may always use memory attached to the stream it was enqueued in.
+//   - The start of execution of the function has the same effect as synchronizing an event recorded in the same stream immediately prior to the function. It thus synchronizes streams which have been “joined” prior to the function.
+//   - Adding device work to any stream does not have the effect of making the stream active until all preceding host functions and stream callbacks have executed. Thus, for example, a function might use global attached memory even if work has been added to another stream, if the work has been ordered behind the function call with an event.
+//   - Completion of the function does not cause a stream to become active except as described above. The stream will remain idle if no device work follows the function, and will remain idle across consecutive host functions or stream callbacks without device work in between. Thus, for example, stream synchronization can be done by signaling from a host function at the end of the stream.
+//
 // Note that, in contrast to [Stream.AddCallback], the function will not be called in the event of an error in the CUDA context.
 //
 // Note: This function uses standard default stream semantics.
@@ -499,6 +710,13 @@ func (s Stream) GraphicsUnmapResources(count uint32, resources *GraphicsResource
 //   - fn: The function to call once preceding stream operations are complete (see [HostFn])
 //   - userData: User-specified data to be passed to the function
 //   - syncMode: Synchronization mode for the host function
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
 //
 // Wraps cuLaunchHostFunc_v2.
 func (s Stream) LaunchHostFunc(fn uintptr, userData uintptr, syncMode uint32) error {
@@ -516,6 +734,13 @@ func (s Stream) LaunchHostFunc(fn uintptr, userData uintptr, syncMode uint32) er
 // Note: During stream capture, this function results in the creation of an allocation node. In this case, the allocation is owned by the graph instead of the memory pool. The memory pool’s properties are used to set the node’s creation parameters.
 //
 // See also: [MemoryPool.MemAllocFromPoolAsync], [DevicePtr.FreeAsync], [Device.SetMemPool], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool], [MemoryPool.SetAccess], [MemoryPool.SetAttribute]
+//
+// Errors:
+//   - [ErrInvalidContext]: default stream specified with no current context
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
+//   - [ErrOutOfMemory]
 //
 // The allocation holds n values of type T: bytesize is n times the size of T.
 // A negative n, or one whose size overflows uint, is an error.
@@ -543,6 +768,9 @@ func (s Stream) MemAllocAsyncBytes(bytesize uint) (DevicePtr, error) {
 //
 // Each of the count decompression operations is described by a single entry in the paramsArray array. Once the batch has been submitted, the function will return, and decompression will happen asynchronously w.r.t. the CPU. To the work completion tracking mechanisms in the CUDA driver, the batch will be considered a single unit of work and processed according to stream semantics, i.e., it is not possible to query the completion of individual decompression operations within a batch.
 // The memory pointed to by each of [MemDecompressParams].src, [MemDecompressParams].dst, and [MemDecompressParams].dstActBytes, must be capable of usage with the hardware decompress feature. That is, for each of said pointers, the pointer attribute [PointerAttributeIsHwDecompressCapable] should give a non-zero value. To ensure this, the memory backing the pointers should have been allocated using one of the following CUDA memory allocators:
+//   - [MemAlloc]
+//   - [MemCreate] with the usage flag CU_MEM_CREATE_USAGE_HW_DECOMPRESS
+//   - [MemoryPool.MemAllocFromPoolAsync] from a pool that was created with the usage flag CU_MEM_POOL_CREATE_USAGE_HW_DECOMPRESS Additionally, [MemDecompressParams].src, [MemDecompressParams].dst, and [MemDecompressParams].dstActBytes, must all be accessible from the device associated with the context where stream was created. For information on how to ensure this, see the documentation for the allocator of interest.
 //
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
@@ -553,6 +781,13 @@ func (s Stream) MemAllocAsyncBytes(bytesize uint) (DevicePtr, error) {
 //   - paramsArray: The array of structures describing the independent decompression operations
 //   - count: The number of entries in paramsArray array
 //   - flags: Must be 0
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuMemBatchDecompressAsync.
 func (s Stream) MemBatchDecompressAsync(paramsArray *MemDecompressParams, count uint, flags uint32) (uint, error) {
@@ -597,12 +832,12 @@ func (s Stream) MemDiscardBatchAsync(dptrs *DevicePtr, sizes *uint, count uint, 
 // MemMapArrayAsync maps or unmaps subregions of sparse CUDA arrays and sparse CUDA mipmapped arrays.
 //
 // Performs map or unmap operations on subregions of sparse CUDA arrays and sparse CUDA mipmapped arrays. Each operation is specified by a [ArrayMapInfo] entry in the mapInfoList array of size count. The structure [ArrayMapInfo] is defined as follow:
-// where [ArrayMapInfo].resourceType specifies the type of resource to be operated on. If [ArrayMapInfo].resourceType is set to [Resourcetype].[ResourceTypeArray] then [ArrayMapInfo].resourcearray must be set to a valid sparse CUDA array handle. The CUDA array must be either a 2D, 2D layered or 3D CUDA array and must have been allocated using [NewArray] or [NewArray3D] with the flag CUDA_ARRAY3D_SPARSE or CUDA_ARRAY3D_DEFERRED_MAPPING. For CUDA arrays obtained using [MipmappedArray.Level], [ErrInvalidValue] will be returned. If [ArrayMapInfo].resourceType is set to [Resourcetype].[ResourceTypeMipmappedArray] then [ArrayMapInfo].resourcemipmap must be set to a valid sparse CUDA mipmapped array handle. The CUDA mipmapped array must be either a 2D, 2D layered or 3D CUDA mipmapped array and must have been allocated using [NewMipmappedArray] with the flag CUDA_ARRAY3D_SPARSE or CUDA_ARRAY3D_DEFERRED_MAPPING.
+// where [ArrayMapInfo].resourceType specifies the type of resource to be operated on. If [ArrayMapInfo].resourceType is set to [Resourcetype].[ResourceTypeArray] then [ArrayMapInfo].resource.array must be set to a valid sparse CUDA array handle. The CUDA array must be either a 2D, 2D layered or 3D CUDA array and must have been allocated using [NewArray] or [NewArray3D] with the flag CUDA_ARRAY3D_SPARSE or CUDA_ARRAY3D_DEFERRED_MAPPING. For CUDA arrays obtained using [MipmappedArray.Level], [ErrInvalidValue] will be returned. If [ArrayMapInfo].resourceType is set to [Resourcetype].[ResourceTypeMipmappedArray] then [ArrayMapInfo].resource.mipmap must be set to a valid sparse CUDA mipmapped array handle. The CUDA mipmapped array must be either a 2D, 2D layered or 3D CUDA mipmapped array and must have been allocated using [NewMipmappedArray] with the flag CUDA_ARRAY3D_SPARSE or CUDA_ARRAY3D_DEFERRED_MAPPING.
 // [ArrayMapInfo].subresourceType specifies the type of subresource within the resource. CUarraySparseSubresourceType_enum is defined as:
 // where [ArraySparseSubresourceType].[ArraySparseSubresourceTypeSparseLevel] indicates a sparse-miplevel which spans at least one tile in every dimension. The remaining miplevels which are too small to span at least one tile in any dimension constitute the mip tail region as indicated by [ArraySparseSubresourceType].[ArraySparseSubresourceTypeMiptail] subresource type.
-// If [ArrayMapInfo].subresourceType is set to [ArraySparseSubresourceType].[ArraySparseSubresourceTypeSparseLevel] then [ArrayMapInfo].subresourcesparseLevel struct must contain valid array subregion offsets and extents. The [ArrayMapInfo].subresourcesparseLevel.offsetX, [ArrayMapInfo].subresourcesparseLevel.offsetY and [ArrayMapInfo].subresourcesparseLevel.offsetZ must specify valid X, Y and Z offsets respectively. The [ArrayMapInfo].subresourcesparseLevel.extentWidth, [ArrayMapInfo].subresourcesparseLevel.extentHeight and [ArrayMapInfo].subresourcesparseLevel.extentDepth must specify valid width, height and depth extents respectively. These offsets and extents must be aligned to the corresponding tile dimension. For CUDA mipmapped arrays [ArrayMapInfo].subresourcesparseLevel.level must specify a valid mip level index. Otherwise, must be zero. For layered CUDA arrays and layered CUDA mipmapped arrays [ArrayMapInfo].subresourcesparseLevel.layer must specify a valid layer index. Otherwise, must be zero. [ArrayMapInfo].subresourcesparseLevel.offsetZ must be zero and [ArrayMapInfo].subresourcesparseLevel.extentDepth must be set to 1 for 2D and 2D layered CUDA arrays and CUDA mipmapped arrays. Tile extents can be obtained by calling [Array.SparseProperties] and [MipmappedArray.SparseProperties]
-// If [ArrayMapInfo].subresourceType is set to [ArraySparseSubresourceType].[ArraySparseSubresourceTypeMiptail] then [ArrayMapInfo].subresourcemiptail struct must contain valid mip tail offset in [ArrayMapInfo].subresourcemiptail.offset and size in [ArrayMapInfo].subresourcemiptail.size. Both, mip tail offset and mip tail size must be aligned to the tile size. For layered CUDA mipmapped arrays which don’t have the flag CU_ARRAY_SPARSE_PROPERTIES_SINGLE_MIPTAIL set in [ArraySparseProperties].flags as returned by [MipmappedArray.SparseProperties], [ArrayMapInfo].subresourcemiptail.layer must specify a valid layer index. Otherwise, must be zero.
-// If [ArrayMapInfo].resourcearray or [ArrayMapInfo].resourcemipmap was created with CUDA_ARRAY3D_DEFERRED_MAPPING flag set the [ArrayMapInfo].subresourceType and the contents of [ArrayMapInfo].subresource will be ignored.
+// If [ArrayMapInfo].subresourceType is set to [ArraySparseSubresourceType].[ArraySparseSubresourceTypeSparseLevel] then [ArrayMapInfo].subresource.sparseLevel struct must contain valid array subregion offsets and extents. The [ArrayMapInfo].subresource.sparseLevel.offsetX, [ArrayMapInfo].subresource.sparseLevel.offsetY and [ArrayMapInfo].subresource.sparseLevel.offsetZ must specify valid X, Y and Z offsets respectively. The [ArrayMapInfo].subresource.sparseLevel.extentWidth, [ArrayMapInfo].subresource.sparseLevel.extentHeight and [ArrayMapInfo].subresource.sparseLevel.extentDepth must specify valid width, height and depth extents respectively. These offsets and extents must be aligned to the corresponding tile dimension. For CUDA mipmapped arrays [ArrayMapInfo].subresource.sparseLevel.level must specify a valid mip level index. Otherwise, must be zero. For layered CUDA arrays and layered CUDA mipmapped arrays [ArrayMapInfo].subresource.sparseLevel.layer must specify a valid layer index. Otherwise, must be zero. [ArrayMapInfo].subresource.sparseLevel.offsetZ must be zero and [ArrayMapInfo].subresource.sparseLevel.extentDepth must be set to 1 for 2D and 2D layered CUDA arrays and CUDA mipmapped arrays. Tile extents can be obtained by calling [Array.SparseProperties] and [MipmappedArray.SparseProperties]
+// If [ArrayMapInfo].subresourceType is set to [ArraySparseSubresourceType].[ArraySparseSubresourceTypeMiptail] then [ArrayMapInfo].subresource.miptail struct must contain valid mip tail offset in [ArrayMapInfo].subresource.miptail.offset and size in [ArrayMapInfo].subresource.miptail.size. Both, mip tail offset and mip tail size must be aligned to the tile size. For layered CUDA mipmapped arrays which don’t have the flag CU_ARRAY_SPARSE_PROPERTIES_SINGLE_MIPTAIL set in [ArraySparseProperties].flags as returned by [MipmappedArray.SparseProperties], [ArrayMapInfo].subresource.miptail.layer must specify a valid layer index. Otherwise, must be zero.
+// If [ArrayMapInfo].resource.array or [ArrayMapInfo].resource.mipmap was created with CUDA_ARRAY3D_DEFERRED_MAPPING flag set the [ArrayMapInfo].subresourceType and the contents of [ArrayMapInfo].subresource will be ignored.
 // [ArrayMapInfo].memOperationType specifies the type of operation. [MemOperationType] is defined as:
 // If [ArrayMapInfo].memOperationType is set to [MemOperationType].[MemOperationTypeMap] then the subresource will be mapped onto the tile pool memory specified by [ArrayMapInfo].memHandle at offset [ArrayMapInfo].offset. The tile pool allocation has to be created by specifying the CU_MEM_CREATE_USAGE_TILE_POOL flag when calling [MemCreate]. Also, [ArrayMapInfo].memHandleType must be set to [MemHandleType].[MemHandleTypeGeneric].
 // If [ArrayMapInfo].memOperationType is set to [MemOperationType].[MemOperationTypeUnmap] then an unmapping operation is performed. [ArrayMapInfo].memHandle must be NULL.
@@ -613,6 +848,10 @@ func (s Stream) MemDiscardBatchAsync(dptrs *DevicePtr, sizes *uint, count uint, 
 //
 //   - mapInfoList: List of [ArrayMapInfo]
 //   - count: Count of [ArrayMapInfo] in mapInfoList
+//
+// Errors:
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
 //
 // Wraps cuMemMapArrayAsync.
 func (s Stream) MemMapArrayAsync(mapInfoList *ArrayMapInfo, count uint32) error {
@@ -642,6 +881,9 @@ func (s Stream) MemPrefetchBatchAsync(dptrs *DevicePtr, sizes *uint, count uint,
 //
 // Perform a 2D memory copy according to the parameters specified in pCopy. The [Memcpy2d] structure is defined as:
 // where:
+//   - srcMemoryType and dstMemoryType specify the type of memory of the source and destination, respectively; CUmemorytype_enum is defined as:
+//   - srcXInBytes and srcY specify the base address of the source data for the copy.
+//
 // If srcMemoryType is [MemoryTypeHost], srcHost and srcPitch specify the (host) base address of the source data and the bytes per row to apply. srcArray is ignored.
 // If srcMemoryType is [MemoryTypeUnified], srcDevice and srcPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. srcArray is ignored. This value may be used only if unified addressing is supported in the calling context.
 // If srcMemoryType is [MemoryTypeDevice], srcDevice and srcPitch specify the (device) base address of the source data and the bytes per row to apply. srcArray is ignored.
@@ -650,9 +892,16 @@ func (s Stream) MemPrefetchBatchAsync(dptrs *DevicePtr, sizes *uint, count uint,
 // If dstMemoryType is [MemoryTypeHost], dstHost and dstPitch specify the (host) base address of the destination data and the bytes per row to apply. dstArray is ignored.
 // If dstMemoryType is [MemoryTypeDevice], dstDevice and dstPitch specify the (device) base address of the destination data and the bytes per row to apply. dstArray is ignored.
 // If dstMemoryType is [MemoryTypeArray], dstArray specifies the handle of the destination data. dstHost, dstDevice and dstPitch are ignored.
+//   - dstXInBytes and dstY specify the base address of the destination data for the copy.
+//
 // For host pointers, the starting address is
 // For device pointers, the starting address is
 // For CUDA arrays, srcXInBytes must be evenly divisible by the array element size.
+//   - WidthInBytes and Height specify the width (in bytes) and height of the 2D copy being performed.
+//   - If specified, srcPitch must be greater than or equal to WidthInBytes + srcXInBytes, and dstPitch must be greater than or equal to WidthInBytes + dstXInBytes.
+//   - If specified, srcPitch must be greater than or equal to WidthInBytes + srcXInBytes, and dstPitch must be greater than or equal to WidthInBytes + dstXInBytes.
+//   - If specified, srcHeight must be greater than or equal to Height + srcY, and dstHeight must be greater than or equal to Height + dstY.
+//
 // For host pointers, the base address is
 // For device pointers, the starting address is
 // For CUDA arrays, dstXInBytes must be evenly divisible by the array element size.
@@ -667,6 +916,13 @@ func (s Stream) MemPrefetchBatchAsync(dptrs *DevicePtr, sizes *uint, count uint,
 //
 //   - pCopy: Parameters for the memory copy
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuMemcpy2DAsync, bound as cuMemcpy2DAsync_v2.
 func (s Stream) Memcpy2DAsync(pCopy *Memcpy2d) error {
 	return memcpy2DAsync(pCopy, s)
@@ -676,6 +932,9 @@ func (s Stream) Memcpy2DAsync(pCopy *Memcpy2d) error {
 //
 // Perform a 3D memory copy according to the parameters specified in pCopy. The [Memcpy3d] structure is defined as:
 // where:
+//   - srcMemoryType and dstMemoryType specify the type of memory of the source and destination, respectively; CUmemorytype_enum is defined as:
+//   - srcXInBytes, srcY and srcZ specify the base address of the source data for the copy.
+//
 // If srcMemoryType is [MemoryTypeUnified], srcDevice and srcPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. srcArray is ignored. This value may be used only if unified addressing is supported in the calling context.
 // If srcMemoryType is [MemoryTypeHost], srcHost, srcPitch and srcHeight specify the (host) base address of the source data, the bytes per row, and the height of each 2D slice of the 3D array. srcArray is ignored.
 // If srcMemoryType is [MemoryTypeDevice], srcDevice, srcPitch and srcHeight specify the (device) base address of the source data, the bytes per row, and the height of each 2D slice of the 3D array. srcArray is ignored.
@@ -684,9 +943,15 @@ func (s Stream) Memcpy2DAsync(pCopy *Memcpy2d) error {
 // If dstMemoryType is [MemoryTypeHost], dstHost and dstPitch specify the (host) base address of the destination data, the bytes per row, and the height of each 2D slice of the 3D array. dstArray is ignored.
 // If dstMemoryType is [MemoryTypeDevice], dstDevice and dstPitch specify the (device) base address of the destination data, the bytes per row, and the height of each 2D slice of the 3D array. dstArray is ignored.
 // If dstMemoryType is [MemoryTypeArray], dstArray specifies the handle of the destination data. dstHost, dstDevice, dstPitch and dstHeight are ignored.
+//   - dstXInBytes, dstY and dstZ specify the base address of the destination data for the copy.
+//
 // For host pointers, the starting address is
 // For device pointers, the starting address is
 // For CUDA arrays, srcXInBytes must be evenly divisible by the array element size.
+//   - WidthInBytes, Height and Depth specify the width (in bytes), height and depth of the 3D copy being performed.
+//   - If specified, srcPitch must be greater than or equal to WidthInBytes + srcXInBytes, and dstPitch must be greater than or equal to WidthInBytes + dstXInBytes.
+//   - If specified, srcHeight must be greater than or equal to Height + srcY, and dstHeight must be greater than or equal to Height + dstY.
+//
 // For host pointers, the base address is
 // For device pointers, the starting address is
 // For CUDA arrays, dstXInBytes must be evenly divisible by the array element size.
@@ -701,6 +966,13 @@ func (s Stream) Memcpy2DAsync(pCopy *Memcpy2d) error {
 //
 //   - pCopy: Parameters for the memory copy
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuMemcpy3DAsync, bound as cuMemcpy3DAsync_v2.
 func (s Stream) Memcpy3DAsync(pCopy *Memcpy3d) error {
 	return memcpy3DAsync(pCopy, s)
@@ -710,8 +982,8 @@ func (s Stream) Memcpy3DAsync(pCopy *Memcpy3d) error {
 //
 // Performs a batch of memory copies. The batch as a whole executes in stream order but copies within a batch are not guaranteed to execute in any specific order. Note that this means specifying any dependent copies within a batch will result in undefined behavior.
 // Performs memory copies as specified in the opList array. The length of this array is specified in numOps. Each entry in this array describes a copy operation. This includes among other things, the source and destination operands for the copy as specified in [Memcpy3dBatchOp].src and [Memcpy3dBatchOp].dst respectively. The source and destination operands of a copy can either be a pointer or a CUDA array. The width, height and depth of a copy is specified in [Memcpy3dBatchOp].extent. The width, height and depth of a copy are specified in elements and must not be zero. For pointer-to-pointer copies, the element size is considered to be 1. For pointer to CUDA array or vice versa copies, the element size is determined by the CUDA array. For CUDA array to CUDA array copies, the element size of the two CUDA arrays must match.
-// For a given operand, if [Memcpy3DOperand].type is specified as [MemcpyOperandTypePointer], then [Memcpy3DOperand].opptr will be used. The [Memcpy3DOperand].opptr.ptr field must contain the pointer where the copy should begin. The [Memcpy3DOperand].opptr.rowLength field specifies the length of each row in elements and must either be zero or be greater than or equal to the width of the copy specified in [Memcpy3dBatchOp].extentwidth. The [Memcpy3DOperand].opptr.layerHeight field specifies the height of each layer and must either be zero or be greater than or equal to the height of the copy specified in [Memcpy3dBatchOp].extentheight. When either of these values is zero, that aspect of the operand is considered to be tightly packed according to the copy extent. For managed memory pointers on devices where [DevAttrConcurrentManagedAccess] is true or system-allocated pageable memory on devices where [DevAttrPageableMemoryAccess] is true, the [Memcpy3DOperand].opptr.locHint field can be used to hint the location of the operand.
-// If an operand’s type is specified as [MemcpyOperandTypeArray], then [Memcpy3DOperand].oparray will be used. The [Memcpy3DOperand].oparray.array field specifies the CUDA array and [Memcpy3DOperand].oparray.offset specifies the 3D offset into that array where the copy begins.
+// For a given operand, if [Memcpy3DOperand].type is specified as [MemcpyOperandTypePointer], then [Memcpy3DOperand].op.ptr will be used. The [Memcpy3DOperand].op.ptr.ptr field must contain the pointer where the copy should begin. The [Memcpy3DOperand].op.ptr.rowLength field specifies the length of each row in elements and must either be zero or be greater than or equal to the width of the copy specified in [Memcpy3dBatchOp].extent.width. The [Memcpy3DOperand].op.ptr.layerHeight field specifies the height of each layer and must either be zero or be greater than or equal to the height of the copy specified in [Memcpy3dBatchOp].extent.height. When either of these values is zero, that aspect of the operand is considered to be tightly packed according to the copy extent. For managed memory pointers on devices where [DevAttrConcurrentManagedAccess] is true or system-allocated pageable memory on devices where [DevAttrPageableMemoryAccess] is true, the [Memcpy3DOperand].op.ptr.locHint field can be used to hint the location of the operand.
+// If an operand’s type is specified as [MemcpyOperandTypeArray], then [Memcpy3DOperand].op.array will be used. The [Memcpy3DOperand].op.array.array field specifies the CUDA array and [Memcpy3DOperand].op.array.offset specifies the 3D offset into that array where the copy begins.
 // The [MemcpyAttributes].srcAccessOrder indicates the source access ordering to be observed for copies associated with the attribute. If the source access order is set to [MemcpySrcAccessOrderStream], then the source will be accessed in stream order. If the source access order is set to [MemcpySrcAccessOrderDuringApiCall] then it indicates that access to the source pointer can be out of stream order and all accesses must be complete before the API call returns. This flag is suited for ephemeral sources (ex., stack variables) when it’s known that no prior operations in the stream can be accessing the memory and also that the lifetime of the memory is limited to the scope that the source variable was declared in. Specifying this flag allows the driver to optimize the copy and removes the need for the user to synchronize the stream after the API call. If the source access order is set to [MemcpySrcAccessOrderAny] then it indicates that access to the source pointer can be out of stream order and the accesses can happen even after the API call returns. This flag is suited for host pointers allocated outside CUDA (ex., via malloc) when it’s known that no prior operations in the stream can be accessing the memory. Specifying this flag allows the driver to optimize the copy on certain platforms. Each memcopy operation in opList must have a valid srcAccessOrder setting, otherwise this API will return [ErrInvalidValue].
 // The [MemcpyAttributes].flags field can be used to specify certain flags for copies. Setting the [MemcpyFlagPreferOverlapWithCompute] flag indicates that the associated copies should preferably overlap with any compute work. Note that this flag is a hint and can be ignored depending on the platform and other parameters of the copy.
 //
@@ -722,6 +994,11 @@ func (s Stream) Memcpy3DAsync(pCopy *Memcpy3d) error {
 //   - numOps: Total number of memcpy operations
 //   - opList: Array of size numOps containing the actual memcpy operations
 //   - flags: Flags for future use, must be zero now
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuMemcpy3DBatchAsync, bound as cuMemcpy3DBatchAsync_v2.
 func (s Stream) Memcpy3DBatchAsync(numOps uint, opList *Memcpy3dBatchOp, flags uint64) error {
@@ -739,6 +1016,12 @@ func (s Stream) Memcpy3DBatchAsync(numOps uint, opList *Memcpy3dBatchOp, flags u
 // See also: [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromPeer], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyFromPeerAsync], [Stream.Memcpy3DPeerAsync], cudaMemcpy3DPeerAsync
 //
 //   - pCopy: Parameters for the memory copy
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuMemcpy3DPeerAsync.
 func (s Stream) Memcpy3DPeerAsync(pCopy *Memcpy3dPeer) error {
@@ -758,6 +1041,11 @@ func (s Stream) Memcpy3DPeerAsync(pCopy *Memcpy3dPeer) error {
 //
 //   - op: Operation to perform
 //   - flags: Flags for the copy, must be zero now
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuMemcpy3DWithAttributesAsync.
 func (s Stream) Memcpy3DWithAttributesAsync(op *Memcpy3dBatchOp, flags uint64) error {
@@ -785,6 +1073,11 @@ func (s Stream) Memcpy3DWithAttributesAsync(op *Memcpy3dBatchOp, flags uint64) e
 //   - attrsIdxs: Array of indices to specify which copies each entry in the attrs array applies to. The attributes specified in attrsk will be applied to copies starting from attrsIdxsk through attrsIdxs [k+1] - 1. Also attrs [numAttrs-1] will apply to copies starting from attrsIdxs [numAttrs-1] through count - 1
 //   - numAttrs: Size of attrs and attrsIdxs arrays
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuMemcpyBatchAsync, bound as cuMemcpyBatchAsync_v2.
 func (s Stream) MemcpyBatchAsync(dsts *DevicePtr, srcs *DevicePtr, sizes *uint, count uint, attrs *MemcpyAttributes, attrsIdxs *uint, numAttrs uint) error {
 	return memcpyBatchAsync(dsts, srcs, sizes, count, attrs, attrsIdxs, numAttrs, s)
@@ -795,15 +1088,20 @@ func (s Stream) MemcpyBatchAsync(dsts *DevicePtr, srcs *DevicePtr, sizes *uint, 
 // Enqueues a signal operation on a set of externally allocated semaphore object in the specified stream. The operations will be executed when all prior operations in the stream complete.
 // The exact semantics of signaling a semaphore depends on the type of the object.
 // If the semaphore object is any one of the following types: [ExternalSemaphoreHandleTypeOpaqueFd], [ExternalSemaphoreHandleTypeOpaqueWin32], [ExternalSemaphoreHandleTypeOpaqueWin32Kmt] then signaling the semaphore will set it to the signaled state.
-// If the semaphore object is any one of the following types: [ExternalSemaphoreHandleTypeD3d12Fence], [ExternalSemaphoreHandleTypeD3d11Fence], [ExternalSemaphoreHandleTypeTimelineSemaphoreFd], [ExternalSemaphoreHandleTypeTimelineSemaphoreWin32] then the semaphore will be set to the value specified in [ExternalSemaphoreSignalParams].paramsfence.value.
-// If the semaphore object is of the type [ExternalSemaphoreHandleTypeNvscisync] this API sets [ExternalSemaphoreSignalParams].paramsnvSciSync.fence to a value that can be used by subsequent waiters of the same NvSciSync object to order operations with those currently submitted in stream. Such an update will overwrite previous contents of [ExternalSemaphoreSignalParams].paramsnvSciSync.fence. By default, signaling such an external semaphore object causes appropriate memory synchronization operations to be performed over all external memory objects that are imported as [ExternalMemoryHandleTypeNvscibuf]. This ensures that any subsequent accesses made by other importers of the same set of NvSciBuf memory object(s) are coherent. These operations can be skipped by specifying the flag CUDA_EXTERNAL_SEMAPHORE_SIGNAL_SKIP_NVSCIBUF_MEMSYNC, which can be used as a performance optimization when data coherency is not required. But specifying this flag in scenarios where data coherency is required results in undefined behavior. Also, for semaphore object of the type [ExternalSemaphoreHandleTypeNvscisync], if the NvSciSyncAttrList used to create the NvSciSyncObj had not set the flags in [Device.NvSciSyncAttributes] to CUDA_NVSCISYNC_ATTR_SIGNAL, this API will return [ErrNotSupported]. NvSciSyncFence associated with semaphore object of the type [ExternalSemaphoreHandleTypeNvscisync] can be deterministic. For this the NvSciSyncAttrList used to create the semaphore object must have value of NvSciSyncAttrKey_RequireDeterministicFences key set to true. Deterministic fences allow users to enqueue a wait over the semaphore object even before corresponding signal is enqueued. For such a semaphore object, CUDA guarantees that each signal operation will increment the fence value by ‘1’. Users are expected to track count of signals enqueued on the semaphore object and insert waits accordingly. When such a semaphore object is signaled from multiple streams, due to concurrent stream execution, it is possible that the order in which the semaphore gets signaled is indeterministic. This could lead to waiters of the semaphore getting unblocked incorrectly. Users are expected to handle such situations, either by not using the same semaphore object with deterministic fence support enabled in different streams or by adding explicit dependency amongst such streams so that the semaphore is signaled in order. NvSciSyncFence associated with semaphore object of the type [ExternalSemaphoreHandleTypeNvscisync] can be timestamp enabled. For this the NvSciSyncAttrList used to create the object must have the value of NvSciSyncAttrKey_WaiterRequireTimestamps key set to true. Timestamps are emitted asynchronously by the GPU and CUDA saves the GPU timestamp in the corresponding NvSciSyncFence at the time of signal on GPU. Users are expected to convert GPU clocks to CPU clocks using appropriate scaling functions. Users are expected to wait for the completion of the fence before extracting timestamp using appropriate NvSciSync APIs. Users are expected to ensure that there is only one outstanding timestamp enabled fence per Cuda-NvSciSync object at any point of time, failing which leads to undefined behavior. Extracting the timestamp before the corresponding fence is signalled could lead to undefined behaviour. Timestamp extracted via appropriate NvSciSync API would be in microseconds.
-// If the semaphore object is any one of the following types: [ExternalSemaphoreHandleTypeD3d11KeyedMutex], [ExternalSemaphoreHandleTypeD3d11KeyedMutexKmt] then the keyed mutex will be released with the key specified in CUDA_EXTERNAL_SEMAPHORE_PARAMS.paramskeyedmutex.key.
+// If the semaphore object is any one of the following types: [ExternalSemaphoreHandleTypeD3d12Fence], [ExternalSemaphoreHandleTypeD3d11Fence], [ExternalSemaphoreHandleTypeTimelineSemaphoreFd], [ExternalSemaphoreHandleTypeTimelineSemaphoreWin32] then the semaphore will be set to the value specified in [ExternalSemaphoreSignalParams].params.fence.value.
+// If the semaphore object is of the type [ExternalSemaphoreHandleTypeNvscisync] this API sets [ExternalSemaphoreSignalParams].params.nvSciSync.fence to a value that can be used by subsequent waiters of the same NvSciSync object to order operations with those currently submitted in stream. Such an update will overwrite previous contents of [ExternalSemaphoreSignalParams].params.nvSciSync.fence. By default, signaling such an external semaphore object causes appropriate memory synchronization operations to be performed over all external memory objects that are imported as [ExternalMemoryHandleTypeNvscibuf]. This ensures that any subsequent accesses made by other importers of the same set of NvSciBuf memory object(s) are coherent. These operations can be skipped by specifying the flag CUDA_EXTERNAL_SEMAPHORE_SIGNAL_SKIP_NVSCIBUF_MEMSYNC, which can be used as a performance optimization when data coherency is not required. But specifying this flag in scenarios where data coherency is required results in undefined behavior. Also, for semaphore object of the type [ExternalSemaphoreHandleTypeNvscisync], if the NvSciSyncAttrList used to create the NvSciSyncObj had not set the flags in [Device.NvSciSyncAttributes] to CUDA_NVSCISYNC_ATTR_SIGNAL, this API will return [ErrNotSupported]. NvSciSyncFence associated with semaphore object of the type [ExternalSemaphoreHandleTypeNvscisync] can be deterministic. For this the NvSciSyncAttrList used to create the semaphore object must have value of NvSciSyncAttrKey_RequireDeterministicFences key set to true. Deterministic fences allow users to enqueue a wait over the semaphore object even before corresponding signal is enqueued. For such a semaphore object, CUDA guarantees that each signal operation will increment the fence value by ‘1’. Users are expected to track count of signals enqueued on the semaphore object and insert waits accordingly. When such a semaphore object is signaled from multiple streams, due to concurrent stream execution, it is possible that the order in which the semaphore gets signaled is indeterministic. This could lead to waiters of the semaphore getting unblocked incorrectly. Users are expected to handle such situations, either by not using the same semaphore object with deterministic fence support enabled in different streams or by adding explicit dependency amongst such streams so that the semaphore is signaled in order. NvSciSyncFence associated with semaphore object of the type [ExternalSemaphoreHandleTypeNvscisync] can be timestamp enabled. For this the NvSciSyncAttrList used to create the object must have the value of NvSciSyncAttrKey_WaiterRequireTimestamps key set to true. Timestamps are emitted asynchronously by the GPU and CUDA saves the GPU timestamp in the corresponding NvSciSyncFence at the time of signal on GPU. Users are expected to convert GPU clocks to CPU clocks using appropriate scaling functions. Users are expected to wait for the completion of the fence before extracting timestamp using appropriate NvSciSync APIs. Users are expected to ensure that there is only one outstanding timestamp enabled fence per Cuda-NvSciSync object at any point of time, failing which leads to undefined behavior. Extracting the timestamp before the corresponding fence is signalled could lead to undefined behaviour. Timestamp extracted via appropriate NvSciSync API would be in microseconds.
+// If the semaphore object is any one of the following types: [ExternalSemaphoreHandleTypeD3d11KeyedMutex], [ExternalSemaphoreHandleTypeD3d11KeyedMutexKmt] then the keyed mutex will be released with the key specified in CUDA_EXTERNAL_SEMAPHORE_PARAMS.params.keyedmutex.key.
 //
 // See also: [ImportExternalSemaphore], [ExternalSemaphore.Destroy], [Stream.WaitExternalSemaphoresAsync]
 //
 //   - extSemArray: Set of external semaphores to be signaled
 //   - paramsArray: Array of semaphore parameters
 //   - numExtSems: Number of semaphores to signal
+//
+// Errors:
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
 //
 // Wraps cuSignalExternalSemaphoresAsync.
 func (s Stream) SignalExternalSemaphoresAsync(extSemArray *ExternalSemaphore, paramsArray *ExternalSemaphoreSignalParams, numExtSems uint32) error {
@@ -815,15 +1113,21 @@ func (s Stream) SignalExternalSemaphoresAsync(extSemArray *ExternalSemaphore, pa
 // Enqueues a wait operation on a set of externally allocated semaphore object in the specified stream. The operations will be executed when all prior operations in the stream complete.
 // The exact semantics of waiting on a semaphore depends on the type of the object.
 // If the semaphore object is any one of the following types: [ExternalSemaphoreHandleTypeOpaqueFd], [ExternalSemaphoreHandleTypeOpaqueWin32], [ExternalSemaphoreHandleTypeOpaqueWin32Kmt] then waiting on the semaphore will wait until the semaphore reaches the signaled state. The semaphore will then be reset to the unsignaled state. Therefore for every signal operation, there can only be one wait operation.
-// If the semaphore object is any one of the following types: [ExternalSemaphoreHandleTypeD3d12Fence], [ExternalSemaphoreHandleTypeD3d11Fence], [ExternalSemaphoreHandleTypeTimelineSemaphoreFd], [ExternalSemaphoreHandleTypeTimelineSemaphoreWin32] then waiting on the semaphore will wait until the value of the semaphore is greater than or equal to [ExternalSemaphoreWaitParams].paramsfence.value.
-// If the semaphore object is of the type [ExternalSemaphoreHandleTypeNvscisync] then, waiting on the semaphore will wait until the [ExternalSemaphoreSignalParams].paramsnvSciSync.fence is signaled by the signaler of the NvSciSyncObj that was associated with this semaphore object. By default, waiting on such an external semaphore object causes appropriate memory synchronization operations to be performed over all external memory objects that are imported as [ExternalMemoryHandleTypeNvscibuf]. This ensures that any subsequent accesses made by other importers of the same set of NvSciBuf memory object(s) are coherent. These operations can be skipped by specifying the flag CUDA_EXTERNAL_SEMAPHORE_WAIT_SKIP_NVSCIBUF_MEMSYNC, which can be used as a performance optimization when data coherency is not required. But specifying this flag in scenarios where data coherency is required results in undefined behavior. Also, for semaphore object of the type [ExternalSemaphoreHandleTypeNvscisync], if the NvSciSyncAttrList used to create the NvSciSyncObj had not set the flags in [Device.NvSciSyncAttributes] to CUDA_NVSCISYNC_ATTR_WAIT, this API will return [ErrNotSupported].
-// If the semaphore object is any one of the following types: [ExternalSemaphoreHandleTypeD3d11KeyedMutex], [ExternalSemaphoreHandleTypeD3d11KeyedMutexKmt] then the keyed mutex will be acquired when it is released with the key specified in [ExternalSemaphoreWaitParams].paramskeyedmutex.key or until the timeout specified by [ExternalSemaphoreWaitParams].paramskeyedmutex.timeoutMs has lapsed. The timeout interval can either be a finite value specified in milliseconds or an infinite value. In case an infinite value is specified the timeout never elapses. The windows INFINITE macro must be used to specify infinite timeout.
+// If the semaphore object is any one of the following types: [ExternalSemaphoreHandleTypeD3d12Fence], [ExternalSemaphoreHandleTypeD3d11Fence], [ExternalSemaphoreHandleTypeTimelineSemaphoreFd], [ExternalSemaphoreHandleTypeTimelineSemaphoreWin32] then waiting on the semaphore will wait until the value of the semaphore is greater than or equal to [ExternalSemaphoreWaitParams].params.fence.value.
+// If the semaphore object is of the type [ExternalSemaphoreHandleTypeNvscisync] then, waiting on the semaphore will wait until the [ExternalSemaphoreSignalParams].params.nvSciSync.fence is signaled by the signaler of the NvSciSyncObj that was associated with this semaphore object. By default, waiting on such an external semaphore object causes appropriate memory synchronization operations to be performed over all external memory objects that are imported as [ExternalMemoryHandleTypeNvscibuf]. This ensures that any subsequent accesses made by other importers of the same set of NvSciBuf memory object(s) are coherent. These operations can be skipped by specifying the flag CUDA_EXTERNAL_SEMAPHORE_WAIT_SKIP_NVSCIBUF_MEMSYNC, which can be used as a performance optimization when data coherency is not required. But specifying this flag in scenarios where data coherency is required results in undefined behavior. Also, for semaphore object of the type [ExternalSemaphoreHandleTypeNvscisync], if the NvSciSyncAttrList used to create the NvSciSyncObj had not set the flags in [Device.NvSciSyncAttributes] to CUDA_NVSCISYNC_ATTR_WAIT, this API will return [ErrNotSupported].
+// If the semaphore object is any one of the following types: [ExternalSemaphoreHandleTypeD3d11KeyedMutex], [ExternalSemaphoreHandleTypeD3d11KeyedMutexKmt] then the keyed mutex will be acquired when it is released with the key specified in [ExternalSemaphoreWaitParams].params.keyedmutex.key or until the timeout specified by [ExternalSemaphoreWaitParams].params.keyedmutex.timeoutMs has lapsed. The timeout interval can either be a finite value specified in milliseconds or an infinite value. In case an infinite value is specified the timeout never elapses. The windows INFINITE macro must be used to specify infinite timeout.
 //
 // See also: [ImportExternalSemaphore], [ExternalSemaphore.Destroy], [Stream.SignalExternalSemaphoresAsync]
 //
 //   - extSemArray: External semaphores to be waited on
 //   - paramsArray: Array of semaphore parameters
 //   - numExtSems: Number of semaphores to wait on
+//
+// Errors:
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
+//   - [ErrTimeout]
 //
 // Wraps cuWaitExternalSemaphoresAsync.
 func (s Stream) WaitExternalSemaphoresAsync(extSemArray *ExternalSemaphore, paramsArray *ExternalSemaphoreWaitParams, numExtSems uint32) error {
@@ -834,10 +1138,20 @@ func (s Stream) WaitExternalSemaphoresAsync(extSemArray *ExternalSemaphore, para
 //
 // Creates a stream and returns a handle in phStream. The Flags argument determines behaviors of the stream.
 // Valid values for Flags are:
+//   - [StreamDefault]: Default stream creation flag.
+//   - [StreamNonBlocking]: Specifies that work running in the created stream may run concurrently with work in stream 0 (the NULL stream), and that the created stream should perform no implicit synchronization with stream 0.
 //
 // See also: [Stream.Destroy], [StreamCreateWithPriority], [GreenCtx.StreamCreate], [Stream.Priority], [Stream.Flags], [Stream.Device] [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback], cudaStreamCreate, cudaStreamCreateWithFlags
 //
 //   - flags: Parameters for stream creation
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrExternalDevice]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrOutOfMemory]
 //
 // Wraps cuStreamCreate.
 func NewStream(flags StreamFlags) (Stream, error) {
@@ -857,6 +1171,14 @@ func NewStream(flags StreamFlags) (Stream, error) {
 //
 //   - flags: Flags for stream creation. See [NewStream] for a list of valid flags
 //   - priority: Stream priority. Lower numbers represent higher priorities. See [CtxGetStreamPriorityRange] for more information about meaningful stream priorities that can be passed
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrExternalDevice]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrOutOfMemory]
 //
 // Wraps cuStreamCreateWithPriority.
 func StreamCreateWithPriority(flags uint32, priority int32) (Stream, error) {

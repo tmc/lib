@@ -2,17 +2,44 @@
 
 package cutensor
 
-// Attribute wraps cutensorPlanPreferenceGetAttribute.
+// Attribute gets attribute of a [PlanPreference] object.
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - attr: Requested attribute
+//   - buf: On successful exit: Holds the information of the requested attribute
+//   - sizeInBytes: Size of buf (in bytes); see [PlanpreferenceattributeT] for the exact size
+//
+// Errors:
+//   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//
+// Wraps cutensorPlanPreferenceGetAttribute.
 func (p PlanPreference) Attribute(handle Handle, attr PlanpreferenceattributeT, buf uintptr, sizeInBytes uint) error {
 	return planPreferenceGetAttribute(handle, p, attr, buf, sizeInBytes)
 }
 
-// Destroy wraps cutensorDestroyPlanPreference.
+// Destroy frees all resources related to the provided preference.
+//
+// Remark:
+// blocking, no reentrant, and thread-safe
+//
+// Wraps cutensorDestroyPlanPreference.
 func (p PlanPreference) Destroy() error {
 	return destroyPlanPreference(p)
 }
 
-// SetAttribute wraps cutensorPlanPreferenceSetAttribute.
+// SetAttribute sets attribute of a [PlanPreference] object.
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - attr: Specifies the attribute that will be set
+//   - buf: This buffer (of size sizeInBytes) determines the value to which attr will be set
+//   - sizeInBytes: Size of buf (in bytes); see [PlanpreferenceattributeT] for the exact size
+//
+// Errors:
+//   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//
+// Wraps cutensorPlanPreferenceSetAttribute.
 func (p PlanPreference) SetAttribute(handle Handle, attr PlanpreferenceattributeT, buf uintptr, sizeInBytes uint) error {
 	return planPreferenceSetAttribute(handle, p, attr, buf, sizeInBytes)
 }

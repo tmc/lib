@@ -7,9 +7,6 @@ package cudnn
 // Invoking [RNNDescriptor.Destroy] with the NULL argument is a no operation (NOP).
 // The [RNNDescriptor.Destroy] function is not able to detect if the rnnDesc argument holds a valid address. Undefined behavior will occur in cases of passing an invalid pointer, not returned by the [CreateRNNDescriptor] function, or in the double deletion scenario of a valid address.
 //
-// Returns:
-//   - [Success]: The object was destroyed successfully.
-//
 // Wraps cudnnDestroyRNNDescriptor.
 func (r RNNDescriptor) Destroy() error {
 	return destroyRNNDescriptor(r)
@@ -19,10 +16,11 @@ func (r RNNDescriptor) Destroy() error {
 //
 // The user can assign NULL to any pointer except rnnDesc when the retrieved value is not needed. The function does not check the validity of retrieved parameters.
 //
-// Returns:
+// A nil error means RNN parameters were successfully retrieved from the RNN descriptor.
+//
+// Errors:
 //   - [ErrBadParam]: An invalid input argument was found ( rnnDesc was NULL).
 //   - [ErrNotInitialized]: The cuDNN library was not initialized properly.
-//   - [Success]: RNN parameters were successfully retrieved from the RNN descriptor.
 //
 // Wraps cudnnGetRNNDescriptor_v8.
 func (r RNNDescriptor) Get() (RNNConfig, error) {
@@ -33,9 +31,10 @@ func (r RNNDescriptor) Get() (RNNConfig, error) {
 //
 // The user can assign NULL to any pointer except rnnDesc when the retrieved value is not needed. The function does not check the validity of retrieved parameters.
 //
-// Returns:
+// A nil error means LSTM clipping parameters were successfully retrieved from the RNN descriptor.
+//
+// Errors:
 //   - [ErrBadParam]: An invalid input argument was found ( rnnDesc was NULL).
-//   - [Success]: LSTM clipping parameters were successfully retrieved from the RNN descriptor.
 //
 // Wraps cudnnRNNGetClip_v9.
 func (r RNNDescriptor) Clip() (clipMode RNNClipMode, lclip float64, rclip float64, err error) {
@@ -50,9 +49,8 @@ func (r RNNDescriptor) Clip() (clipMode RNNClipMode, lclip float64, rclip float6
 //   - lclip: Input. The range [lclip, rclip] to which the LSTM cell clipping should be set
 //   - rclip: Input. The range [lclip, rclip] to which the LSTM cell clipping should be set
 //
-// Returns:
+// Errors:
 //   - [ErrBadParam]: An invalid input argument was found, for example: rnnDesc was NULL lclip > rclip either lclip or rclip is NaN
-//   - [Success]: The function completed successfully.
 //
 // Wraps cudnnRNNSetClip_v9.
 func (r RNNDescriptor) SetClip(clipMode RNNClipMode, lclip float64, rclip float64) error {
@@ -69,8 +67,8 @@ func (r RNNDescriptor) SetClip(clipMode RNNClipMode, lclip float64, rclip float6
 //   - dirMode: Input. Specifies the recurrence pattern: [Unidirectional] or [Bidirectional]. In bidirectional RNNs, the hidden states passed between physical layers are concatenations of forward and backward hidden states
 //   - inputMode: Input. Specifies how the input to the RNN model is processed by the first layer. When inputMode is [LinearInput], original input vectors of size inputSize are multiplied by the weight matrix to obtain vectors of hiddenSize. When inputMode is [SkipInput], the original input vectors to the first layer are used as is without multiplying them by the weight matrix
 //   - dataType: Input. Specifies data type for RNN weights/biases and input and output data
-//   - mathPrec: Input. This parameter is used to control the compute math precision in the RNN model. The following applies:
-//   - mathType: Input. Sets the preferred option to use NVIDIA Tensor Cores accelerators on Volta (SM 7.0) or higher GPUs. This option has an advisory status meaning Tensor Cores may not be always utilized, for example, due to specific GEMM dimensions restrictions
+//   - mathPrec: Input. This parameter is used to control the compute math precision in the RNN model. The following applies: For the input/output in FP16, the parameter mathPrec can be [DataHalf] or [DataFloat]. For the input/output in FP32, the parameter mathPrec can only be [DataFloat]. For the input/output in FP64, double type, the parameter mathPrec can only be [DataDouble]
+//   - mathType: Input. Sets the preferred option to use NVIDIA Tensor Cores accelerators on Volta (SM 7.0) or higher GPUs. When dataType is [DataHalf], the mathType parameter can be [DefaultMath] or [TensorOpMath]. The ALLOW_CONVERSION setting is treated the same as [TensorOpMath] for this data type. When dataType is [DataFloat], the mathType parameter can be [DefaultMath] or [TensorOpMathAllowConversion]. When the latter settings are used, original weights and intermediate results will be down-converted to [DataHalf] before they are used in another recursive iteration. When dataType is [DataDouble], the mathType parameter can be [DefaultMath]. This option has an advisory status meaning Tensor Cores may not be always utilized, for example, due to specific GEMM dimensions restrictions
 //   - inputSize: Input. Size of the input vector in the RNN model. When the inputMode=[SkipInput], the inputSize should match the hiddenSize value
 //   - hiddenSize: Input. Size of the hidden state vector in the RNN model. The same hidden size is used in all RNN layers
 //   - projSize: Input. The size of the LSTM cell output after the recurrent projection. When the LSTM projection is enabled, this value should be smaller than hiddenSize. When the LSTM projection is disabled, and for all other RNN cell types ( [RnnRelu], [RnnTanh], and CUDNN_RNN_GRU), projSize must be equal to hiddenSize. The recurrent projection is an additional matrix multiplication in the LSTM cell to project (compress) hidden state vectors h t into smaller vectors r t = W r h t, where W r is a rectangular matrix with projSize rows and hiddenSize columns. When the recurrent projection is enabled, the output of the LSTM cell (both to the next layer and unrolled in-time) is r t instead of h t. The recurrent projection can be enabled for LSTM cells and [RnnAlgoStandard] only
@@ -78,10 +76,11 @@ func (r RNNDescriptor) SetClip(clipMode RNNClipMode, lclip float64, rclip float6
 //   - dropoutDesc: Input. Handle to a previously created and initialized dropout descriptor. Dropout operation will be applied between physical layers. A single layer network will have no dropout applied. Dropout is used in the training mode only
 //   - auxFlags: Input. This argument is used to pass miscellaneous switches that do not require additional numerical values to configure the corresponding feature. In future cuDNN releases, this parameter will be used to extend the RNN functionality without adding new API functions (applicable options should be bitwise OR-ed). Currently, this parameter is used to enable or disable padded input/output ( CUDNN_RNN_PADDED_IO_DISABLED, CUDNN_RNN_PADDED_IO_ENABLED). When the padded I/O is enabled, layouts [RnnDataLayoutSeqMajorUnpacked] and [RnnDataLayoutBatchMajorUnpacked] are permitted in RNN data descriptors
 //
-// Returns:
+// A nil error means the RNN descriptor was configured successfully.
+//
+// Errors:
 //   - [ErrBadParam]: An invalid input argument was detected.
 //   - [ErrNotSupported]: An incompatible or unsupported combination of input arguments was detected.
-//   - [Success]: The RNN descriptor was configured successfully.
 //
 // Wraps cudnnSetRNNDescriptor_v8.
 func (r RNNDescriptor) Set(algo RNNAlgo, cellMode RNNMode, biasMode RNNBiasMode, dirMode DirectionMode, inputMode RNNInputMode, dataType DataType, mathPrec DataType, mathType MathType, inputSize int32, hiddenSize int32, projSize int32, numLayers int32, dropoutDesc DropoutDescriptor, auxFlags uint32) error {

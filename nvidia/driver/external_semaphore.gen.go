@@ -8,6 +8,10 @@ package driver
 //
 // See also: [ImportExternalSemaphore], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
+// Errors:
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
+//
 // Wraps cuDestroyExternalSemaphore.
 func (e ExternalSemaphore) Destroy() error {
 	return destroyExternalSemaphore(e)

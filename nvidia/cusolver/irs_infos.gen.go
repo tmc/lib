@@ -6,9 +6,8 @@ package cusolver
 //
 // Such information includes the total number of iterations that was needed to converge ( Niters), the outer number of iterations (meaningful when two-levels preconditioner such as [IrsRefineClassicalGmres] is used ), the maximal number of iterations that was allowed for that call, and a pointer to the matrix of the convergence history residual norms. The Infos structure needs to be created before a call to an IRS solver. The Infos structure is valid for only one call to an IRS solver, since it holds info about that solve and thus each solve will requires its own Infos structure.
 //
-// Returns:
+// Errors:
 //   - [ErrAllocFailed]: The resources could not be allocated.
-//   - [Success]: The structure was initialized successfully.
 //
 // Wraps cusolverDnIRSInfosCreate.
 func NewIRSInfos() (IRSInfos, error) {
@@ -19,9 +18,8 @@ func NewIRSInfos() (IRSInfos, error) {
 //
 // This function destroys all the information (for example, Niters performed, OuterNiters performed, residual history etc.) about a solver call; thus, this function should only be called after the user is finished with the information.
 //
-// Returns:
+// Errors:
 //   - [ErrIrsInfosNotInitialized]: The Infos structure was not created.
-//   - [Success]: The resources were released successfully.
 //
 // Wraps cusolverDnIRSInfosDestroy.
 func (i IRSInfos) Destroy() error {
@@ -34,9 +32,8 @@ func (i IRSInfos) Destroy() error {
 //
 //   - maxiters: The maximal number of iterations that is currently set
 //
-// Returns:
+// Errors:
 //   - [ErrIrsInfosNotInitialized]: The Infos structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSInfosGetMaxIters.
 func (i IRSInfos) MaxIters() (CusolverInt, error) {
@@ -49,9 +46,8 @@ func (i IRSInfos) MaxIters() (CusolverInt, error) {
 //
 //   - niters: The total number of iterations performed by the IRS solver
 //
-// Returns:
+// Errors:
 //   - [ErrIrsInfosNotInitialized]: The Infos structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSInfosGetNiters.
 func (i IRSInfos) Niters() (CusolverInt, error) {
@@ -64,9 +60,8 @@ func (i IRSInfos) Niters() (CusolverInt, error) {
 //
 //   - outerNiters: The number of iterations of the outer refinement loop of the IRS solver
 //
-// Returns:
+// Errors:
 //   - [ErrIrsInfosNotInitialized]: The Infos structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSInfosGetOuterNiters.
 func (i IRSInfos) OuterNiters() (CusolverInt, error) {
@@ -75,16 +70,17 @@ func (i IRSInfos) OuterNiters() (CusolverInt, error) {
 
 // RequestResidual tells the IRS solver to store the convergence history (residual norms) of the refinement phase in a matrix that can be accessed via a pointer returned by the [IRSInfos.ResidualHistory] function.
 //
-// Returns:
+// Errors:
 //   - [ErrIrsInfosNotInitialized]: The Infos structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSInfosRequestResidual.
 func (i IRSInfos) RequestResidual() error {
 	return iRSInfosRequestResidual(i)
 }
 
-// ResidualHistory If the user called [IRSInfos.RequestResidual] before the call to the IRS function, then the IRS solver will store the convergence history (residual norms) of the refinement phase in a matrix that can be accessed via a pointer returned by this function.
+// ResidualHistory returns the residual norms of the refinement phase, when their history was requested before the solve.
+//
+// If the user called [IRSInfos.RequestResidual] before the call to the IRS function, then the IRS solver will store the convergence history (residual norms) of the refinement phase in a matrix that can be accessed via a pointer returned by this function.
 //
 // The datatype of the residual norms depends on the input and output data type. If the Inputs/Outputs datatype is double precision real or complex (CUSOLVER_R_FP64 or CUSOLVER_C_FP64), this residual will be of type real double precision (FP64) double, otherwise if the Inputs/Outputs datatype is single precision real or complex (CUSOLVER_R_FP32 or CUSOLVER_C_FP32), this residual will be real single precision FP32 float.
 // The residual history matrix consists of two columns (even for the multiple right-hand side case NRHS) of MaxIters+1 row, thus a matrix of size ( MaxIters+1,2). Only the first OuterNiters+1 rows contains the residual norms the other (e.g., OuterNiters+2:Maxiters+1) are garbage. On the first column, each row “i” specify the total number of iterations happened till this outer iteration “i” and on the second columns the residual norm corresponding to this outer iteration “i”. Thus, the first row (e.g., outer iteration “0”) consists of the initial residual (e.g., the residual before the refinement loop start) then the consecutive rows are the residual obtained at each outer iteration of the refinement loop. Note, it only consists of the history of the outer loop.
@@ -95,10 +91,9 @@ func (i IRSInfos) RequestResidual() error {
 //
 //   - residualHistory: Returns a void pointer to the matrix of the convergence history residual norms. See the description above for the relation between the residual norm datatype and the inout datatype
 //
-// Returns:
+// Errors:
 //   - [ErrInvalidValue]: This function was called without calling [IRSInfos.RequestResidual] in advance.
 //   - [ErrIrsInfosNotInitialized]: The Infos structure was not created
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSInfosGetResidualHistory.
 func (i IRSInfos) ResidualHistory(residualHistory *uintptr) error {

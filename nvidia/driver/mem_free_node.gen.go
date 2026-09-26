@@ -16,6 +16,11 @@ type MemFreeNode struct {
 //
 // See also: [GraphNode.Params], [Graph.AddMemFreeNode], [MemAllocNode.Params]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuGraphMemFreeNodeGetParams.
 func (m MemFreeNode) Params() (DevicePtr, error) {
 	return graphMemFreeNodeGetParams(m.GraphNode)

@@ -16,6 +16,11 @@ type BatchMemOpNode struct {
 //
 // See also: [GraphNode.Params], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [BatchMemOpNode.SetParams]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuGraphBatchMemOpNodeGetParams.
 func (b BatchMemOpNode) Params() (BatchMemOpNodeParams, error) {
 	return graphBatchMemOpNodeGetParams(b.GraphNode)
@@ -29,6 +34,11 @@ func (b BatchMemOpNode) Params() (BatchMemOpNodeParams, error) {
 // See also: [GraphNode.SetParams], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [BatchMemOpNode.Params]
 //
 //   - nodeParams: Parameters to copy
+//
+// Errors:
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrOutOfMemory]
 //
 // Wraps cuGraphBatchMemOpNodeSetParams.
 func (b BatchMemOpNode) SetParams(nodeParams *BatchMemOpNodeParams) error {

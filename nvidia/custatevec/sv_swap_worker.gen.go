@@ -6,7 +6,7 @@ import (
 	"github.com/tmc/lib/nvidia/driver"
 )
 
-// NewSVSwapWorker [Create] state vector swap worker.
+// NewSVSwapWorker creates state vector swap worker.
 //
 //   - handle: in the handle to cuStateVec library
 //   - svSwapWorker: out state vector swap worker
@@ -24,7 +24,7 @@ func NewSVSwapWorker(handle Handle, communicator Communicator, orgSubSV uintptr,
 	return sVSwapWorkerCreate(handle, communicator, orgSubSV, orgSubSVIndex, orgEvent, svDataType, stream)
 }
 
-// NewSVSwapWorkerWithSemaphore [Create] state vector swap worker with semaphore.
+// NewSVSwapWorkerWithSemaphore creates state vector swap worker with semaphore.
 //
 //   - handle: in the handle to cuStateVec library
 //   - svSwapWorker: out state vector swap worker

@@ -5,22 +5,87 @@
 
 package cufile
 
-// IOCancel wraps cuFileBatchIOCancel.
+// IOCancel is a batch API to cancel an ongoing IO batch operation by using the batch_id that was returned by [BatchHandle.IOSubmit].
+//
+// This API tries to cancel an individual IO operation in the batch if possible and provides no guarantee about canceling an ongoing operation.
+// Refer to the following for more information:
+//   - [BatchHandle.IOGetStatus]
+//   - [BatchHandle.IOSubmit]
+//   - [BatchHandle.IODestroy]
+//
+// Errors:
+//   - CU_FILE_ERROR_INVALID_VALUE: on any failures.
+//
+// Wraps cuFileBatchIOCancel.
 func (b BatchHandle) IOCancel() error {
 	return batchIOCancel(b)
 }
 
-// IODestroy wraps cuFileBatchIODestroy.
+// IODestroy [BatchHandle.IOGetStatus].
+//
+// This is a batch API that destroys a batch context and the resources that are allocated with cuFileBatchIOSetup.
+// Refer to the following for more information:
+// [BatchHandle.IOSubmit]
+// [BatchHandle.IOCancel]
+//
+// Wraps cuFileBatchIODestroy.
 func (b BatchHandle) IODestroy() error {
 	return batchIODestroy(b)
 }
 
-// IOGetStatus wraps cuFileBatchIOGetStatus.
+// IOGetStatus is a batch API to monitor the status of batch IO operations by using the batch_id that was returned by [BatchHandle.IOSubmit].
+//
+// The operation will be canceled automatically if [BatchHandle.IOCancel] is called and the status will reflect CU_FILE_CANCELED for all canceled IO operations.
+// The status of each member of the batch is queried, which would not be possible with one CUEvent. The status field of individual IO operations via [IOParams] entries will have undefined values before the entire batch is completed. This definition is subject to change.
+// Refer to the following for more information:
+//   - [BatchHandle.IOSubmit]
+//   - [BatchHandle.IODestroy]
+//
+// Parameters:
+//   - minNr: The minimum number of IO entries for which status is requested. The minNr should be greater than or equal to zero and less than or equal to *nr
+//   - nr: This is a pointer to max requested IO entries to poll for completion and is used as an Input/Output parameter. As an input *nr must be set to pass the maximum number of IO requests to poll for. As an output, *nr returns the number of completed I/Os
+//   - iocbp: CUFileIOEvents_t array containing the status of completed I/Os in that batch
+//   - timeout: This parameter is used to specify the amount of time to wait for in this API, even if the minimum number of requests have not completed. If the timeout hits, it is possible that the number of returned IOs can be less than minNr
+//
+// The success here refers to the completion of the API. Individual IO status and error can be obtained by examining the returned status and error in the array iocbp.
+//
+// Errors:
+//   - CU_FILE_ERROR_INVALID_VALUE: for an invalid batch ID.
+//
+// Wraps cuFileBatchIOGetStatus.
 func (b BatchHandle) IOGetStatus(minNr uint32, nr *uint32, iocbp *IOEvents, timeout *Timespec) error {
 	return batchIOGetStatus(b, minNr, nr, iocbp, timeout)
 }
 
-// IOSubmit wraps cuFileBatchIOSubmit.
+// IOSubmit will need to be used to submit a read/write operation on an array of GPU/CPU data pointers from their respective file handle, offset, and size bytes.
+//
+// Based on the type of memory pointer, the data is transferred to/from the GPU memory by using GDS or the data is transferred to/from the CPU memory.
+//   - This is an asynchronous call and will enqueue the operation on a batch_id provided by the cuFileIOSetup API. The operation can be monitored when using this batch_id through [BatchHandle.IOGetStatus].
+//   - The operation can be canceled by calling [BatchHandle.IOCancel] or destroyed by [BatchHandle.IODestroy].
+//   - The entries in the [IOParams] array describe individual IOs.
+//
+// The bytes transacted field is valid only when the status indicates a completion.
+//   - Operations that are enqueued with cuFile Batch APIs are FIFO ordered with respect to other work on the stream and must be completed before continuing to the next action in the stream. Operations in each batch might be reordered with respect to each other.
+//   - The status field of individual IO operations via [IOParams] entries will have undefined values before the entire batch is complete. This definition is subject to change.
+//
+// Refer to the following for more information:
+//   - [Handle.Read]
+//   - [Handle.Write]
+//   - [Handle.ReadAsync]
+//   - [Handle.WriteAsync]
+//   - [BatchHandle.IOGetStatus]
+//   - [BatchHandle.IOCancel]
+//   - [BatchHandle.IODestroy]
+//
+// Parameters:
+//   - nr: The number of requests for the batch request. The value must be greater than 0 and less than or equal to max_nr specified in cuFileBatchIOSetup
+//   - iocbp: The pointer contains the [IOParams] array structures of the length nr array
+//   - flags: Reserved for future use. Should be set to 0
+//
+// Errors:
+//   - [InternalError]: on any failures.
+//
+// Wraps cuFileBatchIOSubmit.
 func (b BatchHandle) IOSubmit(nr uint32, iocbp *IOParams, flags uint32) error {
 	return batchIOSubmit(b, nr, iocbp, flags)
 }

@@ -55,13 +55,15 @@ var (
 	symwriteKernelCacheToFile          uintptr
 )
 
-// ffiCall0 through ffiCall17 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+// The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
 //
 // Bit i of floatMask marks argument word i as a floating-point bit
 // pattern, which the C ABI passes in a different register file from the
-// integer and pointer words. Each returns the first integer result
-// register and the first floating-point one; a caller reads whichever the
-// C function sets.
+// integer and pointer words. Bits 2i and 2i+1 of widths give the size of
+// argument word i as a ffi.Width code, which places a narrow argument
+// on the stack where the C ABI expects it. Each funnel returns the first
+// integer result register and the first floating-point one; a caller
+// reads whichever the C function sets.
 //
 // The //go:uintptrescapes directive is what makes a Go pointer safe to
 // pass: a pointer converted to uintptr in one of these argument lists is
@@ -100,16 +102,6 @@ func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr)
 }
 
 //go:uintptrescapes
-func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
-	var args [ffi.MaxArgs]uintptr
-	args[0] = a0
-	args[1] = a1
-	args[2] = a2
-	args[3] = a3
-	return ffi.CallFloat(fn, 4, &args, floatMask)
-}
-
-//go:uintptrescapes
 func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
@@ -121,7 +113,43 @@ func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf 
 }
 
 //go:uintptrescapes
-func ffiCall7(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
+func ffiCallWidths1(fn uintptr, floatMask uint32, widths uint64, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloatWidths(fn, 1, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths2(fn uintptr, floatMask uint32, widths uint64, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloatWidths(fn, 2, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths4(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloatWidths(fn, 4, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths5(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloatWidths(fn, 5, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths7(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -130,11 +158,11 @@ func ffiCall7(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6 uintptr) 
 	args[4] = a4
 	args[5] = a5
 	args[6] = a6
-	return ffi.CallFloat(fn, 7, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 7, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall8(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7 uintptr) (r1, rf uintptr) {
+func ffiCallWidths8(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -144,11 +172,11 @@ func ffiCall8(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7 uintp
 	args[5] = a5
 	args[6] = a6
 	args[7] = a7
-	return ffi.CallFloat(fn, 8, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 8, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall12(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11 uintptr) (r1, rf uintptr) {
+func ffiCallWidths12(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -162,11 +190,11 @@ func ffiCall12(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8,
 	args[9] = a9
 	args[10] = a10
 	args[11] = a11
-	return ffi.CallFloat(fn, 12, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 12, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall14(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13 uintptr) (r1, rf uintptr) {
+func ffiCallWidths14(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -182,11 +210,11 @@ func ffiCall14(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8,
 	args[11] = a11
 	args[12] = a12
 	args[13] = a13
-	return ffi.CallFloat(fn, 14, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 14, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall16(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15 uintptr) (r1, rf uintptr) {
+func ffiCallWidths16(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -204,11 +232,11 @@ func ffiCall16(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8,
 	args[13] = a13
 	args[14] = a14
 	args[15] = a15
-	return ffi.CallFloat(fn, 16, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 16, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall17(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16 uintptr) (r1, rf uintptr) {
+func ffiCallWidths17(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -227,7 +255,7 @@ func ffiCall17(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8,
 	args[14] = a14
 	args[15] = a15
 	args[16] = a16
-	return ffi.CallFloat(fn, 17, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 17, &args, floatMask, widths)
 }
 
 // An outSlot pools the heap cells a wrapper passes to C for its outputs.
@@ -259,31 +287,31 @@ func fnCreate(a0 *Handle) Result {
 
 // fncreateContraction calls cutensorCreateContraction.
 func fncreateContraction(a0 Handle, a1 *OperationDescriptor, a2 TensorDescriptor, a3 *int32, a4 OperatorT, a5 TensorDescriptor, a6 *int32, a7 OperatorT, a8 TensorDescriptor, a9 *int32, a10 OperatorT, a11 TensorDescriptor, a12 *int32, a13 ComputeDescriptor) Result {
-	r1, _ := ffiCall14(symcreateContraction, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	r1, _ := ffiCallWidths14(symcreateContraction, 0, 0x30c300, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
 	return Result(r1)
 }
 
 // fncreateContractionTrinary calls cutensorCreateContractionTrinary.
 func fncreateContractionTrinary(a0 Handle, a1 *OperationDescriptor, a2 TensorDescriptor, a3 *int32, a4 OperatorT, a5 TensorDescriptor, a6 *int32, a7 OperatorT, a8 TensorDescriptor, a9 *int32, a10 OperatorT, a11 TensorDescriptor, a12 *int32, a13 OperatorT, a14 TensorDescriptor, a15 *int32, a16 ComputeDescriptor) Result {
-	r1, _ := ffiCall17(symcreateContractionTrinary, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13), uintptr(a14), uintptr(unsafe.Pointer(a15)), uintptr(a16))
+	r1, _ := ffiCallWidths17(symcreateContractionTrinary, 0, 0xc30c300, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13), uintptr(a14), uintptr(unsafe.Pointer(a15)), uintptr(a16))
 	return Result(r1)
 }
 
 // fncreateElementwiseBinary calls cutensorCreateElementwiseBinary.
 func fncreateElementwiseBinary(a0 Handle, a1 *OperationDescriptor, a2 TensorDescriptor, a3 *int32, a4 OperatorT, a5 TensorDescriptor, a6 *int32, a7 OperatorT, a8 TensorDescriptor, a9 *int32, a10 OperatorT, a11 ComputeDescriptor) Result {
-	r1, _ := ffiCall12(symcreateElementwiseBinary, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11))
+	r1, _ := ffiCallWidths12(symcreateElementwiseBinary, 0, 0x30c300, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11))
 	return Result(r1)
 }
 
 // fncreateElementwiseTrinary calls cutensorCreateElementwiseTrinary.
 func fncreateElementwiseTrinary(a0 Handle, a1 *OperationDescriptor, a2 TensorDescriptor, a3 *int32, a4 OperatorT, a5 TensorDescriptor, a6 *int32, a7 OperatorT, a8 TensorDescriptor, a9 *int32, a10 OperatorT, a11 TensorDescriptor, a12 *int32, a13 OperatorT, a14 OperatorT, a15 ComputeDescriptor) Result {
-	r1, _ := ffiCall16(symcreateElementwiseTrinary, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13), uintptr(a14), uintptr(a15))
+	r1, _ := ffiCallWidths16(symcreateElementwiseTrinary, 0, 0x3c30c300, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13), uintptr(a14), uintptr(a15))
 	return Result(r1)
 }
 
 // fncreatePermutation calls cutensorCreatePermutation.
 func fncreatePermutation(a0 Handle, a1 *OperationDescriptor, a2 TensorDescriptor, a3 *int32, a4 OperatorT, a5 TensorDescriptor, a6 *int32, a7 ComputeDescriptor) Result {
-	r1, _ := ffiCall8(symcreatePermutation, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7))
+	r1, _ := ffiCallWidths8(symcreatePermutation, 0, 0x300, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7))
 	return Result(r1)
 }
 
@@ -295,19 +323,19 @@ func fncreatePlan(a0 Handle, a1 *Plan, a2 OperationDescriptor, a3 PlanPreference
 
 // fncreatePlanPreference calls cutensorCreatePlanPreference.
 func fncreatePlanPreference(a0 Handle, a1 *PlanPreference, a2 AlgoT, a3 JitmodeT) Result {
-	r1, _ := ffiCall4(symcreatePlanPreference, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3))
+	r1, _ := ffiCallWidths4(symcreatePlanPreference, 0, 0xf0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
 
 // fncreateReduction calls cutensorCreateReduction.
 func fncreateReduction(a0 Handle, a1 *OperationDescriptor, a2 TensorDescriptor, a3 *int32, a4 OperatorT, a5 TensorDescriptor, a6 *int32, a7 OperatorT, a8 TensorDescriptor, a9 *int32, a10 OperatorT, a11 ComputeDescriptor) Result {
-	r1, _ := ffiCall12(symcreateReduction, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11))
+	r1, _ := ffiCallWidths12(symcreateReduction, 0, 0x30c300, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11))
 	return Result(r1)
 }
 
 // fncreateTensorDescriptor calls cutensorCreateTensorDescriptor.
 func fncreateTensorDescriptor(a0 Handle, a1 *TensorDescriptor, a2 uint32, a3 *int64, a4 *int64, a5 DataType, a6 uint32) Result {
-	r1, _ := ffiCall7(symcreateTensorDescriptor, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6))
+	r1, _ := ffiCallWidths7(symcreateTensorDescriptor, 0, 0x3c30, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6))
 	return Result(r1)
 }
 
@@ -343,7 +371,7 @@ func fndestroyTensorDescriptor(a0 TensorDescriptor) Result {
 
 // fnestimateWorkspaceSize calls cutensorEstimateWorkspaceSize.
 func fnestimateWorkspaceSize(a0 Handle, a1 OperationDescriptor, a2 PlanPreference, a3 WorksizepreferenceT, a4 *uint64) Result {
-	r1, _ := ffiCall5(symestimateWorkspaceSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symestimateWorkspaceSize, 0, 0xc0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
@@ -367,7 +395,7 @@ func fnhandleReadPlanCacheFromFile(a0 Handle, a1 *byte, a2 *uint32) Result {
 
 // fnhandleResizePlanCache calls cutensorHandleResizePlanCache.
 func fnhandleResizePlanCache(a0 Handle, a1 uint32) Result {
-	r1, _ := ffiCall2(symhandleResizePlanCache, 0, uintptr(a0), uintptr(a1))
+	r1, _ := ffiCallWidths2(symhandleResizePlanCache, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
@@ -403,43 +431,43 @@ func fnLoggerSetFile(a0 uintptr) Result {
 
 // fnLoggerSetLevel calls cutensorLoggerSetLevel.
 func fnLoggerSetLevel(a0 int32) Result {
-	r1, _ := ffiCall1(symLoggerSetLevel, 0, uintptr(a0))
+	r1, _ := ffiCallWidths1(symLoggerSetLevel, 0, 0x3, uintptr(a0))
 	return Result(r1)
 }
 
 // fnLoggerSetMask calls cutensorLoggerSetMask.
 func fnLoggerSetMask(a0 int32) Result {
-	r1, _ := ffiCall1(symLoggerSetMask, 0, uintptr(a0))
+	r1, _ := ffiCallWidths1(symLoggerSetMask, 0, 0x3, uintptr(a0))
 	return Result(r1)
 }
 
 // fnoperationDescriptorGetAttribute calls cutensorOperationDescriptorGetAttribute.
 func fnoperationDescriptorGetAttribute(a0 Handle, a1 OperationDescriptor, a2 OperationdescriptorattributeT, a3 uintptr, a4 uint) Result {
-	r1, _ := ffiCall5(symoperationDescriptorGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	r1, _ := ffiCallWidths5(symoperationDescriptorGetAttribute, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
 
 // fnoperationDescriptorSetAttribute calls cutensorOperationDescriptorSetAttribute.
 func fnoperationDescriptorSetAttribute(a0 Handle, a1 OperationDescriptor, a2 OperationdescriptorattributeT, a3 uintptr, a4 uint) Result {
-	r1, _ := ffiCall5(symoperationDescriptorSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	r1, _ := ffiCallWidths5(symoperationDescriptorSetAttribute, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
 
 // fnplanGetAttribute calls cutensorPlanGetAttribute.
 func fnplanGetAttribute(a0 Handle, a1 Plan, a2 PlanattributeT, a3 uintptr, a4 uint) Result {
-	r1, _ := ffiCall5(symplanGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	r1, _ := ffiCallWidths5(symplanGetAttribute, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
 
 // fnplanPreferenceGetAttribute calls cutensorPlanPreferenceGetAttribute.
 func fnplanPreferenceGetAttribute(a0 Handle, a1 PlanPreference, a2 PlanpreferenceattributeT, a3 uintptr, a4 uint) Result {
-	r1, _ := ffiCall5(symplanPreferenceGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	r1, _ := ffiCallWidths5(symplanPreferenceGetAttribute, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
 
 // fnplanPreferenceSetAttribute calls cutensorPlanPreferenceSetAttribute.
 func fnplanPreferenceSetAttribute(a0 Handle, a1 PlanPreference, a2 PlanpreferenceattributeT, a3 uintptr, a4 uint) Result {
-	r1, _ := ffiCall5(symplanPreferenceSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	r1, _ := ffiCallWidths5(symplanPreferenceSetAttribute, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
 
@@ -455,23 +483,217 @@ func fnwriteKernelCacheToFile(a0 Handle, a1 *byte) Result {
 	return Result(r1)
 }
 
-// contract wraps cutensorContract.
-func contract(handle Handle, plan Plan, alpha unsafe.Pointer, a driver.DevicePtr, b driver.DevicePtr, beta unsafe.Pointer, c driver.DevicePtr, d driver.DevicePtr, workspace driver.DevicePtr, workspaceSize uint64, stream driver.Stream) error {
+// A Scalar is a value, such as the alpha and beta of a matrix product,
+// that the library reads through a pointer. Make one for a value in host
+// memory with [Float32Scalar], [Float64Scalar], [Complex64Scalar],
+// [Complex128Scalar], or [Int32Scalar].
+//
+// A call copies a host value into memory of its own, passes the library a
+// pointer to the copy, and reuses that memory once the call returns, so a
+// Scalar never reaches the library and can live anywhere.
+//
+// The cuTENSOR documentation says a scalar is a "pointer to the host
+// memory" and that operations can be captured into CUDA graphs, but not
+// when a host scalar is read. The call assumes, as cuBLAS documents for
+// itself, that the library reads it before the call returns, including
+// under capture.
+//
+// The kind of a host Scalar must be the type the library reads. Where a
+// call names that type in another parameter, a Scalar of another kind is a
+// *[ScalarError]; where the type is in a descriptor, the call cannot check
+// it. The zero Scalar is a host zero of every kind.
+type Scalar struct {
+	v      [2]uint64 // the host value, or the device address in v[0]
+	kind   scalarKind
+	device bool
+}
+
+// Float32Scalar returns a host Scalar holding the float32 x.
+func Float32Scalar(x float32) Scalar {
+	s := Scalar{kind: scalarFloat32}
+	*(*float32)(unsafe.Pointer(&s.v)) = x
+	return s
+}
+
+// Float64Scalar returns a host Scalar holding the float64 x.
+func Float64Scalar(x float64) Scalar {
+	s := Scalar{kind: scalarFloat64}
+	*(*float64)(unsafe.Pointer(&s.v)) = x
+	return s
+}
+
+// Complex64Scalar returns a host Scalar holding the complex64 x.
+func Complex64Scalar(x complex64) Scalar {
+	s := Scalar{kind: scalarComplex64}
+	*(*complex64)(unsafe.Pointer(&s.v)) = x
+	return s
+}
+
+// Complex128Scalar returns a host Scalar holding the complex128 x.
+func Complex128Scalar(x complex128) Scalar {
+	s := Scalar{kind: scalarComplex128}
+	*(*complex128)(unsafe.Pointer(&s.v)) = x
+	return s
+}
+
+// Int32Scalar returns a host Scalar holding the int32 x.
+func Int32Scalar(x int32) Scalar {
+	s := Scalar{kind: scalarInt32}
+	*(*int32)(unsafe.Pointer(&s.v)) = x
+	return s
+}
+
+// arg returns the pointer the library reads s through: the device address,
+// or c after copying the host value into it. c must be heap memory that
+// stays reachable until the call returns.
+func (s Scalar) arg(c *[2]uint64) unsafe.Pointer {
+	if s.device {
+		return *(*unsafe.Pointer)(unsafe.Pointer(&s.v[0]))
+	}
+	*c = s.v
+	return unsafe.Pointer(c)
+}
+
+// is reports whether s may be passed where the kinds k are allowed.
+func (s Scalar) is(k scalarKind) bool {
+	return s.device || s.kind == 0 || s.kind&k != 0
+}
+
+// A scalarKind is a set of the kinds a Scalar can hold.
+type scalarKind uint8
+
+const (
+	scalarFloat16 scalarKind = 1 << iota
+	scalarBfloat16
+	scalarFloat32
+	scalarFloat64
+	scalarComplex64
+	scalarComplex128
+	scalarInt32
+)
+
+var scalarKindNames = [...]string{"float16", "bfloat16", "float32", "float64", "complex64", "complex128", "int32"}
+
+func (k scalarKind) String() string {
+	s := ""
+	for i, name := range scalarKindNames {
+		if k&(1<<i) == 0 {
+			continue
+		}
+		if s != "" {
+			s += " or "
+		}
+		s += name
+	}
+	return s
+}
+
+// A ScalarError reports a host Scalar whose kind is not the type the call
+// names for it in another parameter.
+type ScalarError struct {
+	Func  string // the C symbol called
+	Param string // the scalar parameter
+	Kind  string // the Scalar's kind, such as "float32"
+	Want  string // the kinds the call allows, such as "float64 or complex128"
+}
+
+func (e *ScalarError) Error() string {
+	return e.Func + ": " + e.Param + " is " + e.Kind + ", want " + e.Want
+}
+
+func scalarError(fn, param string, s Scalar, want scalarKind) error {
+	return &ScalarError{Func: fn, Param: param, Kind: s.kind.String(), Want: want.String()}
+}
+
+// scalarCells pools the heap cells host Scalars are copied into, 3 per call.
+var scalarCells outSlot[[3][2]uint64]
+
+// contract computes the tensor contraction D=alpha*A*B+beta*C.
+//
+// D_(modes_(D))←α*A_(modes_(A))B_(modes_(B))+βC_(modes_(C))
+// The active CUDA device must match the CUDA device that was active at the time at which the plan was created.
+// Example
+// See NVIDIA/CUDALibrarySamples for a concrete example.
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - plan: Opaque handle holding the contraction execution plan (created by [Handle.CreateContraction] followed by [Handle.CreatePlan])
+//   - alpha: Scaling for A*B. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Pointer to the host memory. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - a: Pointer to the data corresponding to A. Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
+//   - b: Pointer to the data corresponding to B. Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
+//   - beta: Scaling for C. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Pointer to the host memory. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - c: Pointer to the data corresponding to C. Pointer to the GPU-accessible memory
+//   - d: Pointer to the data corresponding to D. Pointer to the GPU-accessible memory
+//   - workspace: Optional parameter that may be NULL. This pointer provides additional workspace, in device memory, to the library for additional optimizations; the workspace must be aligned to 256 bytes (i.e., the default alignment of cudaMalloc)
+//   - workspaceSize: Size of the workspace array in bytes; please refer to [Handle.EstimateWorkspaceSize] to query the required workspace. While [Handle.Contract] does not strictly require a workspace for the contraction, it is still recommended to provided some small workspace (e.g., 128 MB)
+//   - stream: The CUDA stream in which all the computation is performed
+//
+// Errors:
+//   - [ErrArchMismatch]: if the plan was created for a different device than the currently active device.
+//   - [ErrCudaError]: if some unknown CUDA error has occurred (e.g., out of memory).
+//   - [ErrInsufficientDriver]: if the driver is insufficient.
+//   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: if operation is not supported.
+//
+// Wraps cutensorContract.
+func contract(handle Handle, plan Plan, alpha Scalar, a driver.DevicePtr, b driver.DevicePtr, beta Scalar, c driver.DevicePtr, d driver.DevicePtr, workspace driver.DevicePtr, workspaceSize uint64, stream driver.Stream) error {
 	if err := checkLibSym("cutensorContract"); err != nil {
 		return err
 	}
-	return toError(fncontract(handle, plan, alpha, uintptr(a), uintptr(b), beta, uintptr(c), uintptr(d), uintptr(workspace), workspaceSize, stream), "cutensorContract")
+	_scalars := scalarCells.get()
+	defer scalarCells.put(_scalars)
+	return toError(fncontract(handle, plan, alpha.arg(&_scalars[0]), uintptr(a), uintptr(b), beta.arg(&_scalars[1]), uintptr(c), uintptr(d), uintptr(workspace), workspaceSize, stream), "cutensorContract")
 }
 
-// contractTrinary wraps cutensorContractTrinary.
-func contractTrinary(handle Handle, plan Plan, alpha unsafe.Pointer, a driver.DevicePtr, b driver.DevicePtr, c driver.DevicePtr, beta unsafe.Pointer, d driver.DevicePtr, e driver.DevicePtr, workspace driver.DevicePtr, workspaceSize uint64, stream driver.Stream) error {
+// contractTrinary computes the tensor contraction E=alpha*A*B*C+beta*D.
+//
+// E_(modes_(E))←α*A_(modes_(A))B_(modes_(B))C_(modes_(C))+βD_(modes_(D))
+// The active CUDA device must match the CUDA device that was active at the time at which the plan was created.
+// Example
+// See NVIDIA/CUDALibrarySamples for a concrete example.
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - plan: Opaque handle holding the contraction execution plan (created by [Handle.CreateContractionTrinary] followed by [Handle.CreatePlan])
+//   - alpha: Scaling for A*B*C. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Pointer to the host memory. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - a: Pointer to the data corresponding to A. Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to E
+//   - b: Pointer to the data corresponding to B. Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to E
+//   - c: Pointer to the data corresponding to C. Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to E
+//   - beta: Scaling for D. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Pointer to the host memory. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - d: Pointer to the data corresponding to D. Pointer to the GPU-accessible memory
+//   - e: Pointer to the data corresponding to E. Pointer to the GPU-accessible memory
+//   - workspace: Optional parameter that may be NULL. This pointer provides additional workspace, in device memory, to the library for additional optimizations; the workspace must be aligned to 256 bytes (i.e., the default alignment of cudaMalloc)
+//   - workspaceSize: Size of the workspace array in bytes; please refer to [Handle.EstimateWorkspaceSize] to query the required workspace. While [Handle.Contract] does not strictly require a workspace for the contraction, it is still recommended to provided some small workspace (e.g., 128 MB)
+//   - stream: The CUDA stream in which all the computation is performed
+//
+// Errors:
+//   - [ErrArchMismatch]: if the plan was created for a different device than the currently active device.
+//   - [ErrCudaError]: if some unknown CUDA error has occurred (e.g., out of memory).
+//   - [ErrInsufficientDriver]: if the driver is insufficient.
+//   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: if operation is not supported.
+//
+// Wraps cutensorContractTrinary.
+func contractTrinary(handle Handle, plan Plan, alpha Scalar, a driver.DevicePtr, b driver.DevicePtr, c driver.DevicePtr, beta Scalar, d driver.DevicePtr, e driver.DevicePtr, workspace driver.DevicePtr, workspaceSize uint64, stream driver.Stream) error {
 	if err := checkLibSym("cutensorContractTrinary"); err != nil {
 		return err
 	}
-	return toError(fncontractTrinary(handle, plan, alpha, uintptr(a), uintptr(b), uintptr(c), beta, uintptr(d), uintptr(e), uintptr(workspace), workspaceSize, stream), "cutensorContractTrinary")
+	_scalars := scalarCells.get()
+	defer scalarCells.put(_scalars)
+	return toError(fncontractTrinary(handle, plan, alpha.arg(&_scalars[0]), uintptr(a), uintptr(b), uintptr(c), beta.arg(&_scalars[1]), uintptr(d), uintptr(e), uintptr(workspace), workspaceSize, stream), "cutensorContractTrinary")
 }
 
-// Create wraps cutensorCreate.
+// Create initializes the cuTENSOR library and allocates the memory for the library context.
+//
+// The device associated with a particular cuTENSOR handle is assumed to remain unchanged after the [Create] call. In order for the cuTENSOR library to use a different device, the application must set the new device to be used by calling cudaSetDevice and then create another cuTENSOR handle, which will be associated with the new device, by calling [Create].
+// Moreover, each handle by default has a plan cache that can store the least recently used [Plan]; its default capacity is 64, but it can be changed via [Handle.ResizePlanCache] if this is too little storage space. See the Plan Cache Guide for more information.
+// The user is responsible for calling [Handle.Destroy] to free the resources associated with the handle.
+// Remark:
+// blocking, no reentrant, and thread-safe
+//
+//   - handle: Pointer to [Handle]
+//
+// Wraps cutensorCreate.
 func Create() (Handle, error) {
 	if err := checkLibSym("cutensorCreate"); err != nil {
 		var zero Handle
@@ -488,7 +710,40 @@ func Create() (Handle, error) {
 
 var slotCreate outSlot[Handle]
 
-// createContraction wraps cutensorCreateContraction.
+// createContraction allocates a [OperationDescriptor] object that encodes a tensor contraction of the form D=αAB+βC.
+//
+// Allocates data for desc to be used to perform a tensor contraction of the form
+// D_(modes_(D))←αop_(A)(A_(modes_(A)))op_(B)(B_(modes_(B)))+βop_(C)(C_(modes_(C))).
+// See [Handle.CreatePlan] (or cutensorCreatePlanAutotuned) to create the plan (i.e., to select the kernel) followed by a call to [Handle.Contract] to perform the actual contraction.
+// The user is responsible for calling [OperationDescriptor.Destroy] to free the resources associated with the descriptor.
+// Supported data-type combinations are:
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - desc: This opaque struct gets allocated and filled with the information that encodes the tensor contraction operation
+//   - descA: The descriptor that holds the information about the data type, modes and strides of A
+//   - modeA: Array with ‘nmodeA’ entries that represent the modes of A. The modeA [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
+//   - opA: Unary operator that will be applied to each element of A before it is further processed. The original data of this tensor remains unchanged
+//   - descB: The descriptor that holds information about the data type, modes, and strides of B
+//   - modeB: Array with ‘nmodeB’ entries that represent the modes of B. The modeB [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
+//   - opB: Unary operator that will be applied to each element of B before it is further processed. The original data of this tensor remains unchanged
+//   - descC: The descriptor that holds information about the data type, modes, and strides of C
+//   - modeC: Array with ‘nmodeC’ entries that represent the modes of C. The modeC [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
+//   - opC: Unary operator applied to each element of C before it is further processed. Currently only [OpIdentity] is supported. The original data of this tensor remains unchanged
+//   - descD: The descriptor that holds information about the data type, modes, and strides of D (must be identical to descC for now)
+//   - modeD: Array with ‘nmodeD’ entries that represent the modes of D (must be identical to modeC for now). The modeD [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
+//   - descCompute: Determines the precision in which this operations is performed
+//
+// Errors:
+//   - [ErrInvalidValue]: if tensor dimensions or modes have an illegal value
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: if the combination of data types or operations is not supported
+//
+// len(modeA) must equal the number of modes of descA; nothing checks it.
+// len(modeB) must equal the number of modes of descB; nothing checks it.
+// len(modeC) must equal the number of modes of descC; nothing checks it.
+// len(modeD) must equal the number of modes of descD; nothing checks it.
+//
+// Wraps cutensorCreateContraction.
 func createContraction(handle Handle, descA TensorDescriptor, modeA []int32, opA OperatorT, descB TensorDescriptor, modeB []int32, opB OperatorT, descC TensorDescriptor, modeC []int32, opC OperatorT, descD TensorDescriptor, modeD []int32, descCompute ComputeDescriptor) (OperationDescriptor, error) {
 	if err := checkLibSym("cutensorCreateContraction"); err != nil {
 		var zero OperationDescriptor
@@ -505,7 +760,45 @@ func createContraction(handle Handle, descA TensorDescriptor, modeA []int32, opA
 
 var slotCreateContraction outSlot[OperationDescriptor]
 
-// createContractionTrinary wraps cutensorCreateContractionTrinary.
+// createContractionTrinary allocates a [OperationDescriptor] object that encodes a tensor contraction of the form E=αABC+βD.
+//
+// Allocates data for desc to be used to perform a tensor contraction of the form
+// E_(modes_(E))←αop_(A)(A_(modes_(A)))op_(B)(B_(modes_(B)))op_(C)(C_(modes_(C)))+βop_(D)(D_(modes_(D))).
+// See [Handle.CreatePlan] (or cutensorCreatePlanAutotuned) to create the plan (i.e., to select the kernel) followed by a call to [Handle.ContractTrinary] to perform the actual contraction.
+// The user is responsible for calling [OperationDescriptor.Destroy] to free the resources associated with the descriptor.
+// The performance improvements due to this API are currently especially high if your data resides on the host (i.e. out-of-core), targeting Grace-based systems.
+// Supported data-type combinations are:
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - desc: This opaque struct gets allocated and filled with the information that encodes the tensor contraction operation
+//   - descA: The descriptor that holds the information about the data type, modes and strides of A
+//   - modeA: Array with ‘nmodeA’ entries that represent the modes of A. The modeA [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
+//   - opA: Unary operator that will be applied to each element of A before it is further processed. The original data of this tensor remains unchanged
+//   - descB: The descriptor that holds information about the data type, modes, and strides of B
+//   - modeB: Array with ‘nmodeB’ entries that represent the modes of B. The modeB [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
+//   - opB: Unary operator that will be applied to each element of B before it is further processed. The original data of this tensor remains unchanged
+//   - descC: The escriptor that holds information about the data type, modes, and strides of C
+//   - modeC: Array with ‘nmodeC’ entries that represent the modes of C. The modeC [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
+//   - opC: Unary operator that will be applied to each element of C before it is further processed. The original data of this tensor remains unchanged
+//   - descD: The escriptor that holds information about the data type, modes, and strides of D
+//   - modeD: Array with ‘nmodeD’ entries that represent the modes of D. The modeD [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
+//   - opD: Unary operator that will be applied to each element of D before it is further processed. The original data of this tensor remains unchanged
+//   - descE: The descriptor that holds information about the data type, modes, and strides of E (must be identical to descD for now)
+//   - modeE: Array with ‘nmodeE’ entries that represent the modes of E (must be identical to modeD for now). The modeE [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
+//   - descCompute: Determines the precision in which this operations is performed
+//
+// Errors:
+//   - [ErrInvalidValue]: if tensor dimensions or modes have an illegal value
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: if the combination of data types or operations is not supported
+//
+// len(modeA) must equal the number of modes of descA; nothing checks it.
+// len(modeB) must equal the number of modes of descB; nothing checks it.
+// len(modeC) must equal the number of modes of descC; nothing checks it.
+// len(modeD) must equal the number of modes of descD; nothing checks it.
+// len(modeE) must equal the number of modes of descE; nothing checks it.
+//
+// Wraps cutensorCreateContractionTrinary.
 func createContractionTrinary(handle Handle, descA TensorDescriptor, modeA []int32, opA OperatorT, descB TensorDescriptor, modeB []int32, opB OperatorT, descC TensorDescriptor, modeC []int32, opC OperatorT, descD TensorDescriptor, modeD []int32, opD OperatorT, descE TensorDescriptor, modeE []int32, descCompute ComputeDescriptor) (OperationDescriptor, error) {
 	if err := checkLibSym("cutensorCreateContractionTrinary"); err != nil {
 		var zero OperationDescriptor
@@ -522,7 +815,50 @@ func createContractionTrinary(handle Handle, descA TensorDescriptor, modeA []int
 
 var slotCreateContractionTrinary outSlot[OperationDescriptor]
 
-// createElementwiseBinary wraps cutensorCreateElementwiseBinary.
+// createElementwiseBinary creates an operation descriptor for an elementwise binary operation.
+//
+// The binary operation has the following general form:
+// D_(Π^(C)(i₀,i₁,...,iₙ))=Φ_(AC)(αop_(A)(A_(Π^(A)(i₀,i₁,...,iₙ))),γop_(C)(C_(Π^(C)(i₀,i₁,...,iₙ))))
+// Call [Handle.ElementwiseBinaryExecute] to perform the actual operation.
+// Supported data-type combinations are:
+//   - typeA: CUDA_R_16F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_16F
+//   - typeA: CUDA_R_16F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_16BF; typeC: CUDA_R_16BF; descCompute: CUTENSOR_COMPUTE_DESC_16BF
+//   - typeA: CUDA_R_16BF; typeC: CUDA_R_16BF; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_32F; typeC: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_64F; typeC: CUDA_R_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//   - typeA: CUDA_C_32F; typeC: CUDA_C_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_C_64F; typeC: CUDA_C_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//   - typeA: CUDA_R_32F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_64F; typeC: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//   - typeA: CUDA_C_64F; typeC: CUDA_C_32F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//
+// Remark:
+// calls asynchronous functions, no reentrant, and thread-safe
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - desc: This opaque struct gets allocated and filled with the information that encodes the requested elementwise operation
+//   - descA: The descriptor that holds the information about the data type, modes, and strides of A
+//   - modeA: Array (in host memory) of size descA->numModes that holds the names of the modes of A (e.g., if A_{a,b,c} => modeA = {‘a’,’b’,’c’}). The modeA [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to [Handle.CreateTensorDescriptor]
+//   - opA: Unary operator that will be applied to each element of A before it is further processed. The original data of this tensor remains unchanged
+//   - descC: The descriptor that holds information about the data type, modes, and strides of C
+//   - modeC: Array (in host memory) of size descC->numModes that holds the names of the modes of C. The modeC [i] corresponds to extent [i] and stride [i] of the [Handle.CreateTensorDescriptor]
+//   - opC: Unary operator that will be applied to each element of C before it is further processed. The original data of this tensor remains unchanged
+//   - descD: The descriptor that holds information about the data type, modes, and strides of D. Notice that we currently request descD and descC to be identical
+//   - modeD: Array (in host memory) of size descD->numModes that holds the names of the modes of D. The modeD [i] corresponds to extent [i] and stride [i] of the [Handle.CreateTensorDescriptor]
+//   - opAC: Element-wise binary operator (corresponding to Φ_(AC) above)
+//   - descCompute: Determines the precision in which this operations is performed
+//
+// Errors:
+//   - [ErrInvalidValue]: if tensor dimensions or modes have an illegal value
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: if the combination of data types or operations is not supported
+//
+// len(modeA) must equal the number of modes of descA; nothing checks it.
+// len(modeC) must equal the number of modes of descC; nothing checks it.
+// len(modeD) must equal the number of modes of descD; nothing checks it.
+//
+// Wraps cutensorCreateElementwiseBinary.
 func createElementwiseBinary(handle Handle, descA TensorDescriptor, modeA []int32, opA OperatorT, descC TensorDescriptor, modeC []int32, opC OperatorT, descD TensorDescriptor, modeD []int32, opAC OperatorT, descCompute ComputeDescriptor) (OperationDescriptor, error) {
 	if err := checkLibSym("cutensorCreateElementwiseBinary"); err != nil {
 		var zero OperationDescriptor
@@ -539,7 +875,74 @@ func createElementwiseBinary(handle Handle, descA TensorDescriptor, modeA []int3
 
 var slotCreateElementwiseBinary outSlot[OperationDescriptor]
 
-// createElementwiseTrinary wraps cutensorCreateElementwiseTrinary.
+// createElementwiseTrinary creates an operation descriptor that encodes an elementwise trinary operation.
+//
+// Said trinary operation has the following general form:
+// D_(Π^(C)(i₀,i₁,...,iₙ))=Φ_(ABC)(Φ_(AB)(αop_(A)(A_(Π^(A)(i₀,i₁,...,iₙ))),βop_(B)(B_(Π^(B)(i₀,i₁,...,iₙ)))),γop_(C)(C_(Π^(C)(i₀,i₁,...,iₙ))))
+// Where
+//   - A,B,C,D are multi-mode tensors (of arbitrary data types).
+//   - Π^(A),Π^(B),Π^(C) are permutation operators that permute the modes of A, B, and C respectively.
+//   - op_(A),op_(B),op_(C) are unary element-wise operators (e.g., IDENTITY, CONJUGATE).
+//   - Φ_(ABC),Φ_(AB) are binary element-wise operators (e.g., ADD, MUL, MAX, MIN).
+//
+// Notice that the broadcasting (of a mode) can be achieved by simply omitting that mode from the respective tensor.
+// Moreover, modes may appear in any order, giving users a greater flexibility. The only restrictions are:
+//   - modes that appear in A or B must also appear in the output tensor; a mode that only appears in the input would be contracted and such an operation would be covered by either [Handle.Contract] or [Handle.Reduce].
+//   - each mode may appear in each tensor at most once.
+//
+// Input tensors may be read even if the value of the corresponding scalar is zero.
+// Examples:
+//   - D_(a,b,c,d)=A_(b,d,a,c)
+//   - D_(a,b,c,d)=2.2*A_(b,d,a,c)+1.3*B_(c,b,d,a)
+//   - D_(a,b,c,d)=2.2*A_(b,d,a,c)+1.3*B_(c,b,d,a)+C_(a,b,c,d)
+//   - D_(a,b,c,d)=min((2.2*A_(b,d,a,c)+1.3*B_(c,b,d,a)),C_(a,b,c,d))
+//
+// Call [Handle.ElementwiseTrinaryExecute] to perform the actual operation.
+// Please use [OperationDescriptor.Destroy] to deallocated the descriptor once it is no longer used.
+// Supported data-type combinations are:
+//   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_16F
+//   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_16BF; typeB: CUDA_R_16BF; typeC: CUDA_R_16BF; descCompute: CUTENSOR_COMPUTE_DESC_16BF
+//   - typeA: CUDA_R_16BF; typeB: CUDA_R_16BF; typeC: CUDA_R_16BF; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_32F; typeB: CUDA_R_32F; typeC: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_64F; typeB: CUDA_R_64F; typeC: CUDA_R_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//   - typeA: CUDA_C_32F; typeB: CUDA_C_32F; typeC: CUDA_C_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_C_64F; typeB: CUDA_C_64F; typeC: CUDA_C_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//   - typeA: CUDA_R_32F; typeB: CUDA_R_32F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_64F; typeB: CUDA_R_64F; typeC: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//   - typeA: CUDA_C_64F; typeB: CUDA_C_64F; typeC: CUDA_C_32F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//
+// Remark:
+// calls asynchronous functions, no reentrant, and thread-safe
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - desc: This opaque struct gets allocated and filled with the information that encodes the requested elementwise operation
+//   - descA: A descriptor that holds the information about the data type, modes, and strides of A
+//   - modeA: Array (in host memory) of size descA->numModes that holds the names of the modes of A (e.g., if A_(a,b,c) then modeA = {‘a’,’b’,’c’}). The modeA [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to [Handle.CreateTensorDescriptor]
+//   - opA: Unary operator that will be applied to each element of A before it is further processed. The original data of this tensor remains unchanged
+//   - descB: A descriptor that holds information about the data type, modes, and strides of B
+//   - modeB: Array (in host memory) of size descB->numModes that holds the names of the modes of B. modeB [i] corresponds to extent [i] and stride [i] of the [Handle.CreateTensorDescriptor]
+//   - opB: Unary operator that will be applied to each element of B before it is further processed. The original data of this tensor remains unchanged
+//   - descC: A descriptor that holds information about the data type, modes, and strides of C
+//   - modeC: Array (in host memory) of size descC->numModes that holds the names of the modes of C. The modeC [i] corresponds to extent [i] and stride [i] of the [Handle.CreateTensorDescriptor]
+//   - opC: Unary operator that will be applied to each element of C before it is further processed. The original data of this tensor remains unchanged
+//   - descD: A descriptor that holds information about the data type, modes, and strides of D. Notice that we currently request descD and descC to be identical
+//   - modeD: Array (in host memory) of size descD->numModes that holds the names of the modes of D. The modeD [i] corresponds to extent [i] and stride [i] of the [Handle.CreateTensorDescriptor]
+//   - opAB: Element-wise binary operator (see Φ_(AB) above)
+//   - opABC: Element-wise binary operator (see Φ_(ABC) above)
+//   - descCompute: Determines the precision in which this operations is performed
+//
+// Errors:
+//   - [ErrArchMismatch]: if the device is either not ready, or the target architecture is not supported.
+//   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//
+// len(modeA) must equal the number of modes of descA; nothing checks it.
+// len(modeB) must equal the number of modes of descB; nothing checks it.
+// len(modeC) must equal the number of modes of descC; nothing checks it.
+// len(modeD) must equal the number of modes of descD; nothing checks it.
+//
+// Wraps cutensorCreateElementwiseTrinary.
 func createElementwiseTrinary(handle Handle, descA TensorDescriptor, modeA []int32, opA OperatorT, descB TensorDescriptor, modeB []int32, opB OperatorT, descC TensorDescriptor, modeC []int32, opC OperatorT, descD TensorDescriptor, modeD []int32, opAB OperatorT, opABC OperatorT, descCompute ComputeDescriptor) (OperationDescriptor, error) {
 	if err := checkLibSym("cutensorCreateElementwiseTrinary"); err != nil {
 		var zero OperationDescriptor
@@ -556,7 +959,58 @@ func createElementwiseTrinary(handle Handle, descA TensorDescriptor, modeA []int
 
 var slotCreateElementwiseTrinary outSlot[OperationDescriptor]
 
-// createPermutation wraps cutensorCreatePermutation.
+// createPermutation creates an operation descriptor for a tensor permutation.
+//
+// The tensor permutation has the following general form:
+// B_(Π^(B)(i₀,i₁,...,iₙ))=αop_(A)(A_(Π^(A)(i₀,i₁,...,iₙ)))
+// Consequently, this function performs an out-of-place tensor permutation and is a specialization of [Handle.CreateElementwiseBinary].
+// Where
+//   - A and B are multi-mode tensors (of arbitrary data types),
+//   - Π^(A),Π^(B) are permutation operators that permute the modes of A, B respectively,
+//   - op_(A) is an unary element-wise operators (e.g., IDENTITY, SQR, CONJUGATE), and
+//
+// Broadcasting (of a mode) can be achieved by simply omitting that mode from the respective tensor.
+// Modes may appear in any order. The only restrictions are:
+//   - modes that appear in A must also appear in the output tensor.
+//   - each mode may appear in each tensor at most once.
+//
+// Supported data-type combinations are:
+//   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_16F
+//   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_16F; typeB: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_32F; typeB: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_16BF; typeB: CUDA_R_16BF; descCompute: CUTENSOR_COMPUTE_DESC_16BF
+//   - typeA: CUDA_R_16BF; typeB: CUDA_R_16BF; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_32F; typeB: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_64F; typeB: CUDA_R_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//   - typeA: CUDA_R_32F; typeB: CUDA_R_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//   - typeA: CUDA_R_64F; typeB: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//   - typeA: CUDA_C_32F; typeB: CUDA_C_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_C_64F; typeB: CUDA_C_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//   - typeA: CUDA_C_32F; typeB: CUDA_C_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//   - typeA: CUDA_C_64F; typeB: CUDA_C_32F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//
+// Remark:
+// calls asynchronous functions, no reentrant, and thread-safe
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - desc: This opaque struct gets allocated and filled with the information that encodes the requested permutation
+//   - descA: The descriptor that holds information about the data type, modes, and strides of A
+//   - modeA: Array of size descA->numModes that holds the names of the modes of A (e.g., if A_{a,b,c} => modeA = {‘a’,’b’,’c’})
+//   - opA: Unary operator that will be applied to each element of A before it is further processed. The original data of this tensor remains unchanged
+//   - descB: The descriptor that holds information about the data type, modes, and strides of B
+//   - modeB: Array of size descB->numModes that holds the names of the modes of B
+//   - descCompute: Determines the precision in which this operations is performed
+//
+// Errors:
+//   - [ErrInvalidValue]: if tensor dimensions or modes have an illegal value
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: if the combination of data types or operations is not supported
+//
+// len(modeA) must equal the number of modes of descA; nothing checks it.
+// len(modeB) must equal the number of modes of descB; nothing checks it.
+//
+// Wraps cutensorCreatePermutation.
 func createPermutation(handle Handle, descA TensorDescriptor, modeA []int32, opA OperatorT, descB TensorDescriptor, modeB []int32, descCompute ComputeDescriptor) (OperationDescriptor, error) {
 	if err := checkLibSym("cutensorCreatePermutation"); err != nil {
 		var zero OperationDescriptor
@@ -573,7 +1027,28 @@ func createPermutation(handle Handle, descA TensorDescriptor, modeA []int32, opA
 
 var slotCreatePermutation outSlot[OperationDescriptor]
 
-// createPlan wraps cutensorCreatePlan.
+// createPlan allocates a [Plan] object, selects an appropriate kernel for a given operation (encoded by desc) and prepares a plan that encodes the execution.
+//
+// This function applies cuTENSOR’s heuristic to select a candidate/kernel for a given operation (created by either [Handle.CreateContraction], [Handle.CreateReduction], [Handle.CreatePermutation], * [Handle.CreateElementwiseBinary], [Handle.CreateElementwiseTrinary], [Handle.CreateContractionTrinary], or cutensorCreateBlockSparseContraction). The created plan can then be be passed to either [Handle.Contract], [Handle.Reduce], [Handle.Permute], [Handle.ElementwiseBinaryExecute], [Handle.ElementwiseTrinaryExecute], or [Handle.ContractTrinary] to perform the actual operation.
+// The plan is created for the active CUDA device.
+//
+// Note: [Handle.CreatePlan] must not be captured via CUDA graphs if Just-In-Time compilation is enabled (i.e., [JitmodeT] is not [JitModeNone]).
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - plan: Pointer to the data structure created by this function that holds all information (e.g., selected kernel) necessary to perform the desired operation
+//   - desc: This opaque struct encodes the given operation (see [Handle.CreateContraction], [Handle.CreateReduction], [Handle.CreatePermutation], [Handle.CreateElementwiseBinary], [Handle.CreateElementwiseTrinary], or [Handle.CreateContractionTrinary])
+//   - pref: This opaque struct is used to restrict the space of applicable candidates/kernels (see [Handle.CreatePlanPreference] or [PlanpreferenceattributeT]). May be nullptr, in that case default choices are assumed. Block-sparse contractions currently only support these default settings and ignore other supplied preferences
+//   - workspaceSizeLimit: Denotes the maximal workspace that the corresponding operation is allowed to use (see [Handle.EstimateWorkspaceSize])
+//
+// A nil error means a viable candidate has been found.
+//
+// Errors:
+//   - [ErrInsufficientWorkspace]: if The provided workspace was insufficient.
+//   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: If no viable candidate could be found.
+//
+// Wraps cutensorCreatePlan.
 func createPlan(handle Handle, desc OperationDescriptor, pref PlanPreference, workspaceSizeLimit uint64) (Plan, error) {
 	if err := checkLibSym("cutensorCreatePlan"); err != nil {
 		var zero Plan
@@ -590,7 +1065,14 @@ func createPlan(handle Handle, desc OperationDescriptor, pref PlanPreference, wo
 
 var slotCreatePlan outSlot[Plan]
 
-// createPlanPreference wraps cutensorCreatePlanPreference.
+// createPlanPreference allocates the [PlanPreference], enabling users to limit the applicable kernels for a given plan/operation.
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - pref: Pointer to the structure holding the [PlanPreference] allocated by this function. See [PlanPreference]
+//   - algo: Allows users to select a specific algorithm. [AlgoDefault] lets the heuristic choose the algorithm. Any value >= 0 selects a specific GEMM-like algorithm and deactivates the heuristic. If a specified algorithm is not supported [ErrNotSupported] is returned. See [AlgoT] for additional choices
+//   - jitMode: Determines if cuTENSOR is allowed to use JIT-compiled kernels (leading to a longer plan-creation phase); see [JitmodeT]
+//
+// Wraps cutensorCreatePlanPreference.
 func createPlanPreference(handle Handle, algo AlgoT, jitMode JitmodeT) (PlanPreference, error) {
 	if err := checkLibSym("cutensorCreatePlanPreference"); err != nil {
 		var zero PlanPreference
@@ -607,7 +1089,44 @@ func createPlanPreference(handle Handle, algo AlgoT, jitMode JitmodeT) (PlanPref
 
 var slotCreatePlanPreference outSlot[PlanPreference]
 
-// createReduction wraps cutensorCreateReduction.
+// createReduction creates a cutensorOperatorDescriptor_t object that encodes a tensor reduction of the form D=alpha*opReduce(opA(A))+beta*opC(C).
+//
+// For example this function enables users to reduce an entire tensor to a scalar: C[] = alpha * A [i,j,k];
+// This function is also able to perform partial reductions; for instance: C [i,j] = alpha * A [k,j,i]; in this case only elements along the k-mode are contracted.
+// The binary opReduce operator provides extra control over what kind of a reduction ought to be performed. For instance, setting opReduce to [OpAdd] reduces element of A via a summation while [OpMax] would find the largest element in A.
+// Supported data-type combinations are:
+//   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; typeC: CUDA_R_16F; typeCompute: CUTENSOR_COMPUTE_DESC_16F
+//   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; typeC: CUDA_R_16F; typeCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_16BF; typeB: CUDA_R_16BF; typeC: CUDA_R_16BF; typeCompute: CUTENSOR_COMPUTE_DESC_16BF
+//   - typeA: CUDA_R_16BF; typeB: CUDA_R_16BF; typeC: CUDA_R_16BF; typeCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_32F; typeB: CUDA_R_32F; typeC: CUDA_R_32F; typeCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_R_64F; typeB: CUDA_R_64F; typeC: CUDA_R_64F; typeCompute: CUTENSOR_COMPUTE_DESC_64F
+//   - typeA: CUDA_C_32F; typeB: CUDA_C_32F; typeC: CUDA_C_32F; typeCompute: CUTENSOR_COMPUTE_DESC_32F
+//   - typeA: CUDA_C_64F; typeB: CUDA_C_64F; typeC: CUDA_C_64F; typeCompute: CUTENSOR_COMPUTE_DESC_64F
+//
+// Parameters:
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - desc: This opaque struct gets allocated and filled with the information that encodes the requested tensor reduction operation
+//   - descA: The descriptor that holds the information about the data type, modes and strides of A
+//   - modeA: Array with ‘nmodeA’ entries that represent the modes of A. modeA [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to [Handle.CreateTensorDescriptor]. Modes that only appear in modeA but not in modeC are reduced (contracted)
+//   - opA: Unary operator that will be applied to each element of A before it is further processed. The original data of this tensor remains unchanged
+//   - descC: The descriptor that holds the information about the data type, modes and strides of C
+//   - modeC: Array with ‘nmodeC’ entries that represent the modes of C. modeC [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to [Handle.CreateTensorDescriptor]
+//   - opC: Unary operator that will be applied to each element of C before it is further processed. The original data of this tensor remains unchanged
+//   - descD: Must be identical to descC for now
+//   - modeD: Must be identical to modeC for now
+//   - opReduce: binary operator used to reduce elements of A
+//
+// Errors:
+//   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: if operation is not supported.
+//
+// len(modeA) must equal the number of modes of descA; nothing checks it.
+// len(modeC) must equal the number of modes of descC; nothing checks it.
+// len(modeD) must equal the number of modes of descD; nothing checks it.
+//
+// Wraps cutensorCreateReduction.
 func createReduction(handle Handle, descA TensorDescriptor, modeA []int32, opA OperatorT, descC TensorDescriptor, modeC []int32, opC OperatorT, descD TensorDescriptor, modeD []int32, opReduce OperatorT, descCompute ComputeDescriptor) (OperationDescriptor, error) {
 	if err := checkLibSym("cutensorCreateReduction"); err != nil {
 		var zero OperationDescriptor
@@ -624,7 +1143,24 @@ func createReduction(handle Handle, descA TensorDescriptor, modeA []int32, opA O
 
 var slotCreateReduction outSlot[OperationDescriptor]
 
-// createTensorDescriptor wraps cutensorCreateTensorDescriptor.
+// createTensorDescriptor creates a tensor descriptor.
+//
+// This allocates a small amount of host-memory.
+// The user is responsible for calling [TensorDescriptor.Destroy] to free the associated resources once the tensor descriptor is no longer used.
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - desc: Pointer to the address where the allocated tensor descriptor object will be stored
+//   - extent: Extent of each mode (must be larger than zero)
+//   - stride: stride [i] denotes the displacement (a.k.a. stride)—in elements of the base type—between two consecutive elements in the ith-mode. If stride is NULL, a packed generalized column-major memory layout is assumed (i.e., the strides increase monotonically from left to right). Each stride must be larger than zero; to be precise, a stride of zero can be achieved by omitting this mode entirely; for instance instead of writing C [a,b] = A [b,a] with strideA(a) = 0, you can write C [a,b] = A [b] directly; cuTENSOR will then automatically infer that the a-mode in A should be broadcasted
+//   - dataType: Data type of the stored entries
+//   - alignmentRequirement: Alignment (in bytes) to the base pointer that will be used in conjunction with this tensor descriptor (e.g., cudaMalloc has a default alignment of 256 bytes)
+//
+// Errors:
+//   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: if the requested descriptor is not supported (e.g., due to non-supported data type).
+//
+// Wraps cutensorCreateTensorDescriptor.
 func createTensorDescriptor(handle Handle, extent []int64, stride []int64, dataType DataType, alignmentRequirement uint32) (TensorDescriptor, error) {
 	if err := checkLibSym("cutensorCreateTensorDescriptor"); err != nil {
 		var zero TensorDescriptor
@@ -651,7 +1187,14 @@ func createTensorDescriptor(handle Handle, extent []int64, stride []int64, dataT
 
 var slotCreateTensorDescriptor outSlot[TensorDescriptor]
 
-// destroy wraps cutensorDestroy.
+// destroy frees all resources related to the provided library handle.
+//
+// Remark:
+// blocking, no reentrant, and thread-safe
+//
+//   - handle: Pointer to [Handle]
+//
+// Wraps cutensorDestroy.
 func destroy(handle Handle) error {
 	if err := checkLibSym("cutensorDestroy"); err != nil {
 		return err
@@ -659,7 +1202,14 @@ func destroy(handle Handle) error {
 	return toError(fndestroy(handle), "cutensorDestroy")
 }
 
-// destroyOperationDescriptor wraps cutensorDestroyOperationDescriptor.
+// destroyOperationDescriptor frees all resources related to the provided descriptor.
+//
+// Remark:
+// blocking, no reentrant, and thread-safe
+//
+//   - desc: The [OperationDescriptor] object that will be deallocated
+//
+// Wraps cutensorDestroyOperationDescriptor.
 func destroyOperationDescriptor(desc OperationDescriptor) error {
 	if err := checkLibSym("cutensorDestroyOperationDescriptor"); err != nil {
 		return err
@@ -667,7 +1217,14 @@ func destroyOperationDescriptor(desc OperationDescriptor) error {
 	return toError(fndestroyOperationDescriptor(desc), "cutensorDestroyOperationDescriptor")
 }
 
-// destroyPlan wraps cutensorDestroyPlan.
+// destroyPlan frees all resources related to the provided plan.
+//
+// Remark:
+// blocking, no reentrant, and thread-safe
+//
+//   - plan: The [Plan] object that will be deallocated
+//
+// Wraps cutensorDestroyPlan.
 func destroyPlan(plan Plan) error {
 	if err := checkLibSym("cutensorDestroyPlan"); err != nil {
 		return err
@@ -675,7 +1232,14 @@ func destroyPlan(plan Plan) error {
 	return toError(fndestroyPlan(plan), "cutensorDestroyPlan")
 }
 
-// destroyPlanPreference wraps cutensorDestroyPlanPreference.
+// destroyPlanPreference frees all resources related to the provided preference.
+//
+// Remark:
+// blocking, no reentrant, and thread-safe
+//
+//   - pref: The [PlanPreference] object that will be deallocated
+//
+// Wraps cutensorDestroyPlanPreference.
 func destroyPlanPreference(pref PlanPreference) error {
 	if err := checkLibSym("cutensorDestroyPlanPreference"); err != nil {
 		return err
@@ -683,7 +1247,14 @@ func destroyPlanPreference(pref PlanPreference) error {
 	return toError(fndestroyPlanPreference(pref), "cutensorDestroyPlanPreference")
 }
 
-// destroyTensorDescriptor wraps cutensorDestroyTensorDescriptor.
+// destroyTensorDescriptor frees all resources related to the provided tensor descriptor.
+//
+// Remark:
+// blocking, no reentrant, and thread-safe
+//
+//   - desc: The [TensorDescriptor] object that will be deallocated
+//
+// Wraps cutensorDestroyTensorDescriptor.
 func destroyTensorDescriptor(desc TensorDescriptor) error {
 	if err := checkLibSym("cutensorDestroyTensorDescriptor"); err != nil {
 		return err
@@ -691,23 +1262,85 @@ func destroyTensorDescriptor(desc TensorDescriptor) error {
 	return toError(fndestroyTensorDescriptor(desc), "cutensorDestroyTensorDescriptor")
 }
 
-// elementwiseBinaryExecute wraps cutensorElementwiseBinaryExecute.
-func elementwiseBinaryExecute(handle Handle, plan Plan, alpha unsafe.Pointer, a driver.DevicePtr, gamma unsafe.Pointer, c driver.DevicePtr, d driver.DevicePtr, stream driver.Stream) error {
+// elementwiseBinaryExecute performs an element-wise tensor operation for two input tensors (see [Handle.CreateElementwiseBinary])
+//
+// This function performs a element-wise tensor operation of the form:
+// D_(Π^(C)(i₀,i₁,...,iₙ))=Φ_(AC)(αop_(A)(A_(Π^(A)(i₀,i₁,...,iₙ))),γop_(C)(C_(Π^(C)(i₀,i₁,...,iₙ))))
+// See [Handle.CreateElementwiseBinary] for details.
+// Remark:
+// calls asynchronous functions, no reentrant, and thread-safe
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - plan: Opaque handle holding all information about the desired elementwise operation (created by [Handle.CreateElementwiseBinary] followed by [Handle.CreatePlan])
+//   - alpha: Scaling factor for A (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE) to query the expected data type). Pointer to the host memory. If alpha is zero, A is not read and the corresponding unary operator is not applied. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - a: Multi-mode tensor (described by descA as part of [Handle.CreateElementwiseBinary]). Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
+//   - gamma: Scaling factor for C (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE) to query the expected data type). Pointer to the host memory. If gamma is zero, C is not read and the corresponding unary operator is not applied. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - c: Multi-mode tensor (described by descC as part of [Handle.CreateElementwiseBinary]). Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
+//   - d: Multi-mode tensor (described by descD as part of [Handle.CreateElementwiseBinary]). Pointer to the GPU-accessible memory ( C and D may be identical, if and only if descC == descD)
+//   - stream: The CUDA stream used to perform the operation
+//
+// Errors:
+//   - [ErrInvalidValue]: if tensor dimensions or modes have an illegal value
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: if the combination of data types or operations is not supported
+//
+// Wraps cutensorElementwiseBinaryExecute.
+func elementwiseBinaryExecute(handle Handle, plan Plan, alpha Scalar, a driver.DevicePtr, gamma Scalar, c driver.DevicePtr, d driver.DevicePtr, stream driver.Stream) error {
 	if err := checkLibSym("cutensorElementwiseBinaryExecute"); err != nil {
 		return err
 	}
-	return toError(fnelementwiseBinaryExecute(handle, plan, alpha, uintptr(a), gamma, uintptr(c), uintptr(d), stream), "cutensorElementwiseBinaryExecute")
+	_scalars := scalarCells.get()
+	defer scalarCells.put(_scalars)
+	return toError(fnelementwiseBinaryExecute(handle, plan, alpha.arg(&_scalars[0]), uintptr(a), gamma.arg(&_scalars[1]), uintptr(c), uintptr(d), stream), "cutensorElementwiseBinaryExecute")
 }
 
-// elementwiseTrinaryExecute wraps cutensorElementwiseTrinaryExecute.
-func elementwiseTrinaryExecute(handle Handle, plan Plan, alpha unsafe.Pointer, a driver.DevicePtr, beta unsafe.Pointer, b driver.DevicePtr, gamma unsafe.Pointer, c driver.DevicePtr, d driver.DevicePtr, stream driver.Stream) error {
+// elementwiseTrinaryExecute performs an element-wise tensor operation for three input tensors (see [Handle.CreateElementwiseTrinary])
+//
+// This function performs a element-wise tensor operation of the form:
+// D_(Π^(C)(i₀,i₁,...,iₙ))=Φ_(ABC)(Φ_(AB)(αop_(A)(A_(Π^(A)(i₀,i₁,...,iₙ))),βop_(B)(B_(Π^(B)(i₀,i₁,...,iₙ)))),γop_(C)(C_(Π^(C)(i₀,i₁,...,iₙ))))
+// See [Handle.CreateElementwiseTrinary] for details.
+// Remark:
+// calls asynchronous functions, no reentrant, and thread-safe
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - plan: Opaque handle holding all information about the desired elementwise operation (created by [Handle.CreateElementwiseTrinary] followed by [Handle.CreatePlan])
+//   - alpha: Scaling factor for A (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE) to query the expected data type). Pointer to the host memory. If alpha is zero, A is not read and the corresponding unary operator is not applied. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - a: Multi-mode tensor (described by descA as part of [Handle.CreateElementwiseTrinary]). Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
+//   - beta: Scaling factor for B (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE) to query the expected data type). Pointer to the host memory. If beta is zero, B is not read and the corresponding unary operator is not applied. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - b: Multi-mode tensor (described by descB as part of [Handle.CreateElementwiseTrinary]). Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
+//   - gamma: Scaling factor for C (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE) to query the expected data type). Pointer to the host memory. If gamma is zero, C is not read and the corresponding unary operator is not applied. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - c: Multi-mode tensor (described by descC as part of [Handle.CreateElementwiseTrinary]). Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
+//   - d: Multi-mode tensor (described by descD as part of [Handle.CreateElementwiseTrinary]). Pointer to the GPU-accessible memory ( C and D may be identical, if and only if descC == descD)
+//   - stream: The CUDA stream used to perform the operation
+//
+// Errors:
+//   - [ErrInvalidValue]: if tensor dimensions or modes have an illegal value
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: if the combination of data types or operations is not supported
+//
+// Wraps cutensorElementwiseTrinaryExecute.
+func elementwiseTrinaryExecute(handle Handle, plan Plan, alpha Scalar, a driver.DevicePtr, beta Scalar, b driver.DevicePtr, gamma Scalar, c driver.DevicePtr, d driver.DevicePtr, stream driver.Stream) error {
 	if err := checkLibSym("cutensorElementwiseTrinaryExecute"); err != nil {
 		return err
 	}
-	return toError(fnelementwiseTrinaryExecute(handle, plan, alpha, uintptr(a), beta, uintptr(b), gamma, uintptr(c), uintptr(d), stream), "cutensorElementwiseTrinaryExecute")
+	_scalars := scalarCells.get()
+	defer scalarCells.put(_scalars)
+	return toError(fnelementwiseTrinaryExecute(handle, plan, alpha.arg(&_scalars[0]), uintptr(a), beta.arg(&_scalars[1]), uintptr(b), gamma.arg(&_scalars[2]), uintptr(c), uintptr(d), stream), "cutensorElementwiseTrinaryExecute")
 }
 
-// estimateWorkspaceSize wraps cutensorEstimateWorkspaceSize.
+// estimateWorkspaceSize determines the required workspaceSize for the given operation encoded by desc.
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - desc: This opaque struct encodes the operation
+//   - planPref: This opaque struct restricts the space of viable candidates
+//   - workspacePref: This parameter influences the size of the workspace; see [WorksizepreferenceT] for details
+//   - workspaceSizeEstimate: The workspace size (in bytes) that is required for the given operation
+//
+// Errors:
+//   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//
+// Wraps cutensorEstimateWorkspaceSize.
 func estimateWorkspaceSize(handle Handle, desc OperationDescriptor, planPref PlanPreference, workspacePref WorksizepreferenceT) (uint64, error) {
 	if err := checkLibSym("cutensorEstimateWorkspaceSize"); err != nil {
 		var zero uint64
@@ -724,7 +1357,11 @@ func estimateWorkspaceSize(handle Handle, desc OperationDescriptor, planPref Pla
 
 var slotEstimateWorkspaceSize outSlot[uint64]
 
-// GetCudartVersion wraps cutensorGetCudartVersion.
+// GetCudartVersion returns version number of the CUDA runtime that cuTENSOR was compiled against.
+//
+// Can be compared against the CUDA runtime version from cudaRuntimeGetVersion().
+//
+// Wraps cutensorGetCudartVersion.
 // The error reports an unavailable library or symbol.
 func GetCudartVersion() (uint, error) {
 	if err := checkLibSym("cutensorGetCudartVersion"); err != nil {
@@ -735,7 +1372,9 @@ func GetCudartVersion() (uint, error) {
 	return _result, nil
 }
 
-// GetVersion wraps cutensorGetVersion.
+// GetVersion returns Version number of the CUTENSOR library.
+//
+// Wraps cutensorGetVersion.
 // The error reports an unavailable library or symbol.
 func GetVersion() (uint, error) {
 	if err := checkLibSym("cutensorGetVersion"); err != nil {
@@ -746,7 +1385,23 @@ func GetVersion() (uint, error) {
 	return _result, nil
 }
 
-// handleReadPlanCacheFromFile wraps cutensorHandleReadPlanCacheFromFile.
+// handleReadPlanCacheFromFile reads a Plan-Cache from file and overwrites the cachelines of the provided handle.
+//
+// A cache is only valid for the same cuTENSOR version and CUDA version; moreover, the GPU architecture (incl. multiprocessor count) must match, otherwise [ErrInvalidValue] will be returned.
+// Remark:
+// non-blocking, no reentrant, and thread-safe
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - filename: Specifies the filename (including the absolute path) to the file that holds all the cache information that have previously been written by [Handle.WritePlanCacheToFile]
+//   - numCachelinesRead: On exit, this variable will hold the number of successfully-read cachelines, if [Success] is returned. Otherwise, this variable will hold the number of cachelines that are required to read all cachelines associated to the cache pointed to by filename; in that case [ErrInsufficientWorkspace] is returned
+//
+// Errors:
+//   - [ErrInsufficientWorkspace]: if the stored cache requires more cachelines than those that are currently attached to the handle
+//   - [ErrInvalidValue]: if the stored cache was created by a different cuTENSOR- or CUDA-version or if the GPU architecture (incl. multiprocessor count) doesn’t match
+//   - [ErrIoError]: if the file cannot be read
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//
+// Wraps cutensorHandleReadPlanCacheFromFile.
 func handleReadPlanCacheFromFile(handle Handle, filename *byte) (uint32, error) {
 	if err := checkLibSym("cutensorHandleReadPlanCacheFromFile"); err != nil {
 		var zero uint32
@@ -763,7 +1418,22 @@ func handleReadPlanCacheFromFile(handle Handle, filename *byte) (uint32, error) 
 
 var slotHandleReadPlanCacheFromFile outSlot[uint32]
 
-// handleResizePlanCache wraps cutensorHandleResizePlanCache.
+// handleResizePlanCache Resizes the plan cache.
+//
+// This function changes the number of plans that can be stored in the plan cache of the handle.
+// Resizing invalidates the cache.
+// While this function is not thread-safe, the resulting cache can be shared across different threads in a thread-safe manner.
+// Remark:
+// non-blocking, no reentrant, and not thread-safe
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context. The cache will be attached to the handle
+//   - numEntries: Number of entries the cache will support
+//
+// Errors:
+//   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//
+// Wraps cutensorHandleResizePlanCache.
 func handleResizePlanCache(handle Handle, numEntries uint32) error {
 	if err := checkLibSym("cutensorHandleResizePlanCache"); err != nil {
 		return err
@@ -771,7 +1441,20 @@ func handleResizePlanCache(handle Handle, numEntries uint32) error {
 	return toError(fnhandleResizePlanCache(handle, numEntries), "cutensorHandleResizePlanCache")
 }
 
-// handleWritePlanCacheToFile wraps cutensorHandleWritePlanCacheToFile.
+// handleWritePlanCacheToFile writes the Plan-Cache (that belongs to the provided handle) to file.
+//
+// Remark:
+// non-blocking, no reentrant, and thread-safe
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - filename: Specifies the filename (including the absolute path) to the file that should hold all the cache information. Warning: an existing file will be overwritten
+//
+// Errors:
+//   - [ErrInvalidValue]: if the no cache has been attached
+//   - [ErrIoError]: if the file cannot be written to
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//
+// Wraps cutensorHandleWritePlanCacheToFile.
 func handleWritePlanCacheToFile(handle Handle, filename *byte) error {
 	if err := checkLibSym("cutensorHandleWritePlanCacheToFile"); err != nil {
 		return err
@@ -779,7 +1462,11 @@ func handleWritePlanCacheToFile(handle Handle, filename *byte) error {
 	return toError(fnhandleWritePlanCacheToFile(handle, filename), "cutensorHandleWritePlanCacheToFile")
 }
 
-// LoggerForceDisable wraps cutensorLoggerForceDisable.
+// LoggerForceDisable disables logging for the entire run.
+//
+// previouscuTENSOR Data Types nextAPI Reference - cuTENSORMg
+//
+// Wraps cutensorLoggerForceDisable.
 func LoggerForceDisable() error {
 	if err := checkLibSym("cutensorLoggerForceDisable"); err != nil {
 		return err
@@ -787,7 +1474,11 @@ func LoggerForceDisable() error {
 	return toError(fnLoggerForceDisable(), "cutensorLoggerForceDisable")
 }
 
-// LoggerOpenFile wraps cutensorLoggerOpenFile.
+// LoggerOpenFile opens a logging output file in the given path.
+//
+//   - logFile: Path to the logging output file
+//
+// Wraps cutensorLoggerOpenFile.
 func LoggerOpenFile(logFile *byte) error {
 	if err := checkLibSym("cutensorLoggerOpenFile"); err != nil {
 		return err
@@ -795,7 +1486,11 @@ func LoggerOpenFile(logFile *byte) error {
 	return toError(fnLoggerOpenFile(logFile), "cutensorLoggerOpenFile")
 }
 
-// LoggerSetCallback wraps cutensorLoggerSetCallback.
+// LoggerSetCallback sets the logging callback routine.
+//
+//   - callback: Pointer to a callback function. Check cutensorLoggerCallback_t
+//
+// Wraps cutensorLoggerSetCallback.
 func LoggerSetCallback(callback uintptr) error {
 	if err := checkLibSym("cutensorLoggerSetCallback"); err != nil {
 		return err
@@ -803,7 +1498,11 @@ func LoggerSetCallback(callback uintptr) error {
 	return toError(fnLoggerSetCallback(callback), "cutensorLoggerSetCallback")
 }
 
-// LoggerSetFile wraps cutensorLoggerSetFile.
+// LoggerSetFile sets the logging output file.
+//
+//   - file: An open file with write permission
+//
+// Wraps cutensorLoggerSetFile.
 func LoggerSetFile(file uintptr) error {
 	if err := checkLibSym("cutensorLoggerSetFile"); err != nil {
 		return err
@@ -811,7 +1510,11 @@ func LoggerSetFile(file uintptr) error {
 	return toError(fnLoggerSetFile(file), "cutensorLoggerSetFile")
 }
 
-// LoggerSetLevel wraps cutensorLoggerSetLevel.
+// LoggerSetLevel sets the value of the logging level.
+//
+//   - level: Log level, should be one of the following: 0. Off 1. Errors 2. Performance Trace 3. Performance Hints 4. Heuristics Trace 5. API Trace
+//
+// Wraps cutensorLoggerSetLevel.
 func LoggerSetLevel(level int32) error {
 	if err := checkLibSym("cutensorLoggerSetLevel"); err != nil {
 		return err
@@ -819,7 +1522,11 @@ func LoggerSetLevel(level int32) error {
 	return toError(fnLoggerSetLevel(level), "cutensorLoggerSetLevel")
 }
 
-// LoggerSetMask wraps cutensorLoggerSetMask.
+// LoggerSetMask sets the value of the log mask.
+//
+//   - mask: Log mask, the bitwise OR of the following: 0. Off 1. Errors 2. Performance Trace 4. Performance Hints 8. Heuristics Trace 16. API Trace
+//
+// Wraps cutensorLoggerSetMask.
 func LoggerSetMask(mask int32) error {
 	if err := checkLibSym("cutensorLoggerSetMask"); err != nil {
 		return err
@@ -827,7 +1534,21 @@ func LoggerSetMask(mask int32) error {
 	return toError(fnLoggerSetMask(mask), "cutensorLoggerSetMask")
 }
 
-// operationDescriptorGetAttribute wraps cutensorOperationDescriptorGetAttribute.
+// operationDescriptorGetAttribute retrieves an attribute of the provided [OperationDescriptor] object (see [OperationdescriptorattributeT]).
+//
+// Block-sparse contraction descriptors only support the attributes [OperationDescriptorScalarType], [OperationDescriptorMovedBytes], and [OperationDescriptorBlocksparseReproducible].
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - desc: The [OperationDescriptor] object whos attribute is queried
+//   - attr: Specifies the attribute that will be retrieved
+//   - buf: This buffer (of size sizeInBytes) will hold the requested attribute of the provided [OperationDescriptor] object
+//   - sizeInBytes: Size of buf (in bytes); see [OperationdescriptorattributeT] for the exact size
+//
+// Errors:
+//   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//
+// Wraps cutensorOperationDescriptorGetAttribute.
 func operationDescriptorGetAttribute(handle Handle, desc OperationDescriptor, attr OperationdescriptorattributeT, buf uintptr, sizeInBytes uint) error {
 	if err := checkLibSym("cutensorOperationDescriptorGetAttribute"); err != nil {
 		return err
@@ -835,7 +1556,21 @@ func operationDescriptorGetAttribute(handle Handle, desc OperationDescriptor, at
 	return toError(fnoperationDescriptorGetAttribute(handle, desc, attr, buf, sizeInBytes), "cutensorOperationDescriptorGetAttribute")
 }
 
-// operationDescriptorSetAttribute wraps cutensorOperationDescriptorSetAttribute.
+// operationDescriptorSetAttribute sets attribute of a [OperationDescriptor] object.
+//
+// Block-sparse contraction descriptors only support the attribute [OperationDescriptorBlocksparseReproducible].
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - desc: Operation descriptor that will be modified
+//   - attr: Specifies the attribute that will be set
+//   - buf: This buffer (of size sizeInBytes) determines the value to which attr will be set
+//   - sizeInBytes: Size of buf (in bytes)
+//
+// Errors:
+//   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//
+// Wraps cutensorOperationDescriptorSetAttribute.
 func operationDescriptorSetAttribute(handle Handle, desc OperationDescriptor, attr OperationdescriptorattributeT, buf uintptr, sizeInBytes uint) error {
 	if err := checkLibSym("cutensorOperationDescriptorSetAttribute"); err != nil {
 		return err
@@ -843,15 +1578,54 @@ func operationDescriptorSetAttribute(handle Handle, desc OperationDescriptor, at
 	return toError(fnoperationDescriptorSetAttribute(handle, desc, attr, buf, sizeInBytes), "cutensorOperationDescriptorSetAttribute")
 }
 
-// permute wraps cutensorPermute.
-func permute(handle Handle, plan Plan, alpha unsafe.Pointer, a driver.DevicePtr, b driver.DevicePtr, stream driver.Stream) error {
+// permute performs the tensor permutation that is encoded by plan (see [Handle.CreatePermutation]).
+//
+// This function performs an elementwise tensor operation of the form:
+// B_(Π^(B)(i₀,i₁,...,iₙ))=αop_(A)(A_(Π^(A)(i₀,i₁,...,iₙ)))
+// Consequently, this function performs an out-of-place tensor permutation.
+// Where
+//   - A and B are multi-mode tensors (of arbitrary data types),
+//   - Π^(A),Π^(B) are permutation operators that permute the modes of A, B respectively,
+//   - op_(A) is an unary element-wise operators (e.g., IDENTITY, SQR, CONJUGATE), and is specified when creating the operation descriptor using [Handle.CreatePermutation]
+//
+// Remark:
+// calls asynchronous functions, no reentrant, and thread-safe
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - plan: Opaque handle holding all information about the desired tensor reduction (created by [Handle.CreatePermutation] followed by [Handle.CreatePlan])
+//   - alpha: Scaling factor for A (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Pointer to the host memory. If alpha is zero, A is not read and the corresponding unary operator is not applied. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - a: Multi-mode tensor of type typeA with nmodeA modes. Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
+//   - b: Multi-mode tensor of type typeB with nmodeB modes. Pointer to the GPU-accessible memory
+//   - stream: The CUDA stream
+//
+// Errors:
+//   - [ErrInvalidValue]: if tensor dimensions or modes have an illegal value
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: if the combination of data types or operations is not supported
+//
+// Wraps cutensorPermute.
+func permute(handle Handle, plan Plan, alpha Scalar, a driver.DevicePtr, b driver.DevicePtr, stream driver.Stream) error {
 	if err := checkLibSym("cutensorPermute"); err != nil {
 		return err
 	}
-	return toError(fnpermute(handle, plan, alpha, uintptr(a), uintptr(b), stream), "cutensorPermute")
+	_scalars := scalarCells.get()
+	defer scalarCells.put(_scalars)
+	return toError(fnpermute(handle, plan, alpha.arg(&_scalars[0]), uintptr(a), uintptr(b), stream), "cutensorPermute")
 }
 
-// planGetAttribute wraps cutensorPlanGetAttribute.
+// planGetAttribute retrieves information about an already-created plan (see [PlanattributeT])
+//
+// Block-sparse contraction plans only support [PlanRequiredWorkspace].
+//
+//   - plan: Denotes an already-created plan (e.g., via [Handle.CreatePlan] or cutensorCreatePlanAutotuned)
+//   - attr: Requested attribute
+//   - buf: On successful exit: Holds the information of the requested attribute
+//   - sizeInBytes: size of buf in bytes
+//
+// Errors:
+//   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
+//
+// Wraps cutensorPlanGetAttribute.
 func planGetAttribute(handle Handle, plan Plan, attr PlanattributeT, buf uintptr, sizeInBytes uint) error {
 	if err := checkLibSym("cutensorPlanGetAttribute"); err != nil {
 		return err
@@ -859,7 +1633,19 @@ func planGetAttribute(handle Handle, plan Plan, attr PlanattributeT, buf uintptr
 	return toError(fnplanGetAttribute(handle, plan, attr, buf, sizeInBytes), "cutensorPlanGetAttribute")
 }
 
-// planPreferenceGetAttribute wraps cutensorPlanPreferenceGetAttribute.
+// planPreferenceGetAttribute gets attribute of a [PlanPreference] object.
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - pref: This opaque struct restricts the search space of viable candidates
+//   - attr: Requested attribute
+//   - buf: On successful exit: Holds the information of the requested attribute
+//   - sizeInBytes: Size of buf (in bytes); see [PlanpreferenceattributeT] for the exact size
+//
+// Errors:
+//   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//
+// Wraps cutensorPlanPreferenceGetAttribute.
 func planPreferenceGetAttribute(handle Handle, pref PlanPreference, attr PlanpreferenceattributeT, buf uintptr, sizeInBytes uint) error {
 	if err := checkLibSym("cutensorPlanPreferenceGetAttribute"); err != nil {
 		return err
@@ -867,7 +1653,19 @@ func planPreferenceGetAttribute(handle Handle, pref PlanPreference, attr Planpre
 	return toError(fnplanPreferenceGetAttribute(handle, pref, attr, buf, sizeInBytes), "cutensorPlanPreferenceGetAttribute")
 }
 
-// planPreferenceSetAttribute wraps cutensorPlanPreferenceSetAttribute.
+// planPreferenceSetAttribute sets attribute of a [PlanPreference] object.
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - pref: This opaque struct restricts the search space of viable candidates
+//   - attr: Specifies the attribute that will be set
+//   - buf: This buffer (of size sizeInBytes) determines the value to which attr will be set
+//   - sizeInBytes: Size of buf (in bytes); see [PlanpreferenceattributeT] for the exact size
+//
+// Errors:
+//   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//
+// Wraps cutensorPlanPreferenceSetAttribute.
 func planPreferenceSetAttribute(handle Handle, pref PlanPreference, attr PlanpreferenceattributeT, buf uintptr, sizeInBytes uint) error {
 	if err := checkLibSym("cutensorPlanPreferenceSetAttribute"); err != nil {
 		return err
@@ -875,7 +1673,24 @@ func planPreferenceSetAttribute(handle Handle, pref PlanPreference, attr Planpre
 	return toError(fnplanPreferenceSetAttribute(handle, pref, attr, buf, sizeInBytes), "cutensorPlanPreferenceSetAttribute")
 }
 
-// readKernelCacheFromFile wraps cutensorReadKernelCacheFromFile.
+// readKernelCacheFromFile reads a kernel cache from file and adds all non-existing JIT compiled kernels to the kernel cache.
+//
+// A cache is only valid for the same cuTENSOR version and CUDA version; moreover, the GPU architecture (incl. multiprocessor count) must match, otherwise [ErrInvalidValue] will be returned.
+// Remark:
+// non-blocking, no reentrant, and thread-safe
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - filename: Specifies the filename (including the absolute path) to the file that holds all the cache information that have previously been written by [Handle.WriteKernelCacheToFile]
+//
+// A nil error means the operation completed successfully, or the file pointed to by filename was empty.
+//
+// Errors:
+//   - [ErrInvalidValue]: if the stored cache was created by a different cuTENSOR- or CUDA-version or if the GPU architecture (incl. multiprocessor count) doesn’t match.
+//   - [ErrIoError]: if the file cannot be read.
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: if the function is not available for the operating system, CUDA Toolkit, or compute capability of the device.
+//
+// Wraps cutensorReadKernelCacheFromFile.
 func readKernelCacheFromFile(handle Handle, filename *byte) error {
 	if err := checkLibSym("cutensorReadKernelCacheFromFile"); err != nil {
 		return err
@@ -883,15 +1698,46 @@ func readKernelCacheFromFile(handle Handle, filename *byte) error {
 	return toError(fnreadKernelCacheFromFile(handle, filename), "cutensorReadKernelCacheFromFile")
 }
 
-// reduce wraps cutensorReduce.
-func reduce(handle Handle, plan Plan, alpha unsafe.Pointer, a driver.DevicePtr, beta unsafe.Pointer, c driver.DevicePtr, d driver.DevicePtr, workspace driver.DevicePtr, workspaceSize uint64, stream driver.Stream) error {
+// reduce performs the tensor reduction that is encoded by plan (see [Handle.CreateReduction]).
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - plan: Opaque handle holding the reduction execution plan (created by [Handle.CreateReduction] followed by [Handle.CreatePlan])
+//   - alpha: Scaling for A. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Pointer to the host memory. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - a: Pointer to the data corresponding to A in device memory. Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
+//   - beta: Scaling for C. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Pointer to the host memory. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - c: Pointer to the data corresponding to C in device memory. Pointer to the GPU-accessible memory
+//   - d: Pointer to the data corresponding to C in device memory. Pointer to the GPU-accessible memory
+//   - workspace: Scratchpad (device) memory of size —at least— workspaceSize bytes; the workspace must be aligned to 256 bytes (i.e., the default alignment of cudaMalloc)
+//   - workspaceSize: Please use [Handle.EstimateWorkspaceSize] to query the required workspace
+//   - stream: The CUDA stream in which all the computation is performed
+//
+// Wraps cutensorReduce.
+func reduce(handle Handle, plan Plan, alpha Scalar, a driver.DevicePtr, beta Scalar, c driver.DevicePtr, d driver.DevicePtr, workspace driver.DevicePtr, workspaceSize uint64, stream driver.Stream) error {
 	if err := checkLibSym("cutensorReduce"); err != nil {
 		return err
 	}
-	return toError(fnreduce(handle, plan, alpha, uintptr(a), beta, uintptr(c), uintptr(d), uintptr(workspace), workspaceSize, stream), "cutensorReduce")
+	_scalars := scalarCells.get()
+	defer scalarCells.put(_scalars)
+	return toError(fnreduce(handle, plan, alpha.arg(&_scalars[0]), uintptr(a), beta.arg(&_scalars[1]), uintptr(c), uintptr(d), uintptr(workspace), workspaceSize, stream), "cutensorReduce")
 }
 
-// writeKernelCacheToFile wraps cutensorWriteKernelCacheToFile.
+// writeKernelCacheToFile writes the —per library— kernel cache to file.
+//
+// Writes the just-in-time compiled kernels to the provided file (those kernels belong to the library—not to the handle).
+// Remark:
+// non-blocking, no reentrant, and thread-safe
+//
+//   - handle: Opaque handle holding cuTENSOR’s library context
+//   - filename: Specifies the filename (including the absolute path) to the file that should hold all the cache information. Warning: an existing file will be overwritten
+//
+// A nil error means the operation completed successfully or there were no kernels in the cache.
+//
+// Errors:
+//   - [ErrIoError]: if the file cannot be written to.
+//   - [ErrNotInitialized]: if the handle is not initialized.
+//   - [ErrNotSupported]: if the function is not available for the operating system, CUDA Toolkit, or compute capability of the device.
+//
+// Wraps cutensorWriteKernelCacheToFile.
 func writeKernelCacheToFile(handle Handle, filename *byte) error {
 	if err := checkLibSym("cutensorWriteKernelCacheToFile"); err != nil {
 		return err

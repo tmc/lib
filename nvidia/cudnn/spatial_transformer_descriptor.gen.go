@@ -4,9 +4,6 @@ package cudnn
 
 // Destroy destroys a previously created spatial transformer descriptor object.
 //
-// Returns:
-//   - [Success]: The object was destroyed successfully.
-//
 // Wraps cudnnDestroySpatialTransformerDescriptor.
 func (s SpatialTransformerDescriptor) Destroy() error {
 	return destroySpatialTransformerDescriptor(s)
@@ -18,9 +15,8 @@ func (s SpatialTransformerDescriptor) Destroy() error {
 //   - dataType: Input. Data type
 //   - dimA: Input. Array of dimension nbDims containing the size of the transformed tensor for every dimension
 //
-// Returns:
+// Errors:
 //   - [ErrBadParam]: At least one of the following conditions are met: Either stDesc or dimA is NULL. Either dataType or samplerType has an invalid enumerant value.
-//   - [Success]: The call was successful.
 //
 // Wraps cudnnSetSpatialTransformerNdDescriptor.
 func (s SpatialTransformerDescriptor) Set(samplerType SamplerType, dataType DataType, dimA []int32) error {

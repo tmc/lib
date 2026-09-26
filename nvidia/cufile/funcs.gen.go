@@ -63,13 +63,15 @@ var (
 	fnwriteAsync                           func(Handle, uintptr, *uint, *int64, *int64, *int64, driver.Stream) Error
 )
 
-// ffiCall0 through ffiCall5 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+// The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
 //
 // Bit i of floatMask marks argument word i as a floating-point bit
 // pattern, which the C ABI passes in a different register file from the
-// integer and pointer words. Each returns the first integer result
-// register and the first floating-point one; a caller reads whichever the
-// C function sets.
+// integer and pointer words. Bits 2i and 2i+1 of widths give the size of
+// argument word i as a ffi.Width code, which places a narrow argument
+// on the stack where the C ABI expects it. Each funnel returns the first
+// integer result register and the first floating-point one; a caller
+// reads whichever the C function sets.
 //
 // The //go:uintptrescapes directive is what makes a Go pointer safe to
 // pass: a pointer converted to uintptr in one of these argument lists is
@@ -150,7 +152,21 @@ func fnwrite(a0 Handle, a1 uintptr, a2 uint, a3 int64, a4 int64) int64 {
 	return int64(r1)
 }
 
-// batchIOCancel wraps cuFileBatchIOCancel.
+// batchIOCancel is a batch API to cancel an ongoing IO batch operation by using the batch_id that was returned by [BatchHandle.IOSubmit].
+//
+// This API tries to cancel an individual IO operation in the batch if possible and provides no guarantee about canceling an ongoing operation.
+// Refer to the following for more information:
+//   - [BatchHandle.IOGetStatus]
+//   - [BatchHandle.IOSubmit]
+//   - [BatchHandle.IODestroy]
+//
+// Parameters:
+//   - batchIdp: The batch ID to cancel
+//
+// Errors:
+//   - CU_FILE_ERROR_INVALID_VALUE: on any failures.
+//
+// Wraps cuFileBatchIOCancel.
 func batchIOCancel(batchIdp BatchHandle) error {
 	if err := checkLibSym("cuFileBatchIOCancel"); err != nil {
 		return err
@@ -158,7 +174,16 @@ func batchIOCancel(batchIdp BatchHandle) error {
 	return toError(fnbatchIOCancel(batchIdp), "cuFileBatchIOCancel")
 }
 
-// batchIODestroy wraps cuFileBatchIODestroy.
+// batchIODestroy [BatchHandle.IOGetStatus].
+//
+// This is a batch API that destroys a batch context and the resources that are allocated with cuFileBatchIOSetup.
+// Refer to the following for more information:
+// [BatchHandle.IOSubmit]
+// [BatchHandle.IOCancel]
+//
+//   - batchIdp: The batch handle to be destroyed
+//
+// Wraps cuFileBatchIODestroy.
 // The error reports an unavailable library or symbol.
 func batchIODestroy(batchIdp BatchHandle) error {
 	if err := checkLibSym("cuFileBatchIODestroy"); err != nil {
@@ -168,7 +193,27 @@ func batchIODestroy(batchIdp BatchHandle) error {
 	return nil
 }
 
-// batchIOGetStatus wraps cuFileBatchIOGetStatus.
+// batchIOGetStatus is a batch API to monitor the status of batch IO operations by using the batch_id that was returned by [BatchHandle.IOSubmit].
+//
+// The operation will be canceled automatically if [BatchHandle.IOCancel] is called and the status will reflect CU_FILE_CANCELED for all canceled IO operations.
+// The status of each member of the batch is queried, which would not be possible with one CUEvent. The status field of individual IO operations via [IOParams] entries will have undefined values before the entire batch is completed. This definition is subject to change.
+// Refer to the following for more information:
+//   - [BatchHandle.IOSubmit]
+//   - [BatchHandle.IODestroy]
+//
+// Parameters:
+//   - batchIdp: Obtained during setup
+//   - minNr: The minimum number of IO entries for which status is requested. The minNr should be greater than or equal to zero and less than or equal to *nr
+//   - nr: This is a pointer to max requested IO entries to poll for completion and is used as an Input/Output parameter. As an input *nr must be set to pass the maximum number of IO requests to poll for. As an output, *nr returns the number of completed I/Os
+//   - iocbp: CUFileIOEvents_t array containing the status of completed I/Os in that batch
+//   - timeout: This parameter is used to specify the amount of time to wait for in this API, even if the minimum number of requests have not completed. If the timeout hits, it is possible that the number of returned IOs can be less than minNr
+//
+// The success here refers to the completion of the API. Individual IO status and error can be obtained by examining the returned status and error in the array iocbp.
+//
+// Errors:
+//   - CU_FILE_ERROR_INVALID_VALUE: for an invalid batch ID.
+//
+// Wraps cuFileBatchIOGetStatus.
 func batchIOGetStatus(batchIdp BatchHandle, minNr uint32, nr *uint32, iocbp *IOEvents, timeout *Timespec) error {
 	if err := checkLibSym("cuFileBatchIOGetStatus"); err != nil {
 		return err
@@ -176,7 +221,23 @@ func batchIOGetStatus(batchIdp BatchHandle, minNr uint32, nr *uint32, iocbp *IOE
 	return toError(fnbatchIOGetStatus(batchIdp, minNr, nr, iocbp, timeout), "cuFileBatchIOGetStatus")
 }
 
-// BatchIOSetUp wraps cuFileBatchIOSetUp.
+// BatchIOSetUp [Handle.Read].
+//
+// This interface should be the first call in the sequence of batch I/O operation. This takes the maximum number of batch entries the caller intends to use and returns a CUFileBatchHandle_t which should be used by the caller for subsequent batch I/O calls.
+// Refer to the following for more information:
+// [Handle.Write]
+// [Handle.ReadAsync]
+// [Handle.WriteAsync]
+// [BatchHandle.IOGetStatus]
+// [BatchHandle.IOCancel]
+// [BatchHandle.IODestroy]
+//
+//   - batchIdp: (Output) Will be used in subsequent batch IO calls
+//
+// Errors:
+//   - [InternalError]: on on any failures.
+//
+// Wraps cuFileBatchIOSetUp.
 func BatchIOSetUp(nr uint32) (BatchHandle, error) {
 	if err := checkLibSym("cuFileBatchIOSetUp"); err != nil {
 		var zero BatchHandle
@@ -190,7 +251,36 @@ func BatchIOSetUp(nr uint32) (BatchHandle, error) {
 	return out, nil
 }
 
-// batchIOSubmit wraps cuFileBatchIOSubmit.
+// batchIOSubmit will need to be used to submit a read/write operation on an array of GPU/CPU data pointers from their respective file handle, offset, and size bytes.
+//
+// Based on the type of memory pointer, the data is transferred to/from the GPU memory by using GDS or the data is transferred to/from the CPU memory.
+//   - This is an asynchronous call and will enqueue the operation on a batch_id provided by the cuFileIOSetup API. The operation can be monitored when using this batch_id through [BatchHandle.IOGetStatus].
+//   - The operation can be canceled by calling [BatchHandle.IOCancel] or destroyed by [BatchHandle.IODestroy].
+//   - The entries in the [IOParams] array describe individual IOs.
+//
+// The bytes transacted field is valid only when the status indicates a completion.
+//   - Operations that are enqueued with cuFile Batch APIs are FIFO ordered with respect to other work on the stream and must be completed before continuing to the next action in the stream. Operations in each batch might be reordered with respect to each other.
+//   - The status field of individual IO operations via [IOParams] entries will have undefined values before the entire batch is complete. This definition is subject to change.
+//
+// Refer to the following for more information:
+//   - [Handle.Read]
+//   - [Handle.Write]
+//   - [Handle.ReadAsync]
+//   - [Handle.WriteAsync]
+//   - [BatchHandle.IOGetStatus]
+//   - [BatchHandle.IOCancel]
+//   - [BatchHandle.IODestroy]
+//
+// Parameters:
+//   - batchIdp: The address of the output parameter for the newly created batch ID, which was obtained from a cuFileBatchSetup call
+//   - nr: The number of requests for the batch request. The value must be greater than 0 and less than or equal to max_nr specified in cuFileBatchIOSetup
+//   - iocbp: The pointer contains the [IOParams] array structures of the length nr array
+//   - flags: Reserved for future use. Should be set to 0
+//
+// Errors:
+//   - [InternalError]: on any failures.
+//
+// Wraps cuFileBatchIOSubmit.
 func batchIOSubmit(batchIdp BatchHandle, nr uint32, iocbp *IOParams, flags uint32) error {
 	if err := checkLibSym("cuFileBatchIOSubmit"); err != nil {
 		return err
@@ -198,7 +288,18 @@ func batchIOSubmit(batchIdp BatchHandle, nr uint32, iocbp *IOParams, flags uint3
 	return toError(fnbatchIOSubmit(batchIdp, nr, iocbp, flags), "cuFileBatchIOSubmit")
 }
 
-// BufDeregister wraps cuFileBufDeregister.
+// BufDeregister Based on the memory type, this API either deregisters CUDA memory or the host memory registered using the [BufRegister] API.
+//
+// This API deregisters memory mappings that were registered by [BufRegister]. Refer to [BufRegister] for more information.
+//
+//   - bufPtrBase: Address of device pointer to release the mappings that were provided to [BufRegister]
+//
+// Errors:
+//   - CU_FILE_ERROR_INVALID_VALUE: on failure to find the registration for the specified memory.
+//   - [InternalError]: an internal library-specific error.
+//   - [MemoryNotRegistered]: if bufPtr_base was not registered.
+//
+// Wraps cuFileBufDeregister.
 func BufDeregister(bufPtrBase uintptr) error {
 	if err := checkLibSym("cuFileBufDeregister"); err != nil {
 		return err
@@ -206,7 +307,28 @@ func BufDeregister(bufPtrBase uintptr) error {
 	return toError(fnBufDeregister(bufPtrBase), "cuFileBufDeregister")
 }
 
-// BufRegister wraps cuFileBufRegister.
+// BufRegister Based on the memory type, this API registers existing cuMemAlloc’d (pinned) memory for GDS IO operations or host memory for IO operations.
+//
+// Based on the memory type, this API either registers the specified GPU address or host memory address and size for use with the [Handle.Read] and [Handle.Write] operations. The user must call [BufDeregister] to release the pinned memory mappings for GPU memory if needed.
+// See the following for more information:
+//   - [BufDeregister]
+//
+// Parameters:
+//   - bufPtrBase: Address of device pointer. [Handle.Read] and [Handle.Write] must use this bufPtrBase as the base address
+//   - flags: Reserved for future use; must be 0
+//
+// Errors:
+//   - [CudaDriverError]: on CUDA-specific errors. CUresult code can be obtained using CU_FILE_CUDA_ERR (err).
+//   - [CudaMemoryTypeInvalid]: for device memory that is not allocated via cudaMalloc or cuMemAlloc.
+//   - [CudaPointerRangeError]: if the size exceeds the bounds of the allocated memory.
+//   - [GpuMemoryPinningFailed]: if not enough pinned memory is available.
+//   - [InternalError]: an internal library-specific error.
+//   - [InvalidMappingSize]: if the size exceeds the GPU resource limits.
+//   - [InvalidValue]: on a failure.
+//   - [MemoryAlreadyRegistered]: if memory is already registered.
+//   - [NvfsDriverError]: if the nvidia-fs driver cannot handle the request.
+//
+// Wraps cuFileBufRegister.
 func BufRegister(bufPtrBase uintptr, length uint, flags int32) error {
 	if err := checkLibSym("cuFileBufRegister"); err != nil {
 		return err
@@ -214,7 +336,16 @@ func BufRegister(bufPtrBase uintptr, length uint, flags int32) error {
 	return toError(fnBufRegister(bufPtrBase, length, flags), "cuFileBufRegister")
 }
 
-// DriverClose wraps cuFileDriverClose, bound as cuFileDriverClose_v2.
+// DriverClose closes the driver session and frees any associated resources for GDS.
+//
+// This happens implicitly upon process exit.
+// The driver can be reopened once it is closed.
+//   - Close the GDS session and any associated memory resources. If there are buffers registered by using [BufRegister], which are not unregistered, a [DriverClose] implicitly unregisters those buffers. Any in-flight IO when [DriverClose] is in-progress will receive an error.
+//
+// Errors:
+//   - [DriverNotInitialized]: on failure.
+//
+// Wraps cuFileDriverClose, bound as cuFileDriverClose_v2.
 func DriverClose() error {
 	if err := checkLibSym("cuFileDriverClose_v2"); err != nil {
 		return err
@@ -222,7 +353,18 @@ func DriverClose() error {
 	return toError(fnDriverClose(), "cuFileDriverClose_v2")
 }
 
-// DriverGetP2PFlags wraps cuFileDriverGetP2PFlags.
+// DriverGetP2PFlags gets the P2P flags for a specific filesystem or block device.
+//
+// This API is used to query what P2P modes are supported by cuFile for a certain filesystem or block device.
+//
+//   - statusFlag: The filesystem/device status flag (for example, [LustreSupported])
+//   - p2pFlags: Pointer to store the P2P flags
+//
+// Errors:
+//   - [DriverNotInitialized]: if the cuFile driver is not initialized.
+//   - [InvalidValue]: if p2p_flags is NULL.
+//
+// Wraps cuFileDriverGetP2PFlags.
 func DriverGetP2PFlags(statusFlag DriverStatusFlags) (P2PFlags, error) {
 	if err := checkLibSym("cuFileDriverGetP2PFlags"); err != nil {
 		var zero P2PFlags
@@ -236,7 +378,38 @@ func DriverGetP2PFlags(statusFlag DriverStatusFlags) (P2PFlags, error) {
 	return out, nil
 }
 
-// DriverGetProperties wraps cuFileDriverGetProperties.
+// DriverGetProperties gets the Driver session properties for GDS functionality.
+//
+// The cuFileDrvProps_t structure can be queried with [DriverGetProperties] and selectively modified with cuFileDriverSetProperties. The structure is self-describing, and its fields are consistent with the major and minor API version parameters.
+// This API is used to get current GDS properties and nvidia-fs driver properties and functionality, such as support for SCSI, NVMe, and NVMe-OF.
+// This API is used to get the current nvidia-fs drivers-specific properties such as the following:
+//   - major_version: the cuFile major version
+//   - minor_version: the cuFile minor version
+//   - props.nvfs.dstatusflags, which are bit flags that indicate support for the following driver features: CU_FILE_EXASCALER_SUPPORTED, a bit to check whether the DDN EXAScaler parallel filesystem solutions (based on the Lustre filesystem) client supports GDS. [WekafsSupported], a bit to check whether WekaFS supports GDS.
+//   - Props.nvfs.dcontrolflags, which are bit flags that indicate the current activation for driver features: [UsePollMode], when bit is set, IO uses polling mode. [AllowCompatMode], if the value is 1 compatible mode is set.
+//   - Props.fflags, which are bit flags that indicate whether the following library features are supported: [StreamsSupported], an attribute that checks whether CUDA-streams are supported. [DynRoutingSupported], an attribute that checks whether dynamic routing feature is supported.
+//   - Props.nvfs.poll_thresh_size, a maximum IO size, in KB and must be 4K-aligned, that is used for the POLLING mode.
+//   - Props.nvfs.max_direct_io_size, a maximum GDS IO size, in KB and must be 4K-aligned, that is requested by the nvidia-fs driver to the underlying filesystem.
+//   - Props.max_device_cache_size, a maximum GPU buffer space per device, in KB and must be 4K-aligned. Used internally, for example, to handle unaligned IO and optimal IO path routing. This value might be rounded down to the nearest GPU page size.
+//   - Props.max_device_pinned_mem_size, a maximum buffer space, in KB and must be 4K-aligned, that is pinned and mapped to the GPU BAR space. This might be rounded down to the nearest GPU page size.
+//   - Props.per_buffer_cache_size, a GPU bounce buffer size, in KB, used for internal pools.
+//
+// Additional Information
+// See the following for more information:
+//   - [DriverSetPollMode](bool poll, size_t poll_threshold_size)
+//   - [DriverSetMaxDirectIOSize](size_t max_direct_io_size)
+//   - (size_t max_cache_size)
+//   - [DriverSetMaxPinnedMemSize](size_t max_pinned_memory_size)
+//
+// Parameters:
+//   - props: Pointer to the cuFile Driver properties
+//
+// Errors:
+//   - [DriverNotInitialized]: on failure.
+//   - [DriverVersionMismatch]: on a driver version mismatch.
+//   - [InvalidValue]: if input is invalid.
+//
+// Wraps cuFileDriverGetProperties.
 func DriverGetProperties() (DrvProps, error) {
 	if err := checkLibSym("cuFileDriverGetProperties"); err != nil {
 		var zero DrvProps
@@ -250,7 +423,24 @@ func DriverGetProperties() (DrvProps, error) {
 	return out, nil
 }
 
-// DriverOpen wraps cuFileDriverOpen.
+// DriverOpen opens the Driver session to support GDS IO operations.
+//
+//   - This API opens the session with the NVFS kernel driver to communicate from userspace to kernel space and calls the GDS driver to set up the resources required to support GDS IO operations.
+//   - The API checks whether the current platform supports GDS and initializes the cuFile library.
+//   - This API loads the cuFile settings from a JSON configuration file in /etc/cufile.JSON.
+//
+// If the JSON configuration file does not exist, the API loads the default library settings. To modify this default config file, administrative privileges are needed. The administrator can modify it to grant cuFile access to the specified devices and mount paths and also tune IO parameters (in KB, 4K aligned) that are based on the type of workload. Refer to the default config file ( /etc/cufile.json) for more information.
+//
+// A nil error means a successful open, or the driver is already open.
+//
+// Errors:
+//   - [CudaDriverError]: if the CUDA driver failed to initialize. [PlatformNotSupported] if the current platform is not supported by GDS.
+//   - [DriverNotInitialized]: on a failure to open the driver.
+//   - [DriverVersionMismatch]: when there is a mismatch between the cuFile library and its kernel driver.
+//   - [NvfsSetupError]: for a cuFile-specific internal error. Refer to the cufile.log file for more information.
+//   - [PermissionDenied]: on a failure to open. This can happen when the character device ( /dev/nvidia_fs [0-15]) is restricted to certain users by an administrator, for example, admin, where /dev is not exposed with read permissions in the container.
+//
+// Wraps cuFileDriverOpen.
 func DriverOpen() error {
 	if err := checkLibSym("cuFileDriverOpen"); err != nil {
 		return err
@@ -258,7 +448,21 @@ func DriverOpen() error {
 	return toError(fnDriverOpen(), "cuFileDriverOpen")
 }
 
-// DriverSetMaxCacheSize wraps cuFileDriverSetMaxCacheSize.
+// DriverSetMaxCacheSize sets the maximum GPU buffer space, in KB, per device and is used for internal use, for example, to handle unaligned IO and optimal IO path routing.
+//
+// This value might be rounded down to the nearest GPU page size.
+// The max cache size must be 4K aligned.
+// This API overrides the default value that might be set through the JSON configuration file using the properties.max_device_cache_size_kb config key for the current process.
+// This API is used with cuFileGetDriverProperties and is used to set the upper limit on the cache size per device for internal use by the library.
+// Refer to [DriverGetProperties] for more information.
+//
+//   - maxCacheSize: The maximum GPU buffer space, in KB, per device used for internal use, for example, to handle unaligned IO and optimal IO path routing. This value might be rounded down to the nearest GPU page size. The default value is 131072KB
+//
+// Errors:
+//   - [DriverNotInitialized]: on failure to load the driver.
+//   - [DriverUnsupportedLimit]: on failure to set with valid IO size
+//
+// Wraps cuFileDriverSetMaxCacheSize.
 func DriverSetMaxCacheSize(maxCacheSize uint) error {
 	if err := checkLibSym("cuFileDriverSetMaxCacheSize"); err != nil {
 		return err
@@ -266,7 +470,24 @@ func DriverSetMaxCacheSize(maxCacheSize uint) error {
 	return toError(fnDriverSetMaxCacheSize(maxCacheSize), "cuFileDriverSetMaxCacheSize")
 }
 
-// DriverSetMaxDirectIOSize wraps cuFileDriverSetMaxDirectIOSize.
+// DriverSetMaxDirectIOSize sets the max IO size, in KB.
+//
+// This parameter is used by the nvidia-fs driver as the maximum IO chunk size in which IO is issued to the underlying filesystem. In compatible mode, this is the maximum IO chunk size that the library uses to issue POSIX read/writes.
+//   - The max direct IO size must be 4K aligned.
+//
+// This API is used with cuFileGetDriverProperties and is used to set the maximum direct IO size used by the library to specify the nvidia-fs kernel driver the maximum chunk size in which the latter can issue IO to the underlying filesystem. In compatible mode, this is the maximum IO chunk size which the library uses for issuing POSIX read/writes. This parameter is dependent on the underlying GPU hardware and system memory.
+// This API overrides the default value that might be set through the JSON configuration file by using the properties.max_direct_io_size_kb config key for the current process.
+// Refer to the following for more information:
+//   - [DriverGetProperties]
+//
+// Parameters:
+//   - maxDirectIoSize: The maximum allowed direct IO size in KB. The default value is 16384KB. This is because typically parallel-file systems perform better with bulk read/writes
+//
+// Errors:
+//   - [DriverNotInitialized]: on failure to load the driver.
+//   - [DriverUnsupportedLimit]: on failure to set with valid size.
+//
+// Wraps cuFileDriverSetMaxDirectIOSize.
 func DriverSetMaxDirectIOSize(maxDirectIoSize uint) error {
 	if err := checkLibSym("cuFileDriverSetMaxDirectIOSize"); err != nil {
 		return err
@@ -274,7 +495,19 @@ func DriverSetMaxDirectIOSize(maxDirectIoSize uint) error {
 	return toError(fnDriverSetMaxDirectIOSize(maxDirectIoSize), "cuFileDriverSetMaxDirectIOSize")
 }
 
-// DriverSetMaxPinnedMemSize wraps cuFileDriverSetMaxPinnedMemSize.
+// DriverSetMaxPinnedMemSize sets the maximum GPU buffer space, in KB, that is pinned and mapped.
+//
+// This value might be rounded down to the nearest GPU page size.
+// The max pinned size must be 4K aligned.
+// The default value corresponds to the maximum PinnedMemory or the physical memory size of the device.
+// This API overrides the default value that may be set by the properties.max_device_pinned_mem_size_kb JSON config key for the current process.
+// This API is used with cuFileGetDriverProperties and is used to set an upper limit on the maximum size of GPU memory that can be pinned and mapped and is dependent on the underlying GPU hardware and system memory. This API is related to [BufRegister], which is used to register GPU device memory. See [DriverGetProperties] for more information.
+//
+// Errors:
+//   - [DriverNotInitialized]: on failure to load driver.
+//   - [DriverUnsupportedLimit]: on failure to set with valid size.
+//
+// Wraps cuFileDriverSetMaxPinnedMemSize.
 func DriverSetMaxPinnedMemSize(maxPinnedSize uint) error {
 	if err := checkLibSym("cuFileDriverSetMaxPinnedMemSize"); err != nil {
 		return err
@@ -282,7 +515,23 @@ func DriverSetMaxPinnedMemSize(maxPinnedSize uint) error {
 	return toError(fnDriverSetMaxPinnedMemSize(maxPinnedSize), "cuFileDriverSetMaxPinnedMemSize")
 }
 
-// DriverSetP2PFlags wraps cuFileDriverSetP2PFlags.
+// DriverSetP2PFlags sets the P2P flags for a specific filesystem or block device.
+//
+// The p2pFlags parameter should be a bitmask of the desired P2P capabilities.
+// On x86_64 platforms: only [P2PFlagPciP2pdma] is allowed.
+// On AARCH64 platforms: only [P2PFlagC2C] is allowed.
+// [P2PFlagNvfs] and [P2PFlagDmabuf] are not allowed to be set via this API (they are managed internally by the driver).
+// This API sets the P2P flags for a specific filesystem or block device. Currently, based on the platform, only [P2PFlagPciP2pdma] or [P2PFlagC2C] is allowed. If these flags are set, then the I/O will be attempted via P2PDMA mode (if the system supports it) instead of traditional NVFS mode.
+//
+//   - statusFlag: The filesystem/device status flag (for example, [LustreSupported], [NvmeSupported], etc.)
+//   - p2pFlags: The P2P flags bitmask to set
+//
+// Errors:
+//   - [DriverNotInitialized]: if the cuFile driver is not initialized.
+//   - [InvalidValue]: if status_flag is invalid.
+//   - CU_FILE_P2P_FLAG_NOT_SUPPORTED: if p2p_flags contains flags not supported on the current platform.
+//
+// Wraps cuFileDriverSetP2PFlags.
 func DriverSetP2PFlags(statusFlag DriverStatusFlags, p2pFlags P2PFlags) error {
 	if err := checkLibSym("cuFileDriverSetP2PFlags"); err != nil {
 		return err
@@ -290,7 +539,24 @@ func DriverSetP2PFlags(statusFlag DriverStatusFlags, p2pFlags P2PFlags) error {
 	return toError(fnDriverSetP2PFlags(statusFlag, p2pFlags), "cuFileDriverSetP2PFlags")
 }
 
-// DriverSetPollMode wraps cuFileDriverSetPollMode.
+// DriverSetPollMode sets whether the [Handle.Read]/Write APIs use polling to complete IO operations.
+//
+// If poll mode is enabled, an IO size less than or equal to the threshold value is used for polling.
+// [DriverSetPollMode](bool poll, size_t pollThresholdSize) API
+// The pollThresholdSize must be 4K aligned.
+// This API is used in conjunction with cuFileGetDriverProperties. This API is used to set whether the library should use polling and the maximum IO threshold size less than or equal to which it will poll.
+// This API overrides the default value that may be set through the JSON configuration file using the config keys properties.poll_mode and properties.poll_max_size_kb for the current process.
+// Refer to the following for more information:
+// [DriverGetProperties]
+//
+//   - poll: Boolean to indicate whether to use the poll mode
+//   - pollThresholdSize: IO size to use for POLLING mode in KB. The default value is 4KB
+//
+// Errors:
+//   - [DriverNotInitialized]: on failure to load the driver.
+//   - [DriverUnsupportedLimit]: on failure to set with valid threshold size.
+//
+// Wraps cuFileDriverSetPollMode.
 func DriverSetPollMode(poll bool, pollThresholdSize uint) error {
 	if err := checkLibSym("cuFileDriverSetPollMode"); err != nil {
 		return err
@@ -306,7 +572,18 @@ func ExportPCIeTopology(filename *byte) error {
 	return toError(fnExportPCIeTopology(filename), "cuFileExportPCIeTopology")
 }
 
-// GetBARSizeInKB wraps cuFileGetBARSizeInKB.
+// GetBARSizeInKB gets the BAR size for a specific GPU in KB.
+//
+// This API is used to get the BAR size of the GPU passed in as a parameter.
+//
+//   - gpuIndex: GPU index to query
+//   - barSize: Pointer to store the BAR size in KB
+//
+// Errors:
+//   - [DriverNotInitialized]: if the driver is not initialized.
+//   - [InvalidValue]: on invalid input.
+//
+// Wraps cuFileGetBARSizeInKB.
 func GetBARSizeInKB(gpuIndex int32) (uint, error) {
 	if err := checkLibSym("cuFileGetBARSizeInKB"); err != nil {
 		var zero uint
@@ -320,7 +597,20 @@ func GetBARSizeInKB(gpuIndex int32) (uint, error) {
 	return out, nil
 }
 
-// GetParameterBool wraps cuFileGetParameterBool.
+// GetParameterBool Fetch cuFile configuration parameters in a program.
+//
+// Based on the parameter type, the corresponding API can be chosen.
+// If the driver is open, cuFileGetParameter*() returns the current runtime value for the given parameter.
+// If the driver is not opened yet, cuFileGetParameter*() returns the currently staged value for that parameter. Staged parameter values are cleared when the driver is opened.
+// These APIs are used to fetch configuration parameters in a programmatic way as opposed to reading the JSON file or environment variables.
+//
+//   - param: The parameter to get
+//   - value: The location where the value will be stored
+//
+// Errors:
+//   - [InvalidValue]: if the input parameter is invalid.
+//
+// Wraps cuFileGetParameterBool.
 func GetParameterBool(param CUFileBoolConfigParameter) (bool, error) {
 	if err := checkLibSym("cuFileGetParameterBool"); err != nil {
 		var zero bool
@@ -342,7 +632,18 @@ func GetParameterGpuBounceBufferSlabArray(sizeValues *uint, countValues *uint, l
 	return toError(fnGetParameterGpuBounceBufferSlabArray(sizeValues, countValues, len_), "cuFileGetParameterGpuBounceBufferSlabArray")
 }
 
-// GetParameterMinMaxValue wraps cuFileGetParameterMinMaxValue.
+// GetParameterMinMaxValue gets both the minimum and maximum settable values for a given size_t parameter in a single call.
+//
+// This API is used to get the range a certain size_t parameter supports. This can help applications decide what values they can assign to certain parameters.
+//
+//   - param: [CUFileSizeTConfigParameter] configuration parameter
+//   - minValue: Pointer to store the minimum value
+//   - maxValue: Pointer to store the maximum value
+//
+// Errors:
+//   - [InvalidValue]: if min_value or max_value is NULL.
+//
+// Wraps cuFileGetParameterMinMaxValue.
 func GetParameterMinMaxValue(param CUFileSizeTConfigParameter) (uint, uint, error) {
 	if err := checkLibSym("cuFileGetParameterMinMaxValue"); err != nil {
 		return 0, 0, err
@@ -355,7 +656,19 @@ func GetParameterMinMaxValue(param CUFileSizeTConfigParameter) (uint, uint, erro
 	return out0, out1, nil
 }
 
-// GetParameterPosixPoolSlabArray wraps cuFileGetParameterPosixPoolSlabArray.
+// GetParameterPosixPoolSlabArray gets POSIX pool slab array.
+//
+// sizeValues and countValues parameters are returned as a pair.
+// This API is used to query values of a POSIX pool array.
+//
+//   - sizeValues: Buffer to receive slab sizes in KB
+//   - countValues: Buffer to receive slab counts
+//   - len_: Buffer size (must match the actual parameter length)
+//
+// Errors:
+//   - [InvalidValue]: if inputs are invalid.
+//
+// Wraps cuFileGetParameterPosixPoolSlabArray.
 func GetParameterPosixPoolSlabArray(sizeValues *uint, countValues *uint, len_ int32) error {
 	if err := checkLibSym("cuFileGetParameterPosixPoolSlabArray"); err != nil {
 		return err
@@ -363,7 +676,20 @@ func GetParameterPosixPoolSlabArray(sizeValues *uint, countValues *uint, len_ in
 	return toError(fnGetParameterPosixPoolSlabArray(sizeValues, countValues, len_), "cuFileGetParameterPosixPoolSlabArray")
 }
 
-// GetParameterSizeT wraps cuFileGetParameterSizeT.
+// GetParameterSizeT Fetch cuFile configuration parameters in a program.
+//
+// Based on the parameter type, the corresponding API can be chosen.
+// If the driver is open, cuFileGetParameter*() returns the current runtime value for the given parameter.
+// If the driver is not opened yet, cuFileGetParameter*() returns the currently staged value for that parameter. Staged parameter values are cleared when the driver is opened.
+// These APIs are used to fetch configuration parameters in a programmatic way as opposed to reading the JSON file or environment variables.
+//
+//   - param: The parameter to get
+//   - value: The location where the value will be stored
+//
+// Errors:
+//   - [InvalidValue]: if the input parameter is invalid.
+//
+// Wraps cuFileGetParameterSizeT.
 func GetParameterSizeT(param CUFileSizeTConfigParameter) (uint, error) {
 	if err := checkLibSym("cuFileGetParameterSizeT"); err != nil {
 		var zero uint
@@ -377,7 +703,20 @@ func GetParameterSizeT(param CUFileSizeTConfigParameter) (uint, error) {
 	return out, nil
 }
 
-// GetParameterString wraps cuFileGetParameterString.
+// GetParameterString Fetch cuFile configuration parameters in a program.
+//
+// Based on the parameter type, the corresponding API can be chosen.
+// If the driver is open, cuFileGetParameter*() returns the current runtime value for the given parameter.
+// If the driver is not opened yet, cuFileGetParameter*() returns the currently staged value for that parameter. Staged parameter values are cleared when the driver is opened.
+// These APIs are used to fetch configuration parameters in a programmatic way as opposed to reading the JSON file or environment variables.
+//
+//   - param: The parameter to get
+//   - descStr: The location where the value will be stored
+//
+// Errors:
+//   - [InvalidValue]: if the input parameter is invalid.
+//
+// Wraps cuFileGetParameterString.
 func GetParameterString(param CUFileStringConfigParameter, descStr *byte, len_ int32) error {
 	if err := checkLibSym("cuFileGetParameterString"); err != nil {
 		return err
@@ -385,7 +724,17 @@ func GetParameterString(param CUFileStringConfigParameter, descStr *byte, len_ i
 	return toError(fnGetParameterString(param, descStr, len_), "cuFileGetParameterString")
 }
 
-// GetStatsL1 wraps cuFileGetStatsL1.
+// GetStatsL1 gets Level 1 cuFile statistics.
+//
+// Level 1 provides basic I/O and operation counters including read and write operations, bytes transferred, bandwidth, latency, and batch operation statistics.
+//
+//   - stats: Pointer to [StatsLevel1] structure to be filled
+//
+// Errors:
+//   - [DriverNotInitialized]
+//   - CU_FILE_ERROR_INVALID_VALUE
+//
+// Wraps cuFileGetStatsL1.
 func GetStatsL1() (StatsLevel1, error) {
 	if err := checkLibSym("cuFileGetStatsL1"); err != nil {
 		var zero StatsLevel1
@@ -399,7 +748,17 @@ func GetStatsL1() (StatsLevel1, error) {
 	return out, nil
 }
 
-// GetStatsL2 wraps cuFileGetStatsL2.
+// GetStatsL2 gets Level 2 cuFile statistics.
+//
+// Level 2 includes all Level 1 statistics plus size histograms for read and write operations. The histograms track the distribution of I/O operation sizes, useful for analyzing I/O size patterns and optimization.
+//
+//   - stats: Pointer to [StatsLevel2] structure to be filled
+//
+// Errors:
+//   - [DriverNotInitialized]
+//   - CU_FILE_ERROR_INVALID_VALUE
+//
+// Wraps cuFileGetStatsL2.
 func GetStatsL2() (StatsLevel2, error) {
 	if err := checkLibSym("cuFileGetStatsL2"); err != nil {
 		var zero StatsLevel2
@@ -413,7 +772,17 @@ func GetStatsL2() (StatsLevel2, error) {
 	return out, nil
 }
 
-// GetStatsL3 wraps cuFileGetStatsL3.
+// GetStatsL3 gets Level 3 cuFile statistics.
+//
+// Level 3 includes all Level 2 statistics plus per-GPU breakdown of operations, bandwidth, utilization, and buffer registration statistics. This level provides detailed analysis of which GPUs are being used, how operations are distributed across GPUs, and the type of I/O path used (P2P, NVFS, or POSIX). The per-GPU breakdown includes operation counts, bandwidth metrics, utilization percentages, and buffer registration statistics. This level has the highest performance overhead but provides the most detailed insights for performance analysis and debugging.
+//
+//   - stats: Pointer to [StatsLevel3] structure to be filled
+//
+// Errors:
+//   - [DriverNotInitialized]
+//   - CU_FILE_ERROR_INVALID_VALUE
+//
+// Wraps cuFileGetStatsL3.
 func GetStatsL3() (StatsLevel3, error) {
 	if err := checkLibSym("cuFileGetStatsL3"); err != nil {
 		var zero StatsLevel3
@@ -427,7 +796,16 @@ func GetStatsL3() (StatsLevel3, error) {
 	return out, nil
 }
 
-// GetStatsLevel wraps cuFileGetStatsLevel.
+// GetStatsLevel gets the current level of statistics collection for cuFile operations.
+//
+// Returns the currently configured stats level (0–3) in the provided pointer.
+//
+//   - level: Pointer to store the current statistics level
+//
+// Errors:
+//   - CU_FILE_ERROR_INVALID_VALUE
+//
+// Wraps cuFileGetStatsLevel.
 func GetStatsLevel() (int32, error) {
 	if err := checkLibSym("cuFileGetStatsLevel"); err != nil {
 		var zero int32
@@ -441,7 +819,19 @@ func GetStatsLevel() (int32, error) {
 	return out, nil
 }
 
-// GetVersion wraps cuFileGetVersion.
+// GetVersion retrieves the cuFile library version.
+//
+// The version is returned as (1000 * major + 10 * minor).
+// For example, cuFile 1.7.0 would be represented by 1070.
+// This API is used to obtain the current version of the cuFile library. It may be useful sometimes for an application to expect based on the version if any specific GDS feature is present or not.
+//
+//   - version: Output. argument which would contain the version number in the above format upon successful completion
+//
+// Errors:
+//   - [DriverVersionReadError]: if the version is not available.
+//   - [InvalidValue]: if the version parameter is null.
+//
+// Wraps cuFileGetVersion.
 func GetVersion() (int32, error) {
 	if err := checkLibSym("cuFileGetVersion"); err != nil {
 		var zero int32
@@ -455,7 +845,22 @@ func GetVersion() (int32, error) {
 	return out, nil
 }
 
-// handleDeregister wraps cuFileHandleDeregister.
+// handleDeregister The API is used to release resources that are claimed by [HandleRegister].
+//
+// Note: This API only logs an ERROR level message in the cufile.log file for valid inputs.
+// This API should be invoked only after the application ensures there are no outstanding IO operations with the handle. If [Handle.Deregister] is called while IO on the file is in progress might result in undefined behavior.
+//   - The user is still expected to close the file descriptor outside the cuFile subsystem after calling this API using close system call.
+//
+// Closing a file handle without calling [Handle.Deregister] does not release the resources that are held in the cuFile library. If this API is not called, the cuFile subsystem releases the resources lazily or when the application exits.
+// Refer to the following for more information:
+//   - [Handle.Read]
+//   - [Handle.Write]
+//   - [HandleRegister]
+//
+// Parameters:
+//   - fh: The file handle obtained from [HandleRegister]
+//
+// Wraps cuFileHandleDeregister.
 // The error reports an unavailable library or symbol.
 func handleDeregister(fh Handle) error {
 	if err := checkLibSym("cuFileHandleDeregister"); err != nil {
@@ -465,7 +870,33 @@ func handleDeregister(fh Handle) error {
 	return nil
 }
 
-// handleRegister wraps cuFileHandleRegister.
+// handleRegister registers an open file.
+//
+// [HandleRegister] is required and performs extra checking that is memoized to provide increased performance on later cuFile operations.
+// This API is OS agnostic.
+//   - Given a file-descriptor will populate and return the [Handle] needed for issuing IO with cuFile APIs.
+//   - A return value of anything other than [Success] leaves fh in an undefined state but has no other side effects.
+//   - By default this API accepts whether the file descriptor is opened with O_DIRECT mode or non O_DIRECT mode.
+//
+// Refer to the following for more information:
+//   - [Handle.Read]
+//   - [Handle.Write]
+//   - [Handle.ReadAsync]
+//   - [Handle.WriteAsync]
+//   - [Handle.Deregister]
+//
+// Parameters:
+//   - fh: Valid pointer to the OS-neutral cuFile handle structure supplied by the user but populated and maintained by the cuFile runtime
+//
+// Errors:
+//   - [DriverNotInitialized]: on failure to load the driver.
+//   - [HandleAlreadyRegistered]: if the file is already registered using the same file-descriptor.
+//   - [InvalidFileOpenFlag]: if the file is opened with unsupported modes such as no O_APPEND, O_NOCTTY, O_NONBLOCK, O_DIRECTORY, O_NOFOLLOW, O_NOATIME, and O_TMPFILE.
+//   - [InvalidFileType]: if the file path is not valid, not a regular file, not a symbolic link, or not a device file.
+//   - [InvalidValue]: if there are null or bad API arguments.
+//   - [IoNotSupported]: if the filesystem is not supported.
+//
+// Wraps cuFileHandleRegister.
 func handleRegister(descr *Descr) (Handle, error) {
 	if err := checkLibSym("cuFileHandleRegister"); err != nil {
 		var zero Handle
@@ -479,18 +910,75 @@ func handleRegister(descr *Descr) (Handle, error) {
 	return out, nil
 }
 
-// read wraps cuFileRead.
-// The error reports an unavailable library or symbol.
+// read reads specified bytes from the file descriptor into the device memory or the host memory.
+//
+// This API reads the data from a specified file handle at a specified offset and size bytes into the GPU memory by using GDS functionality or into the host memory based on the type of memory pointer. The API works correctly for unaligned offsets and any data size, although the performance might not match the performance of aligned reads. This is a synchronous call and blocks until the IO is complete.
+//
+// Note: For the bufPtrOffset, if data will be read starting exactly from the bufPtrBase that is registered with [BufRegister], bufPtrOffset should be set to 0. To read starting from an offset in the registered buffer range, the relative offset should be specified in the bufPtrOffset, and the bufPtrBase must remain set to the base address that was used in the [BufRegister] call.
+// See the following for more information:
+//   - [Handle.Write]
+//   - [Handle.ReadAsync]
+//   - [Handle.WriteAsync]
+//
+// Parameters:
+//   - fh: File descriptor for the file
+//   - bufPtrBase: Base address of buffer in device memory or host memory. For registered buffers, bufPtrBase must remain set to the base address used in the [BufRegister] call
+//   - size: Size in bytes to read
+//   - fileOffset: Offset in the file to read from
+//   - bufPtrOffset: Offset relative to the bufPtrBase pointer to read into. This parameter should be used only with registered buffers
+//
+// read returns the count. If it is negative, read returns 0 and an error
+// instead: an *[ErrnoError] if it is -1, which reports a failure in errno,
+// and otherwise a *[CallError] whose Result.Err ([OpError]) is the negated
+// count. An unavailable library or symbol is also an error.
+//
+// Wraps cuFileRead.
 func read(fh Handle, bufPtrBase uintptr, size uint, fileOffset int64, bufPtrOffset int64) (int64, error) {
 	if err := checkLibSym("cuFileRead"); err != nil {
-		var zero int64
-		return zero, err
+		return 0, err
 	}
 	_result := fnread(fh, bufPtrBase, size, fileOffset, bufPtrOffset)
+	if _result < 0 {
+		return 0, negativeError(_result, "cuFileRead")
+	}
 	return _result, nil
 }
 
-// readAsync wraps cuFileReadAsync.
+// readAsync enqueues a read operation for the specified bytes from the cuFile handle into the device memory by using GDS functionality or to the host memory based on the type of memory pointer.
+//
+// If non-NULL, the action is ordered in the stream.
+// The current context of the caller is assumed.
+//   - This API reads the data from the specified file handle at the specified offset and size bytes into the GPU memory using GDS functionality.
+//
+// This is an asynchronous call and enqueues the operation into the specified CUDA stream and will not block the host thread for IO completion. The operation can be waited upon using cuStreamSynchronize(stream).
+//   - The bytesReadP memory should be allocated with cuMemHostAlloc/malloc/mmap or registered with cuMemHostRegister.
+//
+// The pointer to access that memory from the device can be obtained by using cuMemHostGetDevicePointer.
+//   - Operations that are enqueued with cuFile Stream APIs are FIFO ordered with respect to other work on the stream and must be completed before continuing to the next action in the stream.
+//   - Unless otherwise specified through [StreamRegister] API, file offset, buffer offset or size parameter will not be evaluated until execution time. In these scenarios, size parameters should be set to the maximum possible I/O size at the time of submission and can be set to the actual size prior to the stream I/O execution.
+//
+// Refer to the following for more information:
+//   - [Handle.Read]
+//   - [Handle.Write]
+//   - [Handle.WriteAsync]
+//
+// Parameters:
+//   - fh: The cuFile handle for the file
+//   - bufPtrBase: The base address of the buffer in the memory into which to read. The buffer can be allocated using either cudaMemory, cudaMallocHost, malloc, or mmap. For registered buffers, bufPtrBase must remain set to the base address used in [BufRegister] call
+//   - sizeP: Pointer to size in bytes to read. If the exact size is not known at the time of I/O submission, then yo must set it to the maximum possible I/O size for that stream I/O
+//   - fileOffsetP: Pointer to offset in the file from which to read. Unless otherwise set using [StreamRegister] API, this value will not be evaluated until execution time
+//   - bufPtrOffsetP: Pointer to the offset relative to the bufPtrBase pointer from which to write. Unless otherwise set using [StreamRegister] API, this value will not be evaluated until execution time
+//   - bytesReadP: Pointer to the bytes read from the specified filehandle. This pointer should be a non NULL value and *bytesReadP set to 0. After successful execution of the operation in the stream, the value *bytesReadP will contain either: The number of bytes successfully read. -1 on IO errors. All other errors return a negative integer value of the [OpError] enum value
+//   - stream: CUDA stream in which to enqueue the operation. If NULL, make this operation synchronous
+//
+// A nil error means a successful submission.
+//
+// Errors:
+//   - CU_FILE_CUDA_ERROR: on CUDA-specific errors. CUresult code can be obtained by using CU_FILE_CUDA_ERR(err).
+//   - CU_FILE_DRIVER_ERROR: if the nvidia-fs driver cannot handle the request.
+//   - CU_FILE_ERROR_INVALID_VALUE: on an input failure.
+//
+// Wraps cuFileReadAsync.
 func readAsync(fh Handle, bufPtrBase uintptr, sizeP *uint, fileOffsetP *int64, bufPtrOffsetP *int64, bytesReadP *int64, stream driver.Stream) error {
 	if err := checkLibSym("cuFileReadAsync"); err != nil {
 		return err
@@ -498,7 +986,22 @@ func readAsync(fh Handle, bufPtrBase uintptr, sizeP *uint, fileOffsetP *int64, b
 	return toError(fnreadAsync(fh, bufPtrBase, sizeP, fileOffsetP, bufPtrOffsetP, bytesReadP, stream), "cuFileReadAsync")
 }
 
-// SetParameterBool wraps cuFileSetParameterBool.
+// SetParameterBool allows setting of cuFile configuration parameters in a program.
+//
+// Based on the parameter type, the corresponding API can be chosen.
+// Should be called before the driver opens and the values take effect after the driver is opened.
+// If the same parameter is set multiple times, only the last parameter is kept and used.
+// Parameter precedence (highest to lowest) is: cuFileSetParameter*() (if set), then environment variable (if exists and set), then cufile.json.
+// These APIs are used to set configuration parameters in a programmatic way as opposed to relying on the JSON file or environment variables.
+//
+//   - param: The parameter to set, based on parameter type
+//   - value: The source of the parameter value
+//
+// Errors:
+//   - [DriverAlreadyOpen]: if the driver is already open.
+//   - [InvalidValue]: if the input parameter is invalid.
+//
+// Wraps cuFileSetParameterBool.
 func SetParameterBool(param CUFileBoolConfigParameter, value bool) error {
 	if err := checkLibSym("cuFileSetParameterBool"); err != nil {
 		return err
@@ -514,7 +1017,21 @@ func SetParameterGpuBounceBufferSlabArray(sizeValues *uint, countValues *uint, l
 	return toError(fnSetParameterGpuBounceBufferSlabArray(sizeValues, countValues, len_), "cuFileSetParameterGpuBounceBufferSlabArray")
 }
 
-// SetParameterPosixPoolSlabArray wraps cuFileSetParameterPosixPoolSlabArray.
+// SetParameterPosixPoolSlabArray sets POSIX pool slabs for compat mode I/O.
+//
+// sizeValues and countValues parameters are treated as a pair.
+// Should be set before [DriverOpen] is called.
+// This API is used to set a POSIX pool array. The application can set it based on the I/O sizes it is going to be issuing and hence reduce memory fragmentation.
+//
+//   - sizeValues: Array of slab sizes in KB
+//   - countValues: Array of slab counts
+//   - len_: Length of both arrays (must be the same)
+//
+// Errors:
+//   - [DriverAlreadyOpen]: if the driver is already open.
+//   - [InvalidValue]: if inputs are invalid.
+//
+// Wraps cuFileSetParameterPosixPoolSlabArray.
 func SetParameterPosixPoolSlabArray(sizeValues *uint, countValues *uint, len_ int32) error {
 	if err := checkLibSym("cuFileSetParameterPosixPoolSlabArray"); err != nil {
 		return err
@@ -522,7 +1039,22 @@ func SetParameterPosixPoolSlabArray(sizeValues *uint, countValues *uint, len_ in
 	return toError(fnSetParameterPosixPoolSlabArray(sizeValues, countValues, len_), "cuFileSetParameterPosixPoolSlabArray")
 }
 
-// SetParameterSizeT wraps cuFileSetParameterSizeT.
+// SetParameterSizeT allows setting of cuFile configuration parameters in a program.
+//
+// Based on the parameter type, the corresponding API can be chosen.
+// Should be called before the driver opens and the values take effect after the driver is opened.
+// If the same parameter is set multiple times, only the last parameter is kept and used.
+// Parameter precedence (highest to lowest) is: cuFileSetParameter*() (if set), then environment variable (if exists and set), then cufile.json.
+// These APIs are used to set configuration parameters in a programmatic way as opposed to relying on the JSON file or environment variables.
+//
+//   - param: The parameter to set, based on parameter type
+//   - value: The source of the parameter value
+//
+// Errors:
+//   - [DriverAlreadyOpen]: if the driver is already open.
+//   - [InvalidValue]: if the input parameter is invalid.
+//
+// Wraps cuFileSetParameterSizeT.
 func SetParameterSizeT(param CUFileSizeTConfigParameter, value uint) error {
 	if err := checkLibSym("cuFileSetParameterSizeT"); err != nil {
 		return err
@@ -530,7 +1062,22 @@ func SetParameterSizeT(param CUFileSizeTConfigParameter, value uint) error {
 	return toError(fnSetParameterSizeT(param, value), "cuFileSetParameterSizeT")
 }
 
-// SetParameterString wraps cuFileSetParameterString.
+// SetParameterString allows setting of cuFile configuration parameters in a program.
+//
+// Based on the parameter type, the corresponding API can be chosen.
+// Should be called before the driver opens and the values take effect after the driver is opened.
+// If the same parameter is set multiple times, only the last parameter is kept and used.
+// Parameter precedence (highest to lowest) is: cuFileSetParameter*() (if set), then environment variable (if exists and set), then cufile.json.
+// These APIs are used to set configuration parameters in a programmatic way as opposed to relying on the JSON file or environment variables.
+//
+//   - param: The parameter to set, based on parameter type
+//   - descStr: The source of the parameter value
+//
+// Errors:
+//   - [DriverAlreadyOpen]: if the driver is already open.
+//   - [InvalidValue]: if the input parameter is invalid.
+//
+// Wraps cuFileSetParameterString.
 func SetParameterString(param CUFileStringConfigParameter, descStr *byte) error {
 	if err := checkLibSym("cuFileSetParameterString"); err != nil {
 		return err
@@ -538,7 +1085,16 @@ func SetParameterString(param CUFileStringConfigParameter, descStr *byte) error 
 	return toError(fnSetParameterString(param, descStr), "cuFileSetParameterString")
 }
 
-// SetStatsLevel wraps cuFileSetStatsLevel.
+// SetStatsLevel sets the level of statistics collection for cuFile operations.
+//
+// This overrides the cufile.json settings for stats. Higher stats levels may impact performance. Level 0 disables statistics collection. Changes to stats level take effect for future operations. Must be called before [StatsStart] to take effect.
+//
+//   - level: Statistics level (0 = disabled, 1 = basic, 2 = detailed, 3 = verbose)
+//
+// Errors:
+//   - CU_FILE_ERROR_INVALID_VALUE
+//
+// Wraps cuFileSetStatsLevel.
 func SetStatsLevel(level int32) error {
 	if err := checkLibSym("cuFileSetStatsLevel"); err != nil {
 		return err
@@ -546,7 +1102,14 @@ func SetStatsLevel(level int32) error {
 	return toError(fnSetStatsLevel(level), "cuFileSetStatsLevel")
 }
 
-// StatsReset wraps cuFileStatsReset.
+// StatsReset resets all cuFile statistics counters to zero.
+//
+// This clears all accumulated statistics data across all levels. Can be called while statistics collection is active or stopped. Useful for measuring statistics over specific time periods or operation sets.
+//
+// Errors:
+//   - [DriverNotInitialized]
+//
+// Wraps cuFileStatsReset.
 func StatsReset() error {
 	if err := checkLibSym("cuFileStatsReset"); err != nil {
 		return err
@@ -554,7 +1117,14 @@ func StatsReset() error {
 	return toError(fnStatsReset(), "cuFileStatsReset")
 }
 
-// StatsStart wraps cuFileStatsStart.
+// StatsStart starts collecting cuFile statistics.
+//
+// The statistics level must be set with a level greater than 0 before calling this function. Statistics counters begin accumulating from this point and can be stopped and restarted without resetting counters unless [StatsReset] is called.
+//
+// Errors:
+//   - [DriverNotInitialized]
+//
+// Wraps cuFileStatsStart.
 func StatsStart() error {
 	if err := checkLibSym("cuFileStatsStart"); err != nil {
 		return err
@@ -562,7 +1132,14 @@ func StatsStart() error {
 	return toError(fnStatsStart(), "cuFileStatsStart")
 }
 
-// StatsStop wraps cuFileStatsStop.
+// StatsStop stops collecting cuFile statistics.
+//
+// Accumulated statistics remain available for querying until reset or driver close. Statistics counters are preserved and can still be queried. Collection can be restarted with [StatsStart] to continue accumulating. Use [StatsReset] to clear all counters.
+//
+// Errors:
+//   - [DriverNotInitialized]
+//
+// Wraps cuFileStatsStop.
 func StatsStop() error {
 	if err := checkLibSym("cuFileStatsStop"); err != nil {
 		return err
@@ -570,7 +1147,22 @@ func StatsStop() error {
 	return toError(fnStatsStop(), "cuFileStatsStop")
 }
 
-// StreamDeregister wraps cuFileStreamDeregister.
+// StreamDeregister This optional API deregisters the stream with the cuFile subsystem.
+//
+// This API will free allocated cuFile resources associated with the stream.
+// The API will synchronize on the stream before releasing resources.
+// The stream pointer is expected to be a valid pointer.
+// The stream will be automatically deregistered as part of [DriverClose].
+//
+//   - stream: CUDA stream in which to enqueue the operation. If NULL, make this operation in the default CUDA stream
+//
+// A nil error means a successful submission.
+//
+// Errors:
+//   - CU_FILE_ERROR_INVALID_VALUE: on a invalid stream specification.
+//   - [PlatformNotSupported]: on unsupported platforms.
+//
+// Wraps cuFileStreamDeregister.
 func StreamDeregister(stream driver.Stream) error {
 	if err := checkLibSym("cuFileStreamDeregister"); err != nil {
 		return err
@@ -578,7 +1170,25 @@ func StreamDeregister(stream driver.Stream) error {
 	return toError(fnStreamDeregister(stream), "cuFileStreamDeregister")
 }
 
-// StreamRegister wraps cuFileStreamRegister.
+// StreamRegister defines the input behavior for stream I/O APIs.
+//
+// Note: Using the flag 0XF will perform best as the workflow can be optimized during submission time.
+// This optional API registers the stream with the cuFile subsystem.
+// This API will allocate resources to handle stream operations for cuFile.
+// The API will synchronize on the stream before allocating resources.
+// The stream pointer is expected to be a valid pointer.
+//
+//   - stream: CUDA stream in which to enqueue the operation. If NULL, make this operation in the default CUDA stream
+//   - flags: The following are valid values: 0x0: All the I/O parameters are valid only at the time of execution. 0x1: Buffer offset value is valid at submission time. 0x2: File offset value is valid at submission time. 0x4: Size is valid at submission time. 0x8: All inputs i.e. buffer offset, file offset and size are 4K aligned. 0xf: All inputs are aligned and known at submission time
+//
+// A nil error means a successful submission.
+//
+// Errors:
+//   - CU_FILE_DRIVER_ERROR: if the NVIDIA-fs driver cannot handle the request.
+//   - CU_FILE_ERROR_INVALID_VALUE: on a invalid stream specification.
+//   - [PlatformNotSupported]: on unsupported platforms.
+//
+// Wraps cuFileStreamRegister.
 func StreamRegister(stream driver.Stream, flags uint32) error {
 	if err := checkLibSym("cuFileStreamRegister"); err != nil {
 		return err
@@ -597,18 +1207,70 @@ func UseCount() (int, error) {
 	return _result, nil
 }
 
-// write wraps cuFileWrite.
-// The error reports an unavailable library or symbol.
+// write writes specified bytes from the device memory into the file descriptor using GDS.
+//
+// This API writes the data from the GPU memory or the host memory to a file specified by the file handle at a specified offset and size bytes by using GDS functionality. The API works correctly for unaligned offset and data sizes, although the performance is not on-par with aligned writes.This is a synchronous call and will block until the IO is complete.
+//
+// Note: GDS functionality modified the standard file system metadata in SysMem. However, GDS functionality does not take any special responsibility for writing that metadata back to permanent storage. The data is not guaranteed to be present after a system crash unless the application uses an explicit fsync(2) call. If the file is opened with an O_SYNC flag, the metadata will be written to the disk before the call is complete.
+// Refer to the note in [Handle.Read] for more information about bufPtrOffset:.
+// Refer to the following for more information:
+//   - [Handle.Write]
+//   - [Handle.ReadAsync]
+//   - [Handle.WriteAsync]
+//
+// Parameters:
+//   - fh: File descriptor for the file
+//   - bufPtrBase: Base address of buffer in device memory or host memory. For registered buffers, bufPtrBase must remain set to the base address used in the [BufRegister] call
+//   - size: Size in bytes to which to write
+//   - fileOffset: Offset in the file to which to write
+//   - bufPtrOffset: Offset relative to the bufPtrBase pointer from which to write. This parameter should be used only with registered buffers
+//
+// write returns the count. If it is negative, write returns 0 and an error
+// instead: an *[ErrnoError] if it is -1, which reports a failure in errno,
+// and otherwise a *[CallError] whose Result.Err ([OpError]) is the negated
+// count. An unavailable library or symbol is also an error.
+//
+// Wraps cuFileWrite.
 func write(fh Handle, bufPtrBase uintptr, size uint, fileOffset int64, bufPtrOffset int64) (int64, error) {
 	if err := checkLibSym("cuFileWrite"); err != nil {
-		var zero int64
-		return zero, err
+		return 0, err
 	}
 	_result := fnwrite(fh, bufPtrBase, size, fileOffset, bufPtrOffset)
+	if _result < 0 {
+		return 0, negativeError(_result, "cuFileWrite")
+	}
 	return _result, nil
 }
 
-// writeAsync wraps cuFileWriteAsync.
+// writeAsync Queues [Handle.Write] operation for the specified bytes from the device memory into the cuFile handle by using GDS.
+//
+//   - This API writes the data from the GPU memory to a file specified by the file handle at a specified offset and size bytes by using GDS functionality. This is an asynchronous call and enqueues the operation into the specified CUDA stream and will not block the host thread for IO completion. The operation can be waited upon by using cuStreamSynchronize(stream).
+//   - The bytes_written pointer should be allocated with cuMemHostAlloc or registered with cuMemHostRegister, and the pointer to access that memory from the device can be obtained by using cuMemHostGetDevicePointer.
+//   - Operations that are enqueued with cuFile Stream APIs are FIFO ordered with respect to other work on the stream and must be completed before continuing to the next action in the stream.
+//   - Unless otherwise specified through [StreamRegister] API, file offset, buffer offset or size parameter will not be evaluated until execution time. In these scenarios, size parameters should be set to the maximum possible I/O size at the time of submission and can be set to the actual size prior to the stream I/O execution.
+//
+// See the following for more information:
+//   - [Handle.Read]
+//   - [Handle.Write]
+//   - [Handle.ReadAsync]
+//
+// Parameters:
+//   - fh: The cuFile handle for the file
+//   - bufPtrBase: The base address of the buffer in the memory from which to write. The buffer can be allocated using either cudaMemory/cudaMallocHost/malloc/mmap. For registered buffers, bufPtrBase must remain set to the base address used in the [BufRegister] call
+//   - sizeP: Pointer to the size in bytes to write. If the exact size is not known at the time of I/O submission, then you must set it to the maximum possible I/O size for that stream I/O
+//   - fileOffsetP: Pointer to the offset in the file from which to write. Unless otherwise set using [StreamRegister] API, this value will not be evaluated until execution time
+//   - bufPtrOffsetP: Pointer to the offset relative to the bufPtrBase pointer from which to write. Unless otherwise set using [StreamRegister] API, this value will not be evaluated until execution time
+//   - bytesWrittenP: Pointer to the bytes written to the specified filehandle.This pointer should be a non NULL value and *bytesWrittenP set to 0. After successful execution of the operation in the stream, the value *bytesWrittenP will contain either: The number of bytes successfully written. -1 on IO errors. All other errors will return a negative integer value of the [OpError] enum value
+//   - stream: The CUDA stream to enqueue the operation
+//
+// A nil error means a successful submission.
+//
+// Errors:
+//   - CU_FILE_CUDA_ERROR: on CUDA-specific errors. The CUresult code can be obtained by using CU_FILE_CUDA_ERR(err).
+//   - CU_FILE_DRIVER_ERROR: if the nvidia-fs driver cannot handle the request.
+//   - CU_FILE_ERROR_INVALID_VALUE: on an input failure.
+//
+// Wraps cuFileWriteAsync.
 func writeAsync(fh Handle, bufPtrBase uintptr, sizeP *uint, fileOffsetP *int64, bufPtrOffsetP *int64, bytesWrittenP *int64, stream driver.Stream) error {
 	if err := checkLibSym("cuFileWriteAsync"); err != nil {
 		return err

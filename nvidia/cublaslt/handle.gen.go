@@ -10,6 +10,12 @@ import (
 //
 // This function is usually the last call with a particular handle to the cuBLASLt library. Because [Create] allocates some internal resources and the release of those resources by calling [Handle.Destroy] will implicitly call cudaDeviceSynchronize(), it is recommended to minimize the number of times these functions are called.
 //
+// A nil error means the cuBLASLt context was successfully destroyed.
+//
+// Errors:
+//   - [ErrInvalidValue]: lightHandle is NULL
+//   - [ErrNotInitialized]: The cuBLASLt library was not initialized.
+//
 // Wraps cublasLtDestroy.
 func (h Handle) Destroy() error {
 	return destroy(h)
@@ -25,11 +31,38 @@ func (h Handle) Destroy() error {
 // Datatypes Supported:
 // [Handle.Matmul] supports the following computeType, scaleType, Atype/Btype, and Ctype. Footnotes can be found at the end of this section.
 // To use IMMA kernels, one of the following sets of requirements, with the first being the preferred one, must be met:
+//   - Using a regular data ordering: All matrix pointers must be 4-byte aligned. For even better performance, this condition should hold with 16 instead of 4. Leading dimensions of matrices A, B, C must be multiples of 4. Only the “TN” format is supported - A must be transposed and B non-transposed. Pointer mode can be [PointerModeHost], [PointerModeDevice] or [PointerModeAlphaDeviceVectorBetaHost]. With the latter mode, the kernels support the [MatmulDescAlphaVectorBatchStride] attribute. Dimensions m and k must be multiples of 4.
+//   - Using the IMMA-specific data ordering on Ampere (compute capability 8.0) or Turing (compute capability 7.5) (but not Hopper, compute capability 9.0, or later) architecture - [OrderCol32]` for matrices A, C, D, and [OrderCOL44R28C] (on Turing or Ampere architecture) or [OrderCol322R4R4] (on Ampere architecture) for matrix B: Leading dimensions of matrices A, B, C must fulfill conditions specific to the memory ordering (see [Order]). [Handle.Matmul] descriptor must specify [CublasOpT] on matrix B and [CublasOpN] (default) on matrix A and C. If scaleType CUDA_R_32I is used, the only supported values for alpha and beta are 0 or 1. Pointer mode can be [PointerModeHost], [PointerModeDevice], [PointerModeDeviceVector] or [PointerModeAlphaDeviceVectorBetaZero]. These kernels do not support [MatmulDescAlphaVectorBatchStride]. Only the “NT” format is supported - A must be non-transposed and B transposed.
+//
 // To use tensor- or block-scaled FP8 kernels, the following set of requirements must be satisfied:
+//   - All matrix dimensions must meet the optimal requirements listed in Tensor Core Usage (i.e. pointers and matrix dimension must support 16-byte alignment).
+//   - Scaling mode must meet the restrictions noted in the Scaling Mode Support Overview table.
+//   - A must be transposed and B non-transposed (The “TN” format) on Ada (compute capability 8.9), Hopper (compute capability 9.0), and Blackwell GeForce (compute capability 12.x) GPUs.
+//   - The compute type must be [CublasCompute32F].
+//   - The scale type must be CUDA_R_32F.
+//
 // See the table below when using FP8 kernels:
 // To use block-scaled FP4 kernels, the following set of requirements must be satisfied:
+//   - All matrix dimensions must meet the optimal requirements listed in Tensor Core Usage (i.e. pointers and matrix dimension must support 16-byte alignment).
+//   - Scaling mode must be [MatmulMatrixScaleVec16Ue4m3]
+//   - A must be transposed and B non-transposed (The “TN” format)
+//   - The compute type must be [CublasCompute32F].
+//   - The scale type must be CUDA_R_32F.
+//
 // When A,B,C,D are planar-complex matrices ( [MatrixLayoutPlaneOffset] != 0, see [MatrixLayoutAttribute]) to make use of mixed precision tensor core acceleration, the following set of requirements must be satisfied:
+//   - computeType: [CublasCompute32F]; scaleType: CUDA_C_32F; Atype/Btype: CUDA_C_16F 8; Ctype: CUDA_C_16F 8
+//   - computeType: [CublasCompute32F]; scaleType: CUDA_C_32F; Atype/Btype: CUDA_C_16F 8; Ctype: CUDA_C_32F 8
+//   - computeType: [CublasCompute32F]; scaleType: CUDA_C_32F; Atype/Btype: CUDA_C_16BF 8; Ctype: CUDA_C_16BF 8
+//   - computeType: [CublasCompute32F]; scaleType: CUDA_C_32F; Atype/Btype: CUDA_C_16BF 8; Ctype: CUDA_C_32F 8
+//
 // Experimental: To use [Handle.Matmul] with grouped matrices, the following set of requirements must be satisfied:
+//   - All matrix dimensions must meet the optimal requirements listed in Tensor Core Usage (i.e. pointers and matrix dimension must support 16-byte alignment).
+//   - GPU with one of the following compute capabilities: 9.0, 10.x, 11.0.
+//   - The batch mode of all matrices must be [BatchModeGrouped].
+//   - The pointer mode must be [PointerModeHost] or [PointerModeDevice].
+//   - The scale mode of matrices C and D must be [MatmulMatrixScaleScalar32F].
+//   - On GPUs with compute capability 9.0:
+//   - On GPUs with compute capability 10.x and 11.0:
 //
 // Note: Because the shape information for the matrices is only available on the GPU (see [GroupedMatrixLayoutRowsArray], [GroupedMatrixLayoutColsArray], and [GroupedMatrixLayoutLdArray]), the arguments validation is very limited. So it is possible that invalid arguments are not detected which will result in an undefined behavior.
 // NOTES:
@@ -41,12 +74,12 @@ func (h Handle) Destroy() error {
 // FP8 DType is not supported when scaling modes are one of [MatmulMatrixScaleOuterVec32F], [MatmulMatrixScaleVec12832F], and CUBLASLT_MATMUL_MATRIX_SCALE_BLK128x128_32F.
 //
 //   - computeDesc: Handle to a previously created matrix multiplication descriptor of type [MatmulDesc]
-//   - alpha: Pointers to the scalars used in the multiplication
+//   - alpha: Pointers to the scalars used in the multiplication. Its kind must match the scale type of computeDesc ([MatmulDescScaleType]).
 //   - a: Pointers to the GPU memory associated with the corresponding descriptors Adesc, Bdesc and Cdesc
 //   - adesc: Handles to the previous created descriptors of the type [MatrixLayout]
 //   - b: Pointers to the GPU memory associated with the corresponding descriptors Adesc, Bdesc and Cdesc
 //   - bdesc: Handles to the previous created descriptors of the type [MatrixLayout]
-//   - beta: Pointers to the scalars used in the multiplication
+//   - beta: Pointers to the scalars used in the multiplication. Its kind must match the scale type of computeDesc ([MatmulDescScaleType]).
 //   - c: Pointers to the GPU memory associated with the corresponding descriptors Adesc, Bdesc and Cdesc
 //   - cdesc: Handles to the previous created descriptors of the type [MatrixLayout]
 //   - d: Pointer to the GPU memory associated with the descriptor Ddesc
@@ -56,16 +89,15 @@ func (h Handle) Destroy() error {
 //   - workspaceSizeInBytes: Size of the workspace
 //   - stream: The CUDA stream where all the GPU work will be submitted
 //
-// Returns:
-//   - [ErrNotInitialized]: if cuBLASLt handle has not been initialized
-//   - [ErrInvalidValue]: if parameters are in conflict or in an impossible configuration; e.g. when workspaceSizeInBytes is less than workspace required by configured algo
-//   - [ErrNotSupported]: if current implementation on selected device doesn't support configured operation
-//   - [ErrArchMismatch]: if configured operation cannot be run using selected device
-//   - [ErrExecutionFailed]: if cuda reported execution error from the device
-//   - [Success]: if the operation completed successfully
+// Errors:
+//   - [ErrArchMismatch]: If the configured operation cannot be run using the selected device.
+//   - [ErrExecutionFailed]: If CUDA reported an execution error from the device.
+//   - [ErrInvalidValue]: If the parameters are unexpectedly NULL, in conflict or in an impossible configuration. For example, when workspaceSizeInBytes is less than workspace required by the configured algo.
+//   - [ErrNotInitialized]: If cuBLASLt handle has not been initialized.
+//   - [ErrNotSupported]: If the current implementation on the selected device doesn’t support the configured operation.
 //
 // Wraps cublasLtMatmul.
-func (h Handle) Matmul(computeDesc MatmulDesc, alpha uintptr, a driver.DevicePtr, adesc MatrixLayout, b driver.DevicePtr, bdesc MatrixLayout, beta uintptr, c driver.DevicePtr, cdesc MatrixLayout, d driver.DevicePtr, ddesc MatrixLayout, algo *MatmulAlgo, workspace driver.DevicePtr, workspaceSizeInBytes uint, stream driver.Stream) error {
+func (h Handle) Matmul(computeDesc MatmulDesc, alpha Scalar, a driver.DevicePtr, adesc MatrixLayout, b driver.DevicePtr, bdesc MatrixLayout, beta Scalar, c driver.DevicePtr, cdesc MatrixLayout, d driver.DevicePtr, ddesc MatrixLayout, algo *MatmulAlgo, workspace driver.DevicePtr, workspaceSizeInBytes uint, stream driver.Stream) error {
 	return matmul(h, computeDesc, alpha, a, adesc, b, bdesc, beta, c, cdesc, d, ddesc, algo, workspace, workspaceSizeInBytes, stream)
 }
 
@@ -83,11 +115,12 @@ func (h Handle) Matmul(computeDesc MatmulDesc, alpha uintptr, a driver.DevicePtr
 //   - algo: Descriptor which specifies which matrix multiplication algorithm should be used. See [MatmulAlgo]. May point to result->algo
 //   - result: Pointer to the structure holding the results returned by this function. The results comprise of the required workspace and the calculated wave count. The algo field is never updated. See [MatmulHeuristicResult]
 //
-// Returns:
-//   - [ErrInvalidValue]: if matrix layout descriptors or operation descriptor don't match algo descriptor
-//   - [ErrNotSupported]: if algo configuration or data type combination is not currently supported on given device
-//   - [ErrArchMismatch]: if algo configuration cannot be run using the selected device
-//   - [Success]: if check was successful
+// A nil error means the check was successful.
+//
+// Errors:
+//   - [ErrArchMismatch]: If the algo configuration cannot be run using the selected device.
+//   - [ErrInvalidValue]: If matrix layout descriptors or the operation descriptor do not match the algo descriptor.
+//   - [ErrNotSupported]: If the algo configuration or data type combination is not currently supported on the given device.
 //
 // Wraps cublasLtMatmulAlgoCheck.
 func (h Handle) MatmulAlgoCheck(operationDesc MatmulDesc, adesc MatrixLayout, bdesc MatrixLayout, cdesc MatrixLayout, ddesc MatrixLayout, algo *MatmulAlgo) (MatmulHeuristicResult, error) {
@@ -110,10 +143,11 @@ func (h Handle) MatmulAlgoCheck(operationDesc MatmulDesc, adesc MatrixLayout, bd
 //   - heuristicResultsArray: Array containing the algorithm heuristics and associated runtime characteristics, returned by this function, in the order of increasing estimated compute time
 //   - returnAlgoCount: Number of algorithms returned by this function. This is the number of heuristicResultsArray elements written
 //
-// Returns:
-//   - [ErrInvalidValue]: if requestedAlgoCount is less or equal to zero
-//   - [ErrNotSupported]: if no heuristic function available for current configuration
-//   - [Success]: if query was successful, inspect heuristicResultsArray [0 to (returnAlgoCount - 1)].state for detail status of results
+// A nil error means query was successful. Inspect heuristicResultsArray [0 to (returnAlgoCount -1)].state for the status of the results.
+//
+// Errors:
+//   - [ErrInvalidValue]: If requestedAlgoCount is less or equal to zero.
+//   - [ErrNotSupported]: If no heuristic function available for current configuration.
 //
 // Wraps cublasLtMatmulAlgoGetHeuristic.
 func (h Handle) MatmulAlgoGetHeuristic(operationDesc MatmulDesc, adesc MatrixLayout, bdesc MatrixLayout, cdesc MatrixLayout, ddesc MatrixLayout, preference MatmulPreference, requestedAlgoCount int32, heuristicResultsArray *MatmulHeuristicResult) (int32, error) {
@@ -134,9 +168,10 @@ func (h Handle) MatmulAlgoGetHeuristic(operationDesc MatmulDesc, adesc MatrixLay
 //   - algoIdsArray: Array containing the algorithm IDs returned by this function
 //   - returnAlgoCount: Number of algorithms actually returned by this function
 //
-// Returns:
-//   - [ErrInvalidValue]: if requestedAlgoCount is less or equal to zero
-//   - [Success]: if query was successful, inspect returnAlgoCount to get actual number of IDs available
+// A nil error means query was successful. Inspect returnAlgoCount to get actual number of IDs available.
+//
+// Errors:
+//   - [ErrInvalidValue]: If requestedAlgoCount is less or equal to zero.
 //
 // Wraps cublasLtMatmulAlgoGetIds.
 func (h Handle) MatmulAlgoGetIds(computeType ComputeType, scaleType DataType, atype DataType, btype DataType, ctype DataType, dtype DataType, requestedAlgoCount int32, algoIdsArray *int32) (int32, error) {
@@ -154,10 +189,11 @@ func (h Handle) MatmulAlgoGetIds(computeType ComputeType, scaleType DataType, at
 //   - algoId: Specifies the algorithm being initialized. Should be a valid algoId returned by the [Handle.MatmulAlgoGetIds] function
 //   - algo: Pointer to the opaque structure to be initialized. See [MatmulAlgo]
 //
-// Returns:
-//   - [ErrInvalidValue]: if algo is NULL or algoId is outside of recognized range
-//   - [ErrNotSupported]: if algoId is not supported for given combination of data types
-//   - [Success]: if the structure was successfully initialized
+// A nil error means the structure was successfully initialized.
+//
+// Errors:
+//   - [ErrInvalidValue]: If algo is NULL or algoId is outside the recognized range.
+//   - [ErrNotSupported]: If algoId is not supported for given combination of data types.
 //
 // Wraps cublasLtMatmulAlgoInit.
 func (h Handle) MatmulAlgoInit(computeType ComputeType, scaleType DataType, atype DataType, btype DataType, ctype DataType, dtype DataType, algoId int32, algo *MatmulAlgo) error {
@@ -170,25 +206,24 @@ func (h Handle) MatmulAlgoInit(computeType ComputeType, scaleType DataType, atyp
 // where A, B are input matrices, and alpha and beta are input scalars. The transformation operation is defined by the transformDesc pointer. This function can be used to change the memory order of data or to scale and shift the values.
 //
 //   - transformDesc: Pointer to the opaque descriptor holding the matrix transformation operation. See [MatrixTransformDesc]
-//   - alpha: Pointers to the scalars used in the multiplication
+//   - alpha: Pointers to the scalars used in the multiplication. Its kind must match the scale type of transformDesc ([MatrixTransformDescScaleType]).
 //   - a: Pointers to the GPU memory associated with the corresponding descriptors Adesc and Bdesc
-//   - adesc: Handles to the previous created descriptors of the type [MatrixLayout].Adesc or Bdesc can be NULL if the corresponding pointer is NULL and the corresponding scalar is zero
-//   - beta: Pointers to the scalars used in the multiplication
+//   - adesc: Handles to the previous created descriptors of the type [MatrixLayout]. Adesc or Bdesc can be NULL if the corresponding pointer is NULL and the corresponding scalar is zero
+//   - beta: Pointers to the scalars used in the multiplication. Its kind must match the scale type of transformDesc ([MatrixTransformDescScaleType]).
 //   - b: Pointers to the GPU memory associated with the corresponding descriptors Adesc and Bdesc
-//   - bdesc: Handles to the previous created descriptors of the type [MatrixLayout].Adesc or Bdesc can be NULL if the corresponding pointer is NULL and the corresponding scalar is zero
+//   - bdesc: Handles to the previous created descriptors of the type [MatrixLayout]. Adesc or Bdesc can be NULL if the corresponding pointer is NULL and the corresponding scalar is zero
 //   - c: Pointer to the GPU memory associated with the Cdesc descriptor
-//   - cdesc: Handles to the previous created descriptors of the type [MatrixLayout].Adesc or Bdesc can be NULL if the corresponding pointer is NULL and the corresponding scalar is zero
+//   - cdesc: Handles to the previous created descriptors of the type [MatrixLayout]. Adesc or Bdesc can be NULL if the corresponding pointer is NULL and the corresponding scalar is zero
 //   - stream: The CUDA stream where all the GPU work will be submitted
 //
-// Returns:
-//   - [ErrNotInitialized]: if cuBLASLt handle has not been initialized
-//   - [ErrInvalidValue]: if parameters are in conflict or in an impossible configuration; e.g. when A is not NULL, but Adesc is NULL
-//   - [ErrNotSupported]: if current implementation on selected device doesn't support configured operation
-//   - [ErrArchMismatch]: if configured operation cannot be run using selected device
-//   - [ErrExecutionFailed]: if cuda reported execution error from the device
-//   - [Success]: if the operation completed successfully
+// Errors:
+//   - [ErrArchMismatch]: If the configured operation cannot be run using the selected device.
+//   - [ErrExecutionFailed]: If CUDA reported an execution error from the device.
+//   - [ErrInvalidValue]: If the parameters are in conflict or in an impossible configuration. For example, when A is not NULL, but Adesc is NULL.
+//   - [ErrNotInitialized]: If cuBLASLt handle has not been initialized.
+//   - [ErrNotSupported]: If the current implementation on the selected device does not support the configured operation.
 //
 // Wraps cublasLtMatrixTransform.
-func (h Handle) MatrixTransform(transformDesc MatrixTransformDesc, alpha uintptr, a driver.DevicePtr, adesc MatrixLayout, beta uintptr, b driver.DevicePtr, bdesc MatrixLayout, c driver.DevicePtr, cdesc MatrixLayout, stream driver.Stream) error {
+func (h Handle) MatrixTransform(transformDesc MatrixTransformDesc, alpha Scalar, a driver.DevicePtr, adesc MatrixLayout, beta Scalar, b driver.DevicePtr, bdesc MatrixLayout, c driver.DevicePtr, cdesc MatrixLayout, stream driver.Stream) error {
 	return matrixTransform(h, transformDesc, alpha, a, adesc, beta, b, bdesc, c, cdesc, stream)
 }

@@ -4,9 +4,6 @@ package cudnn
 
 // Destroy deletes a tensor pointwise math descriptor object.
 //
-// Returns:
-//   - [Success]: The function returned successfully.
-//
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnDestroyOpTensorDescriptor.
@@ -16,9 +13,8 @@ func (o OpTensorDescriptor) Destroy() error {
 
 // Get returns the configuration of the passed tensor pointwise math descriptor.
 //
-// Returns:
+// Errors:
 //   - [ErrBadParam]: Input tensor pointwise math descriptor passed is invalid.
-//   - [Success]: The function returned successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -33,9 +29,8 @@ func (o OpTensorDescriptor) Get() (opTensorOp OpTensorOp, opTensorCompType DataT
 //   - opTensorCompType: Input. Computation datatype for this tensor pointwise math descriptor
 //   - opTensorNanOpt: Input. NAN propagation policy
 //
-// Returns:
+// Errors:
 //   - [ErrBadParam]: At least one of the input parameters passed is invalid.
-//   - [Success]: The function returned successfully.
 //
 // Deprecated: This function is deprecated.
 //

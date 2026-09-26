@@ -10,9 +10,10 @@ package cublaslt
 //   - cols: Number of rows and columns of the matrix
 //   - ld: The leading dimension of the matrix. In column major layout, this is the number of elements to jump to reach the next column. Thus ld >= m (number of rows)
 //
-// Returns:
-//   - [ErrAllocFailed]: if memory could not be allocated
-//   - [Success]: if desciptor was created successfully
+// A nil error means the descriptor was created successfully.
+//
+// Errors:
+//   - [ErrAllocFailed]: If the memory could not be allocated.
 //
 // Wraps cublasLtMatrixLayoutCreate.
 func NewMatrixLayout(type_ DataType, rows uint64, cols uint64, ld int64) (MatrixLayout, error) {
@@ -26,9 +27,10 @@ func NewMatrixLayout(type_ DataType, rows uint64, cols uint64, ld int64) (Matrix
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
 //   - sizeWritten: Valid only when the return value is [Success]. If sizeInBytes is non-zero: then sizeWritten is the number of bytes actually written; if sizeInBytes is 0: then sizeWritten is the number of bytes needed to write full contents
 //
-// Returns:
-//   - [ErrInvalidValue]: if sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
-//   - [Success]: if attribute's value was successfully written to user memory
+// A nil error means attribute’s value was successfully written to user memory.
+//
+// Errors:
+//   - [ErrInvalidValue]: If sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL, or sizeInBytes doesn’t match size of internal storage for the selected attribute
 //
 // Wraps cublasLtMatrixLayoutGetAttribute.
 func (m MatrixLayout) Attribute(attr MatrixLayoutAttribute, buf uintptr, sizeInBytes uint) (uint, error) {
@@ -37,8 +39,7 @@ func (m MatrixLayout) Attribute(attr MatrixLayoutAttribute, buf uintptr, sizeInB
 
 // Destroy destroys a previously created matrix layout descriptor object.
 //
-// Returns:
-//   - [Success]: if operation was successful
+// A nil error means the operation was successful.
 //
 // Wraps cublasLtMatrixLayoutDestroy.
 func (m MatrixLayout) Destroy() error {
@@ -61,9 +62,10 @@ func (m MatrixLayout) Init_internal(size uint, type_ DataType, rows uint64, cols
 //   - buf: The value to which the specified attribute should be set
 //   - sizeInBytes: Size of buf, the attribute buffer
 //
-// Returns:
-//   - [ErrInvalidValue]: if buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
-//   - [Success]: if attribute was set successfully
+// A nil error means attribute was set successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: If buf is NULL or sizeInBytes doesn’t match size of internal storage for the selected attribute.
 //
 // Wraps cublasLtMatrixLayoutSetAttribute.
 func (m MatrixLayout) SetAttribute(attr MatrixLayoutAttribute, buf uintptr, sizeInBytes uint) error {

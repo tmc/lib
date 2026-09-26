@@ -45,13 +45,15 @@ var (
 	symsetWorkspace                              uintptr
 )
 
-// ffiCall0 through ffiCall16 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+// The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
 //
 // Bit i of floatMask marks argument word i as a floating-point bit
 // pattern, which the C ABI passes in a different register file from the
-// integer and pointer words. Each returns the first integer result
-// register and the first floating-point one; a caller reads whichever the
-// C function sets.
+// integer and pointer words. Bits 2i and 2i+1 of widths give the size of
+// argument word i as a ffi.Width code, which places a narrow argument
+// on the stack where the C ABI expects it. Each funnel returns the first
+// integer result register and the first floating-point one; a caller
+// reads whichever the C function sets.
 //
 // The //go:uintptrescapes directive is what makes a Go pointer safe to
 // pass: a pointer converted to uintptr in one of these argument lists is
@@ -100,18 +102,36 @@ func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uint
 }
 
 //go:uintptrescapes
-func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+func ffiCallWidths2(fn uintptr, floatMask uint32, widths uint64, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloatWidths(fn, 2, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths4(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloatWidths(fn, 4, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths5(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
 	args[2] = a2
 	args[3] = a3
 	args[4] = a4
-	return ffi.CallFloat(fn, 5, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 5, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+func ffiCallWidths6(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -119,11 +139,11 @@ func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1,
 	args[3] = a3
 	args[4] = a4
 	args[5] = a5
-	return ffi.CallFloat(fn, 6, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 6, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall8(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7 uintptr) (r1, rf uintptr) {
+func ffiCallWidths8(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -133,11 +153,11 @@ func ffiCall8(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7 uintp
 	args[5] = a5
 	args[6] = a6
 	args[7] = a7
-	return ffi.CallFloat(fn, 8, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 8, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall9(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8 uintptr) (r1, rf uintptr) {
+func ffiCallWidths9(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -148,11 +168,11 @@ func ffiCall9(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8 u
 	args[6] = a6
 	args[7] = a7
 	args[8] = a8
-	return ffi.CallFloat(fn, 9, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 9, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall10(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9 uintptr) (r1, rf uintptr) {
+func ffiCallWidths10(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -164,11 +184,11 @@ func ffiCall10(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8,
 	args[7] = a7
 	args[8] = a8
 	args[9] = a9
-	return ffi.CallFloat(fn, 10, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 10, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall11(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10 uintptr) (r1, rf uintptr) {
+func ffiCallWidths11(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -181,11 +201,11 @@ func ffiCall11(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8,
 	args[8] = a8
 	args[9] = a9
 	args[10] = a10
-	return ffi.CallFloat(fn, 11, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 11, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall15(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14 uintptr) (r1, rf uintptr) {
+func ffiCallWidths15(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -202,11 +222,11 @@ func ffiCall15(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8,
 	args[12] = a12
 	args[13] = a13
 	args[14] = a14
-	return ffi.CallFloat(fn, 15, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 15, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
-func ffiCall16(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15 uintptr) (r1, rf uintptr) {
+func ffiCallWidths16(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
@@ -224,7 +244,7 @@ func ffiCall16(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8,
 	args[13] = a13
 	args[14] = a14
 	args[15] = a15
-	return ffi.CallFloat(fn, 16, &args, floatMask)
+	return ffi.CallFloatWidths(fn, 16, &args, floatMask, widths)
 }
 
 // An outSlot pools the heap cells a wrapper passes to C for its outputs.
@@ -250,25 +270,25 @@ func (s *outSlot[T]) put(p *T) {
 
 // fnabs2SumArray calls custatevecAbs2SumArray.
 func fnabs2SumArray(a0 Handle, a1 uintptr, a2 DataType, a3 uint32, a4 uintptr, a5 *int32, a6 uint32, a7 *int32, a8 *int32, a9 uint32) Result {
-	r1, _ := ffiCall10(symabs2SumArray, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)), uintptr(a9))
+	r1, _ := ffiCallWidths10(symabs2SumArray, 0, 0xc30f0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)), uintptr(a9))
 	return Result(r1)
 }
 
 // fnapplyMatrix calls custatevecApplyMatrix.
 func fnapplyMatrix(a0 Handle, a1 uintptr, a2 DataType, a3 uint32, a4 uintptr, a5 DataType, a6 MatrixLayout, a7 int32, a8 *int32, a9 uint32, a10 *int32, a11 *int32, a12 uint32, a13 ComputeType, a14 uintptr, a15 uint) Result {
-	r1, _ := ffiCall16(symapplyMatrix, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	r1, _ := ffiCallWidths16(symapplyMatrix, 0, 0xf0cfcf0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
 	return Result(r1)
 }
 
 // fnapplyMatrixGetWorkspaceSize calls custatevecApplyMatrixGetWorkspaceSize.
 func fnapplyMatrixGetWorkspaceSize(a0 Handle, a1 DataType, a2 uint32, a3 uintptr, a4 DataType, a5 MatrixLayout, a6 int32, a7 uint32, a8 uint32, a9 ComputeType, a10 *uint) Result {
-	r1, _ := ffiCall11(symapplyMatrixGetWorkspaceSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)))
+	r1, _ := ffiCallWidths11(symapplyMatrixGetWorkspaceSize, 0, 0xfff3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)))
 	return Result(r1)
 }
 
 // fncommunicatorCreate calls custatevecCommunicatorCreate.
 func fncommunicatorCreate(a0 Handle, a1 *Communicator, a2 CommunicatorType, a3 *byte) Result {
-	r1, _ := ffiCall4(symcommunicatorCreate, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	r1, _ := ffiCallWidths4(symcommunicatorCreate, 0, 0x30, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
@@ -280,13 +300,13 @@ func fncommunicatorDestroy(a0 Handle, a1 Communicator) Result {
 
 // fncomputeExpectation calls custatevecComputeExpectation.
 func fncomputeExpectation(a0 Handle, a1 uintptr, a2 DataType, a3 uint32, a4 unsafe.Pointer, a5 DataType, a6 *float64, a7 uintptr, a8 DataType, a9 MatrixLayout, a10 *int32, a11 uint32, a12 ComputeType, a13 uintptr, a14 uint) Result {
-	r1, _ := ffiCall15(symcomputeExpectation, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14))
+	r1, _ := ffiCallWidths15(symcomputeExpectation, 0, 0x3cf0cf0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14))
 	return Result(r1)
 }
 
 // fncomputeExpectationGetWorkspaceSize calls custatevecComputeExpectationGetWorkspaceSize.
 func fncomputeExpectationGetWorkspaceSize(a0 Handle, a1 DataType, a2 uint32, a3 uintptr, a4 DataType, a5 MatrixLayout, a6 uint32, a7 ComputeType, a8 *uint) Result {
-	r1, _ := ffiCall9(symcomputeExpectationGetWorkspaceSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
+	r1, _ := ffiCallWidths9(symcomputeExpectationGetWorkspaceSize, 0, 0xff3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
 	return Result(r1)
 }
 
@@ -304,7 +324,7 @@ func fndestroy(a0 Handle) Result {
 
 // fndistIndexBitSwapSchedulerCreate calls custatevecDistIndexBitSwapSchedulerCreate.
 func fndistIndexBitSwapSchedulerCreate(a0 Handle, a1 *DistIndexBitSwapScheduler, a2 uint32, a3 uint32) Result {
-	r1, _ := ffiCall4(symdistIndexBitSwapSchedulerCreate, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3))
+	r1, _ := ffiCallWidths4(symdistIndexBitSwapSchedulerCreate, 0, 0xf0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
 
@@ -316,13 +336,13 @@ func fndistIndexBitSwapSchedulerDestroy(a0 Handle, a1 DistIndexBitSwapScheduler)
 
 // fndistIndexBitSwapSchedulerGetParameters calls custatevecDistIndexBitSwapSchedulerGetParameters.
 func fndistIndexBitSwapSchedulerGetParameters(a0 Handle, a1 DistIndexBitSwapScheduler, a2 int32, a3 int32, a4 *SVSwapParameters) Result {
-	r1, _ := ffiCall5(symdistIndexBitSwapSchedulerGetParameters, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	r1, _ := ffiCallWidths5(symdistIndexBitSwapSchedulerGetParameters, 0, 0xf0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
 // fndistIndexBitSwapSchedulerSetIndexBitSwaps calls custatevecDistIndexBitSwapSchedulerSetIndexBitSwaps.
 func fndistIndexBitSwapSchedulerSetIndexBitSwaps(a0 Handle, a1 DistIndexBitSwapScheduler, a2 *Int2, a3 uint32, a4 *int32, a5 *int32, a6 uint32, a7 *uint32) Result {
-	r1, _ := ffiCall8(symdistIndexBitSwapSchedulerSetIndexBitSwaps, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	r1, _ := ffiCallWidths8(symdistIndexBitSwapSchedulerSetIndexBitSwaps, 0, 0x30c0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(unsafe.Pointer(a7)))
 	return Result(r1)
 }
 
@@ -334,7 +354,7 @@ func fngetDefaultWorkspaceSize(a0 Handle, a1 *uint) Result {
 
 // fnGetProperty calls custatevecGetProperty.
 func fnGetProperty(a0 PropertyType, a1 *int32) Result {
-	r1, _ := ffiCall2(symGetProperty, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	r1, _ := ffiCallWidths2(symGetProperty, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
@@ -352,13 +372,13 @@ func fnGetVersion() uint {
 
 // fninitializeStateVector calls custatevecInitializeStateVector.
 func fninitializeStateVector(a0 Handle, a1 uintptr, a2 DataType, a3 uint32, a4 StateVectorType) Result {
-	r1, _ := ffiCall5(syminitializeStateVector, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	r1, _ := ffiCallWidths5(syminitializeStateVector, 0, 0x3f0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
 
 // fnmeasureOnZBasis calls custatevecMeasureOnZBasis.
 func fnmeasureOnZBasis(a0 Handle, a1 uintptr, a2 DataType, a3 uint32, a4 *int32, a5 *int32, a6 uint32, a7 float64, a8 CollapseOp) Result {
-	r1, _ := ffiCall9(symmeasureOnZBasis, 0b10000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(math.Float64bits(a7)), uintptr(a8))
+	r1, _ := ffiCallWidths9(symmeasureOnZBasis, 0b10000000, 0x330f0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(math.Float64bits(a7)), uintptr(a8))
 	return Result(r1)
 }
 
@@ -382,19 +402,19 @@ func fnsVSwapWorkerSetExtraWorkspace(a0 Handle, a1 SVSwapWorker, a2 uintptr, a3 
 
 // fnsVSwapWorkerSetParameters calls custatevecSVSwapWorkerSetParameters.
 func fnsVSwapWorkerSetParameters(a0 Handle, a1 SVSwapWorker, a2 *SVSwapParameters, a3 int32) Result {
-	r1, _ := ffiCall4(symsVSwapWorkerSetParameters, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
+	r1, _ := ffiCallWidths4(symsVSwapWorkerSetParameters, 0, 0xc0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
 	return Result(r1)
 }
 
 // fnsVSwapWorkerSetSubSVsP2P calls custatevecSVSwapWorkerSetSubSVsP2P.
 func fnsVSwapWorkerSetSubSVsP2P(a0 Handle, a1 SVSwapWorker, a2 *uintptr, a3 *int32, a4 *driver.Event, a5 uint32) Result {
-	r1, _ := ffiCall6(symsVSwapWorkerSetSubSVsP2P, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(a5))
+	r1, _ := ffiCallWidths6(symsVSwapWorkerSetSubSVsP2P, 0, 0xc00, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(a5))
 	return Result(r1)
 }
 
 // fnsVSwapWorkerSetSubSVsP2PWithSemaphores calls custatevecSVSwapWorkerSetSubSVsP2PWithSemaphores.
 func fnsVSwapWorkerSetSubSVsP2PWithSemaphores(a0 Handle, a1 SVSwapWorker, a2 *uintptr, a3 *int32, a4 *uintptr, a5 uint32) Result {
-	r1, _ := ffiCall6(symsVSwapWorkerSetSubSVsP2PWithSemaphores, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(a5))
+	r1, _ := ffiCallWidths6(symsVSwapWorkerSetSubSVsP2PWithSemaphores, 0, 0xc00, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(a5))
 	return Result(r1)
 }
 
@@ -541,7 +561,7 @@ func applyMatrixGetWorkspaceSize(handle Handle, svDataType DataType, nIndexBits 
 
 var slotApplyMatrixGetWorkspaceSize outSlot[uint]
 
-// communicatorCreate [Create] communicator.
+// communicatorCreate creates communicator.
 //
 //   - handle: in the handle to cuStateVec library
 //   - communicator: out a pointer to the communicator
@@ -702,7 +722,7 @@ func destroy(handle Handle) error {
 	return toError(fndestroy(handle), "custatevecDestroy")
 }
 
-// distIndexBitSwapSchedulerCreate [Create] distributed index bit swap scheduler.
+// distIndexBitSwapSchedulerCreate creates distributed index bit swap scheduler.
 //
 //   - handle: in the handle to cuStateVec library
 //   - scheduler: out a pointer to a batch swap scheduler
@@ -933,7 +953,7 @@ func measureOnZBasis(handle Handle, sv uintptr, svDataType DataType, nIndexBits 
 
 var slotMeasureOnZBasis outSlot[int32]
 
-// sVSwapWorkerCreate [Create] state vector swap worker.
+// sVSwapWorkerCreate creates state vector swap worker.
 //
 //   - handle: in the handle to cuStateVec library
 //   - svSwapWorker: out state vector swap worker
@@ -960,7 +980,7 @@ func sVSwapWorkerCreate(handle Handle, communicator Communicator, orgSubSV uintp
 	return out0, out1, out2, nil
 }
 
-// sVSwapWorkerCreateWithSemaphore [Create] state vector swap worker with semaphore.
+// sVSwapWorkerCreateWithSemaphore creates state vector swap worker with semaphore.
 //
 //   - handle: in the handle to cuStateVec library
 //   - svSwapWorker: out state vector swap worker

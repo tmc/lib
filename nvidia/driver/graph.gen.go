@@ -15,6 +15,12 @@ package driver
 //   - numDependencies: Number of dependencies
 //   - nodeParams: Parameters for the node
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
+//
 // Wraps cuGraphAddBatchMemOpNode.
 func (g Graph) AddBatchMemOpNode(dependencies *GraphNode, numDependencies uint, nodeParams *BatchMemOpNodeParams) (BatchMemOpNode, error) {
 	h, err := graphAddBatchMemOpNode(g, dependencies, numDependencies, nodeParams)
@@ -32,6 +38,11 @@ func (g Graph) AddBatchMemOpNode(dependencies *GraphNode, numDependencies uint, 
 //   - dependencies: Dependencies of the node
 //   - numDependencies: Number of dependencies
 //   - childGraph: The graph to clone into this node
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuGraphAddChildGraphNode.
 func (g Graph) AddChildGraphNode(dependencies *GraphNode, numDependencies uint, childGraph Graph) (ChildGraphNode, error) {
@@ -51,6 +62,9 @@ func (g Graph) AddChildGraphNode(dependencies *GraphNode, numDependencies uint, 
 //   - edgeData: Optional array of edge data. If NULL, default (zeroed) edge data is assumed
 //   - numDependencies: Number of dependencies to be added
 //
+// Errors:
+//   - [ErrInvalidValue]
+//
 // Wraps cuGraphAddDependencies, bound as cuGraphAddDependencies_v2.
 func (g Graph) AddDependencies(from *GraphNode, to *GraphNode, edgeData *GraphEdgeData, numDependencies uint) error {
 	return graphAddDependencies(g, from, to, edgeData, numDependencies)
@@ -65,6 +79,11 @@ func (g Graph) AddDependencies(from *GraphNode, to *GraphNode, edgeData *GraphEd
 //
 //   - dependencies: Dependencies of the node
 //   - numDependencies: Number of dependencies
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuGraphAddEmptyNode.
 func (g Graph) AddEmptyNode(dependencies *GraphNode, numDependencies uint) (GraphNode, error) {
@@ -81,6 +100,12 @@ func (g Graph) AddEmptyNode(dependencies *GraphNode, numDependencies uint) (Grap
 //   - dependencies: Dependencies of the node
 //   - numDependencies: Number of dependencies
 //   - event: Event for the node
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
 //
 // Wraps cuGraphAddEventRecordNode.
 func (g Graph) AddEventRecordNode(dependencies *GraphNode, numDependencies uint, event Event) (EventRecordNode, error) {
@@ -99,6 +124,12 @@ func (g Graph) AddEventRecordNode(dependencies *GraphNode, numDependencies uint,
 //   - numDependencies: Number of dependencies
 //   - event: Event for the node
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
+//
 // Wraps cuGraphAddEventWaitNode.
 func (g Graph) AddEventWaitNode(dependencies *GraphNode, numDependencies uint, event Event) (EventWaitNode, error) {
 	h, err := graphAddEventWaitNode(g, dependencies, numDependencies, event)
@@ -115,6 +146,12 @@ func (g Graph) AddEventWaitNode(dependencies *GraphNode, numDependencies uint, e
 //   - dependencies: Dependencies of the node
 //   - numDependencies: Number of dependencies
 //   - nodeParams: Parameters for the node
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
 //
 // Wraps cuGraphAddExternalSemaphoresSignalNode.
 func (g Graph) AddExternalSemaphoresSignalNode(dependencies *GraphNode, numDependencies uint, nodeParams *ExtSemSignalNodeParams) (ExternalSemaphoresSignalNode, error) {
@@ -133,6 +170,12 @@ func (g Graph) AddExternalSemaphoresSignalNode(dependencies *GraphNode, numDepen
 //   - numDependencies: Number of dependencies
 //   - nodeParams: Parameters for the node
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
+//
 // Wraps cuGraphAddExternalSemaphoresWaitNode.
 func (g Graph) AddExternalSemaphoresWaitNode(dependencies *GraphNode, numDependencies uint, nodeParams *ExtSemWaitNodeParams) (ExternalSemaphoresWaitNode, error) {
 	h, err := graphAddExternalSemaphoresWaitNode(g, dependencies, numDependencies, nodeParams)
@@ -150,6 +193,12 @@ func (g Graph) AddExternalSemaphoresWaitNode(dependencies *GraphNode, numDepende
 //   - numDependencies: Number of dependencies
 //   - nodeParams: Parameters for the host node
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
+//
 // Wraps cuGraphAddHostNode.
 func (g Graph) AddHostNode(dependencies *GraphNode, numDependencies uint, nodeParams *HostNodeParams) (HostNode, error) {
 	h, err := graphAddHostNode(g, dependencies, numDependencies, nodeParams)
@@ -163,6 +212,12 @@ func (g Graph) AddHostNode(dependencies *GraphNode, numDependencies uint, nodePa
 // When the graph is launched, the node will invoke kernel func on a ( gridDimX x gridDimY x gridDimZ) grid of blocks. Each block contains ( blockDimX x blockDimY x blockDimZ) threads.
 // sharedMemBytes sets the amount of dynamic shared memory that will be available to each thread block.
 // Kernel parameters to func can be specified in one of two ways:
+//   - Kernel parameters can be specified via kernelParams. If the kernel has N parameters, then kernelParams needs to be an array of N pointers. Each pointer, from kernelParams [0] to kernelParams [N-1], points to the region of memory from which the actual parameter will be copied. The number of kernel parameters and their offsets and sizes do not need to be specified as that information is retrieved directly from the kernel’s image.
+//   - Kernel parameters for non-cooperative kernels can also be packaged by the application into a single buffer that is passed in via extra. This places the burden on the application of knowing each kernel parameter’s size and alignment/padding within the buffer. The extra parameter exists to allow this function to take additional less commonly used arguments. extra specifies a list of names of extra settings and their corresponding values. Each extra setting name is immediately followed by the corresponding value. The list must be terminated with either NULL or CU_LAUNCH_PARAM_END.
+//   - CU_LAUNCH_PARAM_END, which indicates the end of the extra array;
+//   - CU_LAUNCH_PARAM_BUFFER_POINTER, which specifies that the next value in extra will be a pointer to a buffer containing all the kernel parameters for launching kernel func;
+//   - CU_LAUNCH_PARAM_BUFFER_SIZE, which specifies that the next value in extra will be a pointer to a size_t containing the size of the buffer specified with CU_LAUNCH_PARAM_BUFFER_POINTER;
+//
 // The error [ErrInvalidValue] will be returned if kernel parameters are specified with both kernelParams and extra (i.e. both kernelParams and extra are non-NULL). [ErrInvalidValue] will be returned if extra is used for a cooperative kernel.
 // The kernelParams or extra array, as well as the argument values it points to, are copied during this call.
 //
@@ -173,6 +228,11 @@ func (g Graph) AddHostNode(dependencies *GraphNode, numDependencies uint, nodePa
 //   - dependencies: Dependencies of the node
 //   - numDependencies: Number of dependencies
 //   - nodeParams: Parameters for the GPU execution node
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuGraphAddKernelNode, bound as cuGraphAddKernelNode_v2.
 func (g Graph) AddKernelNode(dependencies *GraphNode, numDependencies uint, nodeParams *KernelNodeParams) (KernelNode, error) {
@@ -187,14 +247,28 @@ func (g Graph) AddKernelNode(dependencies *GraphNode, numDependencies uint, node
 // If the allocation is freed in the same graph, by creating a free node using [Graph.AddMemFreeNode], the allocation can be accessed by nodes ordered after the allocation node but before the free node. These allocations cannot be freed outside the owning graph, and they can only be freed once in the owning graph.
 // If the allocation is not freed in the same graph, then it can be accessed not only by nodes in the graph which are ordered after the allocation node, but also by stream operations ordered after the graph’s execution but before the allocation is freed.
 // Allocations which are not freed in the same graph can be freed by:
+//   - passing the allocation to [DevicePtr.FreeAsync] or [DevicePtr.Free];
+//   - launching a graph with a free node for that allocation; or
+//   - specifying [GraphInstantiateFlagAutoFreeOnLaunch] during instantiation, which makes each launch behave as though it called [DevicePtr.FreeAsync] for every unfreed allocation.
+//
 // It is not possible to free an allocation in both the owning graph and another graph. If the allocation is freed in the same graph, a free node cannot be added to another graph. If the allocation is freed in another graph, a free node can no longer be added to the owning graph.
 // The following restrictions apply to graphs which contain allocation and/or memory free nodes:
+//   - Nodes and edges of the graph cannot be deleted.
+//   - The graph can only be used in a child node if the ownership is moved to the parent.
+//   - Only one instantiation of the graph may exist at any point in time.
+//   - The graph cannot be cloned.
 //
 // See also: [Graph.AddNode], [Graph.AddMemFreeNode], [MemAllocNode.Params], [Device.GraphMemTrim], [Device.GraphMemAttribute], [Device.SetGraphMemAttribute], [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddExternalSemaphoresSignalNode], [Graph.AddExternalSemaphoresWaitNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - dependencies: Dependencies of the node
 //   - numDependencies: Number of dependencies
 //   - nodeParams: Parameters for the node
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
 //
 // Wraps cuGraphAddMemAllocNode.
 func (g Graph) AddMemAllocNode(dependencies *GraphNode, numDependencies uint, nodeParams *MemAllocNodeParams) (MemAllocNode, error) {
@@ -206,13 +280,27 @@ func (g Graph) AddMemAllocNode(dependencies *GraphNode, numDependencies uint, no
 //
 // Creates a new memory free node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // [Graph.AddMemFreeNode] will return [ErrInvalidValue] if the user attempts to free:
+//   - an allocation twice in the same graph.
+//   - an address that was not returned by an allocation node.
+//   - an invalid address.
+//
 // The following restrictions apply to graphs which contain allocation and/or memory free nodes:
+//   - Nodes and edges of the graph cannot be deleted.
+//   - The graph can only be used in a child node if the ownership is moved to the parent.
+//   - Only one instantiation of the graph may exist at any point in time.
+//   - The graph cannot be cloned.
 //
 // See also: [Graph.AddNode], [Graph.AddMemAllocNode], [MemFreeNode.Params], [Device.GraphMemTrim], [Device.GraphMemAttribute], [Device.SetGraphMemAttribute], [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddExternalSemaphoresSignalNode], [Graph.AddExternalSemaphoresWaitNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - dependencies: Dependencies of the node
 //   - numDependencies: Number of dependencies
 //   - dptr: Address of memory to free
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
 //
 // Wraps cuGraphAddMemFreeNode.
 func (g Graph) AddMemFreeNode(dependencies *GraphNode, numDependencies uint, dptr DevicePtr) (MemFreeNode, error) {
@@ -233,6 +321,11 @@ func (g Graph) AddMemFreeNode(dependencies *GraphNode, numDependencies uint, dpt
 //   - copyParams: Parameters for the memory copy
 //   - ctx: Context on which to run the node
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuGraphAddMemcpyNode.
 func (g Graph) AddMemcpyNode(dependencies *GraphNode, numDependencies uint, copyParams *Memcpy3d, ctx Context) (MemcpyNode, error) {
 	h, err := graphAddMemcpyNode(g, dependencies, numDependencies, copyParams, ctx)
@@ -250,6 +343,12 @@ func (g Graph) AddMemcpyNode(dependencies *GraphNode, numDependencies uint, copy
 //   - numDependencies: Number of dependencies
 //   - memsetParams: Parameters for the memory set
 //   - ctx: Context on which to run the node
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuGraphAddMemsetNode.
 func (g Graph) AddMemsetNode(dependencies *GraphNode, numDependencies uint, memsetParams *MemsetNodeParams, ctx Context) (MemsetNode, error) {
@@ -271,6 +370,11 @@ func (g Graph) AddMemsetNode(dependencies *GraphNode, numDependencies uint, mems
 //   - numDependencies: Number of dependencies
 //   - nodeParams: Specification of the node
 //
+// Errors:
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotSupported]
+//
 // Wraps cuGraphAddNode, bound as cuGraphAddNode_v2.
 func (g Graph) AddNode(dependencies *GraphNode, dependencyData *GraphEdgeData, numDependencies uint, nodeParams *GraphNodeParams) (GraphNode, error) {
 	return graphAddNode(g, dependencies, dependencyData, numDependencies, nodeParams)
@@ -284,6 +388,10 @@ func (g Graph) AddNode(dependencies *GraphNode, dependencyData *GraphEdgeData, n
 // Note: : Cloning is not supported for graphs which contain memory allocation nodes, memory free nodes, or conditional nodes.
 //
 // See also: [NewGraph], [GraphNode.FindInClone]
+//
+// Errors:
+//   - [ErrInvalidValue]
+//   - [ErrOutOfMemory]
 //
 // Wraps cuGraphClone.
 func (g Graph) Clone() (Graph, error) {
@@ -303,6 +411,10 @@ func (g Graph) Clone() (Graph, error) {
 //   - defaultLaunchValue: Optional initial value for the conditional variable. Applied at the beginning of each graph execution if CU_GRAPH_COND_ASSIGN_DEFAULT is set in flags
 //   - flags: Currently must be CU_GRAPH_COND_ASSIGN_DEFAULT or 0
 //
+// Errors:
+//   - [ErrInvalidValue]
+//   - [ErrNotSupported]
+//
 // Wraps cuGraphConditionalHandleCreate.
 func (g Graph) ConditionalHandleCreate(ctx Context, defaultLaunchValue uint32, flags uint32) (uint64, error) {
 	return graphConditionalHandleCreate(g, ctx, defaultLaunchValue, flags)
@@ -315,6 +427,10 @@ func (g Graph) ConditionalHandleCreate(ctx Context, defaultLaunchValue uint32, f
 //   - path: The path to write the DOT file to
 //   - flags: Flags from [GraphdebugdotFlags] for specifying which additional node information to write
 //
+// Errors:
+//   - [ErrInvalidValue]
+//   - [ErrOperatingSystem]
+//
 // Wraps cuGraphDebugDotPrint.
 func (g Graph) DebugDotPrint(path string, flags GraphdebugdotFlags) error {
 	return graphDebugDotPrint(g, path, flags)
@@ -325,6 +441,11 @@ func (g Graph) DebugDotPrint(path string, flags GraphdebugdotFlags) error {
 // Destroys the graph specified by hGraph, as well as all of its nodes.
 //
 // See also: [NewGraph]
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuGraphDestroy.
 func (g Graph) Destroy() error {
@@ -342,6 +463,12 @@ func (g Graph) Destroy() error {
 //   - edgeData: Optional location to return edge data
 //   - numEdges: See description
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrLossyQuery]
+//   - [ErrNotInitialized]
+//
 // Wraps cuGraphGetEdges, bound as cuGraphGetEdges_v2.
 func (g Graph) Edges(from *GraphNode, to *GraphNode, edgeData *GraphEdgeData, numEdges *uint) error {
 	return graphGetEdges(g, from, to, edgeData, numEdges)
@@ -352,6 +479,9 @@ func (g Graph) Edges(from *GraphNode, to *GraphNode, edgeData *GraphEdgeData, nu
 // Returns the id of hGraph in *graphId. The value in *graphId will match that referenced by [Graph.DebugDotPrint].
 //
 // See also: [Graph.GetNodes], [Graph.DebugDotPrint] [GraphNode.ContainingGraph] [GraphNode.LocalId] [GraphNode.ToolsId] [GraphExec.Id]
+//
+// Errors:
+//   - [ErrInvalidValue]
 //
 // Wraps cuGraphGetId.
 func (g Graph) Id() (uint32, error) {
@@ -367,6 +497,11 @@ func (g Graph) Id() (uint32, error) {
 //   - nodes: Pointer to return the nodes
 //   - numNodes: See description
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuGraphGetNodes.
 func (g Graph) GetNodes(nodes *GraphNode, numNodes *uint) error {
 	return graphGetNodes(g, nodes, numNodes)
@@ -381,6 +516,11 @@ func (g Graph) GetNodes(nodes *GraphNode, numNodes *uint) error {
 //   - rootNodes: Pointer to return the root nodes
 //   - numRootNodes: See description
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuGraphGetRootNodes.
 func (g Graph) RootNodes(rootNodes *GraphNode, numRootNodes *uint) error {
 	return graphGetRootNodes(g, rootNodes, numRootNodes)
@@ -390,13 +530,27 @@ func (g Graph) RootNodes(rootNodes *GraphNode, numRootNodes *uint) error {
 //
 // Instantiates hGraph as an executable graph. The graph is validated for any structural constraints or intra-node constraints which were not previously validated. If instantiation is successful, a handle to the instantiated graph is returned in phGraphExec.
 // The flags parameter controls the behavior of instantiation and subsequent graph launches. Valid flags are:
+//   - [GraphInstantiateFlagAutoFreeOnLaunch], which configures a graph containing memory allocation nodes to automatically free any unfreed memory allocations before the graph is relaunched.
+//   - [GraphInstantiateFlagDeviceLaunch], which configures the graph for launch from the device. If this flag is passed, the executable graph handle returned can be used to launch the graph from both the host and device. This flag can only be used on platforms which support unified addressing. This flag cannot be used in conjunction with [GraphInstantiateFlagAutoFreeOnLaunch].
+//   - [GraphInstantiateFlagUseNodePriority], which causes the graph to use the priorities from the per-node attributes rather than the priority of the launch stream during execution. Note that priorities are only available on kernel nodes, and are copied from stream priority during stream capture.
+//
 // If hGraph contains any allocation or free nodes, there can be at most one executable graph in existence for that graph at a time. An attempt to instantiate a second executable graph before destroying the first with [GraphExec.Destroy] will result in an error. The same also applies if hGraph contains any device-updatable kernel nodes.
 // If hGraph contains kernels which call device-side cudaGraphLaunch() from multiple contexts, this will result in an error.
 // Graphs instantiated for launch on the device have additional restrictions which do not apply to host graphs:
+//   - The graph’s nodes must reside on a single context.
+//   - The graph can only contain kernel nodes, memcpy nodes, memset nodes, and child graph nodes.
+//   - The graph cannot be empty and must contain at least one kernel, memcpy, or memset node. Operation-specific restrictions are outlined below.
+//   - Kernel nodes: Use of CUDA Dynamic Parallelism is not permitted. Cooperative launches are permitted as long as MPS is not in use.
+//   - Memcpy nodes: Only copies involving device memory and/or pinned device-mapped host memory are permitted. Copies involving CUDA arrays are not permitted. Both operands must be accessible from the current context, and the current context must match the context of other nodes in the graph.
 //
 // See also: [Graph.Instantiate], [NewGraph], [GraphExec.Upload], [GraphExec.Launch], [GraphExec.Destroy]
 //
 //   - flags: Flags to control instantiation. See [GraphinstantiateFlags]
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuGraphInstantiate, bound as cuGraphInstantiateWithFlags.
 func (g Graph) Instantiate(flags GraphinstantiateFlags) (GraphExec, error) {
@@ -408,15 +562,34 @@ func (g Graph) Instantiate(flags GraphinstantiateFlags) (GraphExec, error) {
 // Instantiates hGraph as an executable graph according to the instantiateParams structure. The graph is validated for any structural constraints or intra-node constraints which were not previously validated. If instantiation is successful, a handle to the instantiated graph is returned in phGraphExec.
 // instantiateParams controls the behavior of instantiation and subsequent graph launches, as well as returning more detailed information in the event of an error. [GraphInstantiateParams] is defined as:
 // The flags field controls the behavior of instantiation and subsequent graph launches. Valid flags are:
+//   - [GraphInstantiateFlagAutoFreeOnLaunch], which configures a graph containing memory allocation nodes to automatically free any unfreed memory allocations before the graph is relaunched.
+//   - [GraphInstantiateFlagUpload], which will perform an upload of the graph into hUploadStream once the graph has been instantiated.
+//   - [GraphInstantiateFlagDeviceLaunch], which configures the graph for launch from the device. If this flag is passed, the executable graph handle returned can be used to launch the graph from both the host and device. This flag can only be used on platforms which support unified addressing. This flag cannot be used in conjunction with [GraphInstantiateFlagAutoFreeOnLaunch].
+//   - [GraphInstantiateFlagUseNodePriority], which causes the graph to use the priorities from the per-node attributes rather than the priority of the launch stream during execution. Note that priorities are only available on kernel nodes, and are copied from stream priority during stream capture.
+//
 // If hGraph contains any allocation or free nodes, there can be at most one executable graph in existence for that graph at a time. An attempt to instantiate a second executable graph before destroying the first with [GraphExec.Destroy] will result in an error. The same also applies if hGraph contains any device-updatable kernel nodes.
 // If hGraph contains kernels which call device-side cudaGraphLaunch() from multiple contexts, this will result in an error.
 // Graphs instantiated for launch on the device have additional restrictions which do not apply to host graphs:
+//   - The graph’s nodes must reside on a single context.
+//   - The graph can only contain kernel nodes, memcpy nodes, memset nodes, and child graph nodes.
+//   - The graph cannot be empty and must contain at least one kernel, memcpy, or memset node. Operation-specific restrictions are outlined below.
+//   - Kernel nodes: Use of CUDA Dynamic Parallelism is not permitted. Cooperative launches are permitted as long as MPS is not in use.
+//   - Memcpy nodes: Only copies involving device memory and/or pinned device-mapped host memory are permitted. Copies involving CUDA arrays are not permitted. Both operands must be accessible from the current context, and the current context must match the context of other nodes in the graph.
+//
 // In the event of an error, the result_out and hErrNode_out fields will contain more information about the nature of the error. Possible error reporting includes:
+//   - [GraphInstantiateError], if passed an invalid value or if an unexpected error occurred which is described by the return value of the function. hErrNode_out will be set to NULL.
+//   - [GraphInstantiateInvalidStructure], if the graph structure is invalid. hErrNode_out will be set to one of the offending nodes.
+//   - [GraphInstantiateNodeOperationNotSupported], if the graph is instantiated for device launch but contains a node of an unsupported node type, or a node which performs unsupported operations, such as use of CUDA dynamic parallelism within a kernel node. hErrNode_out will be set to this node.
+//   - [GraphInstantiateMultipleCtxsNotSupported], if the graph is instantiated for device launch but a node’s context differs from that of another node. This error can also be returned if a graph is not instantiated for device launch and it contains kernels which call device-side cudaGraphLaunch() from multiple contexts. hErrNode_out will be set to this node.
+//
 // If instantiation is successful, result_out will be set to [GraphInstantiateSuccess], and hErrNode_out will be set to NULL.
 //
 // See also: [NewGraph], [Graph.Instantiate], [GraphExec.Destroy]
 //
 //   - instantiateParams: Instantiation parameters
+//
+// Errors:
+//   - [ErrInvalidValue]
 //
 // Wraps cuGraphInstantiateWithParams.
 func (g Graph) InstantiateWithParams(instantiateParams *GraphInstantiateParams) (GraphExec, error) {
@@ -432,6 +605,9 @@ func (g Graph) InstantiateWithParams(instantiateParams *GraphInstantiateParams) 
 //
 //   - object: The user object to release a reference for
 //   - count: The number of references to release, typically 1. Must be nonzero and not larger than INT_MAX
+//
+// Errors:
+//   - [ErrInvalidValue]
 //
 // Wraps cuGraphReleaseUserObject.
 func (g Graph) ReleaseUserObject(object UserObject, count uint32) error {
@@ -451,6 +627,9 @@ func (g Graph) ReleaseUserObject(object UserObject, count uint32) error {
 //   - edgeData: Optional array of edge data. If NULL, edge data is assumed to be default (zeroed)
 //   - numDependencies: Number of dependencies to be removed
 //
+// Errors:
+//   - [ErrInvalidValue]
+//
 // Wraps cuGraphRemoveDependencies, bound as cuGraphRemoveDependencies_v2.
 func (g Graph) RemoveDependencies(from *GraphNode, to *GraphNode, edgeData *GraphEdgeData, numDependencies uint) error {
 	return graphRemoveDependencies(g, from, to, edgeData, numDependencies)
@@ -467,6 +646,9 @@ func (g Graph) RemoveDependencies(from *GraphNode, to *GraphNode, edgeData *Grap
 //   - count: The number of references to add to the graph, typically 1. Must be nonzero and not larger than INT_MAX
 //   - flags: The optional flag [GraphUserObjectMove] transfers references from the calling thread, rather than create new references. Pass 0 to create new references
 //
+// Errors:
+//   - [ErrInvalidValue]
+//
 // Wraps cuGraphRetainUserObject.
 func (g Graph) RetainUserObject(object UserObject, count uint32, flags UserobjectretainFlags) error {
 	return graphRetainUserObject(g, object, count, flags)
@@ -479,6 +661,12 @@ func (g Graph) RetainUserObject(object UserObject, count uint32, flags Userobjec
 // See also: [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode], [Graph.Instantiate], [Graph.Destroy], [Graph.GetNodes], [Graph.RootNodes], [Graph.Edges], [Graph.Clone]
 //
 //   - flags: Graph creation flags, must be 0
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrOutOfMemory]
 //
 // Wraps cuGraphCreate.
 func NewGraph(flags uint32) (Graph, error) {

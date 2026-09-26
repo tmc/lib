@@ -6,8 +6,7 @@ package cudnn
 //
 // This function destroys the plan descriptor provided.
 //
-// Returns:
-//   - [Success]: Either the plan descriptor is NULL or the descriptor was successfully destroyed.
+// A nil error means either the plan descriptor is NULL or the descriptor was successfully destroyed.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //

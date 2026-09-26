@@ -6,8 +6,7 @@ package cudnn
 //
 // This function destroys a previously-created descriptor for cudnnFusedOps constant parameters.
 //
-// Returns:
-//   - [Success]: The descriptor was successfully destroyed.
+// A nil error means the descriptor was successfully destroyed.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -21,9 +20,10 @@ func (f FusedOpsVariantParamPack) Destroy() error {
 //   - paramLabel: Input. Type of the buffer pointer parameter (in the varPack descriptor). For more information, refer to [FusedOpsConstParamLabel]. The retrieved descriptor values vary according to this type
 //   - ptr: Output. Pointer to the host or device memory where the retrieved value is written by this function. The data type of the pointer, and the host/device memory location, depend on the paramLabel input selection. For more information, refer to [FusedOpsVariantParamLabel]
 //
-// Returns:
+// A nil error means the descriptor values are retrieved successfully.
+//
+// Errors:
 //   - [ErrBadParam]: If either varPack or ptr is NULL, or if paramLabel is set to invalid value.
-//   - [Success]: The descriptor values are retrieved successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -39,9 +39,10 @@ func (f FusedOpsVariantParamPack) Attribute(paramLabel FusedOpsVariantParamLabel
 //   - paramLabel: Input. Type to which the buffer pointer parameter (in the varPack descriptor) is set by this function. For more information, refer to [FusedOpsConstParamLabel]
 //   - ptr: Input. Pointer to the host or device memory, to the value to which the descriptor parameter is set. The data type of the pointer, and the host/device memory location, depend on the paramLabel input selection. For more information, refer to [FusedOpsVariantParamLabel]
 //
-// Returns:
+// A nil error means the descriptor is set successfully.
+//
+// Errors:
 //   - [ErrBadParam]: If varPack is NULL or if paramLabel is set to an unsupported value.
-//   - [Success]: The descriptor is set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //

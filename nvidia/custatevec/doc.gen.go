@@ -86,19 +86,19 @@
 //
 // # Library context
 //
-//   - [NewCommunicator]: [Create] communicator.
+//   - [NewCommunicator]: Create communicator.
 //   - [Communicator.Destroy]: releases communicator.
 //   - [Create]: creates a cuStateVec library handle bound to the current CUDA device.
 //   - [Handle.Destroy]: releases a handle and the resources it owns.
-//   - [NewDistIndexBitSwapScheduler]: [Create] distributed index bit swap scheduler.
+//   - [NewDistIndexBitSwapScheduler]: Create distributed index bit swap scheduler.
 //   - [DistIndexBitSwapScheduler.Destroy]: releases distributed index bit swap scheduler.
 //   - [DistIndexBitSwapScheduler.Parameters]: Get parameters to be set to the state vector swap worker
 //   - [DistIndexBitSwapScheduler.SetIndexBitSwaps]: Set index bit swaps to distributed index bit swap scheduler.
 //   - [GetProperty]: reports one component of the linked library version.
 //   - [Handle.Stream]: returns the CUDA stream bound to the handle.
 //   - [GetVersion]: returns the linked library version, which the header encodes as major*10000 + minor*100 + patch.
-//   - [NewSVSwapWorker]: [Create] state vector swap worker.
-//   - [NewSVSwapWorkerWithSemaphore]: [Create] state vector swap worker with semaphore.
+//   - [NewSVSwapWorker]: Create state vector swap worker.
+//   - [NewSVSwapWorkerWithSemaphore]: Create state vector swap worker with semaphore.
 //   - [SVSwapWorker.Destroy]: releases the state vector swap worker.
 //   - [SVSwapWorker.Execute]: Execute the data transfer.
 //   - [SVSwapWorker.SetExtraWorkspace]: Set extra workspace.

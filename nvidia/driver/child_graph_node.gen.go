@@ -17,6 +17,11 @@ type ChildGraphNode struct {
 //
 // See also: [Graph.AddChildGraphNode], [GraphNode.FindInClone]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuGraphChildGraphNodeGetGraph.
 func (c ChildGraphNode) Graph() (Graph, error) {
 	return graphChildGraphNodeGetGraph(c.GraphNode)

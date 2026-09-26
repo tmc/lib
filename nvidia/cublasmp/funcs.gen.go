@@ -32,13 +32,15 @@ var (
 	fnSetStream                func(Handle, driver.Stream) Result
 )
 
-// ffiCall0 through ffiCall3 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+// The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
 //
 // Bit i of floatMask marks argument word i as a floating-point bit
 // pattern, which the C ABI passes in a different register file from the
-// integer and pointer words. Each returns the first integer result
-// register and the first floating-point one; a caller reads whichever the
-// C function sets.
+// integer and pointer words. Bits 2i and 2i+1 of widths give the size of
+// argument word i as a ffi.Width code, which places a narrow argument
+// on the stack where the C ABI expects it. Each funnel returns the first
+// integer result register and the first floating-point one; a caller
+// reads whichever the C function sets.
 //
 // The //go:uintptrescapes directive is what makes a Go pointer safe to
 // pass: a pointer converted to uintptr in one of these argument lists is
@@ -143,6 +145,153 @@ func fnMalloc(a0 Grid, a1 *uintptr, a2 uint) Result {
 func fnMatrixDescriptorDestroy(a0 MatrixDescriptor) Result {
 	r1, _ := ffiCall1(symMatrixDescriptorDestroy, 0, uintptr(a0))
 	return Result(r1)
+}
+
+// A Scalar is a value, such as the alpha and beta of a matrix product,
+// that the library reads through a pointer. Make one for a value in host
+// memory with [Float16BitsScalar], [Float32Scalar], [Float64Scalar],
+// [Complex64Scalar], [Complex128Scalar], or [Int32Scalar].
+//
+// A call copies a host value into memory of its own, passes the library a
+// pointer to the copy, and reuses that memory once the call returns, so a
+// Scalar never reaches the library and can live anywhere.
+//
+// The cuBLASMp header says only that alpha and beta are host pointers, not
+// when they are read. The call assumes, as cuBLAS documents for itself,
+// that the library reads them before the call returns, including under
+// capture into a CUDA graph.
+//
+// The kind of a host Scalar must be the type the library reads. Where a
+// call names that type in another parameter, a Scalar of another kind is a
+// *[ScalarError]; where the type is in a descriptor, the call cannot check
+// it. The zero Scalar is a host zero of every kind.
+type Scalar struct {
+	v      [2]uint64 // the host value, or the device address in v[0]
+	kind   scalarKind
+	device bool
+}
+
+// Float16BitsScalar returns a host Scalar holding the IEEE 754 half-precision value
+// with bit pattern b.
+func Float16BitsScalar(b uint16) Scalar {
+	s := Scalar{kind: scalarFloat16}
+	*(*uint16)(unsafe.Pointer(&s.v)) = b
+	return s
+}
+
+// Float32Scalar returns a host Scalar holding the float32 x.
+func Float32Scalar(x float32) Scalar {
+	s := Scalar{kind: scalarFloat32}
+	*(*float32)(unsafe.Pointer(&s.v)) = x
+	return s
+}
+
+// Float64Scalar returns a host Scalar holding the float64 x.
+func Float64Scalar(x float64) Scalar {
+	s := Scalar{kind: scalarFloat64}
+	*(*float64)(unsafe.Pointer(&s.v)) = x
+	return s
+}
+
+// Complex64Scalar returns a host Scalar holding the complex64 x.
+func Complex64Scalar(x complex64) Scalar {
+	s := Scalar{kind: scalarComplex64}
+	*(*complex64)(unsafe.Pointer(&s.v)) = x
+	return s
+}
+
+// Complex128Scalar returns a host Scalar holding the complex128 x.
+func Complex128Scalar(x complex128) Scalar {
+	s := Scalar{kind: scalarComplex128}
+	*(*complex128)(unsafe.Pointer(&s.v)) = x
+	return s
+}
+
+// Int32Scalar returns a host Scalar holding the int32 x.
+func Int32Scalar(x int32) Scalar {
+	s := Scalar{kind: scalarInt32}
+	*(*int32)(unsafe.Pointer(&s.v)) = x
+	return s
+}
+
+// arg returns the pointer the library reads s through: the device address,
+// or c after copying the host value into it. c must be heap memory that
+// stays reachable until the call returns.
+func (s Scalar) arg(c *[2]uint64) unsafe.Pointer {
+	if s.device {
+		return *(*unsafe.Pointer)(unsafe.Pointer(&s.v[0]))
+	}
+	*c = s.v
+	return unsafe.Pointer(c)
+}
+
+// is reports whether s may be passed where the kinds k are allowed.
+func (s Scalar) is(k scalarKind) bool {
+	return s.device || s.kind == 0 || s.kind&k != 0
+}
+
+// A scalarKind is a set of the kinds a Scalar can hold.
+type scalarKind uint8
+
+const (
+	scalarFloat16 scalarKind = 1 << iota
+	scalarBfloat16
+	scalarFloat32
+	scalarFloat64
+	scalarComplex64
+	scalarComplex128
+	scalarInt32
+)
+
+var scalarKindNames = [...]string{"float16", "bfloat16", "float32", "float64", "complex64", "complex128", "int32"}
+
+func (k scalarKind) String() string {
+	s := ""
+	for i, name := range scalarKindNames {
+		if k&(1<<i) == 0 {
+			continue
+		}
+		if s != "" {
+			s += " or "
+		}
+		s += name
+	}
+	return s
+}
+
+// A ScalarError reports a host Scalar whose kind is not the type the call
+// names for it in another parameter.
+type ScalarError struct {
+	Func  string // the C symbol called
+	Param string // the scalar parameter
+	Kind  string // the Scalar's kind, such as "float32"
+	Want  string // the kinds the call allows, such as "float64 or complex128"
+}
+
+func (e *ScalarError) Error() string {
+	return e.Func + ": " + e.Param + " is " + e.Kind + ", want " + e.Want
+}
+
+func scalarError(fn, param string, s Scalar, want scalarKind) error {
+	return &ScalarError{Func: fn, Param: param, Kind: s.kind.String(), Want: want.String()}
+}
+
+// scalarCells pools the heap cells host Scalars are copied into, 2 per call.
+var scalarCells outSlot[[2][2]uint64]
+
+// computeTypeKinds returns the Scalar kinds a cublasComputeType_t value allows.
+func computeTypeKinds(v int64) scalarKind {
+	switch v {
+	case 64, 65:
+		return scalarFloat16
+	case 68, 69, 74, 75, 77, 78:
+		return scalarFloat32 | scalarComplex64
+	case 70, 71, 79:
+		return scalarFloat64 | scalarComplex128
+	case 72, 73:
+		return scalarInt32
+	}
+	return ^scalarKind(0)
 }
 
 // BufferDeregister deregisters a previously registered device memory buffer from NCCL symmetric memory.
@@ -267,22 +416,22 @@ func Free(grid Grid, ptr uintptr) error {
 // This routine will internally call cublasMpMatmul() with d == c.
 //
 // Contract:
-// - Uses the same descriptor, offset, and block-size contract as
+//   - Uses the same descriptor, offset, and block-size contract as
+//
 // [Handle.GemmBufferSize].
-// - Matrix C is both input and output; unlike cublasMpMatmul(), [Handle.Gemm]
-// always writes the result to C.
+//   - Matrix C is both input and output; unlike cublasMpMatmul(), [Handle.Gemm] always writes the result to C.
 //
 // Workspace:
-// - Call [Handle.GemmBufferSize] with the same arguments first, then pass device
-// and host workspaces of the returned sizes.
+//   - Call [Handle.GemmBufferSize] with the same arguments first, then pass device and host workspaces of the returned sizes.
 //
+// Parameters:
 //   - handle: in cuBLASMp library handle
 //   - transA: in Operation op(A) that is non- or (conj.) transpose
 //   - transB: in Operation op(B) that is non- or (conj.) transpose
 //   - m: in Number of rows of op(A) and C
 //   - n: in Number of columns of op(B) and C
 //   - k: in Number of columns of op(A) and rows of op(B)
-//   - alpha: in Scalar used for multiplication (host pointer)
+//   - alpha: in Scalar used for multiplication (host pointer). Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - a: in Pointer to local portion of global matrix A (device)
 //   - ia: in Row index of the first row of sub(A). ia - 1 must be a multiple of mbA
 //   - ja: in Column index of the first column of sub(A). ja - 1 must be a multiple of nbA
@@ -291,7 +440,7 @@ func Free(grid Grid, ptr uintptr) error {
 //   - ib: in Row index of the first row of sub(B). ib - 1 must be a multiple of mbB
 //   - jb: in Column index of the first column of sub(B). jb - 1 must be a multiple of nbB
 //   - descB: in Matrix descriptor for global matrix B
-//   - beta: in Scalar used for multiplication (host pointer)
+//   - beta: in Scalar used for multiplication (host pointer). Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - c: in,out Pointer to local portion of global matrix C (device)
 //   - ic: in Row index of the first row of sub(C). ic - 1 must be a multiple of mbC
 //   - jc: in Column index of the first column of sub(C). jc - 1 must be a multiple of nbC
@@ -303,11 +452,19 @@ func Free(grid Grid, ptr uintptr) error {
 //   - workspaceSizeInBytesOnHost: in Host workspace size as provided by [Handle.GemmBufferSize]
 //
 // Wraps cublasMpGemm.
-func Gemm(handle Handle, transA cublas.Operation, transB cublas.Operation, m int64, n int64, k int64, alpha unsafe.Pointer, a uintptr, ia int64, ja int64, descA MatrixDescriptor, b uintptr, ib int64, jb int64, descB MatrixDescriptor, beta unsafe.Pointer, c uintptr, ic int64, jc int64, descC MatrixDescriptor, computeType cublas.ComputeType, dWork uintptr, workspaceSizeInBytesOnDevice uint, hWork unsafe.Pointer, workspaceSizeInBytesOnHost uint) error {
+func Gemm(handle Handle, transA cublas.Operation, transB cublas.Operation, m int64, n int64, k int64, alpha Scalar, a uintptr, ia int64, ja int64, descA MatrixDescriptor, b uintptr, ib int64, jb int64, descB MatrixDescriptor, beta Scalar, c uintptr, ic int64, jc int64, descC MatrixDescriptor, computeType cublas.ComputeType, dWork uintptr, workspaceSizeInBytesOnDevice uint, hWork unsafe.Pointer, workspaceSizeInBytesOnHost uint) error {
 	if err := checkLibSym("cublasMpGemm"); err != nil {
 		return err
 	}
-	return toError(fnGemm(handle, transA, transB, m, n, k, alpha, a, ia, ja, descA, b, ib, jb, descB, beta, c, ic, jc, descC, computeType, dWork, workspaceSizeInBytesOnDevice, hWork, workspaceSizeInBytesOnHost), "cublasMpGemm")
+	if k := computeTypeKinds(int64(computeType)); !alpha.is(k) {
+		return scalarError("cublasMpGemm", "alpha", alpha, k)
+	}
+	if k := computeTypeKinds(int64(computeType)); !beta.is(k) {
+		return scalarError("cublasMpGemm", "beta", beta, k)
+	}
+	_scalars := scalarCells.get()
+	defer scalarCells.put(_scalars)
+	return toError(fnGemm(handle, transA, transB, m, n, k, alpha.arg(&_scalars[0]), a, ia, ja, descA, b, ib, jb, descB, beta.arg(&_scalars[1]), c, ic, jc, descC, computeType, dWork, workspaceSizeInBytesOnDevice, hWork, workspaceSizeInBytesOnHost), "cublasMpGemm")
 }
 
 // GemmBufferSize computes the workspace size required by [Handle.Gemm].
@@ -316,26 +473,21 @@ func Gemm(handle Handle, transA cublas.Operation, transB cublas.Operation, m int
 // given input. [Handle.Gemm] uses cublasMpMatmul() semantics with D == C.
 //
 // Contract:
-// - Submatrix indices are 1-based and must be aligned to the corresponding descriptor
-// block dimensions.
-// - descA, descB, and descC must be non-NULL. Matrix C is both input and output;
-// unlike cublasMpMatmul(), [Handle.Gemm] always writes the result to C.
-// - Block-size compatibility follows op(A) and op(B):
-// transA=N, transB=N: nbA == mbB, mbA == mbC, nbB == nbC.
-// transA=N, transB=T/C: nbA == nbB, mbA == mbC, mbB == nbC.
-// transA=T/C, transB=N: mbA == mbB, nbA == mbC, nbB == nbC.
-// transA=T/C, transB=T/C: mbA == nbB, nbA == mbC, mbB == nbC.
+//   - Submatrix indices are 1-based and must be aligned to the corresponding descriptor block dimensions.
+//   - descA, descB, and descC must be non-NULL. Matrix C is both input and output; unlike cublasMpMatmul(), [Handle.Gemm] always writes the result to C.
+//   - Block-size compatibility follows op(A) and op(B): transA=N, transB=N: nbA == mbB, mbA == mbC, nbB == nbC. transA=N, transB=T/C: nbA == nbB, mbA == mbC, mbB == nbC. transA=T/C, transB=N: mbA == mbB, nbA == mbC, nbB == nbC. transA=T/C, transB=T/C: mbA == nbB, nbA == mbC, mbB == nbC.
 //
 // Workspace:
-// - Use the returned workspace sizes unchanged for the matching [Handle.Gemm] call.
+//   - Use the returned workspace sizes unchanged for the matching [Handle.Gemm] call.
 //
+// Parameters:
 //   - handle: in cuBLASMp library handle
 //   - transA: in Operation op(A) that is non- or (conj.) transpose
 //   - transB: in Operation op(B) that is non- or (conj.) transpose
 //   - m: in Number of rows of op(A) and C
 //   - n: in Number of columns of op(B) and C
 //   - k: in Number of columns of op(A) and rows of op(B)
-//   - alpha: in Scalar used for multiplication (host pointer)
+//   - alpha: in Scalar used for multiplication (host pointer). Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - a: in Pointer to local portion of global matrix A (device)
 //   - ia: in Row index of the first row of sub(A). ia - 1 must be a multiple of mbA
 //   - ja: in Column index of the first column of sub(A). ja - 1 must be a multiple of nbA
@@ -344,7 +496,7 @@ func Gemm(handle Handle, transA cublas.Operation, transB cublas.Operation, m int
 //   - ib: in Row index of the first row of sub(B). ib - 1 must be a multiple of mbB
 //   - jb: in Column index of the first column of sub(B). jb - 1 must be a multiple of nbB
 //   - descB: in Matrix descriptor for global matrix B
-//   - beta: in Scalar used for multiplication (host pointer)
+//   - beta: in Scalar used for multiplication (host pointer). Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - c: in Pointer to local portion of global matrix C (device)
 //   - ic: in Row index of the first row of sub(C). ic - 1 must be a multiple of mbC
 //   - jc: in Column index of the first column of sub(C). jc - 1 must be a multiple of nbC
@@ -352,13 +504,21 @@ func Gemm(handle Handle, transA cublas.Operation, transB cublas.Operation, m int
 //   - computeType: in cuBLAS compute type for internal matrix-matrix multiplications
 //
 // Wraps cublasMpGemm_bufferSize.
-func GemmBufferSize(handle Handle, transA cublas.Operation, transB cublas.Operation, m int64, n int64, k int64, alpha unsafe.Pointer, a uintptr, ia int64, ja int64, descA MatrixDescriptor, b uintptr, ib int64, jb int64, descB MatrixDescriptor, beta unsafe.Pointer, c uintptr, ic int64, jc int64, descC MatrixDescriptor, computeType cublas.ComputeType) (uint, uint, error) {
+func GemmBufferSize(handle Handle, transA cublas.Operation, transB cublas.Operation, m int64, n int64, k int64, alpha Scalar, a uintptr, ia int64, ja int64, descA MatrixDescriptor, b uintptr, ib int64, jb int64, descB MatrixDescriptor, beta Scalar, c uintptr, ic int64, jc int64, descC MatrixDescriptor, computeType cublas.ComputeType) (uint, uint, error) {
 	if err := checkLibSym("cublasMpGemm_bufferSize"); err != nil {
 		return 0, 0, err
 	}
+	if k := computeTypeKinds(int64(computeType)); !alpha.is(k) {
+		return 0, 0, scalarError("cublasMpGemm_bufferSize", "alpha", alpha, k)
+	}
+	if k := computeTypeKinds(int64(computeType)); !beta.is(k) {
+		return 0, 0, scalarError("cublasMpGemm_bufferSize", "beta", beta, k)
+	}
+	_scalars := scalarCells.get()
+	defer scalarCells.put(_scalars)
 	var out0 uint
 	var out1 uint
-	if err := toError(fnGemmBufferSize(handle, transA, transB, m, n, k, alpha, a, ia, ja, descA, b, ib, jb, descB, beta, c, ic, jc, descC, computeType, &out0, &out1), "cublasMpGemm_bufferSize"); err != nil {
+	if err := toError(fnGemmBufferSize(handle, transA, transB, m, n, k, alpha.arg(&_scalars[0]), a, ia, ja, descA, b, ib, jb, descB, beta.arg(&_scalars[1]), c, ic, jc, descC, computeType, &out0, &out1), "cublasMpGemm_bufferSize"); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil

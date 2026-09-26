@@ -8,8 +8,6 @@ import (
 
 // MatGet returns the fields of the dense matrix descriptor dnMatDescr.
 //
-// Refer to [Result] for the description of the return status.
-//
 //   - rows: Number of rows of the dense matrix
 //   - cols: Number of columns of the dense matrix
 //   - ld: Leading dimension of the dense matrix
@@ -23,8 +21,6 @@ func (d DnMatDescr) MatGet(rows *int64, cols *int64, ld *int64, values *uintptr,
 
 // MatGetValues returns the values field of the dense matrix descriptor dnMatDescr.
 //
-// Refer to [Result] for the description of the return status.
-//
 //   - values: Values of the dense matrix. Array with ld * cols elements
 //
 // Wraps cusparseDnMatGetValues.
@@ -33,8 +29,6 @@ func (d DnMatDescr) MatGetValues(values *uintptr) error {
 }
 
 // MatSetStridedBatch sets the number of batches and the batch stride of the dense matrix descriptor dnMatDescr.
-//
-// Refer to [Result] for the description of the return status.
 //
 //   - batchCount: Number of batches of the dense matrix
 //   - batchStride: Address offset between a matrix and the next one in the batch. batchStride ≥ ld * cols if the matrix uses column-major layout, batchStride ≥ ld * rows otherwise
@@ -47,8 +41,9 @@ func (d DnMatDescr) MatSetStridedBatch(batchCount int32, batchStride int64) erro
 // MatSetValues sets the values field of the dense matrix descriptor dnMatDescr.
 //
 // [DnMatDescr.MatSetValues] has the following constraints:
-// Refer to [Result] for the description of the return status.
+//   - values must be aligned to the size of the datatype specified in dnMatDescr. See cudaDataType_t for the description of the datatypes.
 //
+// Parameters:
 //   - values: Values of the dense matrix. Array with ld * cols elements
 //
 // Wraps cusparseDnMatSetValues.

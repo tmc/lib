@@ -40,15 +40,18 @@ const (
 	DataHalf   DataType = 2 // The data is a 16-bit floating-point.
 	DataINT8   DataType = 3 // The data is an 8-bit signed integer.
 	DataInt32  DataType = 4 // The data is a 32-bit signed integer.
-	// Deprecated: use the replacement constant.
 	// DataInt8x4: The data is 32-bit elements each composed of 4 8-bit signed integers. This data type is only supported with the tensor format [TensorNchwVectC].
+	//
+	// Deprecated: This constant is deprecated.
 	DataInt8x4 DataType = 5
 	DataUint8  DataType = 6 // The data is an 8-bit unsigned integer.
-	// Deprecated: use the replacement constant.
 	// DataUint8x4: The data is 32-bit elements each composed of 4 8-bit unsigned integers. This data type is only supported with the tensor format [TensorNchwVectC].
+	//
+	// Deprecated: This constant is deprecated.
 	DataUint8x4 DataType = 7
-	// Deprecated: use the replacement constant.
 	// DataInt8x32: The data is 32-element vectors, each element being an 8-bit signed integer. This data type is only supported with the tensor format [TensorNchwVectC]. Moreover, this data type can only be used with algo 1, meaning, [ConvolutionFwdAlgoImplicitPrecompGemm]. For more information, refer to [ConvolutionFwdAlgo].
+	//
+	// Deprecated: This constant is deprecated.
 	DataInt8x32 DataType = 8
 	// DataBfloat16: The data is a 16-bit quantity, with 7 mantissa bits, 8 exponent bits, and 1 sign bit.
 	DataBfloat16 DataType = 9
@@ -158,10 +161,14 @@ func (e MathType) String() string {
 type NanPropagation int32
 
 const (
-	// Deprecated: use the replacement constant.
-	NotPropagateNan NanPropagation = 0 // NAN numbers are not propagated.
-	// Deprecated: use the replacement constant.
-	PropagateNan NanPropagation = 1 // NAN numbers are propagated.
+	// NotPropagateNan: NAN numbers are not propagated.
+	//
+	// Deprecated: This constant is deprecated.
+	NotPropagateNan NanPropagation = 0
+	// PropagateNan: NAN numbers are propagated.
+	//
+	// Deprecated: This constant is deprecated.
+	PropagateNan NanPropagation = 1
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -717,7 +724,7 @@ type BackendAttributeName int32
 const (
 	AttrPointwiseMode     BackendAttributeName = 0
 	AttrPointwiseMathPrec BackendAttributeName = 1
-	// Deprecated: use the replacement constant.
+	// Deprecated: This constant is deprecated.
 	AttrPointwiseNanPropagation     BackendAttributeName = 2
 	AttrPointwiseReluLowerClip      BackendAttributeName = 3
 	AttrPointwiseReluUpperClip      BackendAttributeName = 4
@@ -743,7 +750,7 @@ const (
 	AttrEnginecfgKnobChoices        BackendAttributeName = 302
 	AttrEnginecfgWorkspaceSize      BackendAttributeName = 303
 	AttrEnginecfgSharedMemoryUsed   BackendAttributeName = 304
-	// Deprecated: use the replacement constant.
+	// Deprecated: This constant is deprecated.
 	AttrExecutionPlanHandle                       BackendAttributeName = 400
 	AttrExecutionPlanEngineConfig                 BackendAttributeName = 401
 	AttrExecutionPlanWorkspaceSize                BackendAttributeName = 402
@@ -807,7 +814,7 @@ const (
 	AttrOperationBnFinalizeAccumCountDesc         BackendAttributeName = 794
 	AttrOperationBnFinalizeEpsilonDesc            BackendAttributeName = 795
 	AttrOperationBnFinalizeExpAverateFactorDesc   BackendAttributeName = 796
-	// Deprecated: use the replacement constant.
+	// Deprecated: This constant is deprecated.
 	AttrOperationgraphHandle                BackendAttributeName = 800
 	AttrOperationgraphOps                   BackendAttributeName = 801
 	AttrOperationgraphEngineGlobalCount     BackendAttributeName = 802
@@ -852,7 +859,7 @@ const (
 	AttrOperationMatmulBdesc                BackendAttributeName = 1521
 	AttrOperationMatmulCdesc                BackendAttributeName = 1522
 	AttrOperationMatmulDesc                 BackendAttributeName = 1523
-	// Deprecated: use the replacement constant.
+	// Deprecated: This constant is deprecated.
 	AttrOperationMatmulIrregularlyStridedBatchCount BackendAttributeName = 1524
 	AttrOperationMatmulGemmMOverrideDesc            BackendAttributeName = 1525
 	AttrOperationMatmulGemmNOverrideDesc            BackendAttributeName = 1526
@@ -886,17 +893,17 @@ const (
 	AttrOperationResampleFwdXdesc                   BackendAttributeName = 1710
 	AttrOperationResampleFwdYdesc                   BackendAttributeName = 1711
 	AttrOperationResampleFwdIdxdesc                 BackendAttributeName = 1712
-	// Deprecated: use the replacement constant.
+	// Deprecated: This constant is deprecated.
 	AttrOperationResampleFwdAlpha BackendAttributeName = 1713
-	// Deprecated: use the replacement constant.
+	// Deprecated: This constant is deprecated.
 	AttrOperationResampleFwdBeta    BackendAttributeName = 1714
 	AttrOperationResampleFwdDesc    BackendAttributeName = 1716
 	AttrOperationResampleBwdDxdesc  BackendAttributeName = 1720
 	AttrOperationResampleBwdDydesc  BackendAttributeName = 1721
 	AttrOperationResampleBwdIdxdesc BackendAttributeName = 1722
-	// Deprecated: use the replacement constant.
+	// Deprecated: This constant is deprecated.
 	AttrOperationResampleBwdAlpha BackendAttributeName = 1723
-	// Deprecated: use the replacement constant.
+	// Deprecated: This constant is deprecated.
 	AttrOperationResampleBwdBeta                      BackendAttributeName = 1724
 	AttrOperationResampleBwdDesc                      BackendAttributeName = 1725
 	AttrOperationResampleBwdXdesc                     BackendAttributeName = 1726
@@ -1669,7 +1676,7 @@ const (
 	TypeConvolutionMode BackendAttributeType = 7
 	TypeHeurMode        BackendAttributeType = 8
 	TypeKnobType        BackendAttributeType = 9
-	// Deprecated: use the replacement constant.
+	// Deprecated: This constant is deprecated.
 	TypeNanPropogation        BackendAttributeType = 10
 	TypeNumericalNote         BackendAttributeType = 11
 	TypeLayoutType            BackendAttributeType = 12
@@ -2002,53 +2009,53 @@ func (e BackendBehaviorNote) String() string {
 type BackendKnobType int32
 
 const (
-	// Deprecated: use the replacement constant.
+	// Deprecated: This constant is deprecated.
 	KnobTypeSplitK   BackendKnobType = 0
 	KnobTypeSwizzle  BackendKnobType = 1
 	KnobTypeTileSize BackendKnobType = 2
-	// Deprecated: use the replacement constant.
+	// Deprecated: This constant is deprecated.
 	KnobTypeUseTex BackendKnobType = 3
 	KnobTypeEdge   BackendKnobType = 4
-	// Deprecated: use the replacement constant.
+	// Deprecated: This constant is deprecated.
 	KnobTypeKblock BackendKnobType = 5
-	// Deprecated: use the replacement constant.
+	// Deprecated: This constant is deprecated.
 	KnobTypeLdga BackendKnobType = 6
-	// Deprecated: use the replacement constant.
+	// Deprecated: This constant is deprecated.
 	KnobTypeLdgb BackendKnobType = 7
-	// Deprecated: use the replacement constant.
+	// Deprecated: This constant is deprecated.
 	KnobTypeChunkK BackendKnobType = 8
-	// Deprecated: use the replacement constant.
+	// Deprecated: This constant is deprecated.
 	KnobTypeSplitH BackendKnobType = 9
-	// Deprecated: use the replacement constant.
+	// Deprecated: This constant is deprecated.
 	KnobTypeWinoTile      BackendKnobType = 10
 	KnobTypeMultiply      BackendKnobType = 11
 	KnobTypeSplitKBuf     BackendKnobType = 12
 	KnobTypeTilek         BackendKnobType = 13
 	KnobTypeStages        BackendKnobType = 14
 	KnobTypeReductionMode BackendKnobType = 15
-	// Deprecated: use the replacement constant.
+	// Deprecated: This constant is deprecated.
 	KnobTypeCtaSplitKMode BackendKnobType = 16
 	KnobTypeSplitKSlc     BackendKnobType = 17
 	KnobTypeIdxMode       BackendKnobType = 18
-	// Deprecated: use the replacement constant.
+	// Deprecated: This constant is deprecated.
 	KnobTypeSliced BackendKnobType = 19
-	// Deprecated: use the replacement constant.
+	// Deprecated: This constant is deprecated.
 	KnobTypeSplitRs BackendKnobType = 20
-	// Deprecated: use the replacement constant.
+	// Deprecated: This constant is deprecated.
 	KnobTypeSinglebuffer BackendKnobType = 21
-	// Deprecated: use the replacement constant.
+	// Deprecated: This constant is deprecated.
 	KnobTypeLdgc      BackendKnobType = 22
 	KnobTypeSpecfilt  BackendKnobType = 23
 	KnobTypeKernelCfg BackendKnobType = 24
 	KnobTypeWorkspace BackendKnobType = 25
-	// Deprecated: use the replacement constant.
+	// Deprecated: This constant is deprecated.
 	KnobTypeTileCga            BackendKnobType = 26
 	KnobTypeTileCgaM           BackendKnobType = 27
 	KnobTypeTileCgaN           BackendKnobType = 28
 	KnobTypeBlockSize          BackendKnobType = 29
 	KnobTypeOccupancy          BackendKnobType = 30
 	KnobTypeArraySizePerThread BackendKnobType = 31
-	// Deprecated: use the replacement constant.
+	// Deprecated: This constant is deprecated.
 	KnobTypeNumCPerBlock BackendKnobType = 32
 	KnobTypeSplitCols    BackendKnobType = 33
 	KnobTypeTileRows     BackendKnobType = 34

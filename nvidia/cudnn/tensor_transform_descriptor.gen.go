@@ -4,9 +4,6 @@ package cudnn
 
 // Destroy destroys a previously created tensor transform descriptor.
 //
-// Returns:
-//   - [Success]: The object was destroyed successfully.
-//
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnDestroyTensorTransformDescriptor.
@@ -20,9 +17,10 @@ func (t TensorTransformDescriptor) Destroy() error {
 //
 //   - nbDimsRequested: Input. The number of dimensions to consider. For more information, refer to Tensor Descriptor
 //
-// Returns:
+// A nil error means the results were obtained successfully.
+//
+// Errors:
 //   - [ErrBadParam]: If transformDesc is NULL or if nbDimsRequested is less than 3 or greater than CUDNN_DIM_MAX.
-//   - [Success]: The results were obtained successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -39,11 +37,12 @@ func (t TensorTransformDescriptor) Get(nbDimsRequested int) (TensorTransformConf
 //   - srcDesc: Input. Handle to a previously initialized tensor descriptor
 //   - destDesc: Output. Handle of the tensor descriptor that will be initialized and returned
 //
-// Returns:
+// A nil error means the tensor descriptor was initialized successfully.
+//
+// Errors:
 //   - [ErrBadParam]: If either srcDesc or destDesc is NULL, or if the tensor descriptors nbDims is incorrect. For more information, refer to Tensor Descriptor..
 //   - [ErrExecutionFailed]: Function failed to launch on the GPU.
 //   - [ErrNotSupported]: If the provided configuration is not 4D.
-//   - [Success]: The tensor descriptor was initialized successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -63,10 +62,11 @@ func (t TensorTransformDescriptor) InitTransformDest(srcDesc TensorDescriptor, d
 //   - foldA: Input. An array that contains the folding parameters for each spatial dimension (dimensions 2 and up). Set to NULL for no folding
 //   - direction: Input. Selects folding or unfolding. This input has no effect when folding parameters are all <= 1. For more information, refer to [FoldingDirection]
 //
-// Returns:
+// A nil error means the function was launched successfully.
+//
+// Errors:
 //   - [ErrBadParam]: The parameter transformDesc is NULL, or if direction is invalid, or nbDims is <= 2.
 //   - [ErrNotSupported]: If the dimension size requested is larger than maximum dimension size supported (meaning, one of the nbDims is larger than CUDNN_DIM_MAX), or if destFromat is something other than NCHW or NHWC.
-//   - [Success]: The function was launched successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //

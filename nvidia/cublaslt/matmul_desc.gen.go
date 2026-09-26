@@ -8,9 +8,10 @@ package cublaslt
 //   - computeType: Enumerant that specifies the data precision for the matrix multiply descriptor this function creates. See [CublascomputetypeT]
 //   - scaleType: Enumerant that specifies the data precision for the matrix transform descriptor this function creates. See cudaDataType_t
 //
-// Returns:
-//   - [ErrAllocFailed]: if memory could not be allocated
-//   - [Success]: if desciptor was created successfully
+// A nil error means the descriptor was created successfully.
+//
+// Errors:
+//   - [ErrAllocFailed]: If memory could not be allocated.
 //
 // Wraps cublasLtMatmulDescCreate.
 func NewMatmulDesc(computeType ComputeType, scaleType DataType) (MatmulDesc, error) {
@@ -24,9 +25,10 @@ func NewMatmulDesc(computeType ComputeType, scaleType DataType) (MatmulDesc, err
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
 //   - sizeWritten: Valid only when the return value is [Success]. If sizeInBytes is non-zero: then sizeWritten is the number of bytes actually written; if sizeInBytes is 0: then sizeWritten is the number of bytes needed to write full contents
 //
-// Returns:
-//   - [ErrInvalidValue]: if sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
-//   - [Success]: if attribute's value was successfully written to user memory
+// A nil error means attribute’s value was successfully written to user memory.
+//
+// Errors:
+//   - [ErrInvalidValue]: If sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL, or sizeInBytes doesn’t match size of internal storage for the selected attribute
 //
 // Wraps cublasLtMatmulDescGetAttribute.
 func (m MatmulDesc) Attribute(attr MatmulDescAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
@@ -34,9 +36,6 @@ func (m MatmulDesc) Attribute(attr MatmulDescAttributes, buf uintptr, sizeInByte
 }
 
 // Destroy destroys a previously created matrix multiply descriptor object.
-//
-// Returns:
-//   - [Success]: if operation was successful
 //
 // Wraps cublasLtMatmulDescDestroy.
 func (m MatmulDesc) Destroy() error {
@@ -54,9 +53,10 @@ func (m MatmulDesc) Init_internal(size uint, computeType ComputeType, scaleType 
 //   - buf: The value to which the specified attribute should be set
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
 //
-// Returns:
-//   - [ErrInvalidValue]: if buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
-//   - [Success]: if attribute was set successfully
+// A nil error means the attribute was set successfully.
+//
+// Errors:
+//   - [ErrInvalidValue]: If buf is NULL or sizeInBytes doesn’t match the size of the internal storage for the selected attribute.
 //
 // Wraps cublasLtMatmulDescSetAttribute.
 func (m MatmulDesc) SetAttribute(attr MatmulDescAttributes, buf uintptr, sizeInBytes uint) error {

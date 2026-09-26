@@ -4,9 +4,6 @@ package cusolver
 
 // Destroy destroys and releases any memory required by the structure.
 //
-// Returns:
-//   - [Success]: The resources were released successfully.
-//
 // Wraps cusolverDnDestroyGesvdjInfo.
 func (g GesvdjInfo) Destroy() error {
 	return destroyGesvdjInfo(g)
@@ -18,22 +15,18 @@ func (g GesvdjInfo) Destroy() error {
 //
 //   - maxSweeps: Maximum number of sweeps
 //
-// Returns:
-//   - [Success]: The operation completed successfully.
-//
 // Wraps cusolverDnXgesvdjSetMaxSweeps.
 func (g GesvdjInfo) XgesvdjSetMaxSweeps(maxSweeps int32) error {
 	return xgesvdjSetMaxSweeps(g, maxSweeps)
 }
 
-// XgesvdjSetSortEig If sortSvd is zero, the singular values are not sorted.
+// XgesvdjSetSortEig sets whether the batched Jacobi SVD sorts the singular values it computes.
+//
+// If sortSvd is zero, the singular values are not sorted.
 //
 // This function only works for gesvdjBatched. gesvdj always sorts singular values in descending order. By default, singular values are always sorted in descending order.
 //
 //   - sortSvd: If sortSvd is zero, the singular values are not sorted
-//
-// Returns:
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXgesvdjSetSortEig.
 func (g GesvdjInfo) XgesvdjSetSortEig(sortSvd int32) error {
@@ -43,9 +36,6 @@ func (g GesvdjInfo) XgesvdjSetSortEig(sortSvd int32) error {
 // XgesvdjSetTolerance configures tolerance of gesvdj.
 //
 //   - tolerance: Accuracy of numerical singular values
-//
-// Returns:
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXgesvdjSetTolerance.
 func (g GesvdjInfo) XgesvdjSetTolerance(tolerance float64) error {

@@ -17,6 +17,11 @@ type ExternalSemaphoresSignalNode struct {
 //
 // See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddExternalSemaphoresSignalNode], [ExternalSemaphoresSignalNode.SetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuGraphExternalSemaphoresSignalNodeGetParams.
 func (e ExternalSemaphoresSignalNode) Params() (ExtSemSignalNodeParams, error) {
 	return graphExternalSemaphoresSignalNodeGetParams(e.GraphNode)
@@ -29,6 +34,11 @@ func (e ExternalSemaphoresSignalNode) Params() (ExtSemSignalNodeParams, error) {
 // See also: [GraphNode.SetParams], [Graph.AddExternalSemaphoresSignalNode], [ExternalSemaphoresSignalNode.SetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
 //   - nodeParams: Parameters to copy
+//
+// Errors:
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrOutOfMemory]
 //
 // Wraps cuGraphExternalSemaphoresSignalNodeSetParams.
 func (e ExternalSemaphoresSignalNode) SetParams(nodeParams *ExtSemSignalNodeParams) error {

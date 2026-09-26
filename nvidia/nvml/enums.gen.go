@@ -894,9 +894,15 @@ func (e ClockType) String() string {
 type ClockId int32
 
 const (
-	ClockIdCurrent          ClockId = 0 // Current actual clock value
-	ClockIdAppClockTarget   ClockId = 1 // Target application clock.
-	ClockIdAppClockDefault  ClockId = 2 // Default application clock target
+	ClockIdCurrent ClockId = 0 // Current actual clock value
+	// ClockIdAppClockTarget: Target application clock.
+	//
+	// Deprecated: Do not use.
+	ClockIdAppClockTarget ClockId = 1
+	// ClockIdAppClockDefault: Default application clock target
+	//
+	// Deprecated: Do not use.
+	ClockIdAppClockDefault  ClockId = 2
 	ClockIdCustomerBoostMax ClockId = 3 // OEM-defined maximum clock rate
 	ClockIdCount            ClockId = 4 // Count of Clock Ids.
 )
@@ -925,7 +931,10 @@ type DriverModel int32
 
 const (
 	DriverWddm DriverModel = 0 // WDDM driver model -- GPU treated as a display device
-	DriverWdm  DriverModel = 1 // WDM (TCC) model (deprecated) -- GPU treated as a generic compute device
+	// DriverWdm: WDM (TCC) model -- GPU treated as a generic compute device
+	//
+	// Deprecated: This constant is deprecated.
+	DriverWdm  DriverModel = 1
 	DriverMcdm DriverModel = 2 // MCDM driver model -- GPU treated as a Microsoft compute device
 )
 
@@ -1125,7 +1134,10 @@ func (e PageRetirementCause) String() string {
 type RestrictedAPI int32
 
 const (
-	RestrictedApiSetApplicationClocks RestrictedAPI = 0 // APIs that change application clocks, see [Device.SetApplicationsClocks]
+	// RestrictedApiSetApplicationClocks: APIs that change application clocks, see [Device.SetApplicationsClocks]
+	//
+	// Deprecated: Keeping definition for backward compatibility.
+	RestrictedApiSetApplicationClocks RestrictedAPI = 0
 	RestrictedApiSetAutoBoostedClocks RestrictedAPI = 1 // APIs that enable/disable Auto Boosted clocks
 	RestrictedApiCount                RestrictedAPI = 2
 )
@@ -1261,12 +1273,13 @@ func (e VgpuGuestInfoState) String() string {
 type GridLicenseFeatureCode int32
 
 const (
-	GridLicenseFeatureCodeUnknown      GridLicenseFeatureCode = 0                               // Unknown
-	GridLicenseFeatureCodeVgpu         GridLicenseFeatureCode = 1                               // Virtual GPU
-	GridLicenseFeatureCodeNvidiaRtx    GridLicenseFeatureCode = 2                               // Nvidia RTX
-	GridLicenseFeatureCodeVworkstation GridLicenseFeatureCode = GridLicenseFeatureCodeNvidiaRtx // Deprecated, do not use.
-	GridLicenseFeatureCodeGaming       GridLicenseFeatureCode = 3                               // Gaming
-	GridLicenseFeatureCodeCompute      GridLicenseFeatureCode = 4                               // Compute
+	GridLicenseFeatureCodeUnknown   GridLicenseFeatureCode = 0 // Unknown
+	GridLicenseFeatureCodeVgpu      GridLicenseFeatureCode = 1 // Virtual GPU
+	GridLicenseFeatureCodeNvidiaRtx GridLicenseFeatureCode = 2 // Nvidia RTX
+	// Deprecated: Do not use.
+	GridLicenseFeatureCodeVworkstation GridLicenseFeatureCode = GridLicenseFeatureCodeNvidiaRtx
+	GridLicenseFeatureCodeGaming       GridLicenseFeatureCode = 3 // Gaming
+	GridLicenseFeatureCodeCompute      GridLicenseFeatureCode = 4 // Compute
 )
 
 // String returns the constant name, or a numeric representation for unknown values.

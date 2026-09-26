@@ -28,6 +28,14 @@
 // loading of libcupti. Functions returning a C status report errors wrapping CUptiResult
 // with descriptive messages from cuptiGetResultString.
 //
+// # V1 and V2 APIs
+//
+// CUPTI is replacing its V1 activity and callback functions, such as
+// [ActivityEnable] and [Subscribe], with V2 functions and activity
+// attributes. Each V1 function's deprecation notice names its replacement,
+// and the V1 to V2 API Migration section of the CUPTI documentation
+// describes the changes.
+//
 // # Activity API
 //
 //   - [ActivityConfigurePCSampling]: Set PC sampling configuration.

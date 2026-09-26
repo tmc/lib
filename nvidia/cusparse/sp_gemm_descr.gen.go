@@ -11,13 +11,32 @@ package cusparse
 // Note: cusparseSpGEMMreuse() output CSR matrix ( matC) is sorted by column indices.
 // MEMORY REQUIREMENT: cusparseSpGEMMreuse requires to keep in memory all intermediate products to reuse the structure of the output matrix. On the other hand, the number of intermediate products is orders of magnitude higher than the number of non-zero entries in general. In order to minimize the memory requirements, the routine uses multiple buffers that can be deallocated after they are no more needed. If the number of intermediate product exceeds 2^31-1, the routine will returns [ErrInsufficientResources] status.
 // Currently, the function has the following limitations:
+//   - Only 32-bit indices [Index32I] is supported
+//   - Only CSR format [FormatCsr] is supported
+//   - Only opA, opB equal to [OperationNonTranspose] are supported
+//
 // The data types combinations currently supported for cusparseSpGEMMreuse are listed below.
 // Uniform-precision computation:
+//   - A/B/C/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_16F DEPRECATED, CUDA_C_16BF DEPRECATED, CUDA_C_32F, CUDA_C_64F
+//
 // Mixed-precision computation: DEPRECATED
+//   - A/B: CUDA_R_16F; C: CUDA_R_16F; computeType: CUDA_R_32F
+//   - A/B: CUDA_R_16BF; C: CUDA_R_16BF; computeType: CUDA_R_32F
+//
 // cusparseSpGEMMreuse routine runs for the following algorithm:
+//   - [SpgemmDefault], [SpgemmCsrAlgNondeterminitic]: Default algorithm. Provides deterministic (bit-wise) structure for the output matrix for each run, while value computation is not deterministic.
+//   - [SpgemmCsrAlgDeterminitic]: Provides deterministic (bit-wise) structure for the output matrix and value computation for each run.
+//
 // cusparseSpGEMMreuse() has the following properties:
+//   - The routine requires no extra storage
+//   - The routine supports asynchronous execution
+//   - The routine allows the indices of matA and matB to be unsorted
+//   - The routine guarantees the indices of matC to be sorted
+//
 // cusparseSpGEMMreuse() supports the following optimizations:
-// Refer to [Result] for the description of the return status.
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
 // Please visit cuSPARSE Library Samples - cusparseSpGEMMreuse for a code example.
 //
 // Wraps cusparseSpGEMMDestroyDescr, bound as cusparseSpGEMM_destroyDescr.
@@ -31,13 +50,33 @@ func (s SpGEMMDescr) GEMMDestroyDescr() error {
 // where α,β are scalars, and C,C′ have the same sparsity pattern.
 // The functions [Handle.SpGEMMWorkEstimation], [Handle.SpGEMMEstimateMemory], and [Handle.SpGEMMCompute] are used for both determining the buffer size and performing the actual computation.
 // cusparseSpGEMM supports the following index type for representing the sparse matrix A, B and C (all matrices must have the same index type):
+//   - 32-bit indices ( [Index32I])
+//   - 64-bit indices ( [Index64I])
+//
 // Currently, the function has the following limitations:
+//   - Only CSR format [FormatCsr] is supported
+//   - Only opA, opB equal to [OperationNonTranspose] are supported
+//
 // The data types combinations currently supported for cusparseSpGEMM are listed below :
 // Uniform-precision computation:
+//   - A/B/C/computeType: CUDA_R_16F DEPRECATED, CUDA_R_16BF DEPRECATED, CUDA_R_32F, CUDA_R_64F, CUDA_C_16F DEPRECATED, CUDA_C_16BF DEPRECATED, CUDA_C_32F, CUDA_C_64F
+//
 // cusparseSpGEMM routine runs for the following algorithms:
+//   - [SpgemmDefault]: Default algorithm. Currently, it is [SpgemmALG1].
+//   - [SpgemmALG1]: Algorithm 1: Invokes [Handle.SpGEMMCompute] twice. The first invocation provides an upper bound of the memory required for the computation. The required memory is generally several times larger of the actual memory used. The user can provide an arbitrary buffer size bufferSize2 in the second invocation. If it is not sufficient, the routine will returns [ErrInsufficientResources] status. Provides better performance than other algorithms. Provides deterministic (bit-wise) results for each run.
+//   - [SpgemmALG2]: Algorithm 2: Invokes [Handle.SpGEMMEstimateMemory] to get the amount of the memory required for the computation. Requires less memory for the computation than Algorithm 1. Performance is lower than Algorithm 1, higher than Algorithm 3. Provides deterministic (bit-wise) results for each run.
+//   - [SpgemmALG3]: Algorithm 3: Computes the intermediate products in chunks, one chunk at a time. Invokes [Handle.SpGEMMEstimateMemory] to get the amount of the memory required for the computation. The user can control the amount of required memory by changing the chunk size via chunk_fraction. The chunk size is a fraction of total intermediate products: chunk_fraction * (*numProds). Provides deterministic (bit-wise) results for each run.
+//
 // cusparseSpGEMM() has the following properties:
+//   - The routine requires no extra storage
+//   - The routine supports asynchronous execution
+//   - The routine allows the indices of matA and matB to be unsorted
+//   - The routine guarantees the indices of matC to be sorted
+//
 // cusparseSpGEMM() supports the following optimizations:
-// See [Result] for the description of the return status.
+//   - CUDA graph capture
+//   - Hardware Memory Compression
+//
 // Please visit cuSPARSE Library Samples - cusparseSpGEMM for a code example for [SpgemmDefault] and [SpgemmALG1], and cuSPARSE Library Samples - memory-optimzed cusparseSpGEMM for a code example for [SpgemmALG2] and [SpgemmALG3].
 //
 //   - numProds: Pointer to a 64-bit integer that stores the number of intermediate products calculated by [Handle.SpGEMMWorkEstimation]

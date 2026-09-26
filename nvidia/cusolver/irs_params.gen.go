@@ -6,9 +6,10 @@ package cusolver
 //
 // The params structure created by this function can be used by one or more call to the same or to a different IRS solver. Note that in CUDA 10.2, the behavior was different and a new params structure was needed to be created per each call to an IRS solver. Also note that the user can also change configurations of the params and then call a new IRS instance, but be careful that the previous call was done because any change to the configuration before the previous call was done could affect it.
 //
-// Returns:
+// A nil error means the structure was created and initialized successfully.
+//
+// Errors:
 //   - [ErrAllocFailed]: The resources could not be allocated.
-//   - [Success]: The structure was created and initialized successfully.
 //
 // Wraps cusolverDnIRSParamsCreate.
 func NewIRSParams() (IRSParams, error) {
@@ -17,10 +18,9 @@ func NewIRSParams() (IRSParams, error) {
 
 // Destroy destroys and releases any memory required by the Params structure.
 //
-// Returns:
+// Errors:
 //   - [ErrIrsInfosNotDestroyed]: Not all the Infos structure associated with this Params structure have been destroyed yet.
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
-//   - [Success]: The resources were released successfully.
 //
 // Wraps cusolverDnIRSParamsDestroy.
 func (i IRSParams) Destroy() error {
@@ -31,9 +31,8 @@ func (i IRSParams) Destroy() error {
 //
 // In other term, if the IRS solver failed to converge, the solver will return a no convergence code (e.g., niter < 0), but can either return the non-convergent solution as it is (e.g., disable fallback) or can fallback (e.g., enable fallback) to the main precision (which is the precision of the Inputs/Outputs data) and solve the problem from scratch returning the good solution. This function disables the fallback and the returned solution is whatever the refinement solver was able to reach before it returns. Disabling fallback does not guarantee that the solution is the good one. However, if users want to keep getting the solution of the lower precision in case the IRS did not converge after certain number of iterations, they need to disable the fallback. The user can re-enable it by calling [IRSParams.EnableFallback].
 //
-// Returns:
+// Errors:
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSParamsDisableFallback.
 func (i IRSParams) DisableFallback() error {
@@ -44,9 +43,8 @@ func (i IRSParams) DisableFallback() error {
 //
 // In other term, if the IRS solver failed to converge, the solver will return a no convergence code (e.g., niter < 0), but can either return the non-convergent solution as it is (e.g., disable fallback) or can fallback (e.g., enable fallback) to the main precision (which is the precision of the Inputs/Outputs data) and solve the problem from scratch returning the good solution. This is the behavior by default, and it will guarantee that the IRS solver always provide the good solution. This function is provided because we provided [IRSParams.DisableFallback] which allows the user to disable the fallback and thus this function allow the user to re-enable it.
 //
-// Returns:
+// Errors:
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSParamsEnableFallback.
 func (i IRSParams) EnableFallback() error {
@@ -59,9 +57,8 @@ func (i IRSParams) EnableFallback() error {
 //
 //   - maxiters: The maximal number of iterations that is currently set
 //
-// Returns:
+// Errors:
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSParamsGetMaxIters.
 func (i IRSParams) MaxIters() (CusolverInt, error) {
@@ -72,9 +69,10 @@ func (i IRSParams) MaxIters() (CusolverInt, error) {
 //
 // Total means any iteration which means the sum of the outer and the inner iterations (inner is meaningful when two-levels refinement solver is set). Default value is set to 50. Our goal is to give the user more control such a way he can investigate and control every detail of the IRS solver.
 //
-// Returns:
+//   - maxiters: Maximum total number of iterations allowed for the refinement solver
+//
+// Errors:
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSParamsSetMaxIters.
 func (i IRSParams) SetMaxIters(maxiters CusolverInt) error {
@@ -87,10 +85,9 @@ func (i IRSParams) SetMaxIters(maxiters CusolverInt) error {
 //
 //   - maxitersInner: Maximum number of allowed inner iterations for the inner refinement solver. Meaningful when the refinement solver is a two-levels solver such as [IrsRefineClassicalGmres] or [IrsRefineGmresGmres]. Value should be less or equal to MaxIters
 //
-// Returns:
+// Errors:
 //   - [ErrIrsParamsInvalid]: If the value was larger than MaxIters.
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSParamsSetMaxItersInner.
 func (i IRSParams) SetMaxItersInner(maxitersInner CusolverInt) error {
@@ -101,7 +98,7 @@ func (i IRSParams) SetMaxItersInner(maxitersInner CusolverInt) error {
 //
 // Note that the user has to set the refinement algorithm before a first call to the IRS solver because it is NOT set by default with the creating of params. Details about values that can be set to and theirs meaning are described in the table below.
 //
-// Returns:
+// Errors:
 //   - [IrsRefineClassical]: Classical iterative refinement solver. Similar to the one used in LAPACK routines.
 //   - [IrsRefineClassicalGmres]: Classical iterative refinement solver that uses the GMRES (Generalized Minimal Residual) internally to solve the correction equation at each iteration. We call the classical refinement iteration the outer iteration while the GMRES is called inner iteration. Note that if the tolerance of the inner GMRES is set very low, let say to machine precision, then the outer classical refinement iteration will performs only one iteration and thus this option will behaves like [IrsRefineGmres].
 //   - [IrsRefineGmres]: GMRES (Generalized Minimal Residual) based iterative refinement solver. In recent study, the GMRES method has drawn the scientific community attention for its ability to be used as refinement solver that outperforms the classical iterative refinement method. Based on our experimentation, we recommend this setting.
@@ -109,7 +106,6 @@ func (i IRSParams) SetMaxItersInner(maxitersInner CusolverInt) error {
 //   - [IrsRefineNone]: No refinement solver; the IRS solver performs a factorization followed by a solve without any refinement. For example, if the IRS solver was [Handle.IRSXgesv], this is equivalent to a Xgesv routine without refinement and where the factorization is carried out in the lowest precision. If for example the main precision was R64F and the lowest was R64F as well, then this is equivalent to a call to cusolverDnDgesv().
 //   - [IrsRefineNotSet]: Solver is not set, this value is what is set when creating the params structure. IRS solver will return an error.
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSParamsSetRefinementSolver.
 func (i IRSParams) SetRefinementSolver(refinementSolver IRSRefinement) error {
@@ -120,9 +116,8 @@ func (i IRSParams) SetRefinementSolver(refinementSolver IRSRefinement) error {
 //
 // By lowest precision, we mean the solver is allowed to use as lowest computational precision during the LU factorization process. Note that the user has to set both the main and lowest precision before a first call to the IRS solver because they are NOT set by default with the params structure creation, as it depends on the Input Output data type and user request. Usually the lowest precision defines the speedup that can be achieved. The ratio of the performance of the lowest precision over the main precision (e.g., Inputs/Outputs datatype) define somehow the upper bound of the speedup that could be obtained. More precisely, it depends on many factors, but for large matrices sizes, it is the ratio of the matrix-matrix rank-k product (e.g., GEMM where K is 256 and M=N=size of the matrix) that define the possible speedup. For instance, if the inout precision is real double precision R64F and the lowest precision is R32F, then we can expect a speedup of at most 2X for large problem sizes. If the lowest precision was R16F, then we can expect 3X-4X. A reasonable strategy should take the number of right-hand sides, the size of the matrix as well as the convergence rate into account.
 //
-// Returns:
+// Errors:
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSParamsSetSolverLowestPrecision.
 func (i IRSParams) SetSolverLowestPrecision(solverLowestPrecision PrecType) error {
@@ -135,9 +130,8 @@ func (i IRSParams) SetSolverLowestPrecision(solverLowestPrecision PrecType) erro
 //
 //   - solverMainPrecision: Allowed Inputs/Outputs datatype (for example CUSOLVER_R_FP64 for a real double precision data). See the table in the [IRSParams.SetSolverPrecisions] section above for the supported precisions
 //
-// Returns:
+// Errors:
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSParamsSetSolverMainPrecision.
 func (i IRSParams) SetSolverMainPrecision(solverMainPrecision PrecType) error {
@@ -147,13 +141,17 @@ func (i IRSParams) SetSolverMainPrecision(solverMainPrecision PrecType) error {
 // SetSolverPrecisions sets both the main and the lowest precision for the Iterative Refinement Solver (IRS).
 //
 // By main precision, we mean the precision of the Input and Output datatype. By lowest precision, we mean the solver is allowed to use as lowest computational precision during the LU factorization process. Note that the user has to set both the main and lowest precision before the first call to the IRS solver because they are NOT set by default with the params structure creation, as it depends on the Input Output data type and user request. It is a wrapper to both [IRSParams.SetSolverMainPrecision] and [IRSParams.SetSolverLowestPrecision]. All possible combinations of main/lowest precision are described in the table below. Usually the lowest precision defines the speedup that can be achieved. The ratio of the performance of the lowest precision over the main precision (e.g., Inputs/Outputs datatype) define the upper bound of the speedup that could be obtained. More precisely, it depends on many factors, but for large matrices sizes, it is the ratio of the matrix-matrix rank-k product (e.g., GEMM where K is 256 and M=N=size of the matrix) that define the possible speedup. For instance, if the inout precision is real double precision R64F and the lowest precision is R32F, then we can expect a speedup of at most 2X for large problem sizes. If the lowest precision was R16F, then we can expect 3X-4X. A reasonable strategy should take the number of right-hand sides, the size of the matrix as well as the convergence rate into account.
+//   - Inputs/Outputs Data Type (e.g., main precision): C64F; Supported values for the lowest precision: C64F, C32F, C16F, C16BF, CTF32
+//   - Inputs/Outputs Data Type (e.g., main precision): C32F; Supported values for the lowest precision: C32F, C16F, C16BF, CTF32
+//   - Inputs/Outputs Data Type (e.g., main precision): R64F; Supported values for the lowest precision: R64F, R32F, R16F, R16BF, RTF32
+//   - Inputs/Outputs Data Type (e.g., main precision): R32F; Supported values for the lowest precision: R32F, R16F, R16BF, RTF32
 //
+// Parameters:
 //   - solverMainPrecision: Allowed Inputs/Outputs datatype (for example CUSOLVER_R_FP64 for a real double precision data). See the table below for the supported precisions
 //   - solverLowestPrecision: Allowed lowest compute type (for example R16F for half precision computation). See the table below for the supported precisions
 //
-// Returns:
+// Errors:
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created. Supported Inputs/Outputs data type and lower precision for the IRS solver
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSParamsSetSolverPrecisions.
 func (i IRSParams) SetSolverPrecisions(solverMainPrecision PrecType, solverLowestPrecision PrecType) error {
@@ -164,13 +162,18 @@ func (i IRSParams) SetSolverPrecisions(solverMainPrecision PrecType, solverLowes
 //
 // By default it is such that all the RHS satisfy:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX where
+//   - RNRM is the infinity-norm of the residual
+//   - XNRM is the infinity-norm of the solution
+//   - ANRM is the infinity-operator-norm of the matrix A
+//   - EPS is the machine epsilon for the Inputs/Outputs datatype that matches LAPACK LAMCH(‘Epsilon’)
+//   - BWDMAX, the value BWDMAX is fixed to 1.0
+//
 // The user can use this function to change the tolerance to a lower or higher value. Our goal is to give the user more control such a way he can investigate and control every detail of the IRS solver. Note that the tolerance value is always in real double precision whatever the Inputs/Outputs datatype is.
 //
 //   - val: Double precision real value to which the refinement tolerance will be set
 //
-// Returns:
+// Errors:
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSParamsSetTol.
 func (i IRSParams) SetTol(val float64) error {
@@ -183,9 +186,8 @@ func (i IRSParams) SetTol(val float64) error {
 //
 //   - val: Double precision real value to which the tolerance of the inner refinement solver will be set
 //
-// Returns:
+// Errors:
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
-//   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnIRSParamsSetTolInner.
 func (i IRSParams) SetTolInner(val float64) error {

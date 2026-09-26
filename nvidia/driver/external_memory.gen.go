@@ -14,6 +14,11 @@ package driver
 //
 //   - bufferDesc: Buffer descriptor
 //
+// Errors:
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuExternalMemoryGetMappedBuffer.
 func (e ExternalMemory) MappedBuffer(bufferDesc *ExternalMemoryBufferDesc) (DevicePtr, error) {
 	return externalMemoryGetMappedBuffer(e, bufferDesc)
@@ -23,7 +28,7 @@ func (e ExternalMemory) MappedBuffer(bufferDesc *ExternalMemoryBufferDesc) (Devi
 //
 // Maps a CUDA mipmapped array onto an external object and returns a handle to it in mipmap.
 // The properties of the CUDA mipmapped array being mapped must be described in mipmapDesc. The structure [ExternalMemoryMipmappedArrayDesc] is defined as follows:
-// where [ExternalMemoryMipmappedArrayDesc].offset is the offset in the memory object where the base level of the mipmap chain is. [ExternalMemoryMipmappedArrayDesc].arrayDesc describes the format, dimensions and type of the base level of the mipmap chain. For further details on these parameters, please refer to the documentation for [NewMipmappedArray]. Note that if the mipmapped array is bound as a color target in the graphics API, then the flag CUDA_ARRAY3D_COLOR_ATTACHMENT must be specified in [ExternalMemoryMipmappedArrayDesc].arrayDescFlags. [ExternalMemoryMipmappedArrayDesc].numLevels specifies the total number of levels in the mipmap chain.
+// where [ExternalMemoryMipmappedArrayDesc].offset is the offset in the memory object where the base level of the mipmap chain is. [ExternalMemoryMipmappedArrayDesc].arrayDesc describes the format, dimensions and type of the base level of the mipmap chain. For further details on these parameters, please refer to the documentation for [NewMipmappedArray]. Note that if the mipmapped array is bound as a color target in the graphics API, then the flag CUDA_ARRAY3D_COLOR_ATTACHMENT must be specified in [ExternalMemoryMipmappedArrayDesc].arrayDesc.Flags. [ExternalMemoryMipmappedArrayDesc].numLevels specifies the total number of levels in the mipmap chain.
 // If extMem was imported from a handle of type [ExternalMemoryHandleTypeNvscibuf], then [ExternalMemoryMipmappedArrayDesc].numLevels must be equal to 1.
 // Mapping extMem imported from a handle of type [ExternalMemoryHandleTypeDmabufFd], is not supported.
 // The returned CUDA mipmapped array must be freed using [MipmappedArray.Destroy].
@@ -31,6 +36,11 @@ func (e ExternalMemory) MappedBuffer(bufferDesc *ExternalMemoryBufferDesc) (Devi
 // See also: [ImportExternalMemory], [ExternalMemory.Destroy], [ExternalMemory.MappedBuffer]
 //
 //   - mipmapDesc: CUDA array descriptor
+//
+// Errors:
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuExternalMemoryGetMappedMipmappedArray.
 func (e ExternalMemory) MappedMipmappedArray(mipmapDesc *ExternalMemoryMipmappedArrayDesc) (MipmappedArray, error) {
@@ -42,6 +52,10 @@ func (e ExternalMemory) MappedMipmappedArray(mipmapDesc *ExternalMemoryMipmapped
 // Destroys the specified external memory object. Any existing buffers and CUDA mipmapped arrays mapped onto this object must no longer be used and must be explicitly freed using [DevicePtr.Free] and [MipmappedArray.Destroy] respectively.
 //
 // See also: [ImportExternalMemory], [ExternalMemory.MappedBuffer], [ExternalMemory.MappedMipmappedArray]
+//
+// Errors:
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
 //
 // Wraps cuDestroyExternalMemory.
 func (e ExternalMemory) Destroy() error {

@@ -305,16 +305,14 @@ func TestPhysicalDistributedGemm(t *testing.T) {
 
 	alpha, beta := float32(1), float32(0)
 	var pins runtime.Pinner
-	pins.Pin(&alpha)
-	pins.Pin(&beta)
 	defer pins.Unpin()
 
 	const ia, ja, ib, jb, ic, jc = 1, 1, 1, 1, 1, 1
 	deviceBytes, hostBytes, err := handle.GemmBufferSize(
 		cublas.OpN, cublas.OpN, m, n, m,
-		unsafe.Pointer(&alpha), uintptr(deviceA), ia, ja, descA,
+		cublasmp.Float32Scalar(alpha), uintptr(deviceA), ia, ja, descA,
 		uintptr(deviceB), ib, jb, descB,
-		unsafe.Pointer(&beta), uintptr(deviceC), ic, jc, descC,
+		cublasmp.Float32Scalar(beta), uintptr(deviceC), ic, jc, descC,
 		cublas.Compute32F)
 	if err != nil {
 		t.Fatalf("GemmBufferSize: %v", err)
@@ -340,15 +338,15 @@ func TestPhysicalDistributedGemm(t *testing.T) {
 
 	if err := handle.Gemm(
 		cublas.OpN, cublas.OpN, m, n, m,
-		unsafe.Pointer(&alpha), uintptr(deviceA), ia, ja, descA,
+		cublasmp.Float32Scalar(alpha), uintptr(deviceA), ia, ja, descA,
 		uintptr(deviceB), ib, jb, descB,
-		unsafe.Pointer(&beta), uintptr(deviceC), ic, jc, descC,
+		cublasmp.Float32Scalar(beta), uintptr(deviceC), ic, jc, descC,
 		cublas.Compute32F,
 		deviceWork, deviceBytes, unsafe.Pointer(&hostWork[0]), hostBytes); err != nil {
 		t.Fatalf("Gemm: %v", err)
 	}
-	// Gemm is asynchronous on the handle's stream. The workspaces and alpha
-	// and beta must stay live until it has completed, which is what this
+	// Gemm is asynchronous on the handle's stream. The workspaces must
+	// stay live until it has completed, which is what this
 	// synchronize establishes.
 	if err := driver.CtxSynchronize(); err != nil {
 		t.Fatalf("CtxSynchronize: %v", err)

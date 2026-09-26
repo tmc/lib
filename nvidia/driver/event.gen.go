@@ -9,6 +9,12 @@ package driver
 //
 // See also: [NewEvent], [Event.Record], [Event.Query], [Event.Synchronize], [Event.ElapsedTime], cudaEventDestroy
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
+//
 // Wraps cuEventDestroy, bound as cuEventDestroy_v2.
 func (e Event) Destroy() error {
 	return eventDestroy(e)
@@ -24,6 +30,14 @@ func (e Event) Destroy() error {
 //
 //   - hEnd: Ending event
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
+//   - [ErrNotReady]
+//   - [ErrUnknown]
+//
 // Wraps cuEventElapsedTime, bound as cuEventElapsedTime_v2.
 func (e Event) ElapsedTime(hEnd Event) (float32, error) {
 	return eventElapsedTime(e, hEnd)
@@ -36,6 +50,13 @@ func (e Event) ElapsedTime(hEnd Event) (float32, error) {
 // For the purposes of Unified Memory, a return value of [Success] is equivalent to having called [Event.Synchronize].
 //
 // See also: [NewEvent], [Event.Record], [Event.Synchronize], [Event.Destroy], [Event.ElapsedTime], cudaEventQuery
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotReady]
 //
 // Wraps cuEventQuery.
 func (e Event) Query() error {
@@ -53,6 +74,13 @@ func (e Event) Query() error {
 //
 //   - hStream: Stream to record event for
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuEventRecord.
 func (e Event) Record(hStream Stream) error {
 	return eventRecord(e, hStream)
@@ -63,6 +91,8 @@ func (e Event) Record(hStream Stream) error {
 // Captures in hEvent the contents of hStream at the time of this call. hEvent and hStream must be from the same context otherwise [ErrInvalidHandle] is returned. Calls such as [Event.Query] or [Stream.WaitEvent] will then examine or wait for completion of the work that was captured. Uses of hStream after this call do not modify hEvent. See note on default stream behavior for what is captured in the default case.
 // [Event.RecordWithFlags] can be called multiple times on the same event and will overwrite the previously captured state. Other APIs such as [Stream.WaitEvent] use the most recently captured state at the time of the API call, and are not affected by later calls to [Event.RecordWithFlags]. Before the first call to [Event.RecordWithFlags], an event represents an empty set of work, so for example [Event.Query] would return [Success].
 // flags include:
+//   - [EventRecordDefault]: Default event creation flag.
+//   - [EventRecordExternal]: Event is captured in the graph as an external event node when performing stream capture. This flag is invalid outside of stream capture.
 //
 // Note: This function uses standard default stream semantics.
 //
@@ -70,6 +100,13 @@ func (e Event) Record(hStream Stream) error {
 //
 //   - hStream: Stream to record event for
 //   - flags: See CUevent_capture_flags
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuEventRecordWithFlags.
 func (e Event) RecordWithFlags(hStream Stream, flags EventRecordFlags) error {
@@ -82,6 +119,12 @@ func (e Event) RecordWithFlags(hStream Stream, flags EventRecordFlags) error {
 // Waiting for an event that was created with the [EventBlockingSync] flag will cause the calling CPU thread to block until the event has been completed by the device. If the [EventBlockingSync] flag has not been set, then the CPU thread will busy-wait until the event has been completed by the device.
 //
 // See also: [NewEvent], [Event.Record], [Event.Query], [Event.Destroy], [Event.ElapsedTime], cudaEventSynchronize
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
 //
 // Wraps cuEventSynchronize.
 func (e Event) Synchronize() error {
@@ -96,6 +139,12 @@ func (e Event) Synchronize() error {
 //
 // See also: [NewEvent], [Event.Destroy], [Event.Synchronize], [Event.Query], [Stream.WaitEvent], [IpcOpenEventHandle], [DevicePtr.IpcGetMemHandle], [IpcOpenMemHandle], [DevicePtr.IpcCloseMemHandle], cudaIpcGetEventHandle
 //
+// Errors:
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrMapFailed]
+//   - [ErrOutOfMemory]
+//
 // Wraps cuIpcGetEventHandle.
 func (e Event) IpcGetEventHandle() (IpcEventHandle, error) {
 	return ipcGetEventHandle(e)
@@ -104,10 +153,21 @@ func (e Event) IpcGetEventHandle() (IpcEventHandle, error) {
 // NewEvent creates an event.
 //
 // Creates an event *phEvent for the current context with the flags specified via Flags. Valid flags include:
+//   - [EventDefault]: Default event creation flag.
+//   - [EventBlockingSync]: Specifies that the created event should use blocking synchronization. A CPU thread that uses [Event.Synchronize] to wait on an event created with this flag will block until the event has actually been recorded.
+//   - [EventDisableTiming]: Specifies that the created event does not need to record timing data. Events created with this flag specified and the [EventBlockingSync] flag not specified will provide the best performance when used with [Stream.WaitEvent] and [Event.Query].
+//   - [EventInterprocess]: Specifies that the created event may be used as an interprocess event by [Event.IpcGetEventHandle]. [EventInterprocess] must be specified along with [EventDisableTiming].
 //
 // See also: [Event.Record], [Event.Query], [Event.Synchronize], [Event.Destroy], [Event.ElapsedTime], cudaEventCreate, cudaEventCreateWithFlags
 //
 //   - flags: Event creation flags
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrOutOfMemory]
 //
 // Wraps cuEventCreate.
 func NewEvent(flags EventFlags) (Event, error) {

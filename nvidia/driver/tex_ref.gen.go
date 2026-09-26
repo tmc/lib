@@ -8,6 +8,12 @@ package driver
 //
 // See also: [NewTexRef]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefDestroy.
@@ -20,6 +26,12 @@ func (t TexRef) Destroy() error {
 // Returns in *pdptr the base address bound to the texture reference hTexRef, or returns [ErrInvalidValue] if the texture reference is not bound to any device memory range.
 //
 // See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Deprecated: This function is deprecated.
 //
@@ -36,6 +48,12 @@ func (t TexRef) Address() (DevicePtr, error) {
 //
 //   - dim: Dimension
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetAddressMode.
@@ -48,6 +66,12 @@ func (t TexRef) AddressMode(dim int32) (AddressMode, error) {
 // Returns in *phArray the CUDA array bound to the texture reference hTexRef, or returns [ErrInvalidValue] if the texture reference is not bound to any CUDA array.
 //
 // See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Deprecated: This function is deprecated.
 //
@@ -62,6 +86,12 @@ func (t TexRef) Array() (Array, error) {
 //
 // See also: [TexRef.SetAddressMode], [TexRef.SetBorderColor]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetBorderColor.
@@ -74,6 +104,12 @@ func (t TexRef) BorderColor() (float32, error) {
 // Returns in *pfm the filtering mode of the texture reference hTexRef.
 //
 // See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.Flags], [TexRef.Format]
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Deprecated: This function is deprecated.
 //
@@ -88,6 +124,12 @@ func (t TexRef) FilterMode() (FilterMode, error) {
 //
 // See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Format]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetFlags.
@@ -100,6 +142,12 @@ func (t TexRef) Flags() (uint32, error) {
 // Returns in *pFormat and *pNumChannels the format and number of components of the CUDA array bound to the texture reference hTexRef. If pFormat or pNumChannels is NULL, it will be ignored.
 //
 // See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags]
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Deprecated: This function is deprecated.
 //
@@ -114,6 +162,12 @@ func (t TexRef) Format() (pFormat ArrayFormat, pNumChannels int32, err error) {
 //
 // See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetMaxAnisotropy.
@@ -126,6 +180,12 @@ func (t TexRef) MaxAnisotropy() (int32, error) {
 // Returns the mipmap filtering mode in pfm that’s used when reading memory through the texture reference hTexRef.
 //
 // See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Deprecated: This function is deprecated.
 //
@@ -140,6 +200,12 @@ func (t TexRef) MipmapFilterMode() (FilterMode, error) {
 //
 // See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetMipmapLevelBias.
@@ -153,6 +219,12 @@ func (t TexRef) MipmapLevelBias() (float32, error) {
 //
 // See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetMipmapLevelClamp.
@@ -165,6 +237,12 @@ func (t TexRef) MipmapLevelClamp() (pminMipmapLevelClamp float32, pmaxMipmapLeve
 // Returns in *phMipmappedArray the CUDA mipmapped array bound to the texture reference hTexRef, or returns [ErrInvalidValue] if the texture reference is not bound to any CUDA mipmapped array.
 //
 // See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Deprecated: This function is deprecated.
 //
@@ -184,6 +262,12 @@ func (t TexRef) MipmappedArray() (MipmappedArray, error) {
 //
 //   - dptr: Device pointer to bind
 //   - bytes: Size of memory to bind in bytes
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Deprecated: This function is deprecated.
 //
@@ -207,6 +291,12 @@ func (t TexRef) SetAddress(dptr DevicePtr, bytes uint) (uint, error) {
 //   - dptr: Device pointer to bind
 //   - pitch: Line pitch in bytes
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetAddress2D, bound as cuTexRefSetAddress2D_v3.
@@ -224,6 +314,12 @@ func (t TexRef) SetAddress2D(desc *ArrayDescriptor, dptr DevicePtr, pitch uint) 
 //   - dim: Dimension
 //   - am: Addressing mode to set
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetAddressMode.
@@ -240,6 +336,12 @@ func (t TexRef) SetAddressMode(dim int32, am AddressMode) error {
 //   - hArray: Array to bind
 //   - flags: Options (must be CU_TRSA_OVERRIDE_FORMAT)
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetArray.
@@ -253,6 +355,12 @@ func (t TexRef) SetArray(hArray Array, flags uint32) error {
 // Note that the color values can be set only when the Address mode is set to [TrAddressModeBorder] using [TexRef.SetAddressMode]. Applications using integer border color values have to “reinterpret_cast” their values to float.
 //
 // See also: [TexRef.SetAddressMode], [TexRef.AddressMode], [TexRef.BorderColor]
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Deprecated: This function is deprecated.
 //
@@ -270,6 +378,12 @@ func (t TexRef) SetBorderColor() (float32, error) {
 //
 //   - fm: Filtering mode to set
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetFilterMode.
@@ -280,10 +394,19 @@ func (t TexRef) SetFilterMode(fm FilterMode) error {
 // SetFlags sets the flags for a texture reference.
 //
 // Specifies optional flags via Flags to specify the behavior of data returned through the texture reference hTexRef. The valid flags are:
+//   - CU_TRSF_READ_AS_INTEGER, which suppresses the default behavior of having the texture promote integer data to floating point data in the range [0, 1]. Note that texture with 32-bit integer format would not be promoted, regardless of whether or not this flag is specified;
+//   - CU_TRSF_NORMALIZED_COORDINATES, which suppresses the default behavior of having the texture coordinates range from [0, Dim) where Dim is the width or height of the CUDA array. Instead, the texture coordinates [0, 1.0) reference the entire breadth of the array dimension;
+//   - CU_TRSF_DISABLE_TRILINEAR_OPTIMIZATION, which disables any trilinear filtering optimizations. Trilinear optimizations improve texture filtering performance by allowing bilinear filtering on textures in scenarios where it can closely approximate the expected results.
 //
 // See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
 //   - flags: Optional flags to set
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Deprecated: This function is deprecated.
 //
@@ -301,6 +424,12 @@ func (t TexRef) SetFlags(flags uint32) error {
 //   - fmt: Format to set
 //   - numPackedComponents: Number of components per array element
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetFormat.
@@ -316,6 +445,12 @@ func (t TexRef) SetFormat(fmt ArrayFormat, numPackedComponents int32) error {
 // See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
 //   - maxAniso: Maximum anisotropy
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Deprecated: This function is deprecated.
 //
@@ -333,6 +468,12 @@ func (t TexRef) SetMaxAnisotropy(maxAniso uint32) error {
 //
 //   - fm: Filtering mode to set
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetMipmapFilterMode.
@@ -348,6 +489,12 @@ func (t TexRef) SetMipmapFilterMode(fm FilterMode) error {
 // See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
 //   - bias: Mipmap level bias
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Deprecated: This function is deprecated.
 //
@@ -366,6 +513,12 @@ func (t TexRef) SetMipmapLevelBias(bias float32) error {
 //   - minMipmapLevelClamp: Mipmap min level clamp
 //   - maxMipmapLevelClamp: Mipmap max level clamp
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetMipmapLevelClamp.
@@ -382,6 +535,12 @@ func (t TexRef) SetMipmapLevelClamp(minMipmapLevelClamp float32, maxMipmapLevelC
 //   - hMipmappedArray: Mipmapped array to bind
 //   - flags: Options (must be CU_TRSA_OVERRIDE_FORMAT)
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetMipmappedArray.
@@ -394,6 +553,12 @@ func (t TexRef) SetMipmappedArray(hMipmappedArray MipmappedArray, flags uint32) 
 // Creates a texture reference and returns its handle in *pTexRef. Once created, the application must call [TexRef.SetArray] or [TexRef.SetAddress] to associate the reference with allocated memory. Other texture reference functions are used to specify the format and interpretation (addressing, filtering, etc.) to be used when the memory is read through this texture reference.
 //
 // See also: [TexRef.Destroy]
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Deprecated: This function is deprecated.
 //

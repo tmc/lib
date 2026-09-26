@@ -4,9 +4,6 @@ package cudnn
 
 // Destroy destroys a previously created pooling descriptor object.
 //
-// Returns:
-//   - [Success]: The object was destroyed successfully.
-//
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnDestroyPoolingDescriptor.
@@ -15,9 +12,6 @@ func (p PoolingDescriptor) Destroy() error {
 }
 
 // Get2D queries a previously created Pooling2d descriptor object.
-//
-// Returns:
-//   - [Success]: The object was set successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -30,9 +24,10 @@ func (p PoolingDescriptor) Get2D() (Pooling2DConfig, error) {
 //
 // Each dimension h and w of the output images is computed as follows:
 //
-// Returns:
+// A nil error means the function launched successfully.
+//
+// Errors:
 //   - [ErrBadParam]: At least one of the following conditions are met: poolingDesc has not been initialized. poolingDesc or inputDesc has an invalid number of dimensions (2 and 4 respectively are required).
-//   - [Success]: The function launched successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -45,9 +40,8 @@ func (p PoolingDescriptor) ForwardOutputDim2D(inputTensorDesc TensorDescriptor) 
 //
 //   - nbDimsRequested: Input. Dimension of the expected pooling descriptor. It is also the minimum size of the arrays windowDimA, paddingA, and strideA in order to be able to hold the results
 //
-// Returns:
+// Errors:
 //   - [ErrNotSupported]: The parameter nbDimsRequested is greater than CUDNN_DIM_MAX.
-//   - [Success]: The object was queried successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -62,9 +56,10 @@ func (p PoolingDescriptor) Get(nbDimsRequested int) (PoolingConfig, error) {
 //
 //   - nbDims: Input. Number of dimensions in which pooling is to be applied
 //
-// Returns:
+// A nil error means the function launched successfully.
+//
+// Errors:
 //   - [ErrBadParam]: At least one of the following conditions are met: poolingDesc has not been initialized. The value of nbDims is inconsistent with the dimensionality of poolingDesc and inputDesc.
-//   - [Success]: The function launched successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -84,9 +79,8 @@ func (p PoolingDescriptor) ForwardOutputDims(inputTensorDesc TensorDescriptor, n
 //   - verticalStride: Input. Pooling vertical stride
 //   - horizontalStride: Input. Pooling horizontal stride
 //
-// Returns:
+// Errors:
 //   - [ErrBadParam]: At least one of the parameters windowHeight, windowWidth, verticalStride, horizontalStride is negative or mode or maxpoolingNanOpt has an invalid enumerate value.
-//   - [Success]: The object was set successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -103,10 +97,9 @@ func (p PoolingDescriptor) Set2D(mode PoolingMode, maxpoolingNanOpt NanPropagati
 //   - paddingA: Input. Array of dimension nbDims containing the padding size for each dimension. Negative padding is allowed
 //   - strideA: Input. Array of dimension nbDims containing the striding size for each dimension. The value of array elements must be greater than zero (meaning, negative striding size is not allowed)
 //
-// Returns:
+// Errors:
 //   - [ErrBadParam]: Either nbDims, or at least one of the elements of the arrays windowDimA or strideA is negative, or mode or maxpoolingNanOpt has an invalid enumerate value.
 //   - [ErrNotSupported]: If ( nbDims > CUDNN_DIM_MAX-2).
-//   - [Success]: The object was initialized successfully.
 //
 // Deprecated: This function is deprecated.
 //

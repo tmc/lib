@@ -12,6 +12,12 @@ import "unsafe"
 //
 // See also: [MemAlloc], [DevicePtr.Free], [Event.IpcGetEventHandle], [IpcOpenEventHandle], [DevicePtr.IpcGetMemHandle], [IpcOpenMemHandle], cudaIpcCloseMemHandle
 //
+// Errors:
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrMapFailed]
+//
 // Wraps cuIpcCloseMemHandle.
 func (d DevicePtr) IpcCloseMemHandle() error {
 	return ipcCloseMemHandle(d)
@@ -25,6 +31,13 @@ func (d DevicePtr) IpcCloseMemHandle() error {
 //
 // See also: [MemAlloc], [DevicePtr.Free], [Event.IpcGetEventHandle], [IpcOpenEventHandle], [IpcOpenMemHandle], [DevicePtr.IpcCloseMemHandle], cudaIpcGetMemHandle
 //
+// Errors:
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrMapFailed]
+//   - [ErrOutOfMemory]
+//
 // Wraps cuIpcGetMemHandle.
 func (d DevicePtr) IpcGetMemHandle() (IpcMemHandle, error) {
 	return ipcGetMemHandle(d)
@@ -37,6 +50,13 @@ func (d DevicePtr) IpcGetMemHandle() (IpcMemHandle, error) {
 // See also: [DevicePtr.MemAddressReserve]
 //
 //   - size: Size of the virtual address region to free
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
 //
 // Wraps cuMemAddressFree.
 func (d DevicePtr) MemAddressFree(size uint) error {
@@ -53,6 +73,14 @@ func (d DevicePtr) MemAddressFree(size uint) error {
 //   - alignment: Alignment of the reserved virtual address range requested
 //   - flags: Currently unused, must be zero
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//   - [ErrOutOfMemory]
+//
 // Wraps cuMemAddressReserve.
 func (d DevicePtr) MemAddressReserve(size uint, alignment uint, flags uint64) (DevicePtr, error) {
 	return memAddressReserve(size, alignment, d, flags)
@@ -62,6 +90,12 @@ func (d DevicePtr) MemAddressReserve(size uint, alignment uint, flags uint64) (D
 //
 // Advise the Unified Memory subsystem about the usage pattern for the memory range starting at devPtr with a size of count bytes. The start address and end address of the memory range will be rounded down and rounded up respectively to be aligned to CPU page size before the advice is applied. The memory range must refer to managed memory allocated via [MemAllocManaged] or declared via managed variables. The memory range could also refer to system-allocated pageable memory provided it represents a valid, host-accessible region of memory and all additional constraints imposed by advice as outlined below are also satisfied. Specifying an invalid system-allocated pageable memory range results in an error being returned.
 // The advice parameter can take the following values:
+//   - [MemAdviseSetReadMostly]: This implies that the data is mostly going to be read from and only occasionally written to. Any read accesses from any processor to this region will create a read-only copy of at least the accessed pages in that processor’s memory. Additionally, if [DevicePtr.MemPrefetchAsync] is called on this region, it will create a read-only copy of the data on the destination processor. If the target location for [DevicePtr.MemPrefetchAsync] is a host NUMA node and a read-only copy already exists on another host NUMA node, that copy will be migrated to the targeted host NUMA node. If any processor writes to this region, all copies of the corresponding page will be invalidated except for the one where the write occurred. If the writing processor is the CPU and the preferred location of the page is a host NUMA node, then the page will also be migrated to that host NUMA node. The location argument is ignored for this advice. Note that for a page to be read-duplicated, the accessing processor must either be the CPU or a GPU that has a non-zero value for the device attribute [DevAttrConcurrentManagedAccess]. Also, if a context is created on a device that does not have the device attribute [DevAttrConcurrentManagedAccess] set, then read-duplication will not occur until all such contexts are destroyed. If the memory region refers to valid system-allocated pageable memory, then the accessing device must have a non-zero value for the device attribute [DevAttrPageableMemoryAccess] for a read-only copy to be created on that device. Note however that if the accessing device also has a non-zero value for the device attribute [DevAttrPageableMemoryAccessUsesHostPageTables], then setting this advice will not create a read-only copy when that device accesses this memory region.
+//   - [MemAdviseUnsetReadMostly]: Undoes the effect of [MemAdviseSetReadMostly] and also prevents the Unified Memory driver from attempting heuristic read-duplication on the memory range. Any read-duplicated copies of the data will be collapsed into a single copy. The location for the collapsed copy will be the preferred location if the page has a preferred location and one of the read-duplicated copies was resident at that location. Otherwise, the location chosen is arbitrary. Note: The location argument is ignored for this advice.
+//   - [MemAdviseSetPreferredLocation]: This advice sets the preferred location for the data to be the memory belonging to location. When [MemLocation].type is [MemLocationTypeHost], [MemLocation].id is ignored and the preferred location is set to be host memory. To set the preferred location to a specific host NUMA node, applications must set [MemLocation].type to [MemLocationTypeHostNuma] and [MemLocation].id must specify the NUMA ID of the host NUMA node. If [MemLocation].type is set to [MemLocationTypeHostNumaCurrent], [MemLocation].id will be ignored and the the host NUMA node closest to the calling thread’s CPU will be used as the preferred location. If [MemLocation].type is a [MemLocationTypeDevice], then [MemLocation].id must be a valid device ordinal and the device must have a non-zero value for the device attribute [DevAttrConcurrentManagedAccess]. A [MemLocation].type of CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN is unsupported. Setting the preferred location does not cause data to migrate to that location immediately. Instead, it guides the migration policy when a fault occurs on that memory region. If the data is already in its preferred location and the faulting processor can establish a mapping without requiring the data to be migrated, then data migration will be avoided. On the other hand, if the data is not in its preferred location or if a direct mapping cannot be established, then it will be migrated to the processor accessing it. It is important to note that setting the preferred location does not prevent data prefetching done using [DevicePtr.MemPrefetchAsync]. Having a preferred location can override the page thrash detection and resolution logic in the Unified Memory driver. Normally, if a page is detected to be constantly thrashing between for example host and device memory, the page may eventually be pinned to host memory by the Unified Memory driver. But if the preferred location is set as device memory, then the page will continue to thrash indefinitely. If [MemAdviseSetReadMostly] is also set on this memory region or any subset of it, then the policies associated with that advice will override the policies of this advice, unless read accesses from location will not result in a read-only copy being created on that procesor as outlined in description for the advice [MemAdviseSetReadMostly]. If the memory region refers to valid system-allocated pageable memory, and [MemLocation].type is [MemLocationTypeDevice] then [MemLocation].id must be a valid device that has a non-zero alue for the device attribute [DevAttrPageableMemoryAccess].
+//   - [MemAdviseUnsetPreferredLocation]: Undoes the effect of [MemAdviseSetPreferredLocation] and changes the preferred location to none. The location argument is ignored for this advice.
+//   - [MemAdviseSetAccessedBy]: This advice implies that the data will be accessed by processor location. The [MemLocation].type must be either [MemLocationTypeDevice] with [MemLocation].id representing a valid device ordinal or [MemLocationTypeHost] and [MemLocation].id will be ignored. All other location types are invalid. If [MemLocation].id is a GPU, then the device attribute [DevAttrConcurrentManagedAccess] must be non-zero. This advice does not cause data migration and has no impact on the location of the data per se. Instead, it causes the data to always be mapped in the specified processor’s page tables, as long as the location of the data permits a mapping to be established. If the data gets migrated for any reason, the mappings are updated accordingly. This advice is recommended in scenarios where data locality is not important, but avoiding faults is. Consider for example a system containing multiple GPUs with peer-to-peer access enabled, where the data located on one GPU is occasionally accessed by peer GPUs. In such scenarios, migrating data over to the other GPUs is not as important because the accesses are infrequent and the overhead of migration may be too high. But preventing faults can still help improve performance, and so having a mapping set up in advance is useful. Note that on CPU access of this data, the data may be migrated to host memory because the CPU typically cannot access device memory directly. Any GPU that had the [MemAdviseSetAccessedBy] flag set for this data will now have its mapping updated to point to the page in host memory. If [MemAdviseSetReadMostly] is also set on this memory region or any subset of it, then the policies associated with that advice will override the policies of this advice. Additionally, if the preferred location of this memory region or any subset of it is also location, then the policies associated with [MemAdviseSetPreferredLocation] will override the policies of this advice. If the memory region refers to valid system-allocated pageable memory, and [MemLocation].type is [MemLocationTypeDevice] then device in [MemLocation].id must have a non-zero value for the device attribute [DevAttrPageableMemoryAccess]. Additionally, if [MemLocation].id has a non-zero value for the device attribute [DevAttrPageableMemoryAccessUsesHostPageTables], then this call has no effect.
+//   - [MemAdviseUnsetAccessedBy]: Undoes the effect of [MemAdviseSetAccessedBy]. Any mappings to the data from location may be removed at any time causing accesses to result in non-fatal page faults. If the memory region refers to valid system-allocated pageable memory, and [MemLocation].type is [MemLocationTypeDevice] then device in [MemLocation].id must have a non-zero value for the device attribute [DevAttrPageableMemoryAccess]. Additionally, if [MemLocation].id has a non-zero value for the device attribute [DevAttrPageableMemoryAccessUsesHostPageTables], then this call has no effect.
 //
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
@@ -72,6 +106,11 @@ func (d DevicePtr) MemAddressReserve(size uint, alignment uint, flags uint64) (D
 //   - count: Size in bytes of the memory range
 //   - advice: Advice to be applied for the specified memory range
 //   - location: location to apply the advice for
+//
+// Errors:
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotSupported]
 //
 // Wraps cuMemAdvise, bound as cuMemAdvise_v2.
 func (d DevicePtr) MemAdvise(count uint, advice MemAdvise, location MemLocation) error {
@@ -84,6 +123,12 @@ func (d DevicePtr) MemAdvise(count uint, advice MemAdvise, location MemLocation)
 // Note - This API will not perform any implict synchronization when the pointer was allocated with [Stream.MemAllocAsync] or [MemoryPool.MemAllocFromPoolAsync]. Callers must ensure that all accesses to these pointer have completed before invoking [DevicePtr.Free]. For best performance and memory reuse, users should use [DevicePtr.FreeAsync] to free memory allocated via the stream ordered memory allocator. For all other pointers, this API may perform implicit synchronization.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [MemAllocManaged], [Stream.MemAllocAsync], [MemoryPool.MemAllocFromPoolAsync], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [DevicePtr.FreeAsync], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaFree
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuMemFree, bound as cuMemFree_v2.
 func (d DevicePtr) Free() error {
@@ -98,6 +143,12 @@ func (d DevicePtr) Free() error {
 //
 //   - hStream: The stream establishing the stream ordering contract
 //
+// Errors:
+//   - [ErrInvalidContext]: default stream specified with no current context
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
+//
 // Wraps cuMemFreeAsync.
 func (d DevicePtr) FreeAsync(hStream Stream) error {
 	return memFreeAsync(d, hStream)
@@ -109,6 +160,14 @@ func (d DevicePtr) FreeAsync(hStream Stream) error {
 //
 //   - location: Location in which to check the flags for
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//
 // Wraps cuMemGetAccess.
 func (d DevicePtr) MemGetAccess(location *MemLocation) (uint64, error) {
 	return memGetAccess(location, d)
@@ -119,6 +178,13 @@ func (d DevicePtr) MemGetAccess(location *MemLocation) (uint64, error) {
 // Returns the base address in *pbase and size in *psize of the allocation that contains the input pointer dptr. Both parameters pbase and psize are optional. If one of them is NULL, it is ignored.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32]
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotFound]
+//   - [ErrNotInitialized]
 //
 // Wraps cuMemGetAddressRange, bound as cuMemGetAddressRange_v2.
 func (d DevicePtr) MemGetAddressRange() (pbase DevicePtr, psize uint, err error) {
@@ -139,6 +205,10 @@ func (d DevicePtr) MemGetAddressRange() (pbase DevicePtr, psize uint, err error)
 //   - size: Length of the address range. Must be aligned to host page size
 //   - handleType: Type of handle requested (defines type and size of the handle output parameter)
 //   - flags: When requesting [MemRangeHandleType].[MemRangeHandleTypeDmaBufFd] the value could be [MemRangeFlagDmaBufMappingTypePcie], otherwise 0
+//
+// Errors:
+//   - [ErrInvalidValue]
+//   - [ErrNotSupported]
 //
 // Wraps cuMemGetHandleForAddressRange.
 func (d DevicePtr) MemGetHandleForAddressRange(handle uintptr, size uint, handleType MemRangeHandleType, flags MemRangeFlags) error {
@@ -161,6 +231,16 @@ func (d DevicePtr) MemGetHandleForAddressRange(handle uintptr, size uint, handle
 //   - handle: Handle to a shareable memory
 //   - flags: flags for future use, must be zero now
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrIllegalState]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//   - [ErrOutOfMemory]
+//
 // Wraps cuMemMap.
 func (d DevicePtr) MemMap(size uint, offset uint, handle uint64, flags uint64) error {
 	return memMap(d, size, offset, handle, flags)
@@ -171,6 +251,11 @@ func (d DevicePtr) MemMap(size uint, offset uint, handle uint64, flags uint64) e
 // Constructs shareDataOut for sharing a specific allocation from an already shared memory pool. The recipient process can import the allocation with the [MemoryPool.ImportPointer] api. The data is not a handle and may be shared through any IPC mechanism.
 //
 // See also: [MemoryPool.ExportToShareableHandle], [MemPoolImportFromShareableHandle], [MemoryPool.ImportPointer]
+//
+// Errors:
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrOutOfMemory]
 //
 // Wraps cuMemPoolExportPointer.
 func (d DevicePtr) MemPoolExportPointer() (MemPoolPtrExportData, error) {
@@ -201,6 +286,11 @@ func (d DevicePtr) MemPoolExportPointer() (MemPoolPtrExportData, error) {
 //   - flags: flags for future use, must be zero now
 //   - hStream: Stream to enqueue prefetch operation
 //
+// Errors:
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotSupported]
+//
 // Wraps cuMemPrefetchAsync, bound as cuMemPrefetchAsync_v2.
 func (d DevicePtr) MemPrefetchAsync(count uint, location MemLocation, flags uint32, hStream Stream) error {
 	return memPrefetchAsync(d, count, location, flags, hStream)
@@ -210,6 +300,12 @@ func (d DevicePtr) MemPrefetchAsync(count uint, location MemLocation, flags uint
 //
 // Query an attribute about the memory range starting at devPtr with a size of count bytes. The memory range must refer to managed memory allocated via [MemAllocManaged] or declared via managed variables.
 // The attribute parameter can take the following values:
+//   - [MemRangeAttributeReadMostly]: If this attribute is specified, data will be interpreted as a 32-bit integer, and dataSize must be 4. The result returned will be 1 if all pages in the given memory range have read-duplication enabled, or 0 otherwise.
+//   - [MemRangeAttributePreferredLocation]: If this attribute is specified, data will be interpreted as a 32-bit integer, and dataSize must be 4. The result returned will be a GPU device id if all pages in the memory range have that GPU as their preferred location, or it will be CU_DEVICE_CPU if all pages in the memory range have the CPU as their preferred location, or it will be CU_DEVICE_INVALID if either all the pages don’t have the same preferred location or some of the pages don’t have a preferred location at all. Note that the actual location of the pages in the memory range at the time of the query may be different from the preferred location.
+//   - [MemRangeAttributeAccessedBy]: If this attribute is specified, data will be interpreted as an array of 32-bit integers, and dataSize must be a non-zero multiple of 4. The result returned will be a list of device ids that had [MemAdviseSetAccessedBy] set for that entire memory range. If any device does not have that advice set for the entire memory range, that device will not be included. If data is larger than the number of devices that have that advice set for that memory range, CU_DEVICE_INVALID will be returned in all the extra space provided. For ex., if dataSize is 12 (i.e. data has 3 elements) and only device 0 has the advice set, then the result returned will be { 0, CU_DEVICE_INVALID, CU_DEVICE_INVALID }. If data is smaller than the number of devices that have that advice set, then only as many devices will be returned as can fit in the array. There is no guarantee on which specific devices will be returned, however.
+//   - [MemRangeAttributeLastPrefetchLocation]: If this attribute is specified, data will be interpreted as a 32-bit integer, and dataSize must be 4. The result returned will be the last location to which all pages in the memory range were prefetched explicitly via [DevicePtr.MemPrefetchAsync]. This will either be a GPU id or CU_DEVICE_CPU depending on whether the last location for prefetch was a GPU or the CPU respectively. If any page in the memory range was never explicitly prefetched or if all pages were not prefetched to the same location, CU_DEVICE_INVALID will be returned. Note that this simply returns the last location that the application requested to prefetch the memory range to. It gives no indication as to whether the prefetch operation to that location has completed or even begun.
+//   - [MemRangeAttributePreferredLocationType]: If this attribute is specified, data will be interpreted as a [MemLocationType], and dataSize must be sizeof([MemLocationType]). The [MemLocationType] returned will be [MemLocationTypeDevice] if all pages in the memory range have the same GPU as their preferred location, or [MemLocationType] will be [MemLocationTypeHost] if all pages in the memory range have the CPU as their preferred location, or it will be [MemLocationTypeHostNuma] if all the pages in the memory range have the same host NUMA node ID as their preferred location or it will be [MemLocationTypeInvalid] if either all the pages don’t have the same preferred location or some of the pages don’t have a preferred location at all. Note that the actual location type of the pages in the memory range at the time of the query may be different from the preferred location type. [MemRangeAttributePreferredLocationId]: If this attribute is specified, data will be interpreted as a 32-bit integer, and dataSize must be 4. If the [MemRangeAttributePreferredLocationType] query for the same address range returns [MemLocationTypeDevice], it will be a valid device ordinal or if it returns [MemLocationTypeHostNuma], it will be a valid host NUMA node ID or if it returns any other location type, the id should be ignored.
+//   - [MemRangeAttributeLastPrefetchLocationType]: If this attribute is specified, data will be interpreted as a [MemLocationType], and dataSize must be sizeof([MemLocationType]). The result returned will be the last location to which all pages in the memory range were prefetched explicitly via [DevicePtr.MemPrefetchAsync]. The [MemLocationType] returned will be [MemLocationTypeDevice] if the last prefetch location was a GPU or [MemLocationTypeHost] if it was the CPU or [MemLocationTypeHostNuma] if the last prefetch location was a specific host NUMA node. If any page in the memory range was never explicitly prefetched or if all pages were not prefetched to the same location, [MemLocationType] will be [MemLocationTypeInvalid]. Note that this simply returns the last location type that the application requested to prefetch the memory range to. It gives no indication as to whether the prefetch operation to that location has completed or even begun. [MemRangeAttributeLastPrefetchLocationId]: If this attribute is specified, data will be interpreted as a 32-bit integer, and dataSize must be 4. If the [MemRangeAttributeLastPrefetchLocationType] query for the same address range returns [MemLocationTypeDevice], it will be a valid device ordinal or if it returns [MemLocationTypeHostNuma], it will be a valid host NUMA node ID or if it returns any other location type, the id should be ignored.
 //
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
@@ -222,6 +318,10 @@ func (d DevicePtr) MemPrefetchAsync(count uint, location MemLocation, flags uint
 //   - attribute: The attribute to query
 //   - count: Size of the range to query
 //
+// Errors:
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//
 // Wraps cuMemRangeGetAttribute.
 func (d DevicePtr) MemRangeGetAttribute(data unsafe.Pointer, dataSize uint, attribute MemRangeAttribute, count uint) error {
 	return memRangeGetAttribute(data, dataSize, attribute, d, count)
@@ -231,6 +331,14 @@ func (d DevicePtr) MemRangeGetAttribute(data unsafe.Pointer, dataSize uint, attr
 //
 // Query attributes of the memory range starting at devPtr with a size of count bytes. The memory range must refer to managed memory allocated via [MemAllocManaged] or declared via managed variables. The attributes array will be interpreted to have numAttributes entries. The dataSizes array will also be interpreted to have numAttributes entries. The results of the query will be stored in data.
 // The list of supported attributes are given below. Please refer to [DevicePtr.MemRangeGetAttribute] for attribute descriptions and restrictions.
+//   - [MemRangeAttributeReadMostly]
+//   - [MemRangeAttributePreferredLocation]
+//   - [MemRangeAttributeAccessedBy]
+//   - [MemRangeAttributeLastPrefetchLocation]
+//   - [MemRangeAttributePreferredLocationType]
+//   - [MemRangeAttributePreferredLocationId]
+//   - [MemRangeAttributeLastPrefetchLocationType]
+//   - [MemRangeAttributeLastPrefetchLocationId]
 //
 // See also: [DevicePtr.MemRangeGetAttribute], [DevicePtr.MemAdvise], [DevicePtr.MemPrefetchAsync], cudaMemRangeGetAttributes
 //
@@ -240,6 +348,12 @@ func (d DevicePtr) MemRangeGetAttribute(data unsafe.Pointer, dataSize uint, attr
 //   - numAttributes: Number of attributes to query
 //   - count: Size of the range to query
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//
 // Wraps cuMemRangeGetAttributes.
 func (d DevicePtr) MemRangeGetAttributes(data *uintptr, dataSizes *uint, attributes *MemRangeAttribute, numAttributes uint, count uint) error {
 	return memRangeGetAttributes(data, dataSizes, attributes, numAttributes, d, count)
@@ -247,15 +361,20 @@ func (d DevicePtr) MemRangeGetAttributes(data *uintptr, dataSizes *uint, attribu
 
 // MemSetAccess sets the access flags for each location specified in desc for the given virtual address range.
 //
-// Given the virtual address range via ptr and size, and the locations in the array given by desc and count, set the access flags for the target locations. The range must be a fully mapped address range containing all allocations created by [DevicePtr.MemMap] / [MemCreate]. Users cannot specify [MemLocationTypeHostNuma] accessibility for allocations created on with other location types. Note: When [MemAccessDesc].CUmemLocationtype is [MemLocationTypeHostNuma], [MemAccessDesc].CUmemLocationid is ignored. When setting the access flags for a virtual address range mapping a multicast object, ptr and size must be aligned to the value returned by [MulticastGetGranularity] with the flag CU_MULTICAST_MINIMUM_GRANULARITY. For best performance however, it is recommended that ptr and size be aligned to the value returned by [MulticastGetGranularity] with the flag CU_MULTICAST_RECOMMENDED_GRANULARITY.
+// Given the virtual address range via ptr and size, and the locations in the array given by desc and count, set the access flags for the target locations. The range must be a fully mapped address range containing all allocations created by [DevicePtr.MemMap] / [MemCreate]. Users cannot specify [MemLocationTypeHostNuma] accessibility for allocations created on with other location types. Note: When [MemAccessDesc].[MemLocation].type is [MemLocationTypeHostNuma], [MemAccessDesc].[MemLocation].id is ignored. When setting the access flags for a virtual address range mapping a multicast object, ptr and size must be aligned to the value returned by [MulticastGetGranularity] with the flag CU_MULTICAST_MINIMUM_GRANULARITY. For best performance however, it is recommended that ptr and size be aligned to the value returned by [MulticastGetGranularity] with the flag CU_MULTICAST_RECOMMENDED_GRANULARITY.
 //
 // Note: This function exhibits synchronous behavior for most use cases.
 //
 // See also: [DevicePtr.MemSetAccess], [MemCreate], : [DevicePtr.MemMap]
 //
 //   - size: Length of the virtual address range
-//   - desc: Array of [MemAccessDesc] that describe how to change themapping for each location specified
+//   - desc: Array of [MemAccessDesc] that describe how to change the mapping for each location specified
 //   - count: Number of [MemAccessDesc] in desc
+//
+// Errors:
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotSupported]
 //
 // Wraps cuMemSetAccess.
 func (d DevicePtr) MemSetAccess(size uint, desc *MemAccessDesc, count uint) error {
@@ -272,6 +391,13 @@ func (d DevicePtr) MemSetAccess(size uint, desc *MemAccessDesc, count uint) erro
 // See also: [MemCreate], [DevicePtr.MemAddressReserve]
 //
 //   - size: Size of the virtual address range to unmap
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
 //
 // Wraps cuMemUnmap.
 func (d DevicePtr) MemUnmap(size uint) error {
@@ -290,6 +416,12 @@ func (d DevicePtr) MemUnmap(size uint) error {
 //
 //   - src: Source unified virtual address space pointer
 //   - byteCount: Size of memory copy in bytes
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuMemcpy.
 func (d DevicePtr) Memcpy(src DevicePtr, byteCount uint) error {
@@ -312,6 +444,13 @@ func (d DevicePtr) Memcpy(src DevicePtr, byteCount uint) error {
 //   - byteCount: Size of memory copy in bytes
 //   - hStream: Stream identifier
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuMemcpyAsync.
 func (d DevicePtr) MemcpyAsync(src DevicePtr, byteCount uint, hStream Stream) error {
 	return memcpyAsync(d, src, byteCount, hStream)
@@ -329,6 +468,12 @@ func (d DevicePtr) MemcpyAsync(src DevicePtr, byteCount uint, hStream Stream) er
 //   - srcOffset: Offset in bytes of source array
 //   - byteCount: Size of memory copy in bytes
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuMemcpyAtoD, bound as cuMemcpyAtoD_v2.
 func (d DevicePtr) CopyFromArray(srcArray Array, srcOffset uint, byteCount uint) error {
 	return memcpyAtoD(d, srcArray, srcOffset, byteCount)
@@ -344,6 +489,12 @@ func (d DevicePtr) CopyFromArray(srcArray Array, srcOffset uint, byteCount uint)
 //
 //   - srcDevice: Source device pointer
 //   - byteCount: Size of memory copy in bytes
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuMemcpyDtoD, bound as cuMemcpyDtoD_v2.
 func (d DevicePtr) CopyFromDevice(srcDevice DevicePtr, byteCount uint) error {
@@ -364,6 +515,13 @@ func (d DevicePtr) CopyFromDevice(srcDevice DevicePtr, byteCount uint) error {
 //   - byteCount: Size of memory copy in bytes
 //   - hStream: Stream identifier
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuMemcpyDtoDAsync, bound as cuMemcpyDtoDAsync_v2.
 func (d DevicePtr) CopyFromDeviceAsync(srcDevice DevicePtr, byteCount uint, hStream Stream) error {
 	return memcpyDtoDAsync(d, srcDevice, byteCount, hStream)
@@ -380,6 +538,12 @@ func (d DevicePtr) CopyFromDeviceAsync(srcDevice DevicePtr, byteCount uint, hStr
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpy, cudaMemcpyFromSymbol
 //
 //   - dstHost: Destination host pointer
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // The copy covers all of dstHost: len(dstHost) values of type T.
 //
@@ -410,6 +574,13 @@ func (d DevicePtr) CopyToHostPtr(dstHost unsafe.Pointer, byteCount uint) error {
 //
 //   - dstHost: Destination host pointer
 //   - hStream: Stream identifier
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // The copy covers all of dstHost: len(dstHost) values of type T.
 // The copy may still be in progress when the call returns: dstHost must
@@ -443,6 +614,12 @@ func (d DevicePtr) CopyToHostAsyncPtr(dstHost unsafe.Pointer, byteCount uint, hS
 //
 //   - srcHost: Source host pointer
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // The copy covers all of srcHost: len(srcHost) values of type T.
 //
 // Wraps cuMemcpyHtoD, bound as cuMemcpyHtoD_v2.
@@ -472,6 +649,13 @@ func (d DevicePtr) CopyFromHostPtr(srcHost unsafe.Pointer, byteCount uint) error
 //
 //   - srcHost: Source host pointer
 //   - hStream: Stream identifier
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // The copy covers all of srcHost: len(srcHost) values of type T.
 // The copy may still be in progress when the call returns: srcHost must
@@ -506,6 +690,12 @@ func (d DevicePtr) CopyFromHostAsyncPtr(srcHost unsafe.Pointer, byteCount uint, 
 //   - srcContext: Source context
 //   - byteCount: Size of memory copy in bytes
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuMemcpyPeer.
 func (d DevicePtr) CopyFromPeer(dstContext Context, srcDevice DevicePtr, srcContext Context, byteCount uint) error {
 	return memcpyPeer(d, dstContext, srcDevice, srcContext, byteCount)
@@ -526,6 +716,13 @@ func (d DevicePtr) CopyFromPeer(dstContext Context, srcDevice DevicePtr, srcCont
 //   - srcContext: Source context
 //   - byteCount: Size of memory copy in bytes
 //   - hStream: Stream identifier
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuMemcpyPeerAsync.
 func (d DevicePtr) CopyFromPeerAsync(dstContext Context, srcDevice DevicePtr, srcContext Context, byteCount uint, hStream Stream) error {
@@ -548,6 +745,11 @@ func (d DevicePtr) CopyFromPeerAsync(dstContext Context, srcDevice DevicePtr, sr
 //   - attr: Attributes for the copy
 //   - hStream: Stream to enqueue the operation in
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuMemcpyWithAttributesAsync.
 func (d DevicePtr) MemcpyWithAttributesAsync(src DevicePtr, size uint, attr *MemcpyAttributes, hStream Stream) error {
 	return memcpyWithAttributesAsync(d, src, size, attr, hStream)
@@ -563,6 +765,12 @@ func (d DevicePtr) MemcpyWithAttributesAsync(src DevicePtr, size uint, attr *Mem
 //
 //   - us: Value to set
 //   - n: Number of elements
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuMemsetD16, bound as cuMemsetD16_v2.
 func (d DevicePtr) MemsetD16(us uint16, n uint) error {
@@ -583,6 +791,12 @@ func (d DevicePtr) MemsetD16(us uint16, n uint) error {
 //   - n: Number of elements
 //   - hStream: Stream identifier
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuMemsetD16Async.
 func (d DevicePtr) MemsetD16Async(us uint16, n uint, hStream Stream) error {
 	return memsetD16Async(d, us, n, hStream)
@@ -600,6 +814,12 @@ func (d DevicePtr) MemsetD16Async(us uint16, n uint, hStream Stream) error {
 //   - us: Value to set
 //   - width: Width of row
 //   - height: Number of rows
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuMemsetD2D16, bound as cuMemsetD2D16_v2.
 func (d DevicePtr) MemsetD2D16(dstPitch uint, us uint16, width uint, height uint) error {
@@ -622,6 +842,12 @@ func (d DevicePtr) MemsetD2D16(dstPitch uint, us uint16, width uint, height uint
 //   - height: Number of rows
 //   - hStream: Stream identifier
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuMemsetD2D16Async.
 func (d DevicePtr) MemsetD2D16Async(dstPitch uint, us uint16, width uint, height uint, hStream Stream) error {
 	return memsetD2D16Async(d, dstPitch, us, width, height, hStream)
@@ -639,6 +865,12 @@ func (d DevicePtr) MemsetD2D16Async(dstPitch uint, us uint16, width uint, height
 //   - ui: Value to set
 //   - width: Width of row
 //   - height: Number of rows
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuMemsetD2D32, bound as cuMemsetD2D32_v2.
 func (d DevicePtr) MemsetD2D32(dstPitch uint, ui uint32, width uint, height uint) error {
@@ -661,6 +893,12 @@ func (d DevicePtr) MemsetD2D32(dstPitch uint, ui uint32, width uint, height uint
 //   - height: Number of rows
 //   - hStream: Stream identifier
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuMemsetD2D32Async.
 func (d DevicePtr) MemsetD2D32Async(dstPitch uint, ui uint32, width uint, height uint, hStream Stream) error {
 	return memsetD2D32Async(d, dstPitch, ui, width, height, hStream)
@@ -678,6 +916,12 @@ func (d DevicePtr) MemsetD2D32Async(dstPitch uint, ui uint32, width uint, height
 //   - uc: Value to set
 //   - width: Width of row
 //   - height: Number of rows
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuMemsetD2D8, bound as cuMemsetD2D8_v2.
 func (d DevicePtr) MemsetD2D8(dstPitch uint, uc uint8, width uint, height uint) error {
@@ -700,6 +944,12 @@ func (d DevicePtr) MemsetD2D8(dstPitch uint, uc uint8, width uint, height uint) 
 //   - height: Number of rows
 //   - hStream: Stream identifier
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuMemsetD2D8Async.
 func (d DevicePtr) MemsetD2D8Async(dstPitch uint, uc uint8, width uint, height uint, hStream Stream) error {
 	return memsetD2D8Async(d, dstPitch, uc, width, height, hStream)
@@ -715,6 +965,12 @@ func (d DevicePtr) MemsetD2D8Async(dstPitch uint, uc uint8, width uint, height u
 //
 //   - ui: Value to set
 //   - n: Number of elements
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuMemsetD32, bound as cuMemsetD32_v2.
 func (d DevicePtr) MemsetD32(ui uint32, n uint) error {
@@ -735,6 +991,12 @@ func (d DevicePtr) MemsetD32(ui uint32, n uint) error {
 //   - n: Number of elements
 //   - hStream: Stream identifier
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuMemsetD32Async.
 func (d DevicePtr) MemsetD32Async(ui uint32, n uint, hStream Stream) error {
 	return memsetD32Async(d, ui, n, hStream)
@@ -750,6 +1012,12 @@ func (d DevicePtr) MemsetD32Async(ui uint32, n uint, hStream Stream) error {
 //
 //   - uc: Value to set
 //   - n: Number of elements
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuMemsetD8, bound as cuMemsetD8_v2.
 func (d DevicePtr) MemsetD8(uc uint8, n uint) error {
@@ -769,6 +1037,12 @@ func (d DevicePtr) MemsetD8(uc uint8, n uint) error {
 //   - uc: Value to set
 //   - n: Number of elements
 //   - hStream: Stream identifier
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuMemsetD8Async.
 func (d DevicePtr) MemsetD8Async(uc uint8, n uint, hStream Stream) error {
@@ -792,6 +1066,18 @@ func (d DevicePtr) MemsetD8Async(uc uint8, n uint, hStream Stream) error {
 //   - size: Size of memory that will be bound to the multicast object
 //   - flags: Flags for future use, must be zero now
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrIllegalState]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - CUDA_ERROR_MULTICAST_RESOURCE_FULL
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//   - [ErrOutOfMemory]
+//   - [ErrSystemNotReady]
+//
 // Wraps cuMulticastBindAddr.
 func (d DevicePtr) MulticastBindAddr(mcHandle uint64, mcOffset uint, size uint, flags uint64) error {
 	return multicastBindAddr(mcHandle, mcOffset, d, size, flags)
@@ -800,42 +1086,89 @@ func (d DevicePtr) MulticastBindAddr(mcHandle uint64, mcOffset uint, size uint, 
 // PointerGetAttribute returns information about a pointer.
 //
 // The supported attributes are:
+//   - [PointerAttributeContext]:
+//
 // Returns in *data the [Context] in which ptr was allocated or registered. The type of data must be [Context] *.
 // If ptr was not allocated by, mapped by, or registered with a [Context] which uses unified virtual addressing then [ErrInvalidValue] is returned.
+//   - [PointerAttributeMemoryType]:
+//
 // Returns in *data the physical memory type of the memory that ptr addresses as a [MemoryType] enumerated value. The type of data must be unsigned int.
 // If ptr addresses device memory then *data is set to [MemoryTypeDevice]. The particular [Device] on which the memory resides is the [Device] of the [Context] returned by the [PointerAttributeContext] attribute of ptr.
 // If ptr addresses host memory then *data is set to [MemoryTypeHost].
 // If ptr was not allocated by, mapped by, or registered with a [Context] which uses unified virtual addressing then [ErrInvalidValue] is returned.
 // If the current [Context] does not support unified virtual addressing then [ErrInvalidContext] is returned.
+//   - [PointerAttributeDevicePointer]:
+//
 // Returns in *data the device pointer value through which ptr may be accessed by kernels running in the current [Context]. The type of data must be [DevicePtr] *.
 // If there exists no device pointer value through which kernels running in the current [Context] may access ptr then [ErrInvalidValue] is returned.
 // If there is no current [Context] then [ErrInvalidContext] is returned.
 // Except in the exceptional disjoint addressing cases discussed below, the value returned in *data will equal the input value ptr.
+//   - [PointerAttributeHostPointer]:
+//
 // Returns in *data the host pointer value through which ptr may be accessed by by the host program. The type of data must be void **. If there exists no host pointer value through which the host program may directly access ptr then [ErrInvalidValue] is returned.
 // Except in the exceptional disjoint addressing cases discussed below, the value returned in *data will equal the input value ptr.
+//   - [PointerAttributePointerAttributeP2PTokens]:
+//
 // Returns in *data two tokens for use with the nv-p2p.h Linux kernel interface. data must be a struct of type [PointerAttributeP2PTokens].
 // ptr must be a pointer to memory obtained from :[MemAlloc]. Note that p2pToken and vaSpaceToken are only valid for the lifetime of the source allocation. A subsequent allocation at the same address may return completely different tokens. Querying this attribute has a side effect of setting the attribute [PointerAttributeSyncMemops] for the region of memory that ptr points to.
+//   - [PointerAttributeSyncMemops]:
+//
 // A boolean attribute which when set, ensures that synchronous memory operations initiated on the region of memory that ptr points to will always synchronize. See further documentation in the section titled “API synchronization behavior” to learn more about cases when synchronous memory operations can exhibit asynchronous behavior.
+//   - [PointerAttributeBufferId]:
+//
 // Returns in *data a buffer ID which is guaranteed to be unique within the process. data must point to an unsigned long long.
 // ptr must be a pointer to memory obtained from a CUDA memory allocation API. Every memory allocation from any of the CUDA memory allocation APIs will have a unique ID over a process lifetime. Subsequent allocations do not reuse IDs from previous freed allocations. IDs are only unique within a single process.
+//   - [PointerAttributeIsManaged]:
+//
 // Returns in *data a boolean that indicates whether the pointer points to managed memory or not.
 // If ptr is not a valid CUDA pointer then [ErrInvalidValue] is returned.
+//   - [PointerAttributeDeviceOrdinal]:
+//
 // Returns in *data an integer representing a device ordinal of a device against which the memory was allocated or registered.
+//   - [PointerAttributeIsLegacyCudaIpcCapable]:
+//
 // Returns in *data a boolean that indicates if this pointer maps to an allocation that is suitable for cudaIpcGetMemHandle.
+//   - [PointerAttributeRangeStartAddr]:
+//
 // Returns in *data the starting address for the allocation referenced by the device pointer ptr. Note that this is not necessarily the address of the mapped region, but the address of the mappable address range ptr references (e.g. from [DevicePtr.MemAddressReserve]).
+//   - [PointerAttributeRangeSize]:
+//
 // Returns in *data the size for the allocation referenced by the device pointer ptr. Note that this is not necessarily the size of the mapped region, but the size of the mappable address range ptr references (e.g. from [DevicePtr.MemAddressReserve]). To retrieve the size of the mapped region, see [DevicePtr.MemGetAddressRange]
+//   - [PointerAttributeMapped]:
+//
 // Returns in *data a boolean that indicates if this pointer is in a valid address range that is mapped to a backing allocation.
+//   - [PointerAttributeAllowedHandleTypes]:
+//
 // Returns a bitmask of the allowed handle types for an allocation that may be passed to [MemExportToShareableHandle].
+//   - [PointerAttributeIsGpuDirectRdmaCapable]:
+//
 // Returns in *data a boolean that indicates if the memory this pointer is referencing can be used with the GPUDirect RDMA API.
+//   - [PointerAttributeMempoolHandle]:
+//
 // Returns in *data the handle to the mempool that the allocation was obtained from.
+//   - [PointerAttributeIsHwDecompressCapable]:
+//
 // Returns in *data a boolean that indicates whether the pointer points to memory that is capable to be used for hardware accelerated decompression.
+//   - CU_POINTER_ATTRIBUTE_LOCALITY_DOMAIN_ORDINAL:
+//
 // Returns in *data an integer representing the locality domain ordinal of the allocation, or -1 if the allocation is not localized to a locality domain.
 // Note that for most allocations in the unified virtual address space the host and device pointer for accessing the allocation will be the same. The exceptions to this are
+//   - user memory registered using [MemHostRegister]
+//   - host memory allocated using [MemHostAlloc] with the CU_MEMHOSTALLOC_WRITECOMBINED flag For these types of allocation there will exist separate, disjoint host and device addresses for accessing the allocation. In particular
+//   - The host address will correspond to an invalid unmapped device address (which will result in an exception if accessed from the device)
+//   - The device address will correspond to an invalid unmapped host address (which will result in an exception if accessed from the host). For these types of allocations, querying [PointerAttributeHostPointer] and [PointerAttributeDevicePointer] may be used to retrieve the host and device addresses from either address.
 //
 // See also: [DevicePtr.PointerSetAttribute], [MemAlloc], [DevicePtr.Free], [MemAllocHost], [MemFreeHost], [MemHostAlloc], [MemHostRegister], [MemHostUnregister], cudaPointerGetAttributes
 //
 //   - data: Returned pointer attribute value
 //   - attribute: Pointer attribute to query
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuPointerGetAttribute.
 func (d DevicePtr) PointerGetAttribute(data unsafe.Pointer, attribute PointerAttribute) error {
@@ -845,6 +1178,23 @@ func (d DevicePtr) PointerGetAttribute(data unsafe.Pointer, attribute PointerAtt
 // PointerGetAttributes returns information about a pointer.
 //
 // The supported attributes are (refer to [DevicePtr.PointerGetAttribute] for attribute descriptions and restrictions):
+//   - [PointerAttributeContext]
+//   - [PointerAttributeMemoryType]
+//   - [PointerAttributeDevicePointer]
+//   - [PointerAttributeHostPointer]
+//   - [PointerAttributeSyncMemops]
+//   - [PointerAttributeBufferId]
+//   - [PointerAttributeIsManaged]
+//   - [PointerAttributeDeviceOrdinal]
+//   - [PointerAttributeRangeStartAddr]
+//   - [PointerAttributeRangeSize]
+//   - [PointerAttributeMapped]
+//   - [PointerAttributeIsLegacyCudaIpcCapable]
+//   - [PointerAttributeAllowedHandleTypes]
+//   - [PointerAttributeIsGpuDirectRdmaCapable]
+//   - [PointerAttributeMempoolHandle]
+//   - [PointerAttributeIsHwDecompressCapable]
+//
 // Unlike [DevicePtr.PointerGetAttribute], this function will not return an error when the ptr encountered is not a valid CUDA pointer. Instead, the attributes are assigned default NULL values and [Success] is returned.
 // If ptr was not allocated by, mapped by, or registered with a [Context] which uses UVA (Unified Virtual Addressing), [ErrInvalidContext] is returned.
 //
@@ -854,6 +1204,12 @@ func (d DevicePtr) PointerGetAttribute(data unsafe.Pointer, attribute PointerAtt
 //   - attributes: An array of attributes to query (numAttributes and the number of attributes in this array should match)
 //   - data: A two-dimensional array containing pointers to memory locations where the result of each attribute query will be written to
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//
 // Wraps cuPointerGetAttributes.
 func (d DevicePtr) PointerGetAttributes(numAttributes uint32, attributes *PointerAttribute, data *uintptr) error {
 	return pointerGetAttributes(numAttributes, attributes, data, d)
@@ -862,12 +1218,21 @@ func (d DevicePtr) PointerGetAttributes(numAttributes uint32, attributes *Pointe
 // PointerSetAttribute sets attributes on a previously allocated memory region.
 //
 // The supported attributes are:
+//   - [PointerAttributeSyncMemops]:
+//
 // A boolean attribute that can either be set (1) or unset (0). When set, the region of memory that ptr points to is guaranteed to always synchronize memory operations that are synchronous. If there are some previously initiated synchronous memory operations that are pending when this attribute is set, the function does not return until those memory operations are complete. See further documentation in the section titled “API synchronization behavior” to learn more about cases when synchronous memory operations can exhibit asynchronous behavior. value will be considered as a pointer to an unsigned integer to which this attribute is to be set.
 //
 // See also: [DevicePtr.PointerGetAttribute], [DevicePtr.PointerGetAttributes], [MemAlloc], [DevicePtr.Free], [MemAllocHost], [MemFreeHost], [MemHostAlloc], [MemHostRegister], [MemHostUnregister]
 //
 //   - value: Pointer to memory containing the value to be set
 //   - attribute: Pointer attribute to set
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Wraps cuPointerSetAttribute.
 func (d DevicePtr) PointerSetAttribute(value uintptr, attribute PointerAttribute) error {

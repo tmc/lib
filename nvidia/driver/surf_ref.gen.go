@@ -8,6 +8,12 @@ package driver
 //
 // See also: [Module.SurfRef], [SurfRef.SetArray]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Deprecated: This function is deprecated.
 //
 // Wraps cuSurfRefGetArray.
@@ -23,6 +29,12 @@ func (s SurfRef) Array() (Array, error) {
 //
 //   - hArray: CUDA array handle
 //   - flags: set to 0
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
 //
 // Deprecated: This function is deprecated.
 //

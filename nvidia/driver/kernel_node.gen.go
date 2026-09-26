@@ -18,6 +18,9 @@ type KernelNode struct {
 //
 //   - src: Source node For list of attributes see CUkernelNodeAttrID
 //
+// Errors:
+//   - [ErrInvalidValue]
+//
 // Wraps cuGraphKernelNodeCopyAttributes.
 func (k KernelNode) CopyAttributes(src KernelNode) error {
 	return graphKernelNodeCopyAttributes(k.GraphNode, src.GraphNode)
@@ -28,6 +31,10 @@ func (k KernelNode) CopyAttributes(src KernelNode) error {
 // Queries attribute attr from node hNode and stores it in corresponding member of valueOut.
 //
 // See also: [AccessPolicyWindow]
+//
+// Errors:
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
 //
 // Wraps cuGraphKernelNodeGetAttribute.
 func (k KernelNode) Attribute(attr int32) ([8]uint64, error) {
@@ -41,6 +48,11 @@ func (k KernelNode) Attribute(attr int32) ([8]uint64, error) {
 //
 // See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddKernelNode], [KernelNode.SetParams]
 //
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
 // Wraps cuGraphKernelNodeGetParams, bound as cuGraphKernelNodeGetParams_v2.
 func (k KernelNode) Params() (KernelNodeParams, error) {
 	return graphKernelNodeGetParams(k.GraphNode)
@@ -51,6 +63,10 @@ func (k KernelNode) Params() (KernelNodeParams, error) {
 // Sets attribute attr on node hNode from corresponding attribute of value.
 //
 // See also: [AccessPolicyWindow]
+//
+// Errors:
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
 //
 // Wraps cuGraphKernelNodeSetAttribute.
 func (k KernelNode) SetAttribute(attr int32, value *[8]uint64) error {
@@ -64,6 +80,11 @@ func (k KernelNode) SetAttribute(attr int32, value *[8]uint64) error {
 // See also: [GraphNode.SetParams], [Function.LaunchKernel], [Graph.AddKernelNode], [KernelNode.Params]
 //
 //   - nodeParams: Parameters to copy
+//
+// Errors:
+//   - [ErrInvalidHandle]
+//   - [ErrInvalidValue]
+//   - [ErrOutOfMemory]
 //
 // Wraps cuGraphKernelNodeSetParams, bound as cuGraphKernelNodeSetParams_v2.
 func (k KernelNode) SetParams(nodeParams *KernelNodeParams) error {

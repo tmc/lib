@@ -8,73 +8,73 @@
 //
 // # Tensor Contractions
 //
-//   - [Handle.Contract].
-//   - [Handle.ContractTrinary].
+//   - [Handle.Contract]: This routine computes the tensor contraction D=alpha*A*B+beta*C.
+//   - [Handle.ContractTrinary]: This routine computes the tensor contraction E=alpha*A*B*C+beta*D.
 //
 // # Descriptor and Plan Lifecycle
 //
-//   - [Create].
-//   - [Handle.CreateContraction].
-//   - [Handle.CreateContractionTrinary].
-//   - [Handle.CreateElementwiseBinary].
-//   - [Handle.CreateElementwiseTrinary].
-//   - [Handle.CreatePermutation].
-//   - [Handle.CreatePlan].
-//   - [Handle.CreatePlanPreference].
-//   - [Handle.CreateReduction].
-//   - [Handle.CreateTensorDescriptor].
-//   - [Handle.Destroy].
-//   - [OperationDescriptor.Destroy].
-//   - [Plan.Destroy].
-//   - [PlanPreference.Destroy].
-//   - [TensorDescriptor.Destroy].
+//   - [Create]: Initializes the cuTENSOR library and allocates the memory for the library context.
+//   - [Handle.CreateContraction]: allocates a [OperationDescriptor] object that encodes a tensor contraction of the form D=αAB+βC.
+//   - [Handle.CreateContractionTrinary]: allocates a [OperationDescriptor] object that encodes a tensor contraction of the form E=αABC+βD.
+//   - [Handle.CreateElementwiseBinary]: creates an operation descriptor for an elementwise binary operation.
+//   - [Handle.CreateElementwiseTrinary]: creates an operation descriptor that encodes an elementwise trinary operation.
+//   - [Handle.CreatePermutation]: creates an operation descriptor for a tensor permutation.
+//   - [Handle.CreatePlan]: allocates a [Plan] object, selects an appropriate kernel for a given operation (encoded by desc) and prepares a plan that encodes the execution.
+//   - [Handle.CreatePlanPreference]: Allocates the [PlanPreference], enabling users to limit the applicable kernels for a given plan/operation.
+//   - [Handle.CreateReduction]: Creates a cutensorOperatorDescriptor_t object that encodes a tensor reduction of the form D=alpha*opReduce(opA(A))+beta*opC(C).
+//   - [Handle.CreateTensorDescriptor]: Creates a tensor descriptor.
+//   - [Handle.Destroy]: Frees all resources related to the provided library handle.
+//   - [OperationDescriptor.Destroy]: Frees all resources related to the provided descriptor.
+//   - [Plan.Destroy]: Frees all resources related to the provided plan.
+//   - [PlanPreference.Destroy]: Frees all resources related to the provided preference.
+//   - [TensorDescriptor.Destroy]: Frees all resources related to the provided tensor descriptor.
 //
 // # Elementwise Operations
 //
-//   - [Handle.ElementwiseBinaryExecute].
-//   - [Handle.ElementwiseTrinaryExecute].
+//   - [Handle.ElementwiseBinaryExecute]: Performs an element-wise tensor operation for two input tensors (see [Handle.CreateElementwiseBinary])
+//   - [Handle.ElementwiseTrinaryExecute]: Performs an element-wise tensor operation for three input tensors (see [Handle.CreateElementwiseTrinary])
 //
 // # Workspace Planning
 //
-//   - [Handle.EstimateWorkspaceSize].
+//   - [Handle.EstimateWorkspaceSize]: Determines the required workspaceSize for the given operation encoded by desc.
 //
 // # Library Queries
 //
-//   - [GetCudartVersion].
-//   - [GetVersion].
+//   - [GetCudartVersion]: Returns version number of the CUDA runtime that cuTENSOR was compiled against.
+//   - [GetVersion]: Returns Version number of the CUTENSOR library.
 //
 // # Handle and Cache Management
 //
-//   - [Handle.ReadPlanCacheFromFile].
-//   - [Handle.ResizePlanCache].
-//   - [Handle.WritePlanCacheToFile].
-//   - [Handle.ReadKernelCacheFromFile].
-//   - [Handle.WriteKernelCacheToFile].
+//   - [Handle.ReadPlanCacheFromFile]: Reads a Plan-Cache from file and overwrites the cachelines of the provided handle.
+//   - [Handle.ResizePlanCache]: Resizes the plan cache.
+//   - [Handle.WritePlanCacheToFile]: Writes the Plan-Cache (that belongs to the provided handle) to file.
+//   - [Handle.ReadKernelCacheFromFile]: Reads a kernel cache from file and adds all non-existing JIT compiled kernels to the kernel cache.
+//   - [Handle.WriteKernelCacheToFile]: Writes the —per library— kernel cache to file.
 //
 // # Logging
 //
-//   - [LoggerForceDisable].
-//   - [LoggerOpenFile].
-//   - [LoggerSetCallback].
-//   - [LoggerSetFile].
-//   - [LoggerSetLevel].
-//   - [LoggerSetMask].
+//   - [LoggerForceDisable]: disables logging for the entire run.
+//   - [LoggerOpenFile]: opens a logging output file in the given path.
+//   - [LoggerSetCallback]: sets the logging callback routine.
+//   - [LoggerSetFile]: sets the logging output file.
+//   - [LoggerSetLevel]: sets the value of the logging level.
+//   - [LoggerSetMask]: sets the value of the log mask.
 //
 // # Descriptor Attributes
 //
-//   - [OperationDescriptor.Attribute].
-//   - [OperationDescriptor.SetAttribute].
-//   - [Plan.Attribute].
-//   - [PlanPreference.Attribute].
-//   - [PlanPreference.SetAttribute].
+//   - [OperationDescriptor.Attribute]: retrieves an attribute of the provided [OperationDescriptor] object (see [OperationdescriptorattributeT]).
+//   - [OperationDescriptor.SetAttribute]: Set attribute of a [OperationDescriptor] object.
+//   - [Plan.Attribute]: Retrieves information about an already-created plan (see [PlanattributeT])
+//   - [PlanPreference.Attribute]: Get attribute of a [PlanPreference] object.
+//   - [PlanPreference.SetAttribute]: Set attribute of a [PlanPreference] object.
 //
 // # Tensor Permutations
 //
-//   - [Handle.Permute].
+//   - [Handle.Permute]: Performs the tensor permutation that is encoded by plan (see [Handle.CreatePermutation]).
 //
 // # Tensor Reductions
 //
-//   - [Handle.Reduce].
+//   - [Handle.Reduce]: Performs the tensor reduction that is encoded by plan (see [Handle.CreateReduction]).
 //
 // [cuTENSOR Documentation]: https://docs.nvidia.com/cuda/cutensor/index.html
 package cutensor
