@@ -29,6 +29,15 @@
 //	zeroversion        a GetVersion of 0 read as a version
 //	legacycupti        a CUPTI function that always fails since CUDA 13.0
 //
+//	modecount          cuTENSOR modes that disagree with the descriptor's extents
+//	firstelem          &s[0] of a slice that may be empty, or with a mismatched count
+//	scalartype         alpha and beta of a different type from the compute type
+//	rawenum            an integer literal where a named constant exists
+//	fftdirection       a cuFFT direction written as -1 or 1
+//	stringnul          a string argument with a NUL byte
+//	jitlog             a whole JIT log buffer converted to a string
+//	linkoptions        LinkCreate option buffers that die before LinkComplete
+//
 // Usage:
 //
 //	cudavet [flags] package...
@@ -75,6 +84,15 @@ var analyzers = []*analysis.Analyzer{
 	devInfoAnalyzer,
 	zeroVersionAnalyzer,
 	legacyCuptiAnalyzer,
+
+	modeCountAnalyzer,
+	firstElemAnalyzer,
+	scalarTypeAnalyzer,
+	rawEnumAnalyzer,
+	fftDirectionAnalyzer,
+	stringNULAnalyzer,
+	jitLogAnalyzer,
+	linkOptionsAnalyzer,
 }
 
 func main() {
