@@ -170,3 +170,29 @@ func TestDecodeNoCUDAJournal(t *testing.T) {
 		})
 	}
 }
+
+func TestMeasure(t *testing.T) {
+	small := journaltest.New().Kernel(1, 2, 1).Finalize()
+	large := journaltest.New().Kernel(1, 2, 1).Kernel(3, 4, 2).Kernel(5, 6, 3).Finalize()
+	journals := map[string][]byte{"a.journal": small, "b.journal.gz": journaltest.Gzip(large)}
+	_, err := Decode(journals, 2, int64(len(large)))
+	if !errors.Is(err, wire.ErrRecordLimit) {
+		t.Fatalf("Decode under 2 records: err = %v, want %v", err, wire.ErrRecordLimit)
+	}
+	records, size, err := Measure(journals)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if size != int64(len(large)) {
+		t.Errorf("size = %d, want %d", size, len(large))
+	}
+	if _, err := Decode(journals, records, size); err != nil {
+		t.Errorf("Decode under measured bounds %d records, %d bytes: %v", records, size, err)
+	}
+	if _, err := Decode(journals, records, size-1); !errors.Is(err, ErrJournalBytes) {
+		t.Errorf("Decode under %d bytes: err = %v, want %v", size-1, err, ErrJournalBytes)
+	}
+	if _, err := Decode(journals, records-1, size); !errors.Is(err, wire.ErrRecordLimit) {
+		t.Errorf("Decode under %d records: err = %v, want %v", records-1, err, wire.ErrRecordLimit)
+	}
+}

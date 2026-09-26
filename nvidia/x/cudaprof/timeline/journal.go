@@ -30,6 +30,9 @@ var (
 	// ErrRecordsDropped reports a capture that dropped records before they
 	// reached a journal.
 	ErrRecordsDropped = errors.New("records dropped")
+	// ErrJournalBytes reports a journal whose decompressed size exceeds the
+	// bound it was read under.
+	ErrJournalBytes = errors.New("journal exceeds byte limit")
 )
 
 // refusal is an error whose text is msg alone and which wraps a sentinel.
@@ -480,13 +483,13 @@ func newBoundedReader(r io.ReadCloser, limit int64) *boundedReader {
 func (r *boundedReader) Read(p []byte) (int, error) {
 	remaining := r.limit - r.n
 	if remaining < 0 {
-		return 0, fmt.Errorf("journal exceeds %d bytes decompressed", r.limit)
+		return 0, r.overLimit()
 	}
 	if remaining == 0 {
 		var one [1]byte
 		n, err := r.ReadCloser.Read(one[:])
 		if n > 0 {
-			return 0, fmt.Errorf("journal exceeds %d bytes decompressed", r.limit)
+			return 0, r.overLimit()
 		}
 		return 0, err
 	}
@@ -496,6 +499,37 @@ func (r *boundedReader) Read(p []byte) (int, error) {
 	n, err := r.ReadCloser.Read(p)
 	r.n += int64(n)
 	return n, err
+}
+
+func (r *boundedReader) overLimit() error {
+	return &refusal{fmt.Sprintf("journal exceeds %d bytes decompressed", r.limit), ErrJournalBytes}
+}
+
+// Measure returns the most records and the most decompressed bytes held by
+// any one of journals. It reads every frame but keeps none, so it costs the
+// decompression and none of the memory Decode needs; a reader uses it to say
+// what bound would admit a journal that Decode refused.
+func Measure(journals map[string][]byte) (records, size int64, err error) {
+	for name, data := range journals {
+		r, _, err := openJournal(data, math.MaxInt64)
+		if err != nil {
+			return 0, 0, fmt.Errorf("read journal %s: %w", name, err)
+		}
+		d := wire.NewDecoder(r, wire.Limits{MaxRecords: math.MaxUint32})
+		for {
+			_, err = d.Next()
+			if err != nil {
+				break
+			}
+		}
+		r.Close()
+		if !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
+			return 0, 0, fmt.Errorf("measure journal %s: %w", name, err)
+		}
+		records = max(records, int64(d.Stats().Records))
+		size = max(size, r.n)
+	}
+	return records, size, nil
 }
 
 func decodeJournal(name string, reader io.Reader, maxRecords int64, out *Records, summary *Journal) error {
