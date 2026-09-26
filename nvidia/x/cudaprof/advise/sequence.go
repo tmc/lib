@@ -166,6 +166,7 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *Report) {
 						if !seenDutyUnmeasured[streamID] {
 							seenDutyUnmeasured[streamID] = true
 							report.Items = append(report.Items, Item{
+								rule:          "unmeasured-sequence",
 								Severity:      SeverityContext,
 								Category:      CategoryArchitectureDispatch,
 								EvidenceLevel: EvidenceUnmeasured,
@@ -201,6 +202,7 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *Report) {
 							rec = "Idle device time here is not explained by host launch submission; look for stream dependencies, synchronization, or concurrent work on other streams."
 						}
 						report.Items = append(report.Items, Item{
+							rule:          "short-sequence",
 							Severity:      sev,
 							Category:      CategoryArchitectureDispatch,
 							EvidenceLevel: evLevel,
@@ -262,6 +264,7 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *Report) {
 
 		if maxConsecutive >= 50 && maxKernel != "" {
 			report.Items = append(report.Items, Item{
+				rule:          "host-loop",
 				Severity:      SeverityCost,
 				Category:      CategoryArchitectureDispatch,
 				EvidenceLevel: EvidenceObserved,
@@ -326,6 +329,7 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *Report) {
 				rec := fmt.Sprintf("Fuse into a single kernel (e.g. fused %s + %s) to eliminate intermediate DRAM round-trips.", cleanName1, cleanName2)
 
 				report.Items = append(report.Items, Item{
+					rule:          "round-trip",
 					Severity:      SeverityCost,
 					Category:      CategoryMemoryCompute,
 					EvidenceLevel: EvidenceSuspected,
@@ -359,6 +363,7 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *Report) {
 				rec := fmt.Sprintf("Fuse normalization and quantization into a single kernel (e.g. fused %s_%s) that normalizes in shared memory/registers and directly stores quantized blocks to eliminate %d DRAM round-trips.", cleanName1, cleanName2, ps.count)
 
 				report.Items = append(report.Items, Item{
+					rule:          "round-trip",
 					Severity:      SeverityCost,
 					Category:      CategoryMemoryCompute,
 					EvidenceLevel: EvidenceSuspected,
@@ -400,6 +405,7 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *Report) {
 					rec := fmt.Sprintf("Fuse into a paired dual-GEMV dispatch (e.g. fused %s + %s) that loads the activation vector into shared memory once and accumulates dual projection outputs.", cleanName1, cleanName2)
 
 					report.Items = append(report.Items, Item{
+						rule:          "shared-activation",
 						Severity:      SeverityContext,
 						Category:      CategoryMemoryCompute,
 						EvidenceLevel: EvidenceSuspected,
@@ -435,6 +441,7 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *Report) {
 					rec := fmt.Sprintf("Fuse %s and %s into a single kernel to keep intermediate activations in registers/shared memory, eliminating %d kernel launches and DRAM traffic.", cleanName1, cleanName2, ps.count)
 
 					report.Items = append(report.Items, Item{
+						rule:          "fusion",
 						Severity:      SeverityCost,
 						Category:      CategoryMemoryCompute,
 						EvidenceLevel: EvidenceSuspected,

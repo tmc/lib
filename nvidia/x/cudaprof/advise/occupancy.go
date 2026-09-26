@@ -33,6 +33,7 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *Report, infos
 				rec += fastMathLead
 			}
 			report.Items = append(report.Items, Item{
+				rule:          "frame-size",
 				Severity:      SeverityReadFirst,
 				Category:      CategoryRegisterPressure,
 				EvidenceLevel: EvidenceObserved,
@@ -47,6 +48,7 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *Report, infos
 		// 2. Compiler register limit (EIATTR_MAXREG_COUNT)
 		if k.MaxRegCount > 0 && k.Registers >= k.MaxRegCount {
 			report.Items = append(report.Items, Item{
+				rule:          "maxreg",
 				Severity:      SeverityCost,
 				Category:      CategoryRegisterPressure,
 				EvidenceLevel: EvidenceObserved,
@@ -103,6 +105,7 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *Report, infos
 			}
 
 			report.Items = append(report.Items, Item{
+				rule:                     "occupancy",
 				Severity:                 severity,
 				Category:                 CategoryRegisterPressure,
 				EvidenceLevel:            EvidenceSuspected,

@@ -156,6 +156,7 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 			if len(imadWides) > 0 {
 				first := imadWides[0]
 				report.Items = append(report.Items, Item{
+					rule:          "imad-wide",
 					Severity:      SeverityCost,
 					Category:      CategoryArchitecture,
 					EvidenceLevel: EvidenceSuspected,
@@ -178,6 +179,7 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 					rec += fastMathLead
 				}
 				report.Items = append(report.Items, Item{
+					rule:          "spill",
 					Severity:      SeverityReadFirst,
 					Category:      CategoryRegisterPressure,
 					EvidenceLevel: EvidenceObserved,
@@ -208,6 +210,7 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 
 			if peakGPR > 255 {
 				report.Items = append(report.Items, Item{
+					rule:                     "gpr-limit",
 					Severity:                 SeverityReadFirst,
 					Category:                 CategoryRegisterPressure,
 					EvidenceLevel:            EvidenceObserved,
@@ -223,6 +226,7 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 						peakGPR, fn.Name, occRes.Architecture, occRes.TheoreticalWarps, occRes.MaxWarps, occRes.Occupancy*100, occRes.ActiveBlocks, occRes.LimitingFactor)
 				}
 				report.Items = append(report.Items, Item{
+					rule:                     "gpr-cliff",
 					Severity:                 SeverityCost,
 					Category:                 CategoryRegisterPressure,
 					EvidenceLevel:            EvidenceSuspected,
@@ -238,6 +242,7 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 						peakGPR, fn.Name, occRes.Architecture, occRes.TheoreticalWarps, occRes.MaxWarps, occRes.Occupancy*100, occRes.ActiveBlocks, occRes.LimitingFactor)
 				}
 				report.Items = append(report.Items, Item{
+					rule:                     "gpr-cliff",
 					Severity:                 SeverityCost,
 					Category:                 CategoryRegisterPressure,
 					EvidenceLevel:            EvidenceSuspected,
@@ -251,6 +256,7 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 			// Peak UGPR
 			if peakUGPR > 63 {
 				report.Items = append(report.Items, Item{
+					rule:          "ugpr",
 					Severity:      SeverityCost,
 					Category:      CategoryRegisterPressure,
 					EvidenceLevel: EvidenceObserved,
@@ -327,6 +333,7 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 				for i, sLoad := range scalarLoads {
 					if i >= 3 {
 						report.Items = append(report.Items, Item{
+							rule:          "ptx-scalar-load",
 							Severity:      SeverityCost,
 							Category:      CategoryArchitecture,
 							EvidenceLevel: EvidenceSuspected,
@@ -349,6 +356,7 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 						loc.Line = sLoad.Line
 					}
 					report.Items = append(report.Items, Item{
+						rule:                     "ptx-scalar-load",
 						Severity:                 SeverityCost,
 						Category:                 CategoryArchitecture,
 						EvidenceLevel:            EvidenceSuspected,
@@ -374,6 +382,7 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 						loc.Line = mad.Line
 					}
 					report.Items = append(report.Items, Item{
+						rule:                     "ptx-mad-wide",
 						Severity:                 SeverityCost,
 						Category:                 CategoryArchitecture,
 						EvidenceLevel:            EvidenceSuspected,

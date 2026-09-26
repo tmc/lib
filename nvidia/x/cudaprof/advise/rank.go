@@ -106,6 +106,96 @@ func finalizeAndRankFindingsWithTiming(report *Report, kernelTimes map[string]in
 		}
 		return a.Finding < b.Finding
 	})
+	report.Items = collapseRules(report.Items)
+}
+
+// keepPerRule is the number of findings of one rule that rank on their own.
+// Rules that fire once per kernel or per kernel pair produced 9,635 findings
+// on one training capture, 6,017 of them the same IMAD.WIDE note in a
+// different kernel; a reader acts on the few largest of each and needs only
+// to know how many more there are.
+const keepPerRule = 3
+
+// ruleNames describes each collapsible rule, for the finding that holds the
+// rest of its findings.
+var ruleNames = map[string]string{
+	"imad-wide":           "scalar address arithmetic (IMAD.WIDE)",
+	"fchk":                "IEEE compliance check (FCHK)",
+	"spill":               "register spill",
+	"gpr-limit":           "register limit",
+	"gpr-cliff":           "register occupancy cliff",
+	"ugpr":                "uniform register pressure",
+	"ptx-scalar-load":     "PTX scalar global load",
+	"ptx-mad-wide":        "PTX scalar address arithmetic",
+	"frame-size":          "local stack frame",
+	"maxreg":              "compiler register limit",
+	"occupancy":           "theoretical occupancy",
+	"kernel-patterns":     "kernel code pattern",
+	"unmeasured-sequence": "short-kernel sequence without timing",
+	"short-sequence":      "short-kernel sequence duty cycle",
+	"host-loop":           "repeated host loop dispatch",
+	"round-trip":          "intermediate tensor round-trip",
+	"shared-activation":   "shared activation load",
+	"fusion":              "pointwise fusion",
+}
+
+// collapseRules keeps the first keepPerRule findings of each rule in items,
+// which are in rank order, and replaces the rest with one context finding
+// per rule that holds them as patterns.
+func collapseRules(items []Item) []Item {
+	count := make(map[string]int)
+	for _, item := range items {
+		if item.rule != "" {
+			count[item.rule]++
+		}
+	}
+	var out []Item
+	var rules []string
+	seen := make(map[string]int)
+	rest := make(map[string][]Item)
+	for _, item := range items {
+		r := item.rule
+		if r == "" || count[r] <= keepPerRule+1 {
+			out = append(out, item)
+			continue
+		}
+		if seen[r]++; seen[r] <= keepPerRule {
+			out = append(out, item)
+			continue
+		}
+		if rest[r] == nil {
+			rules = append(rules, r)
+		}
+		rest[r] = append(rest[r], item)
+	}
+	for _, r := range rules {
+		held := rest[r]
+		name := ruleNames[r]
+		if name == "" {
+			name = r
+		}
+		var largest int64
+		kinds := make(map[Category]bool)
+		for _, item := range held {
+			largest = max(largest, item.DeviceTimeNanos, item.HostTimeNanos)
+			kinds[item.Category] = true
+		}
+		tail := Item{
+			Severity: SeverityContext,
+			Category: held[0].Category,
+			rule:     r,
+			Finding:  fmt.Sprintf("%d more %s findings rank below the %d listed above", len(held), name, keepPerRule),
+			Patterns: held,
+		}
+		if len(kinds) > 1 {
+			tail.Category = CategoryKernel
+		}
+		if largest > 0 {
+			tail.magnitude = fmt.Sprintf("%d findings, the largest %.3f ms", len(held), float64(largest)/1e6)
+		}
+		out = append(out, tail)
+	}
+	return out
 }
 
 // takesKernelTime reports whether item is a pattern in one kernel's code
@@ -150,6 +240,7 @@ func foldKernelPatterns(items []Item) []Item {
 		kernel := Item{
 			Severity: SeverityContext,
 			Category: CategoryKernel,
+			rule:     "kernel-patterns",
 			Location: Location{Kernel: k},
 			Finding:  fmt.Sprintf("%d patterns in kernel %q; the kernel's time is counted once", len(patterns), k),
 			Patterns: patterns,

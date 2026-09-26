@@ -237,7 +237,11 @@ per iteration: device allocation and free, CUDA graph capture and
 instantiation, host synchronization the device sits idle across, and an
 idle share of 10% or more.
 `cudaprof advise -iteration-marker=RE` takes the same flags and adds
-these findings to its report, after the findings to read first.
+these findings to its report, after the findings to read first. The
+whole-capture idle findings, which count warm-up with the loop, drop to
+context beneath them. Without the marker too, a rule that fires once
+per kernel or kernel pair (IMAD.WIDE, occupancy, fusion pairs) keeps
+its three largest findings and folds the rest into one.
 `cudaprof capture -o run.pprof --iteration-marker=RE` runs the gate on the
 capture it wrote, prints a one-line summary, and exits 2 when the gate
 fails, so a scripted capture cannot silently record the wrong window.

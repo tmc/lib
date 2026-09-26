@@ -160,6 +160,10 @@ type Item struct {
 	// something else says what they mean here.
 	magnitude string
 
+	// rule names the audit rule that produced the item, when that rule can
+	// fire once per kernel or kernel pair; see collapseRules. Not serialized.
+	rule string
+
 	// severityByKind exempts this item from the Critical share floor. A
 	// finding that says the module may not run, or that the report's own
 	// ordering is misleading, is Critical for what it is and not for how much
@@ -299,6 +303,10 @@ func (r *Report) MarkdownWithLimit(limit int) string {
 		sb.WriteString(header)
 		writeAdviceBody(&sb, item, "")
 		for j, p := range item.Patterns {
+			if j == maxPatternLines {
+				fmt.Fprintf(&sb, "\n*... %d more (use --format=json for all).*\n", len(item.Patterns)-j)
+				break
+			}
 			fmt.Fprintf(&sb, "%d. %s: %s\n", j+1, p.Category, p.Finding)
 			writeAdviceBody(&sb, p, "   ")
 		}
@@ -312,6 +320,9 @@ func (r *Report) MarkdownWithLimit(limit int) string {
 
 	return sb.String()
 }
+
+// maxPatternLines is the number of patterns Markdown prints under one finding.
+const maxPatternLines = 5
 
 // writeAdviceBody writes the list under a finding's header, each line
 // prefixed by indent.

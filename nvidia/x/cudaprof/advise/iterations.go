@@ -2,6 +2,7 @@ package advise
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudaprof/iteration"
@@ -43,6 +44,26 @@ func (r *Report) AddIterations(it *iteration.Report) {
 			item.HostTimeNanos = f.Nanos * n
 		}
 		items = append(items, item)
+	}
+	// The whole-capture idle findings measure warm-up with the loop: on a
+	// training capture the largest was a 789 ms start-up gap. The
+	// per-iteration idle finding measures the loop alone, so they are
+	// demoted to context beneath it.
+	demoted := false
+	for i := range r.Items {
+		item := &r.Items[i]
+		if item.rule != "capture-idle" {
+			continue
+		}
+		item.Severity = SeverityContext
+		item.severityByKind = false
+		item.Finding += fmt.Sprintf(" This counts the whole capture, warm-up included; the per-iteration findings skip the first %d iterations.", it.Skip)
+		demoted = true
+	}
+	if demoted {
+		sort.SliceStable(r.Items, func(i, j int) bool {
+			return severityRank(r.Items[i].Severity) < severityRank(r.Items[j].Severity)
+		})
 	}
 	i := 0
 	for i < len(r.Items) && r.Items[i].Severity == SeverityReadFirst {

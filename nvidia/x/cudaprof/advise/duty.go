@@ -398,6 +398,7 @@ func auditDeviceDutyCycle(cap *cudacapture.Capture, report *Report) {
 		rec = "Act on the idle attribution in this report -- the finding naming where this idle went -- before any kernel finding below it. A kernel-time ranking cannot distinguish a per-launch tax from a tail, and the two have opposite remedies."
 	}
 	report.Items = append(report.Items, Item{
+		rule:            "capture-idle",
 		Severity:        SeverityReadFirst,
 		Category:        CategoryArchitectureDispatch,
 		EvidenceLevel:   EvidenceObserved,
@@ -635,6 +636,7 @@ func reportDominantIdleGap(attr idleAttribution, report *Report) bool {
 	}
 	finding += " Idle this concentrated was spent once, so it is not a per-launch cost: batching launches, submitting further ahead and replaying the sequence as a CUDA graph all divide a cost that was not paid per launch, and none of them recovers this time."
 	report.Items = append(report.Items, Item{
+		rule:           "capture-idle",
 		Severity:       severity,
 		Category:       CategoryArchitectureDispatch,
 		EvidenceLevel:  EvidenceObserved,
@@ -737,6 +739,7 @@ func auditIdleAttribution(cap *cudacapture.Capture, report *Report) bool {
 		remedy = "Most of this idle is one gap -- see the single-stall finding, which holds the majority of it. Settle that first: until the stall is excluded or explained, this split describes the remainder and its share of the total is not the quantity to act on. Once it is excluded, the remaining idle admits this arm's remedy: " + top.remedy
 	}
 	report.Items = append(report.Items, Item{
+		rule:           "capture-idle",
 		Severity:       SeverityReadFirst,
 		Category:       CategoryArchitectureDispatch,
 		EvidenceLevel:  EvidenceObserved,

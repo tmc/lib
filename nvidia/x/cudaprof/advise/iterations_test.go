@@ -37,6 +37,7 @@ func TestAddIterations(t *testing.T) {
 	}{
 		{"pass", false, []string{"Read first: existing", "Cost: every iteration: the device is idle 50.0%", "Cost: existing"}},
 		{"gate fails", true, []string{"Read first: existing", "Read first: iteration gate failed: steady iterations launched", "Cost: every iteration: the device is idle", "Cost: existing"}},
+		{"capture idle", false, []string{"Read first: existing", "Cost: every iteration: the device is idle 50.0%", "Cost: existing", "Context: idle. This counts the whole capture, warm-up included; the per-iteration findings skip the first 1 iterations."}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -44,6 +45,9 @@ func TestAddIterations(t *testing.T) {
 				{Severity: SeverityReadFirst, Finding: "existing"},
 				{Severity: SeverityCost, Finding: "existing"},
 			}}
+			if tt.name == "capture idle" {
+				r.Items = append([]Item{{Severity: SeverityReadFirst, Finding: "idle.", rule: "capture-idle", severityByKind: true}}, r.Items...)
+			}
 			r.AddIterations(iterationReport(t, 5, tt.uneven))
 			if len(r.Items) != len(tt.want) {
 				t.Fatalf("got %d items, want %d: %+v", len(r.Items), len(tt.want), r.Items)
