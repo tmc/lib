@@ -154,6 +154,10 @@ type Records struct {
 	Ranges          []Range
 	UnpairedMarkers int
 
+	// GEMMs holds the cuBLASLt calls, in journal order, when the capture
+	// recorded them (cudaprof capture --gemms). It is empty otherwise.
+	GEMMs []GEMM
+
 	// Spans that explain idle rather than occupy the device. None of the
 	// three is in Activities: see the exclusions in decodeJournal.
 	Overheads []Span
@@ -210,6 +214,28 @@ type Activity struct {
 	// Module is the driver's id of the module a kernel ran from, or 0 when
 	// the record does not say. Read only by advise.
 	Module uint32
+}
+
+// A GEMM is one cuBLASLt matmul call as the library logged it, joined to
+// the kernels it launched.
+type GEMM struct {
+	Journal string
+	ID      uint64
+	Thread  int64
+	// Time is when the library logged the call, which is before its
+	// launches, on the host clock the activity records use.
+	Time int64
+	// API is the entry the call arrived through: cublasLtMatmul for a
+	// direct call, an internal name such as cublasLtTSTMatmul for one made
+	// by cuBLAS.
+	API string
+	// Log is the library's description of the call, unparsed.
+	Log string
+	// Launches counts the kernel launches the agent linked to the call.
+	// Kernels holds those whose device record is in the capture; a launch
+	// with none (one recorded into a CUDA graph, say) is counted only.
+	Launches int
+	Kernels  []Activity
 }
 
 // A Span is one span on one device's timeline. Overhead spans carry no
@@ -372,6 +398,10 @@ type recordPayload struct {
 	SyncType     uint32  `json:"sync_type"`
 	Dropped      uint64  `json:"dropped"`
 	ProcessID    uint32  `json:"process_id"`
+	ID           uint64  `json:"id"`
+	Thread       int64   `json:"thread"`
+	API          string  `json:"api"`
+	Log          string  `json:"log"`
 }
 
 // Decode decodes every journal member, reading at most maxRecords records
@@ -602,6 +632,14 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *Records
 	var calls []Call
 	var markers []Marker
 	var nvtx []recordPayload
+	// So are GEMM calls, which are joined to this journal's kernels by
+	// correlation id once it has been read: the launch that links a call to
+	// a kernel is made before the kernel's record is drained, and ids are
+	// unique only within a process.
+	var gemms []GEMM
+	gemmIndex := make(map[uint64]int)
+	gemmLaunch := make(map[uint32]int)
+	firstActivity := len(out.Activities)
 	for {
 		r, err := d.Next()
 		if err != nil {
@@ -628,6 +666,12 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *Records
 				ranges, unpaired := pairMarkers(nvtx)
 				out.Ranges = append(out.Ranges, ranges...)
 				out.UnpairedMarkers += unpaired
+				for _, a := range out.Activities[firstActivity:] {
+					if i, ok := gemmLaunch[a.Correlation]; ok && a.Subtype == "kernel" {
+						gemms[i].Kernels = append(gemms[i].Kernels, a)
+					}
+				}
+				out.GEMMs = append(out.GEMMs, gemms...)
 				return nil
 			case errors.Is(err, io.ErrUnexpectedEOF):
 				return fmt.Errorf("journal %s is truncated after %d record(s): its final frame is incomplete, so the timeline ends at an unknown point", name, summary.Records)
@@ -755,6 +799,17 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *Records
 				Start:       int64(payload.Start),
 				End:         int64(payload.End),
 			})
+		case wire.KindGEMM:
+			switch payload.Kind {
+			case "gemm":
+				gemmIndex[payload.ID] = len(gemms)
+				gemms = append(gemms, GEMM{Journal: name, ID: payload.ID, Thread: payload.Thread, Time: int64(r.Timestamp), API: payload.API, Log: payload.Log})
+			case "gemm_launch":
+				if i, ok := gemmIndex[payload.ID]; ok && payload.Correlation != 0 {
+					gemms[i].Launches++
+					gemmLaunch[payload.Correlation] = i
+				}
+			}
 		case wire.KindFinalized:
 			finalized = true
 			if payload.Dropped > 0 {

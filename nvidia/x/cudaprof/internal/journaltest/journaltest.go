@@ -143,6 +143,16 @@ func (b *Builder) Marker(name string, id, flags uint32, time uint64) *Builder {
 	})
 }
 
+// GEMM appends one cuBLASLt call as the agent writes it for --gemms.
+func (b *Builder) GEMM(id uint64, api, log string) *Builder {
+	return b.Append(wire.KindGEMM, map[string]any{"kind": "gemm", "id": id, "thread": 7, "api": api, "log": log})
+}
+
+// GEMMLaunch appends the link from cuBLASLt call id to a launch.
+func (b *Builder) GEMMLaunch(id uint64, correlation uint32) *Builder {
+	return b.Append(wire.KindGEMM, map[string]any{"kind": "gemm_launch", "id": id, "correlation": correlation})
+}
+
 // Finalize appends a finalized record and returns the journal.
 func (b *Builder) Finalize() []byte {
 	b.Append(wire.KindFinalized, map[string]any{"kind": "finalized", "state": "collected"})
