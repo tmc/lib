@@ -13,7 +13,7 @@ go generate ./x/cmd/cudaprof   # Linux with CUDA only: builds cupti_agent.so int
 
 | Command | Needs |
 | --- | --- |
-| `capture` | Linux, an NVIDIA driver, and `cupti_agent.so` built against the CUDA toolkit's CUPTI (12.x or 13.x headers; the agent refuses a runtime of another major version). Tested on an NVIDIA GB10 (arm64, SM 12.1) with CUPTI 13.0. Driver version: not recorded in the code. |
+| `capture`, `ab` | Linux, an NVIDIA driver, and `cupti_agent.so` built against the CUDA toolkit's CUPTI (12.x or 13.x headers; the agent refuses a runtime of another major version). Tested on an NVIDIA GB10 (arm64, SM 12.1) with CUPTI 13.0. Driver version: not recorded in the code. |
 | `gaps`, `compare`, `iterations`, `qualify`, `export`, `view`, `-top`, `-http`, `version`, `help` | Any OS. No GPU, no CUDA. |
 
 A capture is one `.pprof` file: a pprof profile of device time that also
@@ -265,6 +265,61 @@ its three largest findings and folds the rest into one.
 `cudaprof capture -o run.pprof --iteration-marker=RE` runs the gate on the
 capture it wrote, prints a one-line summary, and exits 2 when the gate
 fails, so a scripted capture cannot silently record the wrong window.
+
+## A/B
+
+```sh
+gpu-lock -- cudaprof ab -o ab -control \
+	-base 'env DATA=long-train ./train-main' -target 'env DATA=long-train ./train-new' \
+	-quiet 'wait_quiet.sh quiet.log 120' \
+	-compare '-warmup-until=rms_norm -ops ops.txt' \
+	-- --inject cupti_agent.so --capture-range=cudaProfilerApi --finalize=profiler-stop
+```
+
+Captures the base and the target back to back with the same capture flags
+(everything after `--`), and with `-control` the base again, then compares
+base with target and base with control. `-order` sets the run order
+(default `base,target,control`). The directory gets each arm's capture and
+log, `base-target.txt` and `base-control.txt` (compare's text, with `.json`
+beside them), and the summary in `ab.txt` and `ab.json`:
+
+	      arm  window ms  busy ms  kernel ms  idle ms     sm MHz  mem MHz  temp C  power W  capture s
+	     base     81.096   78.375     78.375    2.721  1488/1488      -/-   55/55      8/8        1.1
+	   target     61.443   58.801     58.801    2.642    253/253      -/-   55/55      6/6        1.1
+	  control     83.177   80.381     80.381    2.795    838/838      -/-   56/56      8/8        1.3
+
+	                   Δwindow ms  Δbusy ms  Δkernel ms  Δidle ms
+	   base -> target     -19.653   -19.574     -19.574    -0.079
+	  base -> control      +2.080    +2.006      +2.006    +0.074  noise floor
+	|Δwindow| is 9.4x the control's
+
+The commands are split into words, with quotes, and run without a shell:
+capture reads the range edges from its target process's journal, so a
+shell wrapper would leave the captures without a range. Use `env` for
+variables. `-compare` takes compare's flags; the capture flags'
+`--max-records` and byte limits are passed on to it. Each run's GPU
+columns are NVML's readings at the start and stop edges, and a warning
+names any edge whose SM clock differs from the base's by more than
+`-clock-tolerance` percent (default 2) or whose temperature differs by more
+than `-temp-tolerance` degrees (default 5). NVML refreshes these values
+every few hundred milliseconds, so a short range can read a stale clock.
+
+Why a control: a delta between two runs is the change plus whatever the
+runs did differently on their own. The control is the same program twice,
+so its delta is that drift with no change in it, measured by the same
+arithmetic over the same range; read base→target only against it. In the
+laya long-train captures the control moved 49 ms against a 528 ms gain.
+Running the control last puts the target between the two base runs, so the
+control also carries drift across the whole run.
+
+Why one hold: captures in separate lock holds are separated by other
+work and by the GPU's thermal history. ab takes no lock; run it inside
+one, `gpu-lock -- cudaprof ab ...`, so nothing runs between its captures.
+A lock keeps out only processes that take it, so `-quiet` runs a command
+through `sh -c` before each capture and stops on a nonzero exit; a script
+that waits until `nvidia-smi --query-compute-apps` is empty is the usual
+check. For a verdict with a pre-registered noise gate over several blocks,
+use qualify.
 
 ## Qualify
 
