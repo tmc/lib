@@ -42,6 +42,9 @@
 //	gridtrunc          a grid size that rounds down
 //	blocklimit         a constant block or shared memory size over the hardware limit
 //
+//	groupbalance       an nccl.GroupStart not closed on every path
+//	collectivediverge  a collective called on only some ranks
+//
 // Usage:
 //
 //	cudavet [flags] package...
@@ -101,6 +104,9 @@ var analyzers = []*analysis.Analyzer{
 	archAnalyzer,
 	gridTruncAnalyzer,
 	blockLimitAnalyzer,
+
+	groupBalanceAnalyzer,
+	collectiveDivergeAnalyzer,
 }
 
 func main() {
