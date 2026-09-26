@@ -311,6 +311,49 @@ its three largest findings and folds the rest into one.
 capture it wrote, prints a one-line summary, and exits 2 when the gate
 fails, so a scripted capture cannot silently record the wrong window.
 
+## GEMMs
+
+```sh
+cudaprof capture --gemms -o run.pprof -- python train.py
+cudaprof gemms -warmup-until=rms_norm run.pprof
+cudaprof compare -gemms -warmup-until=rms_norm base.pprof new.pprof
+```
+
+`capture --gemms` installs a cuBLASLt logger callback in the target and
+records one line per matmul, including cuBLAS's internal Lt calls (PyTorch's
+`a @ w.t()` arrives as `cublasLtTSTMatmul`). It works whether the target
+links libcublasLt or opens it with dlopen. The logger's file output is off,
+so the target's own output is unchanged. Each call is joined to the kernels
+it launched: a launch whose stack passes through libcublasLt belongs to the
+last call on that thread.
+
+`gemms` groups the calls in the window by shape, op, types, compute type,
+epilogue, beta and algorithm, then lists the kernel of each group:
+
+	calls: 2 in window, 2 joined to kernels, 0 unparsed; kernel time 0.087 ms
+
+	  calls  total ms  us/call   shape MxNxK  op                  types  compute  epilogue  beta                               algo
+	      1     0.063     62.6  768x512x1024  TN  R_16BF,R_16BF->R_16BF      32F      BIAS     0                      21 16x16/32x1
+	      1     0.024     23.9  768x512x1024  TN  R_16BF,R_16BF->R_16BF      32F   DEFAULT     0  67 64x184/64xAUTO customOption=29
+
+	kernels:
+	  1  768x512x1024       cublasLtMatmul  cutlass::Kernel2<cutlass_80_wmma_tensorop_bf16_s161616gemm_bf16_16x16_32x1_tn_align8>
+	  2  768x512x1024       cublasLtTSTMatmul  nvjet_sm121_tst_mma_64x184x64_3_16x184x64_tmaAB_bz_TNNN
+
+M, N and K are cuBLAS's column-major view: M×N is D's rows×cols. Fields the
+logger leaves out take their defaults (op N, epilogue DEFAULT). alpha is
+not logged, and beta is `?` where the logger prints it so, as it does for
+out-of-place calls whose beta it did not read. `compare -gemms` joins two
+captures by shape, op and types and sorts the shapes by |Δ total|, then
+shows the algorithm and kernel each side chose for them. The join is
+exact, so two training runs whose batches hold different token counts
+share few shapes.
+
+A call is unjoined when its kernels were recorded into a CUDA graph, or
+when the frame-pointer walk cannot reach libcublasLt (libraries built
+without frame pointers, as on some x86_64 systems). A capture made without
+`--gemms` is refused.
+
 ## A/B
 
 ```sh
