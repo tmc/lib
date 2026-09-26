@@ -2,6 +2,7 @@ package cudacapture_test
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -145,5 +146,75 @@ func TestLimitsInputBytes(t *testing.T) {
 	exact := cudacapture.Limits{InputBytes: int64(len(encoded))}
 	if _, err := cudacapture.ReadLimits(bytes.NewReader(encoded), exact); err != nil {
 		t.Fatalf("exact InputBytes: %v", err)
+	}
+}
+
+// TestLimitsRecorded pins that a writer records the bounds it raised and that
+// only a reader asking for them with Recorded admits the capture under them,
+// in both the embedded and the directory form.
+func TestLimitsRecorded(t *testing.T) {
+	c := validFixture()
+	c.Files["big.bin"] = bytes.Repeat([]byte{'x'}, cudacapture.MaxCaptureFileBytes+1)
+	raised := cudacapture.Limits{FileBytes: cudacapture.MaxCaptureFileBytes + 64}
+	var buf bytes.Buffer
+	if err := cudacapture.WriteLimits(&buf, c, raised); err != nil {
+		t.Fatalf("raised Write: %v", err)
+	}
+	encoded := buf.Bytes()
+	if _, err := cudacapture.Read(bytes.NewReader(encoded)); err == nil {
+		t.Fatal("default Read admitted a capture over the default file bound")
+	}
+	got, err := cudacapture.ReadLimits(bytes.NewReader(encoded), cudacapture.Limits{Recorded: true})
+	if err != nil {
+		t.Fatalf("Recorded Read: %v", err)
+	}
+	if want := (cudacapture.Limits{FileBytes: raised.FileBytes}); got.Limits != want {
+		t.Errorf("read Limits = %+v, want %+v", got.Limits, want)
+	}
+	// An explicit bound overrides the recorded one, even downward.
+	if _, err := cudacapture.ReadLimits(bytes.NewReader(encoded), cudacapture.Limits{FileBytes: 1 << 20, Recorded: true}); err == nil {
+		t.Fatal("explicit FileBytes did not override the recorded bound")
+	}
+
+	// A capture read under its recorded bounds writes back out under them.
+	dir := t.TempDir() + "/capture"
+	if err := cudacapture.WriteDir(dir, got); err == nil {
+		t.Fatal("default WriteDir admitted a file over the default bound")
+	}
+	if err := cudacapture.WriteDirLimits(dir, got, cudacapture.Limits{Recorded: true}); err != nil {
+		t.Fatalf("Recorded WriteDir: %v", err)
+	}
+	if _, err := cudacapture.ReadDir(dir); err == nil {
+		t.Fatal("default ReadDir admitted a file over the default bound")
+	}
+	if _, err := cudacapture.ReadDirLimits(dir, cudacapture.Limits{Recorded: true}); err != nil {
+		t.Fatalf("Recorded ReadDir: %v", err)
+	}
+}
+
+// TestLimitError pins that an oversized capture is refused with every bound
+// it exceeds, each set to the value that would admit it.
+func TestLimitError(t *testing.T) {
+	c := validFixture()
+	c.Files["big.bin"] = bytes.Repeat([]byte{'x'}, 100)
+	var buf bytes.Buffer
+	if err := cudacapture.Write(&buf, c); err != nil {
+		t.Fatal(err)
+	}
+	var total int64
+	for _, data := range c.Files {
+		total += int64(len(data))
+	}
+	tight := cudacapture.Limits{FileBytes: 50, TotalBytes: 60}
+	_, err := cudacapture.ReadLimits(bytes.NewReader(buf.Bytes()), tight)
+	var e *cudacapture.LimitError
+	if !errors.As(err, &e) {
+		t.Fatalf("err = %v, want a *LimitError", err)
+	}
+	if e.File != "big.bin" || e.Need.FileBytes != 100 || e.Need.TotalBytes != total {
+		t.Fatalf("LimitError = %+v, want big.bin, 100 and %d", e, total)
+	}
+	if _, err := cudacapture.ReadLimits(bytes.NewReader(buf.Bytes()), e.Need); err != nil {
+		t.Fatalf("read under the needed limits: %v", err)
 	}
 }

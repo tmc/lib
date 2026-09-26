@@ -136,6 +136,10 @@ type Capture struct {
 	CodeUnavailable map[string]string
 	Identity        *ComparisonIdentity
 	Metadata        json.RawMessage
+	// Limits holds the bounds above the package defaults that the capture's
+	// writer recorded, on a capture that was read. A write records the
+	// bounds it was given instead; see Limits.Recorded.
+	Limits Limits
 }
 
 // Manifest represents the serialization schema for manifest.json.
@@ -149,6 +153,9 @@ type Manifest struct {
 	SHA256       map[string]string   `json:"sha256"`
 	Identity     *ComparisonIdentity `json:"identity,omitempty"`
 	Metadata     json.RawMessage     `json:"metadata,omitempty"`
+	// Limits records the bounds the writer raised above the package
+	// defaults, so a reader can admit the capture it wrote.
+	Limits *Limits `json:"limits,omitempty"`
 }
 
 // embeddedCaptureV2 is the JSON structure stored inside pprof comments in v2.
@@ -274,15 +281,8 @@ func validateCapture(c *Capture, l Limits) error {
 	if len(c.Files) > l.Files {
 		return fmt.Errorf("cudacapture: too many files: %d", len(c.Files))
 	}
-	var totalBytes int64
-	for name, data := range c.Files {
-		if int64(len(data)) > l.FileBytes {
-			return fmt.Errorf("cudacapture: file %q exceeds size limit", name)
-		}
-		totalBytes += int64(len(data))
-		if totalBytes > l.TotalBytes {
-			return errors.New("cudacapture: files exceed total size limit")
-		}
+	if err := checkSizes(fileSizes(c.Files), l); err != nil {
+		return err
 	}
 	roles := map[string]string{"source": c.Code.Source, "ptx": c.Code.PTX, "cubin": c.Code.CUBIN, "sass": c.Code.SASS}
 	for role, name := range roles {
@@ -379,7 +379,7 @@ func Write(w io.Writer, c *Capture) error {
 
 // WriteLimits is Write bounded by l. See Limits.
 func WriteLimits(w io.Writer, c *Capture, l Limits) error {
-	l = l.withDefaults()
+	l = l.admit(ownLimits(c))
 	if err := validateCapture(c, l); err != nil {
 		return err
 	}
@@ -406,6 +406,7 @@ func WriteLimits(w io.Writer, c *Capture, l Limits) error {
 		SHA256:       make(map[string]string, len(c.Files)),
 		Identity:     c.Identity,
 		Metadata:     c.Metadata,
+		Limits:       l.raised(),
 	}
 	for name, data := range c.Files {
 		manifest.SHA256[name] = fmt.Sprintf("%x", sha256.Sum256(data))
@@ -477,12 +478,12 @@ func Read(r io.Reader) (*Capture, error) {
 // ReadLimits is Read bounded by l. Decoding a capture from an untrusted source
 // should keep the defaults; see Limits.
 func ReadLimits(r io.Reader, l Limits) (*Capture, error) {
-	l = l.withDefaults()
-	data, err := io.ReadAll(io.LimitReader(r, l.InputBytes+1))
+	input := l.withDefaults().InputBytes
+	data, err := io.ReadAll(io.LimitReader(r, input+1))
 	if err != nil {
 		return nil, fmt.Errorf("cudacapture: read profile data: %w", err)
 	}
-	if int64(len(data)) > l.InputBytes {
+	if int64(len(data)) > input {
 		return nil, errors.New("cudacapture: profile exceeds input size limit")
 	}
 	p, err := profile.ParseData(data)
@@ -542,17 +543,18 @@ func decodeEmbeddedV2(p *profile.Profile, data []byte, l Limits) (*Capture, erro
 		return nil, fmt.Errorf("cudacapture: unsupported manifest version %d in v2 payload", emb.Manifest.Version)
 	}
 
+	l = l.admit(emb.Manifest.Limits)
 	if len(emb.Files) > l.Files {
 		return nil, errors.New("cudacapture: embedded file count exceeds limit")
+	}
+	if err := checkSizes(fileSizes(emb.Files), l); err != nil {
+		return nil, err
 	}
 	// Verify all file checksums
 	if len(emb.Files) != len(emb.Manifest.SHA256) {
 		return nil, errors.New("cudacapture: file count mismatch with manifest")
 	}
 	for name, fileBytes := range emb.Files {
-		if int64(len(fileBytes)) > l.FileBytes {
-			return nil, fmt.Errorf("cudacapture: embedded file %q exceeds size limit", name)
-		}
 		wantSum, ok := emb.Manifest.SHA256[name]
 		if !ok {
 			return nil, fmt.Errorf("cudacapture: file %q not in manifest checksums", name)
@@ -560,13 +562,6 @@ func decodeEmbeddedV2(p *profile.Profile, data []byte, l Limits) (*Capture, erro
 		gotSum := fmt.Sprintf("%x", sha256.Sum256(fileBytes))
 		if gotSum != wantSum {
 			return nil, fmt.Errorf("cudacapture: checksum mismatch for %s", name)
-		}
-	}
-	var totalBytes int64
-	for _, fileBytes := range emb.Files {
-		totalBytes += int64(len(fileBytes))
-		if totalBytes > l.TotalBytes {
-			return nil, errors.New("cudacapture: embedded files exceed total size limit")
 		}
 	}
 
@@ -580,6 +575,7 @@ func decodeEmbeddedV2(p *profile.Profile, data []byte, l Limits) (*Capture, erro
 		Observations:    emb.Manifest.Observations,
 		Identity:        emb.Manifest.Identity,
 		Metadata:        emb.Manifest.Metadata,
+		Limits:          recordedLimits(emb.Manifest.Limits),
 	}
 	if err := validateCapture(cap, l); err != nil {
 		return nil, err
@@ -588,6 +584,7 @@ func decodeEmbeddedV2(p *profile.Profile, data []byte, l Limits) (*Capture, erro
 }
 
 func decodeEmbeddedV1(p *profile.Profile, data []byte, l Limits) (*Capture, error) {
+	l = l.withDefaults()
 	if err := rejectDuplicateJSON(data); err != nil {
 		return nil, err
 	}
@@ -652,7 +649,7 @@ func WriteDir(dir string, c *Capture) error {
 
 // WriteDirLimits is WriteDir bounded by l. See Limits.
 func WriteDirLimits(dir string, c *Capture, l Limits) error {
-	l = l.withDefaults()
+	l = l.admit(ownLimits(c))
 	if err := validateCapture(c, l); err != nil {
 		return err
 	}
@@ -681,6 +678,7 @@ func WriteDirLimits(dir string, c *Capture, l Limits) error {
 		SHA256:       make(map[string]string, len(c.Files)),
 		Identity:     c.Identity,
 		Metadata:     c.Metadata,
+		Limits:       l.raised(),
 	}
 	// Check every destination before writing. The later O_EXCL creates also
 	// protect against a concurrent writer winning after this preflight.
@@ -782,8 +780,7 @@ func ReadDir(dir string) (*Capture, error) {
 // ReadDirLimits is ReadDir bounded by l. Reading a directory from an untrusted
 // source should keep the defaults; see Limits.
 func ReadDirLimits(dir string, l Limits) (*Capture, error) {
-	l = l.withDefaults()
-	manifestBytes, err := readRegularFile(filepath.Join(dir, "manifest.json"), l.FileBytes)
+	manifestBytes, err := readRegularFile(filepath.Join(dir, "manifest.json"), l.withDefaults().FileBytes)
 	if err != nil {
 		return nil, fmt.Errorf("cudacapture: read manifest.json: %w", err)
 	}
@@ -802,7 +799,7 @@ func ReadDirLimits(dir string, l Limits) (*Capture, error) {
 	case 2, 3:
 		return readDirV2(dir, manifestBytes, l)
 	case 1:
-		return readDirV1(dir, manifestBytes, l)
+		return readDirV1(dir, manifestBytes, l.withDefaults())
 	default:
 		return nil, fmt.Errorf("cudacapture: unsupported manifest version %d", probe.Version)
 	}
@@ -814,12 +811,12 @@ func readDirV2(dir string, manifestBytes []byte, l Limits) (*Capture, error) {
 		return nil, fmt.Errorf("cudacapture: parse manifest v2: %w", err)
 	}
 
+	l = l.admit(m.Limits)
 	if len(m.SHA256) > l.Files {
 		return nil, errors.New("cudacapture: directory file count exceeds limit")
 	}
-	files := make(map[string][]byte, len(m.SHA256))
-	var totalBytes int64
-	for name, wantSum := range m.SHA256 {
+	sizes := make(map[string]int64, len(m.SHA256))
+	for name := range m.SHA256 {
 		if err := validateFilename(name); err != nil {
 			return nil, err
 		}
@@ -830,13 +827,13 @@ func readDirV2(dir string, manifestBytes []byte, l Limits) (*Capture, error) {
 		if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
 			return nil, fmt.Errorf("cudacapture: file %q is not a regular file", name)
 		}
-		if info.Size() > l.FileBytes {
-			return nil, fmt.Errorf("cudacapture: file %q exceeds size limit", name)
-		}
-		totalBytes += info.Size()
-		if totalBytes > l.TotalBytes {
-			return nil, errors.New("cudacapture: directory files exceed total size limit")
-		}
+		sizes[name] = info.Size()
+	}
+	if err := checkSizes(sizes, l); err != nil {
+		return nil, err
+	}
+	files := make(map[string][]byte, len(m.SHA256))
+	for name, wantSum := range m.SHA256 {
 		data, err := readRegularFile(filepath.Join(dir, name), l.FileBytes)
 		if err != nil {
 			return nil, fmt.Errorf("cudacapture: read file %q: %w", name, err)
@@ -870,6 +867,7 @@ func readDirV2(dir string, manifestBytes []byte, l Limits) (*Capture, error) {
 		Observations:    m.Observations,
 		Identity:        m.Identity,
 		Metadata:        m.Metadata,
+		Limits:          recordedLimits(m.Limits),
 	}
 	if err := validateCapture(cap, l); err != nil {
 		return nil, err

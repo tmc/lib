@@ -237,7 +237,7 @@ func TestValidationErrors(t *testing.T) {
 			mutate: func(c *cudacapture.Capture) {
 				c.Files["extra.go"] = bytes.Repeat([]byte{'x'}, cudacapture.MaxCaptureFileBytes+1)
 			},
-			wantErr: "exceeds size limit",
+			wantErr: "over the size limit",
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
