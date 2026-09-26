@@ -535,14 +535,19 @@ func TestParseCompareArgs(t *testing.T) {
 		wantErr  string
 		wantHelp bool
 	}{
-		{"defaults", []string{"a.pprof", "b.pprof"}, compareOptions{phase: -1, maxRecords: controllerMaxJournalRecords}, []string{"a.pprof", "b.pprof"}, "", false},
+		{"defaults", []string{"a.pprof", "b.pprof"}, compareOptions{phase: -1, maxRecords: controllerMaxJournalRecords, journalBytes: cudacapture.MaxCaptureInputBytes}, []string{"a.pprof", "b.pprof"}, "", false},
 		{"all flags", []string{"-phase", "2", "-ops", "c-go.ops", "-json", "-allow-unresolved", "a", "b"},
-			compareOptions{phase: 2, opsPath: "c-go.ops", json: true, allowUnresolved: true, maxRecords: controllerMaxJournalRecords}, []string{"a", "b"}, "", false},
+			compareOptions{phase: 2, opsPath: "c-go.ops", json: true, allowUnresolved: true, maxRecords: controllerMaxJournalRecords, journalBytes: cudacapture.MaxCaptureInputBytes}, []string{"a", "b"}, "", false},
 		{"one capture", []string{"a.pprof"}, compareOptions{}, nil, "usage: cudaprof compare", false},
 		{"unknown flag", []string{"-bogus", "a", "b"}, compareOptions{}, nil, "-bogus", false},
 		{"bad phase", []string{"-phase", "x", "a", "b"}, compareOptions{}, nil, "invalid value", false},
-		{"stage entries", []string{"-stages", "s.txt", "-stage-entries", "a", "b"}, compareOptions{phase: -1, stagesPath: "s.txt", stageEntries: true, maxRecords: controllerMaxJournalRecords}, []string{"a", "b"}, "", false},
-		{"max records", []string{"-max-records", "4194304", "a", "b"}, compareOptions{phase: -1, maxRecords: 4194304}, []string{"a", "b"}, "", false},
+		{"stage entries", []string{"-stages", "s.txt", "-stage-entries", "a", "b"}, compareOptions{phase: -1, stagesPath: "s.txt", stageEntries: true, maxRecords: controllerMaxJournalRecords, journalBytes: cudacapture.MaxCaptureInputBytes}, []string{"a", "b"}, "", false},
+		{"max records", []string{"-max-records", "4194304", "a", "b"}, compareOptions{phase: -1, maxRecords: 4194304, journalBytes: cudacapture.MaxCaptureInputBytes}, []string{"a", "b"}, "", false},
+		{"read limits", []string{"--capture-file-bytes=1073741824", "--capture-total-bytes=2147483648", "a", "b"},
+			compareOptions{phase: -1, maxRecords: controllerMaxJournalRecords, journalBytes: cudacapture.MaxCaptureInputBytes, limits: cudacapture.Limits{FileBytes: 1 << 30, TotalBytes: 2 << 30, InputBytes: 2 << 30}}, []string{"a", "b"}, "", false},
+		{"bad read limit", []string{"--capture-file-bytes=0", "a", "b"}, compareOptions{}, nil, "invalid --capture-file-bytes", false},
+		{"journal bytes", []string{"-journal-bytes", "1073741824", "a", "b"}, compareOptions{phase: -1, maxRecords: controllerMaxJournalRecords, journalBytes: 1 << 30}, []string{"a", "b"}, "", false},
+		{"zero journal bytes", []string{"-journal-bytes", "0", "a", "b"}, compareOptions{}, nil, "invalid -journal-bytes 0", false},
 		{"zero max records", []string{"-max-records", "0", "a", "b"}, compareOptions{}, nil, "invalid -max-records 0", false},
 		{"stage entries without stages", []string{"-stage-entries", "a", "b"}, compareOptions{}, nil, "-stage-entries needs -stages", false},
 		{"help", []string{"-h"}, compareOptions{}, nil, "", true},

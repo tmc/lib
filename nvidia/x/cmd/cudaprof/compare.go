@@ -122,6 +122,12 @@ type compareOptions struct {
 	// maxRecords bounds the records decoded from each capture's journals;
 	// zero means controllerMaxJournalRecords.
 	maxRecords int64
+	// journalBytes bounds each journal's decompressed size; zero means
+	// cudacapture.MaxCaptureInputBytes.
+	journalBytes int64
+	// limits bounds the artifacts read from each capture, as capture
+	// --capture-file-bytes and --capture-total-bytes allowed it to write.
+	limits cudacapture.Limits
 
 	// warmup, when set, cuts the prologue off the front of each window the
 	// way gaps cuts its steady state; its maxRecords and journalBytes are
@@ -149,7 +155,7 @@ func runCompareCommand(args []string, stdout io.Writer) error {
 		if err != nil {
 			return err
 		}
-		caps[i], err = readCapturePathLimits(abs, cudacapture.Limits{})
+		caps[i], err = readCapturePathLimits(abs, opts.limits)
 		if err != nil {
 			return fmt.Errorf("compare: read capture %s: %w", path, err)
 		}
@@ -168,12 +174,17 @@ func runCompareCommand(args []string, stdout io.Writer) error {
 	return c.write(stdout)
 }
 
-const compareUsage = "usage: cudaprof compare [-phase i] [-warmup-until=RE | -warmup-ms=N] [-ops ops.txt] [-stages stages.txt [-stage-entries]] [-templates] [-allow-unresolved] [-max-records=N] [-json] base.pprof target.pprof"
+const compareUsage = "usage: cudaprof compare [-phase i] [-warmup-until=RE | -warmup-ms=N] [-ops ops.txt] [-stages stages.txt [-stage-entries]] [-templates] [-allow-unresolved] [-max-records=N] [-journal-bytes=N] [--capture-file-bytes=N] [--capture-total-bytes=N] [-json] base.pprof target.pprof"
 
 // parseCompareArgs returns nil paths and a nil error when help was requested
 // and printed.
-func parseCompareArgs(args []string, stdout io.Writer) (compareOptions, []string, error) {
+func parseCompareArgs(rawArgs []string, stdout io.Writer) (compareOptions, []string, error) {
 	var opts compareOptions
+	args, limits, err := parseReadLimits(rawArgs)
+	if err != nil {
+		return opts, nil, fmt.Errorf("compare: %w", err)
+	}
+	opts.limits = limits
 	fs := flag.NewFlagSet("compare", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	fs.IntVar(&opts.phase, "phase", -1, "index of the capture-range phase to compare, required when a capture has several")
@@ -184,6 +195,7 @@ func parseCompareArgs(args []string, stdout io.Writer) (compareOptions, []string
 	fs.BoolVar(&opts.templates, "templates", false, "keep template arguments in kernel names, so each instantiation is its own op")
 	fs.BoolVar(&opts.allowUnresolved, "allow-unresolved", false, "report window totals even when graph replay hides the per-op census")
 	fs.Int64Var(&opts.maxRecords, "max-records", controllerMaxJournalRecords, "maximum journal records to decode per capture, as capture --max-records allowed it to write")
+	fs.Int64Var(&opts.journalBytes, "journal-bytes", cudacapture.MaxCaptureInputBytes, "maximum decompressed bytes per journal")
 	var warmup gapOptions
 	fs.Float64Var(&warmup.warmupMS, "warmup-ms", 0, "start each window `N` ms after its first device activity, as gaps does")
 	fs.StringVar(&warmup.warmupUntil, "warmup-until", "", "start each window at its first kernel matching `RE`, as gaps does")
@@ -216,6 +228,9 @@ func parseCompareArgs(args []string, stdout io.Writer) (compareOptions, []string
 	}
 	if opts.maxRecords <= 0 {
 		return opts, nil, fmt.Errorf("compare: invalid -max-records %d", opts.maxRecords)
+	}
+	if opts.journalBytes <= 0 {
+		return opts, nil, fmt.Errorf("compare: invalid -journal-bytes %d", opts.journalBytes)
 	}
 	if opts.stageEntries && opts.stagesPath == "" {
 		return opts, nil, errors.New("compare: -stage-entries needs -stages")
@@ -1192,7 +1207,11 @@ func measureCompareSide(cap *cudacapture.Capture, rules opRules, stages stageBou
 	if limit == 0 {
 		limit = controllerMaxJournalRecords
 	}
-	records, err := timeline.Decode(journals, limit, cudacapture.MaxCaptureInputBytes)
+	journalBytes := opts.journalBytes
+	if journalBytes == 0 {
+		journalBytes = cudacapture.MaxCaptureInputBytes
+	}
+	records, err := timeline.Decode(journals, limit, journalBytes)
 	if errors.Is(err, wire.ErrRecordLimit) {
 		return nil, fmt.Errorf("%w: raise -max-records past %d", err, limit)
 	}
