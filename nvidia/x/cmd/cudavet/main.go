@@ -2,9 +2,13 @@
 //
 // Checks:
 //
-//	cargalign  kernel parameter layouts that disagree with cudakernel.Schema
-//	unpinned   Go memory handed to asynchronous DMA without a runtime.Pinner
-//	leak       handles created and never released
+//	cargalign          kernel parameter layouts that disagree with cudakernel.Schema
+//	unpinned           Go memory handed to asynchronous DMA without a runtime.Pinner
+//	leak               handles created and never released
+//
+//	contextthread      a context made current without runtime.LockOSThread
+//	unlockdestroy      a context released on a different thread from the one it is current on
+//	graphshare         a graph used concurrently from two goroutines
 //
 // Usage:
 //
@@ -29,6 +33,10 @@ var analyzers = []*analysis.Analyzer{
 	cargalignAnalyzer,
 	unpinnedAnalyzer,
 	leakAnalyzer,
+
+	contextThreadAnalyzer,
+	unlockDestroyAnalyzer,
+	graphShareAnalyzer,
 }
 
 func main() {
