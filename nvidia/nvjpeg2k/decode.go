@@ -384,7 +384,7 @@ func (p *Params) Destroy() error {
 	if p == nil || p.handle == 0 {
 		return nil
 	}
-	err := p.handle.Destroy()
+	err := p.handle.Close()
 	p.handle = 0
 	return err
 }

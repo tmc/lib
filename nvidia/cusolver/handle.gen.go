@@ -1677,6 +1677,29 @@ func (h Handle) ClauumBufferSize(uplo FillMode, n int32, a driver.DevicePtr, lda
 	return clauumBufferSize(h, uplo, n, a, lda)
 }
 
+// Close releases CPU-side resources used by the cuSolverDN library.
+//
+// A nil error means the shutdown succeeded.
+//
+// Errors:
+//   - [ErrNotInitialized]: The library was not initialized.
+//
+// If h is zero, Close returns nil. Otherwise Close sets h to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// h is zeroed: a copy of it still refers to the released object.
+//
+// Wraps cusolverDnDestroy.
+func (h *Handle) Close() error {
+	if *h == 0 {
+		return nil
+	}
+	if err := destroy(*h); err != nil {
+		return err
+	}
+	*h = 0
+	return nil
+}
+
 // Cpotrf computes the Cholesky factorization of a Hermitian positive-definite matrix.
 //
 // A is an n×n Hermitian matrix, only the lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. The function will leave the other part untouched.
@@ -3095,18 +3118,6 @@ func (h Handle) DXgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldd
 // Wraps cusolverDnDXgesvBufferSize, bound as cusolverDnDXgesv_bufferSize.
 func (h Handle) DXgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return dXgesvBufferSize(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace)
-}
-
-// Destroy releases CPU-side resources used by the cuSolverDN library.
-//
-// A nil error means the shutdown succeeded.
-//
-// Errors:
-//   - [ErrNotInitialized]: The library was not initialized.
-//
-// Wraps cusolverDnDestroy.
-func (h Handle) Destroy() error {
-	return destroy(h)
 }
 
 // DeterministicMode queries the deterministic mode which is set for handle.

@@ -12,10 +12,10 @@
 // # Other
 //
 //   - [Create]: initializes the cuBLASLt library and creates a handle to an opaque structure holding the cuBLASLt library context.
-//   - [Handle.Destroy]: releases hardware resources used by the cuBLASLt library.
+//   - [Handle.Close]: releases hardware resources used by the cuBLASLt library.
 //   - [DisableCpuInstructionsSetMask]: Instructs cuBLASLt library to not use CPU instructions specified by the flags in the mask.
 //   - [NewEmulationDesc]: creates a new emulation descriptor.
-//   - [EmulationDesc.Destroy]: destroys a previously created emulation descriptor.
+//   - [EmulationDesc.Close]: destroys a previously created emulation descriptor.
 //   - [EmulationDesc.Attribute]: returns the value of the queried attribute belonging to a previously created emulation descriptor.
 //   - [EmulationDesc.SetAttribute]: sets the value of the specified attribute belonging to a previously created emulation descriptor.
 //   - [GetCudartVersion]: returns the version number of the CUDA Runtime library.
@@ -39,19 +39,19 @@
 //   - [Handle.MatmulAlgoGetIds]: retrieves the IDs of all the matrix multiply algorithms that are valid, and can potentially be run by the [Handle.Matmul] function, for given types of the input matrices A, B and C, and of the output matrix D.
 //   - [Handle.MatmulAlgoInit]: initializes the matrix multiply algorithm structure for the [Handle.Matmul] , for a specified matrix multiply algorithm and input matrices A, B and C, and the output matrix D.
 //   - [NewMatmulDesc]: creates a matrix multiply descriptor by allocating the memory needed to hold its opaque structure.
-//   - [MatmulDesc.Destroy]: destroys a previously created matrix multiply descriptor object.
+//   - [MatmulDesc.Close]: destroys a previously created matrix multiply descriptor object.
 //   - [MatmulDesc.Attribute]: returns the value of the queried attribute belonging to a previously created matrix multiply descriptor.
 //   - [MatmulDesc.SetAttribute]: sets the value of the specified attribute belonging to a previously created matrix multiply descriptor.
 //   - [NewMatmulPreference]: creates a matrix multiply heuristic search preferences descriptor by allocating the memory needed to hold its opaque structure.
-//   - [MatmulPreference.Destroy]: destroys a previously created matrix multiply preferences descriptor object.
+//   - [MatmulPreference.Close]: destroys a previously created matrix multiply preferences descriptor object.
 //   - [MatmulPreference.Attribute]: returns the value of the queried attribute belonging to a previously created matrix multiply heuristic search preferences descriptor.
 //   - [MatmulPreference.SetAttribute]: sets the value of the specified attribute belonging to a previously created matrix multiply preferences descriptor.
-//   - [MatrixLayout.Destroy]: destroys a previously created matrix layout descriptor object.
+//   - [MatrixLayout.Close]: destroys a previously created matrix layout descriptor object.
 //   - [MatrixLayout.Attribute]: returns the value of the queried attribute belonging to the specified matrix layout descriptor.
 //   - [MatrixLayout.SetAttribute]: sets the value of the specified attribute belonging to a previously created matrix layout descriptor.
 //   - [Handle.MatrixTransform]: computes the matrix transformation operation on the input matrices A and B, to produce the output matrix C, according to the below operation:
 //   - [NewMatrixTransformDesc]: creates a matrix transform descriptor by allocating the memory needed to hold its opaque structure.
-//   - [MatrixTransformDesc.Destroy]: destroys a previously created matrix transform descriptor object.
+//   - [MatrixTransformDesc.Close]: destroys a previously created matrix transform descriptor object.
 //   - [MatrixTransformDesc.Attribute]: returns the value of the queried attribute belonging to a previously created matrix transform descriptor.
 //   - [MatrixTransformDesc.SetAttribute]: sets the value of the specified attribute belonging to a previously created matrix transform descriptor.
 //

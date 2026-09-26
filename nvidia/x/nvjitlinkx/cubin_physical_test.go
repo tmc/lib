@@ -118,13 +118,13 @@ extern "C" __global__ void apply(int* out) {
 	runtime.KeepAlive(result)
 	if err != nil {
 		if raw != 0 {
-			cleanup(dev.WithContext(raw.Unload))
+			cleanup(dev.WithContext(raw.Close))
 		}
 		t.Fatal(err)
 	}
 	owner, err := cuda.OwnModule(dev, raw)
 	if err != nil {
-		cleanup(dev.WithContext(raw.Unload))
+		cleanup(dev.WithContext(raw.Close))
 		t.Fatal(err)
 	}
 	defer func() { cleanup(owner.Close()) }()

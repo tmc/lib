@@ -87,9 +87,9 @@
 //   - [NewHandle]: creates a cuSOLVERMp handle bound to one device and one stream
 //   - [Handle.CreateDeviceGrid]: describes the process grid the distributed matrices are laid out over
 //   - [Grid.CreateMatrixDesc]: describes a 2D block-cyclic distributed matrix over a grid
-//   - [Handle.Destroy]: releases a handle created by [NewHandle]
-//   - [Grid.Destroy]: releases a grid created by [Handle.CreateDeviceGrid]
-//   - [MatrixDescriptor.Destroy]: releases a descriptor created by [Grid.CreateMatrixDesc]
+//   - [Handle.Close]: releases a handle created by [NewHandle]
+//   - [Grid.Close]: releases a grid created by [Handle.CreateDeviceGrid]
+//   - [MatrixDescriptor.Close]: releases a descriptor created by [Grid.CreateMatrixDesc]
 //   - [Handle.Stream]: returns the stream operations on handle are enqueued on
 //   - [Handle.Version]: returns the version of the loaded library
 //   - [Handle.SetStream]: redirects subsequent operations on handle to stream

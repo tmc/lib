@@ -276,7 +276,7 @@ func HandleMemSize(epGroup Group, layout Layout, config *HandleConfig, numTopk i
 //
 // handleMem == NULL: NCCL EP allocates via alloc_fn; handle owns the memory.
 // handleMem != NULL: wraps caller-owned 1D ncclUint8 tensor (>= [Group.MemSize]);
-// handle owns no memory; [Handle.Destroy] frees only the struct.
+// handle owns no memory; [Handle.Close] frees only the struct.
 //
 //   - epGroup: in A valid EP group
 //   - layout: in Receive buffer layout. Required; must not be [LayoutUnset]

@@ -72,7 +72,7 @@ func TestGeneratedU2MatchesReference(t *testing.T) {
 			if err != nil {
 				t.Fatalf("load: %v", err)
 			}
-			defer mod.Unload()
+			defer mod.Close()
 			fn, err := mod.Function("U2Kernel")
 			if err != nil {
 				t.Fatal(err)

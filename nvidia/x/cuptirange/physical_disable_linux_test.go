@@ -69,7 +69,7 @@ func TestPhysicalDisableRetry(t *testing.T) {
 	check(err)
 	module, err := cm.Load(dev)
 	check(err)
-	own(module, func() error { return dev.WithContext(module.Unload) })
+	own(module, func() error { return dev.WithContext(module.Close) })
 	var fn driver.Function
 	check(dev.WithContext(func() error { var err error; fn, err = module.Function("disable_control"); return err }))
 	var syncFailure error

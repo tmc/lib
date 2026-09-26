@@ -9,11 +9,11 @@
 //
 // # MIG Management
 //
-//   - [ComputeInstance.Destroy]: Destroy compute instance.
+//   - [ComputeInstance.Close]: Destroy compute instance.
 //   - [ComputeInstance.Info]: Get compute instance information.
 //   - [GpuInstance.CreateComputeInstance]: Create compute instance.
 //   - [GpuInstance.CreateComputeInstanceWithPlacement]: Create compute instance with the specified placement.
-//   - [GpuInstance.Destroy]: Destroy GPU instance.
+//   - [GpuInstance.Close]: Destroy GPU instance.
 //   - [GpuInstance.ActiveVgpus]: Retrieve the active vGPU instances within a GPU instance.
 //   - [GpuInstance.ComputeInstanceById]: Get compute instance for given instance ID.
 //   - [GpuInstance.ComputeInstancePossiblePlacements]: Get compute instance placements.
@@ -306,7 +306,7 @@
 // # Event Management
 //
 //   - [NewEventSet]: Create an empty set of events.
-//   - [EventSet.Free]: Releases events in the set.
+//   - [EventSet.Close]: Releases events in the set.
 //   - [EventSet.Wait]: Waits on events and delivers events.
 //
 // # Excluded GPU Queries
@@ -371,7 +371,7 @@
 //   - [Device.GpmQueryDeviceSupport]: Indicate whether the supplied device supports GPM.
 //   - [Device.GpmQueryIfStreamingEnabled]: Get GPM stream state.
 //   - [NewGpmSample]: Allocate a sample buffer to be used with NVML GPM .
-//   - [GpmSample.Free]: Free an allocated sample buffer that was allocated with [NewGpmSample]
+//   - [GpmSample.Close]: Free an allocated sample buffer that was allocated with [NewGpmSample]
 //   - [GpmSample.Get]: Read a sample of GPM metrics into the provided gpmSample buffer.
 //   - [Device.GpmSetStreamingEnabled]: Set GPM stream state.
 //

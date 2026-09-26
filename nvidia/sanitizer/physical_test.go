@@ -53,7 +53,7 @@ func TestNativeAllocationCallback(t *testing.T) {
 	check(err)
 	ctx, err := driver.NewContext(dev, 0)
 	check(err)
-	defer func() { check(ctx.Destroy()) }()
+	defer func() { check(ctx.Close()) }()
 	before := bytes.Load()
 	p, err := driver.MemAllocBytes(4096)
 	check(err)

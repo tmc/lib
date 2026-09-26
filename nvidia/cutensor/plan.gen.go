@@ -18,12 +18,23 @@ func (p Plan) Attribute(handle Handle, attr PlanattributeT, buf uintptr, sizeInB
 	return planGetAttribute(handle, p, attr, buf, sizeInBytes)
 }
 
-// Destroy frees all resources related to the provided plan.
+// Close frees all resources related to the provided plan.
 //
 // Remark:
 // blocking, no reentrant, and thread-safe
 //
+// If p is zero, Close returns nil. Otherwise Close sets p to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// p is zeroed: a copy of it still refers to the released object.
+//
 // Wraps cutensorDestroyPlan.
-func (p Plan) Destroy() error {
-	return destroyPlan(p)
+func (p *Plan) Close() error {
+	if *p == 0 {
+		return nil
+	}
+	if err := destroyPlan(*p); err != nil {
+		return err
+	}
+	*p = 0
+	return nil
 }

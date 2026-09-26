@@ -18,7 +18,7 @@ func Example() {
 		fmt.Println("cuTensorNet unavailable:", err)
 		return
 	}
-	defer h.Destroy()
+	defer h.Close()
 	version, err := cutensornet.GetVersion()
 	if err != nil {
 		fmt.Println("version:", err)
@@ -38,7 +38,7 @@ func ExampleHandle_NewNetwork() {
 		fmt.Println("cuTensorNet unavailable:", err)
 		return
 	}
-	defer h.Destroy()
+	defer h.Close()
 
 	const M, K, N = 64, 32, 48
 	a := cutensornet.Tensor{
@@ -84,7 +84,7 @@ func ExampleWorkspace() {
 		fmt.Println("cuTensorNet unavailable:", err)
 		return
 	}
-	defer h.Destroy()
+	defer h.Close()
 
 	inputs := []cutensornet.Tensor{
 		{Modes: []int32{'m', 'k'}, Extents: []int64{64, 32}},
@@ -102,13 +102,13 @@ func ExampleWorkspace() {
 		fmt.Println("optimizer config:", err)
 		return
 	}
-	defer cfg.Destroy()
+	defer cfg.Close()
 	info, err := h.CreateContractionOptimizerInfo(net.Descriptor())
 	if err != nil {
 		fmt.Println("optimizer info:", err)
 		return
 	}
-	defer info.Destroy()
+	defer info.Close()
 	if err := h.ContractionOptimize(net.Descriptor(), cfg, 64<<20, info); err != nil {
 		fmt.Println("find contraction path:", err)
 		return

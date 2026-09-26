@@ -19,6 +19,24 @@ func (c ConstSpMatDescr) BlockedEllGet(rows *int64, cols *int64, ellBlockSize *i
 	return constBlockedEllGet(c, rows, cols, ellBlockSize, ellCols, ellColInd, ellValue, ellIdxType, idxBase, valueType)
 }
 
+// Close releases the host memory allocated for the sparse matrix descriptor spMatDescr.
+//
+// If c is zero, Close returns nil. Otherwise Close sets c to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// c is zeroed: a copy of it still refers to the released object.
+//
+// Wraps cusparseDestroySpMat.
+func (c *ConstSpMatDescr) Close() error {
+	if *c == 0 {
+		return nil
+	}
+	if err := destroySpMat(*c); err != nil {
+		return err
+	}
+	*c = 0
+	return nil
+}
+
 // CooGet returns the fields of the sparse matrix descriptor spMatDescr stored in COO format (Array of Structures layout).
 //
 //   - rows: Number of rows of the sparse matrix
@@ -69,13 +87,6 @@ func (c ConstSpMatDescr) CscGet(rows *int64, cols *int64, nnz *int64, cscColOffs
 // Wraps cusparseConstCsrGet.
 func (c ConstSpMatDescr) CsrGet(rows *int64, cols *int64, nnz *int64, csrRowOffsets *uintptr, csrColInd *uintptr, csrValues *uintptr, csrRowOffsetsType *IndexType, csrColIndType *IndexType, idxBase *IndexBase, valueType *DataType) error {
 	return constCsrGet(c, rows, cols, nnz, csrRowOffsets, csrColInd, csrValues, csrRowOffsetsType, csrColIndType, idxBase, valueType)
-}
-
-// DestroySpMat releases the host memory allocated for the sparse matrix descriptor spMatDescr.
-//
-// Wraps cusparseDestroySpMat.
-func (c ConstSpMatDescr) DestroySpMat() error {
-	return destroySpMat(c)
 }
 
 // SpMatGetAttribute gets the attributes of the sparse matrix descriptor spMatDescr.

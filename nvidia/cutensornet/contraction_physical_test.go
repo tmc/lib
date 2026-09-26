@@ -124,7 +124,7 @@ func TestContractionMatchesIndependentResult(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cutensornetCreate: %v", err)
 	}
-	defer h.Destroy()
+	defer h.Close()
 	version, err := cutensornet.GetVersion()
 	if err != nil {
 		t.Fatalf("cutensornetGetVersion: %v", err)
@@ -150,12 +150,12 @@ func TestContractionMatchesIndependentResult(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateContractionOptimizerConfig: %v", err)
 	}
-	defer optCfg.Destroy()
+	defer optCfg.Close()
 	info, err := h.CreateContractionOptimizerInfo(net.Descriptor())
 	if err != nil {
 		t.Fatalf("CreateContractionOptimizerInfo: %v", err)
 	}
-	defer info.Destroy()
+	defer info.Close()
 
 	const workspaceLimit = 64 << 20
 	if err := h.ContractionOptimize(net.Descriptor(), optCfg, workspaceLimit, info); err != nil {
@@ -239,7 +239,7 @@ func TestContractionMatchesIndependentResult(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cuStreamCreate: %v", err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	in := []uintptr{uintptr(dA), uintptr(dB)}
 	if err := plan.Contract(in, uintptr(dC), false, 0, driver.Stream(stream)); err != nil {

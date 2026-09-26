@@ -40,7 +40,7 @@ func TestNativeRangeCapture(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		if err := dev.WithContext(module.Unload); err != nil {
+		if err := dev.WithContext(module.Close); err != nil {
 			t.Error(err)
 		}
 	}()

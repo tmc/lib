@@ -28,10 +28,10 @@ func TestSpMVNumerical(t *testing.T) {
 	check(err)
 	ctx, err := driver.NewContext(dev, 0)
 	check(err)
-	defer func() { check(ctx.Destroy()) }()
+	defer func() { check(ctx.Close()) }()
 	h, err := cusparse.Create()
 	check(err)
-	defer func() { check(h.Destroy()) }()
+	defer func() { check(h.Close()) }()
 	var allocations []driver.DevicePtr
 	defer func() {
 		for i := len(allocations) - 1; i >= 0; i-- {
@@ -63,13 +63,13 @@ func TestSpMVNumerical(t *testing.T) {
 	dy := alloc(12, unsafe.Pointer(&y[0]))
 	a, err := cusparse.CreateCsr(3, 3, 5, dr, dc, dv, cusparse.Index32I, cusparse.Index32I, cusparse.IndexBaseZero, cusparse.R32F)
 	check(err)
-	defer func() { check(cusparse.ConstSpMatDescr(a).DestroySpMat()) }()
+	defer func() { d := cusparse.ConstSpMatDescr(a); check(d.Close()) }()
 	vx, err := cusparse.CreateDnVec(3, dx, cusparse.R32F)
 	check(err)
-	defer func() { check(cusparse.ConstDnVecDescr(vx).DestroyDnVec()) }()
+	defer func() { d := cusparse.ConstDnVecDescr(vx); check(d.Close()) }()
 	vy, err := cusparse.CreateDnVec(3, dy, cusparse.R32F)
 	check(err)
-	defer func() { check(cusparse.ConstDnVecDescr(vy).DestroyDnVec()) }()
+	defer func() { d := cusparse.ConstDnVecDescr(vy); check(d.Close()) }()
 	alpha, beta := float32(2), float32(-1)
 	// Pin host scalars because the generated API represents their addresses
 	// as uintptr, which does not retain the underlying Go objects.

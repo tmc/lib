@@ -27,15 +27,26 @@ func NewHandle(stream driver.Stream) (Handle, error) {
 	return Create(stream)
 }
 
-// Destroy destroys the cuBLASMp library handle.
+// Close destroys the cuBLASMp library handle.
 //
 // This function destroys the cuBLASMp library handle ([Handle]) which holds
 // the cuBLASMp library context. The handle remains associated with the CUDA
 // device that was current when [NewHandle] was called.
 //
+// If h is zero, Close returns nil. Otherwise Close sets h to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// h is zeroed: a copy of it still refers to the released object.
+//
 // Wraps cublasMpDestroy.
-func (h Handle) Destroy() error {
-	return Destroy(h)
+func (h *Handle) Close() error {
+	if *h == 0 {
+		return nil
+	}
+	if err := Destroy(*h); err != nil {
+		return err
+	}
+	*h = 0
+	return nil
 }
 
 // Gemm performs a distributed matrix-matrix multiplication (C = alpha * op(A) * op(B) + beta * C).

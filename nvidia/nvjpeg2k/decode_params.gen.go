@@ -9,11 +9,22 @@ func NewDecodeParams() (DecodeParams, error) {
 	return DecodeParamsCreate()
 }
 
-// Destroy releases a decode parameters handle.
+// Close releases a decode parameters handle.
+//
+// If d is zero, Close returns nil. Otherwise Close sets d to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// d is zeroed: a copy of it still refers to the released object.
 //
 // Wraps nvjpeg2kDecodeParamsDestroy.
-func (d DecodeParams) Destroy() error {
-	return DecodeParamsDestroy(d)
+func (d *DecodeParams) Close() error {
+	if *d == 0 {
+		return nil
+	}
+	if err := DecodeParamsDestroy(*d); err != nil {
+		return err
+	}
+	*d = 0
+	return nil
 }
 
 // SetDecodeArea restricts decoding to a rectangle within the tile of interest.

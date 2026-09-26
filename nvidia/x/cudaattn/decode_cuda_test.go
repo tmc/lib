@@ -88,7 +88,7 @@ func testDecodeAgainstReference(t *testing.T, threads uint32, legacyShared bool)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	defer mod.Unload()
+	defer mod.Close()
 	decode, err := mod.Function("CausalFlashAttentionDecode")
 	if err != nil {
 		t.Fatal(err)
@@ -212,7 +212,7 @@ func runDecode(t *testing.T, threads uint32, qSign float32) []float32 {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	defer mod.Unload()
+	defer mod.Close()
 	decode, err := mod.Function("CausalFlashAttentionDecode")
 	if err != nil {
 		t.Fatal(err)

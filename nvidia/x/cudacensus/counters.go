@@ -274,7 +274,7 @@ func validateCounters(want []Counter) error {
 // On error a nonnil sampler retains resources whose cleanup failed; call Close
 // again to release them. Close permanently disables reads, even when it fails.
 func OpenSampler(dev nvml.Device, want []Counter, vers StructVersions) (*gpmSampler, Support, error) {
-	return openSampler(dev, want, vers, samplerOpenOps{DiscoverSupport, nvml.NewGpmSample, func(sample nvml.GpmSample) error { return sample.Free() }})
+	return openSampler(dev, want, vers, samplerOpenOps{DiscoverSupport, nvml.NewGpmSample, func(sample nvml.GpmSample) error { return sample.Close() }})
 }
 
 func openSampler(dev nvml.Device, want []Counter, vers StructVersions, ops samplerOpenOps) (*gpmSampler, Support, error) {
@@ -317,7 +317,7 @@ func (s *gpmSampler) Close() error {
 	s.closing = true
 	free := s.freeSample
 	if free == nil {
-		free = func(sample nvml.GpmSample) error { return sample.Free() }
+		free = func(sample nvml.GpmSample) error { return sample.Close() }
 	}
 	var errs []error
 	for _, slot := range []*nvml.GpmSample{&s.next, &s.prev} {

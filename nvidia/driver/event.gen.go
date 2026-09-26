@@ -2,7 +2,7 @@
 
 package driver
 
-// Destroy destroys an event.
+// Close destroys an event.
 //
 // Destroys the event specified by hEvent.
 // An event may be destroyed before it is complete (i.e., while [Event.Query] would return [ErrNotReady]). In this case, the call does not block on completion of the event, and any associated resources will automatically be released asynchronously at completion.
@@ -15,9 +15,20 @@ package driver
 //   - [ErrInvalidHandle]
 //   - [ErrNotInitialized]
 //
+// If e is zero, Close returns nil. Otherwise Close sets e to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// e is zeroed: a copy of it still refers to the released object.
+//
 // Wraps cuEventDestroy, bound as cuEventDestroy_v2.
-func (e Event) Destroy() error {
-	return eventDestroy(e)
+func (e *Event) Close() error {
+	if *e == 0 {
+		return nil
+	}
+	if err := eventDestroy(*e); err != nil {
+		return err
+	}
+	*e = 0
+	return nil
 }
 
 // ElapsedTime computes the elapsed time between two events.
@@ -26,7 +37,7 @@ func (e Event) Destroy() error {
 // If either event was last recorded in a non-NULL stream, the resulting time may be greater than expected (even if both used the same stream handle). This happens because the [Event.Record] operation takes place asynchronously and there is no guarantee that the measured latency is actually just between the two events. Any number of other different stream operations could execute in between the two measured events, thus altering the timing in a significant way.
 // If [Event.Record] has not been called on either event then [ErrInvalidHandle] is returned. If [Event.Record] has been called on both events but one or both of them has not yet been completed (that is, [Event.Query] would return [ErrNotReady] on at least one of the events), [ErrNotReady] is returned. If either event was created with the [EventDisableTiming] flag, then this function will return [ErrInvalidHandle].
 //
-// See also: [NewEvent], [Event.Record], [Event.Query], [Event.Synchronize], [Event.Destroy], cudaEventElapsedTime
+// See also: [NewEvent], [Event.Record], [Event.Query], [Event.Synchronize], [Event.Close], cudaEventElapsedTime
 //
 //   - hEnd: Ending event
 //
@@ -49,7 +60,7 @@ func (e Event) ElapsedTime(hEnd Event) (float32, error) {
 // Returns [Success] if all captured work has been completed, or [ErrNotReady] if any captured work is incomplete.
 // For the purposes of Unified Memory, a return value of [Success] is equivalent to having called [Event.Synchronize].
 //
-// See also: [NewEvent], [Event.Record], [Event.Synchronize], [Event.Destroy], [Event.ElapsedTime], cudaEventQuery
+// See also: [NewEvent], [Event.Record], [Event.Synchronize], [Event.Close], [Event.ElapsedTime], cudaEventQuery
 //
 // Errors:
 //   - [ErrDeinitialized]
@@ -70,7 +81,7 @@ func (e Event) Query() error {
 //
 // Note: This function uses standard default stream semantics.
 //
-// See also: [NewEvent], [Event.Query], [Event.Synchronize], [Stream.WaitEvent], [Event.Destroy], [Event.ElapsedTime], cudaEventRecord, [Event.RecordWithFlags]
+// See also: [NewEvent], [Event.Query], [Event.Synchronize], [Stream.WaitEvent], [Event.Close], [Event.ElapsedTime], cudaEventRecord, [Event.RecordWithFlags]
 //
 //   - hStream: Stream to record event for
 //
@@ -96,7 +107,7 @@ func (e Event) Record(hStream Stream) error {
 //
 // Note: This function uses standard default stream semantics.
 //
-// See also: [NewEvent], [Event.Query], [Event.Synchronize], [Stream.WaitEvent], [Event.Destroy], [Event.ElapsedTime], [Event.Record], cudaEventRecord
+// See also: [NewEvent], [Event.Query], [Event.Synchronize], [Stream.WaitEvent], [Event.Close], [Event.ElapsedTime], [Event.Record], cudaEventRecord
 //
 //   - hStream: Stream to record event for
 //   - flags: See CUevent_capture_flags
@@ -118,7 +129,7 @@ func (e Event) RecordWithFlags(hStream Stream, flags EventRecordFlags) error {
 // Waits until the completion of all work currently captured in hEvent. See [Event.Record] for details on what is captured by an event.
 // Waiting for an event that was created with the [EventBlockingSync] flag will cause the calling CPU thread to block until the event has been completed by the device. If the [EventBlockingSync] flag has not been set, then the CPU thread will busy-wait until the event has been completed by the device.
 //
-// See also: [NewEvent], [Event.Record], [Event.Query], [Event.Destroy], [Event.ElapsedTime], cudaEventSynchronize
+// See also: [NewEvent], [Event.Record], [Event.Query], [Event.Close], [Event.ElapsedTime], cudaEventSynchronize
 //
 // Errors:
 //   - [ErrDeinitialized]
@@ -134,10 +145,10 @@ func (e Event) Synchronize() error {
 // IpcGetEventHandle gets an interprocess handle for a previously allocated event.
 //
 // Takes as input a previously allocated event. This event must have been created with the [EventInterprocess] and [EventDisableTiming] flags set. This opaque handle may be copied into other processes and opened with [IpcOpenEventHandle] to allow efficient hardware synchronization between GPU work in different processes.
-// After the event has been opened in the importing process, [Event.Record], [Event.Synchronize], [Stream.WaitEvent] and [Event.Query] may be used in either process. Performing operations on the imported event after the exported event has been freed with [Event.Destroy] will result in undefined behavior.
+// After the event has been opened in the importing process, [Event.Record], [Event.Synchronize], [Stream.WaitEvent] and [Event.Query] may be used in either process. Performing operations on the imported event after the exported event has been freed with [Event.Close] will result in undefined behavior.
 // IPC functionality is restricted to devices with support for unified addressing on Linux and Windows operating systems. IPC functionality on Windows is supported for compatibility purposes but not recommended as it comes with performance cost. Users can test their device for IPC functionality by calling [Device.Attribute] with [DevAttrIpcEventSupported]
 //
-// See also: [NewEvent], [Event.Destroy], [Event.Synchronize], [Event.Query], [Stream.WaitEvent], [IpcOpenEventHandle], [DevicePtr.IpcGetMemHandle], [IpcOpenMemHandle], [DevicePtr.IpcCloseMemHandle], cudaIpcGetEventHandle
+// See also: [NewEvent], [Event.Close], [Event.Synchronize], [Event.Query], [Stream.WaitEvent], [IpcOpenEventHandle], [DevicePtr.IpcGetMemHandle], [IpcOpenMemHandle], [DevicePtr.IpcCloseMemHandle], cudaIpcGetEventHandle
 //
 // Errors:
 //   - [ErrInvalidHandle]
@@ -158,7 +169,7 @@ func (e Event) IpcGetEventHandle() (IpcEventHandle, error) {
 //   - [EventDisableTiming]: Specifies that the created event does not need to record timing data. Events created with this flag specified and the [EventBlockingSync] flag not specified will provide the best performance when used with [Stream.WaitEvent] and [Event.Query].
 //   - [EventInterprocess]: Specifies that the created event may be used as an interprocess event by [Event.IpcGetEventHandle]. [EventInterprocess] must be specified along with [EventDisableTiming].
 //
-// See also: [Event.Record], [Event.Query], [Event.Synchronize], [Event.Destroy], [Event.ElapsedTime], cudaEventCreate, cudaEventCreateWithFlags
+// See also: [Event.Record], [Event.Query], [Event.Synchronize], [Event.Close], [Event.ElapsedTime], cudaEventCreate, cudaEventCreateWithFlags
 //
 //   - flags: Event creation flags
 //

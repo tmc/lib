@@ -6,13 +6,24 @@ import (
 	"github.com/tmc/lib/nvidia/driver"
 )
 
-// Destroy destroys an existing generator.
+// Close destroys an existing generator.
 //
 // Destroy an existing generator and free all memory associated with its state.
 //
+// If g is zero, Close returns nil. Otherwise Close sets g to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// g is zeroed: a copy of it still refers to the released object.
+//
 // Wraps curandDestroyGenerator.
-func (g Generator) Destroy() error {
-	return destroyGenerator(g)
+func (g *Generator) Close() error {
+	if *g == 0 {
+		return nil
+	}
+	if err := destroyGenerator(*g); err != nil {
+		return err
+	}
+	*g = 0
+	return nil
 }
 
 // Generate generates 32-bit pseudo or quasirandom numbers.

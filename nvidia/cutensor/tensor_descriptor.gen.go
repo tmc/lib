@@ -2,12 +2,23 @@
 
 package cutensor
 
-// Destroy frees all resources related to the provided tensor descriptor.
+// Close frees all resources related to the provided tensor descriptor.
 //
 // Remark:
 // blocking, no reentrant, and thread-safe
 //
+// If t is zero, Close returns nil. Otherwise Close sets t to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// t is zeroed: a copy of it still refers to the released object.
+//
 // Wraps cutensorDestroyTensorDescriptor.
-func (t TensorDescriptor) Destroy() error {
-	return destroyTensorDescriptor(t)
+func (t *TensorDescriptor) Close() error {
+	if *t == 0 {
+		return nil
+	}
+	if err := destroyTensorDescriptor(*t); err != nil {
+		return err
+	}
+	*t = 0
+	return nil
 }

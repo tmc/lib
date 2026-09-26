@@ -17,7 +17,7 @@ func Example() {
 		fmt.Println("cuRAND unavailable:", err)
 		return
 	}
-	defer gen.Destroy()
+	defer gen.Close()
 
 	if err := gen.SetPseudoRandomGeneratorSeed(42); err != nil {
 		fmt.Println("seed:", err)

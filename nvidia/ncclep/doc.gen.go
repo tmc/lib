@@ -28,8 +28,8 @@
 //
 //   - [NewGroup]: collectively creates an EP group from an NCCL communicator.
 //   - [Group.CreateHandle]: creates a handle and updates its routing metadata.
-//   - [Group.Destroy]: destroys an EP group.
-//   - [Handle.Destroy]: destroys a handle without freeing caller-owned storage.
+//   - [Group.Close]: destroys an EP group.
+//   - [Handle.Close]: destroys a handle without freeing caller-owned storage.
 //   - [Group.MemSize]: returns the required caller-owned handle storage size in bytes.
 //   - [Group.InitHandle]: initializes a handle for an explicit layout.
 //   - [Handle.Update]: updates a handle's routing metadata on the given stream.

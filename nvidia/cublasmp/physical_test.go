@@ -211,7 +211,7 @@ func TestPhysicalDistributedGemm(t *testing.T) {
 		t.Fatalf("NewHandle: %v", err)
 	}
 	defer func() {
-		if err := handle.Destroy(); err != nil {
+		if err := handle.Close(); err != nil {
 			t.Errorf("destroy handle: %v", err)
 		}
 	}()
@@ -280,7 +280,7 @@ func TestPhysicalDistributedGemm(t *testing.T) {
 		t.Fatalf("descriptor A: %v", err)
 	}
 	defer func() {
-		if err := descA.Destroy(); err != nil {
+		if err := descA.Close(); err != nil {
 			t.Errorf("destroy descriptor A: %v", err)
 		}
 	}()
@@ -289,7 +289,7 @@ func TestPhysicalDistributedGemm(t *testing.T) {
 		t.Fatalf("descriptor B: %v", err)
 	}
 	defer func() {
-		if err := descB.Destroy(); err != nil {
+		if err := descB.Close(); err != nil {
 			t.Errorf("destroy descriptor B: %v", err)
 		}
 	}()
@@ -298,7 +298,7 @@ func TestPhysicalDistributedGemm(t *testing.T) {
 		t.Fatalf("descriptor C: %v", err)
 	}
 	defer func() {
-		if err := descC.Destroy(); err != nil {
+		if err := descC.Close(); err != nil {
 			t.Errorf("destroy descriptor C: %v", err)
 		}
 	}()

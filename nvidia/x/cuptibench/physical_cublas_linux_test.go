@@ -51,7 +51,7 @@ func TestPhysicalCUBLASHCProjection(t *testing.T) {
 	physicalCheck(t, input.CopyFromHost(ones[:k]))
 	var handle cublas.Handle
 	physicalCheck(t, p.dev.WithContext(func() error { var err error; handle, err = cublas.Create(); return err }))
-	physicalClose(t, func() error { return p.dev.WithContext(handle.Destroy) })
+	physicalClose(t, func() error { return p.dev.WithContext(handle.Close) })
 	physicalCheck(t, p.dev.WithContext(func() error {
 		version, err := handle.Version()
 		if err != nil {

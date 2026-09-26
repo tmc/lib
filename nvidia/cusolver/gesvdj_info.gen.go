@@ -2,11 +2,22 @@
 
 package cusolver
 
-// Destroy destroys and releases any memory required by the structure.
+// Close destroys and releases any memory required by the structure.
+//
+// If g is zero, Close returns nil. Otherwise Close sets g to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// g is zeroed: a copy of it still refers to the released object.
 //
 // Wraps cusolverDnDestroyGesvdjInfo.
-func (g GesvdjInfo) Destroy() error {
-	return destroyGesvdjInfo(g)
+func (g *GesvdjInfo) Close() error {
+	if *g == 0 {
+		return nil
+	}
+	if err := destroyGesvdjInfo(*g); err != nil {
+		return err
+	}
+	*g = 0
+	return nil
 }
 
 // XgesvdjSetMaxSweeps configures the maximum number of sweeps in gesvdj.

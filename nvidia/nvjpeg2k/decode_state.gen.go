@@ -11,9 +11,20 @@ func NewDecodeState(handle Handle) (DecodeState, error) {
 	return DecodeStateCreate(handle)
 }
 
-// Destroy releases a decode state.
+// Close releases a decode state.
+//
+// If d is zero, Close returns nil. Otherwise Close sets d to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// d is zeroed: a copy of it still refers to the released object.
 //
 // Wraps nvjpeg2kDecodeStateDestroy.
-func (d DecodeState) Destroy() error {
-	return DecodeStateDestroy(d)
+func (d *DecodeState) Close() error {
+	if *d == 0 {
+		return nil
+	}
+	if err := DecodeStateDestroy(*d); err != nil {
+		return err
+	}
+	*d = 0
+	return nil
 }

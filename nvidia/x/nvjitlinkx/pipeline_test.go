@@ -90,7 +90,7 @@ extern "C" __global__ void apply(float* out) { out[0] = twice(3); }`,
 		}))
 		owner, err := cuda.OwnModule(dev, raw)
 		if err != nil {
-			_ = dev.WithContext(raw.Unload)
+			_ = dev.WithContext(raw.Close)
 			t.Fatal(err)
 		}
 		defer func() {

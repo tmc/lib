@@ -4175,7 +4175,7 @@ func (d Device) ReadWritePRM(buffer *PRMTLVV1) error {
 // This call starts recording of events on specific device. All events that occurred before this call are not recorded. Checking if some event occurred can be done with [EventSet.Wait]
 // If function reports [ErrUnknown], event set is in undefined state and should be freed. If function reports [ErrNotSupported], event set can still be used. None of the requested eventTypes are registered in that case.
 //
-// See also: Event Types, [Device.SupportedEventTypes], [EventSet.Wait], [EventSet.Free]
+// See also: Event Types, [Device.SupportedEventTypes], [EventSet.Wait], [EventSet.Close]
 //
 //   - eventTypes: Bitmask of Event Types to record
 //   - set: Set to which add new event types

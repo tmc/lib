@@ -46,7 +46,7 @@ func testPhysicalDecode(t *testing.T, name string, codec nvdec.Codec) {
 	ctx, e := driver.NewContext(dev, 0)
 	check(e)
 	defer func() {
-		if err := ctx.Destroy(); err != nil {
+		if err := ctx.Close(); err != nil {
 			t.Error(err)
 		}
 	}()

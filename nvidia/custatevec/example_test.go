@@ -77,7 +77,7 @@ func Example_bellState() {
 	if err != nil {
 		panic(err)
 	}
-	defer h.Destroy()
+	defer h.Close()
 
 	if err := h.InitializeStateVector(uintptr(sv), custatevec.C64F, nIndexBits,
 		custatevec.StateVectorTypeZero); err != nil {

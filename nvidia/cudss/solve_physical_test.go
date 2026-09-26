@@ -96,7 +96,7 @@ func TestSolveCSR(t *testing.T) {
 
 	handle, err := cudss.NewHandle()
 	requirement(t, "libcudss.so.0 (cuDSS 0.8 runtime)", err)
-	defer handle.Destroy()
+	defer handle.Close()
 
 	// Everything past this point is the package under test doing real work.
 	// A failure here is a failure, not a missing prerequisite.
@@ -131,7 +131,7 @@ func TestSolveCSR(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create config: %v", err)
 	}
-	defer config.Destroy()
+	defer config.Close()
 	// Final permutations are available for COLAMD reordering.
 	if err := config.SetReorderingAlg(cudss.ReorderingAlgColamd); err != nil {
 		t.Fatal(err)
@@ -149,17 +149,17 @@ func TestSolveCSR(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create CSR matrix: %v", err)
 	}
-	defer a.Destroy()
+	defer a.Close()
 	rhs, err := cudss.NewMatrixDn(system.n, 1, system.n, uintptr(dB), cudss.R64F, cudss.LayoutColMajor)
 	if err != nil {
 		t.Fatalf("create right-hand side: %v", err)
 	}
-	defer rhs.Destroy()
+	defer rhs.Close()
 	sol, err := cudss.NewMatrixDn(system.n, 1, system.n, uintptr(dX), cudss.R64F, cudss.LayoutColMajor)
 	if err != nil {
 		t.Fatalf("create solution: %v", err)
 	}
-	defer sol.Destroy()
+	defer sol.Close()
 
 	for _, phase := range []cudss.Phase{cudss.PhaseAnalysis, cudss.PhaseFactorization, cudss.PhaseSolve} {
 		if err := handle.Execute(phase, config, data, a, sol, rhs); err != nil {

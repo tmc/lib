@@ -2,7 +2,7 @@
 
 package driver
 
-// Destroy destroys a CUDA mipmapped array.
+// Close destroys a CUDA mipmapped array.
 //
 // Destroys the CUDA mipmapped array hMipmappedArray.
 //
@@ -16,9 +16,20 @@ package driver
 //   - [ErrInvalidHandle]
 //   - [ErrNotInitialized]
 //
+// If m is zero, Close returns nil. Otherwise Close sets m to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// m is zeroed: a copy of it still refers to the released object.
+//
 // Wraps cuMipmappedArrayDestroy.
-func (m MipmappedArray) Destroy() error {
-	return mipmappedArrayDestroy(m)
+func (m *MipmappedArray) Close() error {
+	if *m == 0 {
+		return nil
+	}
+	if err := mipmappedArrayDestroy(*m); err != nil {
+		return err
+	}
+	*m = 0
+	return nil
 }
 
 // Level gets a mipmap level of a CUDA mipmapped array.
@@ -26,7 +37,7 @@ func (m MipmappedArray) Destroy() error {
 // Returns in *pLevelArray a CUDA array that represents a single mipmap level of the CUDA mipmapped array hMipmappedArray.
 // If level is greater than the maximum number of levels in this mipmapped array, [ErrInvalidValue] is returned.
 //
-// See also: [NewMipmappedArray], [MipmappedArray.Destroy], [NewArray], cudaGetMipmappedArrayLevel
+// See also: [NewMipmappedArray], [MipmappedArray.Close], [NewArray], cudaGetMipmappedArrayLevel
 //
 //   - level: Mipmap level
 //
@@ -88,7 +99,7 @@ func (m MipmappedArray) SparseProperties() (ArraySparseProperties, error) {
 //
 // Width, Height and Depth must meet certain size requirements as listed in the following table. All values are specified in elements. Note that for brevity’s sake, the full name of the device attribute is not specified. For ex., TEXTURE1D_MIPMAPPED_WIDTH refers to the device attribute [DevAttrMaximumTexture1dMipmappedWidth].
 //
-// See also: [MipmappedArray.Destroy], [MipmappedArray.Level], [NewArray], cudaMallocMipmappedArray
+// See also: [MipmappedArray.Close], [MipmappedArray.Level], [NewArray], cudaMallocMipmappedArray
 //
 //   - pMipmappedArrayDesc: mipmapped array descriptor
 //   - numMipmapLevels: Number of mipmap levels

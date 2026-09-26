@@ -26,7 +26,7 @@ func TestLoadInvalidCUBIN(t *testing.T) {
 	cm := &CompiledModule{output: OutputCUBIN, cubin: []byte("invalid cubin\x00")}
 	module, err := cm.Load(dev)
 	if err == nil {
-		_ = dev.WithContext(module.Unload)
+		_ = dev.WithContext(module.Close)
 		t.Fatal("accepted invalid cubin")
 	}
 	if !strings.Contains(err.Error(), "load cubin:") {

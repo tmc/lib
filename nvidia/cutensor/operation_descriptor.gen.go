@@ -20,14 +20,25 @@ func (o OperationDescriptor) Attribute(handle Handle, attr Operationdescriptorat
 	return operationDescriptorGetAttribute(handle, o, attr, buf, sizeInBytes)
 }
 
-// Destroy frees all resources related to the provided descriptor.
+// Close frees all resources related to the provided descriptor.
 //
 // Remark:
 // blocking, no reentrant, and thread-safe
 //
+// If o is zero, Close returns nil. Otherwise Close sets o to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// o is zeroed: a copy of it still refers to the released object.
+//
 // Wraps cutensorDestroyOperationDescriptor.
-func (o OperationDescriptor) Destroy() error {
-	return destroyOperationDescriptor(o)
+func (o *OperationDescriptor) Close() error {
+	if *o == 0 {
+		return nil
+	}
+	if err := destroyOperationDescriptor(*o); err != nil {
+		return err
+	}
+	*o = 0
+	return nil
 }
 
 // SetAttribute sets attribute of a [OperationDescriptor] object.

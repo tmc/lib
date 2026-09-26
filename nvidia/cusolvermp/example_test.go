@@ -35,14 +35,14 @@ func Example() {
 		fmt.Println("cuSOLVERMp unavailable:", err)
 		return
 	}
-	defer handle.Destroy()
+	defer handle.Close()
 
 	grid, err := handle.CreateDeviceGrid(comm, nprow, npcol, cusolvermp.GridMappingRowMajor)
 	if err != nil {
 		fmt.Println("grid:", err)
 		return
 	}
-	defer grid.Destroy()
+	defer grid.Close()
 
 	// The global system is n-by-n with nrhs right-hand sides, blocked mb-by-nb
 	// and distributed over the grid. Each rank holds only its own block.
@@ -70,13 +70,13 @@ func Example() {
 		fmt.Println("descriptor:", err)
 		return
 	}
-	defer descA.Destroy()
+	defer descA.Close()
 	descB, err := grid.CreateMatrixDesc(cusolvermp.R64F, n, nrhs, mb, nb, 0, 0, localRowsA)
 	if err != nil {
 		fmt.Println("descriptor:", err)
 		return
 	}
-	defer descB.Destroy()
+	defer descB.Close()
 
 	// The grid's allocator hands back device addresses that are already
 	// registered for collective transfer. They are freed explicitly: nothing

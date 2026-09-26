@@ -2,11 +2,22 @@
 
 package cusparse
 
-// DestroySpVec releases the host memory allocated for the sparse vector descriptor spVecDescr.
+// Close releases the host memory allocated for the sparse vector descriptor spVecDescr.
+//
+// If c is zero, Close returns nil. Otherwise Close sets c to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// c is zeroed: a copy of it still refers to the released object.
 //
 // Wraps cusparseDestroySpVec.
-func (c ConstSpVecDescr) DestroySpVec() error {
-	return destroySpVec(c)
+func (c *ConstSpVecDescr) Close() error {
+	if *c == 0 {
+		return nil
+	}
+	if err := destroySpVec(*c); err != nil {
+		return err
+	}
+	*c = 0
+	return nil
 }
 
 // SpVecGet returns the fields of the sparse vector descriptor spVecDescr.

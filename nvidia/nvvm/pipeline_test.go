@@ -48,7 +48,7 @@ func TestCompilerPipeline(t *testing.T) {
 	}
 	ctx, err := driver.NewContext(dev, 0)
 	check(err)
-	defer func() { check(ctx.Destroy()) }()
+	defer func() { check(ctx.Close()) }()
 
 	ir, err := os.ReadFile("testdata/sin.ll")
 	check(err)
@@ -91,7 +91,7 @@ func TestCompilerPipeline(t *testing.T) {
 	t.Logf("ltoir bytes=%d sha256=%x cubin bytes=%d sha256=%x", len(lto), sha256.Sum256(lto), len(cubin), sha256.Sum256(cubin))
 	mod, err := driver.ModuleLoadData(cubin)
 	check(err)
-	defer func() { check(mod.Unload()) }()
+	defer func() { check(mod.Close()) }()
 	kernel, err := mod.Function("sine")
 	check(err)
 	data := make([]float32, 128)

@@ -97,7 +97,7 @@ func TestPhysicalSimulateRanks(t *testing.T) {
 					send[i].Free()
 				}
 				if streams[i] != 0 {
-					streams[i].Destroy()
+					streams[i].Close()
 				}
 				driver.Device(int(devices[i])).PrimaryCtxRelease()
 			}

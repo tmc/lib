@@ -531,7 +531,7 @@ func TestPDLMemoryContendedPrologue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(mod.Unload)
+	defer dev.WithContext(mod.Close)
 
 	pFn, err := mod.Function("memory_contended_producer")
 	if err != nil {
@@ -828,7 +828,7 @@ func TestPDLPrologueSizeSweep(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(mod.Unload)
+	defer dev.WithContext(mod.Close)
 
 	pFn, err := mod.Function("memory_contended_producer")
 	if err != nil {
@@ -1106,7 +1106,7 @@ func TestPDLResidentCTAStarvationIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(mod.Unload)
+	defer dev.WithContext(mod.Close)
 
 	pFn, err := mod.Function("memory_contended_producer")
 	if err != nil {

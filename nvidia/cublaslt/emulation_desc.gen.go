@@ -33,13 +33,24 @@ func (e EmulationDesc) Attribute(attr EmulationDescAttributes, buf uintptr, size
 	return emulationDescGetAttribute(e, attr, buf, sizeInBytes)
 }
 
-// Destroy destroys a previously created emulation descriptor.
+// Close destroys a previously created emulation descriptor.
 //
 // A nil error means the descriptor was destroyed successfully.
 //
+// If e is zero, Close returns nil. Otherwise Close sets e to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// e is zeroed: a copy of it still refers to the released object.
+//
 // Wraps cublasLtEmulationDescDestroy.
-func (e EmulationDesc) Destroy() error {
-	return emulationDescDestroy(e)
+func (e *EmulationDesc) Close() error {
+	if *e == 0 {
+		return nil
+	}
+	if err := emulationDescDestroy(*e); err != nil {
+		return err
+	}
+	*e = 0
+	return nil
 }
 
 // Init_internal wraps cublasLtEmulationDescInit_internal.

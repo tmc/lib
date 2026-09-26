@@ -221,7 +221,7 @@ func (d Device) Name() (string, error) {
 //   - NvSciSyncAttrValPrimitiveType_Syncpoint if device is a Tegra device.
 //   - NvSciSyncAttrValPrimitiveType_SysmemSemaphorePayload64b if device is GA10X+. NvSciSyncAttrKey_GpuId is set to the same UUID that is returned for this device from [Device.Uuid].
 //
-// See also: [ImportExternalSemaphore], [ExternalSemaphore.Destroy], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
+// See also: [ImportExternalSemaphore], [ExternalSemaphore.Close], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
 //   - nvSciSyncAttrList: Return NvSciSync attributes supported
 //   - flags: flags describing NvSciSync usage
@@ -412,9 +412,9 @@ func (d Device) PrimaryCtxGetState() (flags uint32, active int32, err error) {
 //
 // Releases the primary context interop on the device. A retained context should always be released once the user is done using it. The context is automatically reset once the last reference to it is released. This behavior is different when the primary context was retained by the CUDA runtime from CUDA 4.0 and earlier. In this case, the primary context remains always active.
 // Releasing a primary context that has not been previously retained will fail with [ErrInvalidContext].
-// Please note that unlike [Context.Destroy] this method does not pop the context from stack in any circumstances.
+// Please note that unlike [Context.Close] this method does not pop the context from stack in any circumstances.
 //
-// See also: [Device.PrimaryCtxRetain], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
+// See also: [Device.PrimaryCtxRetain], [Context.Close], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
 //
 // Errors:
 //   - [ErrDeinitialized]
@@ -550,7 +550,7 @@ func (d Device) SetGraphMemAttribute(attr GraphmemAttribute, value uintptr) erro
 //
 // Note: Use [MemoryPool.MemAllocFromPoolAsync] to specify asynchronous allocations from a device different than the one the stream runs on.
 //
-// See also: [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool], [MemoryPool.Destroy], [MemoryPool.MemAllocFromPoolAsync]
+// See also: [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool], [MemoryPool.Close], [MemoryPool.MemAllocFromPoolAsync]
 //
 // Errors:
 //   - [ErrInvalidValue]

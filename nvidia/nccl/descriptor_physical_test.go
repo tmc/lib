@@ -173,7 +173,7 @@ func TestPhysicalVersionedDescriptors(t *testing.T) {
 		if err != nil {
 			t.Fatalf("create stream: %v", err)
 		}
-		defer stream.Destroy()
+		defer stream.Close()
 
 		simulate := func(info *nccl.SimInfo) error {
 			if err := nccl.GroupStart(); err != nil {

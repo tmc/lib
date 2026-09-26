@@ -28,6 +28,26 @@ func (g Group) AsyncError() (int32, error) {
 	return GetAsyncError(g)
 }
 
+// Close destroys an EP group.
+//
+// Destroy an EP group and release associated resources.
+//
+// If g is zero, Close returns nil. Otherwise Close sets g to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// g is zeroed: a copy of it still refers to the released object.
+//
+// Wraps ncclEpGroupDestroy.
+func (g *Group) Close() error {
+	if *g == 0 {
+		return nil
+	}
+	if err := GroupDestroy(*g); err != nil {
+		return err
+	}
+	*g = 0
+	return nil
+}
+
 // CreateHandle creates a handle and updates its routing metadata.
 //
 // Create, initialize and bind an EP handle to a given layout and routing decisions. Must be called before the first [Handle.Dispatch]/[Handle.Combine]. Combines the functionality of [Group.InitHandle] and [Handle.Update] (see above)
@@ -41,15 +61,6 @@ func (g Group) AsyncError() (int32, error) {
 // Wraps ncclEpCreateHandle.
 func (g Group) CreateHandle(layout Layout, topkIdx *Tensor, layoutInfo *LayoutInfo, config *HandleConfig, stream driver.Stream) (Handle, error) {
 	return CreateHandle(g, layout, topkIdx, layoutInfo, config, stream)
-}
-
-// Destroy destroys an EP group.
-//
-// Destroy an EP group and release associated resources.
-//
-// Wraps ncclEpGroupDestroy.
-func (g Group) Destroy() error {
-	return GroupDestroy(g)
 }
 
 // ErrorClear clears the group's asynchronous error flag.
@@ -83,7 +94,7 @@ func (g Group) ErrorClear() error {
 //
 // handleMem == NULL: NCCL EP allocates via alloc_fn; handle owns the memory.
 // handleMem != NULL: wraps caller-owned 1D ncclUint8 tensor (>= [Group.MemSize]);
-// handle owns no memory; [Handle.Destroy] frees only the struct.
+// handle owns no memory; [Handle.Close] frees only the struct.
 //
 //   - layout: in Receive buffer layout. Required; must not be [LayoutUnset]
 //   - config: in Handle configuration (see [HandleConfig]). NULL = defaults

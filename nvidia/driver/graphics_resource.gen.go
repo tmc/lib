@@ -98,7 +98,7 @@ func (g GraphicsResource) SubResourceGetMappedArray(arrayIndex uint32, mipLevel 
 	return graphicsSubResourceGetMappedArray(g, arrayIndex, mipLevel)
 }
 
-// UnregisterResource unregisters a graphics resource for access by CUDA.
+// Close unregisters a graphics resource for access by CUDA.
 //
 // Unregisters the graphics resource resource so it is not accessible by CUDA unless registered again.
 // If resource is invalid then [ErrInvalidHandle] is returned.
@@ -112,7 +112,18 @@ func (g GraphicsResource) SubResourceGetMappedArray(arrayIndex uint32, mipLevel 
 //   - [ErrNotInitialized]
 //   - [ErrUnknown]
 //
+// If g is zero, Close returns nil. Otherwise Close sets g to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// g is zeroed: a copy of it still refers to the released object.
+//
 // Wraps cuGraphicsUnregisterResource.
-func (g GraphicsResource) UnregisterResource() error {
-	return graphicsUnregisterResource(g)
+func (g *GraphicsResource) Close() error {
+	if *g == 0 {
+		return nil
+	}
+	if err := graphicsUnregisterResource(*g); err != nil {
+		return err
+	}
+	*g = 0
+	return nil
 }

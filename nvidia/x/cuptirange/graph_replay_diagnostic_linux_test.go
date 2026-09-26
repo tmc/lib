@@ -70,7 +70,7 @@ extern "C" __global__ void graph_second(unsigned* out){unsigned i=blockIdx.x*blo
 	check(err)
 	module, err := compiled.Load(dev)
 	check(err)
-	cleanup(func() error { return dev.WithContext(module.Unload) })
+	cleanup(func() error { return dev.WithContext(module.Close) })
 	var first, second driver.Function
 	check(dev.WithContext(func() error {
 		var err error

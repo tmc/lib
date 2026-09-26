@@ -27,19 +27,19 @@ func Example() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer handle.Destroy()
+	defer handle.Close()
 
 	state, err := nvjpeg2k.NewDecodeState(handle)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer state.Destroy()
+	defer state.Close()
 
 	bitstream, err := nvjpeg2k.NewBitstream()
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer bitstream.Destroy()
+	defer bitstream.Close()
 
 	if err := handle.Parse(data, bitstream); err != nil {
 		log.Fatal(err)

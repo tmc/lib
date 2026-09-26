@@ -338,7 +338,7 @@ func (x *prefillExecutable) Close() error {
 	}
 	if x.raw != 0 {
 		if err := x.dev.WithContext(func() error {
-			if err := x.raw.Unload(); err != nil {
+			if err := x.raw.Close(); err != nil {
 				return err
 			}
 			x.raw = 0
@@ -350,7 +350,7 @@ func (x *prefillExecutable) Close() error {
 	for i := range x.events {
 		if x.events[i] != 0 {
 			if err := x.dev.WithContext(func() error {
-				if err := x.events[i].Destroy(); err != nil {
+				if err := x.events[i].Close(); err != nil {
 					return err
 				}
 				x.events[i] = 0

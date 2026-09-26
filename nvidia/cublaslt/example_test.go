@@ -18,7 +18,7 @@ func Example() {
 		fmt.Println("cuBLASLt unavailable:", err)
 		return
 	}
-	defer h.Destroy()
+	defer h.Close()
 
 	const m, n, k = 128, 128, 128
 
@@ -27,14 +27,14 @@ func Example() {
 		fmt.Println("matmul desc:", err)
 		return
 	}
-	defer desc.Destroy()
+	defer desc.Close()
 
 	aLayout, _ := cublaslt.NewMatrixLayout(cublaslt.R32F, m, k, m)
 	bLayout, _ := cublaslt.NewMatrixLayout(cublaslt.R32F, k, n, k)
 	cLayout, _ := cublaslt.NewMatrixLayout(cublaslt.R32F, m, n, m)
-	defer aLayout.Destroy()
-	defer bLayout.Destroy()
-	defer cLayout.Destroy()
+	defer aLayout.Close()
+	defer bLayout.Close()
+	defer cLayout.Close()
 
 	var dA, dB, dC driver.DevicePtr // device allocations, m*k, k*n, m*n floats
 	err = h.Matmul(desc,

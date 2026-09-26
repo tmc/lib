@@ -35,7 +35,7 @@ func Example() {
 		fmt.Println("context:", err)
 		return
 	}
-	defer ctx.Destroy()
+	defer ctx.Close()
 
 	host := []float32{1, 2, 3, 4}
 	size := uint(len(host)) * uint(unsafe.Sizeof(host[0]))

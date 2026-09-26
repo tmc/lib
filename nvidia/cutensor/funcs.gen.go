@@ -688,7 +688,7 @@ func contractTrinary(handle Handle, plan Plan, alpha Scalar, a driver.DevicePtr,
 //
 // The device associated with a particular cuTENSOR handle is assumed to remain unchanged after the [Create] call. In order for the cuTENSOR library to use a different device, the application must set the new device to be used by calling cudaSetDevice and then create another cuTENSOR handle, which will be associated with the new device, by calling [Create].
 // Moreover, each handle by default has a plan cache that can store the least recently used [Plan]; its default capacity is 64, but it can be changed via [Handle.ResizePlanCache] if this is too little storage space. See the Plan Cache Guide for more information.
-// The user is responsible for calling [Handle.Destroy] to free the resources associated with the handle.
+// The user is responsible for calling [Handle.Close] to free the resources associated with the handle.
 // Remark:
 // blocking, no reentrant, and thread-safe
 //
@@ -716,7 +716,7 @@ var slotCreate outSlot[Handle]
 // Allocates data for desc to be used to perform a tensor contraction of the form
 // D_(modes_(D))←αop_(A)(A_(modes_(A)))op_(B)(B_(modes_(B)))+βop_(C)(C_(modes_(C))).
 // See [Handle.CreatePlan] (or cutensorCreatePlanAutotuned) to create the plan (i.e., to select the kernel) followed by a call to [Handle.Contract] to perform the actual contraction.
-// The user is responsible for calling [OperationDescriptor.Destroy] to free the resources associated with the descriptor.
+// The user is responsible for calling [OperationDescriptor.Close] to free the resources associated with the descriptor.
 // Supported data-type combinations are:
 //
 //   - handle: Opaque handle holding cuTENSOR’s library context
@@ -766,7 +766,7 @@ var slotCreateContraction outSlot[OperationDescriptor]
 // Allocates data for desc to be used to perform a tensor contraction of the form
 // E_(modes_(E))←αop_(A)(A_(modes_(A)))op_(B)(B_(modes_(B)))op_(C)(C_(modes_(C)))+βop_(D)(D_(modes_(D))).
 // See [Handle.CreatePlan] (or cutensorCreatePlanAutotuned) to create the plan (i.e., to select the kernel) followed by a call to [Handle.ContractTrinary] to perform the actual contraction.
-// The user is responsible for calling [OperationDescriptor.Destroy] to free the resources associated with the descriptor.
+// The user is responsible for calling [OperationDescriptor.Close] to free the resources associated with the descriptor.
 // The performance improvements due to this API are currently especially high if your data resides on the host (i.e. out-of-core), targeting Grace-based systems.
 // Supported data-type combinations are:
 //
@@ -899,7 +899,7 @@ var slotCreateElementwiseBinary outSlot[OperationDescriptor]
 //   - D_(a,b,c,d)=min((2.2*A_(b,d,a,c)+1.3*B_(c,b,d,a)),C_(a,b,c,d))
 //
 // Call [Handle.ElementwiseTrinaryExecute] to perform the actual operation.
-// Please use [OperationDescriptor.Destroy] to deallocated the descriptor once it is no longer used.
+// Please use [OperationDescriptor.Close] to deallocated the descriptor once it is no longer used.
 // Supported data-type combinations are:
 //   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_16F
 //   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_32F
@@ -1147,7 +1147,7 @@ var slotCreateReduction outSlot[OperationDescriptor]
 // createTensorDescriptor creates a tensor descriptor.
 //
 // This allocates a small amount of host-memory.
-// The user is responsible for calling [TensorDescriptor.Destroy] to free the associated resources once the tensor descriptor is no longer used.
+// The user is responsible for calling [TensorDescriptor.Close] to free the associated resources once the tensor descriptor is no longer used.
 //
 //   - handle: Opaque handle holding cuTENSOR’s library context
 //   - desc: Pointer to the address where the allocated tensor descriptor object will be stored

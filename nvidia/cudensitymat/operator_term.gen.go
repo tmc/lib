@@ -23,9 +23,20 @@ func (o OperatorTerm) AppendElementaryProduct(handle Handle, numElemOperators in
 	return operatorTermAppendElementaryProduct(handle, o, numElemOperators, elemOperators, stateModesActedOn, modeActionDuality, coefficient, coefficientCallback, coefficientGradientCallback)
 }
 
-// Destroy destroys an operator term.
+// Close destroys an operator term.
+//
+// If o is zero, Close returns nil. Otherwise Close sets o to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// o is zeroed: a copy of it still refers to the released object.
 //
 // Wraps cudensitymatDestroyOperatorTerm.
-func (o OperatorTerm) Destroy() error {
-	return destroyOperatorTerm(o)
+func (o *OperatorTerm) Close() error {
+	if *o == 0 {
+		return nil
+	}
+	if err := destroyOperatorTerm(*o); err != nil {
+		return err
+	}
+	*o = 0
+	return nil
 }

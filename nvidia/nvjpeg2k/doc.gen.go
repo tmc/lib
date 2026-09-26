@@ -68,7 +68,7 @@
 //   - [NewHandleWithAllocators]: creates a library handle with caller-supplied device and pinned allocators.
 //   - [NewHandle]: creates a library handle with the default backend and allocators.
 //   - [NewHandleWithAllocatorsV2]: creates a library handle with stream-ordered caller-supplied allocators.
-//   - [Handle.Destroy]: releases a library handle and the resources it owns.
+//   - [Handle.Close]: releases a library handle and the resources it owns.
 //   - [Handle.SetDeviceMemoryPadding]: rounds later device allocations up to a multiple of padding bytes.
 //   - [Handle.SetPinnedMemoryPadding]: rounds later pinned host allocations up to a multiple of padding bytes.
 //
@@ -81,7 +81,7 @@
 // # Decode parameters
 //
 //   - [NewDecodeParams]: creates a decode parameters handle holding output options.
-//   - [DecodeParams.Destroy]: releases a decode parameters handle.
+//   - [DecodeParams.Close]: releases a decode parameters handle.
 //   - [DecodeParams.SetDecodeArea]: restricts decoding to a rectangle within the tile of interest.
 //   - [DecodeParams.SetOutputFormat]: selects planar or interleaved output.
 //   - [DecodeParams.SetRGBOutput]: requests RGB output for chroma-subsampled sYCC streams.
@@ -89,7 +89,7 @@
 // # Decode state
 //
 //   - [NewDecodeState]: creates a decode state holding the intermediate buffers a decode needs.
-//   - [DecodeState.Destroy]: releases a decode state.
+//   - [DecodeState.Close]: releases a decode state.
 //
 // # Library version
 //
@@ -101,7 +101,7 @@
 // # Bitstream parsing and metadata
 //
 //   - [NewBitstream]: creates an empty bitstream handle to parse into.
-//   - [Bitstream.Destroy]: releases a bitstream handle and the metadata parsed into it.
+//   - [Bitstream.Close]: releases a bitstream handle and the metadata parsed into it.
 //   - [Bitstream.ColorSpace]: returns the color space recorded in a JP2 container.
 //   - [Bitstream.ComponentNLTInfo]: returns one component's nonlinear-transformation parameters.
 //   - [Bitstream.ComponentInfo]: returns one component's dimensions, bit depth, and signedness.

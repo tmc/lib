@@ -111,13 +111,13 @@
 //   - [Handle.CreateOperatorTerm]: Creates an empty operator term which is going to be a sum of products of either elementary tensor operators or full matrix operators.
 //   - [Handle.CreateState]: Defines an empty dense quantum state of a given purity and shape, or a batch of such dense quantum states.
 //   - [Handle.CreateWorkspace]: Creates a workspace descriptor.
-//   - [Handle.Destroy]: Destroys the library context.
-//   - [ElementaryOperator.Destroy]: Destroys an elementary tensor operator (simple or batched).
-//   - [Expectation.Destroy]: Destroys an expectation value computation object.
-//   - [Operator.Destroy]: Destroys an operator.
-//   - [OperatorTerm.Destroy]: Destroys an operator term.
-//   - [State.Destroy]: Destroys the quantum state.
-//   - [WorkspaceDescriptor.Destroy]: Destroys a workspace descriptor.
+//   - [Handle.Close]: Destroys the library context.
+//   - [ElementaryOperator.Close]: Destroys an elementary tensor operator (simple or batched).
+//   - [Expectation.Close]: Destroys an expectation value computation object.
+//   - [Operator.Close]: Destroys an operator.
+//   - [OperatorTerm.Close]: Destroys an operator term.
+//   - [State.Close]: Destroys the quantum state.
+//   - [WorkspaceDescriptor.Close]: Destroys a workspace descriptor.
 //   - [Handle.NumRanks]: Returns the total number of distributed processes associated with the given library context in its current distributed execution configuration.
 //   - [Handle.ProcRank]: Returns the rank of the current process in the distributed execution configuration associated with the given library context.
 //   - [GetVersion]: Returns the semantic version number of the cuDensityMat library.

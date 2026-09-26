@@ -16,15 +16,26 @@ func NewIRSParams() (IRSParams, error) {
 	return iRSParamsCreate()
 }
 
-// Destroy destroys and releases any memory required by the Params structure.
+// Close destroys and releases any memory required by the Params structure.
 //
 // Errors:
 //   - [ErrIrsInfosNotDestroyed]: Not all the Infos structure associated with this Params structure have been destroyed yet.
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
 //
+// If i is zero, Close returns nil. Otherwise Close sets i to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// i is zeroed: a copy of it still refers to the released object.
+//
 // Wraps cusolverDnIRSParamsDestroy.
-func (i IRSParams) Destroy() error {
-	return iRSParamsDestroy(i)
+func (i *IRSParams) Close() error {
+	if *i == 0 {
+		return nil
+	}
+	if err := iRSParamsDestroy(*i); err != nil {
+		return err
+	}
+	*i = 0
+	return nil
 }
 
 // DisableFallback disables the fallback to the main precision in case the Iterative Refinement Solver (IRS) failed to converge.

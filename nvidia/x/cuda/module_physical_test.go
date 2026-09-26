@@ -70,7 +70,7 @@ ret;
 	}))
 	m, err := OwnModule(dev, raw)
 	if err != nil {
-		_ = dev.WithContext(raw.Unload)
+		_ = dev.WithContext(raw.Close)
 		t.Fatal(err)
 	}
 	defer func() {

@@ -13,7 +13,7 @@ import (
 // Each rank creates its own handle for the device it owns, and that
 // binding is fixed for the life of the handle. A handle is not portable
 // between ranks or devices, is not safe for concurrent use, and must be
-// destroyed with [Handle.Destroy] by the rank that created it.
+// destroyed with [Handle.Close] by the rank that created it.
 //
 // The handle does not own the stream. The caller keeps the stream valid
 // until the handle is destroyed.
@@ -26,6 +26,29 @@ func NewHandle(deviceId int32, stream driver.Stream) (Handle, error) {
 	return Create(deviceId, stream)
 }
 
+// Close releases a handle created by [NewHandle]
+//
+// Synchronize the handle's stream first: work already enqueued still
+// refers to the handle. Destroy the grids and matrix descriptors built
+// on this handle before destroying it, and destroy the NCCL communicator
+// only afterwards. Every rank performs the same teardown.
+//
+// If h is zero, Close returns nil. Otherwise Close sets h to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// h is zeroed: a copy of it still refers to the released object.
+//
+// Wraps cusolverMpDestroy.
+func (h *Handle) Close() error {
+	if *h == 0 {
+		return nil
+	}
+	if err := Destroy(*h); err != nil {
+		return err
+	}
+	*h = 0
+	return nil
+}
+
 // CreateDeviceGrid describes the process grid the distributed matrices are laid out over
 //
 // The call is collective: every rank of comm must create the grid with
@@ -35,7 +58,7 @@ func NewHandle(deviceId int32, stream driver.Stream) (Handle, error) {
 //
 // The grid borrows comm. It does not take ownership: the caller keeps the
 // communicator alive until every grid built on it has been destroyed with
-// [Grid.Destroy], and destroys the communicator afterwards.
+// [Grid.Close], and destroys the communicator afterwards.
 //
 //   - comm: initialized NCCL communicator whose rank count is numRowDevices*numColDevices; borrowed, not owned
 //   - numRowDevices: number of process rows
@@ -45,18 +68,6 @@ func NewHandle(deviceId int32, stream driver.Stream) (Handle, error) {
 // Wraps cusolverMpCreateDeviceGrid.
 func (h Handle) CreateDeviceGrid(comm nccl.Comm, numRowDevices int32, numColDevices int32, mapping GridMapping) (Grid, error) {
 	return CreateDeviceGrid(h, comm, numRowDevices, numColDevices, mapping)
-}
-
-// Destroy releases a handle created by [NewHandle]
-//
-// Synchronize the handle's stream first: work already enqueued still
-// refers to the handle. Destroy the grids and matrix descriptors built
-// on this handle before destroying it, and destroy the NCCL communicator
-// only afterwards. Every rank performs the same teardown.
-//
-// Wraps cusolverMpDestroy.
-func (h Handle) Destroy() error {
-	return Destroy(h)
 }
 
 // MathMode returns the arithmetic mode set by [Handle.SetMathMode]

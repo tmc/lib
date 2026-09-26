@@ -2,7 +2,18 @@
 
 package cutensornet
 
-// Destroy wraps cutensornetDestroySliceGroup.
-func (s SliceGroup) Destroy() error {
-	return destroySliceGroup(s)
+// Close wraps cutensornetDestroySliceGroup.
+//
+// If s is zero, Close returns nil. Otherwise Close sets s to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// s is zeroed: a copy of it still refers to the released object.
+func (s *SliceGroup) Close() error {
+	if *s == 0 {
+		return nil
+	}
+	if err := destroySliceGroup(*s); err != nil {
+		return err
+	}
+	*s = 0
+	return nil
 }

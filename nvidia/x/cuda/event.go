@@ -192,7 +192,7 @@ func (e *Event) Destroy() error {
 	if e.destroyed {
 		return nil
 	}
-	if err := e.device.WithContext(e.raw.Destroy); err != nil {
+	if err := e.device.WithContext(e.raw.Close); err != nil {
 		return fmt.Errorf("cuda: destroy event: %w", err)
 	}
 	e.destroyed = true

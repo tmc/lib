@@ -113,7 +113,7 @@ func TestMatmul(t *testing.T) {
 		t.Skipf("cuBLASLt unavailable: %v", err)
 	}
 	defer func() {
-		if err := h.Destroy(); err != nil {
+		if err := h.Close(); err != nil {
 			t.Errorf("destroy handle: %v", err)
 		}
 	}()
@@ -167,7 +167,7 @@ func TestMatmul(t *testing.T) {
 				t.Fatalf("NewMatmulDesc: %v", err)
 			}
 			defer func() {
-				if err := desc.Destroy(); err != nil {
+				if err := desc.Close(); err != nil {
 					t.Errorf("destroy desc: %v", err)
 				}
 			}()
@@ -187,7 +187,7 @@ func TestMatmul(t *testing.T) {
 					t.Fatalf("NewMatrixLayout(%d,%d,%d): %v", rows, cols, ld, err)
 				}
 				t.Cleanup(func() {
-					if err := l.Destroy(); err != nil {
+					if err := l.Close(); err != nil {
 						t.Errorf("destroy layout: %v", err)
 					}
 				})

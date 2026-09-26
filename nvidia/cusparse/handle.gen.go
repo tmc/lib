@@ -6,6 +6,26 @@ import (
 	"github.com/tmc/lib/nvidia/driver"
 )
 
+// Close releases CPU-side resources used by the cuSPARSE library.
+//
+// The release of GPU-side resources may be deferred until the application shuts down.
+//
+// If h is zero, Close returns nil. Otherwise Close sets h to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// h is zeroed: a copy of it still refers to the released object.
+//
+// Wraps cusparseDestroy.
+func (h *Handle) Close() error {
+	if *h == 0 {
+		return nil
+	}
+	if err := destroy(*h); err != nil {
+		return err
+	}
+	*h = 0
+	return nil
+}
+
 // DenseToSparseAnalysis converts the dense matrix matA into a sparse matrix matB in CSR, CSC, COO, or Blocked-ELL format.
 //
 // The function [Handle.DenseToSparseBufferSize] returns the size of the workspace needed by [Handle.DenseToSparseAnalysis].
@@ -96,15 +116,6 @@ func (h Handle) DenseToSparseBufferSize(matA ConstDnMatDescr, matB SpMatDescr, a
 // Wraps cusparseDenseToSparseConvert, bound as cusparseDenseToSparse_convert.
 func (h Handle) DenseToSparseConvert(matA ConstDnMatDescr, matB SpMatDescr, alg DenseToSparseAlg, externalBuffer driver.DevicePtr) error {
 	return denseToSparseConvert(h, matA, matB, alg, externalBuffer)
-}
-
-// Destroy releases CPU-side resources used by the cuSPARSE library.
-//
-// The release of GPU-side resources may be deferred until the application shuts down.
-//
-// Wraps cusparseDestroy.
-func (h Handle) Destroy() error {
-	return destroy(h)
 }
 
 // Gather gathers the elements of the dense vector vecY into the sparse vector vecX.

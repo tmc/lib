@@ -17,7 +17,7 @@ func Example() {
 		fmt.Println("cuTENSOR unavailable:", err)
 		return
 	}
-	defer h.Destroy()
+	defer h.Close()
 	version, err := cutensor.GetVersion()
 	if err != nil {
 		fmt.Println("version:", err)
@@ -38,7 +38,7 @@ func Example() {
 		fmt.Println("tensor descriptor:", err)
 		return
 	}
-	defer desc.Destroy()
+	defer desc.Close()
 	fmt.Println("tensor descriptor ready")
 }
 
@@ -52,7 +52,7 @@ func ExampleHandle_Contract() {
 		fmt.Println("cuTENSOR unavailable:", err)
 		return
 	}
-	defer h.Destroy()
+	defer h.Close()
 
 	compute32f, err := cutensor.ComputeDesc32F()
 	if err != nil {
@@ -71,9 +71,9 @@ func ExampleHandle_Contract() {
 	descA := newDesc(m, k)
 	descB := newDesc(k, n)
 	descC := newDesc(m, n)
-	defer descA.Destroy()
-	defer descB.Destroy()
-	defer descC.Destroy()
+	defer descA.Close()
+	defer descB.Close()
+	defer descC.Close()
 
 	modeA := []int32{'m', 'k'}
 	modeB := []int32{'k', 'n'}
@@ -87,14 +87,14 @@ func ExampleHandle_Contract() {
 		fmt.Println("contraction:", err)
 		return
 	}
-	defer op.Destroy()
+	defer op.Close()
 
 	pref, err := h.CreatePlanPreference(cutensor.AlgoDefault, cutensor.JitModeNone)
 	if err != nil {
 		fmt.Println("plan preference:", err)
 		return
 	}
-	defer pref.Destroy()
+	defer pref.Close()
 
 	wsSize, err := h.EstimateWorkspaceSize(op, pref, cutensor.WorkspaceDefault)
 	if err != nil {
@@ -106,7 +106,7 @@ func ExampleHandle_Contract() {
 		fmt.Println("plan:", err)
 		return
 	}
-	defer plan.Destroy()
+	defer plan.Close()
 
 	var dA, dB, dC, dWorkspace driver.DevicePtr // device allocations
 	alpha, beta := float32(1), float32(0)

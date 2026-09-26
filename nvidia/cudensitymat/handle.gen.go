@@ -6,6 +6,24 @@ import (
 	"unsafe"
 )
 
+// Close destroys the library context.
+//
+// If h is zero, Close returns nil. Otherwise Close sets h to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// h is zeroed: a copy of it still refers to the released object.
+//
+// Wraps cudensitymatDestroy.
+func (h *Handle) Close() error {
+	if *h == 0 {
+		return nil
+	}
+	if err := destroy(*h); err != nil {
+		return err
+	}
+	*h = 0
+	return nil
+}
+
 // CreateElementaryOperator creates an elementary tensor operator acting on a given number of quantum state modes (aka space modes).
 //
 // An elementary tensor operator is a single tensor operator
@@ -144,13 +162,6 @@ func (h Handle) CreateState(purity StatePurity, numSpaceModes int32, spaceModeEx
 // Wraps cudensitymatCreateWorkspace.
 func (h Handle) CreateWorkspace() (WorkspaceDescriptor, error) {
 	return createWorkspace(h)
-}
-
-// Destroy destroys the library context.
-//
-// Wraps cudensitymatDestroy.
-func (h Handle) Destroy() error {
-	return destroy(h)
 }
 
 // NumRanks returns the total number of distributed processes associated with the given library context in its current distributed execution configuration.

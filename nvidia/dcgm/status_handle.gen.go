@@ -13,7 +13,7 @@ package dcgm
 // for the number of errors or until all the errors are fetched.
 //
 // When the status handle is not required any further then it should be deleted using the API
-// [StatusHandle.Destroy].
+// [StatusHandle.Close].
 //
 //   - statusHandle: OUT: Reference to handle for list of statuses
 //
@@ -31,6 +31,24 @@ func (s StatusHandle) Clear() error {
 	return StatusClear(s)
 }
 
+// Close is used to destroy status handle created using [NewStatusHandle].
+//
+// If s is zero, Close returns nil. Otherwise Close sets s to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// s is zeroed: a copy of it still refers to the released object.
+//
+// Wraps dcgmStatusDestroy.
+func (s *StatusHandle) Close() error {
+	if *s == 0 {
+		return nil
+	}
+	if err := StatusDestroy(*s); err != nil {
+		return err
+	}
+	*s = 0
+	return nil
+}
+
 // Count is used to get count of error entries stored inside the opaque handle statusHandle.
 //
 //   - count: OUT: Number of error entries present in the list of statuses
@@ -38,13 +56,6 @@ func (s StatusHandle) Clear() error {
 // Wraps dcgmStatusGetCount.
 func (s StatusHandle) Count() (uint32, error) {
 	return StatusGetCount(s)
-}
-
-// Destroy is used to destroy status handle created using [NewStatusHandle].
-//
-// Wraps dcgmStatusDestroy.
-func (s StatusHandle) Destroy() error {
-	return StatusDestroy(s)
 }
 
 // PopError is used to iterate through the list of errors maintained behind statusHandle.

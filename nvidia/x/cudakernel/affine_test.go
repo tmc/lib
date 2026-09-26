@@ -144,6 +144,6 @@ func TestNativeAffineArtifact(t *testing.T) {
 		t.Fatalf("art.Load on device: %v", err)
 	}
 	defer func() {
-		_ = dev.WithContext(mod.Unload)
+		_ = dev.WithContext(mod.Close)
 	}()
 }

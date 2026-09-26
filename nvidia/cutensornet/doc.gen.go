@@ -94,17 +94,17 @@
 //   - [Handle.CreateSliceGroupFromIDs].
 //   - [Handle.CreateTensorDescriptor].
 //   - [Handle.CreateWorkspaceDescriptor].
-//   - [Handle.Destroy].
-//   - [ContractionAutotunePreference.Destroy].
-//   - [ContractionOptimizerConfig.Destroy].
-//   - [ContractionOptimizerInfo.Destroy].
-//   - [ContractionPlan.Destroy].
+//   - [Handle.Close].
+//   - [ContractionAutotunePreference.Close].
+//   - [ContractionOptimizerConfig.Close].
+//   - [ContractionOptimizerInfo.Close].
+//   - [ContractionPlan.Close].
 //   - [NetworkDescriptor.Destroy].
-//   - [NetworkAutotunePreference.Destroy].
+//   - [NetworkAutotunePreference.Close].
 //   - [NetworkDescriptor.DestroyDescriptor].
-//   - [SliceGroup.Destroy].
-//   - [TensorDescriptor.Destroy].
-//   - [WorkspaceDescriptor.Destroy].
+//   - [SliceGroup.Close].
+//   - [TensorDescriptor.Close].
+//   - [WorkspaceDescriptor.Close].
 //
 // # Library context
 //

@@ -1460,7 +1460,7 @@ func StatusClear(statusHandle StatusHandle) error {
 // for the number of errors or until all the errors are fetched.
 //
 // When the status handle is not required any further then it should be deleted using the API
-// [StatusHandle.Destroy].
+// [StatusHandle.Close].
 //
 //   - statusHandle: OUT: Reference to handle for list of statuses
 //

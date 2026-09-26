@@ -24,6 +24,35 @@ func (g GpuInstance) ActiveVgpus(pVgpuInstanceInfo *ActiveVgpuInstanceInfo) erro
 	return gpuInstanceGetActiveVgpus(g, pVgpuInstanceInfo)
 }
 
+// Close destroys GPU instance.
+//
+// For Ampere or newer fully supported devices. Supported on Linux only. Requires privileged user.
+//
+// Errors:
+//   - [ErrInvalidArgument]: If gpuInstance is invalid
+//   - [ErrInUse]: If the GPU instance is in use. This error would be returned if processes (e.g. CUDA application) or compute instances are active on the GPU instance.
+//   - [ErrNotSupported]: If device doesn’t have MIG mode enabled or in vGPU guest
+//   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
+//   - [ErrUninitialized]: If library has not been successfully initialized
+//
+// If g is zero, Close returns nil. Otherwise Close sets g to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// g is zeroed: a copy of it still refers to the released object.
+//
+// Wraps [nvmlGpuInstanceDestroy].
+//
+// [nvmlGpuInstanceDestroy]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv422nvmlGpuInstanceDestroy17nvmlGpuInstance_t
+func (g *GpuInstance) Close() error {
+	if *g == 0 {
+		return nil
+	}
+	if err := gpuInstanceDestroy(*g); err != nil {
+		return err
+	}
+	*g = 0
+	return nil
+}
+
 // ComputeInstanceById gets compute instance for given instance ID.
 //
 // For Ampere or newer fully supported devices. Supported on Linux only. Requires privileged user.
@@ -223,24 +252,6 @@ func (g GpuInstance) CreateComputeInstance(profileId uint32) (ComputeInstance, e
 // [nvmlGpuInstanceCreateComputeInstanceWithPlacement]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv449nvmlGpuInstanceCreateComputeInstanceWithPlacement17nvmlGpuInstance_tjPK30nvmlComputeInstancePlacement_tP21nvmlComputeInstance_t
 func (g GpuInstance) CreateComputeInstanceWithPlacement(profileId uint32, placement *ComputeInstancePlacement) (ComputeInstance, error) {
 	return gpuInstanceCreateComputeInstanceWithPlacement(g, profileId, placement)
-}
-
-// Destroy destroys GPU instance.
-//
-// For Ampere or newer fully supported devices. Supported on Linux only. Requires privileged user.
-//
-// Errors:
-//   - [ErrInvalidArgument]: If gpuInstance is invalid
-//   - [ErrInUse]: If the GPU instance is in use. This error would be returned if processes (e.g. CUDA application) or compute instances are active on the GPU instance.
-//   - [ErrNotSupported]: If device doesn’t have MIG mode enabled or in vGPU guest
-//   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
-//   - [ErrUninitialized]: If library has not been successfully initialized
-//
-// Wraps [nvmlGpuInstanceDestroy].
-//
-// [nvmlGpuInstanceDestroy]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv422nvmlGpuInstanceDestroy17nvmlGpuInstance_t
-func (g GpuInstance) Destroy() error {
-	return gpuInstanceDestroy(g)
 }
 
 // Info gets GPU instance information.

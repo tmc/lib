@@ -19,9 +19,20 @@ func NewHandleMg(deviceCount int32, deviceIndices *int32) (Handle, error) {
 	return CreateMg(deviceCount, deviceIndices)
 }
 
-// Destroy wraps cudssDestroy.
-func (h Handle) Destroy() error {
-	return Destroy(h)
+// Close wraps cudssDestroy.
+//
+// If h is zero, Close returns nil. Otherwise Close sets h to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// h is zeroed: a copy of it still refers to the released object.
+func (h *Handle) Close() error {
+	if *h == 0 {
+		return nil
+	}
+	if err := Destroy(*h); err != nil {
+		return err
+	}
+	*h = 0
+	return nil
 }
 
 // DeviceMemHandler wraps cudssGetDeviceMemHandler.

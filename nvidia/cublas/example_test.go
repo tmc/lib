@@ -14,7 +14,7 @@ func Example() {
 		fmt.Println("cuBLAS unavailable:", err)
 		return
 	}
-	defer h.Destroy()
+	defer h.Close()
 
 	major, err := cublas.GetProperty(cublas.MajorVersion)
 	if err != nil {

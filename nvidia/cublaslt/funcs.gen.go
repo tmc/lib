@@ -682,7 +682,7 @@ var slotCreate outSlot[Handle]
 
 // destroy releases hardware resources used by the cuBLASLt library.
 //
-// This function is usually the last call with a particular handle to the cuBLASLt library. Because [Create] allocates some internal resources and the release of those resources by calling [Handle.Destroy] will implicitly call cudaDeviceSynchronize(), it is recommended to minimize the number of times these functions are called.
+// This function is usually the last call with a particular handle to the cuBLASLt library. Because [Create] allocates some internal resources and the release of those resources by calling [Handle.Close] will implicitly call cudaDeviceSynchronize(), it is recommended to minimize the number of times these functions are called.
 //
 //   - lightHandle: Pointer to the cuBLASLt handle to be destroyed
 //

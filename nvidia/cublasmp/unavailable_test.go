@@ -27,7 +27,7 @@ func TestUnavailableSurfaceIsStructured(t *testing.T) {
 		call func() error
 	}{
 		{"Create", func() error { _, err := cublasmp.NewHandle(0); return err }},
-		{"Destroy", func() error { return cublasmp.Handle(0).Destroy() }},
+		{"Destroy", func() error { h := cublasmp.Handle(1); return h.Close() }},
 		{"SetStream", func() error { return cublasmp.Handle(0).SetStream(0) }},
 		{"GetStream", func() error { _, err := cublasmp.Handle(0).Stream(); return err }},
 		{"GetVersion", func() error { _, err := cublasmp.GetVersion(); return err }},
@@ -44,7 +44,7 @@ func TestUnavailableSurfaceIsStructured(t *testing.T) {
 			_, err := cublasmp.NewMatrixDescriptor(1, 1, 1, 1, 0, 0, 1, cublas.R32F, cublasmp.Grid(0))
 			return err
 		}},
-		{"MatrixDescriptorDestroy", func() error { return cublasmp.MatrixDescriptor(0).Destroy() }},
+		{"MatrixDescriptorDestroy", func() error { return func() error { d := cublasmp.MatrixDescriptor(1); return d.Close() }() }},
 		{"MatrixDescriptorInit", func() error {
 			return cublasmp.MatrixDescriptor(0).Init(1, 1, 1, 1, 0, 0, 1, cublas.R32F, cublasmp.Grid(0))
 		}},

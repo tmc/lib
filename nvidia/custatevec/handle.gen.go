@@ -117,6 +117,26 @@ func (h Handle) ApplyMatrixGetWorkspaceSize(svDataType DataType, nIndexBits uint
 	return applyMatrixGetWorkspaceSize(h, svDataType, nIndexBits, matrix, matrixDataType, layout, adjoint, nTargets, nControls, computeType)
 }
 
+// Close releases a handle and the resources it owns.
+//
+// This function releases resources used by the cuStateVec library.
+//
+// If h is zero, Close returns nil. Otherwise Close sets h to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// h is zeroed: a copy of it still refers to the released object.
+//
+// Wraps custatevecDestroy.
+func (h *Handle) Close() error {
+	if *h == 0 {
+		return nil
+	}
+	if err := destroy(*h); err != nil {
+		return err
+	}
+	*h = 0
+	return nil
+}
+
 // ComputeExpectation computes the expectation value of an observable matrix.
 //
 // Compute expectation of matrix observable.
@@ -198,15 +218,6 @@ func (h Handle) ComputeExpectationGetWorkspaceSize(svDataType DataType, nIndexBi
 // Wraps custatevecGetDefaultWorkspaceSize.
 func (h Handle) DefaultWorkspaceSize() (uint, error) {
 	return getDefaultWorkspaceSize(h)
-}
-
-// Destroy releases a handle and the resources it owns.
-//
-// This function releases resources used by the cuStateVec library.
-//
-// Wraps custatevecDestroy.
-func (h Handle) Destroy() error {
-	return destroy(h)
 }
 
 // InitializeStateVector fills a device state vector with a standard initial state.

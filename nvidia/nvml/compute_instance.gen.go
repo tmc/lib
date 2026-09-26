@@ -2,7 +2,7 @@
 
 package nvml
 
-// Destroy destroys compute instance.
+// Close destroys compute instance.
 //
 // For Ampere or newer fully supported devices. Supported on Linux only. Requires privileged user.
 //
@@ -12,11 +12,22 @@ package nvml
 //   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
 //   - [ErrUninitialized]: If library has not been successfully initialized
 //
+// If c is zero, Close returns nil. Otherwise Close sets c to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// c is zeroed: a copy of it still refers to the released object.
+//
 // Wraps [nvmlComputeInstanceDestroy].
 //
 // [nvmlComputeInstanceDestroy]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv426nvmlComputeInstanceDestroy21nvmlComputeInstance_t
-func (c ComputeInstance) Destroy() error {
-	return computeInstanceDestroy(c)
+func (c *ComputeInstance) Close() error {
+	if *c == 0 {
+		return nil
+	}
+	if err := computeInstanceDestroy(*c); err != nil {
+		return err
+	}
+	*c = 0
+	return nil
 }
 
 // Info gets compute instance information.

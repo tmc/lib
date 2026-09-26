@@ -2,7 +2,7 @@
 
 package driver
 
-// Destroy destroys a texture reference.
+// Close destroys a texture reference.
 //
 // Destroys the texture reference specified by hTexRef.
 //
@@ -16,9 +16,20 @@ package driver
 //
 // Deprecated: This function is deprecated.
 //
+// If t is zero, Close returns nil. Otherwise Close sets t to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// t is zeroed: a copy of it still refers to the released object.
+//
 // Wraps cuTexRefDestroy.
-func (t TexRef) Destroy() error {
-	return texRefDestroy(t)
+func (t *TexRef) Close() error {
+	if *t == 0 {
+		return nil
+	}
+	if err := texRefDestroy(*t); err != nil {
+		return err
+	}
+	*t = 0
+	return nil
 }
 
 // Address gets the address associated with a texture reference.
@@ -552,7 +563,7 @@ func (t TexRef) SetMipmappedArray(hMipmappedArray MipmappedArray, flags uint32) 
 //
 // Creates a texture reference and returns its handle in *pTexRef. Once created, the application must call [TexRef.SetArray] or [TexRef.SetAddress] to associate the reference with allocated memory. Other texture reference functions are used to specify the format and interpretation (addressing, filtering, etc.) to be used when the memory is read through this texture reference.
 //
-// See also: [TexRef.Destroy]
+// See also: [TexRef.Close]
 //
 // Errors:
 //   - [ErrDeinitialized]

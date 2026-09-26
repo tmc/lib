@@ -183,7 +183,7 @@ func (e *Engine) Close() error {
 	if e == nil {
 		return nil
 	}
-	return e.closeWith(e.dev.WithContext, cublaslt.Handle.Destroy, func() error { return e.workspace.Free() })
+	return e.closeWith(e.dev.WithContext, func(h cublaslt.Handle) error { return h.Close() }, func() error { return e.workspace.Free() })
 }
 
 func (e *Engine) closeWith(run func(func() error) error, destroy func(cublaslt.Handle) error, free func() error) error {
@@ -324,7 +324,7 @@ func (e *Engine) execute(
 		if err != nil {
 			return fmt.Errorf("create matmul desc: %w", err)
 		}
-		defer opDesc.Destroy()
+		defer opDesc.Close()
 
 		if cfg.TransA {
 			op := cublaslt.CublasOpT
@@ -376,23 +376,23 @@ func (e *Engine) execute(
 		if err != nil {
 			return fmt.Errorf("create layout A: %w", err)
 		}
-		defer layoutA.Destroy()
+		defer layoutA.Close()
 
 		layoutB, err := cublaslt.NewMatrixLayout(cfg.BType, uint64(bRows), uint64(bCols), int64(ldb))
 		if err != nil {
 			return fmt.Errorf("create layout B: %w", err)
 		}
-		defer layoutB.Destroy()
+		defer layoutB.Close()
 
 		layoutD, err := cublaslt.NewMatrixLayout(cfg.DType, uint64(dRows), uint64(dCols), int64(ldd))
 		if err != nil {
 			return fmt.Errorf("create layout D: %w", err)
 		}
-		defer layoutD.Destroy()
+		defer layoutD.Close()
 
 		pref, err := cublaslt.NewMatmulPreference()
 		if err == nil {
-			defer pref.Destroy()
+			defer pref.Close()
 			wsBytes := uint64(wsSize)
 			pin.Pin(&wsBytes)
 			_ = pref.SetAttribute(cublaslt.MatmulPrefMaxWorkspaceBytes, uintptr(unsafe.Pointer(&wsBytes)), uint(unsafe.Sizeof(wsBytes)))

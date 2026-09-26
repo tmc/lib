@@ -24,7 +24,7 @@ func (l Library) EnumerateKernels(kernels *Kernel, numKernels uint32) error {
 //
 // Returns in *dptr and *bytes the base pointer and size of the global with name name for the requested library library and the current context. If no global for the requested name name exists, the call returns [ErrNotFound]. One of the parameters dptr or bytes (not both) can be NULL in which case it is ignored.
 //
-// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Library.Module], [Module.Global]
+// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Close], [Library.Module], [Module.Global]
 //
 //   - name: Name of global to retrieve
 //
@@ -46,7 +46,7 @@ func (l Library) Global(name string) (dptr DevicePtr, bytes uint, err error) {
 //
 // Returns in pKernel the handle of the kernel with name name located in library library. If kernel handle is not found, the call returns [ErrNotFound].
 //
-// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Kernel.Function], [Library.Module], [Module.Function]
+// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Close], [Kernel.Function], [Library.Module], [Module.Function]
 //
 //   - name: Name of kernel to retrieve
 //
@@ -79,7 +79,7 @@ func (l Library) KernelCount() (uint32, error) {
 //
 // Returns in *dptr and *bytes the base pointer and size of the managed memory with name name for the requested library library. If no managed memory with the requested name name exists, the call returns [ErrNotFound]. One of the parameters dptr or bytes (not both) can be NULL in which case it is ignored. Note that managed memory for library library is shared across devices and is registered when the library is loaded into atleast one context.
 //
-// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload]
+// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Close]
 //
 //   - name: Name of managed memory to retrieve
 //
@@ -99,7 +99,7 @@ func (l Library) Managed(name string) (dptr DevicePtr, bytes uint, err error) {
 //
 // Returns in pMod the module handle associated with the current context located in library library. If module handle is not found, the call returns [ErrNotFound].
 //
-// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Module.Function]
+// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Close], [Module.Function]
 //
 // Errors:
 //   - [ErrContextIsDestroyed]
@@ -119,7 +119,7 @@ func (l Library) Module() (Module, error) {
 //
 // Returns in *fptr the function pointer to a unified function denoted by symbol. If no unified function with name symbol exists, the call returns [ErrNotFound]. If there is no device with attribute [DevAttrUnifiedFunctionPointers] present in the system, the call may return [ErrNotFound].
 //
-// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload]
+// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Close]
 //
 //   - symbol: Name of function pointer to retrieve
 //
@@ -135,26 +135,37 @@ func (l Library) UnifiedFunction(symbol string) (uintptr, error) {
 	return libraryGetUnifiedFunction(l, symbol)
 }
 
-// Unload unloads a library.
+// Close unloads a library.
 //
 // # Unloads the library specified with library
 //
-// See also: [LibraryLoadData], [LibraryLoadFromFile], [Module.Unload]
+// See also: [LibraryLoadData], [LibraryLoadFromFile], [Module.Close]
 //
 // Errors:
 //   - [ErrDeinitialized]
 //   - [ErrInvalidValue]
 //   - [ErrNotInitialized]
 //
+// If l is zero, Close returns nil. Otherwise Close sets l to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// l is zeroed: a copy of it still refers to the released object.
+//
 // Wraps cuLibraryUnload.
-func (l Library) Unload() error {
-	return libraryUnload(l)
+func (l *Library) Close() error {
+	if *l == 0 {
+		return nil
+	}
+	if err := libraryUnload(*l); err != nil {
+		return err
+	}
+	*l = 0
+	return nil
 }
 
 // LibraryLoadData loads a library with specified code and options.
 //
 // Takes code and loads the corresponding library library based on the application defined library loading mode:
-//   - If module loading is set to EAGER, via the environment variables described in “Module loading”, library is loaded eagerly into all contexts at the time of the call and future contexts at the time of creation until the library is unloaded with [Library.Unload].
+//   - If module loading is set to EAGER, via the environment variables described in “Module loading”, library is loaded eagerly into all contexts at the time of the call and future contexts at the time of creation until the library is unloaded with [Library.Close].
 //   - If the environment variables are set to LAZY, library is not immediately loaded onto all existent contexts and will only be loaded when a function is needed for that context, such as a kernel launch.
 //
 // These environment variables are described in the CUDA programming guide under the “CUDA environment variables” section.
@@ -164,7 +175,7 @@ func (l Library) Unload() error {
 //
 // Note: If the library contains managed variables and no device in the system supports managed variables this call is expected to return [ErrNotSupported]
 //
-// See also: [LibraryLoadFromFile], [Library.Unload], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx]
+// See also: [LibraryLoadFromFile], [Library.Close], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx]
 //
 //   - code: Code to load
 //   - jitOptions: Options for JIT
@@ -200,7 +211,7 @@ func LibraryLoadData(code []byte, jitOptions *JITOption, jitOptionsValues *uintp
 // LibraryLoadFromFile loads a library with specified file and options.
 //
 // Takes a pointer code and loads the corresponding library library based on the application defined library loading mode:
-//   - If module loading is set to EAGER, via the environment variables described in “Module loading”, library is loaded eagerly into all contexts at the time of the call and future contexts at the time of creation until the library is unloaded with [Library.Unload].
+//   - If module loading is set to EAGER, via the environment variables described in “Module loading”, library is loaded eagerly into all contexts at the time of the call and future contexts at the time of creation until the library is unloaded with [Library.Close].
 //   - If the environment variables are set to LAZY, library is not immediately loaded onto all existent contexts and will only be loaded when a function is needed for that context, such as a kernel launch.
 //
 // These environment variables are described in the CUDA programming guide under the “CUDA environment variables” section.
@@ -210,7 +221,7 @@ func LibraryLoadData(code []byte, jitOptions *JITOption, jitOptionsValues *uintp
 //
 // Note: If the library contains managed variables and no device in the system supports managed variables this call is expected to return [ErrNotSupported]
 //
-// See also: [LibraryLoadData], [Library.Unload], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx]
+// See also: [LibraryLoadData], [Library.Close], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx]
 //
 //   - fileName: File to load from
 //   - jitOptions: Options for JIT

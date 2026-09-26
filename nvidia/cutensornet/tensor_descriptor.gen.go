@@ -2,7 +2,18 @@
 
 package cutensornet
 
-// Destroy wraps cutensornetDestroyTensorDescriptor.
-func (t TensorDescriptor) Destroy() error {
-	return destroyTensorDescriptor(t)
+// Close wraps cutensornetDestroyTensorDescriptor.
+//
+// If t is zero, Close returns nil. Otherwise Close sets t to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// t is zeroed: a copy of it still refers to the released object.
+func (t *TensorDescriptor) Close() error {
+	if *t == 0 {
+		return nil
+	}
+	if err := destroyTensorDescriptor(*t); err != nil {
+		return err
+	}
+	*t = 0
+	return nil
 }

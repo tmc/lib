@@ -10,7 +10,7 @@ package driver
 // The offset and size have to be suitably aligned to match the requirements of the external API. Mapping two buffers whose ranges overlap may or may not result in the same virtual address being returned for the overlapped portion. In such cases, the application must ensure that all accesses to that region from the GPU are volatile. Otherwise writes made via one address are not guaranteed to be visible via the other address, even if they’re issued by the same thread. It is recommended that applications map the combined range instead of mapping separate buffers and then apply the appropriate offsets to the returned pointer to derive the individual buffers.
 // The returned pointer devPtr must be freed using [DevicePtr.Free].
 //
-// See also: [ImportExternalMemory], [ExternalMemory.Destroy], [ExternalMemory.MappedMipmappedArray]
+// See also: [ImportExternalMemory], [ExternalMemory.Close], [ExternalMemory.MappedMipmappedArray]
 //
 //   - bufferDesc: Buffer descriptor
 //
@@ -31,9 +31,9 @@ func (e ExternalMemory) MappedBuffer(bufferDesc *ExternalMemoryBufferDesc) (Devi
 // where [ExternalMemoryMipmappedArrayDesc].offset is the offset in the memory object where the base level of the mipmap chain is. [ExternalMemoryMipmappedArrayDesc].arrayDesc describes the format, dimensions and type of the base level of the mipmap chain. For further details on these parameters, please refer to the documentation for [NewMipmappedArray]. Note that if the mipmapped array is bound as a color target in the graphics API, then the flag CUDA_ARRAY3D_COLOR_ATTACHMENT must be specified in [ExternalMemoryMipmappedArrayDesc].arrayDesc.Flags. [ExternalMemoryMipmappedArrayDesc].numLevels specifies the total number of levels in the mipmap chain.
 // If extMem was imported from a handle of type [ExternalMemoryHandleTypeNvscibuf], then [ExternalMemoryMipmappedArrayDesc].numLevels must be equal to 1.
 // Mapping extMem imported from a handle of type [ExternalMemoryHandleTypeDmabufFd], is not supported.
-// The returned CUDA mipmapped array must be freed using [MipmappedArray.Destroy].
+// The returned CUDA mipmapped array must be freed using [MipmappedArray.Close].
 //
-// See also: [ImportExternalMemory], [ExternalMemory.Destroy], [ExternalMemory.MappedBuffer]
+// See also: [ImportExternalMemory], [ExternalMemory.Close], [ExternalMemory.MappedBuffer]
 //
 //   - mipmapDesc: CUDA array descriptor
 //
@@ -47,9 +47,9 @@ func (e ExternalMemory) MappedMipmappedArray(mipmapDesc *ExternalMemoryMipmapped
 	return externalMemoryGetMappedMipmappedArray(e, mipmapDesc)
 }
 
-// Destroy destroys an external memory object.
+// Close destroys an external memory object.
 //
-// Destroys the specified external memory object. Any existing buffers and CUDA mipmapped arrays mapped onto this object must no longer be used and must be explicitly freed using [DevicePtr.Free] and [MipmappedArray.Destroy] respectively.
+// Destroys the specified external memory object. Any existing buffers and CUDA mipmapped arrays mapped onto this object must no longer be used and must be explicitly freed using [DevicePtr.Free] and [MipmappedArray.Close] respectively.
 //
 // See also: [ImportExternalMemory], [ExternalMemory.MappedBuffer], [ExternalMemory.MappedMipmappedArray]
 //
@@ -57,7 +57,18 @@ func (e ExternalMemory) MappedMipmappedArray(mipmapDesc *ExternalMemoryMipmapped
 //   - [ErrInvalidHandle]
 //   - [ErrNotInitialized]
 //
+// If e is zero, Close returns nil. Otherwise Close sets e to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// e is zeroed: a copy of it still refers to the released object.
+//
 // Wraps cuDestroyExternalMemory.
-func (e ExternalMemory) Destroy() error {
-	return destroyExternalMemory(e)
+func (e *ExternalMemory) Close() error {
+	if *e == 0 {
+		return nil
+	}
+	if err := destroyExternalMemory(*e); err != nil {
+		return err
+	}
+	*e = 0
+	return nil
 }

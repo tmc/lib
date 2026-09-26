@@ -42,7 +42,7 @@ func TestNativeActivationForward(t *testing.T) {
 	check("select context", ctx.SetCurrent())
 	stream, err := driver.NewStream(0)
 	check("stream", err)
-	defer func() { clean("destroy stream", stream.Destroy()) }()
+	defer func() { clean("destroy stream", stream.Close()) }()
 	h, err := cudnn.Create()
 	check("handle", err)
 	defer func() { clean("destroy handle", h.Destroy()) }()

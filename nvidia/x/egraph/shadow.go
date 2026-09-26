@@ -85,7 +85,7 @@ func (e *DeviceShadowExecutor) ExecuteShadow(ctx context.Context, s *cuda.Stream
 	if err != nil {
 		return 0, fmt.Errorf("egraph: load module: %w", err)
 	}
-	defer loadedMod.Unload()
+	defer loadedMod.Close()
 
 	fn, err := loadedMod.Function(cand.KernelName)
 	if err != nil {

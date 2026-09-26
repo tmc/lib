@@ -35,11 +35,22 @@ func (m MatmulDesc) Attribute(attr MatmulDescAttributes, buf uintptr, sizeInByte
 	return matmulDescGetAttribute(m, attr, buf, sizeInBytes)
 }
 
-// Destroy destroys a previously created matrix multiply descriptor object.
+// Close destroys a previously created matrix multiply descriptor object.
+//
+// If m is zero, Close returns nil. Otherwise Close sets m to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// m is zeroed: a copy of it still refers to the released object.
 //
 // Wraps cublasLtMatmulDescDestroy.
-func (m MatmulDesc) Destroy() error {
-	return matmulDescDestroy(m)
+func (m *MatmulDesc) Close() error {
+	if *m == 0 {
+		return nil
+	}
+	if err := matmulDescDestroy(*m); err != nil {
+		return err
+	}
+	*m = 0
+	return nil
 }
 
 // Init_internal wraps cublasLtMatmulDescInit_internal.

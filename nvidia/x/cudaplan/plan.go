@@ -607,7 +607,7 @@ func (p *ExecutablePlan) RebindGraph() {
 // ErrInvocationInFlight and must be completed or drained first.
 func (p *ExecutablePlan) Close() error {
 	return p.closeWith(planCloseOps{
-		run: func(fn func() error) error { return p.dev.WithContext(fn) }, unload: driver.Module.Unload,
+		run: func(fn func() error) error { return p.dev.WithContext(fn) }, unload: func(m driver.Module) error { return m.Close() },
 		graphExec: (*cudagraph.Exec).Destroy, graph: (*cudagraph.Graph).Destroy,
 		engine: (*cublasltx.Engine).Close, workspace: (*WorkspaceManager).Close,
 		module: (*cuda.Module).Close,

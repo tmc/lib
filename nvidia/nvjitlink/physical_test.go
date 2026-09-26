@@ -208,7 +208,7 @@ func runCubin(t *testing.T, cubin []byte) []int32 {
 		t.Fatalf("ModuleLoadData: %v", err)
 	}
 	defer func() {
-		if err := mod.Unload(); err != nil {
+		if err := mod.Close(); err != nil {
 			t.Errorf("unload module: %v", err)
 		}
 	}()

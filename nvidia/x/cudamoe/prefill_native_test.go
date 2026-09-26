@@ -164,7 +164,7 @@ func TestNativePrefillW256Reference(t *testing.T) {
 		}
 		if raw != 0 {
 			if err := dev.WithContext(func() error {
-				if err := raw.Unload(); err != nil {
+				if err := raw.Close(); err != nil {
 					return err
 				}
 				raw = 0

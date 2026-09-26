@@ -245,10 +245,10 @@ func runSweepContext(ctx context.Context, c Case, o Options, omit bool, sizes []
 				continue
 			}
 			if s.start != 0 {
-				err = errors.Join(err, s.start.Destroy())
+				err = errors.Join(err, s.start.Close())
 			}
 			if s.end != 0 {
-				err = errors.Join(err, s.end.Destroy())
+				err = errors.Join(err, s.end.Close())
 			}
 			if s.send != 0 {
 				err = errors.Join(err, s.send.Free())
@@ -257,7 +257,7 @@ func runSweepContext(ctx context.Context, c Case, o Options, omit bool, sizes []
 				err = errors.Join(err, s.recv.Free())
 			}
 			if s.stream != 0 {
-				err = errors.Join(err, s.stream.Destroy())
+				err = errors.Join(err, s.stream.Close())
 			}
 			err = errors.Join(err, s.device.PrimaryCtxRelease())
 		}

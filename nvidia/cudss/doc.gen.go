@@ -48,7 +48,7 @@
 // # Solver configuration and data
 //
 //   - [NewConfig].
-//   - [Config.Destroy].
+//   - [Config.Close].
 //   - [NewData].
 //   - [Data.Destroy].
 //
@@ -56,7 +56,7 @@
 //
 //   - [NewHandle].
 //   - [NewHandleMg].
-//   - [Handle.Destroy].
+//   - [Handle.Close].
 //   - [GetProperty].
 //   - [Handle.SetCommLayer].
 //   - [Handle.SetDeviceMemHandler].
@@ -86,7 +86,7 @@
 //   - [NewMatrixBatchDn].
 //   - [NewMatrixCsr].
 //   - [NewMatrixDn].
-//   - [Matrix.Destroy].
+//   - [Matrix.Close].
 //   - [Matrix.BatchCsr].
 //   - [Matrix.BatchDn].
 //   - [Matrix.Csr].

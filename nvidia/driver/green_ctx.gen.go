@@ -2,14 +2,14 @@
 
 package driver
 
-// Destroy destroys a green context.
+// Close destroys a green context.
 //
-// Destroys the green context, releasing the primary context of the device that this green context was created for. Any resources provisioned for this green context (that were initially available via the resource descriptor) are released as well. The API does not destroy streams created via [GreenCtx.StreamCreate], [NewStream], or [StreamCreateWithPriority]. Users are expected to destroy these streams explicitly using [Stream.Destroy] to avoid resource leaks. Once the green context is destroyed, any subsequent API calls involving these streams will return [ErrStreamDetached] with the exception of the following APIs:
-//   - [Stream.Destroy].
+// Destroys the green context, releasing the primary context of the device that this green context was created for. Any resources provisioned for this green context (that were initially available via the resource descriptor) are released as well. The API does not destroy streams created via [GreenCtx.StreamCreate], [NewStream], or [StreamCreateWithPriority]. Users are expected to destroy these streams explicitly using [Stream.Close] to avoid resource leaks. Once the green context is destroyed, any subsequent API calls involving these streams will return [ErrStreamDetached] with the exception of the following APIs:
+//   - [Stream.Close].
 //
 // Additionally, the API will invalidate all active captures on these streams.
 //
-// See also: [NewGreenCtx], [Context.Destroy]
+// See also: [NewGreenCtx], [Context.Close]
 //
 // Errors:
 //   - [ErrContextIsDestroyed]
@@ -17,9 +17,20 @@ package driver
 //   - [ErrInvalidContext]
 //   - [ErrNotInitialized]
 //
+// If g is zero, Close returns nil. Otherwise Close sets g to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// g is zeroed: a copy of it still refers to the released object.
+//
 // Wraps cuGreenCtxDestroy.
-func (g GreenCtx) Destroy() error {
-	return greenCtxDestroy(g)
+func (g *GreenCtx) Close() error {
+	if *g == 0 {
+		return nil
+	}
+	if err := greenCtxDestroy(*g); err != nil {
+		return err
+	}
+	*g = 0
+	return nil
 }
 
 // DevResource gets green context resources.
@@ -46,7 +57,7 @@ func (g GreenCtx) DevResource(type_ DevResourceType) (DevResource, error) {
 //
 // Returns in greenCtxId the unique Id which is associated with a given green context. The Id is unique for the life of the program for this instance of CUDA. If green context is supplied as NULL and the current context is set to a green context, the Id of the current green context is returned.
 //
-// See also: [NewGreenCtx], [GreenCtx.Destroy], [Context.Id]
+// See also: [NewGreenCtx], [GreenCtx.Close], [Context.Id]
 //
 // Errors:
 //   - [ErrContextIsDestroyed]
@@ -84,7 +95,7 @@ func (g GreenCtx) RecordEvent(hEvent Event) error {
 
 // StreamCreate creates a stream for use in the green context.
 //
-// Creates a stream for use in the specified green context greenCtx and returns a handle in phStream. The stream can be destroyed by calling [Stream.Destroy]. Note that the API ignores the context that is current to the calling thread and creates a stream in the specified green context greenCtx.
+// Creates a stream for use in the specified green context greenCtx and returns a handle in phStream. The stream can be destroyed by calling [Stream.Close]. Note that the API ignores the context that is current to the calling thread and creates a stream in the specified green context greenCtx.
 // The supported values for flags are:
 //   - [StreamNonBlocking]: This must be specified. It indicates that work running in the created stream may run concurrently with work in the default stream, and that the created stream should perform no implicit synchronization with the default stream.
 //
@@ -92,7 +103,7 @@ func (g GreenCtx) RecordEvent(hEvent Event) error {
 //
 // Note: In the current implementation, only compute kernels launched in priority streams are affected by the stream’s priority. Stream priorities have no effect on host-to-device and device-to-host memory operations.
 //
-// See also: [Stream.Destroy], [NewGreenCtx] [NewStream], [Stream.Priority], [CtxGetStreamPriorityRange], [Stream.Flags], [Stream.Device], [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback], cudaStreamCreateWithPriority
+// See also: [Stream.Close], [NewGreenCtx] [NewStream], [Stream.Priority], [CtxGetStreamPriorityRange], [Stream.Flags], [Stream.Device], [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback], cudaStreamCreateWithPriority
 //
 //   - flags: Flags for stream creation. [StreamNonBlocking] must be specified
 //   - priority: Stream priority. Lower numbers represent higher priorities. See [CtxGetStreamPriorityRange] for more information about meaningful stream priorities that can be passed
@@ -143,7 +154,7 @@ func (g GreenCtx) WaitEvent(hEvent Event) error {
 //   - CU_GREEN_CTX_NONE : Default behavior.
 //   - [GreenCtxDefaultStream] : Creates a default stream to use inside the green context.
 //
-// See also: [GreenCtx.Destroy], [CtxFromGreenCtx], [Context.SetCurrent], [Context.PushCurrent], [DevResourceGenerateDesc], [Device.PrimaryCtxRetain], [NewContext]
+// See also: [GreenCtx.Close], [CtxFromGreenCtx], [Context.SetCurrent], [Context.PushCurrent], [DevResourceGenerateDesc], [Device.PrimaryCtxRetain], [NewContext]
 //
 //   - desc: Descriptor generated via [DevResourceGenerateDesc] which contains the set of resources to be used
 //   - dev: Device on which to create the green context

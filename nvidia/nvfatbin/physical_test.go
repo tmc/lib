@@ -136,7 +136,7 @@ func TestBuildFatbinAndRun(t *testing.T) {
 		t.Fatalf("ModuleLoadFatBinary: %v", err)
 	}
 	defer func() {
-		if err := mod.Unload(); err != nil {
+		if err := mod.Close(); err != nil {
 			t.Errorf("unload module: %v", err)
 		}
 	}()

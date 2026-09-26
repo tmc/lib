@@ -53,14 +53,14 @@ func Example() {
 		fmt.Println("stream:", err)
 		return
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	handle, err := cudensitymat.Create()
 	if err != nil {
 		fmt.Println("create handle:", err)
 		return
 	}
-	defer handle.Destroy()
+	defer handle.Close()
 
 	// One space mode of extent 2: a qubit. A mixed state over it is a 2x2
 	// density matrix stored in the generalized column-major layout.
@@ -75,13 +75,13 @@ func Example() {
 		fmt.Println("create state:", err)
 		return
 	}
-	defer in.Destroy()
+	defer in.Close()
 	out, err := handle.CreateState(cudensitymat.StatePurityMixed, 1, &extents[0], 1, cudensitymat.C64F)
 	if err != nil {
 		fmt.Println("create state:", err)
 		return
 	}
-	defer out.Destroy()
+	defer out.Close()
 
 	// The library reports the storage it needs; the caller allocates it, owns
 	// it for the life of the state, and frees it only after State.Destroy.
@@ -142,7 +142,7 @@ func Example() {
 		fmt.Println("create elementary operator:", err)
 		return
 	}
-	defer h.Destroy()
+	defer h.Close()
 
 	// -i[H, rho] = (-i)(H rho) + (+i)(rho H). Mode action duality 0 applies H
 	// to the state's ket mode, a nonzero duality to its bra mode.
@@ -152,7 +152,7 @@ func Example() {
 		fmt.Println("create term:", err)
 		return
 	}
-	defer left.Destroy()
+	defer left.Close()
 	ket := []int32{0}
 	if err := left.AppendElementaryProduct(handle, 1, &h, &modes[0], &ket[0],
 		cudensitymat.Complex128{X: 0, Y: -1},
@@ -165,7 +165,7 @@ func Example() {
 		fmt.Println("create term:", err)
 		return
 	}
-	defer right.Destroy()
+	defer right.Close()
 	bra := []int32{1}
 	if err := right.AppendElementaryProduct(handle, 1, &h, &modes[0], &bra[0],
 		cudensitymat.Complex128{X: 0, Y: 1},
@@ -179,7 +179,7 @@ func Example() {
 		fmt.Println("create operator:", err)
 		return
 	}
-	defer liouvillian.Destroy()
+	defer liouvillian.Close()
 	one := cudensitymat.Complex128{X: 1}
 	for _, term := range []cudensitymat.OperatorTerm{left, right} {
 		if err := liouvillian.AppendTerm(handle, term, 0, one,
@@ -196,7 +196,7 @@ func Example() {
 		fmt.Println("create workspace:", err)
 		return
 	}
-	defer ws.Destroy()
+	defer ws.Close()
 	if err := liouvillian.PrepareAction(handle, in, out, cudensitymat.Compute64F,
 		1<<26, ws, driver.Stream(stream)); err != nil {
 		fmt.Println("prepare:", err)

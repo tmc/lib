@@ -244,9 +244,11 @@ func TestUnavailableLibraryIsAnError(t *testing.T) {
 
 	// A call on a zero handle must fail the same way rather than dereference
 	// an unregistered function pointer.
+	// Close returns nil for a zero handle without calling C, so it gets a
+	// nonzero one.
 	var h Handle
-	if err := h.Destroy(); err == nil {
-		t.Error("Destroy on an unloaded library returned nil")
+	if c := Handle(1); c.Close() == nil {
+		t.Error("Close on an unloaded library returned nil")
 	}
 	if err := h.ApplyMatrix(0, C64F, 1, 0, C64F, MatrixLayoutRow, 0, nil, 1, nil, nil, 0, Compute64F, 0, 0); err == nil {
 		t.Error("ApplyMatrix on an unloaded library returned nil")

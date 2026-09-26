@@ -4,10 +4,10 @@ package nvml
 
 // NewEventSet creates an empty set of events.
 //
-// Event set should be freed by [EventSet.Free]
+// Event set should be freed by [EventSet.Close]
 // For Fermi or newer fully supported devices.
 //
-// See also: [EventSet.Free]
+// See also: [EventSet.Close]
 //
 //   - set: Reference in which to return the event handle
 //
@@ -25,7 +25,7 @@ func NewEventSet() (EventSet, error) {
 	return eventSetCreate()
 }
 
-// Free releases events in the set.
+// Close releases events in the set.
 //
 // For Fermi or newer fully supported devices.
 //
@@ -37,11 +37,22 @@ func NewEventSet() (EventSet, error) {
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
 //
+// If e is zero, Close returns nil. Otherwise Close sets e to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// e is zeroed: a copy of it still refers to the released object.
+//
 // Wraps [nvmlEventSetFree].
 //
 // [nvmlEventSetFree]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlEvents.html#_CPPv416nvmlEventSetFree14nvmlEventSet_t
-func (e EventSet) Free() error {
-	return eventSetFree(e)
+func (e *EventSet) Close() error {
+	if *e == 0 {
+		return nil
+	}
+	if err := eventSetFree(*e); err != nil {
+		return err
+	}
+	*e = 0
+	return nil
 }
 
 // Wait waits on events and delivers events.

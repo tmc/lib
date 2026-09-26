@@ -44,7 +44,7 @@ func (g GraphExec) ChildGraphNodeSetParams(hNode ChildGraphNode, childGraph Grap
 	return graphExecChildGraphNodeSetParams(g, hNode.GraphNode, childGraph)
 }
 
-// Destroy destroys an executable graph.
+// Close destroys an executable graph.
 //
 // Destroys the executable graph specified by hGraphExec, as well as all of its executable nodes. If the executable graph is in-flight, it will not be terminated, but rather freed asynchronously on completion.
 //
@@ -55,9 +55,20 @@ func (g GraphExec) ChildGraphNodeSetParams(hNode ChildGraphNode, childGraph Grap
 //   - [ErrInvalidValue]
 //   - [ErrNotInitialized]
 //
+// If g is zero, Close returns nil. Otherwise Close sets g to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// g is zeroed: a copy of it still refers to the released object.
+//
 // Wraps cuGraphExecDestroy.
-func (g GraphExec) Destroy() error {
-	return graphExecDestroy(g)
+func (g *GraphExec) Close() error {
+	if *g == 0 {
+		return nil
+	}
+	if err := graphExecDestroy(*g); err != nil {
+		return err
+	}
+	*g = 0
+	return nil
 }
 
 // EventRecordNodeSetEvent sets the event for an event record node in the given graphExec.
@@ -330,7 +341,7 @@ func (g GraphExec) Update(hGraph Graph, resultInfo *GraphExecUpdateResultInfo) e
 // Executes hGraphExec in hStream. Only one instance of hGraphExec may be executing at a time. Each launch is ordered behind both any previous work in hStream and any previous launches of hGraphExec. To execute a graph concurrently, it must be instantiated multiple times into multiple executable graphs.
 // If any allocations created by hGraphExec remain unfreed (from a previous launch) and hGraphExec was not instantiated with [GraphInstantiateFlagAutoFreeOnLaunch], the launch will fail with [ErrInvalidValue].
 //
-// See also: [Graph.Instantiate], [GraphExec.Upload], [GraphExec.Destroy]
+// See also: [Graph.Instantiate], [GraphExec.Upload], [GraphExec.Close]
 //
 //   - hStream: Stream in which to launch the graph
 //
@@ -348,7 +359,7 @@ func (g GraphExec) Launch(hStream Stream) error {
 //
 // Uploads hGraphExec to the device in hStream without executing it. Uploads of the same hGraphExec will be serialized. Each upload is ordered behind both any previous work in hStream and any previous launches of hGraphExec. Uses memory cached by stream to back the allocations owned by hGraphExec.
 //
-// See also: [Graph.Instantiate], [GraphExec.Launch], [GraphExec.Destroy]
+// See also: [Graph.Instantiate], [GraphExec.Launch], [GraphExec.Close]
 //
 //   - hStream: Stream in which to upload the graph
 //

@@ -2391,6 +2391,31 @@ func (h Handle) Chpr64(uplo FillMode, n int64, alpha *float32, x driver.DevicePt
 	return chpr64(h, uplo, n, alpha, x, incx, ap)
 }
 
+// Close releases hardware resources used by the cuBLAS library.
+//
+// This function is usually the last call with a particular handle to the cuBLAS library. Because [Create] allocates some internal resources and the release of those resources by calling [Handle.Close] will implicitly call cudaDeviceSynchronize(), it is recommended to minimize the number of times these functions are called.
+//
+// A nil error means the shut down succeeded.
+//
+// Errors:
+//   - [ErrNotInitialized]: the library was not initialized
+//
+// If h is zero, Close returns nil. Otherwise Close sets h to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// h is zeroed: a copy of it still refers to the released object.
+//
+// Wraps cublasDestroy_v2.
+func (h *Handle) Close() error {
+	if *h == 0 {
+		return nil
+	}
+	if err := destroy(*h); err != nil {
+		return err
+	}
+	*h = 0
+	return nil
+}
+
 // CmatinvBatched A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldaInv respectively.
 //
 // This function performs the inversion of matrices A [i] for i = 0, …, batchSize-1.
@@ -4174,20 +4199,6 @@ func (h Handle) Ddot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr
 // Wraps cublasDdot_v2_64.
 func (h Handle) Ddot64(n int64, x driver.DevicePtr, incx int64, y driver.DevicePtr, incy int64) (float64, error) {
 	return ddot64(h, n, x, incx, y, incy)
-}
-
-// Destroy releases hardware resources used by the cuBLAS library.
-//
-// This function is usually the last call with a particular handle to the cuBLAS library. Because [Create] allocates some internal resources and the release of those resources by calling [Handle.Destroy] will implicitly call cudaDeviceSynchronize(), it is recommended to minimize the number of times these functions are called.
-//
-// A nil error means the shut down succeeded.
-//
-// Errors:
-//   - [ErrNotInitialized]: the library was not initialized
-//
-// Wraps cublasDestroy_v2.
-func (h Handle) Destroy() error {
-	return destroy(h)
 }
 
 // Dgbmv performs the banded matrix-vector multiplication.

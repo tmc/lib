@@ -2,11 +2,22 @@
 
 package curand
 
-// DestroyDistribution destroys the histogram array for a discrete distribution (e.g. Poisson).
+// Close destroys the histogram array for a discrete distribution (e.g. Poisson).
 //
 // Destroy the histogram array for a discrete distribution created by [CreatePoissonDistribution].
 //
+// If d is zero, Close returns nil. Otherwise Close sets d to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// d is zeroed: a copy of it still refers to the released object.
+//
 // Wraps curandDestroyDistribution.
-func (d DiscreteDistribution) DestroyDistribution() error {
-	return destroyDistribution(d)
+func (d *DiscreteDistribution) Close() error {
+	if *d == 0 {
+		return nil
+	}
+	if err := destroyDistribution(*d); err != nil {
+		return err
+	}
+	*d = 0
+	return nil
 }

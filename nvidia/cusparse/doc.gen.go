@@ -65,11 +65,11 @@
 //   - [CreateDnVec]: initializes the dense vector descriptor dnVecDescr.
 //   - [CreateSlicedEll]: initializes the sparse matrix descriptor spMatDescr for the Sliced Ellpack (SELL) format.
 //   - [CreateSpVec]: initializes the sparse matrix descriptor spVecDescr.
-//   - [Handle.Destroy]: releases CPU-side resources used by the cuSPARSE library.
-//   - [ConstDnMatDescr.DestroyDnMat]: releases the host memory allocated for the dense matrix descriptor dnMatDescr.
-//   - [ConstDnVecDescr.DestroyDnVec]: releases the host memory allocated for the dense vector descriptor dnVecDescr.
-//   - [ConstSpMatDescr.DestroySpMat]: releases the host memory allocated for the sparse matrix descriptor spMatDescr.
-//   - [ConstSpVecDescr.DestroySpVec]: releases the host memory allocated for the sparse vector descriptor spVecDescr.
+//   - [Handle.Close]: releases CPU-side resources used by the cuSPARSE library.
+//   - [ConstDnMatDescr.Close]: releases the host memory allocated for the dense matrix descriptor dnMatDescr.
+//   - [ConstDnVecDescr.Close]: releases the host memory allocated for the dense vector descriptor dnVecDescr.
+//   - [ConstSpMatDescr.Close]: releases the host memory allocated for the sparse matrix descriptor spMatDescr.
+//   - [ConstSpVecDescr.Close]: releases the host memory allocated for the sparse vector descriptor spVecDescr.
 //
 // # Format Conversion
 //

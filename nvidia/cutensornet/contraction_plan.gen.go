@@ -2,9 +2,20 @@
 
 package cutensornet
 
-// Destroy wraps cutensornetDestroyContractionPlan.
+// Close wraps cutensornetDestroyContractionPlan.
 //
 // Deprecated: This function is deprecated.
-func (c ContractionPlan) Destroy() error {
-	return destroyContractionPlan(c)
+//
+// If c is zero, Close returns nil. Otherwise Close sets c to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// c is zeroed: a copy of it still refers to the released object.
+func (c *ContractionPlan) Close() error {
+	if *c == 0 {
+		return nil
+	}
+	if err := destroyContractionPlan(*c); err != nil {
+		return err
+	}
+	*c = 0
+	return nil
 }

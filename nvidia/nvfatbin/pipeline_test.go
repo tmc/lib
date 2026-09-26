@@ -57,7 +57,7 @@ func TestFatbinPipeline(t *testing.T) {
 	t.Logf("target sm_%s", arch)
 	ctx, err := driver.NewContext(dev, 0)
 	check(err)
-	defer func() { check(ctx.Destroy()) }()
+	defer func() { check(ctx.Close()) }()
 
 	// The pinned PTX names sm_90 so that it assembles on its own; retarget it
 	// at the device actually present rather than requiring one.
@@ -94,7 +94,7 @@ func TestFatbinPipeline(t *testing.T) {
 	// bytes the driver cannot read.
 	mod, err := driver.ModuleLoadData(fatbin)
 	check(err)
-	defer func() { check(mod.Unload()) }()
+	defer func() { check(mod.Close()) }()
 	runtime.KeepAlive(fatbin)
 	kernel, err := mod.Function("addone")
 	check(err)
@@ -129,7 +129,7 @@ func TestFatbinPipeline(t *testing.T) {
 	badModule, err := driver.ModuleLoadData(badFatbin)
 	runtime.KeepAlive(badFatbin)
 	if err == nil {
-		check(badModule.Unload())
+		check(badModule.Close())
 		t.Fatal("driver accepted PTX with an invalid instruction")
 	}
 	t.Logf("driver rejected invalid PTX: %v", err)

@@ -6,6 +6,29 @@ import (
 	"github.com/tmc/lib/nvidia/cusolver"
 )
 
+// Close releases a grid created by [Handle.CreateDeviceGrid]
+//
+// Destroy every matrix descriptor built on the grid first, and free or
+// deregister every buffer the grid allocated or registered. Destroying a
+// grid that a live descriptor still refers to is undefined behavior that
+// this package cannot detect. The call is collective.
+//
+// If g is zero, Close returns nil. Otherwise Close sets g to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// g is zeroed: a copy of it still refers to the released object.
+//
+// Wraps cusolverMpDestroyGrid.
+func (g *Grid) Close() error {
+	if *g == 0 {
+		return nil
+	}
+	if err := DestroyGrid(*g); err != nil {
+		return err
+	}
+	*g = 0
+	return nil
+}
+
 // CreateMatrixDesc describes a 2D block-cyclic distributed matrix over a grid
 //
 // The descriptor covers the whole global matrix; each rank stores only
@@ -20,7 +43,7 @@ import (
 //
 // The descriptor borrows grid and does not own the matrix memory. The
 // caller keeps both alive until the descriptor is destroyed with
-// [MatrixDescriptor.Destroy]. The call is collective and every rank must pass
+// [MatrixDescriptor.Close]. The call is collective and every rank must pass
 // identical global arguments.
 //
 //   - dataType: element type of the matrix
@@ -35,16 +58,4 @@ import (
 // Wraps cusolverMpCreateMatrixDesc.
 func (g Grid) CreateMatrixDesc(dataType cusolver.DataType, mA int64, nA int64, mBA int64, nBA int64, rSRCA uint32, cSRCA uint32, lLDA int64) (MatrixDescriptor, error) {
 	return CreateMatrixDesc(g, dataType, mA, nA, mBA, nBA, rSRCA, cSRCA, lLDA)
-}
-
-// Destroy releases a grid created by [Handle.CreateDeviceGrid]
-//
-// Destroy every matrix descriptor built on the grid first, and free or
-// deregister every buffer the grid allocated or registered. Destroying a
-// grid that a live descriptor still refers to is undefined behavior that
-// this package cannot detect. The call is collective.
-//
-// Wraps cusolverMpDestroyGrid.
-func (g Grid) Destroy() error {
-	return DestroyGrid(g)
 }

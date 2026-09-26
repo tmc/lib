@@ -164,7 +164,7 @@ func (w *Workspace) Close() error {
 		return ErrWorkspaceInUse
 	}
 	w.closed = true
-	err := w.desc.Destroy()
+	err := w.desc.Close()
 	for i := len(w.frees) - 1; i >= 0; i-- {
 		w.frees[i]()
 	}
@@ -293,7 +293,7 @@ func (p *Plan) Close() error {
 		return nil
 	}
 	p.releaseClaims()
-	return p.plan.Destroy()
+	return p.plan.Close()
 }
 
 // releaseClaims marks p closed and drops its holds on the workspace and the

@@ -20,18 +20,29 @@ func NewGpmSample() (GpmSample, error) {
 	return gpmSampleAlloc()
 }
 
-// Free frees an allocated sample buffer that was allocated with [NewGpmSample]
+// Close frees an allocated sample buffer that was allocated with [NewGpmSample]
 //
 // For Hopper or newer fully supported devices.
 //
 // Errors:
 //   - [ErrInvalidArgument]: if an invalid pointer is provided
 //
+// If g is zero, Close returns nil. Otherwise Close sets g to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// g is zeroed: a copy of it still refers to the released object.
+//
 // Wraps [nvmlGpmSampleFree].
 //
 // [nvmlGpmSampleFree]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlGpmFunctions.html#_CPPv417nvmlGpmSampleFree15nvmlGpmSample_t
-func (g GpmSample) Free() error {
-	return gpmSampleFree(g)
+func (g *GpmSample) Close() error {
+	if *g == 0 {
+		return nil
+	}
+	if err := gpmSampleFree(*g); err != nil {
+		return err
+	}
+	*g = 0
+	return nil
 }
 
 // Get reads a sample of GPM metrics into the provided gpmSample buffer.

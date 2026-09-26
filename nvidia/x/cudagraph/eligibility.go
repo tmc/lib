@@ -85,7 +85,7 @@ func (g *Graph) Eligibility() (Eligibility, error) {
 		if err != nil {
 			el.Reasons = append(el.Reasons, fmt.Sprintf("driver instantiation check failed: %v", err))
 		} else {
-			_ = rawExec.Destroy()
+			_ = rawExec.Close()
 		}
 		return nil
 	})

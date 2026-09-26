@@ -13,9 +13,20 @@ func (e ElementaryOperator) AttachBuffer(handle Handle, buffer uintptr, bufferSi
 	return elementaryOperatorAttachBuffer(handle, e, buffer, bufferSize)
 }
 
-// Destroy destroys an elementary tensor operator (simple or batched).
+// Close destroys an elementary tensor operator (simple or batched).
+//
+// If e is zero, Close returns nil. Otherwise Close sets e to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// e is zeroed: a copy of it still refers to the released object.
 //
 // Wraps cudensitymatDestroyElementaryOperator.
-func (e ElementaryOperator) Destroy() error {
-	return destroyElementaryOperator(e)
+func (e *ElementaryOperator) Close() error {
+	if *e == 0 {
+		return nil
+	}
+	if err := destroyElementaryOperator(*e); err != nil {
+		return err
+	}
+	*e = 0
+	return nil
 }

@@ -129,7 +129,7 @@ func TestPhysicalGetrfSolve(t *testing.T) {
 		t.Fatalf("stream: %v", err)
 	}
 	defer func() {
-		if err := stream.Destroy(); err != nil {
+		if err := stream.Close(); err != nil {
 			t.Errorf("destroy stream: %v", err)
 		}
 	}()
@@ -152,7 +152,7 @@ func TestPhysicalGetrfSolve(t *testing.T) {
 		t.Fatalf("handle: %v", err)
 	}
 	defer func() {
-		if err := handle.Destroy(); err != nil {
+		if err := handle.Close(); err != nil {
 			t.Errorf("destroy solver handle: %v", err)
 		}
 	}()
@@ -162,7 +162,7 @@ func TestPhysicalGetrfSolve(t *testing.T) {
 		t.Fatalf("grid: %v", err)
 	}
 	defer func() {
-		if err := grid.Destroy(); err != nil {
+		if err := grid.Close(); err != nil {
 			t.Errorf("destroy grid: %v", err)
 		}
 	}()
@@ -185,7 +185,7 @@ func TestPhysicalGetrfSolve(t *testing.T) {
 		t.Fatalf("descriptor A: %v", err)
 	}
 	defer func() {
-		if err := descA.Destroy(); err != nil {
+		if err := descA.Close(); err != nil {
 			t.Errorf("destroy descriptor A: %v", err)
 		}
 	}()
@@ -194,7 +194,7 @@ func TestPhysicalGetrfSolve(t *testing.T) {
 		t.Fatalf("descriptor B: %v", err)
 	}
 	defer func() {
-		if err := descB.Destroy(); err != nil {
+		if err := descB.Close(); err != nil {
 			t.Errorf("destroy descriptor B: %v", err)
 		}
 	}()

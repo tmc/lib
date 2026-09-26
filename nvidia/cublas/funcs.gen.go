@@ -7152,7 +7152,7 @@ func copyEx64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx i
 // It allocates hardware resources on the host and device and must be called prior to making any other cuBLAS library calls.
 // The cuBLAS library context is tied to the current CUDA device. To use the library on multiple devices, one cuBLAS handle needs to be created for each device. See also cuBLAS Context.
 // For a given device, multiple cuBLAS handles with different configurations can be created. For multi-threaded applications that use the same device from different threads, the recommended programming model is to create one cuBLAS handle per thread and use that cuBLAS handle for the entire life of the thread.
-// Because [Create] allocates some internal resources and the release of those resources by calling [Handle.Destroy] will implicitly call cudaDeviceSynchronize(), it is recommended to minimize the number of times these functions are called.
+// Because [Create] allocates some internal resources and the release of those resources by calling [Handle.Close] will implicitly call cudaDeviceSynchronize(), it is recommended to minimize the number of times these functions are called.
 //
 // A nil error means the initialization succeeded.
 //
@@ -9199,7 +9199,7 @@ var slotDdot64 outSlot[float64]
 
 // destroy releases hardware resources used by the cuBLAS library.
 //
-// This function is usually the last call with a particular handle to the cuBLAS library. Because [Create] allocates some internal resources and the release of those resources by calling [Handle.Destroy] will implicitly call cudaDeviceSynchronize(), it is recommended to minimize the number of times these functions are called.
+// This function is usually the last call with a particular handle to the cuBLAS library. Because [Create] allocates some internal resources and the release of those resources by calling [Handle.Close] will implicitly call cudaDeviceSynchronize(), it is recommended to minimize the number of times these functions are called.
 //
 // A nil error means the shut down succeeded.
 //

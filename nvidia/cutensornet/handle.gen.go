@@ -7,6 +7,22 @@ import (
 	"unsafe"
 )
 
+// Close wraps cutensornetDestroy.
+//
+// If h is zero, Close returns nil. Otherwise Close sets h to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// h is zeroed: a copy of it still refers to the released object.
+func (h *Handle) Close() error {
+	if *h == 0 {
+		return nil
+	}
+	if err := destroy(*h); err != nil {
+		return err
+	}
+	*h = 0
+	return nil
+}
+
 // ContractSlices wraps cutensornetContractSlices.
 //
 // Deprecated: This function is deprecated.
@@ -90,11 +106,6 @@ func (h Handle) CreateTensorDescriptor(numModes int32, extents *int64, strides *
 // CreateWorkspaceDescriptor wraps cutensornetCreateWorkspaceDescriptor.
 func (h Handle) CreateWorkspaceDescriptor() (WorkspaceDescriptor, error) {
 	return createWorkspaceDescriptor(h)
-}
-
-// Destroy wraps cutensornetDestroy.
-func (h Handle) Destroy() error {
-	return destroy(h)
 }
 
 // DistributedGetNumRanks wraps cutensornetDistributedGetNumRanks.

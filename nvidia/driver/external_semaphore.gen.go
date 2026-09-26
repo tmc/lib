@@ -2,7 +2,7 @@
 
 package driver
 
-// Destroy destroys an external semaphore.
+// Close destroys an external semaphore.
 //
 // Destroys an external semaphore object and releases any references to the underlying resource. Any outstanding signals or waits must have completed before the semaphore is destroyed.
 //
@@ -12,7 +12,18 @@ package driver
 //   - [ErrInvalidHandle]
 //   - [ErrNotInitialized]
 //
+// If e is zero, Close returns nil. Otherwise Close sets e to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// e is zeroed: a copy of it still refers to the released object.
+//
 // Wraps cuDestroyExternalSemaphore.
-func (e ExternalSemaphore) Destroy() error {
-	return destroyExternalSemaphore(e)
+func (e *ExternalSemaphore) Close() error {
+	if *e == 0 {
+		return nil
+	}
+	if err := destroyExternalSemaphore(*e); err != nil {
+		return err
+	}
+	*e = 0
+	return nil
 }

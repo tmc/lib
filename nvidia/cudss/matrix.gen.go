@@ -35,14 +35,25 @@ func (m Matrix) BatchDn(batchCount *int64, nrows *uintptr, ncols *uintptr, ld *u
 	return MatrixGetBatchDn(m, batchCount, nrows, ncols, ld, values, indexType, valueType, layout)
 }
 
+// Close wraps cudssMatrixDestroy.
+//
+// If m is zero, Close returns nil. Otherwise Close sets m to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// m is zeroed: a copy of it still refers to the released object.
+func (m *Matrix) Close() error {
+	if *m == 0 {
+		return nil
+	}
+	if err := MatrixDestroy(*m); err != nil {
+		return err
+	}
+	*m = 0
+	return nil
+}
+
 // Csr wraps cudssMatrixGetCsr.
 func (m Matrix) Csr(nrows *int64, ncols *int64, nnz *int64, rowStart *uintptr, rowEnd *uintptr, colIndices *uintptr, values *uintptr, offsetType *DataType, indexType *DataType, valueType *DataType, mtype *MatrixType, mview *MatrixViewType, indexBase *IndexBase) error {
 	return MatrixGetCsr(m, nrows, ncols, nnz, rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase)
-}
-
-// Destroy wraps cudssMatrixDestroy.
-func (m Matrix) Destroy() error {
-	return MatrixDestroy(m)
 }
 
 // DistributionRow1d wraps cudssMatrixGetDistributionRow1d.

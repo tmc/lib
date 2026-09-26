@@ -236,7 +236,7 @@ func TestRealKernelPrologueTimestamps(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(mod.Unload)
+	defer dev.WithContext(mod.Close)
 
 	pFn, err := mod.Function("real_producer_ts")
 	if err != nil {
@@ -366,7 +366,7 @@ func TestRealKernelPrologueAblationRun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(mod.Unload)
+	defer dev.WithContext(mod.Close)
 
 	pFn, err := mod.Function("real_producer_rmsnorm")
 	if err != nil {

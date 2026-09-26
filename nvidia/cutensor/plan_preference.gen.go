@@ -18,14 +18,25 @@ func (p PlanPreference) Attribute(handle Handle, attr PlanpreferenceattributeT, 
 	return planPreferenceGetAttribute(handle, p, attr, buf, sizeInBytes)
 }
 
-// Destroy frees all resources related to the provided preference.
+// Close frees all resources related to the provided preference.
 //
 // Remark:
 // blocking, no reentrant, and thread-safe
 //
+// If p is zero, Close returns nil. Otherwise Close sets p to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// p is zeroed: a copy of it still refers to the released object.
+//
 // Wraps cutensorDestroyPlanPreference.
-func (p PlanPreference) Destroy() error {
-	return destroyPlanPreference(p)
+func (p *PlanPreference) Close() error {
+	if *p == 0 {
+		return nil
+	}
+	if err := destroyPlanPreference(*p); err != nil {
+		return err
+	}
+	*p = 0
+	return nil
 }
 
 // SetAttribute sets attribute of a [PlanPreference] object.

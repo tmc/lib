@@ -11,9 +11,20 @@ func (c ContractionOptimizerConfig) Attribute(handle Handle, attr ContractionOpt
 	return contractionOptimizerConfigGetAttribute(handle, c, attr, buffer, sizeInBytes)
 }
 
-// Destroy wraps cutensornetDestroyContractionOptimizerConfig.
-func (c ContractionOptimizerConfig) Destroy() error {
-	return destroyContractionOptimizerConfig(c)
+// Close wraps cutensornetDestroyContractionOptimizerConfig.
+//
+// If c is zero, Close returns nil. Otherwise Close sets c to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// c is zeroed: a copy of it still refers to the released object.
+func (c *ContractionOptimizerConfig) Close() error {
+	if *c == 0 {
+		return nil
+	}
+	if err := destroyContractionOptimizerConfig(*c); err != nil {
+		return err
+	}
+	*c = 0
+	return nil
 }
 
 // SetAttribute wraps cutensornetContractionOptimizerConfigSetAttribute.

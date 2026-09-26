@@ -14,16 +14,27 @@ func NewIRSInfos() (IRSInfos, error) {
 	return iRSInfosCreate()
 }
 
-// Destroy destroys and releases any memory required by the Infos structure.
+// Close destroys and releases any memory required by the Infos structure.
 //
 // This function destroys all the information (for example, Niters performed, OuterNiters performed, residual history etc.) about a solver call; thus, this function should only be called after the user is finished with the information.
 //
 // Errors:
 //   - [ErrIrsInfosNotInitialized]: The Infos structure was not created.
 //
+// If i is zero, Close returns nil. Otherwise Close sets i to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// i is zeroed: a copy of it still refers to the released object.
+//
 // Wraps cusolverDnIRSInfosDestroy.
-func (i IRSInfos) Destroy() error {
-	return iRSInfosDestroy(i)
+func (i *IRSInfos) Close() error {
+	if *i == 0 {
+		return nil
+	}
+	if err := iRSInfosDestroy(*i); err != nil {
+		return err
+	}
+	*i = 0
+	return nil
 }
 
 // MaxIters returns the maximal allowed number of iterations that was set for the corresponding call to the IRS solver.

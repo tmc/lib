@@ -2,11 +2,22 @@
 
 package cusolver
 
-// Destroy destroys and releases any memory required by the structure.
+// Close destroys and releases any memory required by the structure.
+//
+// If s is zero, Close returns nil. Otherwise Close sets s to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// s is zeroed: a copy of it still refers to the released object.
 //
 // Wraps cusolverDnDestroySyevjInfo.
-func (s SyevjInfo) Destroy() error {
-	return destroySyevjInfo(s)
+func (s *SyevjInfo) Close() error {
+	if *s == 0 {
+		return nil
+	}
+	if err := destroySyevjInfo(*s); err != nil {
+		return err
+	}
+	*s = 0
+	return nil
 }
 
 // XsyevjSetMaxSweeps configures maximum number of sweeps in syevj.

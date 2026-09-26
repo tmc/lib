@@ -51,7 +51,7 @@ func TestPhysicalMultiGPU(t *testing.T) {
 			}
 			cleanup("set stream context", contexts[i].SetCurrent())
 			if streams[i] != 0 {
-				cleanup("destroy stream", driver.Stream(streams[i]).Destroy())
+				cleanup("destroy stream", streams[i].Close())
 			}
 			cleanup("release primary context", driver.Device(i).PrimaryCtxRelease())
 		}
@@ -78,7 +78,7 @@ func TestPhysicalMultiGPU(t *testing.T) {
 	check("select first MG device", contexts[0].SetCurrent())
 	handle, err := cudss.CreateMg(2, &devices[0])
 	check("create two-device cuDSS handle", err)
-	defer func() { cleanup("destroy handle", handle.Destroy()) }()
+	defer func() { cleanup("destroy handle", handle.Close()) }()
 	check("set per-device streams", handle.SetMgStreams(&streams[0], 2))
 	t.Log("CreateMg and SetMgStreams succeeded for devices [0 1]")
 
@@ -119,7 +119,7 @@ func TestPhysicalMultiGPU(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create config: %v", err)
 	}
-	defer func() { cleanup("destroy config", config.Destroy()) }()
+	defer func() { cleanup("destroy config", config.Close()) }()
 	check("set device count", config.SetDeviceCount(2))
 	check("set device indices", config.SetDeviceIndices(devices[:]))
 	count, err := config.DeviceCount()
@@ -144,17 +144,17 @@ func TestPhysicalMultiGPU(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create CSR matrix: %v", err)
 	}
-	defer func() { cleanup("destroy a", a.Destroy()) }()
+	defer func() { cleanup("destroy a", a.Close()) }()
 	rhs, err := cudss.NewMatrixDn(system.n, 1, system.n, uintptr(dB), cudss.R64F, cudss.LayoutColMajor)
 	if err != nil {
 		t.Fatalf("create right-hand side: %v", err)
 	}
-	defer func() { cleanup("destroy rhs", rhs.Destroy()) }()
+	defer func() { cleanup("destroy rhs", rhs.Close()) }()
 	sol, err := cudss.NewMatrixDn(system.n, 1, system.n, uintptr(dX), cudss.R64F, cudss.LayoutColMajor)
 	if err != nil {
 		t.Fatalf("create solution: %v", err)
 	}
-	defer func() { cleanup("destroy sol", sol.Destroy()) }()
+	defer func() { cleanup("destroy sol", sol.Close()) }()
 
 	for _, phase := range []cudss.Phase{cudss.PhaseAnalysis, cudss.PhaseFactorization, cudss.PhaseSolve} {
 		if err := handle.Execute(phase, config, data, a, sol, rhs); err != nil {

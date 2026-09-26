@@ -122,7 +122,7 @@ func (cm *CompiledModule) Load(dev *cuda.Device) (driver.Module, error) {
 			return nil
 		}
 		return dev.WithContext(func() error {
-			if err := pending.Unload(); err != nil {
+			if err := pending.Close(); err != nil {
 				return err
 			}
 			pending = 0
@@ -471,7 +471,7 @@ func (cm *CompiledModule) LoadModule(dev *cuda.Device) (*cuda.Module, error) {
 		return mod, nil
 	}
 	_, err = finishModuleLoad(raw, err, func() error {
-		return dev.WithContext(raw.Unload)
+		return dev.WithContext(raw.Close)
 	})
 	return nil, err
 }
@@ -489,7 +489,7 @@ func (cm *CompiledModule) LoadOutputModule(dev *cuda.Device, kind OutputKind) (*
 		return mod, nil
 	}
 	_, err = finishModuleLoad(raw, err, func() error {
-		return dev.WithContext(raw.Unload)
+		return dev.WithContext(raw.Close)
 	})
 	return nil, err
 }

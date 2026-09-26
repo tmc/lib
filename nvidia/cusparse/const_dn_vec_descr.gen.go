@@ -2,11 +2,22 @@
 
 package cusparse
 
-// DestroyDnVec releases the host memory allocated for the dense vector descriptor dnVecDescr.
+// Close releases the host memory allocated for the dense vector descriptor dnVecDescr.
+//
+// If c is zero, Close returns nil. Otherwise Close sets c to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// c is zeroed: a copy of it still refers to the released object.
 //
 // Wraps cusparseDestroyDnVec.
-func (c ConstDnVecDescr) DestroyDnVec() error {
-	return destroyDnVec(c)
+func (c *ConstDnVecDescr) Close() error {
+	if *c == 0 {
+		return nil
+	}
+	if err := destroyDnVec(*c); err != nil {
+		return err
+	}
+	*c = 0
+	return nil
 }
 
 // DnVecGet returns the fields of the dense vector descriptor dnVecDescr.

@@ -6,6 +6,24 @@ import (
 	"github.com/tmc/lib/nvidia/driver"
 )
 
+// Close destroys an expectation value computation object.
+//
+// If e is zero, Close returns nil. Otherwise Close sets e to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// e is zeroed: a copy of it still refers to the released object.
+//
+// Wraps cudensitymatDestroyExpectation.
+func (e *Expectation) Close() error {
+	if *e == 0 {
+		return nil
+	}
+	if err := destroyExpectation(*e); err != nil {
+		return err
+	}
+	*e = 0
+	return nil
+}
+
 // Compute computes the operator expectation value(s) with respect to the given quantum state(s).
 //
 // The result is generally a vector of dimension equal to the state batch size.
@@ -23,13 +41,6 @@ import (
 // Wraps cudensitymatExpectationCompute.
 func (e Expectation) Compute(handle Handle, time float64, batchSize int64, numParams int32, params *float64, state State, expectationValue uintptr, workspace WorkspaceDescriptor, stream driver.Stream) error {
 	return expectationCompute(handle, e, time, batchSize, numParams, params, state, expectationValue, workspace, stream)
-}
-
-// Destroy destroys an expectation value computation object.
-//
-// Wraps cudensitymatDestroyExpectation.
-func (e Expectation) Destroy() error {
-	return destroyExpectation(e)
 }
 
 // Prepare prepares the expectation value object for computation.

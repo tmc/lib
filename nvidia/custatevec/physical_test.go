@@ -130,7 +130,7 @@ func TestBellStateOnDevice(t *testing.T) {
 		t.Fatalf("custatevecCreate: %v", err)
 	}
 	defer func() {
-		if err := h.Destroy(); err != nil {
+		if err := h.Close(); err != nil {
 			t.Errorf("custatevecDestroy: %v", err)
 		}
 	}()

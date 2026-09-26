@@ -116,7 +116,7 @@ func newPhysicalPipeline(tb testing.TB, grid uint32) *physicalPipeline {
 	physicalCheck(tb, err)
 	module, err := cm.Load(dev)
 	physicalCheck(tb, err)
-	physicalClose(tb, func() error { return dev.WithContext(module.Unload) })
+	physicalClose(tb, func() error { return dev.WithContext(module.Close) })
 	physicalCheck(tb, dev.WithContext(func() error {
 		for name, fn := range map[string]*driver.Function{"fixture_reset": &p.reset, "fixture_project": &p.project, "fixture_decode": &p.decode, "fixture_wait": &p.wait} {
 			f, err := module.Function(name)
@@ -651,7 +651,7 @@ func TestPhysicalFilteredL2Traffic(t *testing.T) {
 	physicalCheck(t, err)
 	module, err := cm.Load(p.dev)
 	physicalCheck(t, err)
-	physicalClose(t, func() error { return p.dev.WithContext(module.Unload) })
+	physicalClose(t, func() error { return p.dev.WithContext(module.Close) })
 	var initialize, read driver.Function
 	physicalCheck(t, p.dev.WithContext(func() error {
 		var err error

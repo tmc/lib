@@ -2,11 +2,22 @@
 
 package cusolver
 
-// Destroy destroys and releases any memory required by the structure.
+// Close destroys and releases any memory required by the structure.
+//
+// If p is zero, Close returns nil. Otherwise Close sets p to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// p is zeroed: a copy of it still refers to the released object.
 //
 // Wraps cusolverDnDestroyParams.
-func (p Params) Destroy() error {
-	return destroyParams(p)
+func (p *Params) Close() error {
+	if *p == 0 {
+		return nil
+	}
+	if err := destroyParams(*p); err != nil {
+		return err
+	}
+	*p = 0
+	return nil
 }
 
 // SetAdvOptions configures algorithm algo of function, a 64-bit API routine.

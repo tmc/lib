@@ -89,14 +89,14 @@ func Example() {
 		fmt.Println("cuDSS unavailable:", err)
 		return
 	}
-	defer handle.Destroy()
+	defer handle.Close()
 
 	config, err := cudss.NewConfig()
 	if err != nil {
 		fmt.Println("config:", err)
 		return
 	}
-	defer config.Destroy()
+	defer config.Close()
 	// Every configuration parameter has a documented C type. The accessor
 	// takes the matching Go type and sizes the call from it, so the byte count
 	// the library is given always describes the storage it is given.
@@ -120,19 +120,19 @@ func Example() {
 		fmt.Println("matrix:", err)
 		return
 	}
-	defer a.Destroy()
+	defer a.Close()
 	rhs, err := cudss.NewMatrixDn(4, 1, 4, uintptr(dB), cudss.R64F, cudss.LayoutColMajor)
 	if err != nil {
 		fmt.Println("rhs:", err)
 		return
 	}
-	defer rhs.Destroy()
+	defer rhs.Close()
 	sol, err := cudss.NewMatrixDn(4, 1, 4, uintptr(dX), cudss.R64F, cudss.LayoutColMajor)
 	if err != nil {
 		fmt.Println("solution:", err)
 		return
 	}
-	defer sol.Destroy()
+	defer sol.Close()
 
 	for _, phase := range []cudss.Phase{
 		cudss.PhaseAnalysis,

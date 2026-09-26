@@ -37,13 +37,24 @@ func (m MatrixLayout) Attribute(attr MatrixLayoutAttribute, buf uintptr, sizeInB
 	return matrixLayoutGetAttribute(m, attr, buf, sizeInBytes)
 }
 
-// Destroy destroys a previously created matrix layout descriptor object.
+// Close destroys a previously created matrix layout descriptor object.
 //
 // A nil error means the operation was successful.
 //
+// If m is zero, Close returns nil. Otherwise Close sets m to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// m is zeroed: a copy of it still refers to the released object.
+//
 // Wraps cublasLtMatrixLayoutDestroy.
-func (m MatrixLayout) Destroy() error {
-	return matrixLayoutDestroy(m)
+func (m *MatrixLayout) Close() error {
+	if *m == 0 {
+		return nil
+	}
+	if err := matrixLayoutDestroy(*m); err != nil {
+		return err
+	}
+	*m = 0
+	return nil
 }
 
 // GroupedMatrixLayoutInit_internal wraps cublasLtGroupedMatrixLayoutInit_internal.

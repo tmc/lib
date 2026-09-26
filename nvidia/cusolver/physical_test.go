@@ -30,10 +30,10 @@ func TestCholeskySolve(t *testing.T) {
 	check(err)
 	ctx, err := driver.NewContext(dev, 0)
 	check(err)
-	defer func() { check(ctx.Destroy()) }()
+	defer func() { check(ctx.Close()) }()
 	h, err := cusolver.Create()
 	check(err)
-	defer func() { check(h.Destroy()) }()
+	defer func() { check(h.Close()) }()
 	// Cleanup allocations before destroying the context.
 	func() {
 		var allocations []driver.DevicePtr

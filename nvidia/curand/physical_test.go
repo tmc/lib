@@ -50,7 +50,7 @@ func TestDeviceUniformMatchesOracle(t *testing.T) {
 	check(err)
 	ctx, err := driver.NewContext(dev, 0)
 	check(err)
-	defer func() { check(ctx.Destroy()) }()
+	defer func() { check(ctx.Close()) }()
 
 	const count = 4096
 	ptr, err := driver.MemAllocBytes(count * 4)
@@ -61,7 +61,7 @@ func TestDeviceUniformMatchesOracle(t *testing.T) {
 		t.Helper()
 		gen, err := curand.CreateGenerator(curand.CURAND_RNG_PseudoDefault)
 		check(err)
-		defer func() { check(gen.Destroy()) }()
+		defer func() { check(gen.Close()) }()
 		check(gen.SetPseudoRandomGeneratorSeed(seed))
 		check(gen.GenerateUniform(ptr, count))
 		check(driver.CtxSynchronize())
@@ -73,7 +73,7 @@ func TestDeviceUniformMatchesOracle(t *testing.T) {
 		t.Helper()
 		gen, err := curand.CreateGeneratorHost(curand.CURAND_RNG_PseudoDefault)
 		check(err)
-		defer func() { check(gen.Destroy()) }()
+		defer func() { check(gen.Close()) }()
 		check(gen.SetPseudoRandomGeneratorSeed(seed))
 		out := make([]float32, count)
 		check(gen.GenerateUniformHost(out))

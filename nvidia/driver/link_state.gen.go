@@ -9,7 +9,7 @@ package driver
 //
 // Note: For LTO-IR input, only LTO-IR compiled with toolkits prior to CUDA 12.0 will be accepted
 //
-// See also: [LinkCreate], [LinkState.AddFile], [LinkState.Complete], [LinkState.Destroy]
+// See also: [LinkCreate], [LinkState.AddFile], [LinkState.Complete], [LinkState.Close]
 //
 //   - type_: The type of the input data
 //   - data: The input data
@@ -45,7 +45,7 @@ func (l LinkState) AddData(type_ JitInputType, data []byte, name *byte, numOptio
 //
 // Note: For LTO-IR input, only LTO-IR compiled with toolkits prior to CUDA 12.0 will be accepted
 //
-// See also: [LinkCreate], [LinkState.AddData], [LinkState.Complete], [LinkState.Destroy]
+// See also: [LinkCreate], [LinkState.AddData], [LinkState.Complete], [LinkState.Close]
 //
 //   - type_: The type of the input data
 //   - path: Path to the input file
@@ -70,9 +70,9 @@ func (l LinkState) AddFile(type_ JitInputType, path *byte, numOptions uint32, op
 
 // Complete completes a pending linker invocation.
 //
-// Completes the pending linker action and returns the cubin image for the linked device code, which can be used with [ModuleLoadData]. The cubin is owned by state, so it should be loaded before state is destroyed via [LinkState.Destroy]. This call does not destroy state.
+// Completes the pending linker action and returns the cubin image for the linked device code, which can be used with [ModuleLoadData]. The cubin is owned by state, so it should be loaded before state is destroyed via [LinkState.Close]. This call does not destroy state.
 //
-// See also: [LinkCreate], [LinkState.AddData], [LinkState.AddFile], [LinkState.Destroy], [ModuleLoadData]
+// See also: [LinkCreate], [LinkState.AddData], [LinkState.AddFile], [LinkState.Close], [ModuleLoadData]
 //
 // Errors:
 //   - [ErrInvalidHandle]
@@ -83,14 +83,25 @@ func (l LinkState) Complete() (cubinOut uintptr, sizeOut uint, err error) {
 	return linkComplete(l)
 }
 
-// Destroy destroys state for a JIT linker invocation.
+// Close destroys state for a JIT linker invocation.
 //
 // See also: [LinkCreate]
 //
 // Errors:
 //   - [ErrInvalidHandle]
 //
+// If l is zero, Close returns nil. Otherwise Close sets l to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// l is zeroed: a copy of it still refers to the released object.
+//
 // Wraps cuLinkDestroy.
-func (l LinkState) Destroy() error {
-	return linkDestroy(l)
+func (l *LinkState) Close() error {
+	if *l == 0 {
+		return nil
+	}
+	if err := linkDestroy(*l); err != nil {
+		return err
+	}
+	*l = 0
+	return nil
 }

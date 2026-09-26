@@ -98,10 +98,10 @@
 //   - [CreateGesvdjInfo]: creates and initializes the structure of gesvdj and gesvdjBatched to default values.
 //   - [CreateParams]: creates and initializes the structure of 64-bit API to default values.
 //   - [CreateSyevjInfo]: creates and initializes the structure of syevj, syevjBatched and sygvj to default values.
-//   - [Handle.Destroy]: releases CPU-side resources used by the cuSolverDN library.
-//   - [GesvdjInfo.Destroy]: destroys and releases any memory required by the structure.
-//   - [Params.Destroy]: destroys and releases any memory required by the structure.
-//   - [SyevjInfo.Destroy]: destroys and releases any memory required by the structure.
+//   - [Handle.Close]: releases CPU-side resources used by the cuSolverDN library.
+//   - [GesvdjInfo.Close]: destroys and releases any memory required by the structure.
+//   - [Params.Close]: destroys and releases any memory required by the structure.
+//   - [SyevjInfo.Close]: destroys and releases any memory required by the structure.
 //
 // # Double-Precision Dense Solvers
 //
@@ -209,14 +209,14 @@
 // # Iterative Refinement
 //
 //   - [NewIRSInfos]: creates and initializes the Infos structure that will hold the refinement information of an Iterative Refinement Solver (IRS) call.
-//   - [IRSInfos.Destroy]: destroys and releases any memory required by the Infos structure.
+//   - [IRSInfos.Close]: destroys and releases any memory required by the Infos structure.
 //   - [IRSInfos.MaxIters]: returns the maximal allowed number of iterations that was set for the corresponding call to the IRS solver.
 //   - [IRSInfos.Niters]: returns the total number of iterations performed by the IRS solver.
 //   - [IRSInfos.OuterNiters]: returns the number of iterations performed by the outer refinement loop of the IRS solver.
 //   - [IRSInfos.ResidualHistory]: If the user called [IRSInfos.RequestResidual] before the call to the IRS function, then the IRS solver will store the convergence history (residual norms) of the refinement phase in a matrix that can be accessed via a pointer returned by this function.
 //   - [IRSInfos.RequestResidual]: tells the IRS solver to store the convergence history (residual norms) of the refinement phase in a matrix that can be accessed via a pointer returned by the [IRSInfos.ResidualHistory] function.
 //   - [NewIRSParams]: creates and initializes the structure of parameters for an IRS solver such as the [Handle.IRSXgesv] or the [Handle.IRSXgels] functions to default values.
-//   - [IRSParams.Destroy]: destroys and releases any memory required by the Params structure.
+//   - [IRSParams.Close]: destroys and releases any memory required by the Params structure.
 //   - [IRSParams.DisableFallback]: disables the fallback to the main precision in case the Iterative Refinement Solver (IRS) failed to converge.
 //   - [IRSParams.EnableFallback]: enable the fallback to the main precision in case the Iterative Refinement Solver (IRS) failed to converge.
 //   - [IRSParams.MaxIters]: returns the current setting in the params structure for the maximal allowed number of iterations (for example, either the default MaxIters, or the one set by the user in case he set it using [IRSParams.SetMaxIters]).

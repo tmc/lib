@@ -97,7 +97,7 @@ func (cm *CompiledModule) LoadOwnedOutput(dev *cuda.Device, kind OutputKind) (*c
 			return nil
 		}
 		return dev.WithContext(func() error {
-			if err := pending.Unload(); err != nil {
+			if err := pending.Close(); err != nil {
 				return err
 			}
 			pending = 0

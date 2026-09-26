@@ -229,7 +229,7 @@ func testIQ2XXSMatvec(t *testing.T, threads uint32) {
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
-	defer mod.Unload()
+	defer mod.Close()
 	fn, err := mod.Function("IQ2XXSMatvec")
 	if err != nil {
 		t.Fatal(err)
@@ -304,7 +304,7 @@ func TestGeneratedIQ2XXSMatvecRaggedColsReturnsNaN(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
-	defer mod.Unload()
+	defer mod.Close()
 	fn, err := mod.Function("IQ2XXSMatvec")
 	if err != nil {
 		t.Fatal(err)

@@ -64,7 +64,7 @@ func TestPhysicalEvictorChangesTheMeasurement(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { dev.WithContext(module.Unload) })
+	t.Cleanup(func() { dev.WithContext(module.Close) })
 	var read driver.Function
 	if err := dev.WithContext(func() error {
 		var e error

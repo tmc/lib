@@ -196,11 +196,11 @@ func TestExpectationAgainstCPU(t *testing.T) {
 	op := rig.operator(rig.term(rig.elementary(h), 0, cudensitymat.Complex128{X: 1}))
 	expectation, err := rig.handle.CreateExpectation(op)
 	rig.check(err)
-	t.Cleanup(func() { rig.check(expectation.Destroy()) })
+	t.Cleanup(func() { rig.check(expectation.Close()) })
 
 	ws, err := rig.handle.CreateWorkspace()
 	rig.check(err)
-	t.Cleanup(func() { rig.check(ws.Destroy()) })
+	t.Cleanup(func() { rig.check(ws.Close()) })
 	rig.check(expectation.Prepare(rig.handle, in.handle, cudensitymat.Compute64F, workspaceLimit, ws, rig.stream))
 	rig.attachWorkspace(ws)
 
@@ -286,12 +286,12 @@ func newRig(t *testing.T) *rig {
 
 	r.drv, err = driver.NewStream(0)
 	r.check(err)
-	t.Cleanup(func() { r.check(r.drv.Destroy()) })
+	t.Cleanup(func() { r.check(r.drv.Close()) })
 	r.stream = driver.Stream(r.drv)
 
 	r.handle, err = cudensitymat.Create()
 	r.check(err)
-	t.Cleanup(func() { r.check(r.handle.Destroy()) })
+	t.Cleanup(func() { r.check(r.handle.Close()) })
 
 	// Single process, single rank. If this is not what the library reports,
 	// the rest of the test is measuring something else.
@@ -372,7 +372,7 @@ func (r *rig) newState(m mat2) state {
 	ptr := uintptr(buf)
 	r.check(s.AttachComponentStorage(r.handle, 1, &ptr, &size))
 	// Destroy the state before the test frees the buffer it is reading.
-	r.t.Cleanup(func() { r.check(s.Destroy()) })
+	r.t.Cleanup(func() { r.check(s.Close()) })
 	return state{handle: s, storage: buf}
 }
 
@@ -410,7 +410,7 @@ func (r *rig) elementary(m mat2) cudensitymat.ElementaryOperator {
 		cudensitymat.OperatorSparsityNone, 0, nil, cudensitymat.C64F, uintptr(buf),
 		cudensitymat.TensorCallbackNone, cudensitymat.TensorGradientCallbackNone)
 	r.check(err)
-	r.t.Cleanup(func() { r.check(op.Destroy()) })
+	r.t.Cleanup(func() { r.check(op.Close()) })
 	return op
 }
 
@@ -429,7 +429,7 @@ func (r *rig) term(elem cudensitymat.ElementaryOperator, duality int32, coeffici
 	runtime.KeepAlive(modes)
 	runtime.KeepAlive(dualities)
 	runtime.KeepAlive(elems)
-	r.t.Cleanup(func() { r.check(term.Destroy()) })
+	r.t.Cleanup(func() { r.check(term.Close()) })
 	return term
 }
 
@@ -444,7 +444,7 @@ func (r *rig) operator(terms ...cudensitymat.OperatorTerm) cudensitymat.Operator
 	}
 	// The operator has to outlive nothing here, but it must be destroyed
 	// before the terms it holds, and Cleanup runs last-registered-first.
-	r.t.Cleanup(func() { r.check(op.Destroy()) })
+	r.t.Cleanup(func() { r.check(op.Close()) })
 	return op
 }
 
@@ -464,7 +464,7 @@ func (r *rig) prepareAndApply(op cudensitymat.Operator, in, out state) {
 	r.t.Helper()
 	ws, err := r.handle.CreateWorkspace()
 	r.check(err)
-	r.t.Cleanup(func() { r.check(ws.Destroy()) })
+	r.t.Cleanup(func() { r.check(ws.Close()) })
 	r.check(op.PrepareAction(r.handle, in.handle, out.handle, cudensitymat.Compute64F,
 		workspaceLimit, ws, r.stream))
 	r.attachWorkspace(ws)

@@ -13,11 +13,22 @@ func (c ContractionAutotunePreference) Attribute(handle Handle, attr Contraction
 	return contractionAutotunePreferenceGetAttribute(handle, c, attr, buffer, sizeInBytes)
 }
 
-// Destroy wraps cutensornetDestroyContractionAutotunePreference.
+// Close wraps cutensornetDestroyContractionAutotunePreference.
 //
 // Deprecated: This function is deprecated.
-func (c ContractionAutotunePreference) Destroy() error {
-	return destroyContractionAutotunePreference(c)
+//
+// If c is zero, Close returns nil. Otherwise Close sets c to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// c is zeroed: a copy of it still refers to the released object.
+func (c *ContractionAutotunePreference) Close() error {
+	if *c == 0 {
+		return nil
+	}
+	if err := destroyContractionAutotunePreference(*c); err != nil {
+		return err
+	}
+	*c = 0
+	return nil
 }
 
 // SetAttribute wraps cutensornetContractionAutotunePreferenceSetAttribute.

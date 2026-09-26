@@ -239,7 +239,7 @@ func loadEmptyKernel(t *testing.T) driver.Function {
 	if err != nil {
 		t.Fatalf("loading PTX: %v", err)
 	}
-	t.Cleanup(func() { mod.Unload() })
+	t.Cleanup(func() { mod.Close() })
 	fn, err := mod.Function("empty")
 	if err != nil {
 		t.Fatalf("GetFunction: %v", err)

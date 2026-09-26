@@ -58,26 +58,26 @@ func ExampleHandle_Gemm() {
 		fmt.Println("handle:", err)
 		return
 	}
-	defer h.Destroy()
+	defer h.Close()
 
 	descA, err := cublasmp.NewMatrixDescriptor(m, k, mb, nb, 0, 0, m, cublas.R32F, grid)
 	if err != nil {
 		fmt.Println("descriptor:", err)
 		return
 	}
-	defer descA.Destroy()
+	defer descA.Close()
 	descB, err := cublasmp.NewMatrixDescriptor(k, n, mb, nb, 0, 0, k, cublas.R32F, grid)
 	if err != nil {
 		fmt.Println("descriptor:", err)
 		return
 	}
-	defer descB.Destroy()
+	defer descB.Close()
 	descC, err := cublasmp.NewMatrixDescriptor(m, n, mb, nb, 0, 0, m, cublas.R32F, grid)
 	if err != nil {
 		fmt.Println("descriptor:", err)
 		return
 	}
-	defer descC.Destroy()
+	defer descC.Close()
 
 	// alpha and beta are host pointers, so unsafe.Pointer, not a device
 	// address. Their element type must match the compute type.

@@ -293,7 +293,7 @@ func (x *sequenceExecutable) Close() error {
 		}
 		if s.raw != 0 {
 			if err := x.dev.WithContext(func() error {
-				if err := s.raw.Unload(); err != nil {
+				if err := s.raw.Close(); err != nil {
 					return err
 				}
 				s.raw = 0
@@ -306,7 +306,7 @@ func (x *sequenceExecutable) Close() error {
 	for i := range x.events {
 		if x.events[i] != 0 {
 			if err := x.dev.WithContext(func() error {
-				if err := x.events[i].Destroy(); err != nil {
+				if err := x.events[i].Close(); err != nil {
 					return err
 				}
 				x.events[i] = 0

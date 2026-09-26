@@ -2,12 +2,23 @@
 
 package driver
 
-// UnregisterCallback unregisters a log message callback.
+// Close unregisters a log message callback.
 //
 // Errors:
 //   - [ErrInvalidValue]
 //
+// If l is zero, Close returns nil. Otherwise Close sets l to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// l is zeroed: a copy of it still refers to the released object.
+//
 // Wraps cuLogsUnregisterCallback.
-func (l LogsCallbackHandle) UnregisterCallback() error {
-	return logsUnregisterCallback(l)
+func (l *LogsCallbackHandle) Close() error {
+	if *l == 0 {
+		return nil
+	}
+	if err := logsUnregisterCallback(*l); err != nil {
+		return err
+	}
+	*l = 0
+	return nil
 }

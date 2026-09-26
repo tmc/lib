@@ -25,7 +25,7 @@ package driver
 //
 // Note: If another thread is trying to set the same attribute on the same device using [Kernel.SetAttribute] simultaneously, the attribute query will give the old or new value depending on the interleavings chosen by the OS scheduler and memory consistency.
 //
-// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Kernel.SetAttribute], [Library.Kernel], [Function.LaunchKernel], [Kernel.Function], [Library.Module], [Module.Function], [Function.Attribute]
+// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Close], [Kernel.SetAttribute], [Library.Kernel], [Function.LaunchKernel], [Kernel.Function], [Library.Module], [Module.Function], [Function.Attribute]
 //
 //   - attrib: Attribute requested
 //   - dev: Device to query attribute of
@@ -46,7 +46,7 @@ func (k Kernel) Attribute(attrib FunctionAttribute, dev Device) (int32, error) {
 //
 // Returns in pFunc the handle of the function for the requested kernel kernel and the current context. If function handle is not found, the call returns [ErrNotFound].
 //
-// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Library.Kernel], [Library.Module], [Module.Function]
+// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Close], [Library.Kernel], [Library.Module], [Module.Function]
 //
 // Errors:
 //   - [ErrContextIsDestroyed]
@@ -66,7 +66,7 @@ func (k Kernel) Function() (Function, error) {
 //
 // # Returns in pLib the handle of the library for the requested kernel kernel
 //
-// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Library.Kernel]
+// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Close], [Library.Kernel]
 //
 // Errors:
 //   - [ErrDeinitialized]
@@ -138,7 +138,7 @@ func (k Kernel) ParamInfo(paramIndex uint) (paramOffset uint, paramSize uint, er
 //
 // Note: The API has stricter locking requirements in comparison to its legacy counterpart [Function.SetAttribute] due to device-wide semantics. If multiple threads are trying to set the same attribute on the same device simultaneously, the attribute setting will depend on the interleavings chosen by the OS scheduler and memory consistency.
 //
-// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Kernel.Attribute], [Library.Kernel], [Function.LaunchKernel], [Kernel.Function], [Library.Module], [Module.Function], [Function.SetAttribute]
+// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Close], [Kernel.Attribute], [Library.Kernel], [Function.LaunchKernel], [Kernel.Function], [Library.Module], [Module.Function], [Function.SetAttribute]
 //
 //   - attrib: Attribute requested
 //   - val: Value to set
@@ -171,7 +171,7 @@ func (k Kernel) SetAttribute(attrib FunctionAttribute, val int32, dev Device) er
 //
 // Note: The API has stricter locking requirements in comparison to its legacy counterpart [Function.SetCacheConfig] due to device-wide semantics. If multiple threads are trying to set a config on the same device simultaneously, the cache config setting will depend on the interleavings chosen by the OS scheduler and memory consistency.
 //
-// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Library.Kernel], [Kernel.Function], [Library.Module], [Module.Function], [Function.SetCacheConfig], [CtxSetCacheConfig], [Function.LaunchKernel]
+// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Close], [Library.Kernel], [Kernel.Function], [Library.Module], [Module.Function], [Function.SetCacheConfig], [CtxSetCacheConfig], [Function.LaunchKernel]
 //
 //   - config: Requested cache configuration
 //   - dev: Device to set attribute of

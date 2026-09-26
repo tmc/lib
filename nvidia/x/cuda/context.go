@@ -89,7 +89,7 @@ func (c *Context) Release() error {
 		c.released = true
 		return nil
 	}
-	if err := c.raw.Destroy(); err != nil {
+	if err := c.raw.Close(); err != nil {
 		return fmt.Errorf("cuda: destroy context: %w", err)
 	}
 	c.released = true

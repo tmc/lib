@@ -318,7 +318,7 @@ func (e *Exec) Destroy() error {
 	if e == nil || e.raw == 0 {
 		return nil
 	}
-	return e.destroy(e.withContext, e.raw.Destroy)
+	return e.destroy(e.withContext, e.raw.Close)
 }
 
 func (e *Exec) destroy(run func(func() error) error, destroy func() error) error {

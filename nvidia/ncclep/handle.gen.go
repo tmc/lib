@@ -6,6 +6,26 @@ import (
 	"github.com/tmc/lib/nvidia/driver"
 )
 
+// Close destroys a handle without freeing caller-owned storage.
+//
+// Destroy an EP handle and release all associated resources.
+//
+// If h is zero, Close returns nil. Otherwise Close sets h to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// h is zeroed: a copy of it still refers to the released object.
+//
+// Wraps ncclEpHandleDestroy.
+func (h *Handle) Close() error {
+	if *h == 0 {
+		return nil
+	}
+	if err := HandleDestroy(*h); err != nil {
+		return err
+	}
+	*h = 0
+	return nil
+}
+
 // Combine combines expert outputs in the original token order.
 //
 // Perform EP combine * Gathers outputs from experts and returns them to their source in original token order. * This call is collective and must be invoked by all ranks in the group.
@@ -30,15 +50,6 @@ func (h Handle) Combine(inputs *CombineInputs, outputs *CombineOutputs, config *
 // Wraps ncclEpComplete.
 func (h Handle) Complete(config *CompleteConfig, stream driver.Stream) error {
 	return Complete(h, config, stream)
-}
-
-// Destroy destroys a handle without freeing caller-owned storage.
-//
-// Destroy an EP handle and release all associated resources.
-//
-// Wraps ncclEpHandleDestroy.
-func (h Handle) Destroy() error {
-	return HandleDestroy(h)
 }
 
 // Dispatch dispatches tokens to experts using the handle's routing metadata.

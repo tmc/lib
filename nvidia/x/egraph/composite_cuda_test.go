@@ -67,7 +67,7 @@ func TestGeneratedCompositeMatchesReference(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
-	defer mod.Unload()
+	defer mod.Close()
 	fn, err := mod.Function("Composite")
 	if err != nil {
 		t.Fatal(err)

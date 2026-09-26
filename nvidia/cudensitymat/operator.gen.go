@@ -20,6 +20,24 @@ func (o Operator) AppendTerm(handle Handle, operatorTerm OperatorTerm, duality i
 	return operatorAppendTerm(handle, o, operatorTerm, duality, coefficient, coefficientCallback, coefficientGradientCallback)
 }
 
+// Close destroys an operator.
+//
+// If o is zero, Close returns nil. Otherwise Close sets o to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// o is zeroed: a copy of it still refers to the released object.
+//
+// Wraps cudensitymatDestroyOperator.
+func (o *Operator) Close() error {
+	if *o == 0 {
+		return nil
+	}
+	if err := destroyOperator(*o); err != nil {
+		return err
+	}
+	*o = 0
+	return nil
+}
+
 // ComputeAction computes the action of the operator on a given input quantum state, accumulating the result in the output quantum state (accumulative action).
 //
 // Note: The provided input and output quantum states must be of the same
@@ -41,13 +59,6 @@ func (o Operator) AppendTerm(handle Handle, operatorTerm OperatorTerm, duality i
 // Wraps cudensitymatOperatorComputeAction.
 func (o Operator) ComputeAction(handle Handle, time float64, batchSize int64, numParams int32, params *float64, stateIn State, stateOut State, workspace WorkspaceDescriptor, stream driver.Stream) error {
 	return operatorComputeAction(handle, o, time, batchSize, numParams, params, stateIn, stateOut, workspace, stream)
-}
-
-// Destroy destroys an operator.
-//
-// Wraps cudensitymatDestroyOperator.
-func (o Operator) Destroy() error {
-	return destroyOperator(o)
 }
 
 // PrepareAction prepares the operator for an action on a quantum state.

@@ -9,6 +9,24 @@ func NewBitstream() (Bitstream, error) {
 	return StreamCreate()
 }
 
+// Close releases a bitstream handle and the metadata parsed into it.
+//
+// If b is zero, Close returns nil. Otherwise Close sets b to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// b is zeroed: a copy of it still refers to the released object.
+//
+// Wraps nvjpeg2kStreamDestroy.
+func (b *Bitstream) Close() error {
+	if *b == 0 {
+		return nil
+	}
+	if err := StreamDestroy(*b); err != nil {
+		return err
+	}
+	*b = 0
+	return nil
+}
+
 // ColorSpace returns the color space recorded in a JP2 container.
 //
 // For a JPEG2000 codestream (.j2k file), this function will retrieve
@@ -52,13 +70,6 @@ func (b Bitstream) ComponentInfo(componentId uint32) (ImageComponentInfo, error)
 // Wraps nvjpeg2kStreamGetComponentNLTInfo.
 func (b Bitstream) ComponentNLTInfo(componentId uint32) (NLTInfo, error) {
 	return StreamGetComponentNLTInfo(b, componentId)
-}
-
-// Destroy releases a bitstream handle and the metadata parsed into it.
-//
-// Wraps nvjpeg2kStreamDestroy.
-func (b Bitstream) Destroy() error {
-	return StreamDestroy(b)
 }
 
 // ImageInfo returns the image dimensions, tile grid, and component count.

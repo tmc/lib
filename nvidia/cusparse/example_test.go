@@ -19,7 +19,7 @@ func Example() {
 		fmt.Println("cuSPARSE unavailable:", err)
 		return
 	}
-	defer h.Destroy()
+	defer h.Close()
 
 	version, err := h.Version()
 	if err != nil {
@@ -36,6 +36,7 @@ func Example() {
 		fmt.Println("csr:", err)
 		return
 	}
-	defer cusparse.ConstSpMatDescr(mat).DestroySpMat()
+	desc := cusparse.ConstSpMatDescr(mat)
+	defer desc.Close()
 	fmt.Println("4x4 CSR descriptor ready")
 }

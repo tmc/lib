@@ -200,7 +200,7 @@ func (g GraphNode) SetParams(nodeParams *GraphNodeParams) error {
 	return graphNodeSetParams(g, nodeParams)
 }
 
-// DestroyNode removes a node from the graph.
+// Close removes a node from the graph.
 //
 // Removes hNode from its graph. This operation also severs any dependencies of other nodes on hNode and vice versa.
 // Nodes which belong to a graph which contains allocation or free nodes cannot be destroyed. Any attempt to do so will return an error.
@@ -210,7 +210,18 @@ func (g GraphNode) SetParams(nodeParams *GraphNodeParams) error {
 // Errors:
 //   - [ErrInvalidValue]
 //
+// If g is zero, Close returns nil. Otherwise Close sets g to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// g is zeroed: a copy of it still refers to the released object.
+//
 // Wraps cuGraphDestroyNode.
-func (g GraphNode) DestroyNode() error {
-	return graphDestroyNode(g)
+func (g *GraphNode) Close() error {
+	if *g == 0 {
+		return nil
+	}
+	if err := graphDestroyNode(*g); err != nil {
+		return err
+	}
+	*g = 0
+	return nil
 }

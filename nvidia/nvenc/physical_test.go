@@ -63,7 +63,7 @@ func physicalEncode(t *testing.T) (err error) {
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, ctx.Destroy()) }()
+	defer func() { err = errors.Join(err, ctx.Close()) }()
 	api, err := nvenc.Bind(&list)
 	if err != nil {
 		return err

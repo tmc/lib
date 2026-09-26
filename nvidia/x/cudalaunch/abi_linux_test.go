@@ -75,7 +75,7 @@ func TestArgumentABIConcurrentStreams(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("load PTX: %v", err)
 	}
-	defer dev.WithContext(mod.Unload)
+	defer dev.WithContext(mod.Close)
 
 	const streams = 4
 	var wg sync.WaitGroup

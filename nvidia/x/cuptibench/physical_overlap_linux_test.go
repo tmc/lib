@@ -54,7 +54,7 @@ func TestPhysicalWholeOverlap(t *testing.T) {
 	physicalCheck(t, err)
 	module, err := cm.Load(p.dev)
 	physicalCheck(t, err)
-	physicalClose(tb, func() error { return p.dev.WithContext(module.Unload) })
+	physicalClose(tb, func() error { return p.dev.WithContext(module.Close) })
 	owner.resources = append(owner.resources, module)
 	var kernel driver.Function
 	physicalCheck(t, p.dev.WithContext(func() error { var err error; kernel, err = module.Function("overlap_work"); return err }))

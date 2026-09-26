@@ -34,19 +34,19 @@ func TestPhysicalContraction(t *testing.T) {
 	check(err)
 	ctx, err := driver.NewContext(dev, 0)
 	check(err)
-	cleanup(ctx.Destroy)
+	cleanup(ctx.Close)
 	h, err := cutensor.Create()
 	if err != nil {
 		t.Fatal(err)
 	}
-	cleanup(h.Destroy)
+	cleanup(h.Close)
 
 	// The pinned header requires strictly positive extents. The valid
 	// contraction below also checks that rejection leaves the handle usable.
 	for _, extent := range []int64{0, -1} {
 		desc, err := h.CreateTensorDescriptor([]int64{extent}, nil, cutensor.R32F, 128)
 		if err == nil {
-			cleanup(desc.Destroy)
+			cleanup(desc.Close)
 			t.Fatalf("accepted extent %d", extent)
 		}
 		if !errors.Is(err, cutensor.ErrInvalidValue) {
@@ -65,7 +65,7 @@ func TestPhysicalContraction(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		cleanup(d.Destroy)
+		cleanup(d.Close)
 		return d
 	}
 	descA := newDesc(m, k)
@@ -83,13 +83,13 @@ func TestPhysicalContraction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cleanup(op.Destroy)
+	cleanup(op.Close)
 
 	pref, err := h.CreatePlanPreference(cutensor.AlgoDefault, cutensor.JitModeNone)
 	if err != nil {
 		t.Fatal(err)
 	}
-	cleanup(pref.Destroy)
+	cleanup(pref.Close)
 
 	wsSize, err := h.EstimateWorkspaceSize(op, pref, cutensor.WorkspaceDefault)
 	if err != nil {
@@ -99,7 +99,7 @@ func TestPhysicalContraction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cleanup(plan.Destroy)
+	cleanup(plan.Close)
 
 	a, b, c := make([]float32, m*k), make([]float32, k*n), make([]float32, m*n)
 	for i := range a {

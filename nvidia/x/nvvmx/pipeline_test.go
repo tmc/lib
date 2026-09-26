@@ -122,11 +122,11 @@ func checkSineKernel(t *testing.T, cubin []byte) {
 	check(err)
 	ctx, err := driver.NewContext(dev, 0)
 	check(err)
-	defer func() { check(ctx.Destroy()) }()
+	defer func() { check(ctx.Close()) }()
 	module, err := driver.ModuleLoadData(cubin)
 	check(err)
 	runtime.KeepAlive(cubin)
-	defer func() { check(module.Unload()) }()
+	defer func() { check(module.Close()) }()
 	fn, err := module.Function("sine")
 	check(err)
 	input := []float32{-3, -1, -0.25, 0, 0.25, 1, 3}

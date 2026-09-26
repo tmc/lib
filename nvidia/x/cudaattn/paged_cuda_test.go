@@ -37,7 +37,7 @@ func testPagedRoPEStoreAndAttention(t *testing.T, seqs int) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	defer mod.Unload()
+	defer mod.Close()
 	store, err := mod.Function("PagedRoPEStoreKV")
 	if err != nil {
 		t.Fatal(err)

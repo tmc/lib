@@ -11,9 +11,20 @@ func (n NetworkAutotunePreference) Attribute(handle Handle, attr NetworkAutotune
 	return networkAutotunePreferenceGetAttribute(handle, n, attr, buffer, sizeInBytes)
 }
 
-// Destroy wraps cutensornetDestroyNetworkAutotunePreference.
-func (n NetworkAutotunePreference) Destroy() error {
-	return destroyNetworkAutotunePreference(n)
+// Close wraps cutensornetDestroyNetworkAutotunePreference.
+//
+// If n is zero, Close returns nil. Otherwise Close sets n to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// n is zeroed: a copy of it still refers to the released object.
+func (n *NetworkAutotunePreference) Close() error {
+	if *n == 0 {
+		return nil
+	}
+	if err := destroyNetworkAutotunePreference(*n); err != nil {
+		return err
+	}
+	*n = 0
+	return nil
 }
 
 // SetAttribute wraps cutensornetNetworkAutotunePreferenceSetAttribute.

@@ -6,9 +6,9 @@ import (
 	"github.com/tmc/lib/nvidia/driver"
 )
 
-// Destroy releases hardware resources used by the cuBLASLt library.
+// Close releases hardware resources used by the cuBLASLt library.
 //
-// This function is usually the last call with a particular handle to the cuBLASLt library. Because [Create] allocates some internal resources and the release of those resources by calling [Handle.Destroy] will implicitly call cudaDeviceSynchronize(), it is recommended to minimize the number of times these functions are called.
+// This function is usually the last call with a particular handle to the cuBLASLt library. Because [Create] allocates some internal resources and the release of those resources by calling [Handle.Close] will implicitly call cudaDeviceSynchronize(), it is recommended to minimize the number of times these functions are called.
 //
 // A nil error means the cuBLASLt context was successfully destroyed.
 //
@@ -16,9 +16,20 @@ import (
 //   - [ErrInvalidValue]: lightHandle is NULL
 //   - [ErrNotInitialized]: The cuBLASLt library was not initialized.
 //
+// If h is zero, Close returns nil. Otherwise Close sets h to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// h is zeroed: a copy of it still refers to the released object.
+//
 // Wraps cublasLtDestroy.
-func (h Handle) Destroy() error {
-	return destroy(h)
+func (h *Handle) Close() error {
+	if *h == 0 {
+		return nil
+	}
+	if err := destroy(*h); err != nil {
+		return err
+	}
+	*h = 0
+	return nil
 }
 
 // Matmul computes the matrix multiplication of matrices A and B to produce the output matrix D, according to the following operation:

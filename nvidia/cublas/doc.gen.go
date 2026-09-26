@@ -73,7 +73,7 @@
 // # Lifecycle
 //
 //   - [Create]: initializes the cuBLAS library and creates a handle to an opaque structure holding the cuBLAS library context.
-//   - [Handle.Destroy]: releases hardware resources used by the cuBLAS library.
+//   - [Handle.Close]: releases hardware resources used by the cuBLAS library.
 //
 // # BLAS1
 //

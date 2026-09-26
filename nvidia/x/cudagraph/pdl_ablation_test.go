@@ -127,7 +127,7 @@ func TestPDLPositiveControl(t *testing.T) {
 	if err != nil {
 		t.Fatalf("module load failed: %v", err)
 	}
-	defer dev.WithContext(mod.Unload)
+	defer dev.WithContext(mod.Close)
 
 	pFn, err := mod.Function("producer")
 	if err != nil {
@@ -239,7 +239,7 @@ func TestPDLHardwareTimestamps(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(mod.Unload)
+	defer dev.WithContext(mod.Close)
 
 	pFn, err := mod.Function("producer_ts")
 	if err != nil {
@@ -333,7 +333,7 @@ func TestPDLAblationRun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("module load failed: %v", err)
 	}
-	defer dev.WithContext(mod.Unload)
+	defer dev.WithContext(mod.Close)
 
 	pFn, err := mod.Function("producer")
 	if err != nil {

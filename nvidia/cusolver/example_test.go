@@ -21,6 +21,6 @@ func Example() {
 		fmt.Println("create:", err)
 		return
 	}
-	defer h.Destroy()
+	defer h.Close()
 	fmt.Println("dense handle ready")
 }

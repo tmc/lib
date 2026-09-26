@@ -74,7 +74,7 @@ func testFP8GEMV(t *testing.T, threads uint32) {
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
-	defer mod.Unload()
+	defer mod.Close()
 	fn, err := mod.Function("ScaledFP8GEMV")
 	if err != nil {
 		t.Fatal(err)

@@ -15,8 +15,8 @@
 //   - [CreateGenerator]: Create new random number generator.
 //   - [CreateGeneratorHost]: Create new host CPU random number generator.
 //   - [CreatePoissonDistribution]: Construct the histogram array for a Poisson distribution.
-//   - [DiscreteDistribution.DestroyDistribution]: Destroy the histogram array for a discrete distribution (e.g. Poisson).
-//   - [Generator.Destroy]: Destroy an existing generator.
+//   - [DiscreteDistribution.Close]: Destroy the histogram array for a discrete distribution (e.g. Poisson).
+//   - [Generator.Close]: Destroy an existing generator.
 //
 // # Random Number Generation
 //

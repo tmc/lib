@@ -38,7 +38,7 @@ func TestDriverJITDiagnostics(t *testing.T) {
 			mod, log, err := cm.LoadOutputWithLog(dev, OutputPTX)
 			if mod != 0 {
 				defer func() {
-					if err := dev.WithContext(mod.Unload); err != nil {
+					if err := dev.WithContext(mod.Close); err != nil {
 						t.Error(err)
 					}
 				}()
@@ -237,6 +237,6 @@ func TestPhysicalArchEmitsCUBINAndPTX(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load sm_%d%d with OutputAuto: %v", major, minor, err)
 	}
-	defer dev.WithContext(mod.Unload)
+	defer dev.WithContext(mod.Close)
 	t.Logf("Load succeeded on device with no driver JIT error!")
 }

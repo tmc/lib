@@ -2,11 +2,22 @@
 
 package cusparse
 
-// DestroyDnMat releases the host memory allocated for the dense matrix descriptor dnMatDescr.
+// Close releases the host memory allocated for the dense matrix descriptor dnMatDescr.
+//
+// If c is zero, Close returns nil. Otherwise Close sets c to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// c is zeroed: a copy of it still refers to the released object.
 //
 // Wraps cusparseDestroyDnMat.
-func (c ConstDnMatDescr) DestroyDnMat() error {
-	return destroyDnMat(c)
+func (c *ConstDnMatDescr) Close() error {
+	if *c == 0 {
+		return nil
+	}
+	if err := destroyDnMat(*c); err != nil {
+		return err
+	}
+	*c = 0
+	return nil
 }
 
 // DnMatGet returns the fields of the dense matrix descriptor dnMatDescr.

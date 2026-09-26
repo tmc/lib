@@ -2,9 +2,20 @@
 
 package cudensitymat
 
-// Destroy destroys a workspace descriptor.
+// Close destroys a workspace descriptor.
+//
+// If w is zero, Close returns nil. Otherwise Close sets w to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// w is zeroed: a copy of it still refers to the released object.
 //
 // Wraps cudensitymatDestroyWorkspace.
-func (w WorkspaceDescriptor) Destroy() error {
-	return destroyWorkspace(w)
+func (w *WorkspaceDescriptor) Close() error {
+	if *w == 0 {
+		return nil
+	}
+	if err := destroyWorkspace(*w); err != nil {
+		return err
+	}
+	*w = 0
+	return nil
 }

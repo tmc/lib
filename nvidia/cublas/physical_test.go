@@ -74,7 +74,7 @@ func setup(t *testing.T) cublas.Handle {
 		t.Skipf("cuBLAS unavailable: %v", err)
 	}
 	t.Cleanup(func() {
-		if err := h.Destroy(); err != nil {
+		if err := h.Close(); err != nil {
 			t.Errorf("destroy handle: %v", err)
 		}
 	})

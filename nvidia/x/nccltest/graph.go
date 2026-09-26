@@ -119,7 +119,7 @@ func closeGraphs(states []rankState, graphs []rankGraph) error {
 				result = errors.Join(result, err)
 				continue
 			}
-			if err := g.executable.Destroy(); err != nil {
+			if err := g.executable.Close(); err != nil {
 				result = errors.Join(result, err)
 				continue
 			}

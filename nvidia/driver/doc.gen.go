@@ -26,7 +26,7 @@
 //   - [NewArray3D]: Creates a 3D CUDA array.
 //   - [Array.Get3DDescriptor]: Get a 3D CUDA array descriptor.
 //   - [NewArray]: Creates a 1D or 2D CUDA array.
-//   - [Array.Destroy]: Destroys a CUDA array.
+//   - [Array.Close]: Destroys a CUDA array.
 //   - [Array.Descriptor]: Get a 1D or 2D CUDA array descriptor.
 //   - [Array.MemoryRequirements]: Returns the memory requirements of a CUDA array.
 //   - [Array.Plane]: Gets a CUDA array plane from a CUDA array.
@@ -56,7 +56,7 @@
 //
 //   - [CtxAttach]: Increment a context’s usage-count.
 //   - [NewContext]: Create a CUDA context.
-//   - [Context.Destroy]: Destroy a CUDA context.
+//   - [Context.Close]: Destroy a CUDA context.
 //   - [Context.Detach]: Decrement a context’s usage-count.
 //   - [Context.DisablePeerAccess]: Disables direct access to memory allocations in a peer context and unregisters any registered allocations.
 //   - [Context.EnablePeerAccess]: Enables direct access to memory allocations in a peer context.
@@ -86,7 +86,7 @@
 //   - [Context.SynchronizeV2]: Block for the specified context’s tasks to complete.
 //   - [Context.WaitEvent]: Make a context wait on an event.
 //   - [NewGreenCtx]: Creates a green context with a specified set of resources.
-//   - [GreenCtx.Destroy]: Destroys a green context.
+//   - [GreenCtx.Close]: Destroys a green context.
 //   - [GreenCtx.DevResource]: Get green context resources.
 //   - [GreenCtx.Id]: Returns the unique Id associated with the green context supplied.
 //   - [GreenCtx.RecordEvent]: Records an event.
@@ -95,8 +95,8 @@
 //
 // # External Resources
 //
-//   - [ExternalMemory.Destroy]: Destroys an external memory object.
-//   - [ExternalSemaphore.Destroy]: Destroys an external semaphore.
+//   - [ExternalMemory.Close]: Destroys an external memory object.
+//   - [ExternalSemaphore.Close]: Destroys an external semaphore.
 //   - [ExternalMemory.MappedBuffer]: Maps a buffer onto an imported memory object.
 //   - [ExternalMemory.MappedMipmappedArray]: Maps a CUDA mipmapped array onto an external memory object.
 //   - [ImportExternalMemory]: Imports an external memory object.
@@ -150,7 +150,7 @@
 // # Event Management
 //
 //   - [NewEvent]: Creates an event.
-//   - [Event.Destroy]: Destroys an event.
+//   - [Event.Close]: Destroys an event.
 //   - [Event.ElapsedTime]: Computes the elapsed time between two events.
 //   - [Event.Query]: Queries an event’s status.
 //   - [Event.Record]: Records an event.
@@ -201,14 +201,14 @@
 //   - [NewGraph]: Creates a graph.
 //   - [Graph.DebugDotPrint]: Write a DOT file describing graph structure.
 //   - [Graph.Destroy]: Destroys a graph.
-//   - [GraphNode.DestroyNode]: Remove a node from the graph.
+//   - [GraphNode.Close]: Remove a node from the graph.
 //   - [EventRecordNode.Event]: Returns the event associated with an event record node.
 //   - [EventRecordNode.SetEvent]: Sets an event record node’s event.
 //   - [EventWaitNode.Event]: Returns the event associated with an event wait node.
 //   - [EventWaitNode.SetEvent]: Sets an event wait node’s event.
 //   - [GraphExec.BatchMemOpNodeSetParams]: Sets the parameters for a batch mem op node in the given graphExec.
 //   - [GraphExec.ChildGraphNodeSetParams]: Updates node parameters in the child graph node in the given graphExec.
-//   - [GraphExec.Destroy]: Destroys an executable graph.
+//   - [GraphExec.Close]: Destroys an executable graph.
 //   - [GraphExec.EventRecordNodeSetEvent]: Sets the event for an event record node in the given graphExec.
 //   - [GraphExec.EventWaitNodeSetEvent]: Sets the event for an event wait node in the given graphExec.
 //   - [GraphExec.ExternalSemaphoresSignalNodeSetParams]: Sets the parameters for an external semaphore signal node in the given graphExec.
@@ -266,7 +266,7 @@
 //   - [GraphicsResource.SetMapFlags]: Set usage flags for mapping a graphics resource.
 //   - [GraphicsResource.SubResourceGetMappedArray]: Get an array through which to access a subresource of a mapped graphics resource.
 //   - [Stream.GraphicsUnmapResources]: Unmap graphics resources.
-//   - [GraphicsResource.UnregisterResource]: Unregisters a graphics resource for access by CUDA.
+//   - [GraphicsResource.Close]: Unregisters a graphics resource for access by CUDA.
 //
 // # Initialization
 //
@@ -313,7 +313,7 @@
 //   - [Library.UnifiedFunction]: Returns a pointer to a unified function.
 //   - [LibraryLoadData]: Load a library with specified code and options.
 //   - [LibraryLoadFromFile]: Load a library with specified file and options.
-//   - [Library.Unload]: Unloads a library.
+//   - [Library.Close]: Unloads a library.
 //
 // # Linker
 //
@@ -321,7 +321,7 @@
 //   - [LinkState.AddFile]: Add a file input to a pending linker invocation.
 //   - [LinkState.Complete]: Complete a pending linker invocation.
 //   - [LinkCreate]: Creates a pending JIT linker invocation.
-//   - [LinkState.Destroy]: Destroys state for a JIT linker invocation.
+//   - [LinkState.Close]: Destroys state for a JIT linker invocation.
 //
 // # Virtual Memory Management
 //
@@ -417,7 +417,7 @@
 // # Memory Pools
 //
 //   - [NewMemoryPool]: Creates a memory pool.
-//   - [MemoryPool.Destroy]: Destroys the specified memory pool.
+//   - [MemoryPool.Close]: Destroys the specified memory pool.
 //   - [DevicePtr.MemPoolExportPointer]: Export data to share a memory pool allocation between processes.
 //   - [MemoryPool.ExportToShareableHandle]: Exports a memory pool to the requested handle type.
 //   - [MemoryPool.Access]: Returns the accessibility of a pool from a device.
@@ -431,7 +431,7 @@
 // # Texture Management
 //
 //   - [NewMipmappedArray]: Creates a CUDA mipmapped array.
-//   - [MipmappedArray.Destroy]: Destroys a CUDA mipmapped array.
+//   - [MipmappedArray.Close]: Destroys a CUDA mipmapped array.
 //   - [MipmappedArray.Level]: Gets a mipmap level of a CUDA mipmapped array.
 //   - [MipmappedArray.MemoryRequirements]: Returns the memory requirements of a CUDA mipmapped array.
 //   - [MipmappedArray.SparseProperties]: Returns the layout properties of a sparse CUDA mipmapped array.
@@ -441,7 +441,7 @@
 //   - [TexObjectGetResourceViewDesc]: Returns a texture object’s resource view descriptor.
 //   - [TexObjectGetTextureDesc]: Returns a texture object’s texture descriptor.
 //   - [NewTexRef]: Creates a texture reference.
-//   - [TexRef.Destroy]: Destroys a texture reference.
+//   - [TexRef.Close]: Destroys a texture reference.
 //   - [TexRef.Address]: Gets the address associated with a texture reference.
 //   - [TexRef.AddressMode]: Gets the addressing mode used by a texture reference.
 //   - [TexRef.Array]: Gets the array bound to a texture reference.
@@ -481,7 +481,7 @@
 //   - [ModuleLoadData]: Load a module’s data.
 //   - [ModuleLoadDataEx]: Load a module’s data with options.
 //   - [ModuleLoadFatBinary]: Load a module’s data.
-//   - [Module.Unload]: Unloads a module.
+//   - [Module.Close]: Unloads a module.
 //
 // # Multicast
 //
@@ -514,7 +514,7 @@
 //   - [Stream.CopyAttributes]: Copies attributes from source stream to destination stream.
 //   - [NewStream]: Create a stream.
 //   - [StreamCreateWithPriority]: Create a stream with the given priority.
-//   - [Stream.Destroy]: Destroys a stream.
+//   - [Stream.Close]: Destroys a stream.
 //   - [Stream.EndCapture]: Ends capture on a stream, returning the captured graph.
 //   - [Stream.EndCaptureToCig]: Ends CIG capture on a stream.
 //   - [Stream.Attribute]: Queries stream attribute.
@@ -568,7 +568,7 @@
 //   - [LogsDumpToFile]: Dump accumulated driver logs into a file.
 //   - [LogsDumpToMemory]: Dump accumulated driver logs into a buffer.
 //   - [LogsRegisterCallback]: Register a callback function to receive error log messages.
-//   - [LogsCallbackHandle.UnregisterCallback]: Unregister a log message callback.
+//   - [LogsCallbackHandle.Close]: Unregister a log message callback.
 //   - [Function.ParamSetSize]: Sets the parameter size for the function.
 //   - [Function.ParamSetTexRef]: Adds a texture-reference to the function’s argument list.
 //   - [Function.ParamSetf]: Adds a floating-point parameter to the function’s argument list.

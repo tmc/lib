@@ -6,6 +6,27 @@ import (
 	"github.com/tmc/lib/nvidia/driver"
 )
 
+// Close frees all resources related to the provided library handle.
+//
+// Remark:
+// blocking, no reentrant, and thread-safe
+//
+// If h is zero, Close returns nil. Otherwise Close sets h to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// h is zeroed: a copy of it still refers to the released object.
+//
+// Wraps cutensorDestroy.
+func (h *Handle) Close() error {
+	if *h == 0 {
+		return nil
+	}
+	if err := destroy(*h); err != nil {
+		return err
+	}
+	*h = 0
+	return nil
+}
+
 // Contract computes the tensor contraction D=alpha*A*B+beta*C.
 //
 // D_(modes_(D))←α*A_(modes_(A))B_(modes_(B))+βC_(modes_(C))
@@ -74,7 +95,7 @@ func (h Handle) ContractTrinary(plan Plan, alpha Scalar, a driver.DevicePtr, b d
 // Allocates data for desc to be used to perform a tensor contraction of the form
 // D_(modes_(D))←αop_(A)(A_(modes_(A)))op_(B)(B_(modes_(B)))+βop_(C)(C_(modes_(C))).
 // See [Handle.CreatePlan] (or cutensorCreatePlanAutotuned) to create the plan (i.e., to select the kernel) followed by a call to [Handle.Contract] to perform the actual contraction.
-// The user is responsible for calling [OperationDescriptor.Destroy] to free the resources associated with the descriptor.
+// The user is responsible for calling [OperationDescriptor.Close] to free the resources associated with the descriptor.
 // Supported data-type combinations are:
 //
 //   - desc: This opaque struct gets allocated and filled with the information that encodes the tensor contraction operation
@@ -111,7 +132,7 @@ func (h Handle) CreateContraction(descA TensorDescriptor, modeA []int32, opA Ope
 // Allocates data for desc to be used to perform a tensor contraction of the form
 // E_(modes_(E))←αop_(A)(A_(modes_(A)))op_(B)(B_(modes_(B)))op_(C)(C_(modes_(C)))+βop_(D)(D_(modes_(D))).
 // See [Handle.CreatePlan] (or cutensorCreatePlanAutotuned) to create the plan (i.e., to select the kernel) followed by a call to [Handle.ContractTrinary] to perform the actual contraction.
-// The user is responsible for calling [OperationDescriptor.Destroy] to free the resources associated with the descriptor.
+// The user is responsible for calling [OperationDescriptor.Close] to free the resources associated with the descriptor.
 // The performance improvements due to this API are currently especially high if your data resides on the host (i.e. out-of-core), targeting Grace-based systems.
 // Supported data-type combinations are:
 //
@@ -218,7 +239,7 @@ func (h Handle) CreateElementwiseBinary(descA TensorDescriptor, modeA []int32, o
 //   - D_(a,b,c,d)=min((2.2*A_(b,d,a,c)+1.3*B_(c,b,d,a)),C_(a,b,c,d))
 //
 // Call [Handle.ElementwiseTrinaryExecute] to perform the actual operation.
-// Please use [OperationDescriptor.Destroy] to deallocated the descriptor once it is no longer used.
+// Please use [OperationDescriptor.Close] to deallocated the descriptor once it is no longer used.
 // Supported data-type combinations are:
 //   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_16F
 //   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_32F
@@ -401,7 +422,7 @@ func (h Handle) CreateReduction(descA TensorDescriptor, modeA []int32, opA Opera
 // CreateTensorDescriptor creates a tensor descriptor.
 //
 // This allocates a small amount of host-memory.
-// The user is responsible for calling [TensorDescriptor.Destroy] to free the associated resources once the tensor descriptor is no longer used.
+// The user is responsible for calling [TensorDescriptor.Close] to free the associated resources once the tensor descriptor is no longer used.
 //
 //   - desc: Pointer to the address where the allocated tensor descriptor object will be stored
 //   - numModes: Number of modes
@@ -418,16 +439,6 @@ func (h Handle) CreateReduction(descA TensorDescriptor, modeA []int32, opA Opera
 // Wraps cutensorCreateTensorDescriptor.
 func (h Handle) CreateTensorDescriptor(extent []int64, stride []int64, dataType DataType, alignmentRequirement uint32) (TensorDescriptor, error) {
 	return createTensorDescriptor(h, extent, stride, dataType, alignmentRequirement)
-}
-
-// Destroy frees all resources related to the provided library handle.
-//
-// Remark:
-// blocking, no reentrant, and thread-safe
-//
-// Wraps cutensorDestroy.
-func (h Handle) Destroy() error {
-	return destroy(h)
 }
 
 // ElementwiseBinaryExecute performs an element-wise tensor operation for two input tensors (see [Handle.CreateElementwiseBinary])

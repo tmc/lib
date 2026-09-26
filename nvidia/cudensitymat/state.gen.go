@@ -32,6 +32,24 @@ func (s State) AttachComponentStorage(handle Handle, numStateComponents int32, c
 	return stateAttachComponentStorage(handle, s, numStateComponents, componentBuffer, componentBufferSize)
 }
 
+// Close destroys the quantum state.
+//
+// If s is zero, Close returns nil. Otherwise Close sets s to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// s is zeroed: a copy of it still refers to the released object.
+//
+// Wraps cudensitymatDestroyState.
+func (s *State) Close() error {
+	if *s == 0 {
+		return nil
+	}
+	if err := destroyState(*s); err != nil {
+		return err
+	}
+	*s = 0
+	return nil
+}
+
 // ComponentInfo queries information for a locally stored component tensor which represents either the full component or its slice (on the current process in multi-process runs).
 //
 // This API function queries the global component id
@@ -156,13 +174,6 @@ func (s State) ComputeScaling(handle Handle, scalingFactors uintptr, stream driv
 // Wraps cudensitymatStateComputeTrace.
 func (s State) ComputeTrace(handle Handle, trace uintptr, stream driver.Stream) error {
 	return stateComputeTrace(handle, s, trace, stream)
-}
-
-// Destroy destroys the quantum state.
-//
-// Wraps cudensitymatDestroyState.
-func (s State) Destroy() error {
-	return destroyState(s)
 }
 
 // InitializeZero initializes the quantum state to zero (null state).

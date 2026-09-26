@@ -79,7 +79,7 @@
 // # Library handle
 //
 //   - [NewHandle]: Initializes the cuBLASMp library handle.
-//   - [Handle.Destroy]: Destroys the cuBLASMp library handle.
+//   - [Handle.Close]: Destroys the cuBLASMp library handle.
 //   - [Handle.Stream]: Gets the current CUDA stream used by the cuBLASMp library.
 //   - [GetVersion]: Returns the version number of the cuBLASMp library.
 //   - [Handle.SetStream]: Sets the CUDA stream for cuBLASMp computations.
@@ -92,7 +92,7 @@
 // # Matrix descriptors
 //
 //   - [NewMatrixDescriptor]: Creates and initializes a matrix descriptor.
-//   - [MatrixDescriptor.Destroy]: Destroys a matrix descriptor.
+//   - [MatrixDescriptor.Close]: Destroys a matrix descriptor.
 //   - [MatrixDescriptor.Init]: Initializes the values of an existing matrix descriptor.
 //
 // [cuBLASMp documentation]: https://docs.nvidia.com/cuda/cublasmp/

@@ -77,7 +77,7 @@ func TestPhysicalInitAll(t *testing.T) {
 				}},
 				{"stream", func() error {
 					if streams[i] != 0 {
-						return streams[i].Destroy()
+						return streams[i].Close()
 					}
 					return nil
 				}},

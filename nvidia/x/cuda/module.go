@@ -48,7 +48,7 @@ func (m *Module) Close() error {
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.close(m.ctx.Run, driver.CtxSynchronize, m.raw.Unload, m.ctx.Release)
+	return m.close(m.ctx.Run, driver.CtxSynchronize, m.raw.Close, m.ctx.Release)
 }
 
 // close releases resources in order. The caller holds m.mu.

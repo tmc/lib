@@ -89,7 +89,7 @@
 //   - [NewCommunicator]: Create communicator.
 //   - [Communicator.Destroy]: releases communicator.
 //   - [Create]: creates a cuStateVec library handle bound to the current CUDA device.
-//   - [Handle.Destroy]: releases a handle and the resources it owns.
+//   - [Handle.Close]: releases a handle and the resources it owns.
 //   - [NewDistIndexBitSwapScheduler]: Create distributed index bit swap scheduler.
 //   - [DistIndexBitSwapScheduler.Destroy]: releases distributed index bit swap scheduler.
 //   - [DistIndexBitSwapScheduler.Parameters]: Get parameters to be set to the state vector swap worker

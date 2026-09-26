@@ -2,9 +2,9 @@
 
 package driver
 
-// Destroy destroys the specified memory pool.
+// Close destroys the specified memory pool.
 //
-// If any pointers obtained from this pool haven’t been freed or the pool has free operations that haven’t completed when [MemoryPool.Destroy] is invoked, the function will return immediately and the resources associated with the pool will be released automatically once there are no more outstanding allocations.
+// If any pointers obtained from this pool haven’t been freed or the pool has free operations that haven’t completed when [MemoryPool.Close] is invoked, the function will return immediately and the resources associated with the pool will be released automatically once there are no more outstanding allocations.
 // Destroying the current mempool of a device sets the default mempool of that device as the current mempool for that device.
 //
 // Note: A device’s default memory pool cannot be destroyed.
@@ -14,9 +14,20 @@ package driver
 // Errors:
 //   - [ErrInvalidValue]
 //
+// If m is zero, Close returns nil. Otherwise Close sets m to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// m is zeroed: a copy of it still refers to the released object.
+//
 // Wraps cuMemPoolDestroy.
-func (m MemoryPool) Destroy() error {
-	return memPoolDestroy(m)
+func (m *MemoryPool) Close() error {
+	if *m == 0 {
+		return nil
+	}
+	if err := memPoolDestroy(*m); err != nil {
+		return err
+	}
+	*m = 0
+	return nil
 }
 
 // ExportToShareableHandle exports a memory pool to the requested handle type.
@@ -222,7 +233,7 @@ func (m MemoryPool) MemAllocFromPoolAsyncBytes(bytesize uint, hStream Stream) (D
 //
 // Note: Use [MemoryPool.MemAllocFromPoolAsync] to specify asynchronous allocations from a device different than the one the stream runs on.
 //
-// See also: [Device.DefaultMemPool], [Device.MemPool], [MemGetMemPool], [NewMemoryPool], [MemoryPool.Destroy], [MemoryPool.MemAllocFromPoolAsync]
+// See also: [Device.DefaultMemPool], [Device.MemPool], [MemGetMemPool], [NewMemoryPool], [MemoryPool.Close], [MemoryPool.MemAllocFromPoolAsync]
 //
 // Errors:
 //   - [ErrInvalidValue]

@@ -10,7 +10,18 @@ func NewConfig() (Config, error) {
 	return ConfigCreate()
 }
 
-// Destroy wraps cudssConfigDestroy.
-func (c Config) Destroy() error {
-	return ConfigDestroy(c)
+// Close wraps cudssConfigDestroy.
+//
+// If c is zero, Close returns nil. Otherwise Close sets c to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// c is zeroed: a copy of it still refers to the released object.
+func (c *Config) Close() error {
+	if *c == 0 {
+		return nil
+	}
+	if err := ConfigDestroy(*c); err != nil {
+		return err
+	}
+	*c = 0
+	return nil
 }

@@ -23,11 +23,11 @@
 //   - [Handle.CreatePlanPreference]: Allocates the [PlanPreference], enabling users to limit the applicable kernels for a given plan/operation.
 //   - [Handle.CreateReduction]: Creates a cutensorOperatorDescriptor_t object that encodes a tensor reduction of the form D=alpha*opReduce(opA(A))+beta*opC(C).
 //   - [Handle.CreateTensorDescriptor]: Creates a tensor descriptor.
-//   - [Handle.Destroy]: Frees all resources related to the provided library handle.
-//   - [OperationDescriptor.Destroy]: Frees all resources related to the provided descriptor.
-//   - [Plan.Destroy]: Frees all resources related to the provided plan.
-//   - [PlanPreference.Destroy]: Frees all resources related to the provided preference.
-//   - [TensorDescriptor.Destroy]: Frees all resources related to the provided tensor descriptor.
+//   - [Handle.Close]: Frees all resources related to the provided library handle.
+//   - [OperationDescriptor.Close]: Frees all resources related to the provided descriptor.
+//   - [Plan.Close]: Frees all resources related to the provided plan.
+//   - [PlanPreference.Close]: Frees all resources related to the provided preference.
+//   - [TensorDescriptor.Close]: Frees all resources related to the provided tensor descriptor.
 //
 // # Elementwise Operations
 //

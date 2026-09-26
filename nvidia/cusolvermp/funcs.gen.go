@@ -100,7 +100,7 @@ func fnNUMROC(a0 int64, a1 int64, a2 uint32, a3 uint32, a4 uint32) int64 {
 // Each rank creates its own handle for the device it owns, and that
 // binding is fixed for the life of the handle. A handle is not portable
 // between ranks or devices, is not safe for concurrent use, and must be
-// destroyed with [Handle.Destroy] by the rank that created it.
+// destroyed with [Handle.Close] by the rank that created it.
 //
 // The handle does not own the stream. The caller keeps the stream valid
 // until the handle is destroyed.
@@ -131,7 +131,7 @@ func Create(deviceId int32, stream driver.Stream) (Handle, error) {
 //
 // The grid borrows comm. It does not take ownership: the caller keeps the
 // communicator alive until every grid built on it has been destroyed with
-// [Grid.Destroy], and destroys the communicator afterwards.
+// [Grid.Close], and destroys the communicator afterwards.
 //
 //   - comm: initialized NCCL communicator whose rank count is numRowDevices*numColDevices; borrowed, not owned
 //   - numRowDevices: number of process rows
@@ -166,7 +166,7 @@ func CreateDeviceGrid(handle Handle, comm nccl.Comm, numRowDevices int32, numCol
 //
 // The descriptor borrows grid and does not own the matrix memory. The
 // caller keeps both alive until the descriptor is destroyed with
-// [MatrixDescriptor.Destroy]. The call is collective and every rank must pass
+// [MatrixDescriptor.Close]. The call is collective and every rank must pass
 // identical global arguments.
 //
 //   - dataType: element type of the matrix

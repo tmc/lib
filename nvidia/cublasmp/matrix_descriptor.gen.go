@@ -33,13 +33,24 @@ func NewMatrixDescriptor(m int64, n int64, mb int64, nb int64, rsrc int64, csrc 
 	return MatrixDescriptorCreate(m, n, mb, nb, rsrc, csrc, lld, type_, grid)
 }
 
-// Destroy destroys a matrix descriptor.
+// Close destroys a matrix descriptor.
 //
 // This function destroys a [MatrixDescriptor] object.
 //
+// If m is zero, Close returns nil. Otherwise Close sets m to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// m is zeroed: a copy of it still refers to the released object.
+//
 // Wraps cublasMpMatrixDescriptorDestroy.
-func (m MatrixDescriptor) Destroy() error {
-	return MatrixDescriptorDestroy(m)
+func (m *MatrixDescriptor) Close() error {
+	if *m == 0 {
+		return nil
+	}
+	if err := MatrixDescriptorDestroy(*m); err != nil {
+		return err
+	}
+	*m = 0
+	return nil
 }
 
 // Init initializes the values of an existing matrix descriptor.

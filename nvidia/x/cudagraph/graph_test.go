@@ -65,7 +65,7 @@ func TestGraphReplayOutputAndLifetime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(mod.Unload)
+	defer dev.WithContext(mod.Close)
 	fn, err := mod.Function("increment")
 	if err != nil {
 		t.Fatal(err)
@@ -294,7 +294,7 @@ func TestGraphCaptureWithPDL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(mod.Unload)
+	defer dev.WithContext(mod.Close)
 	fn, err := mod.Function("increment")
 	if err != nil {
 		t.Fatal(err)

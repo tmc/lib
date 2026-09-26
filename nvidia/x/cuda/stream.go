@@ -220,7 +220,7 @@ func (s *Stream) Destroy() error {
 		}
 		return nil
 	}
-	if err := s.device.WithContext(s.raw.Destroy); err != nil {
+	if err := s.device.WithContext(s.raw.Close); err != nil {
 		s.lifeMu.Unlock()
 		return fmt.Errorf("cuda: stream destroy: %w", err)
 	}

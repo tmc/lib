@@ -44,6 +44,26 @@ func NewHandleWithAllocatorsV2(backend Backend, devAllocator *DeviceAllocatorV2,
 	return CreateV2(backend, devAllocator, pinnedAllocator)
 }
 
+// Close releases a library handle and the resources it owns.
+//
+// Destroy every decode state, bitstream, and decode parameters handle created from this handle first. Handles are not finalized automatically; a dropped handle leaks.
+//
+// If h is zero, Close returns nil. Otherwise Close sets h to zero
+// when the call succeeds and leaves it unchanged when it fails. Only
+// h is zeroed: a copy of it still refers to the released object.
+//
+// Wraps nvjpeg2kDestroy.
+func (h *Handle) Close() error {
+	if *h == 0 {
+		return nil
+	}
+	if err := Destroy(*h); err != nil {
+		return err
+	}
+	*h = 0
+	return nil
+}
+
 // Decode decodes a whole image into caller-allocated device buffers.
 //
 // Decodes a single image and writes it to the output device buffers. The
@@ -107,15 +127,6 @@ func (h Handle) DecodeImage(decodeState DecodeState, jpeg2kStream Bitstream, dec
 // Wraps nvjpeg2kDecodeTile.
 func (h Handle) DecodeTile(decodeState DecodeState, jpeg2kStream Bitstream, decodeParams DecodeParams, tileId uint32, numResLevels uint32, decodeOutput *Image, stream driver.Stream) error {
 	return DecodeTile(h, decodeState, jpeg2kStream, decodeParams, tileId, numResLevels, decodeOutput, stream)
-}
-
-// Destroy releases a library handle and the resources it owns.
-//
-// Destroy every decode state, bitstream, and decode parameters handle created from this handle first. Handles are not finalized automatically; a dropped handle leaks.
-//
-// Wraps nvjpeg2kDestroy.
-func (h Handle) Destroy() error {
-	return Destroy(h)
 }
 
 // DeviceMemoryPadding returns the current device allocation padding in bytes.

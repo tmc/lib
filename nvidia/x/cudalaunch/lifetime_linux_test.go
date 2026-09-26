@@ -48,7 +48,7 @@ func loadLifetimeKernel(t *testing.T, dev *cuda.Device) (driver.Module, driver.F
 		t.Fatalf("load PTX: %v", err)
 	}
 	t.Cleanup(func() {
-		if err := dev.WithContext(mod.Unload); err != nil {
+		if err := dev.WithContext(mod.Close); err != nil {
 			t.Errorf("Unload: %v", err)
 		}
 	})
