@@ -73,10 +73,11 @@ func TestParseIterationsArgs(t *testing.T) {
 		want    iterationsOptions
 		wantErr string
 	}{
-		{"defaults", []string{"-iteration-marker=^Embed$", "c.pprof"}, iterationsOptions{marker: "^Embed$", skip: 1, kernels: 15}, ""},
-		{"all", []string{"-iteration-marker", "step", "-nvtx", "-skip-iterations=2", "-expect-markers=11", "-json", "c.pprof"}, iterationsOptions{marker: "step", nvtx: true, skip: 2, expect: 11, json: true, kernels: 15}, ""},
-		{"perf", []string{"-iteration-marker=x", "-perf=h.txt", "c.pprof"}, iterationsOptions{marker: "x", skip: 1, kernels: 15, perfPath: "h.txt", gaps: time.Millisecond}, ""},
-		{"gaps", []string{"-iteration-marker=x", "-gaps=2us", "-perf=h.txt", "c.pprof"}, iterationsOptions{marker: "x", skip: 1, kernels: 15, perfPath: "h.txt", gaps: 2 * time.Microsecond}, ""},
+		{"defaults", []string{"-iteration-marker=^Embed$", "c.pprof"}, iterationsOptions{marker: "^Embed$", skip: 1, kernels: 15, opsPath: defaultOps}, ""},
+		{"all", []string{"-iteration-marker", "step", "-nvtx", "-skip-iterations=2", "-expect-markers=11", "-json", "c.pprof"}, iterationsOptions{marker: "step", nvtx: true, skip: 2, expect: 11, json: true, kernels: 15, opsPath: defaultOps}, ""},
+		{"perf", []string{"-iteration-marker=x", "-perf=h.txt", "c.pprof"}, iterationsOptions{marker: "x", skip: 1, kernels: 15, perfPath: "h.txt", gaps: time.Millisecond, opsPath: defaultOps}, ""},
+		{"gaps", []string{"-iteration-marker=x", "-gaps=2us", "-perf=h.txt", "c.pprof"}, iterationsOptions{marker: "x", skip: 1, kernels: 15, perfPath: "h.txt", gaps: 2 * time.Microsecond, opsPath: defaultOps}, ""},
+		{"no ops", []string{"-iteration-marker=x", "-ops=", "c.pprof"}, iterationsOptions{marker: "x", skip: 1, kernels: 15}, ""},
 		{"negative gaps", []string{"-iteration-marker=x", "-gaps=-1ms", "c.pprof"}, iterationsOptions{}, "invalid -gaps"},
 		{"no marker", []string{"c.pprof"}, iterationsOptions{}, "-iteration-marker is required"},
 		{"negative skip", []string{"-iteration-marker=x", "-skip-iterations=-1", "c.pprof"}, iterationsOptions{}, "invalid -skip-iterations -1"},

@@ -160,6 +160,11 @@ string (`"a b"` or `` `a\s+b` ``), and `#` starts a comment. Kernels no rule mat
 	mul_mat_q|gemm      matmul
 	flash_attn|fattn    attention
 
+`-ops=default` uses the built-in groups in [defaultops.txt](defaultops.txt):
+optimizer, attention, softmax, gemm, rope, layernorm, loss, mask,
+activation, copy, reduce, gather, elementwise and other, for the kernel
+names of MLX, cuBLAS and cuBLASLt (nvjet), CUTLASS, MAGMA and cuDNN.
+
 `-stages` names positions in a repeating sequence, such as the stages of a
 model layer. Same line format; the boundaries are matched in file order,
 cyclically, and each kernel is charged to the stage whose boundary it last
@@ -219,7 +224,8 @@ marker i to marker i+1; the time after the last marker is not an
 iteration. The first `-skip-iterations` (default 1) are warm-up, and the
 rest are the steady state, reported per iteration: window, busy and idle,
 exclusive kernel, memcpy and memset time, launches, the ops of `-ops`
-(the file compare reads), the top kernels, and every host API call made.
+(the file compare reads; the built-in groups by default, and each kernel
+its own op with `-ops=`), the top kernels, and every host API call made.
 A record overlapping a marker is split between the iterations it
 overlaps; it is launched in the one it starts in.
 A capture made with `--memsets=false` has no memset records, so their

@@ -191,7 +191,7 @@ func parseCompareArgs(rawArgs []string, stdout io.Writer) (compareOptions, []str
 	fs := flag.NewFlagSet("compare", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	fs.IntVar(&opts.phase, "phase", -1, "index of the capture-range phase to compare, required when a capture has several")
-	fs.StringVar(&opts.opsPath, "ops", "", "file of `regex op` lines mapping kernel names to ops")
+	fs.StringVar(&opts.opsPath, "ops", "", "file of `regex op` lines mapping kernel names to ops, or \"default\" for the built-in groups")
 	fs.StringVar(&opts.stagesPath, "stages", "", "file of `regex stage` lines naming the boundaries of a repeating sequence of stages")
 	fs.BoolVar(&opts.stageEntries, "stage-entries", false, "also report each entry of each stage, in the order entered; refused when a stage's entry counts differ")
 	fs.BoolVar(&opts.json, "json", false, "write the comparison as JSON")
@@ -249,10 +249,14 @@ func parseCompareArgs(rawArgs []string, stdout io.Writer) (compareOptions, []str
 	return opts, fs.Args(), nil
 }
 
-// readOpRules reads a rules file, or returns nil rules for an empty path.
+// readOpRules reads a rules file, or returns nil rules for an empty path and
+// the built-in rules for "default".
 func readOpRules(path string) (opRules, error) {
 	if path == "" {
 		return nil, nil
+	}
+	if path == defaultOps {
+		return parseDefaultOpRules()
 	}
 	f, err := os.Open(path)
 	if err != nil {

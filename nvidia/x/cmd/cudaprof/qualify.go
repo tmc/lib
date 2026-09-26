@@ -194,7 +194,7 @@ func parseQualifyArgs(args []string, stdout io.Writer) (qualifyOptions, error) {
 	fs.IntVar(&opts.minBlocks, "min-blocks", 0, "the fewest blocks the verdict may be scored from after exclusions; 0 means every block")
 	fs.Int64Var(&opts.gaps.maxRecords, "max-records", opts.gaps.maxRecords, "maximum journal records to decode per capture")
 	fs.BoolVar(&opts.json, "json", false, "write the verdict as JSON")
-	fs.StringVar(&opts.opsPath, "ops", "", "break the pairs down by op, from a file of `regex op` lines as compare reads")
+	fs.StringVar(&opts.opsPath, "ops", "", "break the pairs down by op, from a file of `regex op` lines as compare reads, or \"default\" for the built-in groups")
 	fs.StringVar(&opts.stagesPath, "stages", "", "break the pairs down by stage, from a file of `regex stage` boundaries as compare reads")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {

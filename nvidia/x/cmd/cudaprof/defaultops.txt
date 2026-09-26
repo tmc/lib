@@ -1,0 +1,19 @@
+# The op groups -ops=default names: one "regex op" rule per line, first match
+# wins, matched against a kernel's qualified name without template arguments
+# or parameters. The rules cover the kernel names MLX, cuBLAS and cuBLASLt
+# (nvjet), CUTLASS, MAGMA and cuDNN launch, and the hand-written kernels of
+# the models they were drawn from. A backward kernel joins its forward op.
+^(cudaoptim_|multi_tensor_apply|.*[Aa]dam) optimizer
+^(cudnn_generated_fort_native_sdpa|.*sdpa|.*flash_[fb]prop|.*fmha|.*[Ff]lash[Aa]ttention|.*flash_attention|Attn(Forward|Backward)) attention
+^(.*[Ss]oftmax|mlx::core::cu::logsumexp) softmax
+^(cutlass::|cutlass_|nvjet_|cublas|internal::gemvx|.*[Gg]emm|.*gemv|sm\d+_xmma|ampere_|volta_|turing_|mlx::core::cu::.*matmul) gemm
+^(.*[Rr]ope|SplitQKV|MergeQKV|HeadMajor) rope
+^(.*[Ll]ayer_?[Nn]orm|.*[Rr]ms_?[Nn]orm|.*RMSNorm|GammaBeta) layernorm
+^(.*CrossEntropy|.*cross_entropy|.*[Ll]oss) loss
+^(mlx::core::cu::ternary|mlx::core::cu::[A-Z]\w*Select|.*[Mm]ask) mask
+^(.*GeGLU|.*GELU|.*[Gg]elu|.*ReLU|.*SiLU|.*[Ss]ilu|.*SwiGLU|mlx::core::cu::[A-Z]\w*Erf) activation
+^(mlx::core::cu::copy|mlx::core::cu::arange|Copy|Transpose|To(Half|Float|BF16)|Cast|.*[Cc]at[Aa]rray|.*Concat) copy
+^(mlx::core::cu::\w*(reduce|sort|scan)|.*Reduce|Column(Sum|Reduce)|ColSum|[Aa]rg[Mm]ax|[Aa]rg[Mm]in) reduce
+^(mlx::core::cu::(gather|scatter)|Gather|Scatter|Embed|.*TypeEmb|index_) gather
+^(mlx::core::cu::(binary|unary)|mlx::core::cu::[A-Z]|.*[Ee]lementwise|AddBias|AddResidual|Scale|Add|Mul) elementwise
+. other

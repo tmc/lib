@@ -55,7 +55,7 @@ func parseIterationsArgs(rawArgs []string, stdout io.Writer) (iterationsOptions,
 	fs.BoolVar(&opts.nvtx, "nvtx", false, "match -iteration-marker against NVTX range and marker names instead of kernels")
 	fs.IntVar(&opts.skip, "skip-iterations", 1, "exclude the first `N` iterations as warm-up")
 	fs.IntVar(&opts.expect, "expect-markers", 0, "fail the gate unless the marker fired exactly `N` times")
-	fs.StringVar(&opts.opsPath, "ops", "", "file of `regex op` lines grouping kernels into ops, as compare reads")
+	fs.StringVar(&opts.opsPath, "ops", defaultOps, "file of `regex op` lines grouping kernels into ops, as compare reads; \"default\" is the built-in groups, and empty makes each kernel its own op")
 	fs.IntVar(&opts.kernels, "kernels", 15, "list the `N` kernels with the most exclusive time")
 	fs.DurationVar(&opts.gaps, "gaps", 0, "list device idle gaps of at least `DURATION` in steady iterations (default 1ms with -perf)")
 	fs.StringVar(&opts.perfPath, "perf", "", "label idle gaps with the host stacks in `file`, the output of perf script --ns -F comm,tid,time,ip,sym for a perf record -k CLOCK_MONOTONIC of the capture")
