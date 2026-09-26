@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 )
 
 // A Class is a kind of host API call that costs something when repeated
@@ -53,13 +52,19 @@ type Finding struct {
 	Action  string `json:"action"`
 
 	// Nanos is the finding's cost per steady iteration: host time in the
-	// calls for a call rule, device idle time for the idle rule.
+	// calls for the allocation and graph rules, device idle time for the
+	// sync and idle rules.
 	Nanos int64 `json:"ns_per_iteration"`
 }
 
 // IdleShare is the fraction of a steady iteration's window the device may
 // sit idle before [Report.Advise] reports it.
 const IdleShare = 0.10
+
+// SyncIdleShare is the fraction of a steady iteration's window the device
+// may sit idle across synchronizing calls before [Report.Advise] reports
+// them.
+const SyncIdleShare = 0.01
 
 // Advise returns the costs repeated in every steady iteration, largest
 // first. It returns nothing for a report with no steady iterations.
@@ -110,25 +115,29 @@ func (r *Report) Advise() []Finding {
 		})
 	}
 	if s, in := every(GraphBuild, GraphInstantiate); repeated(in) {
-		c, ns := perIter(s)
-		u := r.Steady.Classes[GraphUpdate].Count
-		finding := fmt.Sprintf("CUDA graphs are rebuilt every iteration: %.1f capture, node-add and instantiate calls per iteration in %d of %d iterations, %s host time each iteration",
-			c, in, n, dur(ns))
-		if u > 0 {
-			finding += fmt.Sprintf("; %d exec updates", u)
+		_, ns := perIter(s)
+		cl := r.Steady.Classes
+		build, inst, upd := cl[GraphBuild].Count, cl[GraphInstantiate].Count, cl[GraphUpdate].Count
+		f := Finding{
+			Rule: "graph-rebuild",
+			Finding: fmt.Sprintf("CUDA graphs are constructed in %d of %d iterations: %.1f capture and node-add calls, %.1f instantiates and %.1f exec updates per iteration, %s host time each iteration",
+				in, n, float64(build)/float64(n), float64(inst)/float64(n), float64(upd)/float64(n), dur(ns)),
+			Action: "Instantiate once and replay: update an existing executable graph with cuGraphExecUpdate or the node SetParams calls instead of building a new one.",
+			Nanos:  ns,
 		}
-		out = append(out, Finding{
-			Rule:    "graph-rebuild",
-			Finding: finding,
-			Action:  "Instantiate once and replay: update an existing executable graph with cuGraphExecUpdate or the node SetParams calls instead of building a new one.",
-			Nanos:   ns,
-		})
+		if upd > 0 && inst*10 < upd {
+			f.Action = "The executable graphs are updated rather than re-instantiated, but each is still captured anew every iteration; when an iteration's shapes repeat, replay the cached executable graph without capturing."
+		}
+		out = append(out, f)
 	}
-	if s, in := every(Sync); repeated(in) {
-		c, ns := perIter(s)
+	// A sync the device does not idle across is the loop's wait for its
+	// own result, not a cost.
+	if s, in := every(Sync); repeated(in) && float64(r.Steady.SyncIdleNanos) >= SyncIdleShare*float64(r.Steady.WindowNanos) {
+		c, _ := perIter(s)
+		ns := r.Steady.SyncIdleNanos / int64(n)
 		out = append(out, Finding{
 			Rule: "host-sync",
-			Finding: fmt.Sprintf("the host synchronizes %.1f times per iteration in %d of %d iterations, waiting %s each iteration",
+			Finding: fmt.Sprintf("the host synchronizes %.1f times per iteration in %d of %d iterations; the device sits idle %s each iteration across those waits, from draining until the next launch",
 				c, in, n, dur(ns)),
 			Action: "Remove the synchronization or move it off the critical path: read results back asynchronously, or synchronize once per several iterations.",
 			Nanos:  ns,
@@ -152,5 +161,5 @@ func (r *Report) Advise() []Finding {
 }
 
 func dur(ns int64) string {
-	return time.Duration(ns).Round(time.Microsecond).String()
+	return fmt.Sprintf("%.3f ms", float64(ns)/1e6)
 }

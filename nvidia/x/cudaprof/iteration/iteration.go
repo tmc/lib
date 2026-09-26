@@ -96,6 +96,11 @@ type Totals struct {
 	// Calls counts every host API call; Classes counts only calls no other
 	// call on the same thread encloses, so a cudaMalloc and the cuMemAlloc
 	// it makes are one allocation.
+	// SyncIdleNanos is the device idle time that spans the return of a
+	// synchronizing call: the device drained, the host waited for it, and
+	// nothing ran until the host launched again.
+	SyncIdleNanos int64 `json:"sync_idle_ns"`
+
 	Calls     int                `json:"calls"`
 	CallNanos int64              `json:"call_ns"`
 	Classes   map[Class]CallStat `json:"call_classes,omitempty"`
@@ -114,6 +119,7 @@ func (t *Totals) add(u *Totals) {
 	t.Memcpys += u.Memcpys
 	t.MemcpyBytes += u.MemcpyBytes
 	t.Memsets += u.Memsets
+	t.SyncIdleNanos += u.SyncIdleNanos
 	t.Calls += u.Calls
 	t.CallNanos += u.CallNanos
 	for c, s := range u.Classes {
@@ -417,7 +423,17 @@ func Analyze(records timeline.Records, opts Options) (*Report, error) {
 	calls := append([]timeline.Call(nil), records.Calls...)
 	sort.SliceStable(calls, func(i, j int) bool { return calls[i].Start < calls[j].Start })
 	outer := outermost(calls)
+	// reach[i] is the latest end of recs[:i+1], for finding the idle gap
+	// a call returns into.
+	reach := make([]int64, len(recs))
+	for i, rec := range recs {
+		reach[i] = rec.end
+		if i > 0 {
+			reach[i] = max(reach[i], reach[i-1])
+		}
+	}
 	byName := make(map[string]*CallTotal)
+	syncGaps := make(map[int64]bool)
 	for i, c := range calls {
 		k := iterationAt(c.Start)
 		if k < 0 {
@@ -431,6 +447,13 @@ func Analyze(records timeline.Records, opts Options) (*Report, error) {
 		class := Classify(name)
 		if outer[i] && class != "" {
 			it.addClass(class, CallStat{1, d})
+		}
+		if outer[i] && class == Sync {
+			// Syncs returning into one gap share it.
+			if from, to := idleAt(recs, reach, c.End, it.Start, it.End); to > from && !syncGaps[from] {
+				syncGaps[from] = true
+				it.SyncIdleNanos += to - from
+			}
 		}
 		if it.Steady {
 			key := c.Domain + ":" + name
@@ -543,6 +566,23 @@ func formatIndexes(ix []int) string {
 		i = j + 1
 	}
 	return "iteration " + strings.Join(parts, ",")
+}
+
+// idleAt returns the device idle gap holding time t, clipped to [lo, hi),
+// or an empty one when the device is busy at t.
+func idleAt(recs []record, reach []int64, t, lo, hi int64) (from, to int64) {
+	n := sort.Search(len(recs), func(i int) bool { return recs[i].start > t })
+	from, to = lo, hi
+	if n > 0 {
+		if reach[n-1] > t {
+			return 0, 0
+		}
+		from = max(from, reach[n-1])
+	}
+	if n < len(recs) {
+		to = min(to, recs[n].start)
+	}
+	return from, to
 }
 
 // outermost reports, for calls sorted by start, whether no earlier call on

@@ -232,6 +232,7 @@ func TestAdvise(t *testing.T) {
 		{"graph rebuild", withCalls(call(cbAddNode, 1, 20), call(cbInstantiate, 21, 90)), []string{"graph-rebuild", "idle"}},
 		{"graph update", withCalls(call(cbExecUpdate, 1, 90)), []string{"idle"}},
 		{"sync", withCalls(call(cbSync, 70, 99)), []string{"idle", "host-sync"}},
+		{"sync while busy", withCalls(call(cbSync, 30, 45)), []string{"idle"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -284,4 +285,44 @@ func TestKernelName(t *testing.T) {
 func equalTotals(a, b Totals) bool {
 	a.Classes, b.Classes = nil, nil
 	return reflect.DeepEqual(a, b)
+}
+
+func TestSyncIdle(t *testing.T) {
+	// Each iteration is busy over [0,10) and [20,70) and idle over [10,20)
+	// and [70,100).
+	tests := []struct {
+		name       string
+		start, end int64
+		want       int64
+	}{
+		{"returns into drain", 60, 80, 30},
+		{"returns into first gap", 5, 15, 10},
+		{"returns while busy", 30, 40, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := steps(3)
+			r.Calls = []timeline.Call{call(cbSync, 100+tt.start, 100+tt.end)}
+			rep, err := Analyze(r, Options{Marker: regexp.MustCompile(`gather`), Skip: 1})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := rep.Steady.SyncIdleNanos; got != tt.want {
+				t.Errorf("sync idle = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSyncIdleShared(t *testing.T) {
+	// Two syncs returning into the drain gap [70,100) count it once.
+	r := steps(3)
+	r.Calls = []timeline.Call{call(cbSync, 160, 175), call(cbSync, 176, 180)}
+	rep, err := Analyze(r, Options{Marker: regexp.MustCompile(`gather`), Skip: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := rep.Steady.SyncIdleNanos; got != 30 {
+		t.Errorf("sync idle = %d, want 30", got)
+	}
 }
