@@ -1,13 +1,11 @@
 package main
 
 import (
-	"bufio"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -110,8 +108,12 @@ const unmatchedOp = "(unmatched)"
 const stageUnstarted = "(before first boundary)"
 
 type compareOptions struct {
-	phase           int
-	opsPath         string
+	phase   int
+	opsPath string
+	// combines are the combine lines of the -ops file.
+	combines []opCombine
+	// opsCheck reports how each line of the -ops file matched.
+	opsCheck        bool
 	stagesPath      string
 	json            bool
 	allowUnresolved bool
@@ -146,10 +148,11 @@ func runCompareCommand(args []string, stdout io.Writer) error {
 	if err != nil || paths == nil {
 		return err
 	}
-	rules, err := readOpRules(opts.opsPath)
+	rules, combines, err := readOpsFile(opts.opsPath)
 	if err != nil {
 		return fmt.Errorf("compare: %w", err)
 	}
+	opts.combines = combines
 	stages, err := readStageBoundaries(opts.stagesPath)
 	if err != nil {
 		return fmt.Errorf("compare: %w", err)
@@ -174,12 +177,20 @@ func runCompareCommand(args []string, stdout io.Writer) error {
 	if opts.json {
 		enc := json.NewEncoder(stdout)
 		enc.SetIndent("", "  ")
-		return enc.Encode(c)
+		err = enc.Encode(c)
+	} else {
+		err = c.write(stdout)
 	}
-	return c.write(stdout)
+	if err != nil {
+		return err
+	}
+	if err := c.OpsCheck.err(); err != nil {
+		return fmt.Errorf("compare: -ops-check: %w", err)
+	}
+	return nil
 }
 
-const compareUsage = "usage: cudaprof compare [-phase i] [-warmup-until=RE | -warmup-ms=N | -iteration-marker=RE [-skip-iterations=N] [-iteration-count=N]] [-ops ops.txt] [-stages stages.txt [-stage-entries]] [-by phase|range] [-templates] [-allow-unresolved] [-max-records=N] [-journal-bytes=N] [--capture-file-bytes=N] [--capture-total-bytes=N] [-json] base.pprof target.pprof"
+const compareUsage = "usage: cudaprof compare [-phase i] [-warmup-until=RE | -warmup-ms=N | -iteration-marker=RE [-skip-iterations=N] [-iteration-count=N]] [-ops ops.txt [-ops-check]] [-stages stages.txt [-stage-entries]] [-by phase|range] [-templates] [-allow-unresolved] [-max-records=N] [-journal-bytes=N] [--capture-file-bytes=N] [--capture-total-bytes=N] [-json] base.pprof target.pprof"
 
 // parseCompareArgs returns nil paths and a nil error when help was requested
 // and printed.
@@ -194,6 +205,7 @@ func parseCompareArgs(rawArgs []string, stdout io.Writer) (compareOptions, []str
 	fs.SetOutput(io.Discard)
 	fs.IntVar(&opts.phase, "phase", -1, "index of the capture-range phase to compare, required when a capture has several")
 	fs.StringVar(&opts.opsPath, "ops", "", "file of `regex op` lines mapping kernel names to ops, or \"default\" for the built-in groups")
+	fs.BoolVar(&opts.opsCheck, "ops-check", false, "report the kernels each -ops line won and matched, and fail when a line wins nothing")
 	fs.StringVar(&opts.stagesPath, "stages", "", "file of `regex stage` lines naming the boundaries of a repeating sequence of stages")
 	fs.BoolVar(&opts.stageEntries, "stage-entries", false, "also report each entry of each stage, in the order entered; refused when a stage's entry counts differ")
 	fs.BoolVar(&opts.json, "json", false, "write the comparison as JSON")
@@ -246,6 +258,9 @@ func parseCompareArgs(rawArgs []string, stdout io.Writer) (compareOptions, []str
 	if opts.by != "" && opts.by != "phase" && opts.by != "range" {
 		return opts, nil, fmt.Errorf("compare: -by is phase or range, not %q", opts.by)
 	}
+	if opts.opsCheck && opts.opsPath == "" {
+		return opts, nil, errors.New("compare: -ops-check needs -ops")
+	}
 	if opts.stageEntries && opts.stagesPath == "" {
 		return opts, nil, errors.New("compare: -stage-entries needs -stages")
 	}
@@ -256,25 +271,14 @@ func parseCompareArgs(rawArgs []string, stdout io.Writer) (compareOptions, []str
 }
 
 // readOpRules reads a rules file, or returns nil rules for an empty path and
-// the built-in rules for "default".
+// the built-in rules for "default". Only compare takes combine lines.
 func readOpRules(path string) (opRules, error) {
-	if path == "" {
-		return nil, nil
-	}
-	if path == defaultOps {
-		return parseDefaultOpRules()
-	}
-	f, err := os.Open(path)
+	rules, combines, err := readOpsFile(path)
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
-	rules, err := parseOpRules(f)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
-	}
-	if rules == nil {
-		return nil, fmt.Errorf("%s: no rules", path)
+	if len(combines) > 0 {
+		return nil, fmt.Errorf("%s: line %d: combine lines are read by compare only", path, combines[0].Line)
 	}
 	return rules, nil
 }
@@ -308,29 +312,16 @@ type opRule struct {
 // parseOpRules reads lines of the form "regex op". A pattern ends at the
 // first run of spaces or tabs, unless it is a Go quoted string ("..." or
 // `...`), which may hold spaces. Blank lines and lines starting with # are
-// ignored.
+// ignored. See parseOpsFile for the combine lines compare also takes.
 func parseOpRules(r io.Reader) (opRules, error) {
-	var rules opRules
-	sc := bufio.NewScanner(r)
-	for n := 1; sc.Scan(); n++ {
-		line := strings.TrimSpace(sc.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		pattern, op, err := splitOpRule(line)
-		if err != nil {
-			return nil, fmt.Errorf("line %d: %w", n, err)
-		}
-		if op == unmatchedOp {
-			return nil, fmt.Errorf("line %d: op name %s is reserved", n, unmatchedOp)
-		}
-		re, err := regexp.Compile(pattern)
-		if err != nil {
-			return nil, fmt.Errorf("line %d: %w", n, err)
-		}
-		rules = append(rules, opRule{Line: n, Pattern: pattern, Op: op, re: re})
+	rules, combines, err := parseOpsFile(r)
+	if err != nil {
+		return nil, err
 	}
-	return rules, sc.Err()
+	if len(combines) > 0 {
+		return nil, fmt.Errorf("line %d: combine lines are read by compare only", combines[0].Line)
+	}
+	return rules, nil
 }
 
 // splitOpRule splits a trimmed rule line into its pattern and op.
@@ -527,6 +518,13 @@ type Comparison struct {
 	// pairReplacements.
 	Replacements []KernelReplacement `json:"replacements,omitempty"`
 
+	// Combines are the rows of the ops file's combine lines.
+	Combines []CompareCombine `json:"combines,omitempty"`
+
+	// OpsCheck reports how each line of the ops file matched, when
+	// -ops-check was given.
+	OpsCheck *OpsCheck `json:"ops_check,omitempty"`
+
 	// Cudaprof is the build that computed the comparison.
 	Cudaprof buildStamp `json:"cudaprof"`
 }
@@ -599,6 +597,7 @@ type CompareSide struct {
 	stages       map[string]*stageTotals
 	stageEntries []*stageTotals
 	groups       map[string]*stageTotals
+	combines     []*combineTotals // by index of compareOptions.combines
 }
 
 // compareClocks is the GPU state read at a window's capture-range edges.
@@ -945,6 +944,12 @@ func compareSides(b, t *CompareSide, rules opRules, stages stageBoundaries, opts
 		c.By = opts.by
 		c.Groups = joinGroups(opts.by, b.groups, t.groups)
 	}
+	if len(opts.combines) > 0 {
+		c.Combines = joinCombines(opts.combines, b.combines, t.combines)
+	}
+	if opts.opsCheck {
+		c.OpsCheck = checkOps(rules, opts.combines, b, t)
+	}
 	if err := checkIdentity(c); err != nil {
 		return nil, err
 	}
@@ -975,6 +980,7 @@ func compareSides(b, t *CompareSide, rules opRules, stages stageBoundaries, opts
 		c.Ops = nil
 		c.Replacements = nil
 		c.Groups = nil
+		c.Combines = nil
 		c.Stages = nil
 		c.StageEntries = nil
 		c.UnmatchedShare = 0
@@ -1325,7 +1331,7 @@ func measureCompareSide(cap *cudacapture.Capture, rules opRules, stages stageBou
 			return nil, err
 		}
 	}
-	if err := side.measure(records, rules, stages, opts.templates, opts.by); err != nil {
+	if err := side.measure(records, rules, stages, opts); err != nil {
 		return nil, err
 	}
 	if side.UnresolvedNanos > 0 && !opts.allowUnresolved {
@@ -1441,6 +1447,8 @@ type compareRecord struct {
 	op         string
 	key        string // the kernel's match key, which stage boundaries test
 	corr       uint32 // correlation id of the launch's host API record
+	combine    int    // index of the combine row that takes it, or -1
+	member     string // what it counts as in that row
 
 	config      LaunchConfig
 	configKnown bool
@@ -1449,13 +1457,20 @@ type compareRecord struct {
 // measure partitions the window. Device records count only when they fall
 // entirely inside it and graph replay envelopes are clipped to it, the rule
 // measurePhase applies to the phase receipt.
-func (s *CompareSide) measure(records timeline.Records, rules opRules, stages stageBoundaries, templates bool, by string) error {
+func (s *CompareSide) measure(records timeline.Records, rules opRules, stages stageBoundaries, opts compareOptions) error {
 	lo, hi := s.StartTimestamp, s.StopTimestamp
 	s.WindowNanos = hi - lo
 	s.ops = make(map[string]*opTotals)
 	s.launches = make(map[string]*opLaunches)
 	s.kernels = make(map[string]map[string]*opTotals)
 	used := make([]bool, len(rules))
+	cs := &combineSet{combines: opts.combines, functors: make(map[string]string)}
+	if len(opts.combines) > 0 {
+		s.combines = make([]*combineTotals, len(opts.combines))
+	}
+	for i, c := range opts.combines {
+		s.combines[i] = &combineTotals{members: make(map[combineMember]*opTotals), termHits: make([]int, len(c.Terms))}
+	}
 	var recs []compareRecord
 	for _, a := range records.Activities {
 		class := activityClass(a.Subtype)
@@ -1468,10 +1483,10 @@ func (s *CompareSide) measure(records timeline.Records, rules opRules, stages st
 			}
 			continue
 		}
-		r := compareRecord{start: a.Start, end: a.End, class: class}
+		r := compareRecord{start: a.Start, end: a.End, class: class, combine: -1}
 		switch class {
 		case classKernel:
-			key := opKey(a.Name, templates)
+			key := opKey(a.Name, opts.templates)
 			op, rule := rules.kernelOp(key)
 			if rule >= 0 {
 				used[rule] = true
@@ -1484,6 +1499,20 @@ func (s *CompareSide) measure(records timeline.Records, rules opRules, stages st
 			t.launches++
 			t.summed += a.End - a.Start
 			r.op, r.key, r.corr = op, key, a.Correlation
+			if len(cs.combines) > 0 {
+				functor := cs.functor(a.Name)
+				i, err := cs.claim(op, functor, key)
+				if err != nil {
+					return err
+				}
+				if i >= 0 {
+					cs.combines[i].termHits(s.combines[i].termHits, op, functor, key)
+					r.combine, r.member = i, key
+					if functor != "" {
+						r.member = functor
+					}
+				}
+			}
 			r.config, r.configKnown = launchConfigOf(a)
 			s.KernelCount++
 		case classMemcpy:
@@ -1517,8 +1546,8 @@ func (s *CompareSide) measure(records timeline.Records, rules opRules, stages st
 		s.stageEntries = stages.assign(recs, owned)
 		s.stages = byStage(s.stageEntries)
 	}
-	if by != "" {
-		s.groups = s.assignGroups(recs, owned, records, by)
+	if opts.by != "" {
+		s.groups = s.assignGroups(recs, owned, records, opts.by)
 	}
 	busy := make([]timeline.Interval, len(recs))
 	first, last := recs[0].start, recs[0].end
@@ -1549,6 +1578,21 @@ func (s *CompareSide) measure(records timeline.Records, rules opRules, stages st
 			k.launches++
 			k.exclusive += owned[i]
 			k.summed += r.end - r.start
+			if r.combine >= 0 {
+				c := s.combines[r.combine]
+				c.launches++
+				c.exclusive += owned[i]
+				c.summed += r.end - r.start
+				m := combineMember{r.op, r.member}
+				mt := c.members[m]
+				if mt == nil {
+					mt = &opTotals{}
+					c.members[m] = mt
+				}
+				mt.launches++
+				mt.exclusive += owned[i]
+				mt.summed += r.end - r.start
+			}
 			if r.configKnown {
 				l.configs[r.config]++
 			} else {
@@ -1630,6 +1674,13 @@ func abs64(n int64) int64 {
 }
 
 func (c *Comparison) write(w io.Writer) error {
+	if err := c.writeBody(w); err != nil {
+		return err
+	}
+	return c.writeOpsCheck(w)
+}
+
+func (c *Comparison) writeBody(w io.Writer) error {
 	b, t := c.Base, c.Target
 	fmt.Fprintf(w, "base    %s\n        %s\n", b.Capture, b.windowLine())
 	fmt.Fprintf(w, "target  %s\n        %s\n", t.Capture, t.windowLine())
@@ -1666,14 +1717,6 @@ func (c *Comparison) write(w io.Writer) error {
 	if b.EdgeStraddlers+t.EdgeStraddlers > 0 {
 		fmt.Fprintf(w, "records crossing a phase edge, excluded: %d -> %d\n", b.EdgeStraddlers, t.EdgeStraddlers)
 	}
-	for _, s := range []struct {
-		name string
-		side *CompareSide
-	}{{"base", b}, {"target", t}} {
-		for _, r := range s.side.UnusedRules {
-			fmt.Fprintf(w, "ops line %d %q (%s) matched no kernel in %s\n", r.Line, r.Pattern, r.Op, s.name)
-		}
-	}
 	fmt.Fprintln(w)
 
 	fmt.Fprint(w, c.identity())
@@ -1706,6 +1749,9 @@ func (c *Comparison) write(w io.Writer) error {
 		return err
 	}
 	if err := c.writeReplacements(w); err != nil {
+		return err
+	}
+	if err := c.writeCombines(w); err != nil {
 		return err
 	}
 	if err := c.writeGroups(w); err != nil {

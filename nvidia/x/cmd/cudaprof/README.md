@@ -165,6 +165,23 @@ optimizer, attention, softmax, gemm, rope, layernorm, loss, mask,
 activation, copy, reduce, gather, elementwise and other, for the kernel
 names of MLX, cuBLAS and cuBLASLt (nvjet), CUTLASS, MAGMA and cuDNN.
 
+A line `name = op[:glob,...] ...` combines: it adds a row, outside the
+identity, that sums op `name` and the kernels each term takes, so work
+fused into one kernel on one side reads against the kernels it replaced
+on the other. A term takes all of its op, or with globs the kernels whose
+PyTorch elementwise functor (`MulFunctor`, `GeluCUDAKernelImpl`) or match
+key a glob matches, ignoring case. No kernel may be taken twice. See
+`go doc` for the format, and `testdata/ops/laya-torch.txt` for laya
+against its PyTorch reference.
+
+	geglu = elementwise:gelu*
+
+`-ops-check` lists, per rule, the kernels and launches it won on each
+side and the kernels it matched that an earlier rule won, plus the
+launches each combine term took, and exits nonzero when a rule wins
+nothing in either capture or a term takes nothing. Without it, rules that
+matched nothing appear only in the JSON `unused_rules`.
+
 `-stages` names positions in a repeating sequence, such as the stages of a
 model layer. Same line format; the boundaries are matched in file order,
 cyclically, and each kernel is charged to the stage whose boundary it last

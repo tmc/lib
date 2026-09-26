@@ -262,10 +262,11 @@ func runAB(opts *abOptions, stdout, stderr io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("ab: %w", err)
 	}
-	rules, err := readOpRules(copts.opsPath)
+	rules, combines, err := readOpsFile(copts.opsPath)
 	if err != nil {
 		return fmt.Errorf("ab: %w", err)
 	}
+	copts.combines = combines
 	stages, err := readStageBoundaries(copts.stagesPath)
 	if err != nil {
 		return fmt.Errorf("ab: %w", err)

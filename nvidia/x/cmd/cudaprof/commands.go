@@ -64,7 +64,7 @@ To write the device timeline as a Perfetto trace:
   cudaprof export [-o out.pftrace] capture.pprof
 
 To decompose why target took longer than base, per op or stage, in exact nanoseconds:
-  cudaprof compare [-phase i] [-warmup-until=RE | -warmup-ms=N] [-ops ops.txt] [-stages stages.txt [-stage-entries]] [-templates] [-allow-unresolved] [-max-records=N] [-json] base.pprof target.pprof
+  cudaprof compare [-phase i] [-warmup-until=RE | -warmup-ms=N] [-ops ops.txt [-ops-check]] [-stages stages.txt [-stage-entries]] [-by phase|range] [-templates] [-allow-unresolved] [-max-records=N] [-json] base.pprof target.pprof
 
 To measure each iteration between launches of a marker kernel, with a gate and advice:
   cudaprof iterations -iteration-marker=RE [-nvtx] [-skip-iterations=1] [-expect-markers=N] [-ops ops.txt] [-json] capture.pprof

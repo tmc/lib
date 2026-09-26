@@ -489,12 +489,14 @@ func TestCompareJoinsOpsAcrossNames(t *testing.T) {
 	}
 	for _, want := range []string{
 		"+500 = +300 -50 +100 -20 +170 +0 (exact)",
-		`ops line 4 "never_matches" (ghost) matched no kernel in base`,
-		`ops line 3 "^go_repack_" (repack) matched no kernel in base`,
 	} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("output lacks %q:\n%s", want, out.String())
 		}
+	}
+	// Unused lines are reported only under -ops-check.
+	if strings.Contains(out.String(), "ghost") {
+		t.Errorf("output reports the unused line without -ops-check:\n%s", out.String())
 	}
 }
 
@@ -584,7 +586,7 @@ func TestParseCompareArgs(t *testing.T) {
 				}
 				return
 			}
-			if opts != tt.want || !reflect.DeepEqual(paths, tt.paths) {
+			if !reflect.DeepEqual(opts, tt.want) || !reflect.DeepEqual(paths, tt.paths) {
 				t.Errorf("got %+v %q, want %+v %q", opts, paths, tt.want, tt.paths)
 			}
 		})

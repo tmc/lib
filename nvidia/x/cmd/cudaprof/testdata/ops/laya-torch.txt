@@ -1,0 +1,27 @@
+# Ops for comparing laya's Go training step with its PyTorch reference:
+#
+#	cudaprof compare -ops testdata/ops/laya-torch.txt ref.pprof go.pprof
+#
+# The first rule that matches a kernel's name names its op.
+ToBF16	bf16-cast
+fmha|Flash|AttnSoftmax|SoftmaxBackward|AttnBackward|attn	attention
+SplitQKV|MergeQKV|[Rr]ope	qkv-rope
+nvjet|cutlass|gemm|Gemm|magma|sm80_xmma|ampere	gemm
+[Ll]ayer_?[Nn]orm|GammaBeta	layernorm
+GeGLU|GELU|gelu|glu	geglu
+multi_tensor_apply|[Aa]dam|cudaoptim	optimizer
+[Cc]at[Aa]rray|copy|Copy|Gather|gather|Scatter|index	copy-gather
+reduce|Reduce|ColSum|ColumnSum|Partial|Sum	reduce
+elementwise|Elementwise	elementwise
+.	other
+
+# Laya fuses into one kernel what PyTorch runs as several elementwise
+# kernels. Each line below adds up an op and the kernels, or PyTorch
+# elementwise functors, that do its work on the other side. The rows are
+# partial: PyTorch's GeGLU gate product and RoPE's rotation run as
+# MulFunctor and CUDAFunctor_add launches that no name tells apart from
+# the model's other products and sums, so they stay in elementwise.
+geglu = elementwise:gelu*
+bf16-cast = elementwise:bfloat16_copy_kernel_cuda
+qkv-rope = elementwise:neg_kernel_cuda copy-gather:*catarray*
+dropout = elementwise:masked_scale_kernel other:dropout
