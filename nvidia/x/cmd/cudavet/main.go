@@ -4,7 +4,7 @@
 //
 //	cargalign  kernel parameter layouts that disagree with cudakernel.Schema
 //	unpinned   Go memory handed to asynchronous DMA without a runtime.Pinner
-//	leak       driver streams and events created and never destroyed
+//	leak       handles created and never released
 //
 // Usage:
 //
