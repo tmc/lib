@@ -138,8 +138,8 @@ identity before printing:
 	Δwindow = ΣΔop + Δunmatched + Δmemcpy + Δmemset + Δidle + Δunresolved
 
 `-ops` maps kernel names to ops. One `regex op` per line; the first match
-wins, the pattern ends at the first space (use `\s`), and `#` starts a
-comment. Kernels no rule matches are `(unmatched)`.
+wins, the pattern ends at the first space unless it is quoted as a Go
+string (`"a b"` or `` `a\s+b` ``), and `#` starts a comment. Kernels no rule matches are `(unmatched)`.
 
 	# regex op
 	rms_norm            rmsnorm

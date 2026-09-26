@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 
@@ -295,8 +296,9 @@ type opRule struct {
 }
 
 // parseOpRules reads lines of the form "regex op". A pattern ends at the
-// first run of spaces or tabs, so it cannot contain one; use \s. Blank lines
-// and lines starting with # are ignored.
+// first run of spaces or tabs, unless it is a Go quoted string ("..." or
+// `...`), which may hold spaces. Blank lines and lines starting with # are
+// ignored.
 func parseOpRules(r io.Reader) (opRules, error) {
 	var rules opRules
 	sc := bufio.NewScanner(r)
@@ -305,11 +307,10 @@ func parseOpRules(r io.Reader) (opRules, error) {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		i := strings.IndexAny(line, " \t")
-		if i < 0 {
-			return nil, fmt.Errorf("line %d: want \"regex op\", have %q", n, line)
+		pattern, op, err := splitOpRule(line)
+		if err != nil {
+			return nil, fmt.Errorf("line %d: %w", n, err)
 		}
-		pattern, op := line[:i], strings.TrimSpace(line[i:])
 		if op == unmatchedOp {
 			return nil, fmt.Errorf("line %d: op name %s is reserved", n, unmatchedOp)
 		}
@@ -320,6 +321,27 @@ func parseOpRules(r io.Reader) (opRules, error) {
 		rules = append(rules, opRule{Line: n, Pattern: pattern, Op: op, re: re})
 	}
 	return rules, sc.Err()
+}
+
+// splitOpRule splits a trimmed rule line into its pattern and op.
+func splitOpRule(line string) (pattern, op string, err error) {
+	if line[0] == '"' || line[0] == '`' {
+		q, err := strconv.QuotedPrefix(line)
+		if err != nil {
+			return "", "", fmt.Errorf("bad quoted pattern in %q", line)
+		}
+		pattern, _ = strconv.Unquote(q)
+		op = strings.TrimSpace(line[len(q):])
+		if op == "" || op == line[len(q):] {
+			return "", "", fmt.Errorf("want \"regex op\", have %q", line)
+		}
+		return pattern, op, nil
+	}
+	i := strings.IndexAny(line, " \t")
+	if i < 0 {
+		return "", "", fmt.Errorf("want \"regex op\", have %q", line)
+	}
+	return line[:i], strings.TrimSpace(line[i:]), nil
 }
 
 // opKey is the name a kernel joins by: its qualified name, as

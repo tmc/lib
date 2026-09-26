@@ -313,6 +313,10 @@ func TestParseOpRules(t *testing.T) {
 		{"missing op", "gateup\n", nil, "line 1"},
 		{"bad regex", "\nga(te op\n", nil, "line 2"},
 		{"reserved op", "x (unmatched)\n", nil, "reserved"},
+		{"quoted pattern", "\"rms norm\" rms\n`a\\s+b c`\tab\n", []string{"rms", "ab"}, ""},
+		{"quoted no op", "\"rms norm\"\n", nil, "line 1"},
+		{"quoted no space", "\"rms\"op\n", nil, "line 1"},
+		{"bad quote", "\"rms op\n", nil, "line 1"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
