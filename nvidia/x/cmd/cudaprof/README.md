@@ -165,6 +165,13 @@ different number of times in the two captures. With `-ops`, `-stages` and
 `-warmup-until` and `-warmup-ms` cut a prologue as gaps does. `-templates`
 keeps template arguments, so each instantiation is its own op.
 
+`-iteration-marker=RE` instead narrows each window to whole iterations,
+as `cudaprof iterations` cuts them: from the marker launch that begins
+iteration `-skip-iterations` (default 1) to the one that ends the last
+steady iteration. Two captures holding different numbers of steady
+iterations are refused unless `-iteration-count=N` names how many to
+compare; a note gives the window, busy and idle time per iteration.
+
 The header gives each side's window and `gpu at range edges`: the SM and
 memory clocks, temperature and power at each edge, or why they were not
 recorded. Two sides at different clocks differ by that ratio before any

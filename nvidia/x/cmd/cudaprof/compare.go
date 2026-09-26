@@ -132,6 +132,9 @@ type compareOptions struct {
 	// way gaps cuts its steady state; its maxRecords and journalBytes are
 	// unused.
 	warmup *gapOptions
+
+	// iterations, when set, narrows each window to whole iterations.
+	iterations *iterationWindow
 }
 
 // runCompareCommand implements "cudaprof compare".
@@ -173,7 +176,7 @@ func runCompareCommand(args []string, stdout io.Writer) error {
 	return c.write(stdout)
 }
 
-const compareUsage = "usage: cudaprof compare [-phase i] [-warmup-until=RE | -warmup-ms=N] [-ops ops.txt] [-stages stages.txt [-stage-entries]] [-templates] [-allow-unresolved] [-max-records=N] [-journal-bytes=N] [--capture-file-bytes=N] [--capture-total-bytes=N] [-json] base.pprof target.pprof"
+const compareUsage = "usage: cudaprof compare [-phase i] [-warmup-until=RE | -warmup-ms=N | -iteration-marker=RE [-skip-iterations=N] [-iteration-count=N]] [-ops ops.txt] [-stages stages.txt [-stage-entries]] [-templates] [-allow-unresolved] [-max-records=N] [-journal-bytes=N] [--capture-file-bytes=N] [--capture-total-bytes=N] [-json] base.pprof target.pprof"
 
 // parseCompareArgs returns nil paths and a nil error when help was requested
 // and printed.
@@ -198,6 +201,8 @@ func parseCompareArgs(rawArgs []string, stdout io.Writer) (compareOptions, []str
 	var warmup gapOptions
 	fs.Float64Var(&warmup.warmupMS, "warmup-ms", 0, "start each window `N` ms after its first device activity, as gaps does")
 	fs.StringVar(&warmup.warmupUntil, "warmup-until", "", "start each window at its first kernel matching `RE`, as gaps does")
+	var iters iterationFlags
+	iters.register(fs)
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			fmt.Fprintln(stdout, compareUsage)
@@ -224,6 +229,9 @@ func parseCompareArgs(rawArgs []string, stdout io.Writer) (compareOptions, []str
 	}
 	if set["warmup-ms"] || set["warmup-until"] {
 		opts.warmup = &warmup
+	}
+	if opts.iterations, err = iters.window(set); err != nil {
+		return opts, nil, fmt.Errorf("compare: %w", err)
 	}
 	if opts.maxRecords <= 0 {
 		return opts, nil, fmt.Errorf("compare: invalid -max-records %d", opts.maxRecords)
@@ -499,6 +507,10 @@ type CompareSide struct {
 	// start of what remains.
 	Warmup      string `json:"warmup,omitempty"`
 	WarmupNanos int64  `json:"warmup_ns,omitempty"`
+
+	// Iterations is the number of whole iterations the window holds, when
+	// -iteration-marker set it.
+	Iterations int `json:"iterations,omitempty"`
 
 	StartTimestamp  int64 `json:"start_timestamp"`
 	StopTimestamp   int64 `json:"stop_timestamp"`
@@ -788,7 +800,14 @@ func compareCaptures(base, target *cudacapture.Capture, rules opRules, stages st
 	if err != nil {
 		return nil, fmt.Errorf("target: %w", err)
 	}
-	return compareSides(b, t, rules, stages, opts)
+	c, err := compareSides(b, t, rules, stages, opts)
+	if err == nil && opts.iterations != nil {
+		err = c.checkIterations(opts.iterations.count > 0)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 // compareSides joins two measured sides by op and by stage. Of opts it uses
@@ -1189,6 +1208,11 @@ func measureCompareSide(cap *cudacapture.Capture, rules opRules, stages stageBou
 	}
 	if opts.warmup != nil {
 		if err := side.cutWarmup(records, *opts.warmup); err != nil {
+			return nil, err
+		}
+	}
+	if opts.iterations != nil {
+		if err := side.cutIterations(records, *opts.iterations); err != nil {
 			return nil, err
 		}
 	}
