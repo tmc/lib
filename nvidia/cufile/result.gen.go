@@ -5,7 +5,10 @@
 
 package cufile
 
-import "fmt"
+import (
+	"fmt"
+	"syscall"
+)
 
 // Error reports a cufile operation failure.
 func (r Error) Error() string {
@@ -37,21 +40,39 @@ func toError(r Error, fn string) error {
 }
 
 // An ErrnoError reports that Func returned -1, which means the call
-// failed and C set errno to say why. The call does not capture errno,
-// so the error cannot report it.
+// failed and C set errno to say why.
+//
+// Errno is that errno, read on the thread that made the call before it
+// could change. It is 0 where the call cannot capture errno: currently
+// everywhere but darwin.
 type ErrnoError struct {
-	Func string // the C symbol called
+	Func  string        // the C symbol called
+	Errno syscall.Errno // errno after the call, or 0 if not captured
 }
 
-// Error reports the C symbol called.
-func (e *ErrnoError) Error() string { return e.Func + ": returned -1; errno not captured" }
+// Error reports the C symbol called and the errno it set.
+func (e *ErrnoError) Error() string {
+	if e.Errno == 0 {
+		return e.Func + ": returned -1; errno not captured"
+	}
+	return e.Func + ": " + e.Errno.Error()
+}
+
+// Unwrap returns Errno, so errors.Is(err, fs.ErrNotExist) and the like
+// test it, or nil if errno was not captured.
+func (e *ErrnoError) Unwrap() error {
+	if e.Errno == 0 {
+		return nil
+	}
+	return e.Errno
+}
 
 // negativeError returns the error for the negative count n that fn
-// returned: an *ErrnoError for -1, and otherwise a *CallError whose status
-// is -n.
-func negativeError(n int64, fn string) error {
+// returned, having left errno: an *ErrnoError for -1, and otherwise a
+// *CallError whose status is -n.
+func negativeError(n int64, errno int32, fn string) error {
 	if n == -1 {
-		return &ErrnoError{Func: fn}
+		return &ErrnoError{Func: fn, Errno: syscall.Errno(errno)}
 	}
 	return &CallError{Func: fn, Result: Error{Err: OpError(-n)}}
 }

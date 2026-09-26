@@ -6,6 +6,7 @@
 package cufile
 
 import (
+	"runtime"
 	"sync"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -92,15 +93,24 @@ func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
 	return ffi.CallFloat(fn, 1, &args, floatMask)
 }
 
+// The ffiCallErrno funnels also return the errno the call left. The
+// ffi trampoline reads errno on the calling thread only on darwin;
+// elsewhere its errno result is unspecified, so the funnel reports 0,
+// meaning not captured.
+
 //go:uintptrescapes
-func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+func ffiCallErrno5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1 uintptr, errno int32) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	args[1] = a1
 	args[2] = a2
 	args[3] = a3
 	args[4] = a4
-	return ffi.CallFloat(fn, 5, &args, floatMask)
+	r1, _, r3 := ffi.Call(fn, 5, &args, floatMask)
+	if runtime.GOOS != "darwin" {
+		return r1, 0
+	}
+	return r1, int32(r3)
 }
 
 // An outSlot pools the heap cells a wrapper passes to C for its outputs.
@@ -135,9 +145,9 @@ func fnhandleDeregister(a0 Handle) {
 }
 
 // fnread calls cuFileRead.
-func fnread(a0 Handle, a1 uintptr, a2 uint, a3 int64, a4 int64) int64 {
-	r1, _ := ffiCall5(symread, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
-	return int64(r1)
+func fnread(a0 Handle, a1 uintptr, a2 uint, a3 int64, a4 int64) (int64, int32) {
+	r1, errno := ffiCallErrno5(symread, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return int64(r1), errno
 }
 
 // fnUseCount calls cuFileUseCount.
@@ -147,9 +157,9 @@ func fnUseCount() int {
 }
 
 // fnwrite calls cuFileWrite.
-func fnwrite(a0 Handle, a1 uintptr, a2 uint, a3 int64, a4 int64) int64 {
-	r1, _ := ffiCall5(symwrite, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
-	return int64(r1)
+func fnwrite(a0 Handle, a1 uintptr, a2 uint, a3 int64, a4 int64) (int64, int32) {
+	r1, errno := ffiCallErrno5(symwrite, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return int64(r1), errno
 }
 
 // batchIOCancel is a batch API to cancel an ongoing IO batch operation by using the batch_id that was returned by [BatchHandle.IOSubmit].
@@ -928,18 +938,19 @@ func handleRegister(descr *Descr) (Handle, error) {
 //   - bufPtrOffset: Offset relative to the bufPtrBase pointer to read into. This parameter should be used only with registered buffers
 //
 // read returns the count. If it is negative, read returns 0 and an error
-// instead: an *[ErrnoError] if it is -1, which reports a failure in errno,
-// and otherwise a *[CallError] whose Result.Err ([OpError]) is the negated
-// count. An unavailable library or symbol is also an error.
+// instead: an *[ErrnoError] if it is -1, which reports a failure in errno
+// and carries it, and otherwise a *[CallError] whose Result.Err
+// ([OpError]) is the negated count. An unavailable library or symbol is
+// also an error.
 //
 // Wraps cuFileRead.
 func read(fh Handle, bufPtrBase uintptr, size uint, fileOffset int64, bufPtrOffset int64) (int64, error) {
 	if err := checkLibSym("cuFileRead"); err != nil {
 		return 0, err
 	}
-	_result := fnread(fh, bufPtrBase, size, fileOffset, bufPtrOffset)
+	_result, _errno := fnread(fh, bufPtrBase, size, fileOffset, bufPtrOffset)
 	if _result < 0 {
-		return 0, negativeError(_result, "cuFileRead")
+		return 0, negativeError(_result, _errno, "cuFileRead")
 	}
 	return _result, nil
 }
@@ -1226,18 +1237,19 @@ func UseCount() (int, error) {
 //   - bufPtrOffset: Offset relative to the bufPtrBase pointer from which to write. This parameter should be used only with registered buffers
 //
 // write returns the count. If it is negative, write returns 0 and an error
-// instead: an *[ErrnoError] if it is -1, which reports a failure in errno,
-// and otherwise a *[CallError] whose Result.Err ([OpError]) is the negated
-// count. An unavailable library or symbol is also an error.
+// instead: an *[ErrnoError] if it is -1, which reports a failure in errno
+// and carries it, and otherwise a *[CallError] whose Result.Err
+// ([OpError]) is the negated count. An unavailable library or symbol is
+// also an error.
 //
 // Wraps cuFileWrite.
 func write(fh Handle, bufPtrBase uintptr, size uint, fileOffset int64, bufPtrOffset int64) (int64, error) {
 	if err := checkLibSym("cuFileWrite"); err != nil {
 		return 0, err
 	}
-	_result := fnwrite(fh, bufPtrBase, size, fileOffset, bufPtrOffset)
+	_result, _errno := fnwrite(fh, bufPtrBase, size, fileOffset, bufPtrOffset)
 	if _result < 0 {
-		return 0, negativeError(_result, "cuFileWrite")
+		return 0, negativeError(_result, _errno, "cuFileWrite")
 	}
 	return _result, nil
 }

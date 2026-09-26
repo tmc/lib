@@ -74,9 +74,10 @@ func (h Handle) Deregister() error {
 //   - bufPtrOffset: Offset relative to the bufPtrBase pointer to read into. This parameter should be used only with registered buffers
 //
 // Read returns the count. If it is negative, Read returns 0 and an error
-// instead: an *[ErrnoError] if it is -1, which reports a failure in errno,
-// and otherwise a *[CallError] whose Result.Err ([OpError]) is the negated
-// count. An unavailable library or symbol is also an error.
+// instead: an *[ErrnoError] if it is -1, which reports a failure in errno
+// and carries it, and otherwise a *[CallError] whose Result.Err
+// ([OpError]) is the negated count. An unavailable library or symbol is
+// also an error.
 //
 // Wraps cuFileRead.
 func (h Handle) Read(bufPtrBase uintptr, size uint, fileOffset int64, bufPtrOffset int64) (int64, error) {
@@ -139,9 +140,10 @@ func (h Handle) ReadAsync(bufPtrBase uintptr, sizeP *uint, fileOffsetP *int64, b
 //   - bufPtrOffset: Offset relative to the bufPtrBase pointer from which to write. This parameter should be used only with registered buffers
 //
 // Write returns the count. If it is negative, Write returns 0 and an error
-// instead: an *[ErrnoError] if it is -1, which reports a failure in errno,
-// and otherwise a *[CallError] whose Result.Err ([OpError]) is the negated
-// count. An unavailable library or symbol is also an error.
+// instead: an *[ErrnoError] if it is -1, which reports a failure in errno
+// and carries it, and otherwise a *[CallError] whose Result.Err
+// ([OpError]) is the negated count. An unavailable library or symbol is
+// also an error.
 //
 // Wraps cuFileWrite.
 func (h Handle) Write(bufPtrBase uintptr, size uint, fileOffset int64, bufPtrOffset int64) (int64, error) {
