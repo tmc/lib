@@ -11,7 +11,7 @@ func unlocked(dev driver.Device) error {
 	if err != nil {
 		return err
 	}
-	defer ctx.Destroy()
+	defer ctx.Close()
 	return ctx.SetCurrent()
 }
 
@@ -22,7 +22,7 @@ func handedOff(dev driver.Device) error {
 	if err != nil {
 		return err
 	}
-	defer ctx.Destroy()
+	defer ctx.Close()
 	done := make(chan error)
 	go func() { // want `goroutine calls CtxSynchronize without the context made current before it started; it runs on another thread, so make the context current inside it`
 		done <- driver.CtxSynchronize()
@@ -37,7 +37,7 @@ func locked(dev driver.Device) error {
 	if err != nil {
 		return err
 	}
-	defer ctx.Destroy()
+	defer ctx.Close()
 	done := make(chan error)
 	go func() {
 		runtime.LockOSThread()

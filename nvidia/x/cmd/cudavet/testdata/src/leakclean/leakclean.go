@@ -9,7 +9,7 @@ func work() error {
 	if err != nil {
 		return err
 	}
-	defer s.Destroy()
+	defer s.Close()
 	return nil
 }
 

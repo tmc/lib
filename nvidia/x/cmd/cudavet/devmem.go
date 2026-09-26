@@ -227,7 +227,7 @@ var useAfterDestroyAnalyzer = &analysis.Analyzer{
 	Name: "useafterdestroy",
 	Doc: `check that handles are not used after they are released
 
-A handle released with Destroy, Free or Unload names nothing afterwards; in C,
+A handle released with Close, Destroy, Free or Unload names nothing afterwards; in C,
 using it is a use after free. useafterdestroy reports a use of a handle that
 follows its release in the same block, before the variable is assigned again.`,
 	Run: runUseAfterDestroy,

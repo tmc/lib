@@ -32,7 +32,7 @@ const (
 type Handle uintptr
 
 func Create() (Handle, error)                    { return 0, nil }
-func (h Handle) Destroy() error                  { return nil }
+func (h *Handle) Close() error                   { return nil }
 func (h Handle) SetStream(s driver.Stream) error { return nil }
 
 func (h Handle) Saxpy(n int32, alpha *float32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32) error {

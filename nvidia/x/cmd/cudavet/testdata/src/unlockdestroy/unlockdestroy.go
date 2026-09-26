@@ -13,8 +13,8 @@ func deferOrder(dev driver.Device) error {
 		runtime.UnlockOSThread()
 		return err
 	}
-	defer ctx.Destroy()
-	defer runtime.UnlockOSThread() // want `this deferred UnlockOSThread runs before the deferred Destroy above it; defer it first`
+	defer ctx.Close()
+	defer runtime.UnlockOSThread() // want `this deferred UnlockOSThread runs before the deferred Close above it; defer it first`
 	return driver.CtxSynchronize()
 }
 
@@ -25,12 +25,12 @@ func unlockFirst(dev driver.Device) error {
 		return err
 	}
 	runtime.UnlockOSThread()
-	return ctx.Destroy() // want `Destroy runs after runtime.UnlockOSThread, on whatever thread the goroutine is on`
+	return ctx.Close() // want `Close runs after runtime.UnlockOSThread, on whatever thread the goroutine is on`
 }
 
 func elsewhere(ctx driver.Context) {
 	go func() {
-		ctx.Destroy() // want `ctx.Destroy runs in a new goroutine, on a different thread from the one ctx is current on`
+		ctx.Close() // want `ctx.Close runs in a new goroutine, on a different thread from the one ctx is current on`
 	}()
 }
 
@@ -41,7 +41,7 @@ func ordered(dev driver.Device) error {
 	if err != nil {
 		return err
 	}
-	defer ctx.Destroy()
+	defer ctx.Close()
 	return driver.CtxSynchronize()
 }
 
@@ -53,6 +53,6 @@ func ownGoroutine(dev driver.Device) {
 		if err != nil {
 			return
 		}
-		defer ctx.Destroy()
+		defer ctx.Close()
 	}()
 }

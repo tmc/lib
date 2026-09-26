@@ -7,8 +7,8 @@ func streams() error {
 	if err != nil {
 		return err
 	}
-	s.Destroy()
-	return s.Synchronize() // want `s is used after s.Destroy`
+	s.Close()
+	return s.Synchronize() // want `s is used after s.Close`
 }
 
 func memory(d driver.DevicePtr, host []float32) error {
@@ -23,11 +23,11 @@ func reassigned() error {
 	if err != nil {
 		return err
 	}
-	s.Destroy()
+	s.Close()
 	s, err = driver.NewStream(0)
 	if err != nil {
 		return err
 	}
-	defer s.Destroy()
+	defer s.Close()
 	return s.Synchronize()
 }

@@ -39,7 +39,7 @@ type Context uintptr
 func NewContext(dev Device, flags CtxFlags) (Context, error) { return 0, nil }
 func (c Context) SetCurrent() error                          { return nil }
 func (c Context) PushCurrent() error                         { return nil }
-func (c Context) Destroy() error                             { return nil }
+func (c *Context) Close() error                              { return nil }
 
 type DevicePtr uintptr
 
@@ -69,7 +69,7 @@ type StreamFlags uint32
 type Stream uintptr
 
 func NewStream(flags uint32) (Stream, error)                   { return 0, nil }
-func (s Stream) Destroy() error                                { return nil }
+func (s *Stream) Close() error                                 { return nil }
 func (s Stream) Synchronize() error                            { return nil }
 func (s Stream) Query() (done bool, err error)                 { return false, nil }
 func (s Stream) WaitEvent(e Event, flags uint32) error         { return nil }
@@ -78,7 +78,7 @@ func (s Stream) MemAllocAsync[T any](n int) (DevicePtr, error) { return 0, nil }
 type Event uintptr
 
 func NewEvent(flags uint32) (Event, error)    { return 0, nil }
-func (e Event) Destroy() error                { return nil }
+func (e *Event) Close() error                 { return nil }
 func (e Event) Record(s Stream) error         { return nil }
 func (e Event) Synchronize() error            { return nil }
 func (e Event) Query() (done bool, err error) { return false, nil }
@@ -119,7 +119,7 @@ func (g Graph) Clone() (Graph, error)                       { return 0, nil }
 func (g Graph) Instantiate(flags uint64) (GraphExec, error) { return 0, nil }
 func (g Graph) Destroy() error                              { return nil }
 func (g GraphExec) Launch(s Stream) error                   { return nil }
-func (g GraphExec) Destroy() error                          { return nil }
+func (g *GraphExec) Close() error                           { return nil }
 
 type JITOption int32
 
@@ -133,7 +133,7 @@ type Module uintptr
 func ModuleLoadDataEx(image []byte, numOptions uint32, options *JITOption, optionValues *uintptr) (Module, error) {
 	return 0, nil
 }
-func (m Module) Unload() error { return nil }
+func (m *Module) Close() error { return nil }
 
 type LinkState uintptr
 
@@ -141,7 +141,7 @@ func LinkCreate(numOptions uint32, options *JITOption, optionValues *uintptr) (L
 	return 0, nil
 }
 func (l LinkState) Complete() (cubinOut uintptr, sizeOut uint, err error) { return 0, 0, nil }
-func (l LinkState) Destroy() error                                        { return nil }
+func (l *LinkState) Close() error                                         { return nil }
 
 type TensorMap struct{ Opaque [16]uint64 }
 

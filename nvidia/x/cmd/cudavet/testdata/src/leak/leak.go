@@ -6,11 +6,11 @@ import (
 )
 
 func work() error {
-	s, err := driver.NewStream(0) // want `s is created and never released; defer s.Destroy\(\)`
+	s, err := driver.NewStream(0) // want `s is created and never released; defer s.Close\(\)`
 	if err != nil {
 		return err
 	}
-	e, err := driver.NewEvent(0) // want `e is created and never released; defer e.Destroy\(\)`
+	e, err := driver.NewEvent(0) // want `e is created and never released; defer e.Close\(\)`
 	if err != nil {
 		return err
 	}
@@ -24,7 +24,7 @@ func handles() error {
 	if err != nil {
 		return err
 	}
-	h, err := cusolver.Create() // want `h is created and never released; defer h.Destroy\(\)`
+	h, err := cusolver.Create() // want `h is created and never released; defer h.Close\(\)`
 	if err != nil {
 		return err
 	}
@@ -44,5 +44,5 @@ func captured() error {
 	if err := create(); err != nil {
 		return err
 	}
-	return s.Destroy()
+	return s.Close()
 }

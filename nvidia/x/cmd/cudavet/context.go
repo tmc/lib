@@ -219,16 +219,16 @@ var unlockDestroyAnalyzer = &analysis.Analyzer{
 	Doc: `check that a context is destroyed on the thread it was current on
 
 Deferred calls run last-in first-out, so a defer runtime.UnlockOSThread written
-after defer ctx.Destroy() runs first, and Destroy then runs on whatever thread
+after defer ctx.Close() runs first, and Close then runs on whatever thread
 the goroutine lands on. unlockdestroy reports that order, an UnlockOSThread
-followed by a Destroy of a context, and a context destroyed from a goroutine
+followed by a Close of a context, and a context destroyed from a goroutine
 other than the one that made it.`,
 	Run: runUnlockDestroy,
 }
 
 // isContextRelease reports whether fn destroys or releases a context.
 func isContextRelease(fn *types.Func) bool {
-	return methodOf(fn, "driver", "Context", "Destroy") || methodOf(fn, "driver", "Device", "PrimaryCtxRelease")
+	return methodOf(fn, "driver", "Context", "Close") || methodOf(fn, "driver", "Device", "PrimaryCtxRelease")
 }
 
 func runUnlockDestroy(pass *analysis.Pass) (any, error) {

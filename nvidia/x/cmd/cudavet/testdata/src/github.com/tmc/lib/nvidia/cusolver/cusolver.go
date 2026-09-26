@@ -13,8 +13,8 @@ const (
 
 type Handle uintptr
 
-func Create() (Handle, error)   { return 0, nil }
-func (h Handle) Destroy() error { return nil }
+func Create() (Handle, error)  { return 0, nil }
+func (h *Handle) Close() error { return nil }
 
 func (h Handle) DgetrfBufferSize(m, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	return 0, nil

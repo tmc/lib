@@ -19,12 +19,12 @@ func ComputeDesc64F() (ComputeDescriptor, error) { return 0, nil }
 
 type Handle uintptr
 
-func Create() (Handle, error)   { return 0, nil }
-func (h Handle) Destroy() error { return nil }
+func Create() (Handle, error)  { return 0, nil }
+func (h *Handle) Close() error { return nil }
 
 type TensorDescriptor uintptr
 
-func (d TensorDescriptor) Destroy() error { return nil }
+func (d *TensorDescriptor) Close() error { return nil }
 
 func (h Handle) CreateTensorDescriptor(extent []int64, stride []int64, dataType DataType, alignment uint32) (TensorDescriptor, error) {
 	return 0, nil
@@ -32,7 +32,7 @@ func (h Handle) CreateTensorDescriptor(extent []int64, stride []int64, dataType 
 
 type OperationDescriptor uintptr
 
-func (d OperationDescriptor) Destroy() error { return nil }
+func (d *OperationDescriptor) Close() error { return nil }
 
 func (h Handle) CreateContraction(descA TensorDescriptor, modeA []int32, descB TensorDescriptor, modeB []int32, descC TensorDescriptor, modeC []int32, descD TensorDescriptor, modeD []int32, descCompute ComputeDescriptor) (OperationDescriptor, error) {
 	return 0, nil
@@ -42,7 +42,7 @@ type PlanPreference uintptr
 
 type Plan uintptr
 
-func (p Plan) Destroy() error { return nil }
+func (p *Plan) Close() error { return nil }
 
 func (h Handle) EstimateWorkspaceSize(desc OperationDescriptor, pref PlanPreference) (uint64, error) {
 	return 0, nil

@@ -21,9 +21,9 @@ stored in a struct or passed on has an owner elsewhere and is left alone.
 
 The pairs are not listed by hand. A handle type is any type of an nvidia
 package with a destructor method, one that takes nothing and returns only an
-error and is named Destroy, Free or Unload, or begins with Destroy. That is
-the method set the generator emits, so a new binding is covered when it is
-generated. A constructor is a function or method returning such a type whose
+error and is named Destroy, Free or Unload, or begins with Destroy, or, in a
+generated binding, is named Close. That is the method set the generator
+emits, so a new binding is covered when it is generated. A constructor is a function or method returning such a type whose
 name says it makes one: New, Create, MemAlloc, ModuleLoad, Plan, Clone,
 Instantiate or CommInit.`,
 	Run: runLeak,
@@ -96,6 +96,11 @@ func destructor(t types.Type) string {
 		if !m.Exported() || !isDestructorName(m.Name()) {
 			continue
 		}
+		// Close releases a handle only in a generated binding; under x/
+		// it is an ordinary io.Closer, often of nothing on the device.
+		if m.Name() == "Close" && !isBinding(named.Obj().Pkg()) {
+			continue
+		}
 		sig := m.Type().(*types.Signature)
 		if sig.Params().Len() != 0 || sig.Results().Len() != 1 || !isError(sig.Results().At(0).Type()) {
 			continue
@@ -108,7 +113,7 @@ func destructor(t types.Type) string {
 }
 
 func isDestructorName(name string) bool {
-	return name == "Free" || name == "Unload" || strings.HasPrefix(name, "Destroy")
+	return name == "Close" || name == "Free" || name == "Unload" || strings.HasPrefix(name, "Destroy")
 }
 
 // isRelease reports whether a method named name ends a handle's life. It

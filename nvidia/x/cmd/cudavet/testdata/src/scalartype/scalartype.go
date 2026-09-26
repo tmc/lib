@@ -17,12 +17,12 @@ func contract(h cutensor.Handle, dA, dB, dC cutensor.TensorDescriptor, a, b, c d
 	if err != nil {
 		return err
 	}
-	defer op.Destroy()
+	defer op.Close()
 	plan, err := h.CreatePlan(op, 0, 0)
 	if err != nil {
 		return err
 	}
-	defer plan.Destroy()
+	defer plan.Close()
 	alpha, beta := 1.0, 0.0
 	return h.Contract(plan, unsafe.Pointer(&alpha), a, b, unsafe.Pointer(&beta), c, c, 0, 0, s) // want `alpha is float64, but the operation computes in ComputeDesc32F and reads it as float32` `beta is float64, but the operation computes in ComputeDesc32F and reads it as float32`
 }
@@ -36,12 +36,12 @@ func contract32(h cutensor.Handle, dA, dB, dC cutensor.TensorDescriptor, a, b, c
 	if err != nil {
 		return err
 	}
-	defer op.Destroy()
+	defer op.Close()
 	plan, err := h.CreatePlan(op, 0, 0)
 	if err != nil {
 		return err
 	}
-	defer plan.Destroy()
+	defer plan.Close()
 	alpha, beta := float32(1), float32(0)
 	return h.Contract(plan, unsafe.Pointer(&alpha), a, b, unsafe.Pointer(&beta), c, c, 0, 0, s)
 }

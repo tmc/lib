@@ -22,9 +22,10 @@ func inNvidia(pkg *types.Package) bool {
 }
 
 // isBinding reports whether pkg is a generated binding of a C library, as
-// opposed to a package under x/ built on the bindings.
+// opposed to a package under x/ or internal/ built on the bindings.
 func isBinding(pkg *types.Package) bool {
-	return inNvidia(pkg) && !strings.HasPrefix(pkg.Path(), nvidiaPrefix+"x/")
+	return inNvidia(pkg) && !strings.HasPrefix(pkg.Path(), nvidiaPrefix+"x/") &&
+		!strings.HasPrefix(pkg.Path(), nvidiaPrefix+"internal/")
 }
 
 // inPkg reports whether pkg is the nvidia package with the given path below

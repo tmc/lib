@@ -78,8 +78,8 @@ var uncheckedSyncAnalyzer = &analysis.Analyzer{
 A failure of an earlier kernel launch or asynchronous copy is reported by a
 later call, usually the next one that synchronizes; a release may report it
 too. uncheckedsync reports a Synchronize or CtxSynchronize called as a bare
-statement, dropping its error, and a release (Destroy, Free, Unload) called
-the same way outside a defer. An explicit _ = x.Destroy() is taken as
+statement, dropping its error, and a release (Close, Destroy, Free, Unload)
+called the same way outside a defer. An explicit _ = x.Close() is taken as
 deliberate. A release on an error path, followed by a return of a non-nil
 error or a call such as t.Fatal, is left alone: the first error is the one
 to report.`,
@@ -94,7 +94,7 @@ func runUncheckedSync(pass *analysis.Pass) (any, error) {
 			if !ok || len(stack) == 0 {
 				return
 			}
-			// _ = x.Destroy() discards the error on purpose.
+			// _ = x.Close() discards the error on purpose.
 			if _, bare := stack[len(stack)-1].(*ast.ExprStmt); !bare {
 				return
 			}

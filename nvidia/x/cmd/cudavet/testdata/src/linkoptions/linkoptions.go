@@ -25,7 +25,7 @@ func local() (uintptr, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer l.Destroy()
+	defer l.Close()
 	cubin, _, err := l.Complete()
 	return cubin, err
 }
