@@ -6593,26 +6593,17 @@
         "argv": [
           "go",
           "run",
-          "./cmd/gen-nvidia",
-          "-api",
-          "nccl",
+          "./cmd/nccl-survey",
           "-header",
           "${HEADERS_REPO}/pinned/nccl/2.31.2-1/nccl.h",
-          "-headers-dir",
+          "-cuda-headers",
           "${HEADERS_REPO}",
-          "-output",
-          "${OUTPUT_DIR}",
-          "-package",
-          "nccl",
-          "-deprecated=true",
           "-docs-dir",
-          "${DOCS_DIR}",
-          "-ffi-register",
-          "github.com/tmc/lib/nvidia/internal/ffi",
-          "-ffi-register-symbols",
-          "ncclTeamRankToWorld,ncclTeamRankToLsa,ncclGinBarrierCreateRequirement,ncclLsaBarrierCreateRequirement,ncclCftBarrierCreateRequirement,ncclGetCftDeviceLeInfo"
+          "${CODEGEN_REPO}/docs",
+          "-output",
+          "${OUTPUT_DIR}"
         ],
-        "comparison": "Regenerated from pinned/nccl/2.31.2-1 rather than the fetched nccl/ tree, which cuda-headers expands from nccl.h.in at fetch time and which carried 2.29.7. The recorded argv was replayed into a scratch directory after the move and all 20 generated Go files matched the committed output byte-for-byte; provenance.json is excluded from outputs because it records the invocation and so varies with -output and -docs-dir. 2.31.2 adds 33 exported declarations, all of them upstream's: a worktree control at the prior generator commit produced the same exported set as the package previously shipped, so none of the 33 is generator drift. Six of the eight new entry points are bound; ncclGinWindowRegister and ncclGinWindowDeregister are declared only in nccl_device/gin_win_stub.h, which is #error-guarded to Windows, and are not bound. No runtime or GPU claim: this host has no libnccl 2.31.2.",
+        "comparison": "Regenerated from the pinned nccl 2.31.2-1 headers with nccl-survey at libgen d61bc79a. All 20 generated Go files, including the provenance source, are recorded below. The package test passes; apidiff reports zero incompatible changes on linux/amd64, linux/arm64 and darwin/arm64; go vet passes on linux/amd64, linux/arm64, darwin/arm64 and windows/amd64. Compiler-measured 12-byte ncclTeam_t calls, including TeamRankToWorld and TeamRankToLsa, bind through the configured ffi registrar. The regenerated package retains the ffiCall bridge and pooled output slots. No NCCL runtime or GPU workload was run.",
         "cwd": "${CODEGEN_REPO}",
         "dependency_inventory": {
           "method": "Primary-header clang -M closure over the pinned 2.31.2-1 nccl.h plus the complete .h tree of that pin, which supplies every merged device sibling and layout probe; includes all selected inputs, may include unused device headers.",
@@ -6772,107 +6763,124 @@
           ]
         },
         "environment": {
-          "GOPROXY": "off",
-          "GOSUMDB": "off",
-          "GOTOOLCHAIN": "local",
           "GOWORK": "off",
+          "GOTOOLCHAIN": "go1.27.0",
           "TMPDIR": "${SCRATCH_DIR}"
         },
         "limits": [
-          "Tracked docs selected explicitly now; original historical docs identity unknown.",
-          "Host SDK paths/hashes recorded, not hermetic cross-host qualification.",
-          "Vendor archive source unverified in this offline pass.",
-          "No runtime/GPU claim; the four versioned-struct constructors are unqualified against a real libnccl.",
-          "ncclGinWindowRegister and ncclGinWindowDeregister are unbound: their only declarations are in a Windows-only stub header."
+          "The input digest covers explicit header roots, not transitive includes, docs, generator sources or toolchain.",
+          "No libnccl 2.31.2 runtime or GPU workload was available for qualification.",
+          "ncclGinWindowRegister and ncclGinWindowDeregister remain unbound because their declarations are in a Windows-only stub header."
         ],
         "outputs": [
           {
             "path": "nvidia/nccl/comm.gen.go",
-            "sha256": "df49ae6afdff538d5c055c4e63f58d563f07ce7663df1ecdeae8dc74e3e67a95"
+            "sha256": "fdb44dafafac5b42a8303f0285e1881640bff4a72bd4119a549ea461b8ace35f"
           },
           {
             "path": "nvidia/nccl/defaults.gen.go",
-            "sha256": "d4b2dffa8ad1e6b7ab8ae1feba322ddea6702370591a0782b7969a6d4820afa6"
+            "sha256": "37ff49052d80ad67b4f3c1a7526a9b0db2a62fdb752bbb4724f5e0fb1413d491"
           },
           {
             "path": "nvidia/nccl/devcomm.gen.go",
-            "sha256": "f4eac5343c848caa2fce0edad66555ae6adf4f10a191e2ececa23e6c362de661"
+            "sha256": "28f4fd4f9f08ceb76faec72a6a6cfdee3b76a18d35de7063661ce0cf05f446dc"
           },
           {
             "path": "nvidia/nccl/devptr.gen.go",
-            "sha256": "25af41c4d28485281570ffdcf41a1211f0b9a64e9e3a8e2f7f97468a66208ac9"
+            "sha256": "b003bded710f38834ce4a6d329a9fc412c76b75474f52a1b73b4b2e1ddaed1a0"
           },
           {
-            "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/nccl/doc.gen.go",
-            "sha256": "d5523824f43ee61e7a3866225dad84aab2437bb1feb474741fae22a4ae4d2ed9"
+            "sha256": "f087994f16e01914767340a379076f402a7efaa5c5cb33ac57989aa78fb6996a",
+            "documentation_refresh": "documentation-generation.json"
           },
           {
             "path": "nvidia/nccl/enums.gen.go",
-            "sha256": "6b345ae8b422f3ed2a1ac28f3e61d2b801058789b88c70faa32e3ea0ee790bed"
+            "sha256": "2a17285abdd2fd8b9d50694c4d2aa8bcfcd899117e1dcbcaf23d4f4fa5a1e142"
           },
           {
             "path": "nvidia/nccl/funcs.gen.go",
-            "sha256": "dfe28f0749512d91f3c2d90138eaa58f86e4815fb79bac8506aa2a03f233fa24"
+            "sha256": "35916fd1f0405060983032198ec969a351aac89899181f709e003b30901dcdfd"
           },
           {
             "path": "nvidia/nccl/gin.gen.go",
-            "sha256": "10c180916309fa805abfcea648c611b111e5826e1855e37490cf565cc142b0b3"
+            "sha256": "9ef097baed359b154e0ee6eed2ac25c32802853757f4a4121f027e9839ee2946"
           },
           {
             "path": "nvidia/nccl/handles.gen.go",
-            "sha256": "f60dd9224621245dc7c9f2e558a943387b48bb926812a76124cdc0e798e4dfd2"
+            "sha256": "1494de3490674a0433ae2a42f8290c61f3c17b40d5614b3f70f64b717e0e8b39"
           },
           {
             "path": "nvidia/nccl/init.gen.go",
-            "sha256": "fe263fed335acec6f9db1e14d743c14b6b47bbcac0f84ec293423aa1acd0267b"
+            "sha256": "84b488cea7a58c93493e56c7af5e27099d1ec2ce5ef6e7b9914c8a1bfc1db287"
           },
           {
             "path": "nvidia/nccl/layout.gen_test.go",
-            "sha256": "4a88a7ccef49a5dceacdac92686b3ec91eeb0fa32de611a44fa5d16b316b82ba"
+            "sha256": "49dd2db27f956e90e234dc093944e926dbcb8aa3a798892f92f2984342e89d12"
           },
           {
             "path": "nvidia/nccl/loader.gen_test.go",
-            "sha256": "ae17d6601e5b62489e7a3b048b24da227332bbdb937b6245d84db829aaaed79e"
+            "sha256": "e05197dd65dd9036ec5f86deec34241cbc2fa63ec068c90f057cd263d3ee96c3"
           },
           {
             "path": "nvidia/nccl/loader_unix.gen.go",
-            "sha256": "d92cdaaa745fcfaf92ecddb0adbe74c9bcbc3014bd8c2824198916e009de0bb8"
+            "sha256": "a54ea1189fdb3ad6593bdeda8f33a44e680f8a223da439cf907c19f245707c3f"
           },
           {
             "path": "nvidia/nccl/loader_windows.gen.go",
-            "sha256": "2fad8d2359cea4b7bcce6a177714b7668d68f05e7941a7d1ae5338c86a1183e9"
+            "sha256": "ff0ec8b1ccf838ce7cee765b3e0e75a85c6717d326fb56588258daadc7c04024"
           },
           {
             "path": "nvidia/nccl/param_handle.gen.go",
-            "sha256": "99882320c2ac6d6073ffc3d967e36eb9a0981f9d6c3f39a3d6fe5f79e5dd99f8"
+            "sha256": "fafbc4d2357237b95952305161ec36688070b1cb16d9f77dd64314f81cf51615"
           },
           {
             "path": "nvidia/nccl/provenance.gen.go",
-            "sha256": "e2ce7e398f80256bb892ef662c963864f526734fd289a53f741abfdc854ccc3c"
+            "sha256": "1203ec6d5201295363e83c7ec952801d2bb111dffd236840240dd5f2ae801a10"
           },
           {
             "path": "nvidia/nccl/result.gen.go",
-            "sha256": "9e5e8a60a17d94f7f29896acbc11685d122cbf66152bed251513fa530843775e"
+            "sha256": "34919c6c18310f8be2b7e777dcf5a0bd4b7ff8cfeaa8b049eb9423f71a42479b"
           },
           {
             "path": "nvidia/nccl/structs.gen.go",
-            "sha256": "c1a26b6b302d768e218c3fa9debb4c65de2245c89674697d29ad91f6734ce6b2"
+            "sha256": "70ef1c7070012289a31fe9f0eb518f464247c02f8b6e196dc4dae514e6e16638"
           },
           {
             "path": "nvidia/nccl/types.gen.go",
-            "sha256": "3a45558bc4c0be88fad0ba55094b0a4841c4bd05887aaa0b9f4c26b55edf63ad"
+            "sha256": "9ff9d7f93ca72a21b34fd85102a36b5b809a41af26fe3c4967373ac4c3a10516"
           },
           {
             "path": "nvidia/nccl/window.gen.go",
-            "sha256": "22bf8fa23f86903fa6aa77c474cb5e8c83356ac43f342fe6afda0458c1939bbe"
+            "sha256": "759fa9b307e129c6e37b32410eeefe0819fa28455ee5a863cf9266ef7edc692c"
           }
         ],
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
           "go": "go version go1.27.0 darwin/arm64"
         },
-        "note": "Restamped 2026-09-18 for one byte. contrib/cuda GenerateDefaults returned its buffer without format.Source, so defaults.gen.go shipped with a blank line at end of file -- the only generated file in nvidia that gofmt would change. The emitter now formats (libgen), and this record holds the digest of the formatted file. Nothing else moved: the same pinned header, the same recipe, and the other 19 outputs reproduce byte for byte. The pin did not move. Restamped again for the local FFI registrar: the recipe gained -ffi-register and -ffi-register-symbols, which route six Team and barrier entry points through internal/ffi. Replaying this argv with libgen at 79b7720 reproduces all 20 outputs byte for byte; devcomm.gen.go and init.gen.go carry the new digests."
+        "note": "Moved the recorded recipe from gen-nvidia to nccl-survey. ffigen now emits the configured function groups and initializer constructors, routes small by-value aggregates through RegisterFunc using compiler-measured layouts, and refuses unsupported layouts. Public API compatibility was checked against the prior package on three platforms.",
+        "options": {
+          "clang": true,
+          "docs_enabled": true,
+          "call_bridge": "github.com/tmc/lib/nvidia/internal/ffi",
+          "function_files": true,
+          "initializer_macros": true,
+          "compiler_measured_by_value_routing": true
+        },
+        "source_state": "clean codegen checkout recorded after generation",
+        "maintained_files_excluded": [
+          "README.md",
+          "comm_array_test.go",
+          "descriptor_physical_test.go",
+          "example_test.go",
+          "ffi_native_test.go",
+          "initall.go",
+          "initall_physical_test.go",
+          "initall_test.go",
+          "load_order_test.go",
+          "simulate_physical_test.go"
+        ]
       },
       "header": {
         "path": "pinned/nccl/2.31.2-1/nccl.h",
@@ -7269,10 +7277,10 @@
       "package": "github.com/tmc/lib/nvidia/nccl",
       "repositories": {
         "codegen": {
-          "commit": "b3dc359c9db53dea61a497ef6f5c4a305f945132",
-          "tree": "f54815ecdd777ae664e200e000db35f1e948469d",
+          "commit": "d61bc79a2258a2513b951cb0cf70f6d52ee4de9e",
+          "tree": "edb59f2ccb968fa5fec46303520c705dcc09f1f8",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 80aa768: ParamHandle methods drop the ParamGet stem. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen b3dc359c"
+          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 80aa768: ParamHandle methods drop the ParamGet stem. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen b3dc359c Regenerated with nccl-survey at libgen d61bc79a; the package API is compatible, and 12-byte team aggregates now use compiler-measured ffi registration."
         },
         "headers": {
           "commit": "0187274c798507606df855dfe4ec17f99d8ffe97",

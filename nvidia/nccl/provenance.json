@@ -1,28 +1,19 @@
 {
   "schema_version": 1,
-  "generator": "github.com/tmc/libgen/cmd/gen-nvidia",
+  "generator": "github.com/tmc/libgen/cmd/nccl-survey",
   "upstream_version": "unrecorded",
   "version_source": "unrecorded",
   "cwd": ".",
   "argv": [
-    "gen-nvidia",
-    "-api",
-    "nccl",
+    "nccl-survey",
+    "-cuda-headers",
+    "cuda-headers",
     "-header",
     "nccl.h",
-    "-headers-dir",
-    "cuda-headers",
-    "-output",
-    "nccl",
-    "-package",
-    "nccl",
-    "-deprecated=true",
     "-docs-dir",
     "docs",
-    "-ffi-register",
-    "ffi",
-    "-ffi-register-symbols",
-    "ncclTeamRankToWorld,ncclTeamRankToLsa,ncclGinBarrierCreateRequirement,ncclLsaBarrierCreateRequirement,ncclCftBarrierCreateRequirement,ncclGetCftDeviceLeInfo"
+    "-output",
+    "${OUTPUT_DIR}"
   ],
   "inputs": [
     {
