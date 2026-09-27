@@ -19,8 +19,7 @@
 // A [Layout] is CuTe's shape:stride function from coordinates to offsets,
 // written in CuTe notation ("((2,2),2):((4,1),2)") and evaluated
 // colexicographically. [Coalesce], [Composition], [Complement],
-// [LogicalDivide], [ZippedDivide], [RightInverse], [Nullspace], and
-// [GreatestCommonDomain] implement CuTe's algebra over it, and reject
+// [LogicalDivide] and [ZippedDivide] implement CuTe's algebra over it, and reject
 // rather than approximate an operation whose divisibility conditions fail.
 // Offsets are in the unit of the strides; a Layout does not know
 // elements from bytes.
