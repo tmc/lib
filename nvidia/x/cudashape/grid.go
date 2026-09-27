@@ -40,7 +40,8 @@ func (g Grid3D) Dims() [3]uint32 {
 // For rank-1 shapes, Y and Z are set to 1. For rank-2 shapes, Z is set to 1.
 // Returns ErrRankMismatch if the ranks differ or are not in the range [1, 3].
 // Returns ErrNegativeDimension if any extent is non-positive.
-// Returns ErrShapeOverflow if any computed grid dimension overflows uint32.
+// Returns ErrShapeOverflow if a grid dimension exceeds CUDA's limits: X is at
+// most 2^31-1, and Y and Z are at most 65535.
 func InferGrid(tensorShape, partitionShape Shape) (Grid3D, error) {
 	tRank := tensorShape.Rank()
 	pRank := partitionShape.Rank()
@@ -68,8 +69,14 @@ func InferGrid(tensorShape, partitionShape Shape) (Grid3D, error) {
 		if t%p != 0 {
 			div++
 		}
-		if div > math.MaxUint32 {
-			return Grid3D{}, fmt.Errorf("%w: grid dimension at axis %d (%d) exceeds uint32 limit", ErrShapeOverflow, i, div)
+		limit := uint64(math.MaxUint32)
+		if i == 0 {
+			limit = 1<<31 - 1
+		} else {
+			limit = 65535
+		}
+		if div > limit {
+			return Grid3D{}, fmt.Errorf("%w: grid dimension at axis %d (%d) exceeds CUDA limit %d", ErrShapeOverflow, i, div, limit)
 		}
 		dims[i] = uint32(div)
 	}

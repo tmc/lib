@@ -3,6 +3,8 @@ package cudalayout
 import (
 	"errors"
 	"fmt"
+	"math"
+	"sort"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cudashape"
@@ -49,6 +51,11 @@ func WithPartitionStrides(strides []int) PartitionOption {
 				return fmt.Errorf("%w: stride at axis %d must be positive (got %d)", ErrInvalidPartition, i, s)
 			}
 		}
+		for i, s := range strides {
+			if _, ok := checkedMul(s, p.tensorShape.Dim(i)-1); !ok {
+				return overflowPartition("stride extent", i)
+			}
+		}
 		p.strides = append([]int(nil), strides...)
 		return nil
 	}
@@ -78,7 +85,7 @@ func NewPartition(ptr driver.DevicePtr, tensorShape, partitionShape cudashape.Sh
 
 	defaultStrides, err := cudashape.RowMajorStrides(tensorShape.Dims())
 	if err != nil {
-		return Partition{}, fmt.Errorf("%w: compute row-major strides: %v", ErrInvalidPartition, err)
+		return Partition{}, fmt.Errorf("%w: compute row-major strides: %w", ErrInvalidPartition, err)
 	}
 
 	p := Partition{
@@ -116,6 +123,9 @@ func NewPartitionMut(ptr driver.DevicePtr, tensorShape, partitionShape cudashape
 func NewPartitionFromTile(ptr driver.DevicePtr, t Tile, partitionRows, partitionCols int) (Partition, error) {
 	if t.rows <= 0 || t.cols <= 0 {
 		return Partition{}, ErrUninitialized
+	}
+	if t.Swizzle() != SwizzleNone {
+		return Partition{}, fmt.Errorf("%w: swizzled tiles cannot define a partition", ErrInvalidPartition)
 	}
 	tShape, err := cudashape.New(t.rows, t.cols)
 	if err != nil {
@@ -156,7 +166,7 @@ func (p Partition) ElementBytes() int {
 	return p.elemBytes
 }
 
-// TileStride returns the leading tile stride in elements (strides[0]).
+// TileStride returns the leading axis stride in elements (strides[0]).
 func (p Partition) TileStride() int {
 	if len(p.strides) == 0 {
 		return 0
@@ -164,21 +174,13 @@ func (p Partition) TileStride() int {
 	return p.strides[0]
 }
 
-// TileStride32 returns the leading tile stride as an int32.
-func (p Partition) TileStride32() int32 {
-	return int32(p.TileStride())
-}
-
-// KernelArgs returns the default kernel arguments for this partition:
-// the base device pointer followed by the tile stride as an int.
-func (p Partition) KernelArgs() []any {
-	return []any{p.Ptr(), p.TileStride()}
-}
-
-// KernelArgs32 returns the kernel arguments for this partition with a 32-bit stride:
-// the base device pointer followed by the tile stride as an int32.
-func (p Partition) KernelArgs32() []any {
-	return []any{p.Ptr(), p.TileStride32()}
+// TileStride32 returns the leading stride when it fits in int32.
+func (p Partition) TileStride32() (int32, error) {
+	v := p.TileStride()
+	if v < 0 || uint64(v) > math.MaxInt32 {
+		return 0, fmt.Errorf("%w: stride %d exceeds int32", ErrInvalidPartition, v)
+	}
+	return int32(v), nil
 }
 
 // PartitionStrides returns the stride in elements between adjacent block tiles along each axis.
@@ -208,8 +210,10 @@ func (m PartitionMut) AsReadOnly() Partition {
 	return p
 }
 
-// ValidateDisjoint verifies that the tile shape evenly or ceiling-covers the
-// tensor bounds and that stride calculations guarantee non-overlapping tile offsets per block ID.
+// ValidateDisjoint verifies that strides guarantee non-overlapping tile
+// offsets. Kernels must mask partial tiles. For a partial physical inner axis,
+// the next outer stride must contain the padded grid-by-tile envelope so that
+// masked lanes cannot wrap into an adjacent outer coordinate.
 func (p Partition) ValidateDisjoint() error {
 	rank := p.tensorShape.Rank()
 	if rank < 1 || rank > 3 || rank != p.partitionShape.Rank() {
@@ -227,73 +231,62 @@ func (p Partition) ValidateDisjoint() error {
 
 	grid, err := p.Grid()
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrInvalidPartition, err)
+		return fmt.Errorf("%w: %w", ErrInvalidPartition, err)
 	}
 
-	switch rank {
-	case 1:
-		// 1D partition tiles are disjoint if stride is positive (verified above).
-		return nil
-
-	case 2:
-		D0, D1 := p.tensorShape.Dim(0), p.tensorShape.Dim(1)
-		P0, P1 := p.partitionShape.Dim(0), p.partitionShape.Dim(1)
-		S0, S1 := p.strides[0], p.strides[1]
-
-		if S0 >= S1 {
-			// Row-major order
-			if S0 < P1*S1 {
-				return fmt.Errorf("%w: tile column span %d exceeds row stride %d", ErrWrappingPartition, P1*S1, S0)
-			}
-			if S0 < D1*S1 {
-				return fmt.Errorf("%w: row stride %d is smaller than tensor row width %d", ErrOverlappingPartition, S0, D1*S1)
-			}
-			if D1%P1 != 0 && S0 < int(grid.Y)*P1*S1 {
-				return fmt.Errorf("%w: non-divisible column partition (%d not divisible by %d) with packed stride %d wraps into next row", ErrWrappingPartition, D1, P1, S0)
-			}
-		} else {
-			// Column-major order
-			if S1 < P0*S0 {
-				return fmt.Errorf("%w: tile row span %d exceeds column stride %d", ErrWrappingPartition, P0*S0, S1)
-			}
-			if S1 < D0*S0 {
-				return fmt.Errorf("%w: column stride %d is smaller than tensor column height %d", ErrOverlappingPartition, S1, D0*S0)
-			}
-			if D0%P0 != 0 && S1 < int(grid.X)*P0*S0 {
-				return fmt.Errorf("%w: non-divisible row partition (%d not divisible by %d) with packed stride %d wraps into next column", ErrWrappingPartition, D0, P0, S1)
-			}
-		}
-		return nil
-
-	case 3:
-		_, D1, D2 := p.tensorShape.Dim(0), p.tensorShape.Dim(1), p.tensorShape.Dim(2)
-		_, P1, P2 := p.partitionShape.Dim(0), p.partitionShape.Dim(1), p.partitionShape.Dim(2)
-		S0, S1, S2 := p.strides[0], p.strides[1], p.strides[2]
-
-		// Check Axis 2 vs Axis 1
-		if S1 < P2*S2 {
-			return fmt.Errorf("%w: tile axis 2 span %d exceeds stride %d", ErrWrappingPartition, P2*S2, S1)
-		}
-		if S1 < D2*S2 {
-			return fmt.Errorf("%w: stride 1 (%d) is smaller than dimension 2 extent %d", ErrOverlappingPartition, S1, D2*S2)
-		}
-		if D2%P2 != 0 && S1 < int(grid.Z)*P2*S2 {
-			return fmt.Errorf("%w: non-divisible axis 2 partition (%d not divisible by %d) wraps into axis 1", ErrWrappingPartition, D2, P2)
-		}
-
-		// Check Axis 1 vs Axis 0
-		if S0 < P1*S1 {
-			return fmt.Errorf("%w: tile axis 1 span %d exceeds stride %d", ErrWrappingPartition, P1*S1, S0)
-		}
-		if S0 < D1*S1 {
-			return fmt.Errorf("%w: stride 0 (%d) is smaller than dimension 1 extent %d", ErrOverlappingPartition, S0, D1*S1)
-		}
-		if D1%P1 != 0 && S0 < int(grid.Y)*P1*S1 {
-			return fmt.Errorf("%w: non-divisible axis 1 partition (%d not divisible by %d) wraps into axis 0", ErrWrappingPartition, D1, P1)
-		}
-		return nil
-
-	default:
-		return fmt.Errorf("%w: unsupported rank %d", ErrInvalidPartition, rank)
+	// Kernels mask partial tiles. Order axes by physical stride so any stride
+	// permutation is checked consistently. Padded inner tiles must fit before
+	// the next physical axis; the outermost axis has no neighbor to wrap into.
+	axes := make([]int, rank)
+	for i := range axes {
+		axes[i] = i
 	}
+	sort.Slice(axes, func(i, j int) bool { return p.strides[axes[i]] < p.strides[axes[j]] })
+	span := 1
+	for pos, axis := range axes {
+		d, part, stride := p.tensorShape.Dim(axis), p.partitionShape.Dim(axis), p.strides[axis]
+		if stride < span {
+			return fmt.Errorf("%w: stride %d at axis %d is smaller than occupied span %d", ErrOverlappingPartition, stride, axis, span)
+		}
+		gridDim := []uint32{grid.X, grid.Y, grid.Z}[axis]
+		covered, ok := checkedMul(int(gridDim), part)
+		if !ok {
+			return overflowPartition("grid tile", axis)
+		}
+		covered, ok = checkedMul(covered, stride)
+		if !ok {
+			return overflowPartition("grid tile stride", axis)
+		}
+		if pos+1 < rank && d%part != 0 {
+			outerStride := p.strides[axes[pos+1]]
+			if outerStride < covered {
+				return fmt.Errorf("%w: partial tile at axis %d wraps into adjacent axis", ErrWrappingPartition, axis)
+			}
+		}
+		term, ok := checkedMul(d-1, stride)
+		if !ok {
+			return overflowPartition("stride extent", axis)
+		}
+		span, ok = checkedAdd(span, term)
+		if !ok {
+			return overflowPartition("occupied span", axis)
+		}
+	}
+	return nil
+}
+
+func checkedMul(a, b int) (int, bool) {
+	if a < 0 || b < 0 || (a != 0 && b > math.MaxInt/a) {
+		return 0, false
+	}
+	return a * b, true
+}
+func checkedAdd(a, b int) (int, bool) {
+	if b > math.MaxInt-a {
+		return 0, false
+	}
+	return a + b, true
+}
+func overflowPartition(what string, axis int) error {
+	return fmt.Errorf("%w: %w: %s at axis %d", ErrInvalidPartition, cudashape.ErrShapeOverflow, what, axis)
 }

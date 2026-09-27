@@ -49,10 +49,10 @@ func TestShape_InferGrid_Ranks1To3(t *testing.T) {
 			want:      cudashape.Grid3D{X: 16, Y: 16, Z: 1},
 		},
 		{
-			name:      "rank 2 ceiling division both axes",
-			tensor:    mustShape(t, 1000, 2000),
-			partition: mustShape(t, 64, 128),
-			want:      cudashape.Grid3D{X: 16, Y: 16, Z: 1},
+			name:      "rank 2 asymmetric ceiling division",
+			tensor:    mustShape(t, 15, 1000),
+			partition: mustShape(t, 2, 64),
+			want:      cudashape.Grid3D{X: 8, Y: 16, Z: 1},
 		},
 		{
 			name:      "rank 3 exact division",
@@ -61,10 +61,10 @@ func TestShape_InferGrid_Ranks1To3(t *testing.T) {
 			want:      cudashape.Grid3D{X: 8, Y: 16, Z: 16},
 		},
 		{
-			name:      "rank 3 ceiling division",
-			tensor:    mustShape(t, 15, 1000, 2000),
+			name:      "rank 3 asymmetric ceiling division",
+			tensor:    mustShape(t, 15, 1000, 3000),
 			partition: mustShape(t, 2, 64, 128),
-			want:      cudashape.Grid3D{X: 8, Y: 16, Z: 16},
+			want:      cudashape.Grid3D{X: 8, Y: 16, Z: 24},
 		},
 	}
 
@@ -144,6 +144,18 @@ func TestShape_InferGrid_NonPositiveOrOverflow(t *testing.T) {
 		_, err = cudashape.InferGrid(tLarge, p1)
 		if !errors.Is(err, cudashape.ErrShapeOverflow) {
 			t.Errorf("expected ErrShapeOverflow, got %v", err)
+		}
+	})
+	t.Run("CUDA Y limit", func(t *testing.T) {
+		_, err := cudashape.InferGrid(mustShape(t, 1, 100000), mustShape(t, 1, 1))
+		if !errors.Is(err, cudashape.ErrShapeOverflow) {
+			t.Fatalf("expected ErrShapeOverflow, got %v", err)
+		}
+	})
+	t.Run("CUDA X limit", func(t *testing.T) {
+		_, err := cudashape.InferGrid(mustShape(t, 1<<31), mustShape(t, 1))
+		if !errors.Is(err, cudashape.ErrShapeOverflow) {
+			t.Fatalf("expected ErrShapeOverflow, got %v", err)
 		}
 	})
 }

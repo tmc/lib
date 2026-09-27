@@ -83,28 +83,76 @@ func inferLaunchGrid(explicit cudashape.Grid3D, partitions []cudalayout.Partitio
 	return inferred, nil
 }
 
-// BindPartitionArgs unpacks a Partition into its kernel argument representations:
-// the base device pointer followed by its leading tile stride as an int.
+// BindPartitionArgs returns the pointer, all non-innermost strides in axis
+// order, then every partition extent in axis order. The physical innermost
+// axis is omitted only when it has unit stride; if no axis has unit stride,
+// all strides are included.
 func BindPartitionArgs(p cudalayout.Partition) []any {
-	return []any{p.Ptr(), p.TileStride()}
+	return partitionArgs(p)
 }
 
-// BindPartitionArgs32 unpacks a Partition into its kernel argument representations
-// using a 32-bit stride: the base device pointer followed by its leading tile stride as an int32.
-func BindPartitionArgs32(p cudalayout.Partition) []any {
-	return []any{p.Ptr(), p.TileStride32()}
+// BindPartitionArgs32 returns the same arguments as BindPartitionArgs using
+// int32 strides and extents. It errors if any value does not fit.
+func BindPartitionArgs32(p cudalayout.Partition) ([]any, error) {
+	return partitionArgs32(p)
 }
 
-// BindPartitionMutArgs unpacks a PartitionMut into its kernel argument representations:
-// the base device pointer followed by its leading tile stride as an int.
+// BindPartitionMutArgs returns the pointer, non-innermost strides, and tile extents.
 func BindPartitionMutArgs(p cudalayout.PartitionMut) []any {
-	return []any{p.Ptr(), p.TileStride()}
+	return partitionArgs(p.Partition)
 }
 
-// BindPartitionMutArgs32 unpacks a PartitionMut into its kernel argument representations
-// using a 32-bit stride: the base device pointer followed by its leading tile stride as an int32.
-func BindPartitionMutArgs32(p cudalayout.PartitionMut) []any {
-	return []any{p.Ptr(), p.TileStride32()}
+// BindPartitionMutArgs32 returns the same arguments using int32 values and errors
+// if any stride or extent does not fit.
+func BindPartitionMutArgs32(p cudalayout.PartitionMut) ([]any, error) {
+	return partitionArgs32(p.Partition)
+}
+
+func partitionArgs(p cudalayout.Partition) []any {
+	args := []any{p.Ptr()}
+	strides := p.Strides()
+	inner := -1
+	for i := range strides {
+		if strides[i] == 1 && (inner < 0 || strides[i] < strides[inner]) {
+			inner = i
+		}
+	}
+	for i, stride := range strides {
+		if i != inner {
+			args = append(args, stride)
+		}
+	}
+	for i := 0; i < p.PartitionShape().Rank(); i++ {
+		args = append(args, p.PartitionShape().Dim(i))
+	}
+	return args
+}
+
+func partitionArgs32(p cudalayout.Partition) ([]any, error) {
+	args := []any{p.Ptr()}
+	strides := p.Strides()
+	inner := -1
+	for i := range strides {
+		if strides[i] == 1 && (inner < 0 || strides[i] < strides[inner]) {
+			inner = i
+		}
+	}
+	for i, stride := range strides {
+		if i != inner {
+			if uint64(stride) > 1<<31-1 {
+				return nil, fmt.Errorf("cudalaunch: stride %d exceeds int32", stride)
+			}
+			args = append(args, int32(stride))
+		}
+	}
+	for i := 0; i < p.PartitionShape().Rank(); i++ {
+		d := p.PartitionShape().Dim(i)
+		if uint64(d) > 1<<31-1 {
+			return nil, fmt.Errorf("cudalaunch: partition extent %d exceeds int32", d)
+		}
+		args = append(args, int32(d))
+	}
+	return args, nil
 }
 
 // expandPartitionArgs unpacks any cudalayout.Partition or cudalayout.PartitionMut
@@ -117,10 +165,10 @@ func expandPartitionArgs(args []any) ([]any, []cudalayout.Partition) {
 		switch p := arg.(type) {
 		case cudalayout.Partition:
 			partitions = append(partitions, p)
-			out = append(out, p.Ptr(), p.TileStride())
+			out = append(out, partitionArgs(p)...)
 		case cudalayout.PartitionMut:
 			partitions = append(partitions, p.Partition)
-			out = append(out, p.Ptr(), p.TileStride())
+			out = append(out, partitionArgs(p.Partition)...)
 		default:
 			out = append(out, arg)
 		}

@@ -185,8 +185,8 @@ func TestLaunch_BindPartitionArguments(t *testing.T) {
 
 	t.Run("BindPartitionArgs helper", func(t *testing.T) {
 		args := cudalaunch.BindPartitionArgs(partIn)
-		if len(args) != 2 {
-			t.Fatalf("expected 2 args, got %d", len(args))
+		if len(args) != 4 {
+			t.Fatalf("expected pointer, row stride, and tile shape, got %d args", len(args))
 		}
 		if p, ok := args[0].(driver.DevicePtr); !ok || p != ptrA {
 			t.Errorf("args[0] = %v, want %v", args[0], ptrA)
@@ -197,9 +197,12 @@ func TestLaunch_BindPartitionArguments(t *testing.T) {
 	})
 
 	t.Run("BindPartitionArgs32 helper", func(t *testing.T) {
-		args := cudalaunch.BindPartitionArgs32(partIn)
-		if len(args) != 2 {
-			t.Fatalf("expected 2 args, got %d", len(args))
+		args, err := cudalaunch.BindPartitionArgs32(partIn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(args) != 4 {
+			t.Fatalf("expected pointer, row stride, and tile shape, got %d args", len(args))
 		}
 		if p, ok := args[0].(driver.DevicePtr); !ok || p != ptrA {
 			t.Errorf("args[0] = %v, want %v", args[0], ptrA)
@@ -215,12 +218,11 @@ func TestLaunch_BindPartitionArguments(t *testing.T) {
 		if err != nil {
 			t.Fatalf("PackArgs failed: %v", err)
 		}
-		// partIn unpacks to 2 params (ptr, stride)
-		// partOut unpacks to 2 params (ptr, stride)
+		// Each rank-2 partition binds its pointer, non-unit stride, and tile extents.
 		// extraScalar is 1 param
-		// Total: 5 params
-		if len(params) != 5 {
-			t.Fatalf("expected 5 packed params, got %d", len(params))
+		// Total: 9 params.
+		if len(params) != 9 {
+			t.Fatalf("expected 9 packed params, got %d", len(params))
 		}
 
 		// Verify param 0: ptrA
@@ -235,35 +237,55 @@ func TestLaunch_BindPartitionArguments(t *testing.T) {
 			t.Errorf("param 1 stride = %v, want 64", gotStrideA)
 		}
 
-		// Verify param 2: ptrB
-		gotPtrB := *(*driver.DevicePtr)(params[2])
+		// Verify param 4: ptrB (after partIn's bound tile shape).
+		gotPtrB := *(*driver.DevicePtr)(params[4])
 		if gotPtrB != ptrB {
-			t.Errorf("param 2 ptr = %v, want %v", gotPtrB, ptrB)
+			t.Errorf("param 4 ptr = %v, want %v", gotPtrB, ptrB)
 		}
 
-		// Verify param 3: strideB
-		gotStrideB := *(*int64)(params[3])
+		// Verify param 5: strideB
+		gotStrideB := *(*int64)(params[5])
 		if gotStrideB != 64 {
-			t.Errorf("param 3 stride = %v, want 64", gotStrideB)
+			t.Errorf("param 5 stride = %v, want 64", gotStrideB)
 		}
 
-		// Verify param 4: extraScalar
-		gotScalar := *(*int32)(params[4])
+		// Verify param 8: extraScalar
+		gotScalar := *(*int32)(params[8])
 		if gotScalar != 42 {
-			t.Errorf("param 4 scalar = %v, want 42", gotScalar)
+			t.Errorf("param 8 scalar = %v, want 42", gotScalar)
 		}
 	})
 }
 
+func TestLaunch_BindRank3PartitionAndRejectInt32Overflow(t *testing.T) {
+	p := mustPartition(t, 1, mustShape(t, 16, 32, 64), mustShape(t, 2, 4, 8), 4,
+		cudalayout.WithPartitionStrides([]int{2048, 64, 1}))
+	args := cudalaunch.BindPartitionArgs(p)
+	if len(args) != 6 {
+		t.Fatalf("args = %v, want ptr, S0, S1, and three tile extents", args)
+	}
+	if args[1] != 2048 || args[2] != 64 {
+		t.Fatalf("bound strides = %v, want [2048 64]", args[1:3])
+	}
+	args, err := cudalaunch.BindPartitionArgs32(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cudalaunch.BindPartitionArgs32(mustPartition(t, 1, mustShape(t, 4, 4), mustShape(t, 2, 2), 4,
+		cudalayout.WithPartitionStrides([]int{1 << 32, 1}))); err == nil {
+		t.Fatal("expected int32 overflow error")
+	}
+}
+
 func TestLaunch_PhysicalHardwareExecution_PendingOrPass(t *testing.T) {
-	dev := cudatest.RequireDevice(t)
+	dev := cudatest.Require(t)
 	if dev == nil {
 		t.Fatal("RequireDevice returned nil without skipping")
 	}
 	defer dev.Close()
 
 	const kernelSrc = `
-extern "C" __global__ void tile_scale_copy(const float* in, long long in_stride, float* out, long long out_stride, int rows, int cols) {
+extern "C" __global__ void tile_scale_copy(const float* in, long long in_stride, int tile_rows, int tile_cols, float* out, long long out_stride, int out_tile_rows, int out_tile_cols, int rows, int cols) {
     int r = blockIdx.x * 16 + threadIdx.x;
     int c = blockIdx.y * 16 + threadIdx.y;
     if (r < rows && c < cols) {
@@ -287,7 +309,7 @@ extern "C" __global__ void tile_scale_copy(const float* in, long long in_stride,
 		t.Fatalf("mod.Function failed: %v", err)
 	}
 
-	const rows = 32
+	const rows = 48
 	const cols = 32
 	const count = rows * cols
 
@@ -317,8 +339,7 @@ extern "C" __global__ void tile_scale_copy(const float* in, long long in_stride,
 	inPart := mustPartition(t, dIn.Ptr(), tShape, pShape, 4)
 	outPart := mustPartitionMut(t, dOut.Ptr(), tShape, pShape, 4)
 
-	// Launch with Block(16, 16, 1) and inPart, outPart.
-	// Launch automatically infers Grid(2, 2, 1) and binds pointers and strides.
+	// Launch automatically infers Grid(3, 2, 1) and binds pointers, strides, and tile shapes.
 	launcher := cudalaunch.Kernel(fn.Raw()).Block(16, 16, 1)
 	if err := launcher.Launch(inPart, outPart, int32(rows), int32(cols)); err != nil {
 		t.Fatalf("launcher.Launch failed: %v", err)

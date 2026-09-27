@@ -44,7 +44,9 @@
 // # Tile Partitioning
 //
 // A [Partition] (and mutable [PartitionMut]) pairs a tensor layout with an
-// explicit tile shape. [Partition.ValidateDisjoint] verifies that tiles evenly
-// or ceiling-cover tensor extents and that strides guarantee non-overlapping
-// physical offsets across CUDA launch grid blocks.
+// explicit tile shape. Kernels using partitions must mask partial tiles.
+// [Partition.ValidateDisjoint] verifies that strides guarantee non-overlapping
+// physical offsets across CUDA launch grid blocks. A partial physical inner
+// axis must have enough stride padding before the next outer axis to contain
+// the full tile grid envelope; otherwise masked lanes could overlap that axis.
 package cudalayout

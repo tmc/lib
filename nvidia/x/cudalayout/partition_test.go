@@ -37,6 +37,60 @@ func mustPartitionMut(t *testing.T, ptr driver.DevicePtr, tensorShape, partition
 }
 
 func TestPartition_ValidateDisjoint(t *testing.T) {
+	t.Run("overflowing stride extent is rejected", func(t *testing.T) {
+		_, err := cudalayout.NewPartition(0, mustShape(t, 4, 4), mustShape(t, 4, 4), 4,
+			cudalayout.WithPartitionStrides([]int{1 << 62, 1 << 62}))
+		if !errors.Is(err, cudalayout.ErrInvalidPartition) || !errors.Is(err, cudashape.ErrShapeOverflow) {
+			t.Fatalf("want invalid partition and shape overflow, got %v", err)
+		}
+	})
+	t.Run("masked outer tails are valid", func(t *testing.T) {
+		p1 := mustPartition(t, 1, mustShape(t, 10), mustShape(t, 4), 4)
+		if err := p1.ValidateDisjoint(); err != nil {
+			t.Fatalf("1D masked tail: %v", err)
+		}
+		p2 := mustPartition(t, 1, mustShape(t, 10, 8), mustShape(t, 4, 8), 4)
+		if err := p2.ValidateDisjoint(); err != nil {
+			t.Fatalf("2D outer masked tail: %v", err)
+		}
+	})
+	t.Run("3D column-major order", func(t *testing.T) {
+		p := mustPartition(t, 1, mustShape(t, 16, 16, 16), mustShape(t, 4, 4, 4), 4,
+			cudalayout.WithPartitionStrides([]int{1, 16, 256}))
+		if err := p.ValidateDisjoint(); err != nil {
+			t.Fatalf("column-major partition: %v", err)
+		}
+	})
+	t.Run("packed 2D column-major partial inner axis wraps", func(t *testing.T) {
+		p := mustPartition(t, 1, mustShape(t, 10, 8), mustShape(t, 4, 8), 4,
+			cudalayout.WithPartitionStrides([]int{1, 10}))
+		if err := p.ValidateDisjoint(); !errors.Is(err, cudalayout.ErrWrappingPartition) {
+			t.Fatalf("want wrapping error, got %v", err)
+		}
+	})
+	t.Run("3D column-major partial inner axis wraps", func(t *testing.T) {
+		p := mustPartition(t, 1, mustShape(t, 10, 16, 16), mustShape(t, 4, 4, 4), 4,
+			cudalayout.WithPartitionStrides([]int{1, 10, 160}))
+		if err := p.ValidateDisjoint(); !errors.Is(err, cudalayout.ErrWrappingPartition) {
+			t.Fatalf("want wrapping error, got %v", err)
+		}
+	})
+	t.Run("3D overlapping middle stride", func(t *testing.T) {
+		p := mustPartition(t, 1, mustShape(t, 16, 16, 16), mustShape(t, 2, 4, 4), 4,
+			cudalayout.WithPartitionStrides([]int{256, 8, 1}))
+		if err := p.ValidateDisjoint(); !errors.Is(err, cudalayout.ErrOverlappingPartition) {
+			t.Fatalf("want overlap error, got %v", err)
+		}
+	})
+	t.Run("NewPartitionFromTile refuses swizzle", func(t *testing.T) {
+		tile, err := cudalayout.NewTile(8, 8, 4, cudalayout.WithSwizzle(cudalayout.Swizzle32B))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := cudalayout.NewPartitionFromTile(1, tile, 4, 4); !errors.Is(err, cudalayout.ErrInvalidPartition) {
+			t.Fatalf("want invalid partition, got %v", err)
+		}
+	})
 	t.Run("valid evenly divisible 2D partition", func(t *testing.T) {
 		tShape := mustShape(t, 1024, 1024)
 		pShape := mustShape(t, 64, 64)

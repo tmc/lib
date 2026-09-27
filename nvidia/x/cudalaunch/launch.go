@@ -88,7 +88,8 @@ func (l *Launcher) Grid(x, y, z uint32) *Launcher {
 	return l
 }
 
-// Config configures launch parameters using cfg.
+// Config updates non-zero launch dimensions and shared memory from cfg. Zero
+// SharedMem leaves the launcher's current dynamic shared-memory value unchanged.
 func (l *Launcher) Config(cfg Config) *Launcher {
 	if !cfg.Grid.IsZero() {
 		l.grid = driver.Dims(cfg.Grid.X, cfg.Grid.Y, cfg.Grid.Z)
@@ -97,7 +98,9 @@ func (l *Launcher) Config(cfg Config) *Launcher {
 	if cfg.Block.X != 0 || cfg.Block.Y != 0 || cfg.Block.Z != 0 {
 		l.block = cfg.Block
 	}
-	l.shmem = cfg.SharedMem
+	if cfg.SharedMem != 0 {
+		l.shmem = cfg.SharedMem
+	}
 	if cfg.Stream != nil {
 		l.stream = cfg.Stream
 	}
@@ -379,25 +382,16 @@ func (l *Launcher) WithSignature(sig Signature) *Launcher {
 
 // Launch packs the provided Go arguments and dispatches the kernel.
 // If any cudalayout.Partition parameters are passed, launch grid dimensions are
-// automatically inferred and validated, and partition base device pointers and
-// tile stride parameters are bound into the kernel argument buffer.
+// automatically inferred and validated, and partition pointers, non-innermost
+// strides, and tile extents are bound into the kernel argument buffer.
 func (l *Launcher) Launch(args ...any) error {
 	if l.owned == nil && l.fn == 0 {
 		return fmt.Errorf("cudalaunch: nil kernel")
 	}
-	expandedArgs, partitions := expandPartitionArgs(args)
-	if len(partitions) > 0 {
-		var explicit cudashape.Grid3D
-		if l.gridConfigured {
-			explicit = cudashape.Grid3D{X: l.grid.X, Y: l.grid.Y, Z: l.grid.Z}
-		}
-		inferred, err := inferLaunchGrid(explicit, partitions)
-		if err != nil {
-			return err
-		}
-		l.grid = driver.Dims(inferred.X, inferred.Y, inferred.Z)
+	args, err := l.ResolveArgs(args...)
+	if err != nil {
+		return err
 	}
-	args = expandedArgs
 
 	if l.shmem > 0 {
 		if l.owned != nil || l.stream != nil {
@@ -470,6 +464,38 @@ func (l *Launcher) Launch(args ...any) error {
 		l.counter.n.Add(1)
 	}
 	return nil
+}
+
+// ResolveArgs expands partition arguments and infers the launch grid without
+// calling the CUDA driver. An inferred grid persists in Describe and later
+// launches until Grid or Config changes it.
+func (l *Launcher) ResolveArgs(args ...any) ([]any, error) {
+	expanded, partitions := expandPartitionArgs(args)
+	if len(partitions) == 0 {
+		return expanded, nil
+	}
+	var explicit cudashape.Grid3D
+	if l.gridConfigured {
+		explicit = cudashape.Grid3D{X: l.grid.X, Y: l.grid.Y, Z: l.grid.Z}
+	}
+	inferred, err := inferLaunchGrid(explicit, partitions)
+	if err != nil {
+		return nil, err
+	}
+	for _, attr := range l.attrs {
+		if attr.Id != driver.LaunchAttributeClusterDimension {
+			continue
+		}
+		b := unsafe.Slice((*byte)(unsafe.Pointer(&attr.Value[0])), 12)
+		cluster := [3]uint32{binary.LittleEndian.Uint32(b[0:4]), binary.LittleEndian.Uint32(b[4:8]), binary.LittleEndian.Uint32(b[8:12])}
+		for i, extent := range inferred.Dims() {
+			if cluster[i] == 0 || extent%cluster[i] != 0 {
+				return nil, fmt.Errorf("cudalaunch: inferred grid %v is not divisible by cluster dimension %v", inferred, cluster)
+			}
+		}
+	}
+	l.grid = driver.Dims(inferred.X, inferred.Y, inferred.Z)
+	return expanded, nil
 }
 
 // PackArgs marshals Go values into an array of pointers as expected by cuLaunchKernel.

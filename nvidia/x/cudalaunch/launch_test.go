@@ -5,6 +5,8 @@ import (
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
+	"github.com/tmc/lib/nvidia/x/cudalayout"
+	"github.com/tmc/lib/nvidia/x/cudashape"
 )
 
 type mockSlice struct {
@@ -24,6 +26,40 @@ func TestLauncherBuilder(t *testing.T) {
 
 	if l == nil {
 		t.Fatal("expected non-nil launcher")
+	}
+}
+
+func TestResolveArgsAndConfigZero(t *testing.T) {
+	shape, _ := cudashape.New(16, 32, 64)
+	tile, _ := cudashape.New(2, 4, 8)
+	p, err := cudalayout.NewPartition(1, shape, tile, 4, cudalayout.WithPartitionStrides([]int{2048, 64, 1}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	l := cudalaunch.Kernel(123).SharedMem(4096)
+	if _, err := l.ResolveArgs(p); err != nil {
+		t.Fatal(err)
+	}
+	d, err := l.Describe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Grid != driver.Dims(8, 8, 8) {
+		t.Fatalf("grid = %v, want (8,8,8)", d.Grid)
+	}
+	l.Config(cudalaunch.Config{})
+	d, err = l.Describe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.SharedMem != 4096 {
+		t.Fatalf("shared memory = %d, want 4096", d.SharedMem)
+	}
+	if _, err := cudalaunch.Kernel(123).Grid(1, 1, 1).ResolveArgs(p); err == nil {
+		t.Fatal("expected explicit grid mismatch")
+	}
+	if _, err := cudalaunch.Kernel(123).WithClusterDim(driver.Dims(3, 1, 1)).ResolveArgs(p); err == nil {
+		t.Fatal("expected cluster divisibility error")
 	}
 }
 
