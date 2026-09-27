@@ -486,37 +486,28 @@ func generateRMSQuantQ81Kernel(opts CodegenOptions) string {
     const float* __restrict__ x, const float* __restrict__ weight,
     block_q8_1* __restrict__ out, int cols, float eps
 ) {
-    int tid = threadIdx.x;
+    if (blockIdx.x != 0 || threadIdx.x != 0) return;
     float sq = 0.0f;
-    for (int i = tid; i < cols; i += blockDim.x) {
+    for (int i = 0; i < cols; i++) {
         float v = x[i] * weight[i];
         sq += v * v;
     }
-    sq = warp_sum(sq);
-    __shared__ float scale;
-    if (tid == 0) scale = rsqrtf(sq / (float)cols + eps);
-    __syncthreads();
-    for (int i = tid; i < cols; i += blockDim.x) {
-        float v = x[i] * weight[i] * scale;
-        int block = i / 32;
-        int lane = i % 32;
-        __shared__ float maxv[32];
-        __shared__ float sumv[32];
-        maxv[lane] = fabsf(v);
-        sumv[lane] = v;
-        __syncthreads();
-        if (lane == 0) {
-            float m = 0.0f, s = 0.0f;
-            for (int j = 0; j < 32 && block * 32 + j < cols; j++) {
-                m = fmaxf(m, maxv[j]);
-                s += sumv[j];
-            }
-            float d = m / 127.0f;
-            out[block].d = float_to_half(d);
-            out[block].sum = float_to_half(s);
+    float norm = rsqrtf(sq / (float)cols + eps);
+    for (int block = 0; block < (cols + 31) / 32; block++) {
+        float maxv = 0.0f, sumv = 0.0f;
+        int begin = block * 32, end = begin + 32 < cols ? begin + 32 : cols;
+        for (int i = begin; i < end; i++) {
+            float v = x[i] * weight[i] * norm;
+            maxv = fmaxf(maxv, fabsf(v));
+            sumv += v;
         }
-        out[block].qs[lane] = maxv[lane] == 0.0f ? 0 : (int8_t)rintf(v / (maxv[lane] / 127.0f));
-        __syncthreads();
+        float d = maxv / 127.0f;
+        out[block].d = float_to_half(d);
+        out[block].sum = float_to_half(sumv);
+        for (int i = begin; i < end; i++) {
+            float v = x[i] * weight[i] * norm;
+            out[block].qs[i - begin] = d == 0.0f ? 0 : (int8_t)rintf(v / d);
+        }
     }
 }`, "KERNEL_NAME", opts.KernelName)
 }
