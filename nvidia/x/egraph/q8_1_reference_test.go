@@ -12,6 +12,50 @@ type q81Block struct {
 	qs     [32]int8
 }
 
+type q81Reference struct {
+	d, sum float64
+	q      [32]int8
+}
+
+func q81QuantizeReference(values []float64) q81Reference {
+	var out q81Reference
+	for _, v := range values {
+		out.sum += v
+		if math.Abs(v) > out.d {
+			out.d = math.Abs(v)
+		}
+	}
+	out.d /= 127
+	if out.d == 0 {
+		return out
+	}
+	for i, v := range values {
+		q := math.Round(v / out.d)
+		if q > 127 {
+			q = 127
+		}
+		if q < -127 {
+			q = -127
+		}
+		out.q[i] = int8(q)
+	}
+	return out
+}
+
+func swigluQ81Reference(gate, up, weights []float64, width, slots int) []q81Reference {
+	out := make([]q81Reference, slots)
+	for slot := 0; slot < slots; slot++ {
+		values := make([]float64, width)
+		for i := range values {
+			g := math.Min(gate[slot*width+i], 10)
+			u := math.Min(math.Max(up[slot*width+i], -10), 10)
+			values[i] = (g / (1 + math.Exp(-g))) * u * weights[slot]
+		}
+		out[slot] = q81QuantizeReference(values)
+	}
+	return out
+}
+
 func q81Value(x []q81Block, index int) float64 {
 	b := x[index/32]
 	return float64(halfToFloat32(b.d)) * float64(b.qs[index%32])
@@ -85,6 +129,19 @@ func iq2XXSQ81Reference(weights []byte, x []q81Block, rows, cols int) []float64 
 }
 
 func TestQ8_1CPUReferencesUseFloat64AndExpertIndirection(t *testing.T) {
+	quant := q81QuantizeReference([]float64{-2.0, -0.5, 0.0, 0.75, 2.0})
+	if quant.q[0] != -127 || quant.q[1] != -32 || quant.q[3] != 48 || quant.q[4] != 127 {
+		t.Fatalf("Q8_1 block quantization = %#v, want block-max scaling", quant.q[:5])
+	}
+	swiglu := swigluQ81Reference(
+		[]float64{1, 2, 3, 4, 1, 2, 3, 4},
+		[]float64{2, 3, 4, 5, 2, 3, 4, 5},
+		[]float64{1, 2}, 4, 2,
+	)
+	if swiglu[0].sum == swiglu[1].sum || swiglu[0].d == swiglu[1].d {
+		t.Fatal("SwiGLU reference did not apply per-slot weights")
+	}
+
 	const cols, rows = 512, 2
 	weights := q2kTestBlocks(rows * cols / q2kSuperBlock)
 	x := make([]q81Block, cols/32)

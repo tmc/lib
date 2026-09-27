@@ -506,7 +506,7 @@ func generateRMSQuantQ81Kernel(opts CodegenOptions) string {
         out[block].sum = float_to_half(sumv);
         for (int i = begin; i < end; i++) {
             float v = x[i] * weight[i] * norm;
-            out[block].qs[i - begin] = d == 0.0f ? 0 : (int8_t)rintf(v / d);
+            out[block].qs[i - begin] = d == 0.0f ? 0 : (int8_t)roundf(v / d);
         }
     }
 }`, "KERNEL_NAME", opts.KernelName)
@@ -516,28 +516,38 @@ func generateSwiGLUQ81Kernel(opts CodegenOptions) string {
 	return strings.ReplaceAll(`extern "C" __global__ void KERNEL_NAME(
     const float* __restrict__ gate, const float* __restrict__ up,
     const float* __restrict__ weights, block_q8_1* __restrict__ out,
-    int width
+    int width, int slots
 ) {
     int tid = threadIdx.x;
     int i = blockIdx.x * 32 + tid;
-    if (i >= width) return;
+    int total = width * slots;
+    bool active = i < total;
     int slot = i / width;
-    float g = fminf(gate[i], 10.0f);
-    float u = fminf(fmaxf(up[i], -10.0f), 10.0f);
-    float v = (g / (1.0f + expf(-g))) * u * weights[slot];
+    float v = 0.0f;
+    if (active) {
+        float g = fminf(gate[i], 10.0f);
+        float u = fminf(fmaxf(up[i], -10.0f), 10.0f);
+        v = (g / (1.0f + expf(-g))) * u * weights[slot];
+    }
     __shared__ float vals[32];
     vals[tid] = v;
     __syncthreads();
     if (tid == 0) {
         float m = 0.0f, s = 0.0f;
-        for (int j = 0; j < 32 && blockIdx.x * 32 + j < width; j++) {
+        int begin = blockIdx.x * 32;
+        int end = begin + 32 < total ? begin + 32 : total;
+        for (int j = 0; begin + j < end; j++) {
             m = fmaxf(m, fabsf(vals[j]));
             s += vals[j];
         }
         out[blockIdx.x].d = float_to_half(m / 127.0f);
         out[blockIdx.x].sum = float_to_half(s);
     }
-    out[blockIdx.x].qs[tid] = (int8_t)rintf(v / (fmaxf(fabsf(vals[tid]), 1e-20f) / 127.0f));
+    __syncthreads();
+    if (active) {
+        float d = half_to_float(out[blockIdx.x].d);
+        out[blockIdx.x].qs[tid] = d == 0.0f ? 0 : (int8_t)roundf(v / d);
+    }
 }`, "KERNEL_NAME", opts.KernelName)
 }
 
@@ -551,7 +561,7 @@ func generateSelectedQ2KQ81Kernel(opts CodegenOptions) string {
     int lane = threadIdx.x % WARP_SIZE;
     if (warp >= rows || cols <= 0 || cols % 256 != 0) return;
     int blocks = cols / 256;
-    int expert = ids[warp];
+    int slot = blockIdx.y, expert = ids[slot];
     if (expert < 0) { if (lane == 0) y[warp] = __int_as_float(0x7fffffff); return; }
     float sum = 0.0f;
     for (int b = 0; b < blocks; b++) {
@@ -568,7 +578,7 @@ func generateSelectedQ2KQ81Kernel(opts CodegenOptions) string {
         for (int off = 16; off; off /= 2) acc += __shfl_down_sync(FULL_WARP_MASK, acc, off);
         if (lane == 0) sum += acc;
     }
-    if (lane == 0) y[warp] = sum;
+    if (lane == 0) y[slot * rows + warp] = sum;
 }`, "KERNEL_NAME", opts.KernelName)
 }
 
@@ -581,7 +591,7 @@ func generateSelectedIQ2XXSQ81Kernel(opts CodegenOptions) string {
     int warp = (blockIdx.x * blockDim.x + threadIdx.x) / WARP_SIZE;
     int lane = threadIdx.x % WARP_SIZE;
     if (warp >= rows || cols <= 0 || cols % 256 != 0) return;
-    int blocks = cols / 256, expert = ids[warp];
+    int slot = blockIdx.y, blocks = cols / 256, expert = ids[slot];
     if (expert < 0) { if (lane == 0) y[warp] = __int_as_float(0x7fffffff); return; }
     float sum = 0.0f;
     for (int b = 0; b < blocks; b++) {
@@ -601,7 +611,7 @@ func generateSelectedIQ2XXSQ81Kernel(opts CodegenOptions) string {
         for (int off = 16; off; off /= 2) acc += __shfl_down_sync(FULL_WARP_MASK, acc, off);
         if (lane == 0) sum += acc;
     }
-    if (lane == 0) y[warp] = sum;
+    if (lane == 0) y[slot * rows + warp] = sum;
 }`, "KERNEL_NAME", opts.KernelName)
 }
 func generateU2SIMDKernel(opts CodegenOptions) string {

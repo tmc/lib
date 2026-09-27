@@ -111,7 +111,7 @@ func TestDecodeFFNGraphIsCUDAAddressable(t *testing.T) {
 				}
 			}
 			if strings.Contains(op, "selected") {
-				for _, marker := range []string{"const int* __restrict__ ids", "ids[warp]", "W +"} {
+				for _, marker := range []string{"const int* __restrict__ ids", "blockIdx.y", "ids[slot]", "W +"} {
 					if !strings.Contains(src, marker) {
 						t.Fatalf("%s does not emit selected-expert marker %q", op, marker)
 					}
@@ -153,6 +153,57 @@ func TestDecodeQ8_1GeneratedKernelsCompile(t *testing.T) {
 			}
 			if _, err := cudatest.CompileSource(src, major, minor); err != nil {
 				t.Fatalf("compile: %v", err)
+			}
+		})
+	}
+}
+
+func TestDecodeFFNFullDAGSaturatesAndExtracts(t *testing.T) {
+	g := egraph.New()
+	hidden := g.Add(egraph.NewLeaf("hidden"))
+	normWeight := g.Add(egraph.NewLeaf("norm_weight"))
+	gateWeight := g.Add(egraph.NewLeaf("gate_weight"))
+	upWeight := g.Add(egraph.NewLeaf("up_weight"))
+	downWeight := g.Add(egraph.NewLeaf("down_weight"))
+	ids := g.Add(egraph.NewLeaf("expert_ids"))
+	norm := g.Add(egraph.NewNode("rmsnorm", hidden, normWeight))
+	quant := g.Add(egraph.NewNode("quantize_q8", norm))
+	gate := g.Add(egraph.NewNode("gemv", norm, gateWeight))
+	up := g.Add(egraph.NewNode("gemv", norm, upWeight))
+	swiglu := g.Add(egraph.NewNode("mul", g.Add(egraph.NewNode("silu", gate)), up))
+	shared := g.Add(egraph.NewNode("quantize_q8_1", swiglu))
+	routedPair := g.Add(egraph.NewNode("iq2_xxs_selected_matvec_q8_1", ids, quant))
+	routedDown := g.Add(egraph.NewNode("q2_k_selected_matvec_q8_1", routedPair, ids, quant))
+	sharedDown := g.Add(egraph.NewNode("q8_0_matvec_q8_1", downWeight, shared))
+
+	rules := []*egraph.Rewrite{
+		egraph.MustRewrite("s0_rms_quant", "(quantize_q8 (rmsnorm ?x ?w))", "(rms_quant_q8_1 ?x ?w)"),
+		egraph.MustRewrite("s0_swiglu_quant", "(quantize_q8_1 (mul (silu (gemv ?x ?wg)) (gemv ?x ?wu)))", "(fused_swiglu_q8_1 ?x ?wg ?wu)"),
+	}
+	if iterations, merges := egraph.Saturate(g, rules, 8); iterations == 0 || merges == 0 {
+		t.Fatalf("decode FFN did not saturate: iterations=%d merges=%d", iterations, merges)
+	}
+
+	roots := []struct {
+		name string
+		id   egraph.Id
+	}{
+		{"rms", quant}, {"shared", shared}, {"routed_pair", routedPair},
+		{"routed_down", routedDown}, {"shared_down", sharedDown},
+	}
+	for _, root := range roots {
+		t.Run(root.name, func(t *testing.T) {
+			best, _, err := egraph.ExtractBest(g, root.id, egraph.AstSizeCost{})
+			if err != nil {
+				t.Fatalf("extract: %v", err)
+			}
+			if best.Op == "rmsnorm" || best.Op == "quantize_q8" || best.Op == "quantize_q8_1" || best.Op == "mul" || best.Op == "gemv" {
+				t.Fatalf("%s root remained an unlowered FFN operation: %s", root.name, best)
+			}
+			if best.Op == "rms_quant_q8_1" || best.Op == "fused_swiglu_q8_1" || strings.Contains(best.Op, "q8_1") {
+				if _, err := egraph.GenerateCUDA(best, egraph.CodegenOptions{KernelName: root.name, Precision: "q8_1"}); err != nil {
+					t.Fatalf("GenerateCUDA(%s): %v", best, err)
+				}
 			}
 		})
 	}
