@@ -195,9 +195,13 @@ func TestPDLPositiveControl(t *testing.T) {
 		const iters = 15
 		for i := 0; i < iters; i++ {
 			_ = startEv.Record(stream)
-			_ = exec.Launch(stream)
+			if err := exec.Launch(stream); err != nil {
+				t.Fatal(err)
+			}
 			_ = stopEv.Record(stream)
-			_ = stream.Synchronize(context.Background())
+			if err := stream.Synchronize(context.Background()); err != nil {
+				t.Fatal(err)
+			}
 			d, _ := stopEv.ElapsedSince(startEv)
 			if i >= 5 {
 				total += float64(d.Nanoseconds())
@@ -293,8 +297,12 @@ func TestPDLHardwareTimestamps(t *testing.T) {
 		}
 		defer exec.Destroy()
 
-		_ = exec.Launch(stream)
-		_ = stream.Synchronize(context.Background())
+		if err := exec.Launch(stream); err != nil {
+			t.Fatal(err)
+		}
+		if err := stream.Synchronize(context.Background()); err != nil {
+			t.Fatal(err)
+		}
 
 		var out [6]int64
 		_ = tsBuf.CopyToHost(out[:])
@@ -418,9 +426,13 @@ func TestPDLAblationRun(t *testing.T) {
 		defer exec.Destroy()
 
 		_ = startEv.Record(stream)
-		_ = exec.Launch(stream)
+		if err := exec.Launch(stream); err != nil {
+			t.Fatal(err)
+		}
 		_ = stopEv.Record(stream)
-		_ = stream.Synchronize(context.Background())
+		if err := stream.Synchronize(context.Background()); err != nil {
+			t.Fatal(err)
+		}
 		d, err := stopEv.ElapsedSince(startEv)
 		if err != nil {
 			t.Fatal(err)

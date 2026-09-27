@@ -1233,8 +1233,12 @@ func TestPDLResidentCTAStarvationIsolation(t *testing.T) {
 	defer execC.Destroy()
 
 	measureProducerDuration := func(exec *cudagraph.Exec) (totalCycles, trailingCycles int64) {
-		_ = exec.Launch(stream)
-		_ = stream.Synchronize(context.Background())
+		if err := exec.Launch(stream); err != nil {
+			t.Fatal(err)
+		}
+		if err := stream.Synchronize(context.Background()); err != nil {
+			t.Fatal(err)
+		}
 		var ts [7]int64
 		_ = tsBuf.CopyToHost(ts[:])
 		totalCycles = ts[2] - ts[0]
