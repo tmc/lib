@@ -1,6 +1,7 @@
 package cudatensor
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -63,10 +64,12 @@ type CanonicalGraph struct {
 	Nodes         []CanonicalNode
 	Shape         map[string]string
 	canonicalized bool
+	canonicalSeal string
 }
 
 // CanonicalizeRanks renames dimension ranks in predecessor-ready breadth-first
-// order. Start nodes are retained as external inputs and do not consume labels.
+// order. Start nodes are retained as external inputs and their output ranks
+// receive generated labels.
 func CanonicalizeRanks(g *Graph) (*CanonicalGraph, error) {
 	if g == nil {
 		return nil, errors.New("cudatensor: nil einsum graph")
@@ -104,7 +107,18 @@ func CanonicalizeRanks(g *Graph) (*CanonicalGraph, error) {
 	}
 	processed := make([]bool, len(g.Nodes))
 	outputs := make(map[string][]cudashape.DimToken, len(g.Nodes))
-	result := &CanonicalGraph{Nodes: make([]CanonicalNode, len(g.Nodes)), Shape: cloneStringMap(g.Shape), canonicalized: true}
+	result := &CanonicalGraph{Nodes: make([]CanonicalNode, len(g.Nodes)), canonicalized: true}
+	shapeRanks := make(map[cudashape.DimToken]cudashape.DimToken)
+	bindShapeRank := func(from, to cudashape.DimToken) error {
+		if _, used := g.Shape[string(from)]; !used {
+			return nil
+		}
+		if prior, ok := shapeRanks[from]; ok && prior != to {
+			return fmt.Errorf("cudatensor: shape rank %q maps to both %q and %q", from, prior, to)
+		}
+		shapeRanks[from] = to
+		return nil
+	}
 	nextLabel := 0
 	stalled := 0
 	for len(queue) != 0 {
@@ -164,13 +178,6 @@ func CanonicalizeRanks(g *Graph) (*CanonicalGraph, error) {
 			used := make(map[cudashape.DimToken]bool)
 			for oi, operand := range inputs {
 				if n.Inputs[oi] == "" {
-					for _, token := range operand {
-						if _, ok := mapping[token]; !ok {
-							mapping[token] = labelToken(nextLabel)
-							nextLabel++
-							used[mapping[token]] = true
-						}
-					}
 					continue
 				}
 				pred := outputs[n.Inputs[oi]]
@@ -185,6 +192,9 @@ func CanonicalizeRanks(g *Graph) (*CanonicalGraph, error) {
 					if !used[candidate] {
 						mapping[token] = candidate
 						used[candidate] = true
+						if err := bindShapeRank(token, candidate); err != nil {
+							return nil, err
+						}
 					}
 				}
 			}
@@ -197,6 +207,9 @@ func CanonicalizeRanks(g *Graph) (*CanonicalGraph, error) {
 					mapping[token] = labelToken(nextLabel)
 					nextLabel++
 					used[mapping[token]] = true
+					if err := bindShapeRank(token, mapping[token]); err != nil {
+						return nil, err
+					}
 				}
 			}
 			newInputs := make([][]cudashape.DimToken, len(inputs))
@@ -226,7 +239,31 @@ func CanonicalizeRanks(g *Graph) (*CanonicalGraph, error) {
 			return nil, ErrCyclicGraph
 		}
 	}
+	result.Shape = make(map[string]string, len(g.Shape))
+	for rank, bound := range g.Shape {
+		canonical := cudashape.DimToken(rank)
+		if mapped, ok := shapeRanks[canonical]; ok {
+			canonical = mapped
+		}
+		if prior, exists := result.Shape[string(canonical)]; exists && prior != bound {
+			return nil, fmt.Errorf("cudatensor: shape bounds for rank %q conflict after canonicalization", canonical)
+		}
+		result.Shape[string(canonical)] = bound
+	}
+	result.canonicalSeal = canonicalState(result)
 	return result, nil
+}
+
+func canonicalState(g *CanonicalGraph) string {
+	state, _ := json.Marshal(struct {
+		Nodes []CanonicalNode
+		Shape map[string]string
+	}{g.Nodes, g.Shape})
+	return string(state)
+}
+
+func canonicalGraphValid(g *CanonicalGraph) bool {
+	return g != nil && g.canonicalized && g.canonicalSeal != "" && canonicalState(g) == g.canonicalSeal
 }
 
 // CanonicalKey returns a stable serialization suitable for graph comparisons.

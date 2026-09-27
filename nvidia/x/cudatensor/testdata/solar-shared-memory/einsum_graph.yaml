@@ -1,0 +1,30 @@
+{
+  "layers": {
+    "input_x": {
+      "type": "start",
+      "tensor_names": {"outputs": ["x"]},
+      "tensor_shapes": {"outputs": [[10000]]},
+      "tensor_dtypes": {"outputs": ["torch.float16"]},
+      "connections": {"inputs": [], "outputs": ["op_a", "op_b"]}
+    },
+    "op_a": {
+      "type": "relu",
+      "einsum_equation": "A->A",
+      "is_real_einsum": false,
+      "connections": {"inputs": ["input_x"], "outputs": []},
+      "tensor_names": {"inputs": ["x"], "outputs": ["y"]},
+      "tensor_shapes": {"inputs": [[10000]], "outputs": [[10000]]},
+      "tensor_types": {"inputs": ["activation"], "outputs": ["activation"]}
+    },
+    "op_b": {
+      "type": "relu",
+      "einsum_equation": "A->A",
+      "is_real_einsum": false,
+      "connections": {"inputs": ["input_x"], "outputs": []},
+      "tensor_names": {"inputs": ["x"], "outputs": ["z"]},
+      "tensor_shapes": {"inputs": [[10000]], "outputs": [[10000]]},
+      "tensor_types": {"inputs": ["activation"], "outputs": ["activation"]}
+    }
+  },
+  "layer_order": ["input_x", "op_a", "op_b"]
+}

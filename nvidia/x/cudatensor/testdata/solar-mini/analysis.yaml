@@ -158,6 +158,6 @@
   "metadata": {
     "precision": "fp16",
     "bytes_per_element": 2,
-    "source_graph": "/Users/tmc/tmp/lib-nvidia-implementation/48-einsum-rank-unification-and-sol-bounds/solar-fixture-work/einsum_graph.yaml"
+    "source_graph": "einsum_graph.yaml"
   }
 }

@@ -17,6 +17,8 @@ func TestParseDimTokens_DocstringExamples(t *testing.T) {
 		{"A1B2C3", []DimToken{"A1", "B2", "C3"}},
 		{"ABCA1B1", []DimToken{"A", "B", "C", "A1", "B1"}},
 		{"A12B34", []DimToken{"A12", "B34"}},
+		{"abc", []DimToken{"A", "B", "C"}},
+		{"a12b3", []DimToken{"A12", "B3"}},
 		{"BC(P+R)(Q+S)", []DimToken{"B", "C", "(P+R)", "(Q+S)"}},
 	}
 	for _, tt := range tests {
@@ -25,6 +27,18 @@ func TestParseDimTokens_DocstringExamples(t *testing.T) {
 			t.Errorf("ParseDimTokens(%q) = %v, %v; want %v", tt.input, got, err, tt.want)
 		}
 	}
+}
+
+func FuzzParseDimTokens(f *testing.F) {
+	for _, seed := range []string{"", "ABC", "a12b3", "(a+(b*c))", "A/A", "(()"} {
+		f.Add(seed)
+	}
+	f.Fuzz(func(t *testing.T, input string) {
+		if len(input) > 4096 {
+			t.Skip()
+		}
+		_, _ = ParseDimTokens(input, true)
+	})
 }
 
 func TestParseDimTokens_ParenthesesAndValidation(t *testing.T) {

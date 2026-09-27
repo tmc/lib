@@ -1,0 +1,73 @@
+{
+  "arch": {
+    "name": "FixtureArch",
+    "freq_GHz": 1.0,
+    "DRAM_byte_per_cycle": 1.0,
+    "mac_per_cycle_key": "MAC_per_cycle_fp16_tc",
+    "MAC_per_cycle": 100.0,
+    "MAC_per_cycle_fp32_sm": 1000000.0,
+    "ridge_point": 100.0
+  },
+  "workload": {
+    "total_macs": 0,
+    "total_other_ops": 20000,
+    "total_flops": 0,
+    "bytes_per_element": 2
+  },
+  "unfused": {
+    "description": "Each op in isolation, all tensors from DRAM",
+    "memory_elements": 40000,
+    "memory_bytes": 80000,
+    "compute_tc_cycles": 0,
+    "compute_sm_cycles": 0,
+    "compute_cycles": 0,
+    "memory_cycles": 80000,
+    "total_cycles": 80000,
+    "runtime_ms": 0.08,
+    "arithmetic_intensity": 0.0,
+    "bottleneck": "memory"
+  },
+  "fused": {
+    "description": "Per-op roofline, intermediate tensors excluded",
+    "memory_elements": 30000,
+    "memory_bytes": 60000,
+    "compute_tc_cycles": 0,
+    "compute_sm_cycles": 0,
+    "compute_cycles": 0,
+    "memory_cycles": 60000,
+    "total_cycles": 60000,
+    "runtime_ms": 0.06,
+    "arithmetic_intensity": 0.0,
+    "bottleneck": "memory"
+  },
+  "fused_prefetched": {
+    "description": "Single roofline for entire graph, perfect overlap",
+    "memory_elements": 30000,
+    "memory_bytes": 60000,
+    "compute_tc_cycles": 0,
+    "compute_sm_cycles": 0,
+    "compute_cycles": 0,
+    "memory_cycles": 60000,
+    "total_cycles": 60000,
+    "runtime_ms": 0.06,
+    "arithmetic_intensity": 0.0,
+    "bottleneck": "memory"
+  },
+  "memory_breakdown": {
+    "weight_elements": 0,
+    "weight_bytes": 0,
+    "model_io_elements": 40000,
+    "model_io_bytes": 80000,
+    "intermediate_elements": 0,
+    "intermediate_bytes": 0
+  },
+  "speedup": {
+    "fused_vs_unfused": 1.3333333333333333,
+    "fused_prefetched_vs_unfused": 1.3333333333333333,
+    "fused_prefetched_vs_fused": 1.0
+  },
+  "memory_reduction": {
+    "fused_vs_unfused": 0.25,
+    "fused_prefetched_vs_unfused": 0.25
+  }
+}

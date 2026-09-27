@@ -20,7 +20,12 @@
 //
 // [CanonicalizeRanks] converts ordered einsum DAGs into stable rank labels for
 // comparison and [ExportTimeloopWorkload] writes canonical graphs in Timeloop
-// v0.5 form. [ComputeSOLBounds] reports per-operation unfused and fused bounds
+// v0.5 form. Fresh labels follow output ranks, then operand ranks, in graph
+// traversal order; this is deterministic even though SOLAR iterates a Python
+// set when it assigns fresh labels. Cycles are rejected, which is stricter than
+// SOLAR's graph traversal. [CanonicalKey] includes node IDs and tensor names,
+// so it compares graph identities as well as equations and bounds.
+// [ComputeSOLBounds] reports per-operation unfused and fused bounds
 // alongside SOLAR-style whole-graph estimates. SOLAR's shipped unfused and
 // fused runtimes apply one roofline to graph totals, which is optimistic
 // relative to the stated per-operation design intent. Its fused and
@@ -28,4 +33,7 @@
 // how the roofline is combined. [CanonicalGEMMDataMovement] maps only supported
 // rank-2 or batched GEMM equations to the B/M/N/K dimensions and A/B/C tensor
 // roles accepted by cudaroofline; other equations and unmapped dimensions fail.
+// The model does not reproduce SOLAR's op-specific memory handling for views,
+// slices, scatter, embedding, or boolean tensors. Callers should treat those
+// estimates as unsupported until that accounting is modeled explicitly.
 package cudatensor

@@ -50,4 +50,9 @@ func TestCanonicalGEMMDataMovementAndFailClosedLabels(t *testing.T) {
 			t.Errorf("MapCanonicalGEMM(%q) error = %v", test.equation, err)
 		}
 	}
+	for _, equation := range []string{"AB,CB->AC", "BA,BC->AC", "AB,BC->CA"} {
+		if _, err := MapCanonicalGEMM(equation, map[cudashape.DimToken]int{"A": 2, "B": 8, "C": 16}); err == nil || !strings.Contains(err.Error(), equation) {
+			t.Errorf("MapCanonicalGEMM(%q) error = %v, want an equation-specific refusal", equation, err)
+		}
+	}
 }

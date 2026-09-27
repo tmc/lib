@@ -18,6 +18,16 @@ func ExampleNew() {
 	// shape: [2, 3, 4], elements: 24, bytes: 96
 }
 
+func ExampleParseDimTokens() {
+	tokens, err := cudashape.ParseDimTokens("a12BC", true)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(tokens)
+	// Output:
+	// [A12 B C]
+}
+
 func ExampleRowMajorStrides() {
 	strides, err := cudashape.RowMajorStrides([]int{2, 3, 4})
 	if err != nil {

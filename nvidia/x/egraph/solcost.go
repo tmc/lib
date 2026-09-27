@@ -9,6 +9,8 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudatensor"
 )
 
+// ErrMissingSOLGraph reports a candidate that has no caller-supplied canonical
+// tensor graph for whole-candidate SOL scoring.
 var ErrMissingSOLGraph = errors.New("egraph: SOL candidate has no canonical graph")
 
 // SOLCandidate pairs an extracted expression with the canonical einsum graph

@@ -39,9 +39,11 @@ type SOLReport struct {
 
 // ComputeSOLBounds computes intended per-op unfused/fused bounds and SOLAR's
 // whole-graph values. Fused input and output tensors are deduplicated by name;
-// intermediates are excluded. Start nodes supply external inputs, not work.
+// intermediates are excluded. Shared external reads are charged to the
+// consumer with the largest MAC count, breaking ties by node ID. Start nodes
+// supply external inputs, not work.
 func ComputeSOLBounds(g *CanonicalGraph, c Ceiling) (SOLReport, error) {
-	if g == nil || !g.canonicalized {
+	if !canonicalGraphValid(g) {
 		return SOLReport{}, ErrNotCanonicalized
 	}
 	if c.MACsPerCycle <= 0 || c.BytesPerCycle <= 0 || c.FrequencyGHz <= 0 || c.BytesPerElement <= 0 ||
@@ -112,7 +114,24 @@ func ComputeSOLBounds(g *CanonicalGraph, c Ceiling) (SOLReport, error) {
 			}
 		}
 	}
-	// External inputs are charged once to the first consumer in graph order.
+	// Assign each external read to a stable consumer independent of node order.
+	externalOwner := make(map[string]string)
+	for _, n := range g.Nodes {
+		if n.Start {
+			continue
+		}
+		for i, input := range n.InputTensors {
+			source := n.Inputs[i]
+			external := input.Weight || source == "" || byID[source].Start
+			if !external {
+				continue
+			}
+			owner, ok := externalOwner[input.Name]
+			if !ok || byID[owner].MACs < n.MACs || (byID[owner].MACs == n.MACs && n.ID < owner) {
+				externalOwner[input.Name] = n.ID
+			}
+		}
+	}
 	seenExternal := make(map[string]bool)
 	seenOutputs := make(map[string]bool)
 	var report SOLReport
@@ -128,7 +147,7 @@ func ComputeSOLBounds(g *CanonicalGraph, c Ceiling) (SOLReport, error) {
 			unfusedBytes += bytes
 			source := n.Inputs[i]
 			external := input.Weight || source == "" || byID[source].Start
-			if external && !seenExternal[input.Name] {
+			if external && externalOwner[input.Name] == n.ID && !seenExternal[input.Name] {
 				fusedBytes += bytes
 				seenExternal[input.Name] = true
 			}

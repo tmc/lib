@@ -1,0 +1,141 @@
+{
+  "layers": {
+    "op_a": {
+      "type": "relu",
+      "einsum_equation": "A->A",
+      "is_real_einsum": false,
+      "macs": 0,
+      "other_ops": 10000,
+      "flops": 0,
+      "unfused_elements": 20000,
+      "orojenesis_elements": null,
+      "fused_elements": 20000,
+      "tensor_shapes": {
+        "inputs": [
+          [
+            10000
+          ]
+        ],
+        "outputs": [
+          [
+            10000
+          ]
+        ]
+      },
+      "tensor_sizes": {
+        "inputs": [
+          10000
+        ],
+        "outputs": [
+          10000
+        ]
+      },
+      "memory_elements": {
+        "inputs": [
+          10000
+        ],
+        "outputs": [
+          10000
+        ]
+      },
+      "tensor_types": {
+        "inputs": [
+          "activation"
+        ],
+        "outputs": [
+          "activation"
+        ]
+      },
+      "input_elements": 10000,
+      "output_elements": 10000,
+      "intermediate_elements": 0,
+      "model_io_elements": 20000,
+      "input_is_intermediate": false,
+      "output_is_intermediate": false,
+      "connections": {
+        "inputs": [
+          "input_x"
+        ],
+        "outputs": []
+      }
+    },
+    "op_b": {
+      "type": "relu",
+      "einsum_equation": "A->A",
+      "is_real_einsum": false,
+      "macs": 0,
+      "other_ops": 10000,
+      "flops": 0,
+      "unfused_elements": 20000,
+      "orojenesis_elements": null,
+      "fused_elements": 20000,
+      "tensor_shapes": {
+        "inputs": [
+          [
+            10000
+          ]
+        ],
+        "outputs": [
+          [
+            10000
+          ]
+        ]
+      },
+      "tensor_sizes": {
+        "inputs": [
+          10000
+        ],
+        "outputs": [
+          10000
+        ]
+      },
+      "memory_elements": {
+        "inputs": [
+          10000
+        ],
+        "outputs": [
+          10000
+        ]
+      },
+      "tensor_types": {
+        "inputs": [
+          "activation"
+        ],
+        "outputs": [
+          "activation"
+        ]
+      },
+      "input_elements": 10000,
+      "output_elements": 10000,
+      "intermediate_elements": 0,
+      "model_io_elements": 20000,
+      "input_is_intermediate": false,
+      "output_is_intermediate": false,
+      "connections": {
+        "inputs": [
+          "input_x"
+        ],
+        "outputs": []
+      }
+    }
+  },
+  "total": {
+    "num_layers": 2,
+    "num_start_nodes_filtered": 1,
+    "macs": 0,
+    "other_ops": 20000,
+    "flops": 0,
+    "unfused_elements": 40000,
+    "orojenesis_elements": null,
+    "fused_elements": 30000,
+    "fused_prefetched_elements": 30000,
+    "model_io_elements": 40000,
+    "intermediate_elements": 0,
+    "num_intermediate_tensors": 0
+  },
+  "metadata": {
+    "precision": "fp16",
+    "bytes_per_element": 2,
+    "source_graph": "einsum_graph.yaml"
+  }
+}

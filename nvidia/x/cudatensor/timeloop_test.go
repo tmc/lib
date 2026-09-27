@@ -15,7 +15,7 @@ func TestExportTimeloopWorkloadRequiresCanonicalGraph(t *testing.T) {
 	g := &Graph{Nodes: []EinsumNode{
 		{ID: "a", OutputRank: 2}, {ID: "b", OutputRank: 2},
 		{ID: "mm", Equation: "ij,jk->ik", Inputs: []string{"a", "b"}},
-	}, Shape: map[string]string{"A": "[1, 64]", "B": "[1, 64]", "C": "[1, 64]"}}
+	}, Shape: map[string]string{"I": "[1, 64]", "J": "[1, 64]", "K": "[1, 64]"}}
 	canonical, err := CanonicalizeRanks(g)
 	if err != nil {
 		t.Fatal(err)
@@ -45,8 +45,35 @@ func TestExportTimeloopWorkloadRequiresCanonicalGraph(t *testing.T) {
 	}
 }
 
+func TestExportTimeloopWorkloadRequiresProjectedShapeBounds(t *testing.T) {
+	base := &Graph{Nodes: []EinsumNode{
+		{ID: "a", OutputRank: 2}, {ID: "b", OutputRank: 2},
+		{ID: "mm", Equation: "ij,jk->ik", Inputs: []string{"a", "b"}},
+	}}
+	for _, test := range []struct {
+		name  string
+		shape map[string]string
+		want  string
+	}{
+		{"missing", map[string]string{"I": "M", "J": "K"}, `node "mm" rank "D"`},
+		{"unused", map[string]string{"I": "M", "J": "K", "K": "N", "Z": "O"}, `shape rank "Z"`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			g := *base
+			g.Shape = test.shape
+			canonical, err := CanonicalizeRanks(&g)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := ExportTimeloopWorkload(canonical, &strings.Builder{}); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("ExportTimeloopWorkload error = %v, want %q", err, test.want)
+			}
+		})
+	}
+}
+
 func TestExportTimeloopWorkloadUsesExternalTensorNames(t *testing.T) {
-	g := &Graph{Nodes: []EinsumNode{{
+	g := &Graph{Shape: map[string]string{"A": "4"}, Nodes: []EinsumNode{{
 		ID: "consume", Equation: "A->A", Inputs: []string{""},
 		InputTensors:  []TensorInfo{{Name: "model_input", Elements: 4}},
 		OutputTensors: []TensorInfo{{Name: "model_output", Elements: 4}},

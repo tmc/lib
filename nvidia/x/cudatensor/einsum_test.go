@@ -2,6 +2,7 @@ package cudatensor
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -29,6 +30,31 @@ func TestCanonicalizeRanks_DeterministicAndAlphaEquivalent(t *testing.T) {
 	}
 	if ca.Nodes[0].Start == false || ca.Nodes[1].Start == false {
 		t.Fatal("start nodes were not retained as external inputs")
+	}
+}
+
+func TestCanonicalizeRanksFreshLabelsHaveStableOrder(t *testing.T) {
+	graphs := []*Graph{
+		{Nodes: []EinsumNode{{ID: "input", OutputRank: 1}, {ID: "broadcast", Equation: "x->xyz", Inputs: []string{"input"}}}},
+		{Nodes: []EinsumNode{{ID: "input", OutputRank: 1}, {ID: "broadcast", Equation: "q->qrs", Inputs: []string{"input"}}}},
+	}
+	var key string
+	for run := 0; run < 50; run++ {
+		for i, graph := range graphs {
+			canonical, err := CanonicalizeRanks(graph)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got, want := canonical.Nodes[1].Equation, "A->ABC"; got != want {
+				t.Fatalf("canonical equation = %q, want %q", got, want)
+			}
+			got := CanonicalKey(graph)
+			if i == 0 && run == 0 {
+				key = got
+			} else if got != key {
+				t.Fatalf("canonical key changed across alpha-renamed graph or run %d", run)
+			}
+		}
 	}
 }
 
@@ -79,6 +105,47 @@ func TestCanonicalKeyIncludesStructureAndDimensionBounds(t *testing.T) {
 	changedRank := &Graph{Nodes: []EinsumNode{{ID: "input", OutputRank: 2}}, Shape: map[string]string{"A": "N"}}
 	if CanonicalKey(base) == CanonicalKey(changedBound) || CanonicalKey(base) == CanonicalKey(changedRank) {
 		t.Fatal("different graph bounds or rank structure shared a canonical key")
+	}
+	keyGraph := func(equation string, rank int) *Graph {
+		return &Graph{Nodes: []EinsumNode{{ID: "left", OutputRank: rank}, {ID: "right", OutputRank: rank}, {ID: "out", Equation: equation, Inputs: []string{"left", "right"}}}}
+	}
+	for _, pair := range [][2]*Graph{
+		{keyGraph("A,A->A", 1), keyGraph("A,B->A", 1)},
+		{keyGraph("AB,BC->AC", 2), keyGraph("AB,AB->AB", 2)},
+	} {
+		if CanonicalKey(pair[0]) == CanonicalKey(pair[1]) {
+			t.Fatalf("different einsum structures share key: %q vs %q", pair[0].Nodes[2].Equation, pair[1].Nodes[2].Equation)
+		}
+	}
+}
+
+func TestCanonicalizeRanksRenamesShapeNamespace(t *testing.T) {
+	a := &Graph{Nodes: []EinsumNode{{ID: "op", Equation: "i->i", Inputs: []string{""}}}, Shape: map[string]string{"I": "64"}}
+	b := &Graph{Nodes: []EinsumNode{{ID: "op", Equation: "j->j", Inputs: []string{""}}}, Shape: map[string]string{"J": "64"}}
+	ca, err := CanonicalizeRanks(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cb, err := CanonicalizeRanks(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if CanonicalKey(a) != CanonicalKey(b) || ca.Shape["A"] != "64" || cb.Shape["A"] != "64" {
+		t.Fatalf("alpha-renamed shape mismatch: keyA=%q keyB=%q shapeA=%v shapeB=%v", CanonicalKey(a), CanonicalKey(b), ca.Shape, cb.Shape)
+	}
+}
+
+func TestCanonicalGraphRejectsMutation(t *testing.T) {
+	g, err := CanonicalizeRanks(&Graph{Nodes: []EinsumNode{{ID: "input", OutputRank: 1}, {ID: "op", Equation: "i->i", Inputs: []string{"input"}}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	g.Nodes[1].Equation = "q->q"
+	if err := ExportTimeloopWorkload(g, &strings.Builder{}); !errors.Is(err, ErrNotCanonicalized) {
+		t.Fatalf("mutated export error = %v", err)
+	}
+	if _, err := ComputeSOLBounds(g, Ceiling{MACsPerCycle: 1, BytesPerCycle: 1, FrequencyGHz: 1, BytesPerElement: 1}); !errors.Is(err, ErrNotCanonicalized) {
+		t.Fatalf("mutated SOL error = %v", err)
 	}
 }
 
