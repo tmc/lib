@@ -1,0 +1,1 @@
+2026-09-27; model=Codex; tty=unknown; pid=95225; iterm=w18t0p0:FA9F00FD-C0E6-4CBD-A9AB-44FD11B1A62F; strict USER/ASSISTANT prefix parser with BOM/NUL/order/empty-turn checks; GOWORK=off go test . -run Prefix passed; git diff --check passed
