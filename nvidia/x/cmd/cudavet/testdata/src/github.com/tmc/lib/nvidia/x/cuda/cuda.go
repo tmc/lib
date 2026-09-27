@@ -16,6 +16,7 @@ func (d *Device) DefaultStream() *Stream            { return nil }
 func (d *Device) NewStream() (*Stream, error)       { return nil, nil }
 func (d *Device) NewEvent() (*Event, error)         { return nil, nil }
 func (d *Device) WithContext(fn func() error) error { return nil }
+func (d *Device) PrimaryContext() (*Context, error) { return nil, nil }
 func (d *Device) Close() error                      { return nil }
 
 type Stream struct{}
@@ -36,4 +37,5 @@ func (e *Event) Close() error                          { return nil }
 
 type Context struct{}
 
-func (c *Context) Synchronize() error { return nil }
+func (c *Context) Synchronize() error              { return nil }
+func (c *Context) Run(fn func() error) (err error) { return nil }

@@ -9,6 +9,7 @@
 //	contextthread      a context made current without runtime.LockOSThread
 //	unlockdestroy      a context released on a different thread from the one it is current on
 //	graphshare         a graph used concurrently from two goroutines
+//	contextmismatch    device memory used under a context other than its own
 //
 //	devicederef        a device address turned into a Go pointer
 //	devptruintptr      a DevicePtr passed as uintptr to a binding that types device memory
@@ -80,6 +81,7 @@ var analyzers = []*analysis.Analyzer{
 	contextThreadAnalyzer,
 	unlockDestroyAnalyzer,
 	graphShareAnalyzer,
+	contextMismatchAnalyzer,
 
 	deviceDerefAnalyzer,
 	devptrUintptrAnalyzer,

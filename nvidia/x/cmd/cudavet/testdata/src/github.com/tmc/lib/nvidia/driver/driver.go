@@ -51,11 +51,17 @@ func (c Context) SetCurrent() error                          { return nil }
 func (c Context) PushCurrent() error                         { return nil }
 func (c *Context) Close() error                              { return nil }
 func (c Context) SynchronizeV2() error                       { return nil }
+func (c Context) EnablePeerAccess(flags uint32) error        { return nil }
+func CtxGetCurrent() (Context, error)                        { return 0, nil }
+func CtxPopCurrent() (Context, error)                        { return 0, nil }
 
 type DevicePtr uint64
 
-func MemAlloc[T any](n int) (DevicePtr, error)                              { return 0, nil }
-func MemAllocBytes(bytesize uint) (DevicePtr, error)                        { return 0, nil }
+func MemAlloc[T any](n int) (DevicePtr, error)       { return 0, nil }
+func MemAllocBytes(bytesize uint) (DevicePtr, error) { return 0, nil }
+func MemAllocPitch(widthInBytes uint, height uint, elementSizeBytes uint32) (dptr DevicePtr, pPitch uint, err error) {
+	return 0, 0, nil
+}
 func MemAllocManaged[T any](n int, flags MemattachFlags) (DevicePtr, error) { return 0, nil }
 
 type MemattachFlags int32
