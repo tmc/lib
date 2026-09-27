@@ -45,6 +45,24 @@ func phaseOf(stack []timeline.Range) string {
 	return groupOther
 }
 
+// moduleOf folds the indices out of a module-path range name, so that
+// "encoder.layers.12:bwd" becomes "encoder.layers.*:bwd": each
+// dot-separated element of digits before any ":" becomes "*".
+func moduleOf(name string) string {
+	path, suffix, ok := strings.Cut(name, ":")
+	elems := strings.Split(path, ".")
+	for i, e := range elems {
+		if e != "" && strings.Trim(e, "0123456789") == "" {
+			elems[i] = "*"
+		}
+	}
+	path = strings.Join(elems, ".")
+	if ok {
+		path += ":" + suffix
+	}
+	return path
+}
+
 // rangeLabeler names the group of each instant of one host thread.
 type rangeLabeler struct {
 	bounds []int64  // sorted, distinct
@@ -79,7 +97,10 @@ func newRangeLabeler(ranges []timeline.Range, by string) *rangeLabeler {
 		switch {
 		case by == "phase":
 			label = phaseOf(stack)
-		case len(stack) > 0:
+		case len(stack) == 0:
+		case by == "module":
+			label = moduleOf(stack[len(stack)-1].Name)
+		default:
 			label = stack[len(stack)-1].Name
 		}
 		l.bounds = append(l.bounds, b)

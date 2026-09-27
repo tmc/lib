@@ -121,8 +121,8 @@ type compareOptions struct {
 	stageEntries bool
 	// templates keeps template arguments in the name ops join by.
 	templates bool
-	// by groups kernels by the NVTX ranges open at their launch: "phase"
-	// or "range", or "" for no grouping.
+	// by groups kernels by the NVTX ranges open at their launch: "phase",
+	// "range" or "module", or "" for no grouping.
 	by string
 	// maxRecords bounds the records decoded from each capture's journals,
 	// and journalBytes each journal's decompressed size; zero means the
@@ -193,7 +193,7 @@ func runCompareCommand(args []string, stdout io.Writer) error {
 	return nil
 }
 
-const compareUsage = "usage: cudaprof compare [-phase i] [-warmup-until=RE | -warmup-ms=N | -iteration-marker=RE [-skip-iterations=N] [-iteration-count=N]] [-ops ops.txt [-ops-check]] [-stages stages.txt [-stage-entries]] [-by phase|range] [-templates] [-allow-unresolved] [-max-records=N] [-journal-bytes=N] [--capture-file-bytes=N] [--capture-total-bytes=N] [-json] base.pprof target.pprof"
+const compareUsage = "usage: cudaprof compare [-phase i] [-warmup-until=RE | -warmup-ms=N | -iteration-marker=RE [-skip-iterations=N] [-iteration-count=N]] [-ops ops.txt [-ops-check]] [-stages stages.txt [-stage-entries]] [-by phase|range|module] [-templates] [-allow-unresolved] [-max-records=N] [-journal-bytes=N] [--capture-file-bytes=N] [--capture-total-bytes=N] [-json] base.pprof target.pprof"
 
 // parseCompareArgs returns nil paths and a nil error when help was requested
 // and printed.
@@ -213,7 +213,7 @@ func parseCompareArgs(rawArgs []string, stdout io.Writer) (compareOptions, []str
 	fs.BoolVar(&opts.stageEntries, "stage-entries", false, "also report each entry of each stage, in the order entered; refused when a stage's entry counts differ")
 	fs.BoolVar(&opts.json, "json", false, "write the comparison as JSON")
 	fs.BoolVar(&opts.templates, "templates", false, "keep template arguments in kernel names, so each instantiation is its own op")
-	fs.StringVar(&opts.by, "by", "", "also group kernels by the NVTX ranges open at their launch: `phase` (forward, backward, optimizer) or range (the innermost range)")
+	fs.StringVar(&opts.by, "by", "", "also group kernels by the NVTX ranges open at their launch: `phase` (forward, backward, optimizer) range (the innermost range) or module (the innermost range with layer indices folded to *)")
 	fs.BoolVar(&opts.allowUnresolved, "allow-unresolved", false, "report window totals even when graph replay hides the per-op census")
 	fs.Int64Var(&opts.maxRecords, "max-records", 0, fmt.Sprintf("maximum journal records to decode per capture (default: the larger of %d and what the capture records)", controllerMaxJournalRecords))
 	fs.Int64Var(&opts.journalBytes, "journal-bytes", 0, fmt.Sprintf("maximum decompressed bytes per journal (default: the larger of %d and what the capture records)", cudacapture.MaxCaptureInputBytes))
@@ -258,8 +258,8 @@ func parseCompareArgs(rawArgs []string, stdout io.Writer) (compareOptions, []str
 	if set["journal-bytes"] && opts.journalBytes <= 0 {
 		return opts, nil, fmt.Errorf("compare: invalid -journal-bytes %d", opts.journalBytes)
 	}
-	if opts.by != "" && opts.by != "phase" && opts.by != "range" {
-		return opts, nil, fmt.Errorf("compare: -by is phase or range, not %q", opts.by)
+	if opts.by != "" && opts.by != "phase" && opts.by != "range" && opts.by != "module" {
+		return opts, nil, fmt.Errorf("compare: -by is phase, range or module, not %q", opts.by)
 	}
 	if opts.opsCheck && opts.opsPath == "" {
 		return opts, nil, errors.New("compare: -ops-check needs -ops")
