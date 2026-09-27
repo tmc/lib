@@ -2,7 +2,7 @@ package cudafuse
 
 import (
 	"fmt"
-	"strconv"
+	"math"
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudadevicetable"
@@ -19,6 +19,7 @@ type FusionRegion struct {
 	Kernel     *FusedKernel
 	Compaction bool
 	Boundary   string
+	Reason     string
 }
 
 // MaterializedPlan contains the compiled fusion regions and allocation receipts.
@@ -29,8 +30,9 @@ type MaterializedPlan struct {
 	RootNode       *LazyNode
 }
 
-// Execute checks hardware capability for target architecture and returns ErrHardwarePending or ErrUnsupported.
-// It strictly prohibits faking GPU execution.
+// Execute returns a fixed result based on target: known targets return
+// ErrHardwarePending and unknown targets return ErrUnsupported. It does not
+// probe hardware or execute a kernel.
 func (p *MaterializedPlan) Execute(target string) error {
 	if !isKnownTarget(target) {
 		return fmt.Errorf("cudafuse: target %q: %w", target, cudaerrors.ErrUnsupported)
@@ -43,16 +45,8 @@ func isKnownTarget(target string) bool {
 	if target == "" {
 		return false
 	}
-	if _, ok := cudadevicetable.LookupTarget(target); ok {
-		return true
-	}
-	if _, ok := cudadevicetable.Lookup(target); ok {
-		return true
-	}
-	if strings.HasPrefix(target, "sm_") {
-		numPart := strings.TrimPrefix(target, "sm_")
-		numPart = strings.TrimRight(numPart, "abcdefghijklmnopqrstuvwxyz")
-		if n, err := strconv.Atoi(numPart); err == nil && n >= 35 && n <= 121 {
+	for _, known := range cudadevicetable.Targets() {
+		if strings.ToLower(strings.TrimSpace(known)) == target {
 			return true
 		}
 	}
@@ -69,6 +63,11 @@ func CompileDeferredGraph(ctx *LazyContext, root *LazyNode) (*MaterializedPlan, 
 	}
 
 	ordered := topologicalOrder(root)
+	for _, n := range ordered {
+		if n.Err != nil {
+			return nil, fmt.Errorf("cudafuse: node %s: %w", n.Name(), n.Err)
+		}
+	}
 	regions, err := partitionIntoRegions(ordered)
 	if err != nil {
 		return nil, fmt.Errorf("cudafuse: partition fusion regions: %w", err)
@@ -99,7 +98,11 @@ func CompileDeferredGraph(ctx *LazyContext, root *LazyNode) (*MaterializedPlan, 
 
 		for _, in := range reg.Inputs {
 			if _, exists := nodeMap[in]; !exists {
-				nodeMap[in] = g.AddInput(in.Name(), in.Shape, in.DType)
+				elements, shapeErr := shapeElements(in.Shape)
+				if shapeErr != nil || elements > math.MaxInt {
+					return nil, fmt.Errorf("cudafuse: input %s has invalid shape %v", in.Name(), in.Shape)
+				}
+				nodeMap[in] = g.AddInput(in.Name(), []int{int(elements)}, in.DType)
 			}
 		}
 
@@ -109,6 +112,9 @@ func CompileDeferredGraph(ctx *LazyContext, root *LazyNode) (*MaterializedPlan, 
 			}
 			switch n.Op {
 			case "add", "sub", "mul", "div":
+				if len(n.Inputs) != 2 {
+					return nil, fmt.Errorf("cudafuse: %s requires two inputs", n.Op)
+				}
 				in1 := nodeMap[n.Inputs[0]]
 				in2 := nodeMap[n.Inputs[1]]
 				if in1 == nil || in2 == nil {
@@ -116,13 +122,24 @@ func CompileDeferredGraph(ctx *LazyContext, root *LazyNode) (*MaterializedPlan, 
 				}
 				nodeMap[n] = g.AddBinary(n.Op, in1, in2)
 			case "relu", "silu", "exp", "sqrt", "neg":
+				if len(n.Inputs) != 1 {
+					return nil, fmt.Errorf("cudafuse: %s requires one input", n.Op)
+				}
 				in1 := nodeMap[n.Inputs[0]]
 				if in1 == nil {
 					return nil, fmt.Errorf("cudafuse: missing input for %s", n.Op)
 				}
 				nodeMap[n] = g.AddUnary(n.Op, in1)
+			case "reshape":
+				if len(n.Inputs) != 1 || nodeMap[n.Inputs[0]] == nil {
+					return nil, fmt.Errorf("cudafuse: reshape is missing its input")
+				}
+				// The emitter is a flat elementwise kernel. A reshape with an
+				// unchanged element count changes only the view, not the scalar
+				// expression or its linear index.
+				nodeMap[n] = nodeMap[n.Inputs[0]]
 			default:
-				// If not a scalar C++ op recognized by Fuse, mark as custom or lowerable
+				return nil, fmt.Errorf("cudafuse: unsupported operator %q in fusion region: %w", n.Op, ErrUnsupportedOperator)
 			}
 		}
 
@@ -133,26 +150,19 @@ func CompileDeferredGraph(ctx *LazyContext, root *LazyNode) (*MaterializedPlan, 
 			}
 		}
 		if len(outNodes) > 0 {
-			if err := g.SetOutputs(outNodes...); err == nil {
-				if fk, fuseErr := FuseWithSourceMap(g, kernelName); fuseErr == nil {
-					reg.Kernel = &fk
-				}
+			fk, err := compileRegionKernel(g, kernelName, outNodes...)
+			if err != nil {
+				return nil, fmt.Errorf("cudafuse: compile region %d: %w", reg.ID, err)
 			}
+			reg.Kernel = &fk
 		}
 	}
 
 	// Calculate output allocation size for the materialized result
-	count := 1
-	for _, dim := range root.Shape {
-		if dim > 0 {
-			count *= dim
-		}
+	allocBytes, err := outputBytes(root.Shape, root.DType)
+	if err != nil {
+		return nil, fmt.Errorf("cudafuse: output allocation size: %w", err)
 	}
-	elemBytes := 4 // float32
-	if root.DType == cudair.Float16 {
-		elemBytes = 2
-	}
-	allocBytes := int64(count * elemBytes)
 
 	// Record the single output buffer allocation
 	ctx.Tracker.RecordAlloc(allocBytes)
@@ -168,6 +178,41 @@ func CompileDeferredGraph(ctx *LazyContext, root *LazyNode) (*MaterializedPlan, 
 		OutputBuffers:  1,
 		RootNode:       root,
 	}, nil
+}
+
+func compileRegionKernel(g *cudair.Graph, kernelName string, outputs ...*cudair.Node) (FusedKernel, error) {
+	if err := g.SetOutputs(outputs...); err != nil {
+		return FusedKernel{}, fmt.Errorf("set outputs: %w", err)
+	}
+	fk, err := FuseWithSourceMap(g, kernelName)
+	if err != nil {
+		return FusedKernel{}, fmt.Errorf("fuse graph: %w", err)
+	}
+	return fk, nil
+}
+
+func outputBytes(shape []int, dtype cudair.DataType) (int64, error) {
+	if dtype < cudair.Float32 || dtype > cudair.Int8 {
+		return 0, fmt.Errorf("unsupported data type %s", dtype)
+	}
+	elements := uint64(1)
+	for _, dim := range shape {
+		if dim < 0 {
+			return 0, fmt.Errorf("negative output dimension %d", dim)
+		}
+		if dim == 0 {
+			return 0, nil
+		}
+		if elements > math.MaxInt64/uint64(dim) {
+			return 0, fmt.Errorf("output element count overflows int64")
+		}
+		elements *= uint64(dim)
+	}
+	bytes := uint64(dtype.SizeBytes())
+	if elements > math.MaxInt64/bytes {
+		return 0, fmt.Errorf("output byte count overflows int64")
+	}
+	return int64(elements * bytes), nil
 }
 
 func topologicalOrder(root *LazyNode) []*LazyNode {
@@ -230,6 +275,9 @@ func partitionIntoRegions(nodes []*LazyNode) ([]*FusionRegion, error) {
 				currentRegion.Outputs = findOutputs(currentRegion.Nodes, nodes)
 			}
 			matReg := startNewRegion(false, n.Op)
+			if n.Op == "transpose" || n.Op == "gather" || n.Op == "cycle" || n.Op == "replicate" {
+				matReg.Reason = "operation is not lowered into the flat elementwise kernel"
+			}
 			matReg.Nodes = append(matReg.Nodes, n)
 			matReg.Inputs = append(matReg.Inputs, n.Inputs...)
 			matReg.Outputs = []*LazyNode{n}

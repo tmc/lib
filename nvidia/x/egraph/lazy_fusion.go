@@ -21,7 +21,9 @@ type ExtractedFusionRegion struct {
 
 // ExtractedFusionPlan holds the set of extracted fusion regions partitioned by boundaries.
 type ExtractedFusionPlan struct {
-	Regions      []*ExtractedFusionRegion
+	Regions []*ExtractedFusionRegion
+	// RootBoundary is the root expression's operation when it is a materializing
+	// or compaction boundary. It is empty when the root is not a boundary.
 	RootBoundary string
 }
 
@@ -45,21 +47,23 @@ func ExtractFusionRegions(expr *Expr) (*ExtractedFusionPlan, error) {
 	if expr == nil {
 		return nil, fmt.Errorf("egraph: nil expression")
 	}
+	expr = expandFusionAliases(expr)
 
 	plan := &ExtractedFusionPlan{}
+	if cudafuse.IsMaterializingBoundary(strings.ToLower(expr.Op)) || cudafuse.IsCompactionBoundary(strings.ToLower(expr.Op)) {
+		plan.RootBoundary = strings.ToLower(expr.Op)
+	}
+	var walkErr error
 	regionID := 0
 
 	var walk func(e *Expr, parentBoundary string)
 	walk = func(e *Expr, parentBoundary string) {
-		if e == nil {
+		if e == nil || walkErr != nil {
 			return
 		}
 
 		op := strings.ToLower(e.Op)
 		if cudafuse.IsMaterializingBoundary(op) || cudafuse.IsCompactionBoundary(op) {
-			if plan.RootBoundary == "" {
-				plan.RootBoundary = op
-			}
 			for _, child := range e.Children {
 				walk(child, op)
 			}
@@ -108,9 +112,12 @@ func ExtractFusionRegions(expr *Expr) (*ExtractedFusionPlan, error) {
 			region.Inputs = inputs
 
 			// Synthesize a cudafuse.FusedKernel from the extracted subgraph
-			if fk, err := compileExtractedRegion(region); err == nil {
-				region.Kernel = fk
+			fk, err := compileExtractedRegion(region)
+			if err != nil {
+				walkErr = fmt.Errorf("egraph: compile extracted region %d: %w", region.ID, err)
+				return
 			}
+			region.Kernel = fk
 
 			plan.Regions = append(plan.Regions, region)
 			return
@@ -122,6 +129,9 @@ func ExtractFusionRegions(expr *Expr) (*ExtractedFusionPlan, error) {
 	}
 
 	walk(expr, "")
+	if walkErr != nil {
+		return nil, walkErr
+	}
 	return plan, nil
 }
 
@@ -175,8 +185,17 @@ func compileExtractedRegion(region *ExtractedFusionRegion) (*cudafuse.FusedKerne
 			res := g.AddUnary(op, c0)
 			nodeMap[e] = res
 			return res, nil
+		case "reshape":
+			if len(e.Children) != 1 {
+				return nil, fmt.Errorf("egraph: reshape has %d children, want 1", len(e.Children))
+			}
+			// The scalar kernel is linear-indexed; a reshape is a view change.
+			return lower(e.Children[0])
 		default:
-			// Treat as input if not lowerable as scalar arithmetic
+			if len(e.Children) != 0 {
+				return nil, fmt.Errorf("egraph: cannot lower operator %q inside fusion region", e.Op)
+			}
+			// A leaf with no children is an external tensor input.
 			name := fmt.Sprintf("in_leaf_%s", sanitizeIdent(e.Op))
 			node := g.AddInput(name, shape, cudair.Float32)
 			nodeMap[e] = node
@@ -199,6 +218,46 @@ func compileExtractedRegion(region *ExtractedFusionRegion) (*cudafuse.FusedKerne
 		return nil, err
 	}
 	return &fk, nil
+}
+
+func expandFusionAliases(expr *Expr) *Expr {
+	if expr == nil {
+		return nil
+	}
+	children := make([]*Expr, len(expr.Children))
+	for i, child := range expr.Children {
+		children[i] = expandFusionAliases(child)
+	}
+	makeExpr := func(op string, children ...*Expr) *Expr {
+		return &Expr{Op: op, Children: children}
+	}
+	switch strings.ToLower(expr.Op) {
+	case "fused_add_mul":
+		if len(children) == 3 {
+			return makeExpr("mul", makeExpr("add", children[0], children[1]), children[2])
+		}
+	case "fused_fma":
+		if len(children) == 3 {
+			return makeExpr("add", makeExpr("mul", children[0], children[1]), children[2])
+		}
+	case "fused_relu_mul", "fused_silu_mul", "fused_exp_add", "fused_neg_add":
+		if len(children) == 2 {
+			unary, binary := "", "mul"
+			left, right := children[0], children[1]
+			switch strings.ToLower(expr.Op) {
+			case "fused_relu_mul":
+				unary = "relu"
+			case "fused_silu_mul":
+				unary = "silu"
+			case "fused_exp_add":
+				unary, binary = "exp", "add"
+			case "fused_neg_add":
+				unary, binary = "neg", "add"
+			}
+			return makeExpr(binary, makeExpr(unary, left), right)
+		}
+	}
+	return &Expr{Op: expr.Op, Data: expr.Data, Children: children}
 }
 
 func sanitizeIdent(s string) string {

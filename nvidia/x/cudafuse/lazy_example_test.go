@@ -21,10 +21,10 @@ func ExampleLazyArray() {
 	ab := a.Add(b)
 	abc := ab.Mul(c)
 
-	// Chaining operations incurs zero allocations before boundary
-	fmt.Printf("allocations before materialization: %d\n", ctx.Tracker.Allocations)
+	// Chaining records no output allocation before the materialization boundary
+	fmt.Printf("allocations before materialization: %d\n", ctx.Tracker.Snapshot().Allocations)
 
-	// Materializing reduction triggers kernel compilation and flushes boundary
+	// Materializing reduction compiles region source and records host allocation bookkeeping
 	plan, err := abc.Sum()
 	if err != nil {
 		fmt.Printf("materialize error: %v\n", err)
@@ -32,7 +32,7 @@ func ExampleLazyArray() {
 	}
 
 	fmt.Printf("output buffers allocated: %d\n", plan.OutputBuffers)
-	fmt.Printf("total allocations: %d\n", ctx.Tracker.Allocations)
+	fmt.Printf("total allocations: %d\n", ctx.Tracker.Snapshot().Allocations)
 
 	// Execution on known targets reports ErrHardwarePending without physical GPU
 	execErr := plan.Execute("sm_121a")

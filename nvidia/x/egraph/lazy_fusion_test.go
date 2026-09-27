@@ -1,6 +1,7 @@
 package egraph_test
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -10,69 +11,106 @@ import (
 // TestLazyFusionBoundary_EGraphFusionNodeExtraction verifies egraph rewrite rules
 // correctly group lazy operations into a single extracted cudafuse fusion region.
 func TestLazyFusionBoundary_EGraphFusionNodeExtraction(t *testing.T) {
-	// 1. Verify E-Graph rewrite rule unification
 	g := egraph.New()
 	a := g.Add(egraph.NewLeaf("a"))
 	b := g.Add(egraph.NewLeaf("b"))
 	c := g.Add(egraph.NewLeaf("c"))
-
 	addNode := g.Add(egraph.NewNode("add", a, b))
 	mulNode := g.Add(egraph.NewNode("mul", addNode, c))
-	rootNode := g.Add(egraph.NewNode("sum", mulNode))
-
+	root := g.Add(egraph.NewNode("sum", mulNode))
 	rules := egraph.LazyFusionRewriteRules()
-	ruleApplied := false
-	for _, r := range rules {
-		if r.Name == "fuse_add_mul" {
-			merges := r.Apply(g)
-			if merges > 0 {
-				ruleApplied = true
-			}
-		}
+	_, merges := egraph.Saturate(g, rules, 10)
+	if merges == 0 {
+		t.Fatal("Saturate applied no lazy fusion rewrite")
 	}
-	if !ruleApplied {
-		t.Fatalf("expected fuse_add_mul rewrite rule to match and apply in egraph")
-	}
-
-	// 2. Verify maximal contiguous fusion region extraction
-	exprA := &egraph.Expr{Op: "a"}
-	exprB := &egraph.Expr{Op: "b"}
-	exprC := &egraph.Expr{Op: "c"}
-
-	exprAdd := &egraph.Expr{Op: "add", Children: []*egraph.Expr{exprA, exprB}}
-	exprMul := &egraph.Expr{Op: "mul", Children: []*egraph.Expr{exprAdd, exprC}}
-	exprRoot := &egraph.Expr{Op: "sum", Children: []*egraph.Expr{exprMul}}
-
-	plan, err := egraph.ExtractFusionRegions(exprRoot)
+	expr, _, err := egraph.ExtractBest(g, root, preferFusionCost{})
 	if err != nil {
-		t.Fatalf("ExtractFusionRegions failed: %v", err)
+		t.Fatalf("ExtractBest: %v", err)
 	}
-
+	plan, err := egraph.ExtractFusionRegions(expr)
+	if err != nil {
+		t.Fatalf("ExtractFusionRegions: %v", err)
+	}
 	if plan.RootBoundary != "sum" {
-		t.Errorf("plan root boundary = %q, want \"sum\"", plan.RootBoundary)
+		t.Errorf("root boundary = %q, want sum", plan.RootBoundary)
 	}
 	if len(plan.Regions) != 1 {
-		t.Fatalf("expected exactly 1 unified fusion region, got %d", len(plan.Regions))
+		t.Fatalf("got %d regions, want exactly one", len(plan.Regions))
 	}
-
 	region := plan.Regions[0]
-	if len(region.OpNames) != 2 || region.OpNames[0] != "add" || region.OpNames[1] != "mul" {
-		t.Errorf("expected region ops [add, mul], got %v", region.OpNames)
-	}
-	if len(region.Inputs) != 3 {
-		t.Errorf("expected 3 external inputs [a, b, c], got %d", len(region.Inputs))
-	}
 	if region.Boundary != "sum" {
-		t.Errorf("expected boundary \"sum\", got %q", region.Boundary)
+		t.Errorf("boundary = %q, want sum", region.Boundary)
+	}
+	if region.Root.Op != "mul" || len(region.Root.Children) != 2 || region.Root.Children[0].Op != "add" {
+		t.Errorf("extracted fusion does not compute (a+b)*c: %#v", region.Root)
 	}
 	if region.Kernel == nil {
-		t.Fatalf("expected compiled cudafuse.FusedKernel in extracted region")
+		t.Fatal("no kernel compiled for extracted e-graph fusion")
 	}
-	if !strings.Contains(region.Kernel.Source, "v_in_") {
-		t.Errorf("expected generated kernel arithmetic in source:\n%s", region.Kernel.Source)
+	if !strings.Contains(region.Kernel.Source, " + ") || !strings.Contains(region.Kernel.Source, " * ") || strings.Contains(region.Kernel.Source, "in_leaf_") {
+		t.Errorf("kernel does not contain extracted add/mul computation:\n%s", region.Kernel.Source)
 	}
+}
 
-	_ = rootNode
+type preferFusionCost struct{}
+
+func (preferFusionCost) NodeCost(n egraph.ENode, childCosts []float64) float64 {
+	cost := 1.0
+	if strings.HasPrefix(n.Op, "fused_") {
+		cost = 0.1
+	}
+	for _, child := range childCosts {
+		cost += child
+	}
+	return cost
+}
+
+func TestEGraphFusionRegion_KernelComputesRegionOps(t *testing.T) {
+	x := &egraph.Expr{Op: "x"}
+	y := &egraph.Expr{Op: "y"}
+	relu := &egraph.Expr{Op: "relu", Children: []*egraph.Expr{x}}
+	reshape := &egraph.Expr{Op: "reshape", Children: []*egraph.Expr{relu}}
+	add := &egraph.Expr{Op: "add", Children: []*egraph.Expr{reshape, y}}
+	root := &egraph.Expr{Op: "sum", Children: []*egraph.Expr{add}}
+	plan, err := egraph.ExtractFusionRegions(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Regions) != 1 {
+		t.Fatalf("regions = %d, want 1", len(plan.Regions))
+	}
+	region := plan.Regions[0]
+	if !reflect.DeepEqual(region.OpNames, []string{"relu", "reshape", "add"}) {
+		t.Fatalf("OpNames = %v", region.OpNames)
+	}
+	if region.Kernel == nil {
+		t.Fatal("region has no kernel")
+	}
+	src := region.Kernel.Source
+	if !strings.Contains(src, "> 0.0f") || !strings.Contains(src, " + ") || strings.Contains(src, "in_leaf_") {
+		t.Fatalf("kernel source does not compute region ops or has dropped subtree inputs:\n%s", src)
+	}
+}
+
+func TestExtractedFusionPlanRootBoundary(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		expr *egraph.Expr
+		want string
+	}{
+		{"root sum", &egraph.Expr{Op: "sum", Children: []*egraph.Expr{{Op: "relu", Children: []*egraph.Expr{{Op: "x"}}}}}, "sum"},
+		{"nested sum", &egraph.Expr{Op: "add", Children: []*egraph.Expr{{Op: "sum", Children: []*egraph.Expr{{Op: "x"}}}, {Op: "y"}}}, ""},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			plan, err := egraph.ExtractFusionRegions(tt.expr)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if plan.RootBoundary != tt.want {
+				t.Fatalf("RootBoundary = %q, want %q", plan.RootBoundary, tt.want)
+			}
+		})
+	}
 }
 
 // TestEGraphFusionBoundary_FilterIsolation verifies that filter/where compactions

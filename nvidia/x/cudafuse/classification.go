@@ -25,10 +25,9 @@ const (
 // ClassifyOp returns the classification of an operation name.
 func ClassifyOp(op string) OpClassification {
 	switch strings.ToLower(strings.TrimSpace(op)) {
-	case "map", "map2", "add", "mul", "sub", "div", "relu", "silu", "exp", "sqrt", "neg",
-		"reshape", "transpose", "gather", "cycle", "replicate":
+	case "add", "mul", "sub", "div", "relu", "silu", "exp", "sqrt", "neg", "reshape":
 		return OpFusibleElementwise
-	case "reduce", "sum", "scan", "sort", "to_host", "materialize":
+	case "reduce", "sum", "scan", "sort", "to_host", "transpose", "gather", "cycle", "replicate":
 		return OpMaterializingBoundary
 	case "where", "filter", "keep":
 		return OpConditionallyFusedCompaction
