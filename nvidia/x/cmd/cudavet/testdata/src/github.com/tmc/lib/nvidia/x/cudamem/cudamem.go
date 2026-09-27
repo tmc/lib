@@ -4,7 +4,11 @@ package cudamem
 
 import "github.com/tmc/lib/nvidia/x/cuda"
 
-type Slice[T any] struct{}
+type Slice[T any] struct {
+	alloc *allocation
+}
+
+type allocation struct{}
 
 func (s Slice[T]) Free() error                                          { return nil }
 func (s Slice[T]) CopyFromHostAsync(src []T, stream *cuda.Stream) error { return nil }

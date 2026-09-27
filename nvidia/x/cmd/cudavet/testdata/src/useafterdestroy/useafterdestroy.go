@@ -7,6 +7,7 @@ import (
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/cudamem"
 )
 
 func wrapped(dev *cuda.Device) error {
@@ -149,6 +150,30 @@ func refusedNil(d driver.DevicePtr) error {
 		panic("Free succeeded")
 	}
 	return d.Free()
+}
+
+// sliceFreedTwice tests that a Slice's copies share one record of its
+// release, so a second Free releases nothing.
+func sliceFreedTwice(s cudamem.Slice[float32]) error {
+	if err := s.Free(); err != nil {
+		return err
+	}
+	if err := s.Free(); err != nil {
+		return fmt.Errorf("second Free: %w", err)
+	}
+	return nil
+}
+
+// valueFreedTwice frees a bare driver handle twice, as sliceFreedTwice does a
+// Slice; nothing records the first release.
+func valueFreedTwice(d driver.DevicePtr) error {
+	if err := d.Free(); err != nil {
+		return err
+	}
+	if err := d.Free(); err != nil { // want `d is used after d.Free`
+		return fmt.Errorf("second Free: %w", err)
+	}
+	return nil
 }
 
 // checked frees d, then frees it again: the first Free succeeded.

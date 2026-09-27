@@ -293,7 +293,10 @@ only when it failed, as in
 		t.Fatal(err)
 	}
 
-leaves the handle live.`,
+leaves the handle live. A handle that records its own release, such as a
+*cuda.Stream or a cudamem.Slice, whose copies share their allocation, may be
+released twice, or used where the use is expected to fail: that tests the
+record.`,
 	Run: runUseAfterDestroy,
 }
 
@@ -496,12 +499,12 @@ func expectsFailure(info *types.Info, s *ast.IfStmt) bool {
 }
 
 // deliberateUse reports whether use, in stmt, of a released handle v is a
-// test of the release rather than a mistake. It applies only to a handle held
-// by pointer, a Go value that records its release and rejects later calls: a
+// test of the release rather than a mistake. It applies only to a handle
+// that records its release and rejects later calls (see recordsRelease): a
 // second release, a call whose error an if expects to be a failure, or a
 // handle never set at all, declared nil in before.
 func deliberateUse(info *types.Info, before []ast.Stmt, stmt ast.Stmt, v *types.Var, use *ast.Ident) bool {
-	if _, ok := v.Type().Underlying().(*types.Pointer); !ok {
+	if !recordsRelease(v.Type()) {
 		return false
 	}
 	if declaredNil(info, before, v) {
@@ -522,6 +525,26 @@ func deliberateUse(info *types.Info, before []ast.Stmt, stmt ast.Stmt, v *types.
 		return !found
 	})
 	return found
+}
+
+// recordsRelease reports whether a handle of type t is a Go value that can
+// record its release: a pointer, or a struct holding a pointer to a struct its
+// copies share, as cudamem.Slice holds its allocation. A bare driver handle
+// such as driver.DevicePtr records nothing; releasing it twice reaches C twice.
+func recordsRelease(t types.Type) bool {
+	switch u := t.Underlying().(type) {
+	case *types.Pointer:
+		return true
+	case *types.Struct:
+		for f := range u.Fields() {
+			if p, ok := f.Type().Underlying().(*types.Pointer); ok {
+				if _, ok := p.Elem().Underlying().(*types.Struct); ok {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // declaredNil reports whether stmts declare v with no value and never assign
