@@ -205,10 +205,27 @@ when each was launched: `forward` (a range name holding `:fwd` or
 outermost range that names a phase decides. A thread with no ranges of
 its own is placed by every thread's ranges, and the table header counts
 how many launches that was. `-by range` groups by the innermost range
-name instead. Rows sum to kernel exclusive and carry each op's cells.
-The capture needs NVTX ranges: laya's region hooks emit them, and a
-PyTorch run needs module-level ranges (`torch.cuda.nvtx.range_push` in
-forward and backward hooks, or `emit_nvtx`).
+name instead, and `-by module` by that name with its numeric path
+elements folded, so `encoder.layers.3:bwd` and `encoder.layers.17:bwd`
+share the row `encoder.layers.*:bwd`. Rows sum to kernel exclusive and
+carry each op's cells.
+
+The capture needs NVTX ranges. To compare a Go trainer with a PyTorch
+one module by module, name the ranges on both sides by PyTorch module
+path, `PATH:fwd` and `PATH:bwd`. In Go, push them with
+`nvtx.RangePush`; in PyTorch, [torchnvtx.py](torchnvtx.py) adds them
+with module hooks, including under non-reentrant gradient checkpointing,
+whose backward hooks do not fire:
+
+	import torchnvtx
+	torchnvtx.install(model, r"^(encoder\.layers\.\d+|head)$",
+	                  checkpointed=r"^encoder\.layers\.\d+$")
+	loss.backward()
+	torchnvtx.close_backward()
+	with torchnvtx.range("optimizer"):
+	    opt.step()
+
+	cudaprof compare -ops ops.txt -by module go.pprof torch.pprof
 
 `-phase i` picks the capture-range phase when a capture has several.
 `-warmup-until` and `-warmup-ms` cut a prologue as gaps does. `-templates`

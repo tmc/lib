@@ -107,3 +107,22 @@ func TestCompareByPhase(t *testing.T) {
 		t.Errorf("-by range first group = %q, want model:bwd", c.Groups[0].Group)
 	}
 }
+
+func TestModuleOf(t *testing.T) {
+	tests := []struct {
+		name, want string
+	}{
+		{"encoder.layers.12:bwd", "encoder.layers.*:bwd"},
+		{"head.layers.0:fwd", "head.layers.*:fwd"},
+		{"blocks.3.attn.1", "blocks.*.attn.*"},
+		{"optimizer", "optimizer"},
+		{"layer12:fwd", "layer12:fwd"},
+		{"step:12", "step:12"},
+		{"", ""},
+	}
+	for _, tt := range tests {
+		if got := moduleOf(tt.name); got != tt.want {
+			t.Errorf("moduleOf(%q) = %q, want %q", tt.name, got, tt.want)
+		}
+	}
+}
