@@ -10162,34 +10162,21 @@
       }
     },
     "sanitizer": {
-      "documentation": {
-        "note": "Generator merges all selected docs JSON files. Per-file hashes retained in receipt; upstream retrieval identities remain incomplete.",
-        "path": "docs",
-        "repository": "codegen",
-        "selected_files": 85,
-        "selection": "*-docs.json",
-        "tree": "aeade4477b2d665ca705f1d660c14e71c56e5398"
-      },
       "generation": {
         "argv": [
           "go",
           "run",
-          "./cmd/gen-nvidia",
-          "-api",
-          "sanitizer",
+          "./cmd/sanitizer-survey",
           "-headers-dir",
           "${HEADERS_REPO}",
           "-header",
           "${HEADERS_REPO}/sanitizer/sanitizer.h",
+          "-upstream-version",
+          "13.3.27",
           "-output",
-          "${OUTPUT_DIR}",
-          "-package",
-          "sanitizer",
-          "-deprecated=true",
-          "-docs-dir",
-          "${CODEGEN_REPO}/docs"
+          "${OUTPUT_DIR}"
         ],
-        "comparison": "All 15 emitted files byte-identical to lib comparison commit 425b13b; complete generated file set checked.",
+        "comparison": "All 17 generated outputs, including provenance.json and layout/loader tests, match sanitizer-survey at libgen c1387a4. apidiff reports zero incompatible changes on linux/amd64, linux/arm64 and darwin/arm64. Added C layout checks, enum values and union accessors; output placement and documentation wording changed.",
         "cwd": "${CODEGEN_REPO}",
         "environment": {
           "GOWORK": "off",
@@ -10206,78 +10193,83 @@
         "options": {
           "api": "sanitizer",
           "clang": true,
-          "deprecated": true,
           "docs_enabled": true,
-          "package": "sanitizer"
+          "external_docs": false,
+          "upstream_version": "13.3.27",
+          "api_removal_guard": true,
+          "unclaimed_generated_file_guard": true
         },
         "outputs": [
           {
-            "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/sanitizer/doc.gen.go",
-            "sha256": "02cc3920a8643b37f5f4a14b5c7bff2404654372d398a872db74a64616dc1e2e"
+            "sha256": "3e59e888731e9e240f2ad104175876b789f4f5865cd87f0bd18288a80a2bf57a"
           },
           {
             "path": "nvidia/sanitizer/enums.gen.go",
-            "sha256": "80d15736a45ec886f9ee4c40e4dc5987c31628d75e93a7941e7b5e7e0053bd21"
+            "sha256": "31b465e1ca7b10b76d9394f2adecb06a47ea5dbf3e3be064f92050c0053a09d1"
           },
           {
             "path": "nvidia/sanitizer/funcs.gen.go",
-            "sha256": "ac5419da0c864a1dbdc6fd4b99455b0a156126df6f0a852203b24bf18a6e009b"
+            "sha256": "f7a2bb3f516939fd1e05843b48535d401efdd8ba19c0229a86ffe95f153754b1"
           },
           {
             "path": "nvidia/sanitizer/handles.gen.go",
-            "sha256": "785d494eaca9ae07fda34ff5856f51989333080f3ddd1884c24fc4e123b276c1"
+            "sha256": "253435678f056a0470f6b2f4929a3a53956768770ecb4f3492f8e99bef00814a"
           },
           {
             "path": "nvidia/sanitizer/init.gen.go",
-            "sha256": "08bf1d134d6a3e7bb4dd596b2c5a191db5aa829433b8059b289c69ee9a960c7c"
+            "sha256": "fabd9284da3046bdf4a01f514338cf89e3ecbfe2f526a09c65769ab6f10d9178"
           },
           {
             "path": "nvidia/sanitizer/launch_handle.gen.go",
-            "sha256": "b823f83f03c692a2cfad7a311d1fb361e29c650c7b2741f723e53d8238125fe2"
+            "sha256": "6d6bb7271a8c287527287b1bf41e848acebfe0bd8ba1db372deedb68a6ca7a12"
           },
           {
             "path": "nvidia/sanitizer/layout.gen_test.go",
-            "sha256": "76dc12bf813efd069c5cb05cc08cae7db2074c04e63ff02e6124a0d2e0ecc86e"
+            "sha256": "add281cbddd0459023d9f4c259ef8962815b320c605572c188d319f5cc4bee86"
           },
           {
             "path": "nvidia/sanitizer/loader.gen_test.go",
-            "sha256": "497fcd046f8a1f696db35841acd178d9ce69059ae404afaf2e6b78f72bca5e08"
+            "sha256": "4829ce9cf221aaacba9062c7eb8946fd2eca1550419f06f474ce4d4a81d2aa83"
           },
           {
             "path": "nvidia/sanitizer/loader_unix.gen.go",
-            "sha256": "8759a7c42ea52d2cbf19467ac39a7dcd4b4e578e5f02a90430014b23b2a85de6"
+            "sha256": "8958817179bc58d3083161c7e7191b51aff32903197507fc72ca5ba0aa8142cc"
           },
           {
             "path": "nvidia/sanitizer/loader_windows.gen.go",
-            "sha256": "a180165427372c29141f3b948df6c88bfc43c49dc306c94dfebea1e9a6a49b31"
+            "sha256": "32c0b5a186c2486b5f9457800b8bcd1be56a480522828103d4a1ca996d53ea74"
           },
           {
             "path": "nvidia/sanitizer/provenance.gen.go",
-            "sha256": "deb89a05229c553f5a01e812bc1d81413f98c435091530fdc28bc7603037138e"
+            "sha256": "462b6cb44d152b21361b3de7fb6dab2c8636ff4e0cd0e867041c7dd57c8930e7"
+          },
+          {
+            "path": "nvidia/sanitizer/provenance.json",
+            "sha256": "7a2822c266c2285da327925914d8624a5fc29ef966d7e72c86210911a7a874ab"
           },
           {
             "path": "nvidia/sanitizer/result.gen.go",
-            "sha256": "f069f2ceabcf39875c18204d9d69d907180a2be626ea8235bbeea7d1c3d10b38"
+            "sha256": "52f181f530e46f9147fbae2cb7308d0d6db38b11141651a9483a4c57e7193917"
           },
           {
             "path": "nvidia/sanitizer/stream_handle.gen.go",
-            "sha256": "69b6a53d66e82e444f6bcb89f3cff79f2a1b1112109c70360ca53e51c0bc50ec"
+            "sha256": "c81e38656618ddcbdd799b81792c9ebc14b575c0f0b027eee7b8ab0455134bd3"
           },
           {
             "path": "nvidia/sanitizer/structs.gen.go",
-            "sha256": "e31c642283935d94105a9f38d05472a2fffb3689b9a3498252d31793ca4dbeb2"
+            "sha256": "a8fe915a1ccc4b59ff53228713f3ae61c5e599e98073a8d3dc88a1a064b00983"
           },
           {
             "path": "nvidia/sanitizer/subscriber.gen.go",
-            "sha256": "c6a052c5437c239d3e6ce7129509dfb21ecae0d75ad56237935ca114eae078db"
+            "sha256": "9bb2c011f5670d8830ab12ba3831ebc548e6463761846087516ecfeed5a47a09"
           },
           {
             "path": "nvidia/sanitizer/types.gen.go",
-            "sha256": "e94bdc40fdca5b7b1acd4bd707effbb4a77c1a07bf3fe11adb7652100f8cd6e1"
+            "sha256": "b8478e417bf04d7952fd7c8e6f136e2f9e3e715914d1ae475286e10a7ff7c273"
           }
         ],
-        "source_state": "clean codegen checkout recorded after generation",
+        "source_state": "Recipe source is committed at libgen 32a54c5; the shared checkout has two unrelated untracked binaries.",
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
           "clang_target": "arm64-apple-darwin25.6.0",
@@ -10292,11 +10284,6 @@
             "GOVERSION": "go1.25.0"
           }
         }
-      },
-      "header": {
-        "path": "sanitizer/sanitizer.h",
-        "repository": "headers",
-        "sha256": "34f9100d71cc5cceafd67c5f297c6d8ca3c975f64e87d16aa0c19bea6c6bd515"
       },
       "headers": [
         {
@@ -10399,10 +10386,10 @@
       "package": "github.com/tmc/lib/nvidia/sanitizer",
       "repositories": {
         "codegen": {
-          "commit": "e987d3ac281785619a1cf126e695e3beb6e36175",
-          "tree": "a5e1ebff0fdbe1ecb0f08fb58be51df4b582c660",
+          "commit": "c1387a4722b8cec2d00d11d0b6553519b686047c",
+          "tree": "ce60086c0e675b01220f7904530ef613d0e25cde",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 4d9ccca: launch extents grouped into Dim3. Regenerated at libgen 80aa768: methods drop the receiver words they repeat (LaunchHandle.SetCallbackData). regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen e987d3a"
+          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 4d9ccca: launch extents grouped into Dim3. Regenerated at libgen 80aa768: methods drop the receiver words they repeat (LaunchHandle.SetCallbackData). regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen e987d3a; sanitizer-survey migration at libgen c1387a4"
         },
         "headers": {
           "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",
@@ -10410,8 +10397,8 @@
           "url": "https://github.com/tmc/cuda-headers.git"
         },
         "lib": {
-          "commit": "c30b2935e8073f0b02cd5f10edf751d5c7ea7eca",
-          "tree": "f5566422d5906a899658a3b36113069fb211431b",
+          "commit": "43b8455d25dfbb98d035add0574a6e0654bd5359",
+          "tree": "a8ef7379b13bbe387db57e59c12ec9407693e515",
           "url": "https://github.com/tmc/lib.git"
         }
       },
