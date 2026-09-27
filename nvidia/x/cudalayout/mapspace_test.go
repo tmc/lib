@@ -2,6 +2,7 @@ package cudalayout
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -31,14 +32,13 @@ func TestMapSpaceDimensionDecomposition(t *testing.T) {
 
 	// Loop Permutation
 	orders := map[StorageLevel][]string{
-		LevelRegister: {"K", "N", "M"},
-		LevelShared:   {"K", "M", "N"},
-		LevelDRAM:     {"B", "M", "N"},
+		LevelRegister: {"B", "K", "N", "M"},
+		LevelShared:   {"K", "B", "M", "N"},
+		LevelDRAM:     {"B", "M", "N", "K"},
 	}
 	perm := NewLoopPermutation(orders)
-	if err := perm.Validate([]string{"K", "M", "N"}); err != nil {
-		// LevelDRAM has B, M, N which differs from K, M, N
-		// Testing individual level validation
+	if err := perm.Validate([]string{"B", "K", "M", "N"}); err != nil {
+		t.Fatalf("LoopPermutation.Validate failed: %v", err)
 	}
 
 	// Spatial Tiling
@@ -92,6 +92,7 @@ func TestCapacityPruningRejection(t *testing.T) {
 	limits := HardwareConstraints{
 		MaxSharedMemoryPerBlock: 101376, // 101,376 B for GB10 SM121
 		MaxRegistersPerBlock:    65536,
+		MaxThreadsPerBlock:      128,
 		TMAAlignmentBytes:       128,
 	}
 
@@ -116,6 +117,16 @@ func TestCapacityPruningRejection(t *testing.T) {
 	validFact := NewIndexFactorization(levels, validFactors)
 	if err := ValidateCapacity(validFact, bypass, dtypes, limits); err != nil {
 		t.Errorf("valid tile rejected: %v", err)
+	}
+
+	registerFact := NewIndexFactorization(levels, map[StorageLevel]map[string]int{
+		LevelRegister: {"B": 1, "M": 16, "N": 16, "K": 1},
+		LevelShared:   {"B": 1, "M": 1, "N": 1, "K": 1},
+		LevelDRAM:     {"B": 1, "M": 1, "N": 1, "K": 1},
+	})
+	registerLimits := HardwareConstraints{MaxSharedMemoryPerBlock: 8192, MaxRegistersPerBlock: 1000, MaxThreadsPerBlock: 128}
+	if err := ValidateCapacity(registerFact, bypass, dtypes, registerLimits); !errors.Is(err, ErrCapacityExceeded) || !strings.Contains(err.Error(), "register") {
+		t.Fatalf("register capacity error = %v, want ErrCapacityExceeded naming registers", err)
 	}
 }
 
@@ -163,5 +174,108 @@ func TestDatatypeBypassMemoryFootprint(t *testing.T) {
 	reduction := fpNoBypass - fpWithBypass
 	if reduction != 16384 {
 		t.Errorf("footprint reduction = %d, want 16384", reduction)
+	}
+}
+
+func TestIndexFactorizationValidate(t *testing.T) {
+	levels := []StorageLevel{LevelRegister, LevelShared, LevelDRAM}
+	valid := map[StorageLevel]map[string]int{
+		LevelRegister: {"B": 1, "M": 2, "N": 2, "K": 1},
+		LevelShared:   {"B": 1, "M": 2, "N": 2, "K": 2},
+		LevelDRAM:     {"B": 1, "M": 2, "N": 2, "K": 1},
+	}
+	problem := map[string]int{"B": 1, "M": 8, "N": 8, "K": 2}
+	tests := []struct {
+		name    string
+		factors map[StorageLevel]map[string]int
+		problem map[string]int
+		wantErr bool
+	}{
+		{name: "valid", factors: valid, problem: problem},
+		{name: "wrong product", factors: map[StorageLevel]map[string]int{LevelRegister: {"B": 1, "M": 2, "N": 8, "K": 2}}, problem: problem, wantErr: true},
+		{name: "non-positive", factors: map[StorageLevel]map[string]int{LevelRegister: {"B": 1, "M": 0, "N": 8, "K": 2}}, problem: problem, wantErr: true},
+		{name: "missing dimension", factors: map[StorageLevel]map[string]int{LevelRegister: {"B": 1, "M": 8, "N": 8}}, problem: problem, wantErr: true},
+		{name: "unknown dimension", factors: map[StorageLevel]map[string]int{LevelRegister: {"B": 1, "M": 8, "N": 8, "K": 2, "P": 1}}, problem: problem, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := NewIndexFactorization(levels, tt.factors).Validate(tt.problem)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("Validate error = %v, wantErr %t", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestLoopPermutationValidate(t *testing.T) {
+	dimensions := []string{"B", "M", "N", "K"}
+	tests := []struct {
+		name    string
+		order   []string
+		wantErr bool
+	}{
+		{name: "valid", order: []string{"B", "M", "N", "K"}},
+		{name: "duplicate", order: []string{"B", "M", "N", "N"}, wantErr: true},
+		{name: "unknown", order: []string{"B", "M", "N", "P"}, wantErr: true},
+		{name: "missing", order: []string{"B", "M", "N"}, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := NewLoopPermutation(map[StorageLevel][]string{LevelShared: tt.order}).Validate(dimensions)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("Validate error = %v, wantErr %t", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestCapacityPruningRejectsTMAMisalignment(t *testing.T) {
+	levels := []StorageLevel{LevelRegister, LevelShared, LevelDRAM}
+	fact := NewIndexFactorization(levels, map[StorageLevel]map[string]int{
+		LevelRegister: {"B": 1, "M": 1, "N": 1, "K": 1},
+		LevelShared:   {"B": 1, "M": 64, "N": 64, "K": 63},
+		LevelDRAM:     {"B": 1, "M": 1, "N": 1, "K": 1},
+	})
+	dtypes := map[TensorRole]int{TensorA: 2, TensorB: 2, TensorC: 4}
+	limits := HardwareConstraints{TMAAlignmentBytes: 128}
+	if err := ValidateCapacity(fact, NewDatatypeBypass(), dtypes, limits); !errors.Is(err, ErrAlignmentFailed) {
+		t.Fatalf("unaligned A row error = %v, want ErrAlignmentFailed", err)
+	}
+	bypass := NewDatatypeBypass()
+	bypass.SetBypass(LevelShared, TensorA, true)
+	if err := ValidateCapacity(fact, bypass, dtypes, limits); err != nil {
+		t.Fatalf("bypassed A should be exempt from shared TMA alignment: %v", err)
+	}
+}
+
+func TestFootprintBytesRejectsUnknownInputs(t *testing.T) {
+	levels := []StorageLevel{LevelRegister, LevelShared}
+	dtypes := map[TensorRole]int{TensorA: 2, TensorB: 2, TensorC: 4}
+	tests := []struct {
+		name    string
+		factors IndexFactorization
+		dtypes  map[TensorRole]int
+		level   StorageLevel
+	}{
+		{name: "unknown dimension", factors: NewIndexFactorization(levels, map[StorageLevel]map[string]int{LevelRegister: {"B": 1, "M": 2, "N": 2, "K": 2, "P": 4096}, LevelShared: {}}), dtypes: dtypes, level: LevelShared},
+		{name: "missing extent", factors: NewIndexFactorization(levels, map[StorageLevel]map[string]int{LevelRegister: {"B": 1, "M": 2, "N": 2}, LevelShared: {}}), dtypes: dtypes, level: LevelShared},
+		{name: "missing dtype", factors: NewIndexFactorization(levels, map[StorageLevel]map[string]int{LevelRegister: {"B": 1, "M": 2, "N": 2, "K": 2}, LevelShared: {}}), dtypes: map[TensorRole]int{TensorA: 2, TensorB: 2}, level: LevelShared},
+		{name: "absent level", factors: NewIndexFactorization([]StorageLevel{LevelRegister}, map[StorageLevel]map[string]int{LevelRegister: {"B": 1, "M": 2, "N": 2, "K": 2}}), dtypes: dtypes, level: LevelShared},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := FootprintBytes(tt.factors, NewDatatypeBypass(), tt.dtypes, tt.level); err == nil {
+				t.Fatal("FootprintBytes succeeded on invalid inputs")
+			}
+		})
+	}
+}
+
+func TestTileShapeAbsentLevel(t *testing.T) {
+	factors := NewIndexFactorization([]StorageLevel{LevelRegister}, map[StorageLevel]map[string]int{
+		LevelRegister: {"B": 1, "M": 2, "N": 2, "K": 2},
+	})
+	if tile := factors.TileShape(LevelShared); tile != nil {
+		t.Fatalf("TileShape(LevelShared) = %v, want nil for absent level", tile)
 	}
 }

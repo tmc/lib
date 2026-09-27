@@ -288,21 +288,24 @@ func TestAnalyticalDataMovementBounds(t *testing.T) {
 	}
 	bypassed := map[string]bool{}
 
-	dm := AnalyticalDataMovement(problem, tileFactors, dtypes, bypassed)
+	dm, err := AnalyticalDataMovement(problem, tileFactors, dtypes, bypassed)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Exact analytical derivation:
-	// A: 1024*1024 * (1024/128) * 2 = 16,777,216 bytes
-	// B: 1024*1024 * (1024/128) * 2 = 16,777,216 bytes
+	// A and B are each read once while shared or L2 storage retains them.
+	// Each is 1024*1024*2 = 2,097,152 bytes.
 	// C: 1024*1024 * 4 = 4,194,304 bytes
-	// ReadBytes = 33,554,432 bytes
+	// ReadBytes = 4,194,304 bytes
 	// WriteBytes = 4,194,304 bytes
-	// TotalBytes = 37,748,736 bytes
+	// TotalBytes = 8,388,608 bytes
 	// FLOPs = 2 * 1024^3 = 2,147,483,648
-	// OpIntensity = 2147483648 / 37748736 = 56.88888888888889
+	// OpIntensity = 2147483648 / 8388608 = 256
 
-	wantRead := uint64(33554432)
+	wantRead := uint64(4194304)
 	wantWrite := uint64(4194304)
-	wantTotal := uint64(37748736)
+	wantTotal := uint64(8388608)
 
 	if dm.ReadBytes != wantRead {
 		t.Errorf("ReadBytes = %d, want %d", dm.ReadBytes, wantRead)
@@ -321,17 +324,91 @@ func TestAnalyticalDataMovementBounds(t *testing.T) {
 }
 
 func TestHardwareVerificationPendingWithoutGPU(t *testing.T) {
-	cal, err := VerifyHardwareExecution("sm_121")
+	probed := false
+	cal, err := VerifyHardwareExecution("sm_121", func(target string) (bool, error) {
+		probed = target == "sm_121"
+		return false, nil
+	})
 	if err == nil {
 		t.Fatalf("expected error from VerifyHardwareExecution without hardware, got nil")
 	}
 	if !errors.Is(err, cudaerrors.ErrHardwarePending) {
 		t.Errorf("err = %v, want ErrHardwarePending", err)
 	}
+	if !probed {
+		t.Fatal("device availability probe was not called with the target")
+	}
 	if cal.Status != VerificationPending {
 		t.Errorf("cal.Status = %q, want %q", cal.Status, VerificationPending)
 	}
 	if cal.LatencyNs != FloorUnavailable {
 		t.Errorf("cal.LatencyNs = %v, want %v (FloorUnavailable)", cal.LatencyNs, FloorUnavailable)
+	}
+}
+
+func TestAnalyticalDataMovementBoundsRectangular(t *testing.T) {
+	problem := map[string]int{"B": 2, "M": 5, "N": 7, "K": 3}
+	tiles := map[string]int{"M": 2, "N": 4}
+	dtypes := map[string]int{"A": 1, "B": 2, "C": 4}
+	got, err := AnalyticalDataMovement(problem, tiles, dtypes, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.TensorTransfers["A"] != 30 || got.TensorTransfers["B"] != 84 {
+		t.Fatalf("A/B transfers = %v, want A=30 B=84", got.TensorTransfers)
+	}
+	if got.TensorTransfers["C"] != 280 {
+		t.Fatalf("C transfers = %d, want 280", got.TensorTransfers["C"])
+	}
+	bypassed, err := AnalyticalDataMovement(problem, tiles, dtypes, map[string]bool{"A": true, "B": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bypassed.TensorTransfers["A"] != 60 || bypassed.TensorTransfers["B"] != 252 {
+		t.Fatalf("bypassed A/B transfers = %v, want A=60 B=252", bypassed.TensorTransfers)
+	}
+}
+
+func TestAnalyticalDataMovementBypassNeverBelowCompulsory(t *testing.T) {
+	problem := map[string]int{"B": 2, "M": 5, "N": 7, "K": 3}
+	tiles := map[string]int{"M": 2, "N": 4}
+	dtypes := map[string]int{"A": 1, "B": 2, "C": 4}
+	minimum := uint64(30 + 84 + 280)
+	for mask := 0; mask < 8; mask++ {
+		bypassed := map[string]bool{
+			"A": mask&1 != 0,
+			"B": mask&2 != 0,
+			"C": mask&4 != 0,
+		}
+		got, err := AnalyticalDataMovement(problem, tiles, dtypes, bypassed)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.TotalBytes < minimum {
+			t.Fatalf("mask %03b total %d is below compulsory %d", mask, got.TotalBytes, minimum)
+		}
+	}
+}
+
+func TestAnalyticalDataMovementRejectsInvalidExtents(t *testing.T) {
+	problem := map[string]int{"B": 1, "M": 4, "N": 8, "K": 2}
+	tiles := map[string]int{"M": 2, "N": 4}
+	dtypes := map[string]int{"A": 2, "B": 2, "C": 4}
+	tests := []struct {
+		name                   string
+		problem, tiles, dtypes map[string]int
+	}{
+		{name: "negative extent", problem: map[string]int{"B": 1, "M": -1, "N": 8, "K": 2}, tiles: tiles, dtypes: dtypes},
+		{name: "missing extent", problem: map[string]int{"B": 1, "M": 4, "N": 8}, tiles: tiles, dtypes: dtypes},
+		{name: "unknown extent", problem: map[string]int{"B": 1, "M": 4, "N": 8, "K": 2, "P": 3}, tiles: tiles, dtypes: dtypes},
+		{name: "missing tile", problem: problem, tiles: map[string]int{"M": 2}, dtypes: dtypes},
+		{name: "missing dtype", problem: problem, tiles: tiles, dtypes: map[string]int{"A": 2, "B": 2}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got, err := AnalyticalDataMovement(tt.problem, tt.tiles, tt.dtypes, nil); err == nil {
+				t.Fatalf("AnalyticalDataMovement = %+v, nil; want invalid-input error", got)
+			}
+		})
 	}
 }

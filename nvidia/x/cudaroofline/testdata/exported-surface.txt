@@ -90,7 +90,6 @@ const Unverified
 const VerdictAccepted
 const VerdictRejected
 const VerdictUnjudged
-const VerificationMeasured
 const VerificationPending
 func (*Model) CeilingAt(intensity float64) float64
 func (*Model) Evaluate(kernelName string, flops uint64, bytesTransferred uint64, durationNs uint64) KernelPoint
@@ -100,7 +99,7 @@ func (*Model) KneeIntensity() float64
 func (*Model) RenderSVG(w io.Writer, points []KernelPoint) error
 func (Record) Encode(w io.Writer) error
 func (Record) Validate() error
-func AnalyticalDataMovement(problem map[string]int, tileFactors map[string]int, dtypes map[string]int, bypassed map[string]bool) CompoundDataMovement
+func AnalyticalDataMovement(problem, tileFactors, dtypes map[string]int, bypassed map[string]bool) (CompoundDataMovement, error)
 func DecodeRecord(rd io.Reader) (Record, error)
 func LookupCeiling(arch string, residency Residency) (Ceiling, error)
 func NewModel(arch string, residency Residency) (*Model, error)
@@ -108,12 +107,13 @@ func NewModelWithCeiling(c Ceiling) *Model
 func NewRecord(m *Model, judgments []Judgment) Record
 func PeakTFLOPSFor(arch string, p Precision) (float64, Provenance, error)
 func ValidateCeiling(c Ceiling) error
-func VerifyHardwareExecution(target string) (HardwareCalibration, error)
+func VerifyHardwareExecution(target string, probe HardwareProbe) (HardwareCalibration, error)
 type Ceiling struct
 type CompoundDataMovement struct
 type DeviceRecord struct
 type FloorBasis string
 type HardwareCalibration struct
+type HardwareProbe func(target string) (available bool, err error)
 type HardwareVerificationStatus string
 type Judgment struct
 type KernelPoint struct

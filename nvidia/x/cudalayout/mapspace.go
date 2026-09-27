@@ -2,6 +2,7 @@ package cudalayout
 
 import (
 	"fmt"
+	"math"
 	"slices"
 )
 
@@ -13,16 +14,23 @@ var (
 	ErrAlignmentFailed = fmt.Errorf("%w: alignment constraint failed", ErrUnsupported)
 )
 
-// StorageLevel identifies a tier in the CUDA memory hierarchy.
+// StorageLevel identifies a tier in the CUDA memory hierarchy. Mapspace
+// factors are multiplied from the first listed level through the selected
+// level when computing that level's tile.
 type StorageLevel int
 
 const (
+	// LevelRegister is the per-thread register tile.
 	LevelRegister StorageLevel = iota
+	// LevelShared is the block's shared-memory tile.
 	LevelShared
+	// LevelL2 is the L2-resident tile.
 	LevelL2
+	// LevelDRAM is the full problem tile in device memory.
 	LevelDRAM
 )
 
+// String returns the stable name of s.
 func (s StorageLevel) String() string {
 	switch s {
 	case LevelRegister:
@@ -42,11 +50,15 @@ func (s StorageLevel) String() string {
 type TensorRole int
 
 const (
-	TensorA TensorRole = iota // Inputs (e.g. left matrix A)
-	TensorB                   // Weights (e.g. right matrix B)
-	TensorC                   // Outputs (e.g. accumulator/result matrix C)
+	// TensorA is the left input matrix of a contraction.
+	TensorA TensorRole = iota
+	// TensorB is the right input matrix of a contraction.
+	TensorB
+	// TensorC is the output or accumulator matrix of a contraction.
+	TensorC
 )
 
+// String returns the stable name of r.
 func (r TensorRole) String() string {
 	switch r {
 	case TensorA:
@@ -85,6 +97,7 @@ func NewIndexFactorization(levels []StorageLevel, factors map[StorageLevel]map[s
 // TileShape returns the cumulative tile size along each dimension at or below level.
 func (f IndexFactorization) TileShape(level StorageLevel) map[string]int {
 	tile := make(map[string]int)
+	found := false
 	for _, lvl := range f.Levels {
 		dims, ok := f.Factors[lvl]
 		if !ok {
@@ -95,11 +108,18 @@ func (f IndexFactorization) TileShape(level StorageLevel) map[string]int {
 			if !exists {
 				cur = 1
 			}
+			if factor <= 0 || cur > math.MaxInt/factor {
+				return nil
+			}
 			tile[d] = cur * factor
 		}
 		if lvl == level {
+			found = true
 			break
 		}
+	}
+	if !found {
+		return nil
 	}
 	return tile
 }
@@ -113,6 +133,9 @@ func (f IndexFactorization) Validate(problemExtents map[string]int) error {
 			continue
 		}
 		for d, factor := range dims {
+			if _, ok := problemExtents[d]; !ok {
+				return fmt.Errorf("unknown dimension %s in factorization: %w", d, ErrUnsupported)
+			}
 			if factor <= 0 {
 				return fmt.Errorf("factor for dimension %s at level %s is non-positive (%d): %w", d, lvl, factor, ErrUnsupported)
 			}
@@ -120,10 +143,16 @@ func (f IndexFactorization) Validate(problemExtents map[string]int) error {
 			if !exists {
 				cur = 1
 			}
+			if cur > math.MaxInt/factor {
+				return fmt.Errorf("factorization product for %s overflows: %w", d, ErrOverflow)
+			}
 			products[d] = cur * factor
 		}
 	}
 	for d, want := range problemExtents {
+		if want <= 0 {
+			return fmt.Errorf("problem extent for %s is not positive (%d): %w", d, want, ErrUnsupported)
+		}
 		got, ok := products[d]
 		if !ok {
 			return fmt.Errorf("dimension %s missing in factorization: %w", d, ErrUnsupported)
@@ -247,56 +276,87 @@ type MapSpace struct {
 
 // HardwareConstraints describes hardware limits for pruning.
 type HardwareConstraints struct {
-	MaxSharedMemoryPerBlock int
-	MaxRegistersPerBlock    int
-	MaxThreadsPerBlock      int
-	TMAAlignmentBytes       int
+	MaxSharedMemoryPerBlock int // bytes per block
+	MaxRegistersPerBlock    int // 32-bit registers per block
+	MaxThreadsPerBlock      int // threads used to scale the per-thread register tile
+	TMAAlignmentBytes       int // row-stride alignment in bytes
 }
 
-// FootprintBytes computes the memory footprint in bytes at level for the given factorization and bypass.
+// FootprintBytes computes the memory footprint in bytes at level for the given
+// factorization and bypass. It requires exactly the B, M, N and K dimensions
+// and a positive byte size for each tensor role, including bypassed tensors.
 func FootprintBytes(factors IndexFactorization, bypass DatatypeBypass, dtypes map[TensorRole]int, level StorageLevel) (int, error) {
 	tile := factors.TileShape(level)
-	b := tile["B"]
-	if b <= 0 {
-		b = 1
+	if tile == nil {
+		return 0, fmt.Errorf("storage level %s is absent from factorization: %w", level, ErrUnsupported)
 	}
-	m := tile["M"]
-	if m <= 0 {
-		m = 1
+	for dim := range tile {
+		if dim != "B" && dim != "M" && dim != "N" && dim != "K" {
+			return 0, fmt.Errorf("unknown dimension %s in tile: %w", dim, ErrUnsupported)
+		}
 	}
-	n := tile["N"]
-	if n <= 0 {
-		n = 1
+	for _, dim := range []string{"B", "M", "N", "K"} {
+		if tile[dim] <= 0 {
+			return 0, fmt.Errorf("missing or non-positive tile extent for %s: %w", dim, ErrUnsupported)
+		}
 	}
-	k := tile["K"]
-	if k <= 0 {
-		k = 1
+	b, m, n, k := tile["B"], tile["M"], tile["N"], tile["K"]
+	for _, role := range []TensorRole{TensorA, TensorB, TensorC} {
+		if dtypes[role] <= 0 {
+			return 0, fmt.Errorf("missing or non-positive dtype size for %s: %w", role, ErrUnsupported)
+		}
 	}
 
 	total := 0
+	product := func(extents ...int) (int, error) {
+		elements := 1
+		for _, extent := range extents {
+			if elements > math.MaxInt/extent {
+				return 0, ErrOverflow
+			}
+			elements *= extent
+		}
+		return elements, nil
+	}
+	add := func(bytes int) error {
+		if bytes > math.MaxInt-total {
+			return ErrOverflow
+		}
+		total += bytes
+		return nil
+	}
 	// TensorA: B x M x K
 	if !bypass.IsBypassed(level, TensorA) {
-		elemBytes, ok := dtypes[TensorA]
-		if !ok || elemBytes <= 0 {
-			elemBytes = 2
+		elemBytes := dtypes[TensorA]
+		bytes, err := product(b, m, k, elemBytes)
+		if err != nil {
+			return 0, fmt.Errorf("tensor A footprint: %w", err)
 		}
-		total += b * m * k * elemBytes
+		if err := add(bytes); err != nil {
+			return 0, fmt.Errorf("tensor A footprint: %w", err)
+		}
 	}
 	// TensorB: B x K x N
 	if !bypass.IsBypassed(level, TensorB) {
-		elemBytes, ok := dtypes[TensorB]
-		if !ok || elemBytes <= 0 {
-			elemBytes = 2
+		elemBytes := dtypes[TensorB]
+		bytes, err := product(b, k, n, elemBytes)
+		if err != nil {
+			return 0, fmt.Errorf("tensor B footprint: %w", err)
 		}
-		total += b * k * n * elemBytes
+		if err := add(bytes); err != nil {
+			return 0, fmt.Errorf("tensor B footprint: %w", err)
+		}
 	}
 	// TensorC: B x M x N
 	if !bypass.IsBypassed(level, TensorC) {
-		elemBytes, ok := dtypes[TensorC]
-		if !ok || elemBytes <= 0 {
-			elemBytes = 4
+		elemBytes := dtypes[TensorC]
+		bytes, err := product(b, m, n, elemBytes)
+		if err != nil {
+			return 0, fmt.Errorf("tensor C footprint: %w", err)
 		}
-		total += b * m * n * elemBytes
+		if err := add(bytes); err != nil {
+			return 0, fmt.Errorf("tensor C footprint: %w", err)
+		}
 	}
 	return total, nil
 }
@@ -317,19 +377,34 @@ func ValidateCapacity(factors IndexFactorization, bypass DatatypeBypass, dtypes 
 
 	// Check register footprint at LevelRegister
 	if limits.MaxRegistersPerBlock > 0 {
-		regs, err := FootprintBytes(factors, bypass, dtypes, LevelRegister)
+		if limits.MaxThreadsPerBlock <= 0 {
+			return fmt.Errorf("register limit requires MaxThreadsPerBlock: %w", ErrUnsupported)
+		}
+		registerBytes, err := FootprintBytes(factors, bypass, dtypes, LevelRegister)
 		if err != nil {
 			return err
 		}
+		// LevelRegister describes bytes held per thread. CUDA register
+		// accounting is in 32-bit registers per block.
+		regsPerThread := registerBytes / 4
+		if registerBytes%4 != 0 {
+			regsPerThread++
+		}
+		if regsPerThread > math.MaxInt/limits.MaxThreadsPerBlock {
+			return ErrOverflow
+		}
+		regs := regsPerThread * limits.MaxThreadsPerBlock
 		if regs > limits.MaxRegistersPerBlock {
-			return fmt.Errorf("register footprint %d exceeds max %d: %w", regs, limits.MaxRegistersPerBlock, ErrCapacityExceeded)
+			return fmt.Errorf("register count %d registers exceeds max %d registers per block: %w", regs, limits.MaxRegistersPerBlock, ErrCapacityExceeded)
 		}
 	}
 
 	// Check TMA alignment
 	if limits.TMAAlignmentBytes > 0 {
+		if _, err := FootprintBytes(factors, bypass, dtypes, LevelShared); err != nil {
+			return err
+		}
 		tile := factors.TileShape(LevelShared)
-		m := tile["M"]
 		n := tile["N"]
 		k := tile["K"]
 
@@ -363,7 +438,6 @@ func ValidateCapacity(factors IndexFactorization, bypass DatatypeBypass, dtypes 
 				return fmt.Errorf("tensor C row stride %d bytes is not aligned to TMA %d bytes: %w", rowBytes, limits.TMAAlignmentBytes, ErrAlignmentFailed)
 			}
 		}
-		_ = m
 	}
 
 	return nil

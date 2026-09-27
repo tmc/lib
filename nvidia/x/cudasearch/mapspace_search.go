@@ -66,26 +66,24 @@ func (s *LinearPrunedSearch) Split(n int) ([]*LinearPrunedSearch, error) {
 	if n > total {
 		n = total
 	}
-	result := make([]*LinearPrunedSearch, n)
-	chunkSize := (total + n - 1) / n
+	result := make([]*LinearPrunedSearch, 0, n)
+	base, extra := total/n, total%n
+	start := 0
 	for i := 0; i < n; i++ {
-		start := i * chunkSize
-		end := start + chunkSize
-		if start >= total {
-			break
+		count := base
+		if i < extra {
+			count++
 		}
-		if end > total {
-			end = total
-		}
-		partFacts := s.Factorizations[start:end]
-		result[i] = &LinearPrunedSearch{
+		partFacts := s.Factorizations[start : start+count]
+		result = append(result, &LinearPrunedSearch{
 			Factorizations: append([]cudalayout.IndexFactorization(nil), partFacts...),
 			Permutations:   append([]cudalayout.LoopPermutation(nil), s.Permutations...),
 			Bypasses:       append([]cudalayout.DatatypeBypass(nil), s.Bypasses...),
 			Constraints:    s.Constraints,
 			DTypes:         s.DTypes,
 			Problem:        s.Problem,
-		}
+		})
+		start += count
 	}
 	return result, nil
 }
@@ -93,7 +91,6 @@ func (s *LinearPrunedSearch) Split(n int) ([]*LinearPrunedSearch, error) {
 // Search runs pruned search over the mapspace.
 func (s *LinearPrunedSearch) Search(ctx context.Context) (MapSpaceSearchStats, error) {
 	stats := MapSpaceSearchStats{}
-	defaultBypass := cudalayout.NewDatatypeBypass()
 	downstreamPerFact := len(s.Permutations) * len(s.Bypasses)
 
 	// Convert dtypes to string map for cudaroofline
@@ -108,9 +105,22 @@ func (s *LinearPrunedSearch) Search(ctx context.Context) (MapSpaceSearchStats, e
 			return stats, err
 		}
 		stats.FactorizationsTested++
+		if err := fact.Validate(s.Problem); err != nil {
+			stats.FactorizationsPruned++
+			stats.DownstreamSkipped += downstreamPerFact
+			continue
+		}
 
-		// Pre-evaluation check: filter tile factorizations exceeding hardware limits
-		if err := cudalayout.ValidateCapacity(fact, defaultBypass, s.DTypes, s.Constraints); err != nil {
+		// A mapping can fit only with a supplied bypass. Prune it only when every
+		// requested bypass configuration fails capacity validation.
+		fits := false
+		for _, bypass := range s.Bypasses {
+			if err := cudalayout.ValidateCapacity(fact, bypass, s.DTypes, s.Constraints); err == nil {
+				fits = true
+				break
+			}
+		}
+		if !fits {
 			stats.FactorizationsPruned++
 			stats.DownstreamSkipped += downstreamPerFact
 			continue // Skip downstream permutation and bypass evaluations
@@ -132,12 +142,15 @@ func (s *LinearPrunedSearch) Search(ctx context.Context) (MapSpaceSearchStats, e
 				}
 
 				bypassedMap := map[string]bool{
-					"A": bypass.IsBypassed(cudalayout.LevelDRAM, cudalayout.TensorA),
-					"B": bypass.IsBypassed(cudalayout.LevelDRAM, cudalayout.TensorB),
-					"C": bypass.IsBypassed(cudalayout.LevelDRAM, cudalayout.TensorC),
+					"A": bypass.IsBypassed(cudalayout.LevelShared, cudalayout.TensorA) || bypass.IsBypassed(cudalayout.LevelL2, cudalayout.TensorA),
+					"B": bypass.IsBypassed(cudalayout.LevelShared, cudalayout.TensorB) || bypass.IsBypassed(cudalayout.LevelL2, cudalayout.TensorB),
+					"C": bypass.IsBypassed(cudalayout.LevelShared, cudalayout.TensorC) || bypass.IsBypassed(cudalayout.LevelL2, cudalayout.TensorC),
 				}
 
-				dm := cudaroofline.AnalyticalDataMovement(s.Problem, sharedTile, dtypesStr, bypassedMap)
+				dm, err := cudaroofline.AnalyticalDataMovement(s.Problem, sharedTile, dtypesStr, bypassedMap)
+				if err != nil {
+					return stats, fmt.Errorf("mapspace data movement: %w", err)
+				}
 				if dm.OperationalIntensity > stats.BestIntensity {
 					stats.BestIntensity = dm.OperationalIntensity
 				}

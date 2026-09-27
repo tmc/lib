@@ -2,6 +2,7 @@ package cudaroofline
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/tmc/lib/nvidia/x/cudaerrors"
 )
@@ -179,113 +180,178 @@ func (m *Model) Judge(op Operation, durationNs uint64) Judgment {
 	return j
 }
 
-// CompoundDataMovement captures theoretical data movement counts and operational intensity.
+// CompoundDataMovement captures theoretical data movement counts and
+// operational intensity. Byte fields are DRAM bytes; TensorTransfers records
+// the corresponding per-tensor DRAM traffic under keys A, B and C.
 type CompoundDataMovement struct {
-	ReadBytes            uint64
-	WriteBytes           uint64
-	TotalBytes           uint64
-	OperationalIntensity float64
-	TensorTransfers      map[string]uint64
+	ReadBytes            uint64            // input bytes read from DRAM
+	WriteBytes           uint64            // output bytes written to DRAM
+	TotalBytes           uint64            // ReadBytes + WriteBytes
+	OperationalIntensity float64           // FLOPs per DRAM byte
+	TensorTransfers      map[string]uint64 // DRAM bytes by tensor role
 }
 
-// AnalyticalDataMovement computes exact theoretical DRAM transfer counts and
-// operational intensity for a tensor contraction (e.g. GEMM) with given problem
-// extents, tile factors, element byte sizes, and datatype bypass settings.
-func AnalyticalDataMovement(problem map[string]int, tileFactors map[string]int, dtypes map[string]int, bypassed map[string]bool) CompoundDataMovement {
-	b := uint64(problem["B"])
-	if b <= 0 {
-		b = 1
+// AnalyticalDataMovement estimates DRAM traffic for a GEMM workload with
+// extents B, M, N and K. The tile sizes M and N control reuse: without bypass,
+// A and B are each read once; bypassing shared or L2 retention reloads A for
+// each N tile and B for each M tile. C's compulsory output write is never
+// removed by bypass. All sizes must be positive and byte arithmetic is checked.
+func AnalyticalDataMovement(problem, tileFactors, dtypes map[string]int, bypassed map[string]bool) (CompoundDataMovement, error) {
+	for name := range problem {
+		if name != "B" && name != "M" && name != "N" && name != "K" {
+			return CompoundDataMovement{}, fmt.Errorf("unknown problem dimension %q", name)
+		}
 	}
-	m := uint64(problem["M"])
-	n := uint64(problem["N"])
-	k := uint64(problem["K"])
-
-	mt := uint64(tileFactors["M"])
-	if mt <= 0 {
-		mt = 1
+	for _, name := range []string{"B", "M", "N", "K"} {
+		if problem[name] <= 0 {
+			return CompoundDataMovement{}, fmt.Errorf("missing or non-positive problem extent %s", name)
+		}
 	}
-	nt := uint64(tileFactors["N"])
-	if nt <= 0 {
-		nt = 1
+	for name := range tileFactors {
+		if name != "B" && name != "M" && name != "N" && name != "K" {
+			return CompoundDataMovement{}, fmt.Errorf("unknown tile dimension %q", name)
+		}
 	}
-
-	dtA := uint64(dtypes["A"])
-	if dtA <= 0 {
-		dtA = 2
+	for _, name := range []string{"M", "N"} {
+		if tileFactors[name] <= 0 {
+			return CompoundDataMovement{}, fmt.Errorf("missing or non-positive tile extent %s", name)
+		}
 	}
-	dtB := uint64(dtypes["B"])
-	if dtB <= 0 {
-		dtB = 2
+	for name := range dtypes {
+		if name != "A" && name != "B" && name != "C" {
+			return CompoundDataMovement{}, fmt.Errorf("unknown tensor dtype %q", name)
+		}
 	}
-	dtC := uint64(dtypes["C"])
-	if dtC <= 0 {
-		dtC = 4
+	for _, name := range []string{"A", "B", "C"} {
+		if dtypes[name] <= 0 {
+			return CompoundDataMovement{}, fmt.Errorf("missing or non-positive dtype size for tensor %s", name)
+		}
 	}
-
-	// FLOPs = 2 * B * M * N * K
-	flops := 2 * b * m * n * k
-
-	transfers := make(map[string]uint64)
-	var readBytes, writeBytes uint64
-
-	// Tensor A: B x M x K. Reused across N / N_t outer tiles.
-	if !bypassed["A"] {
-		nTiles := (n + nt - 1) / nt
-		transfersA := b * m * k * nTiles * dtA
-		transfers["A"] = transfersA
-		readBytes += transfersA
+	for name := range bypassed {
+		if name != "A" && name != "B" && name != "C" {
+			return CompoundDataMovement{}, fmt.Errorf("unknown bypass tensor %q", name)
+		}
 	}
 
-	// Tensor B: B x K x N. Reused across M / M_t outer tiles.
-	if !bypassed["B"] {
-		mTiles := (m + mt - 1) / mt
-		transfersB := b * k * n * mTiles * dtB
-		transfers["B"] = transfersB
-		readBytes += transfersB
-	}
+	b, m, n, k := uint64(problem["B"]), uint64(problem["M"]), uint64(problem["N"]), uint64(problem["K"])
+	mt, nt := uint64(tileFactors["M"]), uint64(tileFactors["N"])
+	dtA, dtB, dtC := uint64(dtypes["A"]), uint64(dtypes["B"]), uint64(dtypes["C"])
 
-	// Tensor C: B x M x N. Accumulated and written to DRAM.
-	if !bypassed["C"] {
-		writesC := b * m * n * dtC
-		transfers["C"] = writesC
-		writeBytes += writesC
+	wholeA, err := checkedProduct(b, m, k, dtA)
+	if err != nil {
+		return CompoundDataMovement{}, fmt.Errorf("tensor A bytes: %w", err)
 	}
-
-	totalBytes := readBytes + writeBytes
-	var opIntensity float64
-	if totalBytes > 0 {
-		opIntensity = float64(flops) / float64(totalBytes)
+	wholeB, err := checkedProduct(b, k, n, dtB)
+	if err != nil {
+		return CompoundDataMovement{}, fmt.Errorf("tensor B bytes: %w", err)
 	}
-
+	writesC, err := checkedProduct(b, m, n, dtC)
+	if err != nil {
+		return CompoundDataMovement{}, fmt.Errorf("tensor C bytes: %w", err)
+	}
+	aBytes, bBytes := wholeA, wholeB
+	if bypassed["A"] {
+		aBytes, err = checkedProduct(wholeA, ceilDivU64(n, nt))
+		if err != nil {
+			return CompoundDataMovement{}, fmt.Errorf("tensor A reload bytes: %w", err)
+		}
+	}
+	if bypassed["B"] {
+		bBytes, err = checkedProduct(wholeB, ceilDivU64(m, mt))
+		if err != nil {
+			return CompoundDataMovement{}, fmt.Errorf("tensor B reload bytes: %w", err)
+		}
+	}
+	readBytes, err := checkedSum(aBytes, bBytes)
+	if err != nil {
+		return CompoundDataMovement{}, err
+	}
+	totalBytes, err := checkedSum(readBytes, writesC)
+	if err != nil {
+		return CompoundDataMovement{}, err
+	}
+	flops, err := checkedProduct(2, b, m, n, k)
+	if err != nil {
+		return CompoundDataMovement{}, fmt.Errorf("GEMM FLOPs: %w", err)
+	}
+	intensity := float64(flops) / float64(totalBytes)
 	return CompoundDataMovement{
-		ReadBytes:            readBytes,
-		WriteBytes:           writeBytes,
-		TotalBytes:           totalBytes,
-		OperationalIntensity: opIntensity,
-		TensorTransfers:      transfers,
-	}
+		ReadBytes: readBytes, WriteBytes: writesC, TotalBytes: totalBytes,
+		OperationalIntensity: intensity,
+		TensorTransfers:      map[string]uint64{"A": aBytes, "B": bBytes, "C": writesC},
+	}, nil
 }
 
-// HardwareVerificationStatus represents calibration qualification status.
+func checkedProduct(values ...uint64) (uint64, error) {
+	product := uint64(1)
+	for _, value := range values {
+		if value != 0 && product > math.MaxUint64/value {
+			return 0, fmt.Errorf("byte or FLOP count overflows uint64")
+		}
+		product *= value
+	}
+	return product, nil
+}
+
+func checkedSum(values ...uint64) (uint64, error) {
+	total := uint64(0)
+	for _, value := range values {
+		if total > math.MaxUint64-value {
+			return 0, fmt.Errorf("byte count overflows uint64")
+		}
+		total += value
+	}
+	return total, nil
+}
+
+func ceilDivU64(n, d uint64) uint64 {
+	q := n / d
+	if n%d != 0 {
+		q++
+	}
+	return q
+}
+
+// HardwareVerificationStatus represents the result of checking whether
+// calibration qualification is available.
 type HardwareVerificationStatus string
 
 const (
-	VerificationPending  HardwareVerificationStatus = "pending"
-	VerificationMeasured HardwareVerificationStatus = "measured"
+	// VerificationPending means the workload has not been physically measured.
+	VerificationPending HardwareVerificationStatus = "pending"
 )
 
-// HardwareCalibration holds hardware verification outcome.
+// HardwareCalibration holds the calibration status and latency. LatencyNs is
+// [FloorUnavailable] whenever Status is VerificationPending; this lane does
+// not measure device execution.
 type HardwareCalibration struct {
-	Status    HardwareVerificationStatus
-	LatencyNs float64
+	Status    HardwareVerificationStatus // current qualification state
+	LatencyNs float64                    // nanoseconds, or FloorUnavailable
 }
 
-// VerifyHardwareExecution gates execution latency measurement on physical hardware availability.
-// Without an accessible, probed GPU, it returns status VerificationPending and wraps
-// cudaerrors.ErrHardwarePending rather than emitting synthesized execution times.
-func VerifyHardwareExecution(target string) (HardwareCalibration, error) {
+// HardwareProbe reports whether target has an available device. It does not
+// execute a workload or establish performance qualification.
+type HardwareProbe func(target string) (available bool, err error)
+
+// VerifyHardwareExecution checks device availability with probe. This host-side
+// package does not measure latency, so even an available device remains
+// VerificationPending until a native calibration path is added.
+func VerifyHardwareExecution(target string, probe HardwareProbe) (HardwareCalibration, error) {
+	if probe == nil {
+		return HardwareCalibration{Status: VerificationPending, LatencyNs: FloorUnavailable},
+			fmt.Errorf("hardware verification on %s has no device probe: %w", target, cudaerrors.ErrHardwarePending)
+	}
+	available, err := probe(target)
+	if err != nil {
+		return HardwareCalibration{Status: VerificationPending, LatencyNs: FloorUnavailable},
+			fmt.Errorf("hardware probe on %s: %w", target, err)
+	}
+	if !available {
+		return HardwareCalibration{Status: VerificationPending, LatencyNs: FloorUnavailable},
+			fmt.Errorf("hardware verification on %s: %w", target, cudaerrors.ErrHardwarePending)
+	}
 	return HardwareCalibration{
 		Status:    VerificationPending,
 		LatencyNs: FloorUnavailable,
-	}, fmt.Errorf("hardware verification on %s: %w", target, cudaerrors.ErrHardwarePending)
+	}, fmt.Errorf("device is available on %s but no calibration measurement exists: %w", target, cudaerrors.ErrHardwarePending)
 }
