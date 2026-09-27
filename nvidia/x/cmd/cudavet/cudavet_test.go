@@ -26,6 +26,31 @@ func TestAnalyzers(t *testing.T) {
 	}
 }
 
+func TestSetterName(t *testing.T) {
+	tests := []struct {
+		name string
+		want bool
+	}{
+		{"SetAttribute", true},
+		{"FuncSetAttribute", true},
+		{"CtxSetLimit", true},
+		{"SetCacheConfig", true},
+		{"StreamSetAttribute", true},
+		{"Set", false},
+		{"Settle", false},
+		{"Setup", false},
+		{"PrimaryCtxReset", false},
+		{"ResetPersistingL2Cache", false},
+		{"Offset", false},
+		{"GetSettings", false},
+	}
+	for _, tt := range tests {
+		if got := setterRE.MatchString(tt.name); got != tt.want {
+			t.Errorf("setterRE.MatchString(%q) = %v, want %v", tt.name, got, tt.want)
+		}
+	}
+}
+
 // TestCleanPackageProducesNoDiagnostics runs every check over packages that
 // state their layouts and lifetimes correctly. The fixtures carry no want
 // comments, so any diagnostic fails the test.

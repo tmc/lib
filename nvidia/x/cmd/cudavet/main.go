@@ -25,6 +25,7 @@
 //
 //	errcompare         a binding error compared with == instead of errors.Is
 //	uncheckedsync      a discarded error of a Synchronize or release
+//	settererr          a discarded error of a setter, which keeps the old value
 //	devinfo            a cuSOLVER devInfo buffer never checked
 //	zeroversion        a GetVersion of 0 read as a version
 //	legacycupti        a CUPTI function that always fails since CUDA 13.0
@@ -88,6 +89,7 @@ var analyzers = []*analysis.Analyzer{
 
 	errCompareAnalyzer,
 	uncheckedSyncAnalyzer,
+	setterErrAnalyzer,
 	devInfoAnalyzer,
 	zeroVersionAnalyzer,
 	legacyCuptiAnalyzer,

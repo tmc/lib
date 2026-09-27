@@ -31,6 +31,13 @@ func DeviceGet(ordinal int) (Device, error)                       { return 0, ni
 func (d Device) ComputeCapability() (major, minor int, err error) { return 0, 0, nil }
 func (d Device) PrimaryCtxRetain() (Context, error)               { return 0, nil }
 func (d Device) PrimaryCtxRelease() error                         { return nil }
+func (d Device) PrimaryCtxReset() error                           { return nil }
+
+type Limit uint32
+
+const LimitPersistingL2CacheSize Limit = 0x06
+
+func CtxSetLimit(limit Limit, value uint) error { return nil }
 
 type CtxFlags uint32
 

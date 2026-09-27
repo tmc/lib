@@ -86,7 +86,10 @@ to report.`,
 	Run: runUncheckedSync,
 }
 
-func runUncheckedSync(pass *analysis.Pass) (any, error) {
+// eachBareCall calls f for every call of an nvidia function made as a bare
+// statement, with the stack of the call's ancestors. An assignment such as
+// _ = x.Close() discards the error on purpose and is not a bare call.
+func eachBareCall(pass *analysis.Pass, f func(call *ast.CallExpr, fn *types.Func, stack []ast.Node)) {
 	info := pass.TypesInfo
 	eachFunc(pass, func(body *ast.BlockStmt) {
 		withStack(body, func(n ast.Node, stack []ast.Node) {
@@ -94,7 +97,6 @@ func runUncheckedSync(pass *analysis.Pass) (any, error) {
 			if !ok || len(stack) == 0 {
 				return
 			}
-			// _ = x.Close() discards the error on purpose.
 			if _, bare := stack[len(stack)-1].(*ast.ExprStmt); !bare {
 				return
 			}
@@ -102,15 +104,51 @@ func runUncheckedSync(pass *analysis.Pass) (any, error) {
 			if fn == nil || !inNvidia(fn.Pkg()) {
 				return
 			}
-			switch {
-			case strings.HasPrefix(fn.Name(), "Synchronize") || fn.Name() == "CtxSynchronize":
-				pass.Reportf(call.Pos(), "the error of %s is discarded; it is where failures of earlier asynchronous work are reported", fn.Name())
-			case recvNamed(fn) != nil && isRelease(fn.Name()) && destructor(recvNamed(fn)) != "":
-				if !onErrorPath(info, stack) {
-					pass.Reportf(call.Pos(), "the error of %s is discarded; it can report a failure of earlier asynchronous work", fn.Name())
-				}
-			}
+			f(call, fn, stack)
 		})
+	})
+}
+
+func runUncheckedSync(pass *analysis.Pass) (any, error) {
+	info := pass.TypesInfo
+	eachBareCall(pass, func(call *ast.CallExpr, fn *types.Func, stack []ast.Node) {
+		switch {
+		case strings.HasPrefix(fn.Name(), "Synchronize") || fn.Name() == "CtxSynchronize":
+			pass.Reportf(call.Pos(), "the error of %s is discarded; it is where failures of earlier asynchronous work are reported", fn.Name())
+		case recvNamed(fn) != nil && isRelease(fn.Name()) && destructor(recvNamed(fn)) != "":
+			if !onErrorPath(info, stack) {
+				pass.Reportf(call.Pos(), "the error of %s is discarded; it can report a failure of earlier asynchronous work", fn.Name())
+			}
+		}
+	})
+	return nil, nil
+}
+
+var setterErrAnalyzer = &analysis.Analyzer{
+	Name: "settererr",
+	Doc: `check that errors of setters are not discarded
+
+A setter that rejects its value returns an error and keeps the old value, and
+reading the setting back returns the old value too, so a program that drops
+the error runs on the old setting without a sign. settererr reports a call of
+a generated binding's function or method returning an error, called as a bare
+statement, whose name contains Set followed by an upper-case letter: SetLimit,
+CtxSetLimit, FuncSetAttribute, SetCacheConfig. Settle and Setup are not
+setters, nor is Reset. Packages under x/, whose Set methods are often Go-side
+validators, are not checked. An explicit _ = f.SetAttribute(a, v) is taken as
+deliberate.`,
+	Run: runSetterErr,
+}
+
+var setterRE = regexp.MustCompile(`Set[A-Z]`)
+
+func runSetterErr(pass *analysis.Pass) (any, error) {
+	eachBareCall(pass, func(call *ast.CallExpr, fn *types.Func, stack []ast.Node) {
+		res := fn.Type().(*types.Signature).Results()
+		if !isBinding(fn.Pkg()) || !setterRE.MatchString(fn.Name()) || res.Len() == 0 || !isErrorIface(res.At(res.Len()-1).Type()) {
+			return
+		}
+		pass.Reportf(call.Pos(), "the error of %s is discarded; a rejected value leaves the old setting in place", fn.Name())
 	})
 	return nil, nil
 }
