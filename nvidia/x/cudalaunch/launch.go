@@ -9,6 +9,7 @@ import (
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/cudashape"
 )
 
 // DevicePtrProvider represents any type that exposes a raw GPU device pointer.
@@ -26,15 +27,16 @@ type DeviceSlice interface {
 
 // Launcher builds and executes a CUDA kernel dispatch.
 type Launcher struct {
-	fn      driver.Function
-	owned   *cuda.Kernel
-	grid    driver.Dim3
-	block   driver.Dim3
-	shmem   uint32
-	stream  *cuda.Stream
-	counter *Counter
-	attrs   []driver.LaunchAttribute
-	sig     *Signature
+	fn             driver.Function
+	owned          *cuda.Kernel
+	grid           driver.Dim3
+	gridConfigured bool
+	block          driver.Dim3
+	shmem          uint32
+	stream         *cuda.Stream
+	counter        *Counter
+	attrs          []driver.LaunchAttribute
+	sig            *Signature
 }
 
 // Counter counts successful CUDA kernel submissions.
@@ -82,6 +84,23 @@ func OwnedKernel(fn *cuda.Kernel) *Launcher {
 // at least 1.
 func (l *Launcher) Grid(x, y, z uint32) *Launcher {
 	l.grid = driver.Dims(x, y, z)
+	l.gridConfigured = true
+	return l
+}
+
+// Config configures launch parameters using cfg.
+func (l *Launcher) Config(cfg Config) *Launcher {
+	if !cfg.Grid.IsZero() {
+		l.grid = driver.Dims(cfg.Grid.X, cfg.Grid.Y, cfg.Grid.Z)
+		l.gridConfigured = true
+	}
+	if cfg.Block.X != 0 || cfg.Block.Y != 0 || cfg.Block.Z != 0 {
+		l.block = cfg.Block
+	}
+	l.shmem = cfg.SharedMem
+	if cfg.Stream != nil {
+		l.stream = cfg.Stream
+	}
 	return l
 }
 
@@ -359,10 +378,27 @@ func (l *Launcher) WithSignature(sig Signature) *Launcher {
 }
 
 // Launch packs the provided Go arguments and dispatches the kernel.
+// If any cudalayout.Partition parameters are passed, launch grid dimensions are
+// automatically inferred and validated, and partition base device pointers and
+// tile stride parameters are bound into the kernel argument buffer.
 func (l *Launcher) Launch(args ...any) error {
 	if l.owned == nil && l.fn == 0 {
 		return fmt.Errorf("cudalaunch: nil kernel")
 	}
+	expandedArgs, partitions := expandPartitionArgs(args)
+	if len(partitions) > 0 {
+		var explicit cudashape.Grid3D
+		if l.gridConfigured {
+			explicit = cudashape.Grid3D{X: l.grid.X, Y: l.grid.Y, Z: l.grid.Z}
+		}
+		inferred, err := inferLaunchGrid(explicit, partitions)
+		if err != nil {
+			return err
+		}
+		l.grid = driver.Dims(inferred.X, inferred.Y, inferred.Z)
+	}
+	args = expandedArgs
+
 	if l.shmem > 0 {
 		if l.owned != nil || l.stream != nil {
 			if err := l.PrepareSharedMem(); err != nil {
@@ -438,8 +474,10 @@ func (l *Launcher) Launch(args ...any) error {
 
 // PackArgs marshals Go values into an array of pointers as expected by cuLaunchKernel.
 // Struct arguments are guaranteed to have 16-byte alignment per NVCC ABI requirements.
+// Partition parameters are automatically unpacked into base device pointers and tile strides.
 func PackArgs(args ...any) ([]unsafe.Pointer, error) {
-	return packArgs(args)
+	expanded, _ := expandPartitionArgs(args)
+	return packArgs(expanded)
 }
 
 // packArgs marshals Go values into an array of pointers as expected by cuLaunchKernel.

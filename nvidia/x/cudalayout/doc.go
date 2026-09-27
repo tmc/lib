@@ -40,4 +40,11 @@
 // tensor-map swizzle mode. Its offsets equal [SwizzledTile.ByteOffset]; the
 // bank-conflict counts the tests compute from them are host arithmetic, and
 // [XORSwizzle.CheckDevice] reports that no device has confirmed them.
+//
+// # Tile Partitioning
+//
+// A [Partition] (and mutable [PartitionMut]) pairs a tensor layout with an
+// explicit tile shape. [Partition.ValidateDisjoint] verifies that tiles evenly
+// or ceiling-cover tensor extents and that strides guarantee non-overlapping
+// physical offsets across CUDA launch grid blocks.
 package cudalayout

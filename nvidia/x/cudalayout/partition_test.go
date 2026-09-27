@@ -1,0 +1,162 @@
+package cudalayout_test
+
+import (
+	"errors"
+	"testing"
+
+	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/x/cudalayout"
+	"github.com/tmc/lib/nvidia/x/cudashape"
+)
+
+func mustShape(t *testing.T, dims ...int) cudashape.Shape {
+	t.Helper()
+	s, err := cudashape.New(dims...)
+	if err != nil {
+		t.Fatalf("cudashape.New(%v): unexpected error %v", dims, err)
+	}
+	return s
+}
+
+func mustPartition(t *testing.T, ptr driver.DevicePtr, tensorShape, partitionShape cudashape.Shape, elemBytes int, opts ...cudalayout.PartitionOption) cudalayout.Partition {
+	t.Helper()
+	p, err := cudalayout.NewPartition(ptr, tensorShape, partitionShape, elemBytes, opts...)
+	if err != nil {
+		t.Fatalf("NewPartition: unexpected error %v", err)
+	}
+	return p
+}
+
+func mustPartitionMut(t *testing.T, ptr driver.DevicePtr, tensorShape, partitionShape cudashape.Shape, elemBytes int, opts ...cudalayout.PartitionOption) cudalayout.PartitionMut {
+	t.Helper()
+	p, err := cudalayout.NewPartitionMut(ptr, tensorShape, partitionShape, elemBytes, opts...)
+	if err != nil {
+		t.Fatalf("NewPartitionMut: unexpected error %v", err)
+	}
+	return p
+}
+
+func TestPartition_ValidateDisjoint(t *testing.T) {
+	t.Run("valid evenly divisible 2D partition", func(t *testing.T) {
+		tShape := mustShape(t, 1024, 1024)
+		pShape := mustShape(t, 64, 64)
+		p := mustPartition(t, driver.DevicePtr(0x1000), tShape, pShape, 4)
+
+		if err := p.ValidateDisjoint(); err != nil {
+			t.Fatalf("ValidateDisjoint failed: %v", err)
+		}
+		if p.IsMutable() {
+			t.Errorf("expected immutable Partition, got mutable")
+		}
+		if p.Ptr() != driver.DevicePtr(0x1000) {
+			t.Errorf("Ptr() = %v, want 0x1000", p.Ptr())
+		}
+		if p.TileStride() != 1024 {
+			t.Errorf("TileStride() = %d, want 1024", p.TileStride())
+		}
+		partStrides := p.PartitionStrides()
+		if len(partStrides) != 2 || partStrides[0] != 64*1024 || partStrides[1] != 64*1 {
+			t.Errorf("PartitionStrides() = %v, want [65536, 64]", partStrides)
+		}
+	})
+
+	t.Run("valid ceiling covered 2D partition with stride padding", func(t *testing.T) {
+		tShape := mustShape(t, 1000, 1000)
+		pShape := mustShape(t, 64, 64)
+		// Grid along axis 1 is ceil(1000/64) = 16.
+		// Stride padding >= 16 * 64 = 1024 prevents row wrapping.
+		p := mustPartition(t, driver.DevicePtr(0x2000), tShape, pShape, 4,
+			cudalayout.WithPartitionStrides([]int{1024, 1}))
+
+		if err := p.ValidateDisjoint(); err != nil {
+			t.Fatalf("ValidateDisjoint with padding failed: %v", err)
+		}
+	})
+
+	t.Run("invalid non-divisible wrapping partition on packed tensor", func(t *testing.T) {
+		// Non-divisible column partition on packed tensor (stride 1000 < 16 * 64 = 1024).
+		tShape := mustShape(t, 1000, 1000)
+		pShape := mustShape(t, 64, 64)
+		p := mustPartition(t, driver.DevicePtr(0x3000), tShape, pShape, 4,
+			cudalayout.WithPartitionStrides([]int{1000, 1}))
+
+		err := p.ValidateDisjoint()
+		if !errors.Is(err, cudalayout.ErrWrappingPartition) {
+			t.Fatalf("expected ErrWrappingPartition for non-divisible packed partition, got %v", err)
+		}
+	})
+
+	t.Run("invalid tile column span exceeding stride", func(t *testing.T) {
+		tShape := mustShape(t, 100, 100)
+		pShape := mustShape(t, 10, 120) // tile column span 120 > row stride 100
+		p := mustPartition(t, driver.DevicePtr(0x4000), tShape, pShape, 4,
+			cudalayout.WithPartitionStrides([]int{100, 1}))
+
+		err := p.ValidateDisjoint()
+		if !errors.Is(err, cudalayout.ErrWrappingPartition) {
+			t.Fatalf("expected ErrWrappingPartition for tile span exceeding stride, got %v", err)
+		}
+	})
+
+	t.Run("invalid stride smaller than tensor width", func(t *testing.T) {
+		tShape := mustShape(t, 100, 100)
+		pShape := mustShape(t, 10, 10)
+		p := mustPartition(t, driver.DevicePtr(0x5000), tShape, pShape, 4,
+			cudalayout.WithPartitionStrides([]int{50, 1})) // row stride 50 < row width 100
+
+		err := p.ValidateDisjoint()
+		if !errors.Is(err, cudalayout.ErrOverlappingPartition) {
+			t.Fatalf("expected ErrOverlappingPartition for stride < width, got %v", err)
+		}
+	})
+
+	t.Run("valid 1D partition", func(t *testing.T) {
+		tShape := mustShape(t, 1000)
+		pShape := mustShape(t, 128)
+		p := mustPartition(t, driver.DevicePtr(0x6000), tShape, pShape, 4)
+
+		if err := p.ValidateDisjoint(); err != nil {
+			t.Fatalf("ValidateDisjoint 1D failed: %v", err)
+		}
+	})
+
+	t.Run("valid 3D partition", func(t *testing.T) {
+		tShape := mustShape(t, 16, 1024, 1024)
+		pShape := mustShape(t, 2, 64, 64)
+		p := mustPartition(t, driver.DevicePtr(0x7000), tShape, pShape, 4)
+
+		if err := p.ValidateDisjoint(); err != nil {
+			t.Fatalf("ValidateDisjoint 3D failed: %v", err)
+		}
+	})
+
+	t.Run("invalid 3D non-divisible wrapping partition", func(t *testing.T) {
+		tShape := mustShape(t, 16, 1000, 1000)
+		pShape := mustShape(t, 2, 64, 64)
+		// packed strides: [1000000, 1000, 1]
+		p := mustPartition(t, driver.DevicePtr(0x8000), tShape, pShape, 4,
+			cudalayout.WithPartitionStrides([]int{1000000, 1000, 1}))
+
+		err := p.ValidateDisjoint()
+		if !errors.Is(err, cudalayout.ErrWrappingPartition) {
+			t.Fatalf("expected ErrWrappingPartition for 3D wrapping, got %v", err)
+		}
+	})
+
+	t.Run("mutable partition view", func(t *testing.T) {
+		tShape := mustShape(t, 64, 64)
+		pShape := mustShape(t, 16, 16)
+		pMut := mustPartitionMut(t, driver.DevicePtr(0x9000), tShape, pShape, 4)
+
+		if !pMut.IsMutable() {
+			t.Errorf("PartitionMut should report IsMutable() = true")
+		}
+		readOnly := pMut.AsReadOnly()
+		if readOnly.IsMutable() {
+			t.Errorf("AsReadOnly() should report IsMutable() = false")
+		}
+		if err := pMut.ValidateDisjoint(); err != nil {
+			t.Fatalf("pMut.ValidateDisjoint failed: %v", err)
+		}
+	})
+}

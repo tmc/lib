@@ -23,4 +23,9 @@
 //
 // This package is outside the compatibility promise of
 // github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
+//
+// # Launch Grid Inference
+//
+// Launch grid extents ([Grid3D]) are computed from tensor and tile shapes via [InferGrid],
+// applying overflow-checked ceiling division across ranks 1 to 3.
 package cudashape

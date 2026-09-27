@@ -44,4 +44,13 @@
 //
 // This package is outside the compatibility promise of
 // github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
+//
+// # Tile Partition Grid Inference and Configuration
+//
+// [InferLaunchGrid] infers and reconciles multi-dimensional launch grid dimensions
+// from one or more [github.com/tmc/lib/nvidia/x/cudalayout.Partition] instances.
+// [Config] holds execution configuration and supports auto-populating grid extents
+// via [Config.AutoGrid]. Passing partition instances directly to [Launcher.Launch]
+// or [PackArgs] automatically infers the launch grid and binds base device pointers
+// and tile stride parameters into the kernel argument buffer.
 package cudalaunch

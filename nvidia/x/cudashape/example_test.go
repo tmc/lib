@@ -59,3 +59,21 @@ func ExampleSymbolicShape_Bind() {
 	// Output:
 	// [4, 128, 256]
 }
+
+func ExampleInferGrid() {
+	tensor, err := cudashape.New(1024, 2048)
+	if err != nil {
+		panic(err)
+	}
+	tile, err := cudashape.New(64, 128)
+	if err != nil {
+		panic(err)
+	}
+	grid, err := cudashape.InferGrid(tensor, tile)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("grid: %s\n", grid)
+	// Output:
+	// grid: (16, 16, 1)
+}
