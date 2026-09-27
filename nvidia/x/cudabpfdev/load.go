@@ -257,7 +257,7 @@ func nativeInjectionLoadOps(dev *cuda.Device) injectionLoadOps {
 		compile: func(a *cudakernel.Artifact) (*cudakernel.Artifact, *nvjitlinkx.Result, error) {
 			return compileInjection(a, nvjitlinkx.Link)
 		},
-		global: driver.Module.Global, unload: driver.Module.Unload,
+		global: driver.Module.Global, unload: func(m driver.Module) error { return m.Close() },
 		stream: native.stream, zero: native.zero, launch: launchInjection,
 		synchronize: native.synchronize, read: native.read, destroy: native.destroy,
 	}

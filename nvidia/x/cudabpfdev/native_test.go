@@ -140,7 +140,7 @@ func TestNativeInjection(t *testing.T) {
 			err := dev.WithContext(func() error {
 				for n, e := range events {
 					if e != 0 {
-						if err := e.Destroy(); err != nil {
+						if err := e.Close(); err != nil {
 							return err
 						}
 						events[n] = 0
@@ -221,7 +221,7 @@ func TestNativeInjection(t *testing.T) {
 		var p driver.DevicePtr
 		err := dev.WithContext(func() error {
 			var err error
-			p, err = driver.MemAlloc(bytes)
+			p, err = driver.MemAllocBytes(bytes)
 			if p != 0 {
 				allocations = append(allocations, p)
 			}
