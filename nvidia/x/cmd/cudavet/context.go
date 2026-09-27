@@ -152,18 +152,29 @@ func runContextThread(pass *analysis.Pass) (any, error) {
 
 // unlockedCurrent returns the first call in body that makes a context
 // current, directly or through a function in unlocked, before any
-// runtime.LockOSThread. Closures other than goroutines run on the thread of
-// the function around them, and are followed.
+// runtime.LockOSThread. Closures called, deferred, passed to a call or held
+// in a local variable run on the thread of the function around them, and are
+// followed. A closure that is stored, returned or started as a goroutine runs
+// later, wherever its caller is, and is not.
 func unlockedCurrent(info *types.Info, body *ast.BlockStmt, unlocked map[*types.Func]*ast.CallExpr) *ast.CallExpr {
 	locked := false
 	var found *ast.CallExpr
+	var stack []ast.Node
 	ast.Inspect(body, func(n ast.Node) bool {
+		if n == nil {
+			stack = stack[:len(stack)-1]
+			return true
+		}
 		if found != nil || locked {
 			return false
 		}
 		switch n := n.(type) {
 		case *ast.GoStmt:
 			return false
+		case *ast.FuncLit:
+			if len(stack) > 0 && storedLit(stack[len(stack)-1], n) {
+				return false
+			}
 		case *ast.CallExpr:
 			if isPkgFunc(info, n, "runtime", "LockOSThread") {
 				locked = true
@@ -173,9 +184,31 @@ func unlockedCurrent(info *types.Info, body *ast.BlockStmt, unlocked map[*types.
 				found = n
 			}
 		}
-		return found == nil
+		if found != nil {
+			return false
+		}
+		stack = append(stack, n)
+		return true
 	})
 	return found
+}
+
+// storedLit reports whether the function literal lit, whose parent is
+// parent, is kept to be called later: stored in a field or element,
+// returned, sent, or put in a composite literal.
+func storedLit(parent ast.Node, lit *ast.FuncLit) bool {
+	switch p := parent.(type) {
+	case *ast.ReturnStmt, *ast.CompositeLit, *ast.KeyValueExpr, *ast.SendStmt:
+		return true
+	case *ast.AssignStmt:
+		for i, r := range p.Rhs {
+			if r == ast.Expr(lit) && len(p.Lhs) == len(p.Rhs) {
+				_, local := p.Lhs[i].(*ast.Ident)
+				return !local
+			}
+		}
+	}
+	return false
 }
 
 // lockedByCallers reports whether fn can rely on its callers to have locked

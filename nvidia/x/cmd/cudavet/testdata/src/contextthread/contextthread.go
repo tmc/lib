@@ -82,3 +82,21 @@ func helper(ctx driver.Context) error {
 func Caller(ctx driver.Context) error {
 	return helper(ctx) // want `helper makes a context current on a thread the goroutine may leave; call runtime.LockOSThread first`
 }
+
+type plan struct{ restore func() error }
+
+// Stored keeps a closure that makes ctx current; it runs later, on whatever
+// thread calls it, so Stored itself makes nothing current.
+func Stored(ctx driver.Context) *plan {
+	return &plan{restore: func() error { return ctx.SetCurrent() }}
+}
+
+func StoredField(p *plan, ctx driver.Context) {
+	p.restore = func() error { return ctx.SetCurrent() }
+}
+
+// Local calls its closure in place, on the thread Local is on.
+func Local(ctx driver.Context) error {
+	set := func() error { return ctx.SetCurrent() } // want `SetCurrent makes a context current on a thread the goroutine may leave; call runtime.LockOSThread first`
+	return set()
+}
