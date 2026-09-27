@@ -27,7 +27,10 @@
 //   - Output and artifacts: [WithOutput], [WithNameExpressions], [WithName], [WithNoCache], [WithFlag]
 //
 // Cache keys include source, program name, in-memory headers, flags, output
-// selection, and the NVRTC version and library path. They do not hash library
+// selection, and the NVRTC version and library path. When the loaded NVRTC
+// file can be located (on Linux through /proc/self/maps), keys also include
+// its size, modification time, device and inode, so replacing the library or
+// rewriting it in place changes the key. They do not hash library
 // contents or headers read from external include paths. Use WithNoCache when
 // those inputs can change without changing the key.
 //

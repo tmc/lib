@@ -28,6 +28,24 @@
 //   - Target architecture (e.g. "sm_121a" vs "sm_100a")
 //   - Exact compilation flags in deterministic order
 //   - Output kind magic bytes
+//   - Toolchain provenance: the SHA-256 of each loaded tool library, the
+//     driver version and the compile recipe (see [ToolProvenance])
+//
+// # Toolchain Provenance
+//
+// A version string does not identify a library: a driver or NVRTC update
+// can replace the file under an unchanged version. [ProbeToolchain] hashes
+// the libraries the process has loaded, and [CompilerCacheKey] hashes the
+// result, so replaced bytes give a different key. On Linux the loaded file
+// is found through /proc/self/maps ([LoadedLibraryPath]).
+//
+// [NVRTCAdapter] also publishes a [Manifest] per entry and checks it on
+// every lookup. A tool changed on disk since its digest was taken is
+// reported as [ErrToolIdentityChanged], never as a hit, and a compile during
+// which a tool changed is not cached. An entry recorded under a toolchain
+// other than the active one is rebuilt once; if the rebuild records the same
+// difference, the lookup reports [ErrUnhealableToolchainMismatch] rather
+// than rebuilding forever, and the marker file it names says why.
 //
 // # Remote Retrieval & Quarantine
 //

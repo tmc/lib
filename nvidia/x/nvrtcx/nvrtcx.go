@@ -660,7 +660,7 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 		cfg.flags = slices.DeleteFunc(cfg.flags, isNoCacheFlag)
 		sourceFlags = slices.DeleteFunc(sourceFlags, isNoCacheFlag)
 	}
-	identity := fmt.Sprintf("nvrtc %d.%d %s output=%d cache=%q", major, minor, nvrtc.Path(), cfg.output, cacheMagic)
+	identity := fmt.Sprintf("nvrtc %d.%d %s %s output=%d cache=%q", major, minor, nvrtc.Path(), libraryIdentity(nvrtc.Path()), cfg.output, cacheMagic)
 	inputKey := computeCacheKey(src, cfg.name, cfg.flags, cfg.headers)
 	inputKey = computeCacheKey(inputKey, "name-expressions-v1", cfg.expressions, nil)
 	if len(deps) > 0 && allTracked {
