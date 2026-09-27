@@ -2298,7 +2298,7 @@ func (e AccessProperty) String() string {
 type GraphConditionalNodeType int32
 
 const (
-	// GraphCondTypeIf: Conditional 'if/else' Node. Body [0] executed if condition is non-zero. If size == 2, an optional ELSE graph is created and this is executed if the condition is zero.
+	// GraphCondTypeIf: Conditional 'if/else' Node. Body[0] executed if condition is non-zero. If size == 2, an optional ELSE graph is created and this is executed if the condition is zero.
 	GraphCondTypeIf GraphConditionalNodeType = 0
 	// GraphCondTypeWhile: Conditional 'while' Node. Body executed repeatedly while condition value is non-zero.
 	GraphCondTypeWhile GraphConditionalNodeType = 1

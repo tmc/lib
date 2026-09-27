@@ -1023,7 +1023,7 @@ func (d Device) CoolerInfo(coolerInfo *CoolerInfo) error {
 	return deviceGetCoolerInfo(d, coolerInfo)
 }
 
-// CpuAffinity retrieves an array of unsigned ints (sized to cpuSetSize) of bitmasks with the ideal CPU affinity for the device For example, if processors 0, 1, 32, and 33 are ideal for the device and cpuSetSize == 2, result [0] = 0x3, result [1] = 0x3 This is equivalent to calling [Device.CpuAffinityWithinScope] with [AffinityScopeNode].
+// CpuAffinity retrieves an array of unsigned ints (sized to cpuSetSize) of bitmasks with the ideal CPU affinity for the device For example, if processors 0, 1, 32, and 33 are ideal for the device and cpuSetSize == 2, result[0] = 0x3, result[1] = 0x3 This is equivalent to calling [Device.CpuAffinityWithinScope] with [AffinityScopeNode].
 //
 // For Kepler or newer fully supported devices. Supported on Linux only.
 //
@@ -1048,7 +1048,7 @@ func (d Device) CpuAffinity(cpuSetSize uint32, cpuSet *uint) error {
 
 // CpuAffinityWithinScope retrieves an array of unsigned ints (sized to cpuSetSize) of bitmasks with the ideal CPU affinity within node or socket for the device.
 //
-// For example, if processors 0, 1, 32, and 33 are ideal for the device and cpuSetSize == 2, result [0] = 0x3, result [1] = 0x3
+// For example, if processors 0, 1, 32, and 33 are ideal for the device and cpuSetSize == 2, result[0] = 0x3, result[1] = 0x3
 // For Kepler or newer fully supported devices. Supported on Linux only.
 //
 // Note: If requested scope is not applicable to the target topology, the API will fall back to reporting the CPU affinity for the immediate non-I/O ancestor of the device.
@@ -2002,6 +2002,11 @@ func (d Device) GpuFabricInfo(gpuFabricInfo *GpuFabricInfo) error {
 //
 // Note: The caller must set the [GpuFabricInfoV].version field to the appropriate version prior to calling this function. For example:
 //
+//	nvmlGpuFabricInfoV_t fabricInfo =
+//	    { .version = nvmlGpuFabricInfo_v2 };
+//	nvmlReturn_t result = nvmlDeviceGetGpuFabricInfoV(device,&fabricInfo);
+//
+// Parameters:
 //   - gpuFabricInfo: Information about GPU fabric state
 //
 // Errors:
@@ -2109,6 +2114,13 @@ func (d Device) GpuInstanceProfileInfo(profile uint32) (GpuInstanceProfileInfo, 
 //
 // Note: The caller must set the [GpuInstanceProfileInfoV2].version field to the appropriate version prior to calling this function. For example:
 //
+//	nvmlGpuInstanceProfileInfo_v2_t profileInfo =
+//	    { .version = nvmlGpuInstanceProfileInfo_v2 };
+//	nvmlReturn_t result = nvmlDeviceGetGpuInstanceProfileInfoV(device,
+//	                                                           profile,
+//	                                                           &profileInfo);
+//
+// Parameters:
 //   - profileId: One of the profile IDs
 //   - info: Returns detailed profile information
 //
@@ -2133,6 +2145,13 @@ func (d Device) GpuInstanceProfileInfoByIdV(profileId uint32) (GpuInstanceProfil
 //
 // Note: The caller must set the [GpuInstanceProfileInfoV2].version field to the appropriate version prior to calling this function. For example:
 //
+//	nvmlGpuInstanceProfileInfo_v2_t profileInfo =
+//	    { .version = nvmlGpuInstanceProfileInfo_v2 };
+//	nvmlReturn_t result = nvmlDeviceGetGpuInstanceProfileInfoV(device,
+//	                                                           profile,
+//	                                                           &profileInfo);
+//
+// Parameters:
 //   - profile: One of the NVML_GPU_INSTANCE_PROFILE_*
 //   - info: Returns detailed profile information
 //
@@ -2843,7 +2862,7 @@ func (d Device) MemClkVfOffset() (int32, error) {
 
 // MemoryAffinity retrieves an array of unsigned ints (sized to nodeSetSize) of bitmasks with the ideal memory affinity within node or socket for the device.
 //
-// For example, if NUMA node 0, 1 are ideal within the socket for the device and nodeSetSize == 1, result [0] = 0x3
+// For example, if NUMA node 0, 1 are ideal within the socket for the device and nodeSetSize == 1, result[0] = 0x3
 // For Kepler or newer fully supported devices. Supported on Linux only.
 //
 // Note: If requested scope is not applicable to the target topology, the API will fall back to reporting the memory affinity for the immediate non-I/O ancestor of the device.
@@ -3044,7 +3063,7 @@ func (d Device) MinMaxFanSpeed() (uint32, uint32, error) {
 
 // MinorNumber retrieves minor number for the device.
 //
-// The minor number for the device is such that the Nvidia device node file for each GPU will have the form /dev/nvidia [minor number].
+// The minor number for the device is such that the Nvidia device node file for each GPU will have the form /dev/nvidia[minor number].
 // For all products. Supported only for Linux
 //
 //   - minorNumber: Reference in which to return the minor number for the device

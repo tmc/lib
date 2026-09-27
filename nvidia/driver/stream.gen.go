@@ -292,7 +292,7 @@ func (s Stream) Attribute(attr int32) ([8]uint64, error) {
 //   - [ErrStreamCaptureImplicit]
 //
 // Wraps cuStreamGetCaptureInfo, bound as cuStreamGetCaptureInfo_v3.
-func (s Stream) CaptureInfo(captureStatusOut *StreamCaptureStatus, idOut *uint64, graphOut *Graph, dependenciesOut uintptr, edgeDataOut uintptr, numDependenciesOut *uint) error {
+func (s Stream) CaptureInfo(captureStatusOut *StreamCaptureStatus, idOut *uint64, graphOut *Graph, dependenciesOut **GraphNode, edgeDataOut **GraphEdgeData, numDependenciesOut *uint) error {
 	return streamGetCaptureInfo(s, captureStatusOut, idOut, graphOut, dependenciesOut, edgeDataOut, numDependenciesOut)
 }
 
@@ -770,6 +770,8 @@ func (s Stream) MemAllocAsync[T any](n int) (DevicePtr, error) {
 
 // MemAllocAsyncBytes is [Stream.MemAllocAsync] with the size given in bytes.
 //
+//   - bytesize: Number of bytes to allocate
+//
 // Wraps cuMemAllocAsync.
 func (s Stream) MemAllocAsyncBytes(bytesize uint) (DevicePtr, error) {
 	return memAllocAsync(bytesize, s)
@@ -815,7 +817,7 @@ func (s Stream) MemBatchDecompressAsync(paramsArray *MemDecompressParams, count 
 //   - sizes: Array of sizes for memory discard operations
 //   - count: Size of dptrs and sizes arrays
 //   - prefetchLocs: Array of locations to prefetch to
-//   - prefetchLocIdxs: Array of indices to specify which operands each entry in the prefetchLocs array applies to. The locations specified in prefetchLocsk will be applied to operations starting from prefetchLocIdxsk through prefetchLocIdxs [k+1] - 1. Also prefetchLocs [numPrefetchLocs - 1] will apply to copies starting from prefetchLocIdxs [numPrefetchLocs - 1] through count - 1
+//   - prefetchLocIdxs: Array of indices to specify which operands each entry in the prefetchLocs array applies to. The locations specified in prefetchLocsk will be applied to operations starting from prefetchLocIdxsk through prefetchLocIdxs[k+1] - 1. Also prefetchLocs[numPrefetchLocs - 1] will apply to copies starting from prefetchLocIdxs[numPrefetchLocs - 1] through count - 1
 //   - numPrefetchLocs: Size of prefetchLocs and prefetchLocIdxs arrays
 //   - flags: Flags reserved for future use. Must be zero
 //
@@ -843,13 +845,65 @@ func (s Stream) MemDiscardBatchAsync(dptrs *DevicePtr, sizes *uint, count uint, 
 // MemMapArrayAsync maps or unmaps subregions of sparse CUDA arrays and sparse CUDA mipmapped arrays.
 //
 // Performs map or unmap operations on subregions of sparse CUDA arrays and sparse CUDA mipmapped arrays. Each operation is specified by a [ArrayMapInfo] entry in the mapInfoList array of size count. The structure [ArrayMapInfo] is defined as follow:
+//
+//	 typedef struct CUarrayMapInfo_st {
+//	    CUresourcetype resourceType;
+//	    union {
+//	        CUmipmappedArray mipmap;
+//	        CUarray array;
+//	    } resource;
+//
+//	    CUarraySparseSubresourceType subresourceType;
+//	    union {
+//	        struct {
+//	            unsigned int level;
+//	            unsigned int layer;
+//	            unsigned int offsetX;
+//	            unsigned int offsetY;
+//	            unsigned int offsetZ;
+//	            unsigned int extentWidth;
+//	            unsigned int extentHeight;
+//	            unsigned int extentDepth;
+//	        } sparseLevel;
+//	        struct {
+//	            unsigned int layer;
+//	            unsigned long long offset;
+//	            unsigned long long size;
+//	        } miptail;
+//	    } subresource;
+//
+//	    CUmemOperationType memOperationType;
+//
+//	    CUmemHandleType memHandleType;
+//	    union {
+//	        CUmemGenericAllocationHandle memHandle;
+//	    } memHandle;
+//
+//	    unsigned long long offset;
+//	    unsigned int deviceBitMask;
+//	    unsigned int flags;
+//	    unsigned int reserved[2];
+//	} CUarrayMapInfo;
+//
 // where [ArrayMapInfo].resourceType specifies the type of resource to be operated on. If [ArrayMapInfo].resourceType is set to [Resourcetype].[ResourceTypeArray] then [ArrayMapInfo].resource.array must be set to a valid sparse CUDA array handle. The CUDA array must be either a 2D, 2D layered or 3D CUDA array and must have been allocated using [NewArray] or [NewArray3D] with the flag CUDA_ARRAY3D_SPARSE or CUDA_ARRAY3D_DEFERRED_MAPPING. For CUDA arrays obtained using [MipmappedArray.Level], [ErrInvalidValue] will be returned. If [ArrayMapInfo].resourceType is set to [Resourcetype].[ResourceTypeMipmappedArray] then [ArrayMapInfo].resource.mipmap must be set to a valid sparse CUDA mipmapped array handle. The CUDA mipmapped array must be either a 2D, 2D layered or 3D CUDA mipmapped array and must have been allocated using [NewMipmappedArray] with the flag CUDA_ARRAY3D_SPARSE or CUDA_ARRAY3D_DEFERRED_MAPPING.
 // [ArrayMapInfo].subresourceType specifies the type of subresource within the resource. CUarraySparseSubresourceType_enum is defined as:
+//
+//	typedef enum CUarraySparseSubresourceType_enum {
+//	    CU_ARRAY_SPARSE_SUBRESOURCE_TYPE_SPARSE_LEVEL = 0,
+//	    CU_ARRAY_SPARSE_SUBRESOURCE_TYPE_MIPTAIL = 1
+//	} CUarraySparseSubresourceType;
+//
 // where [ArraySparseSubresourceType].[ArraySparseSubresourceTypeSparseLevel] indicates a sparse-miplevel which spans at least one tile in every dimension. The remaining miplevels which are too small to span at least one tile in any dimension constitute the mip tail region as indicated by [ArraySparseSubresourceType].[ArraySparseSubresourceTypeMiptail] subresource type.
 // If [ArrayMapInfo].subresourceType is set to [ArraySparseSubresourceType].[ArraySparseSubresourceTypeSparseLevel] then [ArrayMapInfo].subresource.sparseLevel struct must contain valid array subregion offsets and extents. The [ArrayMapInfo].subresource.sparseLevel.offsetX, [ArrayMapInfo].subresource.sparseLevel.offsetY and [ArrayMapInfo].subresource.sparseLevel.offsetZ must specify valid X, Y and Z offsets respectively. The [ArrayMapInfo].subresource.sparseLevel.extentWidth, [ArrayMapInfo].subresource.sparseLevel.extentHeight and [ArrayMapInfo].subresource.sparseLevel.extentDepth must specify valid width, height and depth extents respectively. These offsets and extents must be aligned to the corresponding tile dimension. For CUDA mipmapped arrays [ArrayMapInfo].subresource.sparseLevel.level must specify a valid mip level index. Otherwise, must be zero. For layered CUDA arrays and layered CUDA mipmapped arrays [ArrayMapInfo].subresource.sparseLevel.layer must specify a valid layer index. Otherwise, must be zero. [ArrayMapInfo].subresource.sparseLevel.offsetZ must be zero and [ArrayMapInfo].subresource.sparseLevel.extentDepth must be set to 1 for 2D and 2D layered CUDA arrays and CUDA mipmapped arrays. Tile extents can be obtained by calling [Array.SparseProperties] and [MipmappedArray.SparseProperties]
 // If [ArrayMapInfo].subresourceType is set to [ArraySparseSubresourceType].[ArraySparseSubresourceTypeMiptail] then [ArrayMapInfo].subresource.miptail struct must contain valid mip tail offset in [ArrayMapInfo].subresource.miptail.offset and size in [ArrayMapInfo].subresource.miptail.size. Both, mip tail offset and mip tail size must be aligned to the tile size. For layered CUDA mipmapped arrays which don’t have the flag CU_ARRAY_SPARSE_PROPERTIES_SINGLE_MIPTAIL set in [ArraySparseProperties].flags as returned by [MipmappedArray.SparseProperties], [ArrayMapInfo].subresource.miptail.layer must specify a valid layer index. Otherwise, must be zero.
 // If [ArrayMapInfo].resource.array or [ArrayMapInfo].resource.mipmap was created with CUDA_ARRAY3D_DEFERRED_MAPPING flag set the [ArrayMapInfo].subresourceType and the contents of [ArrayMapInfo].subresource will be ignored.
 // [ArrayMapInfo].memOperationType specifies the type of operation. [MemOperationType] is defined as:
+//
+//	typedef enum CUmemOperationType_enum {
+//	    CU_MEM_OPERATION_TYPE_MAP = 1,
+//	    CU_MEM_OPERATION_TYPE_UNMAP = 2
+//	} CUmemOperationType;
+//
 // If [ArrayMapInfo].memOperationType is set to [MemOperationType].[MemOperationTypeMap] then the subresource will be mapped onto the tile pool memory specified by [ArrayMapInfo].memHandle at offset [ArrayMapInfo].offset. The tile pool allocation has to be created by specifying the CU_MEM_CREATE_USAGE_TILE_POOL flag when calling [MemCreate]. Also, [ArrayMapInfo].memHandleType must be set to [MemHandleType].[MemHandleTypeGeneric].
 // If [ArrayMapInfo].memOperationType is set to [MemOperationType].[MemOperationTypeUnmap] then an unmapping operation is performed. [ArrayMapInfo].memHandle must be NULL.
 // [ArrayMapInfo].deviceBitMask specifies the list of devices that must map or unmap physical memory. Currently, this mask must have exactly one bit set, and the corresponding device must match the device associated with the stream. If [ArrayMapInfo].memOperationType is set to [MemOperationType].[MemOperationTypeMap], the device must also match the device associated with the tile pool memory allocation as specified by [ArrayMapInfo].memHandle.
@@ -879,7 +933,7 @@ func (s Stream) MemMapArrayAsync(mapInfoList *ArrayMapInfo, count uint32) error 
 //   - sizes: Array of sizes for memory prefetch operations
 //   - count: Size of dptrs and sizes arrays
 //   - prefetchLocs: Array of locations to prefetch to
-//   - prefetchLocIdxs: Array of indices to specify which operands each entry in the prefetchLocs array applies to. The locations specified in prefetchLocsk will be applied to copies starting from prefetchLocIdxsk through prefetchLocIdxs [k+1] - 1. Also prefetchLocs [numPrefetchLocs - 1] will apply to prefetches starting from prefetchLocIdxs [numPrefetchLocs - 1] through count - 1
+//   - prefetchLocIdxs: Array of indices to specify which operands each entry in the prefetchLocs array applies to. The locations specified in prefetchLocsk will be applied to copies starting from prefetchLocIdxsk through prefetchLocIdxs[k+1] - 1. Also prefetchLocs[numPrefetchLocs - 1] will apply to prefetches starting from prefetchLocIdxs[numPrefetchLocs - 1] through count - 1
 //   - numPrefetchLocs: Size of prefetchLocs and prefetchLocIdxs arrays
 //   - flags: Flags reserved for future use. Must be zero
 //
@@ -891,6 +945,24 @@ func (s Stream) MemPrefetchBatchAsync(dptrs *DevicePtr, sizes *uint, count uint,
 // Memcpy2DAsync copies memory for 2D arrays.
 //
 // Perform a 2D memory copy according to the parameters specified in pCopy. The [Memcpy2d] structure is defined as:
+//
+//	typedef struct CUDA_MEMCPY2D_st {
+//	   unsigned int srcXInBytes, srcY;
+//	   CUmemorytype srcMemoryType;
+//	   const void *srcHost;
+//	   CUdeviceptr srcDevice;
+//	   CUarray srcArray;
+//	   unsigned int srcPitch;
+//	   unsigned int dstXInBytes, dstY;
+//	   CUmemorytype dstMemoryType;
+//	   void *dstHost;
+//	   CUdeviceptr dstDevice;
+//	   CUarray dstArray;
+//	   unsigned int dstPitch;
+//	   unsigned int WidthInBytes;
+//	   unsigned int Height;
+//	} CUDA_MEMCPY2D;
+//
 // where:
 //   - srcMemoryType and dstMemoryType specify the type of memory of the source and destination, respectively; CUmemorytype_enum is defined as:
 //   - srcXInBytes and srcY specify the base address of the source data for the copy.
@@ -906,7 +978,13 @@ func (s Stream) MemPrefetchBatchAsync(dptrs *DevicePtr, sizes *uint, count uint,
 //   - dstXInBytes and dstY specify the base address of the destination data for the copy.
 //
 // For host pointers, the starting address is
+//
+//	void* Start = (void*)((char*)srcHost+srcY*srcPitch + srcXInBytes);
+//
 // For device pointers, the starting address is
+//
+//	CUdeviceptr Start = srcDevice+srcY*srcPitch+srcXInBytes;
+//
 // For CUDA arrays, srcXInBytes must be evenly divisible by the array element size.
 //   - WidthInBytes and Height specify the width (in bytes) and height of the 2D copy being performed.
 //   - If specified, srcPitch must be greater than or equal to WidthInBytes + srcXInBytes, and dstPitch must be greater than or equal to WidthInBytes + dstXInBytes.
@@ -914,7 +992,13 @@ func (s Stream) MemPrefetchBatchAsync(dptrs *DevicePtr, sizes *uint, count uint,
 //   - If specified, srcHeight must be greater than or equal to Height + srcY, and dstHeight must be greater than or equal to Height + dstY.
 //
 // For host pointers, the base address is
+//
+//	void* dstStart = (void*)((char*)dstHost+dstY*dstPitch + dstXInBytes);
+//
 // For device pointers, the starting address is
+//
+//	CUdeviceptr dstStart = dstDevice+dstY*dstPitch+dstXInBytes;
+//
 // For CUDA arrays, dstXInBytes must be evenly divisible by the array element size.
 //
 // [Stream.Memcpy2DAsync] returns an error if any pitch is greater than the maximum allowed ( [DevAttrMaxPitch]). [MemAllocPitch] passes back pitches that always work with [Memcpy2D]. On intra-device memory copies (device to device, CUDA array to device, CUDA array to CUDA array), [Stream.Memcpy2DAsync] may fail for pitches not computed by [MemAllocPitch].
@@ -942,6 +1026,32 @@ func (s Stream) Memcpy2DAsync(pCopy *Memcpy2d) error {
 // Memcpy3DAsync copies memory for 3D arrays.
 //
 // Perform a 3D memory copy according to the parameters specified in pCopy. The [Memcpy3d] structure is defined as:
+//
+//	typedef struct CUDA_MEMCPY3D_st {
+//
+//	    unsigned int srcXInBytes, srcY, srcZ;
+//	    unsigned int srcLOD;
+//	    CUmemorytype srcMemoryType;
+//	        const void *srcHost;
+//	        CUdeviceptr srcDevice;
+//	        CUarray srcArray;
+//	        unsigned int srcPitch;  // ignored when src is array
+//	        unsigned int srcHeight; // ignored when src is array; may be 0 if Depth==1
+//
+//	    unsigned int dstXInBytes, dstY, dstZ;
+//	    unsigned int dstLOD;
+//	    CUmemorytype dstMemoryType;
+//	        void *dstHost;
+//	        CUdeviceptr dstDevice;
+//	        CUarray dstArray;
+//	        unsigned int dstPitch;  // ignored when dst is array
+//	        unsigned int dstHeight; // ignored when dst is array; may be 0 if Depth==1
+//
+//	    unsigned int WidthInBytes;
+//	    unsigned int Height;
+//	    unsigned int Depth;
+//	} CUDA_MEMCPY3D;
+//
 // where:
 //   - srcMemoryType and dstMemoryType specify the type of memory of the source and destination, respectively; CUmemorytype_enum is defined as:
 //   - srcXInBytes, srcY and srcZ specify the base address of the source data for the copy.
@@ -957,14 +1067,26 @@ func (s Stream) Memcpy2DAsync(pCopy *Memcpy2d) error {
 //   - dstXInBytes, dstY and dstZ specify the base address of the destination data for the copy.
 //
 // For host pointers, the starting address is
+//
+//	void* Start = (void*)((char*)srcHost+(srcZ*srcHeight+srcY)*srcPitch + srcXInBytes);
+//
 // For device pointers, the starting address is
+//
+//	CUdeviceptr Start = srcDevice+(srcZ*srcHeight+srcY)*srcPitch+srcXInBytes;
+//
 // For CUDA arrays, srcXInBytes must be evenly divisible by the array element size.
 //   - WidthInBytes, Height and Depth specify the width (in bytes), height and depth of the 3D copy being performed.
 //   - If specified, srcPitch must be greater than or equal to WidthInBytes + srcXInBytes, and dstPitch must be greater than or equal to WidthInBytes + dstXInBytes.
 //   - If specified, srcHeight must be greater than or equal to Height + srcY, and dstHeight must be greater than or equal to Height + dstY.
 //
 // For host pointers, the base address is
+//
+//	void* dstStart = (void*)((char*)dstHost+(dstZ*dstHeight+dstY)*dstPitch + dstXInBytes);
+//
 // For device pointers, the starting address is
+//
+//	CUdeviceptr dstStart = dstDevice+(dstZ*dstHeight+dstY)*dstPitch+dstXInBytes;
+//
 // For CUDA arrays, dstXInBytes must be evenly divisible by the array element size.
 // The srcLOD and dstLOD members of the [Memcpy3d] structure must be set to 0.
 // [Stream.Memcpy3DAsync] returns an error if any pitch is greater than the maximum allowed ( [DevAttrMaxPitch]).
@@ -1081,7 +1203,7 @@ func (s Stream) Memcpy3DWithAttributesAsync(op *Memcpy3dBatchOp, flags uint64) e
 //   - sizes: Array of sizes for memcpy operations
 //   - count: Size of dsts, srcs and sizes arrays
 //   - attrs: Array of memcpy attributes
-//   - attrsIdxs: Array of indices to specify which copies each entry in the attrs array applies to. The attributes specified in attrsk will be applied to copies starting from attrsIdxsk through attrsIdxs [k+1] - 1. Also attrs [numAttrs-1] will apply to copies starting from attrsIdxs [numAttrs-1] through count - 1
+//   - attrsIdxs: Array of indices to specify which copies each entry in the attrs array applies to. The attributes specified in attrsk will be applied to copies starting from attrsIdxsk through attrsIdxs[k+1] - 1. Also attrs[numAttrs-1] will apply to copies starting from attrsIdxs[numAttrs-1] through count - 1
 //   - numAttrs: Size of attrs and attrsIdxs arrays
 //
 // Errors:

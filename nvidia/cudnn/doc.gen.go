@@ -127,7 +127,7 @@
 //
 // # Tensor Operations
 //
-//   - [Handle.OpTensor]: implements the equation C = op(alpha1 [0] * A, alpha2 [0] * B) + beta [0] * C, given the tensors A, B, and C and the scaling factors alpha1, alpha2, and beta.
+//   - [Handle.OpTensor]: implements the equation C = op(alpha1[0] * A, alpha2[0] * B) + beta[0] * C, given the tensors A, B, and C and the scaling factors alpha1, alpha2, and beta.
 //   - [Handle.ReduceTensor]: reduces tensor A by implementing the equation C = alpha * reduce op ( A ) + beta * C, given tensors A and C and scaling factors alpha and beta.
 //
 // # Pooling

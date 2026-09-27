@@ -2470,8 +2470,8 @@ func fngetEmulationStrategy(a0 Handle, a1 *EmulationStrategy) Result {
 }
 
 // fngetFixedPointEmulationMantissaBitCountPointer calls cublasGetFixedPointEmulationMantissaBitCountPointer.
-func fngetFixedPointEmulationMantissaBitCountPointer(a0 Handle, a1 uintptr) Result {
-	r1, _ := ffiCall2(symgetFixedPointEmulationMantissaBitCountPointer, 0, uintptr(a0), uintptr(a1))
+func fngetFixedPointEmulationMantissaBitCountPointer(a0 Handle, a1 **int32) Result {
+	r1, _ := ffiCall2(symgetFixedPointEmulationMantissaBitCountPointer, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
@@ -4422,7 +4422,7 @@ func asumEx64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx i
 
 // axpyEx is an API generalization of the routine cublasaxpy() where input data, output data and compute type can be specified independently.
 //
-// This function multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result. Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result. Hence, the performed operation is y[j]=α×x[k]+y[j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.AxpyEx] are listed in the following table:
 //   - alpha: CUDA_R_32F; x: CUDA_R_16F; y: CUDA_R_16F; execution: CUDA_R_32F
 //   - alpha: CUDA_R_32F; x: CUDA_R_16BF; y: CUDA_R_16BF; execution: CUDA_R_32F
@@ -4469,7 +4469,7 @@ func axpyEx(handle Handle, n int32, alpha Scalar, alphaType DataType, x driver.D
 
 // axpyEx64 is an API generalization of the routine cublasaxpy() where input data, output data and compute type can be specified independently.
 //
-// This function multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result. Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result. Hence, the performed operation is y[j]=α×x[k]+y[j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.AxpyEx] are listed in the following table:
 //   - alpha: CUDA_R_32F; x: CUDA_R_16F; y: CUDA_R_16F; execution: CUDA_R_32F
 //   - alpha: CUDA_R_32F; x: CUDA_R_16BF; y: CUDA_R_16BF; execution: CUDA_R_32F
@@ -4516,7 +4516,7 @@ func axpyEx64(handle Handle, n int64, alpha Scalar, alphaType DataType, x driver
 
 // caxpy multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
 //
-// Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is y[j]=α×x[k]+y[j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // saxpy(), daxpy(), caxpy(), zaxpy()
 //
@@ -4544,7 +4544,7 @@ func caxpy(handle Handle, n int32, alpha *Complex64, x driver.DevicePtr, incx in
 
 // caxpy64 multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
 //
-// Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is y[j]=α×x[k]+y[j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // saxpy(), daxpy(), caxpy(), zaxpy()
 //
@@ -4572,7 +4572,7 @@ func caxpy64(handle Handle, n int64, alpha *Complex64, x driver.DevicePtr, incx 
 
 // ccopy copies the vector x into the vector y.
 //
-// Hence, the performed operation is y [j]=x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is y[j]=x[k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // scopy(), dcopy(), ccopy(), zcopy()
 //
@@ -4599,7 +4599,7 @@ func ccopy(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 
 // ccopy64 copies the vector x into the vector y.
 //
-// Hence, the performed operation is y [j]=x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is y[j]=x[k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // scopy(), dcopy(), ccopy(), zcopy()
 //
@@ -4628,10 +4628,10 @@ func ccopy64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 //
 // C={A×diag(X)if mode == CUBLAS_SIDE_RIGHTdiag(X)×Aif mode == [SideLeft]
 // where A and C are matrices stored in column-major format with dimensions m×n . X is a vector of size n if mode == [SideRight] and of size m if mode == [SideLeft]. X is gathered from one-dimensional array x with stride incx. The absolute value of incx is the stride and the sign of incx is direction of the stride. If incx is positive, then we forward x from the first element. Otherwise, we backward x from the last element. The formula of X is
-// X [j]={x [j×incx]if incx≥0x[(χ−1)×|incx|−j×|incx|]if incx<0
+// X[j]={x[j×incx]if incx≥0x[(χ−1)×|incx|−j×|incx|]if incx<0
 // where χ=m if mode == [SideLeft] and χ=n if mode == [SideRight].
 // Example 1: if the user wants to perform diag(diag(B))×A , then incx=ldb+1 where ldb is leading dimension of matrix B, either row-major or column-major.
-// Example 2: if the user wants to perform α×A , then there are two choices, either cublasgeam() with *beta == 0 and transa == [OpN] or cublasdgmm() with incx == 0 and x [0] == alpha.
+// Example 2: if the user wants to perform α×A , then there are two choices, either cublasgeam() with *beta == 0 and transa == [OpN] or cublasdgmm() with incx == 0 and x[0] == alpha.
 // The operation is out-of-place. The in-place only works if lda == ldc.
 //
 // [Handle.Cdgmm64] takes 64-bit sizes.
@@ -4664,10 +4664,10 @@ func cdgmm(handle Handle, mode SideMode, m int32, n int32, a driver.DevicePtr, l
 //
 // C={A×diag(X)if mode == CUBLAS_SIDE_RIGHTdiag(X)×Aif mode == [SideLeft]
 // where A and C are matrices stored in column-major format with dimensions m×n . X is a vector of size n if mode == [SideRight] and of size m if mode == [SideLeft]. X is gathered from one-dimensional array x with stride incx. The absolute value of incx is the stride and the sign of incx is direction of the stride. If incx is positive, then we forward x from the first element. Otherwise, we backward x from the last element. The formula of X is
-// X [j]={x [j×incx]if incx≥0x[(χ−1)×|incx|−j×|incx|]if incx<0
+// X[j]={x[j×incx]if incx≥0x[(χ−1)×|incx|−j×|incx|]if incx<0
 // where χ=m if mode == [SideLeft] and χ=n if mode == [SideRight].
 // Example 1: if the user wants to perform diag(diag(B))×A , then incx=ldb+1 where ldb is leading dimension of matrix B, either row-major or column-major.
-// Example 2: if the user wants to perform α×A , then there are two choices, either cublasgeam() with *beta == 0 and transa == [OpN] or cublasdgmm() with incx == 0 and x [0] == alpha.
+// Example 2: if the user wants to perform α×A , then there are two choices, either cublasgeam() with *beta == 0 and transa == [OpN] or cublasdgmm() with incx == 0 and x[0] == alpha.
 // The operation is out-of-place. The in-place only works if lda == ldc.
 //
 // It is [Handle.Cdgmm] with int64 sizes and strides.
@@ -4698,7 +4698,7 @@ func cdgmm64(handle Handle, mode SideMode, m int64, n int64, a driver.DevicePtr,
 
 // cdotc computes the dot product of vectors x and y.
 //
-// Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)(x[k]×y[j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -4736,7 +4736,7 @@ var slotCdotc outSlot[Complex64]
 
 // cdotc64 computes the dot product of vectors x and y.
 //
-// Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)(x[k]×y[j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -4774,7 +4774,7 @@ var slotCdotc64 outSlot[Complex64]
 
 // cdotu computes the dot product of vectors x and y.
 //
-// Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)(x[k]×y[j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -4812,7 +4812,7 @@ var slotCdotu outSlot[Complex64]
 
 // cdotu64 computes the dot product of vectors x and y.
 //
-// Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)(x[k]×y[j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -5016,7 +5016,10 @@ func cgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64
 //
 // Carray is an array of pointers to matrices stored in column-major format.
 // This function find the least squares solution of a batch of overdetermined systems: it solves the least squares problem described as follows :
-// On exit, each Aarray [i] is overwritten with their QR factorization and each Carray [i] is overwritten with the least square solution
+//
+//	minimize  || Carray[i] - Aarray[i]*Xarray[i] || , with i = 0, ...,batchSize-1
+//
+// On exit, each Aarray[i] is overwritten with their QR factorization and each Carray[i] is overwritten with the least square solution
 // cublasgelsBatched supports only the non-transpose operation and only solves over-determined systems (m >= n).
 // cublasgelsBatched only supports compute capability 2.0 or above.
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.
@@ -5024,16 +5027,16 @@ func cgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64
 // sgels(), dgels(), cgels(), zgels()
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( Aarray [i]) that is non- or (conj.) transpose. Only non-transpose operation is currently supported
-//   - m: Number of rows of each Aarray [i] and Carray [i] if trans == [OpN], numbers of columns of each Aarray [i] otherwise (not supported currently)
-//   - n: Number of columns of each Aarray [i] if trans == [OpN], and number of rows of each Aarray [i] and Carray [i] otherwise (not supported currently)
-//   - nrhs: Number of columns of each Carray [i]
-//   - aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m) if trans == [OpN], and n x m with lda >= max(1, n) otherwise (not supported currently). Matrices Aarray [i] should not overlap; otherwise, behavior is undefined
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - carray: Array of pointers to < type > array, with each array of dim. m x nrhs with ldc >= max(1, m) if trans == [OpN], and n x nrhs with lda >= max(1, n) otherwise (not supported currently). Matrices Carray [i] should not overlap; otherwise, behavior is undefined
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray [i]
+//   - trans: Operation op( Aarray[i]) that is non- or (conj.) transpose. Only non-transpose operation is currently supported
+//   - m: Number of rows of each Aarray[i] and Carray[i] if trans == [OpN], numbers of columns of each Aarray[i] otherwise (not supported currently)
+//   - n: Number of columns of each Aarray[i] if trans == [OpN], and number of rows of each Aarray[i] and Carray[i] otherwise (not supported currently)
+//   - nrhs: Number of columns of each Carray[i]
+//   - aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m) if trans == [OpN], and n x m with lda >= max(1, n) otherwise (not supported currently). Matrices Aarray[i] should not overlap; otherwise, behavior is undefined
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
+//   - carray: Array of pointers to < type > array, with each array of dim. m x nrhs with ldc >= max(1, m) if trans == [OpN], and n x nrhs with lda >= max(1, n) otherwise (not supported currently). Matrices Carray[i] should not overlap; otherwise, behavior is undefined
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray[i]
 //   - info: If info == 0 the parameters passed to the function are valid. If info < 0 the parameter in position -info is invalid
-//   - devInfoArray: Optional array of integers of dimension batchsize. If non-null, every element of devInfoArray [i] == V has the following meaning: V == 0 : the i-th problem was successfully solved. V > 0 : the V-th diagonal element of the Aarray [i] is zero. Aarray [i] does not have full rank
+//   - devInfoArray: Optional array of integers of dimension batchsize. If non-null, every element of devInfoArray[i] == V has the following meaning: V == 0 : the i-th problem was successfully solved. V > 0 : the V-th diagonal element of the Aarray[i] is zero. Aarray[i] does not have full rank
 //   - batchSize: Number of pointers contained in Aarray and Carray
 //
 // Errors:
@@ -5136,34 +5139,34 @@ func cgemm3mEx64(handle Handle, transa Operation, transb Operation, m int64, n i
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
 // C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
+// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A[i])m×k , op(B[i])k×n and C[i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
-// and op(B [i]) is defined similarly for matrix B [i] .
+// and op(B[i]) is defined similarly for matrix B[i] .
 //
-// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], B[i], C[i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A[i-1], B[i-1], C[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // [Handle.Cgemm3mStridedBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transa: Operation op( A [i]) that is non- or (conj.) transpose
-//   - transb: Operation op( B [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix op( A [i]) and C [i]
-//   - n: Number of columns of op( B [i]) and C [i]
-//   - k: Number of columns of op( A [i]) and rows of op( B [i])
+//   - transa: Operation op( A[i]) that is non- or (conj.) transpose
+//   - transb: Operation op( B[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix op( A[i]) and C[i]
+//   - n: Number of columns of op( B[i]) and C[i]
+//   - k: Number of columns of op( A[i]) and rows of op( B[i])
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - b: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
-//   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
-//   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
+//   - ldb: Leading dimension of two-dimensional array used to store each matrix B[i]
+//   - strideB: Value of type long long int that gives the offset in number of elements between B[i] and B[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
-//   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
+//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix C[i]
+//   - strideC: Value of type long long int that gives the offset in number of elements between C[i] and C[i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
 //
 // Errors:
@@ -5184,34 +5187,34 @@ func cgemm3mStridedBatched(handle Handle, transa Operation, transb Operation, m 
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
 // C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
+// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A[i])m×k , op(B[i])k×n and C[i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
-// and op(B [i]) is defined similarly for matrix B [i] .
+// and op(B[i]) is defined similarly for matrix B[i] .
 //
-// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], B[i], C[i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A[i-1], B[i-1], C[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // It is [Handle.Cgemm3mStridedBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transa: Operation op( A [i]) that is non- or (conj.) transpose
-//   - transb: Operation op( B [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix op( A [i]) and C [i]
-//   - n: Number of columns of op( B [i]) and C [i]
-//   - k: Number of columns of op( A [i]) and rows of op( B [i])
+//   - transa: Operation op( A[i]) that is non- or (conj.) transpose
+//   - transb: Operation op( B[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix op( A[i]) and C[i]
+//   - n: Number of columns of op( B[i]) and C[i]
+//   - k: Number of columns of op( A[i]) and rows of op( B[i])
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - b: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
-//   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
-//   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
+//   - ldb: Leading dimension of two-dimensional array used to store each matrix B[i]
+//   - strideB: Value of type long long int that gives the offset in number of elements between B[i] and B[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
-//   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
+//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix C[i]
+//   - strideC: Value of type long long int that gives the offset in number of elements between C[i] and C[i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
 //
 // Errors:
@@ -5273,12 +5276,12 @@ func cgemm3m64(handle Handle, transa Operation, transb Operation, m int64, n int
 // cgemmBatched performs the matrix-matrix multiplication of a batch of matrices.
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
-// C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
-// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
+// C[i]=αop(A[i])op(B[i])+βC[i], for i ∈[0,batchCount−1]
+// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A[i])m×k , op(B[i])k×n and C[i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
-// and op(B [i]) is defined similarly for matrix B [i] .
+// and op(B[i]) is defined similarly for matrix B[i] .
 //
-// Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -5286,19 +5289,19 @@ func cgemm3m64(handle Handle, transa Operation, transb Operation, m int64, n int
 // [Handle.CgemmBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transa: Operation op( A [i]) that is non- or (conj.) transpose
-//   - transb: Operation op( B [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix op( A [i]) and C [i]
-//   - n: Number of columns of op( B [i]) and C [i]
-//   - k: Number of columns of op( A [i]) and rows of op( B [i])
+//   - transa: Operation op( A[i]) that is non- or (conj.) transpose
+//   - transb: Operation op( B[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix op( A[i]) and C[i]
+//   - n: Number of columns of op( B[i]) and C[i]
+//   - k: Number of columns of op( A[i]) and rows of op( B[i])
 //   - alpha: < type > scalar used for multiplication
 //   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
 //   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
+//   - ldb: Leading dimension of two-dimensional array used to store each matrix B[i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C[i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix C[i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
 // Errors:
@@ -5318,12 +5321,12 @@ func cgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 // cgemmBatched64 performs the matrix-matrix multiplication of a batch of matrices.
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
-// C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
-// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
+// C[i]=αop(A[i])op(B[i])+βC[i], for i ∈[0,batchCount−1]
+// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A[i])m×k , op(B[i])k×n and C[i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
-// and op(B [i]) is defined similarly for matrix B [i] .
+// and op(B[i]) is defined similarly for matrix B[i] .
 //
-// Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -5331,19 +5334,19 @@ func cgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 // It is [Handle.CgemmBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transa: Operation op( A [i]) that is non- or (conj.) transpose
-//   - transb: Operation op( B [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix op( A [i]) and C [i]
-//   - n: Number of columns of op( B [i]) and C [i]
-//   - k: Number of columns of op( A [i]) and rows of op( B [i])
+//   - transa: Operation op( A[i]) that is non- or (conj.) transpose
+//   - transb: Operation op( B[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix op( A[i]) and C[i]
+//   - n: Number of columns of op( B[i]) and C[i]
+//   - k: Number of columns of op( A[i]) and rows of op( B[i])
 //   - alpha: < type > scalar used for multiplication
 //   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
 //   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
+//   - ldb: Leading dimension of two-dimensional array used to store each matrix B[i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C[i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix C[i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
 // Errors:
@@ -5480,34 +5483,34 @@ func cgemmEx64(handle Handle, transa Operation, transb Operation, m int64, n int
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
 // C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
+// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A[i])m×k , op(B[i])k×n and C[i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
-// and op(B [i]) is defined similarly for matrix B [i] .
+// and op(B[i]) is defined similarly for matrix B[i] .
 //
-// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], B[i], C[i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A[i-1], B[i-1], C[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // [Handle.CgemmStridedBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transa: Operation op( A [i]) that is non- or (conj.) transpose
-//   - transb: Operation op( B [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix op( A [i]) and C [i]
-//   - n: Number of columns of op( B [i]) and C [i]
-//   - k: Number of columns of op( A [i]) and rows of op( B [i])
+//   - transa: Operation op( A[i]) that is non- or (conj.) transpose
+//   - transb: Operation op( B[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix op( A[i]) and C[i]
+//   - n: Number of columns of op( B[i]) and C[i]
+//   - k: Number of columns of op( A[i]) and rows of op( B[i])
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - b: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
-//   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
-//   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
+//   - ldb: Leading dimension of two-dimensional array used to store each matrix B[i]
+//   - strideB: Value of type long long int that gives the offset in number of elements between B[i] and B[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
-//   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
+//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix C[i]
+//   - strideC: Value of type long long int that gives the offset in number of elements between C[i] and C[i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
 //
 // Errors:
@@ -5528,34 +5531,34 @@ func cgemmStridedBatched(handle Handle, transa Operation, transb Operation, m in
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
 // C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
+// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A[i])m×k , op(B[i])k×n and C[i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
-// and op(B [i]) is defined similarly for matrix B [i] .
+// and op(B[i]) is defined similarly for matrix B[i] .
 //
-// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], B[i], C[i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A[i-1], B[i-1], C[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // It is [Handle.CgemmStridedBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transa: Operation op( A [i]) that is non- or (conj.) transpose
-//   - transb: Operation op( B [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix op( A [i]) and C [i]
-//   - n: Number of columns of op( B [i]) and C [i]
-//   - k: Number of columns of op( A [i]) and rows of op( B [i])
+//   - transa: Operation op( A[i]) that is non- or (conj.) transpose
+//   - transb: Operation op( B[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix op( A[i]) and C[i]
+//   - n: Number of columns of op( B[i]) and C[i]
+//   - k: Number of columns of op( A[i]) and rows of op( B[i])
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - b: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
-//   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
-//   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
+//   - ldb: Leading dimension of two-dimensional array used to store each matrix B[i]
+//   - strideB: Value of type long long int that gives the offset in number of elements between B[i] and B[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
-//   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
+//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix C[i]
+//   - strideC: Value of type long long int that gives the offset in number of elements between C[i] and C[i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
 //
 // Errors:
@@ -5653,11 +5656,11 @@ func cgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64
 // cgemvBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
-// y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// y[i]=αop(A[i])x[i]+βy[i], for i∈[0,batchCount−1]
+// where α and β are scalars, and A is an array of pointers to matrice A[i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i] ,
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -5665,17 +5668,17 @@ func cgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64
 // [Handle.CgemvBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - incx: Stride of each one-dimensional array x [i]
+//   - incx: Stride of each one-dimensional array x[i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - incy: Stride of each one-dimensional array y [i]
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - incy: Stride of each one-dimensional array y[i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
 // Errors:
@@ -5694,11 +5697,11 @@ func cgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *Compl
 // cgemvBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
-// y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// y[i]=αop(A[i])x[i]+βy[i], for i∈[0,batchCount−1]
+// where α and β are scalars, and A is an array of pointers to matrice A[i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i] ,
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -5706,17 +5709,17 @@ func cgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *Compl
 // It is [Handle.CgemvBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - incx: Stride of each one-dimensional array x [i]
+//   - incx: Stride of each one-dimensional array x[i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - incy: Stride of each one-dimensional array y [i]
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - incy: Stride of each one-dimensional array y[i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
 // Errors:
@@ -5736,31 +5739,31 @@ func cgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *Com
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A[i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i]
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], x[i], y[i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A[i-1], x[i-1], y[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // [Handle.CgemvStridedBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
-//   - incx: Stride of each one-dimensional array x [i]
-//   - stridex: Value of type long long int that gives the offset in number of elements between x [i] and x [i+1]
+//   - incx: Stride of each one-dimensional array x[i]
+//   - stridex: Value of type long long int that gives the offset in number of elements between x[i] and x[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected
-//   - incy: Stride of each one-dimensional array y [i]
-//   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
+//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected
+//   - incy: Stride of each one-dimensional array y[i]
+//   - stridey: Value of type long long int that gives the offset in number of elements between y[i] and y[i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
 // Errors:
@@ -5780,31 +5783,31 @@ func cgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A[i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i]
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], x[i], y[i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A[i-1], x[i-1], y[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // It is [Handle.CgemvStridedBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
-//   - incx: Stride of each one-dimensional array x [i]
-//   - stridex: Value of type long long int that gives the offset in number of elements between x [i] and x [i+1]
+//   - incx: Stride of each one-dimensional array x[i]
+//   - stridex: Value of type long long int that gives the offset in number of elements between x[i] and x[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected
-//   - incy: Stride of each one-dimensional array y [i]
-//   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
+//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected
+//   - incy: Stride of each one-dimensional array y[i]
+//   - stridey: Value of type long long int that gives the offset in number of elements between y[i] and y[i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
 // Errors:
@@ -5895,9 +5898,15 @@ func cgemv64(handle Handle, trans Operation, m int64, n int64, alpha *Complex64,
 // Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
 //
 // TauArray is an array of pointers to vectors of dimension of at least max (1, min(m, n).
-// This function performs the QR factorization of each Aarray [i] for i = 0, ...,batchSize-1 using Householder reflections. Each matrix Q [i] is represented as a product of elementary reflectors and is stored in the lower part of each Aarray [i] as follows :
-// Each H [j][i] has the form
-// where tau [j] is a real scalar, and v is a real vector with v(1:i-1) = 0 and v(i) = 1; v(i+1:m) is stored on exit in Aarray [j][i+1:m,i], and tau in TauArray [j][i].
+// This function performs the QR factorization of each Aarray[i] for i = 0, ...,batchSize-1 using Householder reflections. Each matrix Q[i] is represented as a product of elementary reflectors and is stored in the lower part of each Aarray[i] as follows :
+//
+//	Q[j] = H[j][1] H[j][2] . . . H[j](k), where k = min(m,n).
+//
+// Each H[j][i] has the form
+//
+//	H[j][i] = I - tau[j] * v * v'
+//
+// where tau[j] is a real scalar, and v is a real vector with v(1:i-1) = 0 and v(i) = 1; v(i+1:m) is stored on exit in Aarray[j][i+1:m,i], and tau in TauArray[j][i].
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.
 // cublasgeqrfBatched supports arbitrary dimension.
 // cublasgeqrfBatched only supports compute capability 2.0 or above.
@@ -5905,10 +5914,10 @@ func cgemv64(handle Handle, trans Operation, m int64, n int64, alpha *Complex64,
 // sgeqrf(), dgeqrf(), cgeqrf(), zgeqrf()
 //
 //   - handle: Handle to the cuBLAS library context
-//   - m: Number of rows Aarray [i]
-//   - n: Number of columns of Aarray [i]
+//   - m: Number of rows Aarray[i]
+//   - n: Number of columns of Aarray[i]
 //   - aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
 //   - tauArray: Array of pointers to < type > vector, with each vector of dim. max(1 ,min(m, n))
 //   - info: If info == 0, the parameters passed to the function are valid. If info < 0, the parameter in position -info is invalid
 //   - batchSize: Number of pointers contained in Aarray
@@ -6062,12 +6071,44 @@ func cgeru64(handle Handle, m int64, n int64, alpha *Complex64, x driver.DeviceP
 //
 // Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
 //
-// This function performs the LU factorization of each Aarray [i] for i = 0, …, batchSize-1 by the following equation
-// P*Aarray [i]=L*U
+// This function performs the LU factorization of each Aarray[i] for i = 0, …, batchSize-1 by the following equation
+// P*Aarray[i]=L*U
 // where P is a permutation matrix which represents partial pivoting with row interchanges. L is a lower triangular matrix with unit diagonal and U is an upper triangular matrix.
-// Formally P is written by a product of permutation matrices Pj, for j = 1,2,...,n, say P = P1 * P2 * P3 * .... * Pn. Pj is a permutation matrix which interchanges two rows of vector x when performing Pj*x. Pj can be constructed by j element of PivotArray [i] by the following Matlab code
+// Formally P is written by a product of permutation matrices Pj, for j = 1,2,...,n, say P = P1 * P2 * P3 * .... * Pn. Pj is a permutation matrix which interchanges two rows of vector x when performing Pj*x. Pj can be constructed by j element of PivotArray[i] by the following Matlab code
+//
+//	// In Matlab PivotArray[i] is an array of base-1.
+//	// In C, PivotArray[i] is base-0.
+//	Pj = eye(n);
+//	swap Pj(j,:) and Pj(PivotArray[i][j]  ,:)
+//
 // L and U are written back to original matrix A, and diagonal elements of L are discarded. The L and U can be constructed by the following Matlab code
-// If matrix A(=Aarray [i]) is singular, getrf still works and the value of info(=infoArray [i]) reports first row index that LU factorization cannot proceed. If info is k, U(k,k) is zero. The equation P*A == L*U still holds, however L and U reconstruction needs a different Matlab code as follows:
+//
+//	// A is a matrix of nxn after getrf.
+//	L = eye(n);
+//	for j = 1:n
+//	    L(j+1:n,j) = A(j+1:n,j)
+//	end
+//	U = zeros(n);
+//	for i = 1:n
+//	    U(i,i:n) = A(i,i:n)
+//	end
+//
+// If matrix A(=Aarray[i]) is singular, getrf still works and the value of info(=infoArray[i]) reports first row index that LU factorization cannot proceed. If info is k, U(k,k) is zero. The equation P*A == L*U still holds, however L and U reconstruction needs a different Matlab code as follows:
+//
+//	// A is a matrix of nxn after getrf.
+//	// info is k, which means U(k,k) is zero.
+//	L = eye(n);
+//	for j = 1:k-1
+//	    L(j+1:n,j) = A(j+1:n,j)
+//	end
+//	U = zeros(n);
+//	for i = 1:k-1
+//	    U(i,i:n) = A(i,i:n)
+//	end
+//	for i = k:n
+//	    U(i,k:n) = A(i,k:n)
+//	end
+//
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.
 // cublasgetrfBatched supports non-pivot LU factorization if PivotArray is NULL.
 // cublasgetrfBatched supports arbitrary dimension.
@@ -6076,8 +6117,8 @@ func cgeru64(handle Handle, m int64, n int64, alpha *Complex64, x driver.DeviceP
 // sgeqrf(), dgeqrf(), cgeqrf(), zgeqrf()
 //
 //   - handle: Handle to the cuBLAS library context
-//   - n: Number of rows and columns of Aarray [i]
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
+//   - n: Number of rows and columns of Aarray[i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
 //   - batchSize: Number of pointers contained in A
 //
 // Errors:
@@ -6097,10 +6138,21 @@ func cgetrfBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 //
 // Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
 //
-// This function performs the inversion of matrices A [i] for i = 0, …, batchSize-1.
-// Prior to calling cublasgetriBatched, the matrix A [i] must be factorized first using the routine cublasgetrfBatched. After the call of cublasgetrfBatched, the matrix pointing by Aarray [i] will contain the LU factors of the matrix A [i] and the vector pointing by (PivotArray+i) will contain the pivoting sequence.
-// Following the LU factorization, cublasgetriBatched uses forward and backward triangular solvers to complete inversion of matrices A [i] for i = 0, …, batchSize-1. The inversion is out-of-place, so memory space of Carray [i] cannot overlap memory space of Array [i].
+// This function performs the inversion of matrices A[i] for i = 0, …, batchSize-1.
+// Prior to calling cublasgetriBatched, the matrix A[i] must be factorized first using the routine cublasgetrfBatched. After the call of cublasgetrfBatched, the matrix pointing by Aarray[i] will contain the LU factors of the matrix A[i] and the vector pointing by (PivotArray+i) will contain the pivoting sequence.
+// Following the LU factorization, cublasgetriBatched uses forward and backward triangular solvers to complete inversion of matrices A[i] for i = 0, …, batchSize-1. The inversion is out-of-place, so memory space of Carray[i] cannot overlap memory space of Array[i].
 // Typically all parameters in cublasgetrfBatched would be passed into cublasgetriBatched. For example,
+//
+//	// step 1: perform in-place LU decomposition, P*A = L*U.
+//	//      Aarray[i] is n*n matrix A[i]
+//	    cublasDgetrfBatched(handle, n, Aarray, lda, PivotArray, infoArray, batchSize);
+//	//      check infoArray[i] to see if factorization of A[i] is successful or not.
+//	//      Array[i] contains LU factorization of A[i]
+//
+//	// step 2: perform out-of-place inversion, Carray[i] = inv(A[i])
+//	    cublasDgetriBatched(handle, n, Aarray, lda, PivotArray, Carray, ldc, infoArray, batchSize);
+//	//      check infoArray[i] to see if inversion of A[i] is successful or not.
+//
 // The user can check singularity from either cublasgetrfBatched or cublasgetriBatched.
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.
 // If cublasgetrfBatched is performed by non-pivoting, PivotArray of cublasgetriBatched should be NULL.
@@ -6108,9 +6160,9 @@ func cgetrfBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 // cublasgetriBatched only supports compute capability 2.0 or above.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - n: Number of rows and columns of Aarray [i]
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray [i]
+//   - n: Number of rows and columns of Aarray[i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray[i]
 //   - batchSize: Number of pointers contained in A
 //
 // Errors:
@@ -6128,9 +6180,9 @@ func cgetriBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 
 // cgetrsBatched solves an array of systems of linear equations of the form:
 //
-// op(A [i])X [i]=B [i]
-// where A [i] is a matrix which has been LU factorized with pivoting, X [i] and B [i] are n×nrhs matrices. Also, for matrix A
-// op(A [i])={A [i]if trans == CUBLAS_OP_NAᵀ[i]if trans == CUBLAS_OP_TAᴴ[i]if trans == [OpC]
+// op(A[i])X[i]=B[i]
+// where A[i] is a matrix which has been LU factorized with pivoting, X[i] and B[i] are n×nrhs matrices. Also, for matrix A
+// op(A[i])={A[i]if trans == CUBLAS_OP_NAᵀ[i]if trans == CUBLAS_OP_TAᴴ[i]if trans == [OpC]
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.
 // cublasgetrsBatched() supports non-pivot LU factorization if devIpiv is NULL.
 // cublasgetrsBatched() supports arbitrary dimension.
@@ -6140,13 +6192,13 @@ func cgetriBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 //
 //   - handle: Handle to the cuBLAS library context
 //   - trans: Operation op( A) that is non- or (conj.) transpose
-//   - n: Number of rows and columns of Aarray [i]
-//   - nrhs: Number of columns of Barray [i]
+//   - n: Number of rows and columns of Aarray[i]
+//   - nrhs: Number of columns of Barray[i]
 //   - aarray: Array of pointers to < type > array, with each array of dim. n x n with lda >= max(1, n)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - devIpiv: Array of size n x batchSize that contains the pivoting sequence of each factorization of Aarray [i] stored in a linear fashion. If devIpiv is NULL, pivoting for all Aarray [i] is ignored
-//   - barray: Array of pointers to < type > array, with each array of dim. n x nrhs with ldb >= max(1, n). Matrices Barray [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldb: Leading dimension of two-dimensional array used to store each solution matrix Barray [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
+//   - devIpiv: Array of size n x batchSize that contains the pivoting sequence of each factorization of Aarray[i] stored in a linear fashion. If devIpiv is NULL, pivoting for all Aarray[i] is ignored
+//   - barray: Array of pointers to < type > array, with each array of dim. n x nrhs with ldb >= max(1, n). Matrices Barray[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldb: Leading dimension of two-dimensional array used to store each solution matrix Barray[i]
 //   - info: If info == 0, the execution is successful. If info = -j, the j-th parameter had an illegal value
 //   - batchSize: Number of pointers contained in A
 //
@@ -6906,8 +6958,8 @@ func cherkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 // chpmv performs the Hermitian packed matrix-vector multiplication.
 //
 // y=αAx+βy, where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α and β are scalars.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // chpmv(), zhpmv()
 //
@@ -6940,8 +6992,8 @@ func chpmv(handle Handle, uplo FillMode, n int32, alpha *Complex64, ap driver.De
 // chpmv64 performs the Hermitian packed matrix-vector multiplication.
 //
 // y=αAx+βy, where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α and β are scalars.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // chpmv(), zhpmv()
 //
@@ -6974,8 +7026,8 @@ func chpmv64(handle Handle, uplo FillMode, n int64, alpha *Complex64, ap driver.
 // chpr2 performs the packed Hermitian rank-2 update.
 //
 // A=αxyᴴ+αˉyxᴴ+A, where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α is a scalar.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // chpr2, zhpr2
 //
@@ -7007,8 +7059,8 @@ func chpr2(handle Handle, uplo FillMode, n int32, alpha *Complex64, x driver.Dev
 // chpr264 performs the packed Hermitian rank-2 update.
 //
 // A=αxyᴴ+αˉyxᴴ+A, where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α is a scalar.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // chpr2, zhpr2
 //
@@ -7040,8 +7092,8 @@ func chpr264(handle Handle, uplo FillMode, n int64, alpha *Complex64, x driver.D
 // chpr performs the packed Hermitian rank-1 update.
 //
 // A=αxxᴴ+A, where A is a n×n Hermitian matrix stored in packed format, x is a vector, and α is a scalar.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // chpr(), zhpr()
 //
@@ -7071,8 +7123,8 @@ func chpr(handle Handle, uplo FillMode, n int32, alpha *float32, x driver.Device
 // chpr64 performs the packed Hermitian rank-1 update.
 //
 // A=αxxᴴ+A, where A is a n×n Hermitian matrix stored in packed format, x is a vector, and α is a scalar.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // chpr(), zhpr()
 //
@@ -7101,17 +7153,17 @@ func chpr64(handle Handle, uplo FillMode, n int64, alpha *float32, x driver.Devi
 
 // cmatinvBatched A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldaInv respectively.
 //
-// This function performs the inversion of matrices A [i] for i = 0, …, batchSize-1.
+// This function performs the inversion of matrices A[i] for i = 0, …, batchSize-1.
 // This function is a short cut of cublasgetrfBatched() plus cublasgetriBatched(). However it doesn’t work if n is greater than 32. If not, the user has to go through cublasgetrfBatched() and cublasgetriBatched().
-// If the matrix A [i] is singular, then info [i] reports singularity, the same as cublasgetrfBatched().
+// If the matrix A[i] is singular, then info[i] reports singularity, the same as cublasgetrfBatched().
 //
 //   - handle: Handle to the cuBLAS library context
-//   - n: Number of rows and columns of A [i]
+//   - n: Number of rows and columns of A[i]
 //   - a: Array of pointers to < type > array, with each array of dimension n*n with lda >= max(1, n)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - ainv: Array of pointers to < type > array, with each array of dimension n*n with ldaInv >= max(1, n). Matrices Ainv [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldaInv: Leading dimension of two-dimensional array used to store each matrix Ainv [i]
-//   - info: Array of size batchSize that info [i] contains the information of inversion of A [i]. If info [i] == 0, the execution is successful. If info [i] == k, then U(k, k) == 0. The U is exactly singular and the inversion failed
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - ainv: Array of pointers to < type > array, with each array of dimension n*n with ldaInv >= max(1, n). Matrices Ainv[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldaInv: Leading dimension of two-dimensional array used to store each matrix Ainv[i]
+//   - info: Array of size batchSize that info[i] contains the information of inversion of A[i]. If info[i] == 0, the execution is successful. If info[i] == k, then U(k, k) == 0. The U is exactly singular and the inversion failed
 //   - batchSize: Number of pointers contained in A
 //
 // Errors:
@@ -7182,7 +7234,7 @@ var slotCreate outSlot[Handle]
 //
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x[k]=c×x[k]+s×y[j] and y[j]=−s×x[k]+c×y[j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
 //
@@ -7213,7 +7265,7 @@ func crot(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devic
 //
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x[k]=c×x[k]+s×y[j] and y[j]=−s×x[k]+c×y[j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
 //
@@ -7273,7 +7325,7 @@ func crotg(handle Handle, a *Complex64, b *Complex64, c *float32, s *Complex64) 
 
 // cscal scales the vector x by the scalar α and overwrites it with the result.
 //
-// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is x[j]=α×x[j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
 //
@@ -7299,7 +7351,7 @@ func cscal(handle Handle, n int32, alpha *Complex64, x driver.DevicePtr, incx in
 
 // cscal64 scales the vector x by the scalar α and overwrites it with the result.
 //
-// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is x[j]=α×x[j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
 //
@@ -7327,7 +7379,7 @@ func cscal64(handle Handle, n int64, alpha *Complex64, x driver.DevicePtr, incx 
 //
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x[k]=c×x[k]+s×y[j] and y[j]=−s×x[k]+c×y[j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
 //
@@ -7358,7 +7410,7 @@ func csrot(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 //
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x[k]=c×x[k]+s×y[j] and y[j]=−s×x[k]+c×y[j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
 //
@@ -7387,7 +7439,7 @@ func csrot64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 
 // csscal scales the vector x by the scalar α and overwrites it with the result.
 //
-// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is x[j]=α×x[j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
 //
@@ -7413,7 +7465,7 @@ func csscal(handle Handle, n int32, alpha *float32, x driver.DevicePtr, incx int
 
 // csscal64 scales the vector x by the scalar α and overwrites it with the result.
 //
-// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is x[j]=α×x[j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
 //
@@ -7439,7 +7491,7 @@ func csscal64(handle Handle, n int64, alpha *float32, x driver.DevicePtr, incx i
 
 // cswap interchanges the elements of vector x and y.
 //
-// Hence, the performed operation is y [j]⇔x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is y[j]⇔x[k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sswap(), dswap(), cswap(), zswap()
 //
@@ -7466,7 +7518,7 @@ func cswap(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 
 // cswap64 interchanges the elements of vector x and y.
 //
-// Hence, the performed operation is y [j]⇔x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is y[j]⇔x[k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sswap(), dswap(), cswap(), zswap()
 //
@@ -8309,8 +8361,8 @@ func ctbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //
 // x=op(A)x, where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for A(i,j) and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for A(i,j) and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // stpmv(), dtpmv(), ctpmv(), ztpmv()
 //
@@ -8343,8 +8395,8 @@ func ctpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //
 // x=op(A)x, where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for A(i,j) and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for A(i,j) and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // stpmv(), dtpmv(), ctpmv(), ztpmv()
 //
@@ -8379,8 +8431,8 @@ func ctpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 // op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // stpsv(), dtpsv(), ctpsv(), ztpsv()
 //
@@ -8414,8 +8466,8 @@ func ctpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 // op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // stpsv(), dtpsv(), ctpsv(), ztpsv()
 //
@@ -8615,10 +8667,10 @@ func ctrmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 
 // ctrsmBatched solves an array of triangular linear systems with multiple right-hand-sides.
 //
-// {op(A [i])X [i]=αB [i]if side == CUBLAS_SIDE_LEFTX [i]op(A [i])=αB [i]if side == [SideRight]
-// where A [i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X [i] and B [i] are m×n matrices, and α is a scalar. Also, for matrix A
-// op(A [i])={A [i]if transa == CUBLAS_OP_NAᵀ[i]if transa == CUBLAS_OP_TAᴴ[i]if transa == [OpC]
-// The solution X [i] overwrites the right-hand-sides B [i] on exit.
+// {op(A[i])X[i]=αB[i]if side == CUBLAS_SIDE_LEFTX[i]op(A[i])=αB[i]if side == [SideRight]
+// where A[i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X[i] and B[i] are m×n matrices, and α is a scalar. Also, for matrix A
+// op(A[i])={A[i]if transa == CUBLAS_OP_NAᵀ[i]if transa == CUBLAS_OP_TAᴴ[i]if transa == [OpC]
+// The solution X[i] overwrites the right-hand-sides B[i] on exit.
 // No test for singularity or near-singularity is included in this function.
 // This function works for any sizes but is intended to be used for matrices of small sizes where the launch overhead is a significant factor. For bigger sizes, it might be advantageous to call batchCount times the regular cublastrsm() within a set of CUDA streams.
 // The current implementation is limited to devices with compute capability above or equal 2.0.
@@ -8628,17 +8680,17 @@ func ctrmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 // [Handle.CtrsmBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - side: Indicates if matrix A [i] is on the left or right of X [i]
-//   - uplo: Indicates if matrix A [i] lower or upper part is stored, the other part is not referenced and is inferred from the stored elements
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - diag: Indicates if the elements on the main diagonal of matrix A [i] are unity and should not be accessed
-//   - m: Number of rows of matrix B [i], with matrix A [i] sized accordingly
-//   - n: Number of columns of matrix B [i], with matrix A [i] is sized accordingly
-//   - alpha: < type > scalar used for multiplication, if alpha == 0 then A [i] is not referenced and B [i] does not have to be a valid input
+//   - side: Indicates if matrix A[i] is on the left or right of X[i]
+//   - uplo: Indicates if matrix A[i] lower or upper part is stored, the other part is not referenced and is inferred from the stored elements
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - diag: Indicates if the elements on the main diagonal of matrix A[i] are unity and should not be accessed
+//   - m: Number of rows of matrix B[i], with matrix A[i] sized accordingly
+//   - n: Number of columns of matrix B[i], with matrix A[i] is sized accordingly
+//   - alpha: < type > scalar used for multiplication, if alpha == 0 then A[i] is not referenced and B[i] does not have to be a valid input
 //   - a: Array of pointers to < type > array, with each array of dim. lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
-//   - lda: Leading dimension of two-dimensional array used to store matrix A [i]
-//   - b: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
+//   - lda: Leading dimension of two-dimensional array used to store matrix A[i]
+//   - b: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldb: Leading dimension of two-dimensional array used to store matrix B[i]
 //   - batchCount: Number of pointers contained in A and B
 //
 // Errors:
@@ -8656,10 +8708,10 @@ func ctrsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, 
 
 // ctrsmBatched64 solves an array of triangular linear systems with multiple right-hand-sides.
 //
-// {op(A [i])X [i]=αB [i]if side == CUBLAS_SIDE_LEFTX [i]op(A [i])=αB [i]if side == [SideRight]
-// where A [i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X [i] and B [i] are m×n matrices, and α is a scalar. Also, for matrix A
-// op(A [i])={A [i]if transa == CUBLAS_OP_NAᵀ[i]if transa == CUBLAS_OP_TAᴴ[i]if transa == [OpC]
-// The solution X [i] overwrites the right-hand-sides B [i] on exit.
+// {op(A[i])X[i]=αB[i]if side == CUBLAS_SIDE_LEFTX[i]op(A[i])=αB[i]if side == [SideRight]
+// where A[i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X[i] and B[i] are m×n matrices, and α is a scalar. Also, for matrix A
+// op(A[i])={A[i]if transa == CUBLAS_OP_NAᵀ[i]if transa == CUBLAS_OP_TAᴴ[i]if transa == [OpC]
+// The solution X[i] overwrites the right-hand-sides B[i] on exit.
 // No test for singularity or near-singularity is included in this function.
 // This function works for any sizes but is intended to be used for matrices of small sizes where the launch overhead is a significant factor. For bigger sizes, it might be advantageous to call batchCount times the regular cublastrsm() within a set of CUDA streams.
 // The current implementation is limited to devices with compute capability above or equal 2.0.
@@ -8669,17 +8721,17 @@ func ctrsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, 
 // It is [Handle.CtrsmBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - side: Indicates if matrix A [i] is on the left or right of X [i]
-//   - uplo: Indicates if matrix A [i] lower or upper part is stored, the other part is not referenced and is inferred from the stored elements
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - diag: Indicates if the elements on the main diagonal of matrix A [i] are unity and should not be accessed
-//   - m: Number of rows of matrix B [i], with matrix A [i] sized accordingly
-//   - n: Number of columns of matrix B [i], with matrix A [i] is sized accordingly
-//   - alpha: < type > scalar used for multiplication, if alpha == 0 then A [i] is not referenced and B [i] does not have to be a valid input
+//   - side: Indicates if matrix A[i] is on the left or right of X[i]
+//   - uplo: Indicates if matrix A[i] lower or upper part is stored, the other part is not referenced and is inferred from the stored elements
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - diag: Indicates if the elements on the main diagonal of matrix A[i] are unity and should not be accessed
+//   - m: Number of rows of matrix B[i], with matrix A[i] sized accordingly
+//   - n: Number of columns of matrix B[i], with matrix A[i] is sized accordingly
+//   - alpha: < type > scalar used for multiplication, if alpha == 0 then A[i] is not referenced and B[i] does not have to be a valid input
 //   - a: Array of pointers to < type > array, with each array of dim. lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
-//   - lda: Leading dimension of two-dimensional array used to store matrix A [i]
-//   - b: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
+//   - lda: Leading dimension of two-dimensional array used to store matrix A[i]
+//   - b: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldb: Leading dimension of two-dimensional array used to store matrix B[i]
 //   - batchCount: Number of pointers contained in A and B
 //
 // Errors:
@@ -8867,7 +8919,7 @@ func ctrttp(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 
 // dasum computes the sum of the absolute values of the elements of vector x.
 //
-// Hence, the result is ∑_(i=1)^(n)|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)|Im(x[j])|+|Re(x[j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sasum(), dasum(), scasum(), dzasum()
 //
@@ -8904,7 +8956,7 @@ var slotDasum outSlot[float64]
 
 // dasum64 computes the sum of the absolute values of the elements of vector x.
 //
-// Hence, the result is ∑_(i=1)^(n)|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)|Im(x[j])|+|Re(x[j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sasum(), dasum(), scasum(), dzasum()
 //
@@ -8941,7 +8993,7 @@ var slotDasum64 outSlot[float64]
 
 // daxpy multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
 //
-// Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is y[j]=α×x[k]+y[j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // saxpy(), daxpy(), caxpy(), zaxpy()
 //
@@ -8969,7 +9021,7 @@ func daxpy(handle Handle, n int32, alpha *float64, x driver.DevicePtr, incx int3
 
 // daxpy64 multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
 //
-// Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is y[j]=α×x[k]+y[j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // saxpy(), daxpy(), caxpy(), zaxpy()
 //
@@ -8997,7 +9049,7 @@ func daxpy64(handle Handle, n int64, alpha *float64, x driver.DevicePtr, incx in
 
 // dcopy copies the vector x into the vector y.
 //
-// Hence, the performed operation is y [j]=x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is y[j]=x[k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // scopy(), dcopy(), ccopy(), zcopy()
 //
@@ -9024,7 +9076,7 @@ func dcopy(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 
 // dcopy64 copies the vector x into the vector y.
 //
-// Hence, the performed operation is y [j]=x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is y[j]=x[k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // scopy(), dcopy(), ccopy(), zcopy()
 //
@@ -9053,10 +9105,10 @@ func dcopy64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 //
 // C={A×diag(X)if mode == CUBLAS_SIDE_RIGHTdiag(X)×Aif mode == [SideLeft]
 // where A and C are matrices stored in column-major format with dimensions m×n . X is a vector of size n if mode == [SideRight] and of size m if mode == [SideLeft]. X is gathered from one-dimensional array x with stride incx. The absolute value of incx is the stride and the sign of incx is direction of the stride. If incx is positive, then we forward x from the first element. Otherwise, we backward x from the last element. The formula of X is
-// X [j]={x [j×incx]if incx≥0x[(χ−1)×|incx|−j×|incx|]if incx<0
+// X[j]={x[j×incx]if incx≥0x[(χ−1)×|incx|−j×|incx|]if incx<0
 // where χ=m if mode == [SideLeft] and χ=n if mode == [SideRight].
 // Example 1: if the user wants to perform diag(diag(B))×A , then incx=ldb+1 where ldb is leading dimension of matrix B, either row-major or column-major.
-// Example 2: if the user wants to perform α×A , then there are two choices, either cublasgeam() with *beta == 0 and transa == [OpN] or cublasdgmm() with incx == 0 and x [0] == alpha.
+// Example 2: if the user wants to perform α×A , then there are two choices, either cublasgeam() with *beta == 0 and transa == [OpN] or cublasdgmm() with incx == 0 and x[0] == alpha.
 // The operation is out-of-place. The in-place only works if lda == ldc.
 //
 // [Handle.Ddgmm64] takes 64-bit sizes.
@@ -9089,10 +9141,10 @@ func ddgmm(handle Handle, mode SideMode, m int32, n int32, a driver.DevicePtr, l
 //
 // C={A×diag(X)if mode == CUBLAS_SIDE_RIGHTdiag(X)×Aif mode == [SideLeft]
 // where A and C are matrices stored in column-major format with dimensions m×n . X is a vector of size n if mode == [SideRight] and of size m if mode == [SideLeft]. X is gathered from one-dimensional array x with stride incx. The absolute value of incx is the stride and the sign of incx is direction of the stride. If incx is positive, then we forward x from the first element. Otherwise, we backward x from the last element. The formula of X is
-// X [j]={x [j×incx]if incx≥0x[(χ−1)×|incx|−j×|incx|]if incx<0
+// X[j]={x[j×incx]if incx≥0x[(χ−1)×|incx|−j×|incx|]if incx<0
 // where χ=m if mode == [SideLeft] and χ=n if mode == [SideRight].
 // Example 1: if the user wants to perform diag(diag(B))×A , then incx=ldb+1 where ldb is leading dimension of matrix B, either row-major or column-major.
-// Example 2: if the user wants to perform α×A , then there are two choices, either cublasgeam() with *beta == 0 and transa == [OpN] or cublasdgmm() with incx == 0 and x [0] == alpha.
+// Example 2: if the user wants to perform α×A , then there are two choices, either cublasgeam() with *beta == 0 and transa == [OpN] or cublasdgmm() with incx == 0 and x[0] == alpha.
 // The operation is out-of-place. The in-place only works if lda == ldc.
 //
 // It is [Handle.Ddgmm] with int64 sizes and strides.
@@ -9123,7 +9175,7 @@ func ddgmm64(handle Handle, mode SideMode, m int64, n int64, a driver.DevicePtr,
 
 // ddot computes the dot product of vectors x and y.
 //
-// Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)(x[k]×y[j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -9161,7 +9213,7 @@ var slotDdot outSlot[float64]
 
 // ddot64 computes the dot product of vectors x and y.
 //
-// Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)(x[k]×y[j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -9382,7 +9434,10 @@ func dgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64
 //
 // Carray is an array of pointers to matrices stored in column-major format.
 // This function find the least squares solution of a batch of overdetermined systems: it solves the least squares problem described as follows :
-// On exit, each Aarray [i] is overwritten with their QR factorization and each Carray [i] is overwritten with the least square solution
+//
+//	minimize  || Carray[i] - Aarray[i]*Xarray[i] || , with i = 0, ...,batchSize-1
+//
+// On exit, each Aarray[i] is overwritten with their QR factorization and each Carray[i] is overwritten with the least square solution
 // cublasgelsBatched supports only the non-transpose operation and only solves over-determined systems (m >= n).
 // cublasgelsBatched only supports compute capability 2.0 or above.
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.
@@ -9390,16 +9445,16 @@ func dgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64
 // sgels(), dgels(), cgels(), zgels()
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( Aarray [i]) that is non- or (conj.) transpose. Only non-transpose operation is currently supported
-//   - m: Number of rows of each Aarray [i] and Carray [i] if trans == [OpN], numbers of columns of each Aarray [i] otherwise (not supported currently)
-//   - n: Number of columns of each Aarray [i] if trans == [OpN], and number of rows of each Aarray [i] and Carray [i] otherwise (not supported currently)
-//   - nrhs: Number of columns of each Carray [i]
-//   - aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m) if trans == [OpN], and n x m with lda >= max(1, n) otherwise (not supported currently). Matrices Aarray [i] should not overlap; otherwise, behavior is undefined
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - carray: Array of pointers to < type > array, with each array of dim. m x nrhs with ldc >= max(1, m) if trans == [OpN], and n x nrhs with lda >= max(1, n) otherwise (not supported currently). Matrices Carray [i] should not overlap; otherwise, behavior is undefined
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray [i]
+//   - trans: Operation op( Aarray[i]) that is non- or (conj.) transpose. Only non-transpose operation is currently supported
+//   - m: Number of rows of each Aarray[i] and Carray[i] if trans == [OpN], numbers of columns of each Aarray[i] otherwise (not supported currently)
+//   - n: Number of columns of each Aarray[i] if trans == [OpN], and number of rows of each Aarray[i] and Carray[i] otherwise (not supported currently)
+//   - nrhs: Number of columns of each Carray[i]
+//   - aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m) if trans == [OpN], and n x m with lda >= max(1, n) otherwise (not supported currently). Matrices Aarray[i] should not overlap; otherwise, behavior is undefined
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
+//   - carray: Array of pointers to < type > array, with each array of dim. m x nrhs with ldc >= max(1, m) if trans == [OpN], and n x nrhs with lda >= max(1, n) otherwise (not supported currently). Matrices Carray[i] should not overlap; otherwise, behavior is undefined
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray[i]
 //   - info: If info == 0 the parameters passed to the function are valid. If info < 0 the parameter in position -info is invalid
-//   - devInfoArray: Optional array of integers of dimension batchsize. If non-null, every element of devInfoArray [i] == V has the following meaning: V == 0 : the i-th problem was successfully solved. V > 0 : the V-th diagonal element of the Aarray [i] is zero. Aarray [i] does not have full rank
+//   - devInfoArray: Optional array of integers of dimension batchsize. If non-null, every element of devInfoArray[i] == V has the following meaning: V == 0 : the i-th problem was successfully solved. V > 0 : the V-th diagonal element of the Aarray[i] is zero. Aarray[i] does not have full rank
 //   - batchSize: Number of pointers contained in Aarray and Carray
 //
 // Errors:
@@ -9419,12 +9474,12 @@ func dgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, 
 // dgemmBatched performs the matrix-matrix multiplication of a batch of matrices.
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
-// C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
-// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
+// C[i]=αop(A[i])op(B[i])+βC[i], for i ∈[0,batchCount−1]
+// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A[i])m×k , op(B[i])k×n and C[i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
-// and op(B [i]) is defined similarly for matrix B [i] .
+// and op(B[i]) is defined similarly for matrix B[i] .
 //
-// Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -9432,19 +9487,19 @@ func dgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, 
 // [Handle.DgemmBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transa: Operation op( A [i]) that is non- or (conj.) transpose
-//   - transb: Operation op( B [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix op( A [i]) and C [i]
-//   - n: Number of columns of op( B [i]) and C [i]
-//   - k: Number of columns of op( A [i]) and rows of op( B [i])
+//   - transa: Operation op( A[i]) that is non- or (conj.) transpose
+//   - transb: Operation op( B[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix op( A[i]) and C[i]
+//   - n: Number of columns of op( B[i]) and C[i]
+//   - k: Number of columns of op( A[i]) and rows of op( B[i])
 //   - alpha: < type > scalar used for multiplication
 //   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
 //   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
+//   - ldb: Leading dimension of two-dimensional array used to store each matrix B[i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C[i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix C[i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
 // Errors:
@@ -9464,12 +9519,12 @@ func dgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 // dgemmBatched64 performs the matrix-matrix multiplication of a batch of matrices.
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
-// C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
-// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
+// C[i]=αop(A[i])op(B[i])+βC[i], for i ∈[0,batchCount−1]
+// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A[i])m×k , op(B[i])k×n and C[i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
-// and op(B [i]) is defined similarly for matrix B [i] .
+// and op(B[i]) is defined similarly for matrix B[i] .
 //
-// Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -9477,19 +9532,19 @@ func dgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 // It is [Handle.DgemmBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transa: Operation op( A [i]) that is non- or (conj.) transpose
-//   - transb: Operation op( B [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix op( A [i]) and C [i]
-//   - n: Number of columns of op( B [i]) and C [i]
-//   - k: Number of columns of op( A [i]) and rows of op( B [i])
+//   - transa: Operation op( A[i]) that is non- or (conj.) transpose
+//   - transb: Operation op( B[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix op( A[i]) and C[i]
+//   - n: Number of columns of op( B[i]) and C[i]
+//   - k: Number of columns of op( A[i]) and rows of op( B[i])
 //   - alpha: < type > scalar used for multiplication
 //   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
 //   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
+//   - ldb: Leading dimension of two-dimensional array used to store each matrix B[i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C[i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix C[i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
 // Errors:
@@ -9509,14 +9564,25 @@ func dgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, 
 // dgemmGroupedBatched performs the matrix-matrix multiplication on groups of matrices.
 //
 // A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
+//
+//	idx = 0;
+//	for i = 0:group_count - 1
+//	    for j = 0:group_size[i] - 1
+//	        gemm(transa_array[i], transb_array[i], m_array[i], n_array[i], k_array[i],
+//	             alpha_array[i], Aarray[idx], lda_array[i], Barray[idx], ldb_array[i],
+//	             beta_array[i], Carray[idx], ldc_array[i]);
+//	        idx += 1;
+//	    end
+//	end
+//
 // where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
 //
-// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑_(i=0)^(groupCount−1)groupSize [i]
-// For matrix A [idx] in group i
-// op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]ᵀif transaArray [i] == CUBLAS_OP_TA [idx]ᴴif transaArray [i] == [OpC]
-// and op(B [idx]) is defined similarly for matrix B [idx] in group i.
+// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑_(i=0)^(groupCount−1)groupSize[i]
+// For matrix A[idx] in group i
+// op(A[idx])={A[idx]if transaArray[i] == CUBLAS_OP_NA[idx]ᵀif transaArray[i] == CUBLAS_OP_TA[idx]ᴴif transaArray[i] == [OpC]
+// and op(B[idx]) is defined similarly for matrix B[idx] in group i.
 //
-// Note: C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemmBatched() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmGroupedBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is required that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -9524,25 +9590,25 @@ func dgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, 
 // [Handle.DgemmGroupedBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transaArray: Operation op( A [idx]) that is non- or (conj.) transpose for each group
-//   - transbArray: Operation op( B [idx]) that is non- or (conj.) transpose for each group
-//   - mArray: Array containing the number of rows of matrix op( A [idx]) and C [idx] for each group
-//   - nArray: Array containing the number of columns of op( B [idx]) and C [idx] for each group
-//   - kArray: Array containing the number of columns of op( A [idx]) and rows of op( B [idx]) for each group
+//   - transaArray: Operation op( A[idx]) that is non- or (conj.) transpose for each group
+//   - transbArray: Operation op( B[idx]) that is non- or (conj.) transpose for each group
+//   - mArray: Array containing the number of rows of matrix op( A[idx]) and C[idx] for each group
+//   - nArray: Array containing the number of columns of op( B[idx]) and C[idx] for each group
+//   - kArray: Array containing the number of columns of op( A[idx]) and rows of op( B[idx]) for each group
 //   - alphaArray: Array containing the < type > scalar used for multiplication for each group
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldaArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix A [idx] for each group
-//   - barray: Array of pointers to < type > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldbArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix B [idx] for each group
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda[i] x k[i] with lda[i] >= max(1,m[i]) if transa[i] == [OpN] and lda[i] x m[i] with lda[i] >= max(1,k[i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
+//   - ldaArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix A[idx] for each group
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb[i] x n[i] with ldb[i] >= max(1,k[i]) if transb[i] == [OpN] and ldb[i] x k[i] with ldb[i] >= max(1,n[i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
+//   - ldbArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix B[idx] for each group
 //   - betaArray: Array containing the < type > scalar used for multiplication for each group
-//   - carray: Array of pointers to < type > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldcArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix C [idx] for each group
+//   - carray: Array of pointers to < type > array. It has dimensions ldc[i] x n[i] with ldc[i] >= max(1,m[i]). Matrices C[idx] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - ldcArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix C[idx] for each group
 //   - groupCount: Number of groups
 //   - groupSize: Array containing the number of pointers contained in Aarray, Barray and Carray for each group
 //
 // Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: If transa_array, transb_array, m_array, n_array, k_array, alpha_array, lda_array, ldb_array, beta_array, ldc_array, or group_size are NULL, or if group_count < 0, or if m_array [i] < 0, n_array [i] < 0, k_array [i] < 0, group_size [i] < 0, or if transa_array [i] and transb_array [i] are not one of [OpN], [OpC], [OpT], or if lda_array [i] < max(1, m_array [i]) if transa_array [i] == [OpN] and lda_array [i] < max(1, k_array [i]) otherwise, or if ldb_array [i] < max(1, k_array [i]) if transb_array [i] == [OpN] and ldb_array [i] < max(1, n_array [i]) otherwise, or if ldc_array [i] < max(1, m_array [i])
+//   - [ErrInvalidValue]: If transa_array, transb_array, m_array, n_array, k_array, alpha_array, lda_array, ldb_array, beta_array, ldc_array, or group_size are NULL, or if group_count < 0, or if m_array[i] < 0, n_array[i] < 0, k_array[i] < 0, group_size[i] < 0, or if transa_array[i] and transb_array[i] are not one of [OpN], [OpC], [OpT], or if lda_array[i] < max(1, m_array[i]) if transa_array[i] == [OpN] and lda_array[i] < max(1, k_array[i]) otherwise, or if ldb_array[i] < max(1, k_array[i]) if transb_array[i] == [OpN] and ldb_array[i] < max(1, n_array[i]) otherwise, or if ldc_array[i] < max(1, m_array[i])
 //   - [ErrNotInitialized]: The library was not initialized
 //   - [ErrNotSupported]: The pointer mode is set to [PointerModeDevice]
 //
@@ -9557,14 +9623,25 @@ func dgemmGroupedBatched(handle Handle, transaArray *Operation, transbArray *Ope
 // dgemmGroupedBatched64 performs the matrix-matrix multiplication on groups of matrices.
 //
 // A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
+//
+//	idx = 0;
+//	for i = 0:group_count - 1
+//	    for j = 0:group_size[i] - 1
+//	        gemm(transa_array[i], transb_array[i], m_array[i], n_array[i], k_array[i],
+//	             alpha_array[i], Aarray[idx], lda_array[i], Barray[idx], ldb_array[i],
+//	             beta_array[i], Carray[idx], ldc_array[i]);
+//	        idx += 1;
+//	    end
+//	end
+//
 // where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
 //
-// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑_(i=0)^(groupCount−1)groupSize [i]
-// For matrix A [idx] in group i
-// op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]ᵀif transaArray [i] == CUBLAS_OP_TA [idx]ᴴif transaArray [i] == [OpC]
-// and op(B [idx]) is defined similarly for matrix B [idx] in group i.
+// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑_(i=0)^(groupCount−1)groupSize[i]
+// For matrix A[idx] in group i
+// op(A[idx])={A[idx]if transaArray[i] == CUBLAS_OP_NA[idx]ᵀif transaArray[i] == CUBLAS_OP_TA[idx]ᴴif transaArray[i] == [OpC]
+// and op(B[idx]) is defined similarly for matrix B[idx] in group i.
 //
-// Note: C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemmBatched() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmGroupedBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is required that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -9572,25 +9649,25 @@ func dgemmGroupedBatched(handle Handle, transaArray *Operation, transbArray *Ope
 // It is [Handle.DgemmGroupedBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transaArray: Operation op( A [idx]) that is non- or (conj.) transpose for each group
-//   - transbArray: Operation op( B [idx]) that is non- or (conj.) transpose for each group
-//   - mArray: Array containing the number of rows of matrix op( A [idx]) and C [idx] for each group
-//   - nArray: Array containing the number of columns of op( B [idx]) and C [idx] for each group
-//   - kArray: Array containing the number of columns of op( A [idx]) and rows of op( B [idx]) for each group
+//   - transaArray: Operation op( A[idx]) that is non- or (conj.) transpose for each group
+//   - transbArray: Operation op( B[idx]) that is non- or (conj.) transpose for each group
+//   - mArray: Array containing the number of rows of matrix op( A[idx]) and C[idx] for each group
+//   - nArray: Array containing the number of columns of op( B[idx]) and C[idx] for each group
+//   - kArray: Array containing the number of columns of op( A[idx]) and rows of op( B[idx]) for each group
 //   - alphaArray: Array containing the < type > scalar used for multiplication for each group
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldaArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix A [idx] for each group
-//   - barray: Array of pointers to < type > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldbArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix B [idx] for each group
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda[i] x k[i] with lda[i] >= max(1,m[i]) if transa[i] == [OpN] and lda[i] x m[i] with lda[i] >= max(1,k[i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
+//   - ldaArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix A[idx] for each group
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb[i] x n[i] with ldb[i] >= max(1,k[i]) if transb[i] == [OpN] and ldb[i] x k[i] with ldb[i] >= max(1,n[i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
+//   - ldbArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix B[idx] for each group
 //   - betaArray: Array containing the < type > scalar used for multiplication for each group
-//   - carray: Array of pointers to < type > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldcArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix C [idx] for each group
+//   - carray: Array of pointers to < type > array. It has dimensions ldc[i] x n[i] with ldc[i] >= max(1,m[i]). Matrices C[idx] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - ldcArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix C[idx] for each group
 //   - groupCount: Number of groups
 //   - groupSize: Array containing the number of pointers contained in Aarray, Barray and Carray for each group
 //
 // Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: If transa_array, transb_array, m_array, n_array, k_array, alpha_array, lda_array, ldb_array, beta_array, ldc_array, or group_size are NULL, or if group_count < 0, or if m_array [i] < 0, n_array [i] < 0, k_array [i] < 0, group_size [i] < 0, or if transa_array [i] and transb_array [i] are not one of [OpN], [OpC], [OpT], or if lda_array [i] < max(1, m_array [i]) if transa_array [i] == [OpN] and lda_array [i] < max(1, k_array [i]) otherwise, or if ldb_array [i] < max(1, k_array [i]) if transb_array [i] == [OpN] and ldb_array [i] < max(1, n_array [i]) otherwise, or if ldc_array [i] < max(1, m_array [i])
+//   - [ErrInvalidValue]: If transa_array, transb_array, m_array, n_array, k_array, alpha_array, lda_array, ldb_array, beta_array, ldc_array, or group_size are NULL, or if group_count < 0, or if m_array[i] < 0, n_array[i] < 0, k_array[i] < 0, group_size[i] < 0, or if transa_array[i] and transb_array[i] are not one of [OpN], [OpC], [OpT], or if lda_array[i] < max(1, m_array[i]) if transa_array[i] == [OpN] and lda_array[i] < max(1, k_array[i]) otherwise, or if ldb_array[i] < max(1, k_array[i]) if transb_array[i] == [OpN] and ldb_array[i] < max(1, n_array[i]) otherwise, or if ldc_array[i] < max(1, m_array[i])
 //   - [ErrNotInitialized]: The library was not initialized
 //   - [ErrNotSupported]: The pointer mode is set to [PointerModeDevice]
 //
@@ -9606,34 +9683,34 @@ func dgemmGroupedBatched64(handle Handle, transaArray *Operation, transbArray *O
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
 // C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
+// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A[i])m×k , op(B[i])k×n and C[i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
-// and op(B [i]) is defined similarly for matrix B [i] .
+// and op(B[i]) is defined similarly for matrix B[i] .
 //
-// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], B[i], C[i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A[i-1], B[i-1], C[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // [Handle.DgemmStridedBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transa: Operation op( A [i]) that is non- or (conj.) transpose
-//   - transb: Operation op( B [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix op( A [i]) and C [i]
-//   - n: Number of columns of op( B [i]) and C [i]
-//   - k: Number of columns of op( A [i]) and rows of op( B [i])
+//   - transa: Operation op( A[i]) that is non- or (conj.) transpose
+//   - transb: Operation op( B[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix op( A[i]) and C[i]
+//   - n: Number of columns of op( B[i]) and C[i]
+//   - k: Number of columns of op( A[i]) and rows of op( B[i])
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - b: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
-//   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
-//   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
+//   - ldb: Leading dimension of two-dimensional array used to store each matrix B[i]
+//   - strideB: Value of type long long int that gives the offset in number of elements between B[i] and B[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
-//   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
+//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix C[i]
+//   - strideC: Value of type long long int that gives the offset in number of elements between C[i] and C[i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
 //
 // Errors:
@@ -9654,34 +9731,34 @@ func dgemmStridedBatched(handle Handle, transa Operation, transb Operation, m in
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
 // C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
+// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A[i])m×k , op(B[i])k×n and C[i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
-// and op(B [i]) is defined similarly for matrix B [i] .
+// and op(B[i]) is defined similarly for matrix B[i] .
 //
-// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], B[i], C[i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A[i-1], B[i-1], C[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // It is [Handle.DgemmStridedBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transa: Operation op( A [i]) that is non- or (conj.) transpose
-//   - transb: Operation op( B [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix op( A [i]) and C [i]
-//   - n: Number of columns of op( B [i]) and C [i]
-//   - k: Number of columns of op( A [i]) and rows of op( B [i])
+//   - transa: Operation op( A[i]) that is non- or (conj.) transpose
+//   - transb: Operation op( B[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix op( A[i]) and C[i]
+//   - n: Number of columns of op( B[i]) and C[i]
+//   - k: Number of columns of op( A[i]) and rows of op( B[i])
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - b: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
-//   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
-//   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
+//   - ldb: Leading dimension of two-dimensional array used to store each matrix B[i]
+//   - strideB: Value of type long long int that gives the offset in number of elements between B[i] and B[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
-//   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
+//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix C[i]
+//   - strideC: Value of type long long int that gives the offset in number of elements between C[i] and C[i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
 //
 // Errors:
@@ -9779,11 +9856,11 @@ func dgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64
 // dgemvBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
-// y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// y[i]=αop(A[i])x[i]+βy[i], for i∈[0,batchCount−1]
+// where α and β are scalars, and A is an array of pointers to matrice A[i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i] ,
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -9791,17 +9868,17 @@ func dgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64
 // [Handle.DgemvBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - incx: Stride of each one-dimensional array x [i]
+//   - incx: Stride of each one-dimensional array x[i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - incy: Stride of each one-dimensional array y [i]
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - incy: Stride of each one-dimensional array y[i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
 // Errors:
@@ -9820,11 +9897,11 @@ func dgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *float
 // dgemvBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
-// y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// y[i]=αop(A[i])x[i]+βy[i], for i∈[0,batchCount−1]
+// where α and β are scalars, and A is an array of pointers to matrice A[i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i] ,
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -9832,17 +9909,17 @@ func dgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *float
 // It is [Handle.DgemvBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - incx: Stride of each one-dimensional array x [i]
+//   - incx: Stride of each one-dimensional array x[i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - incy: Stride of each one-dimensional array y [i]
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - incy: Stride of each one-dimensional array y[i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
 // Errors:
@@ -9862,31 +9939,31 @@ func dgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *flo
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A[i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i]
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], x[i], y[i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A[i-1], x[i-1], y[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // [Handle.DgemvStridedBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
-//   - incx: Stride of each one-dimensional array x [i]
-//   - stridex: Value of type long long int that gives the offset in number of elements between x [i] and x [i+1]
+//   - incx: Stride of each one-dimensional array x[i]
+//   - stridex: Value of type long long int that gives the offset in number of elements between x[i] and x[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected
-//   - incy: Stride of each one-dimensional array y [i]
-//   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
+//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected
+//   - incy: Stride of each one-dimensional array y[i]
+//   - stridey: Value of type long long int that gives the offset in number of elements between y[i] and y[i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
 // Errors:
@@ -9906,31 +9983,31 @@ func dgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A[i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i]
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], x[i], y[i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A[i-1], x[i-1], y[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // It is [Handle.DgemvStridedBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
-//   - incx: Stride of each one-dimensional array x [i]
-//   - stridex: Value of type long long int that gives the offset in number of elements between x [i] and x [i+1]
+//   - incx: Stride of each one-dimensional array x[i]
+//   - stridex: Value of type long long int that gives the offset in number of elements between x[i] and x[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected
-//   - incy: Stride of each one-dimensional array y [i]
-//   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
+//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected
+//   - incy: Stride of each one-dimensional array y[i]
+//   - stridey: Value of type long long int that gives the offset in number of elements between y[i] and y[i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
 // Errors:
@@ -10021,9 +10098,15 @@ func dgemv64(handle Handle, trans Operation, m int64, n int64, alpha *float64, a
 // Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
 //
 // TauArray is an array of pointers to vectors of dimension of at least max (1, min(m, n).
-// This function performs the QR factorization of each Aarray [i] for i = 0, ...,batchSize-1 using Householder reflections. Each matrix Q [i] is represented as a product of elementary reflectors and is stored in the lower part of each Aarray [i] as follows :
-// Each H [j][i] has the form
-// where tau [j] is a real scalar, and v is a real vector with v(1:i-1) = 0 and v(i) = 1; v(i+1:m) is stored on exit in Aarray [j][i+1:m,i], and tau in TauArray [j][i].
+// This function performs the QR factorization of each Aarray[i] for i = 0, ...,batchSize-1 using Householder reflections. Each matrix Q[i] is represented as a product of elementary reflectors and is stored in the lower part of each Aarray[i] as follows :
+//
+//	Q[j] = H[j][1] H[j][2] . . . H[j](k), where k = min(m,n).
+//
+// Each H[j][i] has the form
+//
+//	H[j][i] = I - tau[j] * v * v'
+//
+// where tau[j] is a real scalar, and v is a real vector with v(1:i-1) = 0 and v(i) = 1; v(i+1:m) is stored on exit in Aarray[j][i+1:m,i], and tau in TauArray[j][i].
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.
 // cublasgeqrfBatched supports arbitrary dimension.
 // cublasgeqrfBatched only supports compute capability 2.0 or above.
@@ -10031,10 +10114,10 @@ func dgemv64(handle Handle, trans Operation, m int64, n int64, alpha *float64, a
 // sgeqrf(), dgeqrf(), cgeqrf(), zgeqrf()
 //
 //   - handle: Handle to the cuBLAS library context
-//   - m: Number of rows Aarray [i]
-//   - n: Number of columns of Aarray [i]
+//   - m: Number of rows Aarray[i]
+//   - n: Number of columns of Aarray[i]
 //   - aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
 //   - tauArray: Array of pointers to < type > vector, with each vector of dim. max(1 ,min(m, n))
 //   - info: If info == 0, the parameters passed to the function are valid. If info < 0, the parameter in position -info is invalid
 //   - batchSize: Number of pointers contained in Aarray
@@ -10122,12 +10205,44 @@ func dger64(handle Handle, m int64, n int64, alpha *float64, x driver.DevicePtr,
 //
 // Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
 //
-// This function performs the LU factorization of each Aarray [i] for i = 0, …, batchSize-1 by the following equation
-// P*Aarray [i]=L*U
+// This function performs the LU factorization of each Aarray[i] for i = 0, …, batchSize-1 by the following equation
+// P*Aarray[i]=L*U
 // where P is a permutation matrix which represents partial pivoting with row interchanges. L is a lower triangular matrix with unit diagonal and U is an upper triangular matrix.
-// Formally P is written by a product of permutation matrices Pj, for j = 1,2,...,n, say P = P1 * P2 * P3 * .... * Pn. Pj is a permutation matrix which interchanges two rows of vector x when performing Pj*x. Pj can be constructed by j element of PivotArray [i] by the following Matlab code
+// Formally P is written by a product of permutation matrices Pj, for j = 1,2,...,n, say P = P1 * P2 * P3 * .... * Pn. Pj is a permutation matrix which interchanges two rows of vector x when performing Pj*x. Pj can be constructed by j element of PivotArray[i] by the following Matlab code
+//
+//	// In Matlab PivotArray[i] is an array of base-1.
+//	// In C, PivotArray[i] is base-0.
+//	Pj = eye(n);
+//	swap Pj(j,:) and Pj(PivotArray[i][j]  ,:)
+//
 // L and U are written back to original matrix A, and diagonal elements of L are discarded. The L and U can be constructed by the following Matlab code
-// If matrix A(=Aarray [i]) is singular, getrf still works and the value of info(=infoArray [i]) reports first row index that LU factorization cannot proceed. If info is k, U(k,k) is zero. The equation P*A == L*U still holds, however L and U reconstruction needs a different Matlab code as follows:
+//
+//	// A is a matrix of nxn after getrf.
+//	L = eye(n);
+//	for j = 1:n
+//	    L(j+1:n,j) = A(j+1:n,j)
+//	end
+//	U = zeros(n);
+//	for i = 1:n
+//	    U(i,i:n) = A(i,i:n)
+//	end
+//
+// If matrix A(=Aarray[i]) is singular, getrf still works and the value of info(=infoArray[i]) reports first row index that LU factorization cannot proceed. If info is k, U(k,k) is zero. The equation P*A == L*U still holds, however L and U reconstruction needs a different Matlab code as follows:
+//
+//	// A is a matrix of nxn after getrf.
+//	// info is k, which means U(k,k) is zero.
+//	L = eye(n);
+//	for j = 1:k-1
+//	    L(j+1:n,j) = A(j+1:n,j)
+//	end
+//	U = zeros(n);
+//	for i = 1:k-1
+//	    U(i,i:n) = A(i,i:n)
+//	end
+//	for i = k:n
+//	    U(i,k:n) = A(i,k:n)
+//	end
+//
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.
 // cublasgetrfBatched supports non-pivot LU factorization if PivotArray is NULL.
 // cublasgetrfBatched supports arbitrary dimension.
@@ -10136,8 +10251,8 @@ func dger64(handle Handle, m int64, n int64, alpha *float64, x driver.DevicePtr,
 // sgeqrf(), dgeqrf(), cgeqrf(), zgeqrf()
 //
 //   - handle: Handle to the cuBLAS library context
-//   - n: Number of rows and columns of Aarray [i]
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
+//   - n: Number of rows and columns of Aarray[i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
 //   - batchSize: Number of pointers contained in A
 //
 // Errors:
@@ -10157,10 +10272,21 @@ func dgetrfBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 //
 // Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
 //
-// This function performs the inversion of matrices A [i] for i = 0, …, batchSize-1.
-// Prior to calling cublasgetriBatched, the matrix A [i] must be factorized first using the routine cublasgetrfBatched. After the call of cublasgetrfBatched, the matrix pointing by Aarray [i] will contain the LU factors of the matrix A [i] and the vector pointing by (PivotArray+i) will contain the pivoting sequence.
-// Following the LU factorization, cublasgetriBatched uses forward and backward triangular solvers to complete inversion of matrices A [i] for i = 0, …, batchSize-1. The inversion is out-of-place, so memory space of Carray [i] cannot overlap memory space of Array [i].
+// This function performs the inversion of matrices A[i] for i = 0, …, batchSize-1.
+// Prior to calling cublasgetriBatched, the matrix A[i] must be factorized first using the routine cublasgetrfBatched. After the call of cublasgetrfBatched, the matrix pointing by Aarray[i] will contain the LU factors of the matrix A[i] and the vector pointing by (PivotArray+i) will contain the pivoting sequence.
+// Following the LU factorization, cublasgetriBatched uses forward and backward triangular solvers to complete inversion of matrices A[i] for i = 0, …, batchSize-1. The inversion is out-of-place, so memory space of Carray[i] cannot overlap memory space of Array[i].
 // Typically all parameters in cublasgetrfBatched would be passed into cublasgetriBatched. For example,
+//
+//	// step 1: perform in-place LU decomposition, P*A = L*U.
+//	//      Aarray[i] is n*n matrix A[i]
+//	    cublasDgetrfBatched(handle, n, Aarray, lda, PivotArray, infoArray, batchSize);
+//	//      check infoArray[i] to see if factorization of A[i] is successful or not.
+//	//      Array[i] contains LU factorization of A[i]
+//
+//	// step 2: perform out-of-place inversion, Carray[i] = inv(A[i])
+//	    cublasDgetriBatched(handle, n, Aarray, lda, PivotArray, Carray, ldc, infoArray, batchSize);
+//	//      check infoArray[i] to see if inversion of A[i] is successful or not.
+//
 // The user can check singularity from either cublasgetrfBatched or cublasgetriBatched.
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.
 // If cublasgetrfBatched is performed by non-pivoting, PivotArray of cublasgetriBatched should be NULL.
@@ -10168,9 +10294,9 @@ func dgetrfBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 // cublasgetriBatched only supports compute capability 2.0 or above.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - n: Number of rows and columns of Aarray [i]
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray [i]
+//   - n: Number of rows and columns of Aarray[i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray[i]
 //   - batchSize: Number of pointers contained in A
 //
 // Errors:
@@ -10188,9 +10314,9 @@ func dgetriBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 
 // dgetrsBatched solves an array of systems of linear equations of the form:
 //
-// op(A [i])X [i]=B [i]
-// where A [i] is a matrix which has been LU factorized with pivoting, X [i] and B [i] are n×nrhs matrices. Also, for matrix A
-// op(A [i])={A [i]if trans == CUBLAS_OP_NAᵀ[i]if trans == CUBLAS_OP_TAᴴ[i]if trans == [OpC]
+// op(A[i])X[i]=B[i]
+// where A[i] is a matrix which has been LU factorized with pivoting, X[i] and B[i] are n×nrhs matrices. Also, for matrix A
+// op(A[i])={A[i]if trans == CUBLAS_OP_NAᵀ[i]if trans == CUBLAS_OP_TAᴴ[i]if trans == [OpC]
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.
 // cublasgetrsBatched() supports non-pivot LU factorization if devIpiv is NULL.
 // cublasgetrsBatched() supports arbitrary dimension.
@@ -10200,13 +10326,13 @@ func dgetriBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 //
 //   - handle: Handle to the cuBLAS library context
 //   - trans: Operation op( A) that is non- or (conj.) transpose
-//   - n: Number of rows and columns of Aarray [i]
-//   - nrhs: Number of columns of Barray [i]
+//   - n: Number of rows and columns of Aarray[i]
+//   - nrhs: Number of columns of Barray[i]
 //   - aarray: Array of pointers to < type > array, with each array of dim. n x n with lda >= max(1, n)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - devIpiv: Array of size n x batchSize that contains the pivoting sequence of each factorization of Aarray [i] stored in a linear fashion. If devIpiv is NULL, pivoting for all Aarray [i] is ignored
-//   - barray: Array of pointers to < type > array, with each array of dim. n x nrhs with ldb >= max(1, n). Matrices Barray [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldb: Leading dimension of two-dimensional array used to store each solution matrix Barray [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
+//   - devIpiv: Array of size n x batchSize that contains the pivoting sequence of each factorization of Aarray[i] stored in a linear fashion. If devIpiv is NULL, pivoting for all Aarray[i] is ignored
+//   - barray: Array of pointers to < type > array, with each array of dim. n x nrhs with ldb >= max(1, n). Matrices Barray[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldb: Leading dimension of two-dimensional array used to store each solution matrix Barray[i]
 //   - info: If info == 0, the execution is successful. If info = -j, the j-th parameter had an illegal value
 //   - batchSize: Number of pointers contained in A
 //
@@ -10225,17 +10351,17 @@ func dgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, aarray d
 
 // dmatinvBatched A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldaInv respectively.
 //
-// This function performs the inversion of matrices A [i] for i = 0, …, batchSize-1.
+// This function performs the inversion of matrices A[i] for i = 0, …, batchSize-1.
 // This function is a short cut of cublasgetrfBatched() plus cublasgetriBatched(). However it doesn’t work if n is greater than 32. If not, the user has to go through cublasgetrfBatched() and cublasgetriBatched().
-// If the matrix A [i] is singular, then info [i] reports singularity, the same as cublasgetrfBatched().
+// If the matrix A[i] is singular, then info[i] reports singularity, the same as cublasgetrfBatched().
 //
 //   - handle: Handle to the cuBLAS library context
-//   - n: Number of rows and columns of A [i]
+//   - n: Number of rows and columns of A[i]
 //   - a: Array of pointers to < type > array, with each array of dimension n*n with lda >= max(1, n)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - ainv: Array of pointers to < type > array, with each array of dimension n*n with ldaInv >= max(1, n). Matrices Ainv [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldaInv: Leading dimension of two-dimensional array used to store each matrix Ainv [i]
-//   - info: Array of size batchSize that info [i] contains the information of inversion of A [i]. If info [i] == 0, the execution is successful. If info [i] == k, then U(k, k) == 0. The U is exactly singular and the inversion failed
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - ainv: Array of pointers to < type > array, with each array of dimension n*n with ldaInv >= max(1, n). Matrices Ainv[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldaInv: Leading dimension of two-dimensional array used to store each matrix Ainv[i]
+//   - info: Array of size batchSize that info[i] contains the information of inversion of A[i]. If info[i] == 0, the execution is successful. If info[i] == k, then U(k, k) == 0. The U is exactly singular and the inversion failed
 //   - batchSize: Number of pointers contained in A
 //
 // Errors:
@@ -10253,7 +10379,7 @@ func dmatinvBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, ainv 
 
 // dnrm2 computes the Euclidean norm of the vector x.
 //
-// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x[j]×x[j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
 //
@@ -10290,7 +10416,7 @@ var slotDnrm2 outSlot[float64]
 
 // dnrm264 computes the Euclidean norm of the vector x.
 //
-// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x[j]×x[j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
 //
@@ -10329,7 +10455,7 @@ var slotDnrm264 outSlot[float64]
 //
 // Note: cublasdotc() is dot product conjugated, cublasdotu() is dot product unconjugated.
 // These functions support the 64-bit Integer Interface.
-// This function computes the dot product of vectors x and y. Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function computes the dot product of vectors x and y. Hence, the result is ∑_(i=1)^(n)(x[k]×y[j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.DotEx] and [Handle.DotcEx] are listed below:
 //   - x: CUDA_R_16F; y: CUDA_R_16F; result: CUDA_R_16F; execution: CUDA_R_32F
 //   - x: CUDA_R_16BF; y: CUDA_R_16BF; result: CUDA_R_16BF; execution: CUDA_R_32F
@@ -10374,7 +10500,7 @@ func dotEx(handle Handle, n int32, x driver.DevicePtr, xType DataType, incx int3
 //
 // Note: cublasdotc() is dot product conjugated, cublasdotu() is dot product unconjugated.
 // These functions support the 64-bit Integer Interface.
-// This function computes the dot product of vectors x and y. Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function computes the dot product of vectors x and y. Hence, the result is ∑_(i=1)^(n)(x[k]×y[j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.DotEx] and [Handle.DotcEx] are listed below:
 //   - x: CUDA_R_16F; y: CUDA_R_16F; result: CUDA_R_16F; execution: CUDA_R_32F
 //   - x: CUDA_R_16BF; y: CUDA_R_16BF; result: CUDA_R_16BF; execution: CUDA_R_32F
@@ -10419,7 +10545,7 @@ func dotEx64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx in
 //
 // Note: cublasdotc() is dot product conjugated, cublasdotu() is dot product unconjugated.
 // These functions support the 64-bit Integer Interface.
-// This function computes the dot product of vectors x and y. Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function computes the dot product of vectors x and y. Hence, the result is ∑_(i=1)^(n)(x[k]×y[j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.DotEx] and [Handle.DotcEx] are listed below:
 //   - x: CUDA_R_16F; y: CUDA_R_16F; result: CUDA_R_16F; execution: CUDA_R_32F
 //   - x: CUDA_R_16BF; y: CUDA_R_16BF; result: CUDA_R_16BF; execution: CUDA_R_32F
@@ -10464,7 +10590,7 @@ func dotcEx(handle Handle, n int32, x driver.DevicePtr, xType DataType, incx int
 //
 // Note: cublasdotc() is dot product conjugated, cublasdotu() is dot product unconjugated.
 // These functions support the 64-bit Integer Interface.
-// This function computes the dot product of vectors x and y. Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function computes the dot product of vectors x and y. Hence, the result is ∑_(i=1)^(n)(x[k]×y[j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.DotEx] and [Handle.DotcEx] are listed below:
 //   - x: CUDA_R_16F; y: CUDA_R_16F; result: CUDA_R_16F; execution: CUDA_R_32F
 //   - x: CUDA_R_16BF; y: CUDA_R_16BF; result: CUDA_R_16BF; execution: CUDA_R_32F
@@ -10509,7 +10635,7 @@ func dotcEx64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx i
 //
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x[k]=c×x[k]+s×y[j] and y[j]=−s×x[k]+c×y[j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
 //
@@ -10540,7 +10666,7 @@ func drot(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devic
 //
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x[k]=c×x[k]+s×y[j] and y[j]=−s×x[k]+c×y[j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
 //
@@ -10601,8 +10727,8 @@ func drotg(handle Handle, a *float64, b *float64, c *float64, s *float64) error 
 // drotm applies the modified Givens transformation.
 //
 // H=(h₁₁h₁₂h₂₁h₂₂), to vectors x and y.
-// Hence, the result is x [k]=h₁₁×x [k]+h₁₂×y [j] and y [j]=h₂₁×x [k]+h₂₂×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
-// The elements , , and of matrix H are stored in param [1], param [2], param [3] and param [4], respectively. The flag = param [0] defines the following predefined values for the matrix H entries
+// Hence, the result is x[k]=h₁₁×x[k]+h₁₂×y[j] and y[j]=h₂₁×x[k]+h₂₂×y[j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// The elements , , and of matrix H are stored in param[1], param[2], param[3] and param[4], respectively. The flag = param[0] defines the following predefined values for the matrix H entries
 //   - flag == -1.0: (h₁₁, h₁₂; h₂₁, h₂₂); flag == 0.0: (1.0, h₁₂; h₂₁, 1.0); flag == 1.0: (h₁₁, 1.0; −1.0, h₂₂); flag == -2.0: (1.0, 0.0; 0.0, 1.0)
 //
 // Notice that the values -1.0, 0.0 and 1.0 implied by the flag are not stored in param.
@@ -10617,7 +10743,7 @@ func drotg(handle Handle, a *float64, b *float64, c *float64, s *float64) error 
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - param: < type > vector of 5 elements, where param [0] and param [1..4] contain the flag and matrix H
+//   - param: < type > vector of 5 elements, where param[0] and param[1..4] contain the flag and matrix H
 //
 // Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
@@ -10634,8 +10760,8 @@ func drotm(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 // drotm64 applies the modified Givens transformation.
 //
 // H=(h₁₁h₁₂h₂₁h₂₂), to vectors x and y.
-// Hence, the result is x [k]=h₁₁×x [k]+h₁₂×y [j] and y [j]=h₂₁×x [k]+h₂₂×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
-// The elements , , and of matrix H are stored in param [1], param [2], param [3] and param [4], respectively. The flag = param [0] defines the following predefined values for the matrix H entries
+// Hence, the result is x[k]=h₁₁×x[k]+h₁₂×y[j] and y[j]=h₂₁×x[k]+h₂₂×y[j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// The elements , , and of matrix H are stored in param[1], param[2], param[3] and param[4], respectively. The flag = param[0] defines the following predefined values for the matrix H entries
 //   - flag == -1.0: (h₁₁, h₁₂; h₂₁, h₂₂); flag == 0.0: (1.0, h₁₂; h₂₁, 1.0); flag == 1.0: (h₁₁, 1.0; −1.0, h₂₂); flag == -2.0: (1.0, 0.0; 0.0, 1.0)
 //
 // Notice that the values -1.0, 0.0 and 1.0 implied by the flag are not stored in param.
@@ -10650,7 +10776,7 @@ func drotm(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - param: < type > vector of 5 elements, where param [0] and param [1..4] contain the flag and matrix H
+//   - param: < type > vector of 5 elements, where param[0] and param[1..4] contain the flag and matrix H
 //
 // Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
@@ -10667,7 +10793,7 @@ func drotm64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 // drotmg constructs the modified Givens transformation.
 //
 // H=(h₁₁h₁₂h₂₁h₂₂), that zeros out the second entry of a 2×1 vector (d1*x1,d2*y1)ᵀ .
-// The flag = param [0] defines the following predefined values for the matrix H entries
+// The flag = param[0] defines the following predefined values for the matrix H entries
 //   - flag == -1.0: (h₁₁, h₁₂; h₂₁, h₂₂); flag == 0.0: (1.0, h₁₂; h₂₁, 1.0); flag == 1.0: (h₁₁, 1.0; −1.0, h₂₂); flag == -2.0: (1.0, 0.0; 0.0, 1.0)
 //
 // Notice that the values -1.0, 0.0 and 1.0 implied by the flag are not stored in param.
@@ -10679,7 +10805,7 @@ func drotm64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 //   - d2: < type > scalar that is overwritten on exit
 //   - x1: < type > scalar that is overwritten on exit
 //   - y1: < type > scalar
-//   - param: < type > vector of 5 elements, where param [0] and param [1-4] contain the flag and matrix H
+//   - param: < type > vector of 5 elements, where param[0] and param[1-4] contain the flag and matrix H
 //
 // Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
@@ -10767,7 +10893,7 @@ func dsbmv64(handle Handle, uplo FillMode, n int64, k int64, alpha *float64, a d
 
 // dscal scales the vector x by the scalar α and overwrites it with the result.
 //
-// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is x[j]=α×x[j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
 //
@@ -10793,7 +10919,7 @@ func dscal(handle Handle, n int32, alpha *float64, x driver.DevicePtr, incx int3
 
 // dscal64 scales the vector x by the scalar α and overwrites it with the result.
 //
-// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is x[j]=α×x[j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
 //
@@ -10820,8 +10946,8 @@ func dscal64(handle Handle, n int64, alpha *float64, x driver.DevicePtr, incx in
 // dspmv performs the symmetric packed matrix-vector multiplication.
 //
 // y=αAx+βy, where A is a n×n symmetric matrix stored in packed format, x and y are vectors, and α and β are scalars.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // sspmv(), dspmv()
 //
@@ -10854,8 +10980,8 @@ func dspmv(handle Handle, uplo FillMode, n int32, alpha *float64, ap driver.Devi
 // dspmv64 performs the symmetric packed matrix-vector multiplication.
 //
 // y=αAx+βy, where A is a n×n symmetric matrix stored in packed format, x and y are vectors, and α and β are scalars.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // sspmv(), dspmv()
 //
@@ -10888,8 +11014,8 @@ func dspmv64(handle Handle, uplo FillMode, n int64, alpha *float64, ap driver.De
 // dspr2 performs the packed symmetric rank-2 update.
 //
 // A=α(xyᵀ+yxᵀ)+A, where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // sspr2(), dspr2()
 //
@@ -10921,8 +11047,8 @@ func dspr2(handle Handle, uplo FillMode, n int32, alpha *float64, x driver.Devic
 // dspr264 performs the packed symmetric rank-2 update.
 //
 // A=α(xyᵀ+yxᵀ)+A, where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // sspr2(), dspr2()
 //
@@ -10954,8 +11080,8 @@ func dspr264(handle Handle, uplo FillMode, n int64, alpha *float64, x driver.Dev
 // dspr performs the packed symmetric rank-1 update.
 //
 // A=αxxᵀ+A, where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // sspr(), dspr()
 //
@@ -10985,8 +11111,8 @@ func dspr(handle Handle, uplo FillMode, n int32, alpha *float64, x driver.Device
 // dspr64 performs the packed symmetric rank-1 update.
 //
 // A=αxxᵀ+A, where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // sspr(), dspr()
 //
@@ -11015,7 +11141,7 @@ func dspr64(handle Handle, uplo FillMode, n int64, alpha *float64, x driver.Devi
 
 // dswap interchanges the elements of vector x and y.
 //
-// Hence, the performed operation is y [j]⇔x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is y[j]⇔x[k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sswap(), dswap(), cswap(), zswap()
 //
@@ -11042,7 +11168,7 @@ func dswap(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 
 // dswap64 interchanges the elements of vector x and y.
 //
-// Hence, the performed operation is y [j]⇔x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is y[j]⇔x[k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sswap(), dswap(), cswap(), zswap()
 //
@@ -11699,8 +11825,8 @@ func dtbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //
 // x=op(A)x, where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for A(i,j) and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for A(i,j) and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // stpmv(), dtpmv(), ctpmv(), ztpmv()
 //
@@ -11733,8 +11859,8 @@ func dtpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //
 // x=op(A)x, where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for A(i,j) and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for A(i,j) and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // stpmv(), dtpmv(), ctpmv(), ztpmv()
 //
@@ -11769,8 +11895,8 @@ func dtpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 // op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // stpsv(), dtpsv(), ctpsv(), ztpsv()
 //
@@ -11804,8 +11930,8 @@ func dtpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 // op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // stpsv(), dtpsv(), ctpsv(), ztpsv()
 //
@@ -12005,10 +12131,10 @@ func dtrmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 
 // dtrsmBatched solves an array of triangular linear systems with multiple right-hand-sides.
 //
-// {op(A [i])X [i]=αB [i]if side == CUBLAS_SIDE_LEFTX [i]op(A [i])=αB [i]if side == [SideRight]
-// where A [i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X [i] and B [i] are m×n matrices, and α is a scalar. Also, for matrix A
-// op(A [i])={A [i]if transa == CUBLAS_OP_NAᵀ[i]if transa == CUBLAS_OP_TAᴴ[i]if transa == [OpC]
-// The solution X [i] overwrites the right-hand-sides B [i] on exit.
+// {op(A[i])X[i]=αB[i]if side == CUBLAS_SIDE_LEFTX[i]op(A[i])=αB[i]if side == [SideRight]
+// where A[i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X[i] and B[i] are m×n matrices, and α is a scalar. Also, for matrix A
+// op(A[i])={A[i]if transa == CUBLAS_OP_NAᵀ[i]if transa == CUBLAS_OP_TAᴴ[i]if transa == [OpC]
+// The solution X[i] overwrites the right-hand-sides B[i] on exit.
 // No test for singularity or near-singularity is included in this function.
 // This function works for any sizes but is intended to be used for matrices of small sizes where the launch overhead is a significant factor. For bigger sizes, it might be advantageous to call batchCount times the regular cublastrsm() within a set of CUDA streams.
 // The current implementation is limited to devices with compute capability above or equal 2.0.
@@ -12018,17 +12144,17 @@ func dtrmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 // [Handle.DtrsmBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - side: Indicates if matrix A [i] is on the left or right of X [i]
-//   - uplo: Indicates if matrix A [i] lower or upper part is stored, the other part is not referenced and is inferred from the stored elements
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - diag: Indicates if the elements on the main diagonal of matrix A [i] are unity and should not be accessed
-//   - m: Number of rows of matrix B [i], with matrix A [i] sized accordingly
-//   - n: Number of columns of matrix B [i], with matrix A [i] is sized accordingly
-//   - alpha: < type > scalar used for multiplication, if alpha == 0 then A [i] is not referenced and B [i] does not have to be a valid input
+//   - side: Indicates if matrix A[i] is on the left or right of X[i]
+//   - uplo: Indicates if matrix A[i] lower or upper part is stored, the other part is not referenced and is inferred from the stored elements
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - diag: Indicates if the elements on the main diagonal of matrix A[i] are unity and should not be accessed
+//   - m: Number of rows of matrix B[i], with matrix A[i] sized accordingly
+//   - n: Number of columns of matrix B[i], with matrix A[i] is sized accordingly
+//   - alpha: < type > scalar used for multiplication, if alpha == 0 then A[i] is not referenced and B[i] does not have to be a valid input
 //   - a: Array of pointers to < type > array, with each array of dim. lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
-//   - lda: Leading dimension of two-dimensional array used to store matrix A [i]
-//   - b: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
+//   - lda: Leading dimension of two-dimensional array used to store matrix A[i]
+//   - b: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldb: Leading dimension of two-dimensional array used to store matrix B[i]
 //   - batchCount: Number of pointers contained in A and B
 //
 // Errors:
@@ -12046,10 +12172,10 @@ func dtrsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, 
 
 // dtrsmBatched64 solves an array of triangular linear systems with multiple right-hand-sides.
 //
-// {op(A [i])X [i]=αB [i]if side == CUBLAS_SIDE_LEFTX [i]op(A [i])=αB [i]if side == [SideRight]
-// where A [i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X [i] and B [i] are m×n matrices, and α is a scalar. Also, for matrix A
-// op(A [i])={A [i]if transa == CUBLAS_OP_NAᵀ[i]if transa == CUBLAS_OP_TAᴴ[i]if transa == [OpC]
-// The solution X [i] overwrites the right-hand-sides B [i] on exit.
+// {op(A[i])X[i]=αB[i]if side == CUBLAS_SIDE_LEFTX[i]op(A[i])=αB[i]if side == [SideRight]
+// where A[i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X[i] and B[i] are m×n matrices, and α is a scalar. Also, for matrix A
+// op(A[i])={A[i]if transa == CUBLAS_OP_NAᵀ[i]if transa == CUBLAS_OP_TAᴴ[i]if transa == [OpC]
+// The solution X[i] overwrites the right-hand-sides B[i] on exit.
 // No test for singularity or near-singularity is included in this function.
 // This function works for any sizes but is intended to be used for matrices of small sizes where the launch overhead is a significant factor. For bigger sizes, it might be advantageous to call batchCount times the regular cublastrsm() within a set of CUDA streams.
 // The current implementation is limited to devices with compute capability above or equal 2.0.
@@ -12059,17 +12185,17 @@ func dtrsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, 
 // It is [Handle.DtrsmBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - side: Indicates if matrix A [i] is on the left or right of X [i]
-//   - uplo: Indicates if matrix A [i] lower or upper part is stored, the other part is not referenced and is inferred from the stored elements
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - diag: Indicates if the elements on the main diagonal of matrix A [i] are unity and should not be accessed
-//   - m: Number of rows of matrix B [i], with matrix A [i] sized accordingly
-//   - n: Number of columns of matrix B [i], with matrix A [i] is sized accordingly
-//   - alpha: < type > scalar used for multiplication, if alpha == 0 then A [i] is not referenced and B [i] does not have to be a valid input
+//   - side: Indicates if matrix A[i] is on the left or right of X[i]
+//   - uplo: Indicates if matrix A[i] lower or upper part is stored, the other part is not referenced and is inferred from the stored elements
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - diag: Indicates if the elements on the main diagonal of matrix A[i] are unity and should not be accessed
+//   - m: Number of rows of matrix B[i], with matrix A[i] sized accordingly
+//   - n: Number of columns of matrix B[i], with matrix A[i] is sized accordingly
+//   - alpha: < type > scalar used for multiplication, if alpha == 0 then A[i] is not referenced and B[i] does not have to be a valid input
 //   - a: Array of pointers to < type > array, with each array of dim. lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
-//   - lda: Leading dimension of two-dimensional array used to store matrix A [i]
-//   - b: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
+//   - lda: Leading dimension of two-dimensional array used to store matrix A[i]
+//   - b: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldb: Leading dimension of two-dimensional array used to store matrix B[i]
 //   - batchCount: Number of pointers contained in A and B
 //
 // Errors:
@@ -12257,7 +12383,7 @@ func dtrttp(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 
 // dzasum computes the sum of the absolute values of the elements of vector x.
 //
-// Hence, the result is ∑_(i=1)^(n)|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)|Im(x[j])|+|Re(x[j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sasum(), dasum(), scasum(), dzasum()
 //
@@ -12294,7 +12420,7 @@ var slotDzasum outSlot[float64]
 
 // dzasum64 computes the sum of the absolute values of the elements of vector x.
 //
-// Hence, the result is ∑_(i=1)^(n)|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)|Im(x[j])|+|Re(x[j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sasum(), dasum(), scasum(), dzasum()
 //
@@ -12331,7 +12457,7 @@ var slotDzasum64 outSlot[float64]
 
 // dznrm2 computes the Euclidean norm of the vector x.
 //
-// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x[j]×x[j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
 //
@@ -12368,7 +12494,7 @@ var slotDznrm2 outSlot[float64]
 
 // dznrm264 computes the Euclidean norm of the vector x.
 //
-// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x[j]×x[j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
 //
@@ -12408,12 +12534,12 @@ var slotDznrm264 outSlot[float64]
 // Like cublasgemmBatched(), the batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. Supported combinations of arguments are listed further down in this section.
 //
 // Note: The second variant of [Handle.GemmBatchedEx] function is provided for backward compatibility with C++ applications code, where the computeType parameter is of cudaDataType instead of [ComputeType]. C applications would still compile with the updated function signature.
-// C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
-// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
+// C[i]=αop(A[i])op(B[i])+βC[i], for i ∈[0,batchCount−1]
+// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A[i])m×k , op(B[i])k×n and C[i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
-// and op(B [i]) is defined similarly for matrix B [i] .
+// and op(B[i]) is defined similarly for matrix B[i] .
 //
-// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, behavior is undefined.
+// Note: C[i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, behavior is undefined.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // [Handle.GemmBatchedEx] supports the following Compute Type, Scale Type, Atype/Btype, and Ctype:
 //   - Compute Type: [Compute16F] or [Compute16FPedantic]; Scale Type (alpha and beta): CUDA_R_16F; Atype/Btype: CUDA_R_16F; Ctype: CUDA_R_16F
@@ -12435,28 +12561,28 @@ var slotDznrm264 outSlot[float64]
 //   - if k % 8 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //   - if k % 2 == 0 then ensure intptr_t(ptr) % 4 == 0.
 //
-// Note: Compute types [Compute32I] and [Compute32IPedantic] are only supported with all pointers A [i], B [i] being 4-byte aligned and lda, ldb being multiples of 4. For a better performance, it is also recommended that IMMA kernels requirements for the regular data ordering listed here are met.
+// Note: Compute types [Compute32I] and [Compute32IPedantic] are only supported with all pointers A[i], B[i] being 4-byte aligned and lda, ldb being multiples of 4. For a better performance, it is also recommended that IMMA kernels requirements for the regular data ordering listed here are met.
 // Also refer to: sgemm.()
 //
 // [Handle.GemmBatchedEx64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transa: Operation op( Aarray [i]) that is non- or (conj.) transpose
-//   - transb: Operation op( Barray [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix op( Aarray [i]) and Carray [i]
-//   - n: Number of columns of matrix op( Barray [i]) and Carray [i]
-//   - k: Number of columns of op( Aarray [i]) and rows of op( Barray [i])
+//   - transa: Operation op( Aarray[i]) that is non- or (conj.) transpose
+//   - transb: Operation op( Barray[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix op( Aarray[i]) and Carray[i]
+//   - n: Number of columns of matrix op( Barray[i]) and Carray[i]
+//   - k: Number of columns of op( Aarray[i]) and rows of op( Barray[i])
 //   - alpha: Scaling factor for matrix products of the type that corresponds to the computeType and Ctype, see the table below for details. Its kind must match computeType and ctype; a host [Scalar] of another kind is a *[ScalarError].
 //   - aarray: Array of pointers to < Atype > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - atype: Enumerant specifying the datatype of Aarray
-//   - lda: Leading dimension of two-dimensional array used to store the matrix Aarray [i]
+//   - lda: Leading dimension of two-dimensional array used to store the matrix Aarray[i]
 //   - barray: Array of pointers to < Btype > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - btype: Enumerant specifying the datatype of Barray
-//   - ldb: Leading dimension of two-dimensional array used to store matrix Barray [i]
-//   - beta: Scaling factor for Carray of the type that corresponds to the computeType and Ctype, see the table below for details. If beta == 0, Carray [i] does not have to be a valid input. Its kind must match computeType and ctype; a host [Scalar] of another kind is a *[ScalarError].
-//   - carray: Array of pointers to < Ctype > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices Carray [i] should not overlap; otherwise, the behavior is undefined. All pointers must meet certain alignment criteria. Please see below for details
+//   - ldb: Leading dimension of two-dimensional array used to store matrix Barray[i]
+//   - beta: Scaling factor for Carray of the type that corresponds to the computeType and Ctype, see the table below for details. If beta == 0, Carray[i] does not have to be a valid input. Its kind must match computeType and ctype; a host [Scalar] of another kind is a *[ScalarError].
+//   - carray: Array of pointers to < Ctype > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices Carray[i] should not overlap; otherwise, the behavior is undefined. All pointers must meet certain alignment criteria. Please see below for details
 //   - ctype: Enumerant specifying the datatype of Carray
-//   - ldc: Leading dimension of a two-dimensional array used to store each matrix Carray [i]
+//   - ldc: Leading dimension of a two-dimensional array used to store each matrix Carray[i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //   - computeType: Enumerant specifying the computation type
 //   - algo: Enumerant specifying the algorithm. See [GemmAlgo]
@@ -12489,12 +12615,12 @@ func gemmBatchedEx(handle Handle, transa Operation, transb Operation, m int32, n
 // Like cublasgemmBatched(), the batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. Supported combinations of arguments are listed further down in this section.
 //
 // Note: The second variant of [Handle.GemmBatchedEx] function is provided for backward compatibility with C++ applications code, where the computeType parameter is of cudaDataType instead of [ComputeType]. C applications would still compile with the updated function signature.
-// C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
-// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
+// C[i]=αop(A[i])op(B[i])+βC[i], for i ∈[0,batchCount−1]
+// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A[i])m×k , op(B[i])k×n and C[i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
-// and op(B [i]) is defined similarly for matrix B [i] .
+// and op(B[i]) is defined similarly for matrix B[i] .
 //
-// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, behavior is undefined.
+// Note: C[i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, behavior is undefined.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // [Handle.GemmBatchedEx] supports the following Compute Type, Scale Type, Atype/Btype, and Ctype:
 //   - Compute Type: [Compute16F] or [Compute16FPedantic]; Scale Type (alpha and beta): CUDA_R_16F; Atype/Btype: CUDA_R_16F; Ctype: CUDA_R_16F
@@ -12516,28 +12642,28 @@ func gemmBatchedEx(handle Handle, transa Operation, transb Operation, m int32, n
 //   - if k % 8 == 0 then ensure intptr_t(ptr) % 16 == 0,
 //   - if k % 2 == 0 then ensure intptr_t(ptr) % 4 == 0.
 //
-// Note: Compute types [Compute32I] and [Compute32IPedantic] are only supported with all pointers A [i], B [i] being 4-byte aligned and lda, ldb being multiples of 4. For a better performance, it is also recommended that IMMA kernels requirements for the regular data ordering listed here are met.
+// Note: Compute types [Compute32I] and [Compute32IPedantic] are only supported with all pointers A[i], B[i] being 4-byte aligned and lda, ldb being multiples of 4. For a better performance, it is also recommended that IMMA kernels requirements for the regular data ordering listed here are met.
 // Also refer to: sgemm.()
 //
 // It is [Handle.GemmBatchedEx] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transa: Operation op( Aarray [i]) that is non- or (conj.) transpose
-//   - transb: Operation op( Barray [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix op( Aarray [i]) and Carray [i]
-//   - n: Number of columns of matrix op( Barray [i]) and Carray [i]
-//   - k: Number of columns of op( Aarray [i]) and rows of op( Barray [i])
+//   - transa: Operation op( Aarray[i]) that is non- or (conj.) transpose
+//   - transb: Operation op( Barray[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix op( Aarray[i]) and Carray[i]
+//   - n: Number of columns of matrix op( Barray[i]) and Carray[i]
+//   - k: Number of columns of op( Aarray[i]) and rows of op( Barray[i])
 //   - alpha: Scaling factor for matrix products of the type that corresponds to the computeType and Ctype, see the table below for details. Its kind must match computeType and ctype; a host [Scalar] of another kind is a *[ScalarError].
 //   - aarray: Array of pointers to < Atype > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - atype: Enumerant specifying the datatype of Aarray
-//   - lda: Leading dimension of two-dimensional array used to store the matrix Aarray [i]
+//   - lda: Leading dimension of two-dimensional array used to store the matrix Aarray[i]
 //   - barray: Array of pointers to < Btype > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - btype: Enumerant specifying the datatype of Barray
-//   - ldb: Leading dimension of two-dimensional array used to store matrix Barray [i]
-//   - beta: Scaling factor for Carray of the type that corresponds to the computeType and Ctype, see the table below for details. If beta == 0, Carray [i] does not have to be a valid input. Its kind must match computeType and ctype; a host [Scalar] of another kind is a *[ScalarError].
-//   - carray: Array of pointers to < Ctype > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices Carray [i] should not overlap; otherwise, the behavior is undefined. All pointers must meet certain alignment criteria. Please see below for details
+//   - ldb: Leading dimension of two-dimensional array used to store matrix Barray[i]
+//   - beta: Scaling factor for Carray of the type that corresponds to the computeType and Ctype, see the table below for details. If beta == 0, Carray[i] does not have to be a valid input. Its kind must match computeType and ctype; a host [Scalar] of another kind is a *[ScalarError].
+//   - carray: Array of pointers to < Ctype > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices Carray[i] should not overlap; otherwise, the behavior is undefined. All pointers must meet certain alignment criteria. Please see below for details
 //   - ctype: Enumerant specifying the datatype of Carray
-//   - ldc: Leading dimension of a two-dimensional array used to store each matrix Carray [i]
+//   - ldc: Leading dimension of a two-dimensional array used to store each matrix Carray[i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //   - computeType: Enumerant specifying the computation type
 //   - algo: Enumerant specifying the algorithm. See [GemmAlgo]
@@ -12722,14 +12848,26 @@ func gemmEx64(handle Handle, transa Operation, transb Operation, m int64, n int6
 // gemmGroupedBatchedEx performs the matrix-matrix multiplication on groups of matrices.
 //
 // A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
+//
+//	idx = 0;
+//	for i = 0:group_count - 1
+//	    for j = 0:group_size[i] - 1
+//	        gemmEx(transa_array[i], transb_array[i], m_array[i], n_array[i], k_array[i],
+//	               alpha_array[i], Aarray[idx], Atype, lda_array[i], Barray[idx], Btype,
+//	               ldb_array[i], beta_array[i], Carray[idx], Ctype, ldc_array[i],
+//	               computeType, CUBLAS_GEMM_DEFAULT);
+//	        idx += 1;
+//	    end
+//	end
+//
 // where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
 //
-// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑_(i=0)^(groupCount−1)groupSize [i]
-// For matrix A [idx] in group i
-// op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]ᵀif transaArray [i] == CUBLAS_OP_TA [idx]ᴴif transaArray [i] == [OpC]
-// and op(B [idx]) is defined similarly for matrix B [idx] in group i.
+// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑_(i=0)^(groupCount−1)groupSize[i]
+// For matrix A[idx] in group i
+// op(A[idx])={A[idx]if transaArray[i] == CUBLAS_OP_NA[idx]ᵀif transaArray[i] == CUBLAS_OP_TA[idx]ᴴif transaArray[i] == [OpC]
+// and op(B[idx]) is defined similarly for matrix B[idx] in group i.
 //
-// Note: C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to [Handle.GemmBatchedEx] in different CUDA streams, rather than use this API.
 // [Handle.GemmGroupedBatchedEx] supports the following Compute Type, Scale Type, Atype/Btype, and Ctype:
 //   - Compute Type: [Compute32F]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16BF; Ctype: CUDA_R_16BF
@@ -12746,29 +12884,29 @@ func gemmEx64(handle Handle, transa Operation, transb Operation, m int64, n int6
 // [Handle.GemmGroupedBatchedEx64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transaArray: Array containing the operations, op( A [idx]), that is non- or (conj.) transpose for each group
-//   - transbArray: Array containing the operations, op( B [idx]), that is non- or (conj.) transpose for each group
-//   - mArray: Array containing the number of rows of matrix op( A [idx]) and C [idx] for each group
-//   - nArray: Array containing the number of columns of op( B [idx]) and C [idx] for each group
-//   - kArray: Array containing the number of columns of op( A [idx]) and rows of op( B [idx]) for each group
+//   - transaArray: Array containing the operations, op( A[idx]), that is non- or (conj.) transpose for each group
+//   - transbArray: Array containing the operations, op( B[idx]), that is non- or (conj.) transpose for each group
+//   - mArray: Array containing the number of rows of matrix op( A[idx]) and C[idx] for each group
+//   - nArray: Array containing the number of columns of op( B[idx]) and C[idx] for each group
+//   - kArray: Array containing the number of columns of op( A[idx]) and rows of op( B[idx]) for each group
 //   - alphaArray: Array containing the < Scale Type > scalar used for multiplication for each group
-//   - aarray: Array of pointers to < Atype > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < Atype > array, with each array of dim. lda[i] x k[i] with lda[i] >= max(1,m[i]) if transa[i] == [OpN] and lda[i] x m[i] with lda[i] >= max(1,k[i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - atype: Enumerant specifying the datatype of A
-//   - ldaArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix A [idx] for each group
-//   - barray: Array of pointers to < Btype > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
+//   - ldaArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix A[idx] for each group
+//   - barray: Array of pointers to < Btype > array, with each array of dim. ldb[i] x n[i] with ldb[i] >= max(1,k[i]) if transb[i] == [OpN] and ldb[i] x k[i] with ldb[i] >= max(1,n[i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - btype: Enumerant specifying the datatype of B
-//   - ldbArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix B [idx] for each group
+//   - ldbArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix B[idx] for each group
 //   - betaArray: Array containing the < Scale Type > scalar used for multiplication for each group
-//   - carray: Array of pointers to < Ctype > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < Ctype > array. It has dimensions ldc[i] x n[i] with ldc[i] >= max(1,m[i]). Matrices C[idx] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - ctype: Enumerant specifying the datatype of C
-//   - ldcArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix C [idx] for each group
+//   - ldcArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix C[idx] for each group
 //   - groupCount: Number of groups
 //   - groupSize: Array containing the number of pointers contained in Aarray, Barray and Carray for each group
 //   - computeType: Enumerant specifying the computation type
 //
 // Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: If transa_array, transb_array, m_array, n_array, k_array, alpha_array, lda_array, ldb_array, beta_array, ldc_array, or group_size are NULL, or if group_count < 0, or if m_array [i] < 0, n_array [i] < 0, k_array [i] < 0, group_size [i] < 0, or if transa_array [i] and transb_array [i] are not one of [OpN], [OpC], [OpT], or if lda_array [i] < max(1, m_array [i]) if transa_array [i] == [OpN] and lda_array [i] < max(1, k_array [i]) otherwise, or if ldb_array [i] < max(1, k_array [i]) if transb_array [i] == [OpN] and ldb_array [i] < max(1, n_array [i]) otherwise, or if ldc_array [i] < max(1, m_array [i])
+//   - [ErrInvalidValue]: If transa_array, transb_array, m_array, n_array, k_array, alpha_array, lda_array, ldb_array, beta_array, ldc_array, or group_size are NULL, or if group_count < 0, or if m_array[i] < 0, n_array[i] < 0, k_array[i] < 0, group_size[i] < 0, or if transa_array[i] and transb_array[i] are not one of [OpN], [OpC], [OpT], or if lda_array[i] < max(1, m_array[i]) if transa_array[i] == [OpN] and lda_array[i] < max(1, k_array[i]) otherwise, or if ldb_array[i] < max(1, k_array[i]) if transb_array[i] == [OpN] and ldb_array[i] < max(1, n_array[i]) otherwise, or if ldc_array[i] < max(1, m_array[i])
 //   - [ErrNotInitialized]: The library was not initialized
 //   - [ErrNotSupported]: the pointer mode is set to [PointerModeDevice]; Atype or Btype or Ctype or computeType are not supported
 //
@@ -12783,14 +12921,26 @@ func gemmGroupedBatchedEx(handle Handle, transaArray *Operation, transbArray *Op
 // gemmGroupedBatchedEx64 performs the matrix-matrix multiplication on groups of matrices.
 //
 // A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
+//
+//	idx = 0;
+//	for i = 0:group_count - 1
+//	    for j = 0:group_size[i] - 1
+//	        gemmEx(transa_array[i], transb_array[i], m_array[i], n_array[i], k_array[i],
+//	               alpha_array[i], Aarray[idx], Atype, lda_array[i], Barray[idx], Btype,
+//	               ldb_array[i], beta_array[i], Carray[idx], Ctype, ldc_array[i],
+//	               computeType, CUBLAS_GEMM_DEFAULT);
+//	        idx += 1;
+//	    end
+//	end
+//
 // where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
 //
-// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑_(i=0)^(groupCount−1)groupSize [i]
-// For matrix A [idx] in group i
-// op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]ᵀif transaArray [i] == CUBLAS_OP_TA [idx]ᴴif transaArray [i] == [OpC]
-// and op(B [idx]) is defined similarly for matrix B [idx] in group i.
+// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑_(i=0)^(groupCount−1)groupSize[i]
+// For matrix A[idx] in group i
+// op(A[idx])={A[idx]if transaArray[i] == CUBLAS_OP_NA[idx]ᵀif transaArray[i] == CUBLAS_OP_TA[idx]ᴴif transaArray[i] == [OpC]
+// and op(B[idx]) is defined similarly for matrix B[idx] in group i.
 //
-// Note: C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to [Handle.GemmBatchedEx] in different CUDA streams, rather than use this API.
 // [Handle.GemmGroupedBatchedEx] supports the following Compute Type, Scale Type, Atype/Btype, and Ctype:
 //   - Compute Type: [Compute32F]; Scale Type (alpha and beta): CUDA_R_32F; Atype/Btype: CUDA_R_16BF; Ctype: CUDA_R_16BF
@@ -12807,29 +12957,29 @@ func gemmGroupedBatchedEx(handle Handle, transaArray *Operation, transbArray *Op
 // It is [Handle.GemmGroupedBatchedEx] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transaArray: Array containing the operations, op( A [idx]), that is non- or (conj.) transpose for each group
-//   - transbArray: Array containing the operations, op( B [idx]), that is non- or (conj.) transpose for each group
-//   - mArray: Array containing the number of rows of matrix op( A [idx]) and C [idx] for each group
-//   - nArray: Array containing the number of columns of op( B [idx]) and C [idx] for each group
-//   - kArray: Array containing the number of columns of op( A [idx]) and rows of op( B [idx]) for each group
+//   - transaArray: Array containing the operations, op( A[idx]), that is non- or (conj.) transpose for each group
+//   - transbArray: Array containing the operations, op( B[idx]), that is non- or (conj.) transpose for each group
+//   - mArray: Array containing the number of rows of matrix op( A[idx]) and C[idx] for each group
+//   - nArray: Array containing the number of columns of op( B[idx]) and C[idx] for each group
+//   - kArray: Array containing the number of columns of op( A[idx]) and rows of op( B[idx]) for each group
 //   - alphaArray: Array containing the < Scale Type > scalar used for multiplication for each group
-//   - aarray: Array of pointers to < Atype > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < Atype > array, with each array of dim. lda[i] x k[i] with lda[i] >= max(1,m[i]) if transa[i] == [OpN] and lda[i] x m[i] with lda[i] >= max(1,k[i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - atype: Enumerant specifying the datatype of A
-//   - ldaArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix A [idx] for each group
-//   - barray: Array of pointers to < Btype > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
+//   - ldaArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix A[idx] for each group
+//   - barray: Array of pointers to < Btype > array, with each array of dim. ldb[i] x n[i] with ldb[i] >= max(1,k[i]) if transb[i] == [OpN] and ldb[i] x k[i] with ldb[i] >= max(1,n[i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
 //   - btype: Enumerant specifying the datatype of B
-//   - ldbArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix B [idx] for each group
+//   - ldbArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix B[idx] for each group
 //   - betaArray: Array containing the < Scale Type > scalar used for multiplication for each group
-//   - carray: Array of pointers to < Ctype > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < Ctype > array. It has dimensions ldc[i] x n[i] with ldc[i] >= max(1,m[i]). Matrices C[idx] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
 //   - ctype: Enumerant specifying the datatype of C
-//   - ldcArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix C [idx] for each group
+//   - ldcArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix C[idx] for each group
 //   - groupCount: Number of groups
 //   - groupSize: Array containing the number of pointers contained in Aarray, Barray and Carray for each group
 //   - computeType: Enumerant specifying the computation type
 //
 // Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: If transa_array, transb_array, m_array, n_array, k_array, alpha_array, lda_array, ldb_array, beta_array, ldc_array, or group_size are NULL, or if group_count < 0, or if m_array [i] < 0, n_array [i] < 0, k_array [i] < 0, group_size [i] < 0, or if transa_array [i] and transb_array [i] are not one of [OpN], [OpC], [OpT], or if lda_array [i] < max(1, m_array [i]) if transa_array [i] == [OpN] and lda_array [i] < max(1, k_array [i]) otherwise, or if ldb_array [i] < max(1, k_array [i]) if transb_array [i] == [OpN] and ldb_array [i] < max(1, n_array [i]) otherwise, or if ldc_array [i] < max(1, m_array [i])
+//   - [ErrInvalidValue]: If transa_array, transb_array, m_array, n_array, k_array, alpha_array, lda_array, ldb_array, beta_array, ldc_array, or group_size are NULL, or if group_count < 0, or if m_array[i] < 0, n_array[i] < 0, k_array[i] < 0, group_size[i] < 0, or if transa_array[i] and transb_array[i] are not one of [OpN], [OpC], [OpT], or if lda_array[i] < max(1, m_array[i]) if transa_array[i] == [OpN] and lda_array[i] < max(1, k_array[i]) otherwise, or if ldb_array[i] < max(1, k_array[i]) if transb_array[i] == [OpN] and ldb_array[i] < max(1, n_array[i]) otherwise, or if ldc_array[i] < max(1, m_array[i])
 //   - [ErrNotInitialized]: The library was not initialized
 //   - [ErrNotSupported]: the pointer mode is set to [PointerModeDevice]; Atype or Btype or Ctype or computeType are not supported
 //
@@ -12847,14 +12997,14 @@ func gemmGroupedBatchedEx64(handle Handle, transaArray *Operation, transbArray *
 //
 // Note: The second variant of [Handle.GemmStridedBatchedEx] function is provided for backward compatibility with C++ applications code, where the computeType parameter is of cudaDataType_t instead of [ComputeType]. C applications would still compile with the updated function signature.
 // C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
+// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A[i])m×k , op(B[i])k×n and C[i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
-// and op(B [i]) is defined similarly for matrix B [i] .
+// and op(B[i]) is defined similarly for matrix B[i] .
 //
-// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, the behavior is undefined.
+// Note: C[i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, the behavior is undefined.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], B[i], C[i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A[i-1], B[i-1], C[i-1]. The unit for the offset is number of elements and must not be zero .
 // [Handle.GemmStridedBatchedEx] supports the following Compute Type, Scale Type, Atype/Btype, and Ctype:
 //   - Compute Type: [Compute16F] or [Compute16FPedantic]; Scale Type (alpha and beta): CUDA_R_16F; Atype/Btype: CUDA_R_16F; Ctype: CUDA_R_16F
 //   - Compute Type: [Compute32I] or [Compute32IPedantic]; Scale Type (alpha and beta): CUDA_R_32I; Atype/Btype: CUDA_R_8I; Ctype: CUDA_R_32I
@@ -12871,31 +13021,31 @@ func gemmGroupedBatchedEx64(handle Handle, transaArray *Operation, transbArray *
 //   - Compute Type: [Compute64F] or [Compute64FPedantic]; Scale Type (alpha and beta): CUDA_R_64F; Atype/Btype: CUDA_R_64F; Ctype: CUDA_R_64F
 //   - Compute Type: [Compute64F] or [Compute64FPedantic]; Scale Type (alpha and beta): CUDA_C_64F; Atype/Btype: CUDA_C_64F; Ctype: CUDA_C_64F
 //
-// Note: Compute types [Compute32I] and [Compute32IPedantic] are only supported with all pointers A [i], B [i] being 4-byte aligned and lda, ldb being multiples of 4. For a better performance, it is also recommended that IMMA kernels requirements for the regular data ordering listed here are met.
+// Note: Compute types [Compute32I] and [Compute32IPedantic] are only supported with all pointers A[i], B[i] being 4-byte aligned and lda, ldb being multiples of 4. For a better performance, it is also recommended that IMMA kernels requirements for the regular data ordering listed here are met.
 // Also refer to: sgemm.()
 //
 // [Handle.GemmStridedBatchedEx64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transa: Operation op( A [i]) that is non- or (conj.) transpose
-//   - transb: Operation op( B [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix op( A [i]) and C [i]
-//   - n: Number of columns of matrix op( B [i]) and C [i]
-//   - k: Number of columns of op( A [i]) and rows of op( B [i])
+//   - transa: Operation op( A[i]) that is non- or (conj.) transpose
+//   - transb: Operation op( B[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix op( A[i]) and C[i]
+//   - n: Number of columns of matrix op( B[i]) and C[i]
+//   - k: Number of columns of op( A[i]) and rows of op( B[i])
 //   - alpha: Scaling factor for A*B of the < Scale Type > that corresponds to the computeType and Ctype, see the table below for details. Its kind must match computeType and ctype; a host [Scalar] of another kind is a *[ScalarError].
 //   - a: Pointer to < Atype > matrix, A, corresponds to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - atype: Enumerant specifying the datatype of A
-//   - lda: Leading dimension of two-dimensional array used to store the matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store the matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - b: Pointer to < Btype > matrix, B, corresponds to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - btype: Enumerant specifying the datatype of B
-//   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
-//   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
-//   - beta: Scaling factor for C of the < Scale Type > that corresponds to the computeType and Ctype, see the table below for details. If beta == 0, C [i] does not have to be a valid input. Its kind must match computeType and ctype; a host [Scalar] of another kind is a *[ScalarError].
-//   - c: Pointer to < Ctype > matrix, C, corresponds to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
+//   - ldb: Leading dimension of two-dimensional array used to store matrix B[i]
+//   - strideB: Value of type long long int that gives the offset in number of elements between B[i] and B[i+1]
+//   - beta: Scaling factor for C of the < Scale Type > that corresponds to the computeType and Ctype, see the table below for details. If beta == 0, C[i] does not have to be a valid input. Its kind must match computeType and ctype; a host [Scalar] of another kind is a *[ScalarError].
+//   - c: Pointer to < Ctype > matrix, C, corresponds to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C[i] should not overlap; otherwise, undefined behavior is expected
 //   - ctype: Enumerant specifying the datatype of C
-//   - ldc: Leading dimension of a two-dimensional array used to store each matrix C [i]
-//   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
+//   - ldc: Leading dimension of a two-dimensional array used to store each matrix C[i]
+//   - strideC: Value of type long long int that gives the offset in number of elements between C[i] and C[i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
 //   - computeType: Enumerant specifying the computation type
 //   - algo: Enumerant specifying the algorithm. See [GemmAlgo]
@@ -12929,14 +13079,14 @@ func gemmStridedBatchedEx(handle Handle, transa Operation, transb Operation, m i
 //
 // Note: The second variant of [Handle.GemmStridedBatchedEx] function is provided for backward compatibility with C++ applications code, where the computeType parameter is of cudaDataType_t instead of [ComputeType]. C applications would still compile with the updated function signature.
 // C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
+// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A[i])m×k , op(B[i])k×n and C[i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
-// and op(B [i]) is defined similarly for matrix B [i] .
+// and op(B[i]) is defined similarly for matrix B[i] .
 //
-// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, the behavior is undefined.
+// Note: C[i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, the behavior is undefined.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], B[i], C[i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A[i-1], B[i-1], C[i-1]. The unit for the offset is number of elements and must not be zero .
 // [Handle.GemmStridedBatchedEx] supports the following Compute Type, Scale Type, Atype/Btype, and Ctype:
 //   - Compute Type: [Compute16F] or [Compute16FPedantic]; Scale Type (alpha and beta): CUDA_R_16F; Atype/Btype: CUDA_R_16F; Ctype: CUDA_R_16F
 //   - Compute Type: [Compute32I] or [Compute32IPedantic]; Scale Type (alpha and beta): CUDA_R_32I; Atype/Btype: CUDA_R_8I; Ctype: CUDA_R_32I
@@ -12953,31 +13103,31 @@ func gemmStridedBatchedEx(handle Handle, transa Operation, transb Operation, m i
 //   - Compute Type: [Compute64F] or [Compute64FPedantic]; Scale Type (alpha and beta): CUDA_R_64F; Atype/Btype: CUDA_R_64F; Ctype: CUDA_R_64F
 //   - Compute Type: [Compute64F] or [Compute64FPedantic]; Scale Type (alpha and beta): CUDA_C_64F; Atype/Btype: CUDA_C_64F; Ctype: CUDA_C_64F
 //
-// Note: Compute types [Compute32I] and [Compute32IPedantic] are only supported with all pointers A [i], B [i] being 4-byte aligned and lda, ldb being multiples of 4. For a better performance, it is also recommended that IMMA kernels requirements for the regular data ordering listed here are met.
+// Note: Compute types [Compute32I] and [Compute32IPedantic] are only supported with all pointers A[i], B[i] being 4-byte aligned and lda, ldb being multiples of 4. For a better performance, it is also recommended that IMMA kernels requirements for the regular data ordering listed here are met.
 // Also refer to: sgemm.()
 //
 // It is [Handle.GemmStridedBatchedEx] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transa: Operation op( A [i]) that is non- or (conj.) transpose
-//   - transb: Operation op( B [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix op( A [i]) and C [i]
-//   - n: Number of columns of matrix op( B [i]) and C [i]
-//   - k: Number of columns of op( A [i]) and rows of op( B [i])
+//   - transa: Operation op( A[i]) that is non- or (conj.) transpose
+//   - transb: Operation op( B[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix op( A[i]) and C[i]
+//   - n: Number of columns of matrix op( B[i]) and C[i]
+//   - k: Number of columns of op( A[i]) and rows of op( B[i])
 //   - alpha: Scaling factor for A*B of the < Scale Type > that corresponds to the computeType and Ctype, see the table below for details. Its kind must match computeType and ctype; a host [Scalar] of another kind is a *[ScalarError].
 //   - a: Pointer to < Atype > matrix, A, corresponds to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - atype: Enumerant specifying the datatype of A
-//   - lda: Leading dimension of two-dimensional array used to store the matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store the matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - b: Pointer to < Btype > matrix, B, corresponds to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - btype: Enumerant specifying the datatype of B
-//   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
-//   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
-//   - beta: Scaling factor for C of the < Scale Type > that corresponds to the computeType and Ctype, see the table below for details. If beta == 0, C [i] does not have to be a valid input. Its kind must match computeType and ctype; a host [Scalar] of another kind is a *[ScalarError].
-//   - c: Pointer to < Ctype > matrix, C, corresponds to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
+//   - ldb: Leading dimension of two-dimensional array used to store matrix B[i]
+//   - strideB: Value of type long long int that gives the offset in number of elements between B[i] and B[i+1]
+//   - beta: Scaling factor for C of the < Scale Type > that corresponds to the computeType and Ctype, see the table below for details. If beta == 0, C[i] does not have to be a valid input. Its kind must match computeType and ctype; a host [Scalar] of another kind is a *[ScalarError].
+//   - c: Pointer to < Ctype > matrix, C, corresponds to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C[i] should not overlap; otherwise, undefined behavior is expected
 //   - ctype: Enumerant specifying the datatype of C
-//   - ldc: Leading dimension of a two-dimensional array used to store each matrix C [i]
-//   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
+//   - ldc: Leading dimension of a two-dimensional array used to store each matrix C[i]
+//   - strideC: Value of type long long int that gives the offset in number of elements between C[i] and C[i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
 //   - computeType: Enumerant specifying the computation type
 //   - algo: Enumerant specifying the algorithm. See [GemmAlgo]
@@ -13073,7 +13223,7 @@ func getEmulationStrategy(handle Handle, emulationStrategy *EmulationStrategy) e
 //   - [ErrNotInitialized]: the library was not initialized.
 //
 // Wraps cublasGetFixedPointEmulationMantissaBitCountPointer.
-func getFixedPointEmulationMantissaBitCountPointer(handle Handle, mantissaBitCount uintptr) error {
+func getFixedPointEmulationMantissaBitCountPointer(handle Handle, mantissaBitCount **int32) error {
 	if err := checkLibSym("cublasGetFixedPointEmulationMantissaBitCountPointer"); err != nil {
 		return err
 	}
@@ -13454,11 +13604,11 @@ var slotGetVersion outSlot[int32]
 // hSHgemvBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
-// y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// y[i]=αop(A[i])x[i]+βy[i], for i∈[0,batchCount−1]
+// where α and β are scalars, and A is an array of pointers to matrice A[i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i] ,
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -13466,17 +13616,17 @@ var slotGetVersion outSlot[int32]
 // [Handle.HSHgemvBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - incx: Stride of each one-dimensional array x [i]
+//   - incx: Stride of each one-dimensional array x[i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - incy: Stride of each one-dimensional array y [i]
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - incy: Stride of each one-dimensional array y[i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
 // Errors:
@@ -13495,11 +13645,11 @@ func hSHgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *flo
 // hSHgemvBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
-// y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// y[i]=αop(A[i])x[i]+βy[i], for i∈[0,batchCount−1]
+// where α and β are scalars, and A is an array of pointers to matrice A[i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i] ,
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -13507,17 +13657,17 @@ func hSHgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *flo
 // It is [Handle.HSHgemvBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - incx: Stride of each one-dimensional array x [i]
+//   - incx: Stride of each one-dimensional array x[i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - incy: Stride of each one-dimensional array y [i]
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - incy: Stride of each one-dimensional array y[i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
 // Errors:
@@ -13537,31 +13687,31 @@ func hSHgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *f
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A[i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i]
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], x[i], y[i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A[i-1], x[i-1], y[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // [Handle.HSHgemvStridedBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
-//   - incx: Stride of each one-dimensional array x [i]
-//   - stridex: Value of type long long int that gives the offset in number of elements between x [i] and x [i+1]
+//   - incx: Stride of each one-dimensional array x[i]
+//   - stridex: Value of type long long int that gives the offset in number of elements between x[i] and x[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected
-//   - incy: Stride of each one-dimensional array y [i]
-//   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
+//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected
+//   - incy: Stride of each one-dimensional array y[i]
+//   - stridey: Value of type long long int that gives the offset in number of elements between y[i] and y[i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
 // Errors:
@@ -13581,31 +13731,31 @@ func hSHgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alp
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A[i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i]
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], x[i], y[i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A[i-1], x[i-1], y[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // It is [Handle.HSHgemvStridedBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
-//   - incx: Stride of each one-dimensional array x [i]
-//   - stridex: Value of type long long int that gives the offset in number of elements between x [i] and x [i+1]
+//   - incx: Stride of each one-dimensional array x[i]
+//   - stridex: Value of type long long int that gives the offset in number of elements between x[i] and x[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected
-//   - incy: Stride of each one-dimensional array y [i]
-//   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
+//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected
+//   - incy: Stride of each one-dimensional array y[i]
+//   - stridey: Value of type long long int that gives the offset in number of elements between y[i] and y[i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
 // Errors:
@@ -13624,11 +13774,11 @@ func hSHgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, a
 // hSSgemvBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
-// y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// y[i]=αop(A[i])x[i]+βy[i], for i∈[0,batchCount−1]
+// where α and β are scalars, and A is an array of pointers to matrice A[i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i] ,
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -13636,17 +13786,17 @@ func hSHgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, a
 // [Handle.HSSgemvBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - incx: Stride of each one-dimensional array x [i]
+//   - incx: Stride of each one-dimensional array x[i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - incy: Stride of each one-dimensional array y [i]
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - incy: Stride of each one-dimensional array y[i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
 // Errors:
@@ -13665,11 +13815,11 @@ func hSSgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *flo
 // hSSgemvBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
-// y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// y[i]=αop(A[i])x[i]+βy[i], for i∈[0,batchCount−1]
+// where α and β are scalars, and A is an array of pointers to matrice A[i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i] ,
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -13677,17 +13827,17 @@ func hSSgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *flo
 // It is [Handle.HSSgemvBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - incx: Stride of each one-dimensional array x [i]
+//   - incx: Stride of each one-dimensional array x[i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - incy: Stride of each one-dimensional array y [i]
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - incy: Stride of each one-dimensional array y[i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
 // Errors:
@@ -13707,31 +13857,31 @@ func hSSgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *f
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A[i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i]
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], x[i], y[i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A[i-1], x[i-1], y[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // [Handle.HSSgemvStridedBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
-//   - incx: Stride of each one-dimensional array x [i]
-//   - stridex: Value of type long long int that gives the offset in number of elements between x [i] and x [i+1]
+//   - incx: Stride of each one-dimensional array x[i]
+//   - stridex: Value of type long long int that gives the offset in number of elements between x[i] and x[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected
-//   - incy: Stride of each one-dimensional array y [i]
-//   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
+//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected
+//   - incy: Stride of each one-dimensional array y[i]
+//   - stridey: Value of type long long int that gives the offset in number of elements between y[i] and y[i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
 // Errors:
@@ -13751,31 +13901,31 @@ func hSSgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alp
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A[i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i]
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], x[i], y[i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A[i-1], x[i-1], y[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // It is [Handle.HSSgemvStridedBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
-//   - incx: Stride of each one-dimensional array x [i]
-//   - stridex: Value of type long long int that gives the offset in number of elements between x [i] and x [i+1]
+//   - incx: Stride of each one-dimensional array x[i]
+//   - stridex: Value of type long long int that gives the offset in number of elements between x[i] and x[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected
-//   - incy: Stride of each one-dimensional array y [i]
-//   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
+//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected
+//   - incy: Stride of each one-dimensional array y[i]
+//   - stridey: Value of type long long int that gives the offset in number of elements between y[i] and y[i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
 // Errors:
@@ -13833,12 +13983,12 @@ func hgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 // hgemmBatched performs the matrix-matrix multiplication of a batch of matrices.
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
-// C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
-// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
+// C[i]=αop(A[i])op(B[i])+βC[i], for i ∈[0,batchCount−1]
+// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A[i])m×k , op(B[i])k×n and C[i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
-// and op(B [i]) is defined similarly for matrix B [i] .
+// and op(B[i]) is defined similarly for matrix B[i] .
 //
-// Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -13846,19 +13996,19 @@ func hgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 // [Handle.HgemmBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transa: Operation op( A [i]) that is non- or (conj.) transpose
-//   - transb: Operation op( B [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix op( A [i]) and C [i]
-//   - n: Number of columns of op( B [i]) and C [i]
-//   - k: Number of columns of op( A [i]) and rows of op( B [i])
+//   - transa: Operation op( A[i]) that is non- or (conj.) transpose
+//   - transb: Operation op( B[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix op( A[i]) and C[i]
+//   - n: Number of columns of op( B[i]) and C[i]
+//   - k: Number of columns of op( A[i]) and rows of op( B[i])
 //   - alpha: < type > scalar used for multiplication
 //   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
 //   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
+//   - ldb: Leading dimension of two-dimensional array used to store each matrix B[i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C[i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix C[i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
 // Errors:
@@ -13878,12 +14028,12 @@ func hgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 // hgemmBatched64 performs the matrix-matrix multiplication of a batch of matrices.
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
-// C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
-// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
+// C[i]=αop(A[i])op(B[i])+βC[i], for i ∈[0,batchCount−1]
+// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A[i])m×k , op(B[i])k×n and C[i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
-// and op(B [i]) is defined similarly for matrix B [i] .
+// and op(B[i]) is defined similarly for matrix B[i] .
 //
-// Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -13891,19 +14041,19 @@ func hgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 // It is [Handle.HgemmBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transa: Operation op( A [i]) that is non- or (conj.) transpose
-//   - transb: Operation op( B [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix op( A [i]) and C [i]
-//   - n: Number of columns of op( B [i]) and C [i]
-//   - k: Number of columns of op( A [i]) and rows of op( B [i])
+//   - transa: Operation op( A[i]) that is non- or (conj.) transpose
+//   - transb: Operation op( B[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix op( A[i]) and C[i]
+//   - n: Number of columns of op( B[i]) and C[i]
+//   - k: Number of columns of op( A[i]) and rows of op( B[i])
 //   - alpha: < type > scalar used for multiplication
 //   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
 //   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
+//   - ldb: Leading dimension of two-dimensional array used to store each matrix B[i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C[i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix C[i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
 // Errors:
@@ -13924,34 +14074,34 @@ func hgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, 
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
 // C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
+// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A[i])m×k , op(B[i])k×n and C[i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
-// and op(B [i]) is defined similarly for matrix B [i] .
+// and op(B[i]) is defined similarly for matrix B[i] .
 //
-// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], B[i], C[i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A[i-1], B[i-1], C[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // [Handle.HgemmStridedBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transa: Operation op( A [i]) that is non- or (conj.) transpose
-//   - transb: Operation op( B [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix op( A [i]) and C [i]
-//   - n: Number of columns of op( B [i]) and C [i]
-//   - k: Number of columns of op( A [i]) and rows of op( B [i])
+//   - transa: Operation op( A[i]) that is non- or (conj.) transpose
+//   - transb: Operation op( B[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix op( A[i]) and C[i]
+//   - n: Number of columns of op( B[i]) and C[i]
+//   - k: Number of columns of op( A[i]) and rows of op( B[i])
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - b: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
-//   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
-//   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
+//   - ldb: Leading dimension of two-dimensional array used to store each matrix B[i]
+//   - strideB: Value of type long long int that gives the offset in number of elements between B[i] and B[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
-//   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
+//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix C[i]
+//   - strideC: Value of type long long int that gives the offset in number of elements between C[i] and C[i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
 //
 // Errors:
@@ -13972,34 +14122,34 @@ func hgemmStridedBatched(handle Handle, transa Operation, transb Operation, m in
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
 // C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
+// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A[i])m×k , op(B[i])k×n and C[i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
-// and op(B [i]) is defined similarly for matrix B [i] .
+// and op(B[i]) is defined similarly for matrix B[i] .
 //
-// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], B[i], C[i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A[i-1], B[i-1], C[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // It is [Handle.HgemmStridedBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transa: Operation op( A [i]) that is non- or (conj.) transpose
-//   - transb: Operation op( B [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix op( A [i]) and C [i]
-//   - n: Number of columns of op( B [i]) and C [i]
-//   - k: Number of columns of op( A [i]) and rows of op( B [i])
+//   - transa: Operation op( A[i]) that is non- or (conj.) transpose
+//   - transb: Operation op( B[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix op( A[i]) and C[i]
+//   - n: Number of columns of op( B[i]) and C[i]
+//   - k: Number of columns of op( A[i]) and rows of op( B[i])
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - b: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
-//   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
-//   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
+//   - ldb: Leading dimension of two-dimensional array used to store each matrix B[i]
+//   - strideB: Value of type long long int that gives the offset in number of elements between B[i] and B[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
-//   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
+//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix C[i]
+//   - strideC: Value of type long long int that gives the offset in number of elements between C[i] and C[i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
 //
 // Errors:
@@ -14133,7 +14283,7 @@ var slotIaminEx64 outSlot[int64]
 
 // icamax finds the (smallest) index of the element of the maximum magnitude.
 //
-// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is maximum for i=1,…,n and j=1+(i−1)* incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is the first i such that |Im(x[j])|+|Re(x[j])| is maximum for i=1,…,n and j=1+(i−1)* incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // isamax(), idamax(), icamax(), izamax()
 //
@@ -14170,7 +14320,7 @@ var slotIcamax outSlot[int32]
 
 // icamax64 finds the (smallest) index of the element of the maximum magnitude.
 //
-// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is maximum for i=1,…,n and j=1+(i−1)* incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is the first i such that |Im(x[j])|+|Re(x[j])| is maximum for i=1,…,n and j=1+(i−1)* incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // isamax(), idamax(), icamax(), izamax()
 //
@@ -14207,7 +14357,7 @@ var slotIcamax64 outSlot[int64]
 
 // icamin finds the (smallest) index of the element of the minimum magnitude.
 //
-// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is minimum for i=1,…,n and j=1+(i−1)*incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is the first i such that |Im(x[j])|+|Re(x[j])| is minimum for i=1,…,n and j=1+(i−1)*incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // isamin()
 //
@@ -14244,7 +14394,7 @@ var slotIcamin outSlot[int32]
 
 // icamin64 finds the (smallest) index of the element of the minimum magnitude.
 //
-// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is minimum for i=1,…,n and j=1+(i−1)*incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is the first i such that |Im(x[j])|+|Re(x[j])| is minimum for i=1,…,n and j=1+(i−1)*incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // isamin()
 //
@@ -14281,7 +14431,7 @@ var slotIcamin64 outSlot[int64]
 
 // idamax finds the (smallest) index of the element of the maximum magnitude.
 //
-// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is maximum for i=1,…,n and j=1+(i−1)* incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is the first i such that |Im(x[j])|+|Re(x[j])| is maximum for i=1,…,n and j=1+(i−1)* incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // isamax(), idamax(), icamax(), izamax()
 //
@@ -14318,7 +14468,7 @@ var slotIdamax outSlot[int32]
 
 // idamax64 finds the (smallest) index of the element of the maximum magnitude.
 //
-// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is maximum for i=1,…,n and j=1+(i−1)* incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is the first i such that |Im(x[j])|+|Re(x[j])| is maximum for i=1,…,n and j=1+(i−1)* incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // isamax(), idamax(), icamax(), izamax()
 //
@@ -14355,7 +14505,7 @@ var slotIdamax64 outSlot[int64]
 
 // idamin finds the (smallest) index of the element of the minimum magnitude.
 //
-// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is minimum for i=1,…,n and j=1+(i−1)*incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is the first i such that |Im(x[j])|+|Re(x[j])| is minimum for i=1,…,n and j=1+(i−1)*incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // isamin()
 //
@@ -14392,7 +14542,7 @@ var slotIdamin outSlot[int32]
 
 // idamin64 finds the (smallest) index of the element of the minimum magnitude.
 //
-// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is minimum for i=1,…,n and j=1+(i−1)*incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is the first i such that |Im(x[j])|+|Re(x[j])| is minimum for i=1,…,n and j=1+(i−1)*incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // isamin()
 //
@@ -14429,7 +14579,7 @@ var slotIdamin64 outSlot[int64]
 
 // isamax finds the (smallest) index of the element of the maximum magnitude.
 //
-// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is maximum for i=1,…,n and j=1+(i−1)* incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is the first i such that |Im(x[j])|+|Re(x[j])| is maximum for i=1,…,n and j=1+(i−1)* incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // isamax(), idamax(), icamax(), izamax()
 //
@@ -14466,7 +14616,7 @@ var slotIsamax outSlot[int32]
 
 // isamax64 finds the (smallest) index of the element of the maximum magnitude.
 //
-// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is maximum for i=1,…,n and j=1+(i−1)* incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is the first i such that |Im(x[j])|+|Re(x[j])| is maximum for i=1,…,n and j=1+(i−1)* incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // isamax(), idamax(), icamax(), izamax()
 //
@@ -14503,7 +14653,7 @@ var slotIsamax64 outSlot[int64]
 
 // isamin finds the (smallest) index of the element of the minimum magnitude.
 //
-// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is minimum for i=1,…,n and j=1+(i−1)*incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is the first i such that |Im(x[j])|+|Re(x[j])| is minimum for i=1,…,n and j=1+(i−1)*incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // isamin()
 //
@@ -14540,7 +14690,7 @@ var slotIsamin outSlot[int32]
 
 // isamin64 finds the (smallest) index of the element of the minimum magnitude.
 //
-// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is minimum for i=1,…,n and j=1+(i−1)*incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is the first i such that |Im(x[j])|+|Re(x[j])| is minimum for i=1,…,n and j=1+(i−1)*incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // isamin()
 //
@@ -14577,7 +14727,7 @@ var slotIsamin64 outSlot[int64]
 
 // izamax finds the (smallest) index of the element of the maximum magnitude.
 //
-// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is maximum for i=1,…,n and j=1+(i−1)* incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is the first i such that |Im(x[j])|+|Re(x[j])| is maximum for i=1,…,n and j=1+(i−1)* incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // isamax(), idamax(), icamax(), izamax()
 //
@@ -14614,7 +14764,7 @@ var slotIzamax outSlot[int32]
 
 // izamax64 finds the (smallest) index of the element of the maximum magnitude.
 //
-// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is maximum for i=1,…,n and j=1+(i−1)* incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is the first i such that |Im(x[j])|+|Re(x[j])| is maximum for i=1,…,n and j=1+(i−1)* incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // isamax(), idamax(), icamax(), izamax()
 //
@@ -14651,7 +14801,7 @@ var slotIzamax64 outSlot[int64]
 
 // izamin finds the (smallest) index of the element of the minimum magnitude.
 //
-// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is minimum for i=1,…,n and j=1+(i−1)*incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is the first i such that |Im(x[j])|+|Re(x[j])| is minimum for i=1,…,n and j=1+(i−1)*incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // isamin()
 //
@@ -14688,7 +14838,7 @@ var slotIzamin outSlot[int32]
 
 // izamin64 finds the (smallest) index of the element of the minimum magnitude.
 //
-// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is minimum for i=1,…,n and j=1+(i−1)*incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is the first i such that |Im(x[j])|+|Re(x[j])| is minimum for i=1,…,n and j=1+(i−1)*incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // isamin()
 //
@@ -14746,7 +14896,7 @@ func LoggerConfigure(logIsOn int32, logToStdOut int32, logToStdErr int32, logFil
 
 // nrm2Ex is an API generalization of the routine cublasnrm2() where input data, output data and compute type can be specified independently.
 //
-// This function computes the Euclidean norm of the vector x. The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function computes the Euclidean norm of the vector x. The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x[j]×x[j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.Nrm2Ex] are listed below :
 //   - x: CUDA_R_16F; result: CUDA_R_16F; execution: CUDA_R_32F
 //   - x: CUDA_R_16BF; result: CUDA_R_16BF; execution: CUDA_R_32F
@@ -14786,7 +14936,7 @@ func nrm2Ex(handle Handle, n int32, x driver.DevicePtr, xType DataType, incx int
 
 // nrm2Ex64 is an API generalization of the routine cublasnrm2() where input data, output data and compute type can be specified independently.
 //
-// This function computes the Euclidean norm of the vector x. The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function computes the Euclidean norm of the vector x. The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x[j]×x[j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.Nrm2Ex] are listed below :
 //   - x: CUDA_R_16F; result: CUDA_R_16F; execution: CUDA_R_32F
 //   - x: CUDA_R_16BF; result: CUDA_R_16BF; execution: CUDA_R_32F
@@ -14829,7 +14979,7 @@ func nrm2Ex64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx i
 // This function applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x[k]=c×x[k]+s×y[j] and y[j]=−s×x[k]+c×y[j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.RotEx] are listed below :
 //   - executionType: CUDA_R_32F; xType / yType: CUDA_R_16BF, CUDA_R_16F, CUDA_R_32F; csType: CUDA_R_16BF, CUDA_R_16F, CUDA_R_32F
 //   - executionType: CUDA_R_64F; xType / yType: CUDA_R_64F; csType: CUDA_R_64F
@@ -14879,7 +15029,7 @@ func rotEx(handle Handle, n int32, x driver.DevicePtr, xType DataType, incx int3
 // This function applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x[k]=c×x[k]+s×y[j] and y[j]=−s×x[k]+c×y[j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.RotEx] are listed below :
 //   - executionType: CUDA_R_32F; xType / yType: CUDA_R_16BF, CUDA_R_16F, CUDA_R_32F; csType: CUDA_R_16BF, CUDA_R_16F, CUDA_R_32F
 //   - executionType: CUDA_R_64F; xType / yType: CUDA_R_64F; csType: CUDA_R_64F
@@ -14978,7 +15128,7 @@ func rotmgEx(handle Handle, d1 unsafe.Pointer, d1Type DataType, d2 unsafe.Pointe
 
 // sasum computes the sum of the absolute values of the elements of vector x.
 //
-// Hence, the result is ∑_(i=1)^(n)|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)|Im(x[j])|+|Re(x[j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sasum(), dasum(), scasum(), dzasum()
 //
@@ -15015,7 +15165,7 @@ var slotSasum outSlot[float32]
 
 // sasum64 computes the sum of the absolute values of the elements of vector x.
 //
-// Hence, the result is ∑_(i=1)^(n)|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)|Im(x[j])|+|Re(x[j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sasum(), dasum(), scasum(), dzasum()
 //
@@ -15052,7 +15202,7 @@ var slotSasum64 outSlot[float32]
 
 // saxpy multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
 //
-// Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is y[j]=α×x[k]+y[j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // saxpy(), daxpy(), caxpy(), zaxpy()
 //
@@ -15080,7 +15230,7 @@ func saxpy(handle Handle, n int32, alpha *float32, x driver.DevicePtr, incx int3
 
 // saxpy64 multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
 //
-// Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is y[j]=α×x[k]+y[j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // saxpy(), daxpy(), caxpy(), zaxpy()
 //
@@ -15108,7 +15258,7 @@ func saxpy64(handle Handle, n int64, alpha *float32, x driver.DevicePtr, incx in
 
 // scalEx scales the vector x by the scalar α and overwrites it with the result.
 //
-// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is x[j]=α×x[j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.ScalEx] are listed below :
 //   - alpha: CUDA_R_32F; x: CUDA_R_16F; execution: CUDA_R_32F
 //   - alpha: CUDA_R_32F; x: CUDA_R_16BF; execution: CUDA_R_32F
@@ -15152,7 +15302,7 @@ func scalEx(handle Handle, n int32, alpha Scalar, alphaType DataType, x driver.D
 
 // scalEx64 scales the vector x by the scalar α and overwrites it with the result.
 //
-// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is x[j]=α×x[j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.ScalEx] are listed below :
 //   - alpha: CUDA_R_32F; x: CUDA_R_16F; execution: CUDA_R_32F
 //   - alpha: CUDA_R_32F; x: CUDA_R_16BF; execution: CUDA_R_32F
@@ -15196,7 +15346,7 @@ func scalEx64(handle Handle, n int64, alpha Scalar, alphaType DataType, x driver
 
 // scasum computes the sum of the absolute values of the elements of vector x.
 //
-// Hence, the result is ∑_(i=1)^(n)|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)|Im(x[j])|+|Re(x[j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sasum(), dasum(), scasum(), dzasum()
 //
@@ -15233,7 +15383,7 @@ var slotScasum outSlot[float32]
 
 // scasum64 computes the sum of the absolute values of the elements of vector x.
 //
-// Hence, the result is ∑_(i=1)^(n)|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)|Im(x[j])|+|Re(x[j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sasum(), dasum(), scasum(), dzasum()
 //
@@ -15270,7 +15420,7 @@ var slotScasum64 outSlot[float32]
 
 // scnrm2 computes the Euclidean norm of the vector x.
 //
-// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x[j]×x[j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
 //
@@ -15307,7 +15457,7 @@ var slotScnrm2 outSlot[float32]
 
 // scnrm264 computes the Euclidean norm of the vector x.
 //
-// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x[j]×x[j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
 //
@@ -15344,7 +15494,7 @@ var slotScnrm264 outSlot[float32]
 
 // scopy copies the vector x into the vector y.
 //
-// Hence, the performed operation is y [j]=x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is y[j]=x[k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // scopy(), dcopy(), ccopy(), zcopy()
 //
@@ -15371,7 +15521,7 @@ func scopy(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 
 // scopy64 copies the vector x into the vector y.
 //
-// Hence, the performed operation is y [j]=x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is y[j]=x[k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // scopy(), dcopy(), ccopy(), zcopy()
 //
@@ -15400,10 +15550,10 @@ func scopy64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 //
 // C={A×diag(X)if mode == CUBLAS_SIDE_RIGHTdiag(X)×Aif mode == [SideLeft]
 // where A and C are matrices stored in column-major format with dimensions m×n . X is a vector of size n if mode == [SideRight] and of size m if mode == [SideLeft]. X is gathered from one-dimensional array x with stride incx. The absolute value of incx is the stride and the sign of incx is direction of the stride. If incx is positive, then we forward x from the first element. Otherwise, we backward x from the last element. The formula of X is
-// X [j]={x [j×incx]if incx≥0x[(χ−1)×|incx|−j×|incx|]if incx<0
+// X[j]={x[j×incx]if incx≥0x[(χ−1)×|incx|−j×|incx|]if incx<0
 // where χ=m if mode == [SideLeft] and χ=n if mode == [SideRight].
 // Example 1: if the user wants to perform diag(diag(B))×A , then incx=ldb+1 where ldb is leading dimension of matrix B, either row-major or column-major.
-// Example 2: if the user wants to perform α×A , then there are two choices, either cublasgeam() with *beta == 0 and transa == [OpN] or cublasdgmm() with incx == 0 and x [0] == alpha.
+// Example 2: if the user wants to perform α×A , then there are two choices, either cublasgeam() with *beta == 0 and transa == [OpN] or cublasdgmm() with incx == 0 and x[0] == alpha.
 // The operation is out-of-place. The in-place only works if lda == ldc.
 //
 // [Handle.Sdgmm64] takes 64-bit sizes.
@@ -15436,10 +15586,10 @@ func sdgmm(handle Handle, mode SideMode, m int32, n int32, a driver.DevicePtr, l
 //
 // C={A×diag(X)if mode == CUBLAS_SIDE_RIGHTdiag(X)×Aif mode == [SideLeft]
 // where A and C are matrices stored in column-major format with dimensions m×n . X is a vector of size n if mode == [SideRight] and of size m if mode == [SideLeft]. X is gathered from one-dimensional array x with stride incx. The absolute value of incx is the stride and the sign of incx is direction of the stride. If incx is positive, then we forward x from the first element. Otherwise, we backward x from the last element. The formula of X is
-// X [j]={x [j×incx]if incx≥0x[(χ−1)×|incx|−j×|incx|]if incx<0
+// X[j]={x[j×incx]if incx≥0x[(χ−1)×|incx|−j×|incx|]if incx<0
 // where χ=m if mode == [SideLeft] and χ=n if mode == [SideRight].
 // Example 1: if the user wants to perform diag(diag(B))×A , then incx=ldb+1 where ldb is leading dimension of matrix B, either row-major or column-major.
-// Example 2: if the user wants to perform α×A , then there are two choices, either cublasgeam() with *beta == 0 and transa == [OpN] or cublasdgmm() with incx == 0 and x [0] == alpha.
+// Example 2: if the user wants to perform α×A , then there are two choices, either cublasgeam() with *beta == 0 and transa == [OpN] or cublasdgmm() with incx == 0 and x[0] == alpha.
 // The operation is out-of-place. The in-place only works if lda == ldc.
 //
 // It is [Handle.Sdgmm] with int64 sizes and strides.
@@ -15470,7 +15620,7 @@ func sdgmm64(handle Handle, mode SideMode, m int64, n int64, a driver.DevicePtr,
 
 // sdot computes the dot product of vectors x and y.
 //
-// Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)(x[k]×y[j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -15508,7 +15658,7 @@ var slotSdot outSlot[float32]
 
 // sdot64 computes the dot product of vectors x and y.
 //
-// Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)(x[k]×y[j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -16078,7 +16228,10 @@ func sgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64
 //
 // Carray is an array of pointers to matrices stored in column-major format.
 // This function find the least squares solution of a batch of overdetermined systems: it solves the least squares problem described as follows :
-// On exit, each Aarray [i] is overwritten with their QR factorization and each Carray [i] is overwritten with the least square solution
+//
+//	minimize  || Carray[i] - Aarray[i]*Xarray[i] || , with i = 0, ...,batchSize-1
+//
+// On exit, each Aarray[i] is overwritten with their QR factorization and each Carray[i] is overwritten with the least square solution
 // cublasgelsBatched supports only the non-transpose operation and only solves over-determined systems (m >= n).
 // cublasgelsBatched only supports compute capability 2.0 or above.
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.
@@ -16086,16 +16239,16 @@ func sgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64
 // sgels(), dgels(), cgels(), zgels()
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( Aarray [i]) that is non- or (conj.) transpose. Only non-transpose operation is currently supported
-//   - m: Number of rows of each Aarray [i] and Carray [i] if trans == [OpN], numbers of columns of each Aarray [i] otherwise (not supported currently)
-//   - n: Number of columns of each Aarray [i] if trans == [OpN], and number of rows of each Aarray [i] and Carray [i] otherwise (not supported currently)
-//   - nrhs: Number of columns of each Carray [i]
-//   - aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m) if trans == [OpN], and n x m with lda >= max(1, n) otherwise (not supported currently). Matrices Aarray [i] should not overlap; otherwise, behavior is undefined
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - carray: Array of pointers to < type > array, with each array of dim. m x nrhs with ldc >= max(1, m) if trans == [OpN], and n x nrhs with lda >= max(1, n) otherwise (not supported currently). Matrices Carray [i] should not overlap; otherwise, behavior is undefined
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray [i]
+//   - trans: Operation op( Aarray[i]) that is non- or (conj.) transpose. Only non-transpose operation is currently supported
+//   - m: Number of rows of each Aarray[i] and Carray[i] if trans == [OpN], numbers of columns of each Aarray[i] otherwise (not supported currently)
+//   - n: Number of columns of each Aarray[i] if trans == [OpN], and number of rows of each Aarray[i] and Carray[i] otherwise (not supported currently)
+//   - nrhs: Number of columns of each Carray[i]
+//   - aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m) if trans == [OpN], and n x m with lda >= max(1, n) otherwise (not supported currently). Matrices Aarray[i] should not overlap; otherwise, behavior is undefined
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
+//   - carray: Array of pointers to < type > array, with each array of dim. m x nrhs with ldc >= max(1, m) if trans == [OpN], and n x nrhs with lda >= max(1, n) otherwise (not supported currently). Matrices Carray[i] should not overlap; otherwise, behavior is undefined
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray[i]
 //   - info: If info == 0 the parameters passed to the function are valid. If info < 0 the parameter in position -info is invalid
-//   - devInfoArray: Optional array of integers of dimension batchsize. If non-null, every element of devInfoArray [i] == V has the following meaning: V == 0 : the i-th problem was successfully solved. V > 0 : the V-th diagonal element of the Aarray [i] is zero. Aarray [i] does not have full rank
+//   - devInfoArray: Optional array of integers of dimension batchsize. If non-null, every element of devInfoArray[i] == V has the following meaning: V == 0 : the i-th problem was successfully solved. V > 0 : the V-th diagonal element of the Aarray[i] is zero. Aarray[i] does not have full rank
 //   - batchSize: Number of pointers contained in Aarray and Carray
 //
 // Errors:
@@ -16115,12 +16268,12 @@ func sgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, 
 // sgemmBatched performs the matrix-matrix multiplication of a batch of matrices.
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
-// C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
-// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
+// C[i]=αop(A[i])op(B[i])+βC[i], for i ∈[0,batchCount−1]
+// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A[i])m×k , op(B[i])k×n and C[i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
-// and op(B [i]) is defined similarly for matrix B [i] .
+// and op(B[i]) is defined similarly for matrix B[i] .
 //
-// Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -16128,19 +16281,19 @@ func sgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, 
 // [Handle.SgemmBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transa: Operation op( A [i]) that is non- or (conj.) transpose
-//   - transb: Operation op( B [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix op( A [i]) and C [i]
-//   - n: Number of columns of op( B [i]) and C [i]
-//   - k: Number of columns of op( A [i]) and rows of op( B [i])
+//   - transa: Operation op( A[i]) that is non- or (conj.) transpose
+//   - transb: Operation op( B[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix op( A[i]) and C[i]
+//   - n: Number of columns of op( B[i]) and C[i]
+//   - k: Number of columns of op( A[i]) and rows of op( B[i])
 //   - alpha: < type > scalar used for multiplication
 //   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
 //   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
+//   - ldb: Leading dimension of two-dimensional array used to store each matrix B[i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C[i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix C[i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
 // Errors:
@@ -16160,12 +16313,12 @@ func sgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 // sgemmBatched64 performs the matrix-matrix multiplication of a batch of matrices.
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
-// C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
-// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
+// C[i]=αop(A[i])op(B[i])+βC[i], for i ∈[0,batchCount−1]
+// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A[i])m×k , op(B[i])k×n and C[i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
-// and op(B [i]) is defined similarly for matrix B [i] .
+// and op(B[i]) is defined similarly for matrix B[i] .
 //
-// Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -16173,19 +16326,19 @@ func sgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 // It is [Handle.SgemmBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transa: Operation op( A [i]) that is non- or (conj.) transpose
-//   - transb: Operation op( B [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix op( A [i]) and C [i]
-//   - n: Number of columns of op( B [i]) and C [i]
-//   - k: Number of columns of op( A [i]) and rows of op( B [i])
+//   - transa: Operation op( A[i]) that is non- or (conj.) transpose
+//   - transb: Operation op( B[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix op( A[i]) and C[i]
+//   - n: Number of columns of op( B[i]) and C[i]
+//   - k: Number of columns of op( A[i]) and rows of op( B[i])
 //   - alpha: < type > scalar used for multiplication
 //   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
 //   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
+//   - ldb: Leading dimension of two-dimensional array used to store each matrix B[i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C[i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix C[i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
 // Errors:
@@ -16321,14 +16474,25 @@ func sgemmEx64(handle Handle, transa Operation, transb Operation, m int64, n int
 // sgemmGroupedBatched performs the matrix-matrix multiplication on groups of matrices.
 //
 // A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
+//
+//	idx = 0;
+//	for i = 0:group_count - 1
+//	    for j = 0:group_size[i] - 1
+//	        gemm(transa_array[i], transb_array[i], m_array[i], n_array[i], k_array[i],
+//	             alpha_array[i], Aarray[idx], lda_array[i], Barray[idx], ldb_array[i],
+//	             beta_array[i], Carray[idx], ldc_array[i]);
+//	        idx += 1;
+//	    end
+//	end
+//
 // where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
 //
-// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑_(i=0)^(groupCount−1)groupSize [i]
-// For matrix A [idx] in group i
-// op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]ᵀif transaArray [i] == CUBLAS_OP_TA [idx]ᴴif transaArray [i] == [OpC]
-// and op(B [idx]) is defined similarly for matrix B [idx] in group i.
+// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑_(i=0)^(groupCount−1)groupSize[i]
+// For matrix A[idx] in group i
+// op(A[idx])={A[idx]if transaArray[i] == CUBLAS_OP_NA[idx]ᵀif transaArray[i] == CUBLAS_OP_TA[idx]ᴴif transaArray[i] == [OpC]
+// and op(B[idx]) is defined similarly for matrix B[idx] in group i.
 //
-// Note: C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemmBatched() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmGroupedBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is required that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -16336,25 +16500,25 @@ func sgemmEx64(handle Handle, transa Operation, transb Operation, m int64, n int
 // [Handle.SgemmGroupedBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transaArray: Operation op( A [idx]) that is non- or (conj.) transpose for each group
-//   - transbArray: Operation op( B [idx]) that is non- or (conj.) transpose for each group
-//   - mArray: Array containing the number of rows of matrix op( A [idx]) and C [idx] for each group
-//   - nArray: Array containing the number of columns of op( B [idx]) and C [idx] for each group
-//   - kArray: Array containing the number of columns of op( A [idx]) and rows of op( B [idx]) for each group
+//   - transaArray: Operation op( A[idx]) that is non- or (conj.) transpose for each group
+//   - transbArray: Operation op( B[idx]) that is non- or (conj.) transpose for each group
+//   - mArray: Array containing the number of rows of matrix op( A[idx]) and C[idx] for each group
+//   - nArray: Array containing the number of columns of op( B[idx]) and C[idx] for each group
+//   - kArray: Array containing the number of columns of op( A[idx]) and rows of op( B[idx]) for each group
 //   - alphaArray: Array containing the < type > scalar used for multiplication for each group
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldaArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix A [idx] for each group
-//   - barray: Array of pointers to < type > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldbArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix B [idx] for each group
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda[i] x k[i] with lda[i] >= max(1,m[i]) if transa[i] == [OpN] and lda[i] x m[i] with lda[i] >= max(1,k[i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
+//   - ldaArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix A[idx] for each group
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb[i] x n[i] with ldb[i] >= max(1,k[i]) if transb[i] == [OpN] and ldb[i] x k[i] with ldb[i] >= max(1,n[i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
+//   - ldbArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix B[idx] for each group
 //   - betaArray: Array containing the < type > scalar used for multiplication for each group
-//   - carray: Array of pointers to < type > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldcArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix C [idx] for each group
+//   - carray: Array of pointers to < type > array. It has dimensions ldc[i] x n[i] with ldc[i] >= max(1,m[i]). Matrices C[idx] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - ldcArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix C[idx] for each group
 //   - groupCount: Number of groups
 //   - groupSize: Array containing the number of pointers contained in Aarray, Barray and Carray for each group
 //
 // Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: If transa_array, transb_array, m_array, n_array, k_array, alpha_array, lda_array, ldb_array, beta_array, ldc_array, or group_size are NULL, or if group_count < 0, or if m_array [i] < 0, n_array [i] < 0, k_array [i] < 0, group_size [i] < 0, or if transa_array [i] and transb_array [i] are not one of [OpN], [OpC], [OpT], or if lda_array [i] < max(1, m_array [i]) if transa_array [i] == [OpN] and lda_array [i] < max(1, k_array [i]) otherwise, or if ldb_array [i] < max(1, k_array [i]) if transb_array [i] == [OpN] and ldb_array [i] < max(1, n_array [i]) otherwise, or if ldc_array [i] < max(1, m_array [i])
+//   - [ErrInvalidValue]: If transa_array, transb_array, m_array, n_array, k_array, alpha_array, lda_array, ldb_array, beta_array, ldc_array, or group_size are NULL, or if group_count < 0, or if m_array[i] < 0, n_array[i] < 0, k_array[i] < 0, group_size[i] < 0, or if transa_array[i] and transb_array[i] are not one of [OpN], [OpC], [OpT], or if lda_array[i] < max(1, m_array[i]) if transa_array[i] == [OpN] and lda_array[i] < max(1, k_array[i]) otherwise, or if ldb_array[i] < max(1, k_array[i]) if transb_array[i] == [OpN] and ldb_array[i] < max(1, n_array[i]) otherwise, or if ldc_array[i] < max(1, m_array[i])
 //   - [ErrNotInitialized]: The library was not initialized
 //   - [ErrNotSupported]: The pointer mode is set to [PointerModeDevice]
 //
@@ -16369,14 +16533,25 @@ func sgemmGroupedBatched(handle Handle, transaArray *Operation, transbArray *Ope
 // sgemmGroupedBatched64 performs the matrix-matrix multiplication on groups of matrices.
 //
 // A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
+//
+//	idx = 0;
+//	for i = 0:group_count - 1
+//	    for j = 0:group_size[i] - 1
+//	        gemm(transa_array[i], transb_array[i], m_array[i], n_array[i], k_array[i],
+//	             alpha_array[i], Aarray[idx], lda_array[i], Barray[idx], ldb_array[i],
+//	             beta_array[i], Carray[idx], ldc_array[i]);
+//	        idx += 1;
+//	    end
+//	end
+//
 // where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
 //
-// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑_(i=0)^(groupCount−1)groupSize [i]
-// For matrix A [idx] in group i
-// op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]ᵀif transaArray [i] == CUBLAS_OP_TA [idx]ᴴif transaArray [i] == [OpC]
-// and op(B [idx]) is defined similarly for matrix B [idx] in group i.
+// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑_(i=0)^(groupCount−1)groupSize[i]
+// For matrix A[idx] in group i
+// op(A[idx])={A[idx]if transaArray[i] == CUBLAS_OP_NA[idx]ᵀif transaArray[i] == CUBLAS_OP_TA[idx]ᴴif transaArray[i] == [OpC]
+// and op(B[idx]) is defined similarly for matrix B[idx] in group i.
 //
-// Note: C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemmBatched() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmGroupedBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is required that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -16384,25 +16559,25 @@ func sgemmGroupedBatched(handle Handle, transaArray *Operation, transbArray *Ope
 // It is [Handle.SgemmGroupedBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transaArray: Operation op( A [idx]) that is non- or (conj.) transpose for each group
-//   - transbArray: Operation op( B [idx]) that is non- or (conj.) transpose for each group
-//   - mArray: Array containing the number of rows of matrix op( A [idx]) and C [idx] for each group
-//   - nArray: Array containing the number of columns of op( B [idx]) and C [idx] for each group
-//   - kArray: Array containing the number of columns of op( A [idx]) and rows of op( B [idx]) for each group
+//   - transaArray: Operation op( A[idx]) that is non- or (conj.) transpose for each group
+//   - transbArray: Operation op( B[idx]) that is non- or (conj.) transpose for each group
+//   - mArray: Array containing the number of rows of matrix op( A[idx]) and C[idx] for each group
+//   - nArray: Array containing the number of columns of op( B[idx]) and C[idx] for each group
+//   - kArray: Array containing the number of columns of op( A[idx]) and rows of op( B[idx]) for each group
 //   - alphaArray: Array containing the < type > scalar used for multiplication for each group
-//   - aarray: Array of pointers to < type > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldaArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix A [idx] for each group
-//   - barray: Array of pointers to < type > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldbArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix B [idx] for each group
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda[i] x k[i] with lda[i] >= max(1,m[i]) if transa[i] == [OpN] and lda[i] x m[i] with lda[i] >= max(1,k[i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
+//   - ldaArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix A[idx] for each group
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb[i] x n[i] with ldb[i] >= max(1,k[i]) if transb[i] == [OpN] and ldb[i] x k[i] with ldb[i] >= max(1,n[i]) otherwise. All pointers must meet certain alignment criteria. Please see below for details
+//   - ldbArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix B[idx] for each group
 //   - betaArray: Array containing the < type > scalar used for multiplication for each group
-//   - carray: Array of pointers to < type > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldcArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix C [idx] for each group
+//   - carray: Array of pointers to < type > array. It has dimensions ldc[i] x n[i] with ldc[i] >= max(1,m[i]). Matrices C[idx] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - ldcArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix C[idx] for each group
 //   - groupCount: Number of groups
 //   - groupSize: Array containing the number of pointers contained in Aarray, Barray and Carray for each group
 //
 // Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
-//   - [ErrInvalidValue]: If transa_array, transb_array, m_array, n_array, k_array, alpha_array, lda_array, ldb_array, beta_array, ldc_array, or group_size are NULL, or if group_count < 0, or if m_array [i] < 0, n_array [i] < 0, k_array [i] < 0, group_size [i] < 0, or if transa_array [i] and transb_array [i] are not one of [OpN], [OpC], [OpT], or if lda_array [i] < max(1, m_array [i]) if transa_array [i] == [OpN] and lda_array [i] < max(1, k_array [i]) otherwise, or if ldb_array [i] < max(1, k_array [i]) if transb_array [i] == [OpN] and ldb_array [i] < max(1, n_array [i]) otherwise, or if ldc_array [i] < max(1, m_array [i])
+//   - [ErrInvalidValue]: If transa_array, transb_array, m_array, n_array, k_array, alpha_array, lda_array, ldb_array, beta_array, ldc_array, or group_size are NULL, or if group_count < 0, or if m_array[i] < 0, n_array[i] < 0, k_array[i] < 0, group_size[i] < 0, or if transa_array[i] and transb_array[i] are not one of [OpN], [OpC], [OpT], or if lda_array[i] < max(1, m_array[i]) if transa_array[i] == [OpN] and lda_array[i] < max(1, k_array[i]) otherwise, or if ldb_array[i] < max(1, k_array[i]) if transb_array[i] == [OpN] and ldb_array[i] < max(1, n_array[i]) otherwise, or if ldc_array[i] < max(1, m_array[i])
 //   - [ErrNotInitialized]: The library was not initialized
 //   - [ErrNotSupported]: The pointer mode is set to [PointerModeDevice]
 //
@@ -16418,34 +16593,34 @@ func sgemmGroupedBatched64(handle Handle, transaArray *Operation, transbArray *O
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
 // C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
+// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A[i])m×k , op(B[i])k×n and C[i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
-// and op(B [i]) is defined similarly for matrix B [i] .
+// and op(B[i]) is defined similarly for matrix B[i] .
 //
-// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], B[i], C[i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A[i-1], B[i-1], C[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // [Handle.SgemmStridedBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transa: Operation op( A [i]) that is non- or (conj.) transpose
-//   - transb: Operation op( B [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix op( A [i]) and C [i]
-//   - n: Number of columns of op( B [i]) and C [i]
-//   - k: Number of columns of op( A [i]) and rows of op( B [i])
+//   - transa: Operation op( A[i]) that is non- or (conj.) transpose
+//   - transb: Operation op( B[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix op( A[i]) and C[i]
+//   - n: Number of columns of op( B[i]) and C[i]
+//   - k: Number of columns of op( A[i]) and rows of op( B[i])
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - b: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
-//   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
-//   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
+//   - ldb: Leading dimension of two-dimensional array used to store each matrix B[i]
+//   - strideB: Value of type long long int that gives the offset in number of elements between B[i] and B[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
-//   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
+//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix C[i]
+//   - strideC: Value of type long long int that gives the offset in number of elements between C[i] and C[i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
 //
 // Errors:
@@ -16466,34 +16641,34 @@ func sgemmStridedBatched(handle Handle, transa Operation, transb Operation, m in
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
 // C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
+// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A[i])m×k , op(B[i])k×n and C[i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
-// and op(B [i]) is defined similarly for matrix B [i] .
+// and op(B[i]) is defined similarly for matrix B[i] .
 //
-// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], B[i], C[i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A[i-1], B[i-1], C[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // It is [Handle.SgemmStridedBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transa: Operation op( A [i]) that is non- or (conj.) transpose
-//   - transb: Operation op( B [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix op( A [i]) and C [i]
-//   - n: Number of columns of op( B [i]) and C [i]
-//   - k: Number of columns of op( A [i]) and rows of op( B [i])
+//   - transa: Operation op( A[i]) that is non- or (conj.) transpose
+//   - transb: Operation op( B[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix op( A[i]) and C[i]
+//   - n: Number of columns of op( B[i]) and C[i]
+//   - k: Number of columns of op( A[i]) and rows of op( B[i])
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - b: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
-//   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
-//   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
+//   - ldb: Leading dimension of two-dimensional array used to store each matrix B[i]
+//   - strideB: Value of type long long int that gives the offset in number of elements between B[i] and B[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
-//   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
+//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix C[i]
+//   - strideC: Value of type long long int that gives the offset in number of elements between C[i] and C[i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
 //
 // Errors:
@@ -16591,11 +16766,11 @@ func sgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64
 // sgemvBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
-// y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// y[i]=αop(A[i])x[i]+βy[i], for i∈[0,batchCount−1]
+// where α and β are scalars, and A is an array of pointers to matrice A[i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i] ,
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -16603,17 +16778,17 @@ func sgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64
 // [Handle.SgemvBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - incx: Stride of each one-dimensional array x [i]
+//   - incx: Stride of each one-dimensional array x[i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - incy: Stride of each one-dimensional array y [i]
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - incy: Stride of each one-dimensional array y[i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
 // Errors:
@@ -16632,11 +16807,11 @@ func sgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *float
 // sgemvBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
-// y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// y[i]=αop(A[i])x[i]+βy[i], for i∈[0,batchCount−1]
+// where α and β are scalars, and A is an array of pointers to matrice A[i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i] ,
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -16644,17 +16819,17 @@ func sgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *float
 // It is [Handle.SgemvBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - incx: Stride of each one-dimensional array x [i]
+//   - incx: Stride of each one-dimensional array x[i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - incy: Stride of each one-dimensional array y [i]
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - incy: Stride of each one-dimensional array y[i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
 // Errors:
@@ -16674,31 +16849,31 @@ func sgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *flo
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A[i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i]
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], x[i], y[i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A[i-1], x[i-1], y[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // [Handle.SgemvStridedBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
-//   - incx: Stride of each one-dimensional array x [i]
-//   - stridex: Value of type long long int that gives the offset in number of elements between x [i] and x [i+1]
+//   - incx: Stride of each one-dimensional array x[i]
+//   - stridex: Value of type long long int that gives the offset in number of elements between x[i] and x[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected
-//   - incy: Stride of each one-dimensional array y [i]
-//   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
+//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected
+//   - incy: Stride of each one-dimensional array y[i]
+//   - stridey: Value of type long long int that gives the offset in number of elements between y[i] and y[i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
 // Errors:
@@ -16718,31 +16893,31 @@ func sgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A[i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i]
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], x[i], y[i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A[i-1], x[i-1], y[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // It is [Handle.SgemvStridedBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
-//   - incx: Stride of each one-dimensional array x [i]
-//   - stridex: Value of type long long int that gives the offset in number of elements between x [i] and x [i+1]
+//   - incx: Stride of each one-dimensional array x[i]
+//   - stridex: Value of type long long int that gives the offset in number of elements between x[i] and x[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected
-//   - incy: Stride of each one-dimensional array y [i]
-//   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
+//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected
+//   - incy: Stride of each one-dimensional array y[i]
+//   - stridey: Value of type long long int that gives the offset in number of elements between y[i] and y[i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
 // Errors:
@@ -16833,9 +17008,15 @@ func sgemv64(handle Handle, trans Operation, m int64, n int64, alpha *float32, a
 // Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
 //
 // TauArray is an array of pointers to vectors of dimension of at least max (1, min(m, n).
-// This function performs the QR factorization of each Aarray [i] for i = 0, ...,batchSize-1 using Householder reflections. Each matrix Q [i] is represented as a product of elementary reflectors and is stored in the lower part of each Aarray [i] as follows :
-// Each H [j][i] has the form
-// where tau [j] is a real scalar, and v is a real vector with v(1:i-1) = 0 and v(i) = 1; v(i+1:m) is stored on exit in Aarray [j][i+1:m,i], and tau in TauArray [j][i].
+// This function performs the QR factorization of each Aarray[i] for i = 0, ...,batchSize-1 using Householder reflections. Each matrix Q[i] is represented as a product of elementary reflectors and is stored in the lower part of each Aarray[i] as follows :
+//
+//	Q[j] = H[j][1] H[j][2] . . . H[j](k), where k = min(m,n).
+//
+// Each H[j][i] has the form
+//
+//	H[j][i] = I - tau[j] * v * v'
+//
+// where tau[j] is a real scalar, and v is a real vector with v(1:i-1) = 0 and v(i) = 1; v(i+1:m) is stored on exit in Aarray[j][i+1:m,i], and tau in TauArray[j][i].
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.
 // cublasgeqrfBatched supports arbitrary dimension.
 // cublasgeqrfBatched only supports compute capability 2.0 or above.
@@ -16843,10 +17024,10 @@ func sgemv64(handle Handle, trans Operation, m int64, n int64, alpha *float32, a
 // sgeqrf(), dgeqrf(), cgeqrf(), zgeqrf()
 //
 //   - handle: Handle to the cuBLAS library context
-//   - m: Number of rows Aarray [i]
-//   - n: Number of columns of Aarray [i]
+//   - m: Number of rows Aarray[i]
+//   - n: Number of columns of Aarray[i]
 //   - aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
 //   - tauArray: Array of pointers to < type > vector, with each vector of dim. max(1 ,min(m, n))
 //   - info: If info == 0, the parameters passed to the function are valid. If info < 0, the parameter in position -info is invalid
 //   - batchSize: Number of pointers contained in Aarray
@@ -16934,12 +17115,44 @@ func sger64(handle Handle, m int64, n int64, alpha *float32, x driver.DevicePtr,
 //
 // Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
 //
-// This function performs the LU factorization of each Aarray [i] for i = 0, …, batchSize-1 by the following equation
-// P*Aarray [i]=L*U
+// This function performs the LU factorization of each Aarray[i] for i = 0, …, batchSize-1 by the following equation
+// P*Aarray[i]=L*U
 // where P is a permutation matrix which represents partial pivoting with row interchanges. L is a lower triangular matrix with unit diagonal and U is an upper triangular matrix.
-// Formally P is written by a product of permutation matrices Pj, for j = 1,2,...,n, say P = P1 * P2 * P3 * .... * Pn. Pj is a permutation matrix which interchanges two rows of vector x when performing Pj*x. Pj can be constructed by j element of PivotArray [i] by the following Matlab code
+// Formally P is written by a product of permutation matrices Pj, for j = 1,2,...,n, say P = P1 * P2 * P3 * .... * Pn. Pj is a permutation matrix which interchanges two rows of vector x when performing Pj*x. Pj can be constructed by j element of PivotArray[i] by the following Matlab code
+//
+//	// In Matlab PivotArray[i] is an array of base-1.
+//	// In C, PivotArray[i] is base-0.
+//	Pj = eye(n);
+//	swap Pj(j,:) and Pj(PivotArray[i][j]  ,:)
+//
 // L and U are written back to original matrix A, and diagonal elements of L are discarded. The L and U can be constructed by the following Matlab code
-// If matrix A(=Aarray [i]) is singular, getrf still works and the value of info(=infoArray [i]) reports first row index that LU factorization cannot proceed. If info is k, U(k,k) is zero. The equation P*A == L*U still holds, however L and U reconstruction needs a different Matlab code as follows:
+//
+//	// A is a matrix of nxn after getrf.
+//	L = eye(n);
+//	for j = 1:n
+//	    L(j+1:n,j) = A(j+1:n,j)
+//	end
+//	U = zeros(n);
+//	for i = 1:n
+//	    U(i,i:n) = A(i,i:n)
+//	end
+//
+// If matrix A(=Aarray[i]) is singular, getrf still works and the value of info(=infoArray[i]) reports first row index that LU factorization cannot proceed. If info is k, U(k,k) is zero. The equation P*A == L*U still holds, however L and U reconstruction needs a different Matlab code as follows:
+//
+//	// A is a matrix of nxn after getrf.
+//	// info is k, which means U(k,k) is zero.
+//	L = eye(n);
+//	for j = 1:k-1
+//	    L(j+1:n,j) = A(j+1:n,j)
+//	end
+//	U = zeros(n);
+//	for i = 1:k-1
+//	    U(i,i:n) = A(i,i:n)
+//	end
+//	for i = k:n
+//	    U(i,k:n) = A(i,k:n)
+//	end
+//
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.
 // cublasgetrfBatched supports non-pivot LU factorization if PivotArray is NULL.
 // cublasgetrfBatched supports arbitrary dimension.
@@ -16948,8 +17161,8 @@ func sger64(handle Handle, m int64, n int64, alpha *float32, x driver.DevicePtr,
 // sgeqrf(), dgeqrf(), cgeqrf(), zgeqrf()
 //
 //   - handle: Handle to the cuBLAS library context
-//   - n: Number of rows and columns of Aarray [i]
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
+//   - n: Number of rows and columns of Aarray[i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
 //   - batchSize: Number of pointers contained in A
 //
 // Errors:
@@ -16969,10 +17182,21 @@ func sgetrfBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 //
 // Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
 //
-// This function performs the inversion of matrices A [i] for i = 0, …, batchSize-1.
-// Prior to calling cublasgetriBatched, the matrix A [i] must be factorized first using the routine cublasgetrfBatched. After the call of cublasgetrfBatched, the matrix pointing by Aarray [i] will contain the LU factors of the matrix A [i] and the vector pointing by (PivotArray+i) will contain the pivoting sequence.
-// Following the LU factorization, cublasgetriBatched uses forward and backward triangular solvers to complete inversion of matrices A [i] for i = 0, …, batchSize-1. The inversion is out-of-place, so memory space of Carray [i] cannot overlap memory space of Array [i].
+// This function performs the inversion of matrices A[i] for i = 0, …, batchSize-1.
+// Prior to calling cublasgetriBatched, the matrix A[i] must be factorized first using the routine cublasgetrfBatched. After the call of cublasgetrfBatched, the matrix pointing by Aarray[i] will contain the LU factors of the matrix A[i] and the vector pointing by (PivotArray+i) will contain the pivoting sequence.
+// Following the LU factorization, cublasgetriBatched uses forward and backward triangular solvers to complete inversion of matrices A[i] for i = 0, …, batchSize-1. The inversion is out-of-place, so memory space of Carray[i] cannot overlap memory space of Array[i].
 // Typically all parameters in cublasgetrfBatched would be passed into cublasgetriBatched. For example,
+//
+//	// step 1: perform in-place LU decomposition, P*A = L*U.
+//	//      Aarray[i] is n*n matrix A[i]
+//	    cublasDgetrfBatched(handle, n, Aarray, lda, PivotArray, infoArray, batchSize);
+//	//      check infoArray[i] to see if factorization of A[i] is successful or not.
+//	//      Array[i] contains LU factorization of A[i]
+//
+//	// step 2: perform out-of-place inversion, Carray[i] = inv(A[i])
+//	    cublasDgetriBatched(handle, n, Aarray, lda, PivotArray, Carray, ldc, infoArray, batchSize);
+//	//      check infoArray[i] to see if inversion of A[i] is successful or not.
+//
 // The user can check singularity from either cublasgetrfBatched or cublasgetriBatched.
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.
 // If cublasgetrfBatched is performed by non-pivoting, PivotArray of cublasgetriBatched should be NULL.
@@ -16980,9 +17204,9 @@ func sgetrfBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 // cublasgetriBatched only supports compute capability 2.0 or above.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - n: Number of rows and columns of Aarray [i]
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray [i]
+//   - n: Number of rows and columns of Aarray[i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray[i]
 //   - batchSize: Number of pointers contained in A
 //
 // Errors:
@@ -17000,9 +17224,9 @@ func sgetriBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 
 // sgetrsBatched solves an array of systems of linear equations of the form:
 //
-// op(A [i])X [i]=B [i]
-// where A [i] is a matrix which has been LU factorized with pivoting, X [i] and B [i] are n×nrhs matrices. Also, for matrix A
-// op(A [i])={A [i]if trans == CUBLAS_OP_NAᵀ[i]if trans == CUBLAS_OP_TAᴴ[i]if trans == [OpC]
+// op(A[i])X[i]=B[i]
+// where A[i] is a matrix which has been LU factorized with pivoting, X[i] and B[i] are n×nrhs matrices. Also, for matrix A
+// op(A[i])={A[i]if trans == CUBLAS_OP_NAᵀ[i]if trans == CUBLAS_OP_TAᴴ[i]if trans == [OpC]
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.
 // cublasgetrsBatched() supports non-pivot LU factorization if devIpiv is NULL.
 // cublasgetrsBatched() supports arbitrary dimension.
@@ -17012,13 +17236,13 @@ func sgetriBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 //
 //   - handle: Handle to the cuBLAS library context
 //   - trans: Operation op( A) that is non- or (conj.) transpose
-//   - n: Number of rows and columns of Aarray [i]
-//   - nrhs: Number of columns of Barray [i]
+//   - n: Number of rows and columns of Aarray[i]
+//   - nrhs: Number of columns of Barray[i]
 //   - aarray: Array of pointers to < type > array, with each array of dim. n x n with lda >= max(1, n)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - devIpiv: Array of size n x batchSize that contains the pivoting sequence of each factorization of Aarray [i] stored in a linear fashion. If devIpiv is NULL, pivoting for all Aarray [i] is ignored
-//   - barray: Array of pointers to < type > array, with each array of dim. n x nrhs with ldb >= max(1, n). Matrices Barray [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldb: Leading dimension of two-dimensional array used to store each solution matrix Barray [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
+//   - devIpiv: Array of size n x batchSize that contains the pivoting sequence of each factorization of Aarray[i] stored in a linear fashion. If devIpiv is NULL, pivoting for all Aarray[i] is ignored
+//   - barray: Array of pointers to < type > array, with each array of dim. n x nrhs with ldb >= max(1, n). Matrices Barray[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldb: Leading dimension of two-dimensional array used to store each solution matrix Barray[i]
 //   - info: If info == 0, the execution is successful. If info = -j, the j-th parameter had an illegal value
 //   - batchSize: Number of pointers contained in A
 //
@@ -17037,17 +17261,17 @@ func sgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, aarray d
 
 // smatinvBatched A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldaInv respectively.
 //
-// This function performs the inversion of matrices A [i] for i = 0, …, batchSize-1.
+// This function performs the inversion of matrices A[i] for i = 0, …, batchSize-1.
 // This function is a short cut of cublasgetrfBatched() plus cublasgetriBatched(). However it doesn’t work if n is greater than 32. If not, the user has to go through cublasgetrfBatched() and cublasgetriBatched().
-// If the matrix A [i] is singular, then info [i] reports singularity, the same as cublasgetrfBatched().
+// If the matrix A[i] is singular, then info[i] reports singularity, the same as cublasgetrfBatched().
 //
 //   - handle: Handle to the cuBLAS library context
-//   - n: Number of rows and columns of A [i]
+//   - n: Number of rows and columns of A[i]
 //   - a: Array of pointers to < type > array, with each array of dimension n*n with lda >= max(1, n)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - ainv: Array of pointers to < type > array, with each array of dimension n*n with ldaInv >= max(1, n). Matrices Ainv [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldaInv: Leading dimension of two-dimensional array used to store each matrix Ainv [i]
-//   - info: Array of size batchSize that info [i] contains the information of inversion of A [i]. If info [i] == 0, the execution is successful. If info [i] == k, then U(k, k) == 0. The U is exactly singular and the inversion failed
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - ainv: Array of pointers to < type > array, with each array of dimension n*n with ldaInv >= max(1, n). Matrices Ainv[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldaInv: Leading dimension of two-dimensional array used to store each matrix Ainv[i]
+//   - info: Array of size batchSize that info[i] contains the information of inversion of A[i]. If info[i] == 0, the execution is successful. If info[i] == k, then U(k, k) == 0. The U is exactly singular and the inversion failed
 //   - batchSize: Number of pointers contained in A
 //
 // Errors:
@@ -17065,7 +17289,7 @@ func smatinvBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, ainv 
 
 // snrm2 computes the Euclidean norm of the vector x.
 //
-// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x[j]×x[j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
 //
@@ -17102,7 +17326,7 @@ var slotSnrm2 outSlot[float32]
 
 // snrm264 computes the Euclidean norm of the vector x.
 //
-// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x[j]×x[j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
 //
@@ -17141,7 +17365,7 @@ var slotSnrm264 outSlot[float32]
 //
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x[k]=c×x[k]+s×y[j] and y[j]=−s×x[k]+c×y[j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
 //
@@ -17172,7 +17396,7 @@ func srot(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devic
 //
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x[k]=c×x[k]+s×y[j] and y[j]=−s×x[k]+c×y[j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
 //
@@ -17233,8 +17457,8 @@ func srotg(handle Handle, a *float32, b *float32, c *float32, s *float32) error 
 // srotm applies the modified Givens transformation.
 //
 // H=(h₁₁h₁₂h₂₁h₂₂), to vectors x and y.
-// Hence, the result is x [k]=h₁₁×x [k]+h₁₂×y [j] and y [j]=h₂₁×x [k]+h₂₂×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
-// The elements , , and of matrix H are stored in param [1], param [2], param [3] and param [4], respectively. The flag = param [0] defines the following predefined values for the matrix H entries
+// Hence, the result is x[k]=h₁₁×x[k]+h₁₂×y[j] and y[j]=h₂₁×x[k]+h₂₂×y[j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// The elements , , and of matrix H are stored in param[1], param[2], param[3] and param[4], respectively. The flag = param[0] defines the following predefined values for the matrix H entries
 //   - flag == -1.0: (h₁₁, h₁₂; h₂₁, h₂₂); flag == 0.0: (1.0, h₁₂; h₂₁, 1.0); flag == 1.0: (h₁₁, 1.0; −1.0, h₂₂); flag == -2.0: (1.0, 0.0; 0.0, 1.0)
 //
 // Notice that the values -1.0, 0.0 and 1.0 implied by the flag are not stored in param.
@@ -17249,7 +17473,7 @@ func srotg(handle Handle, a *float32, b *float32, c *float32, s *float32) error 
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - param: < type > vector of 5 elements, where param [0] and param [1..4] contain the flag and matrix H
+//   - param: < type > vector of 5 elements, where param[0] and param[1..4] contain the flag and matrix H
 //
 // Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
@@ -17266,8 +17490,8 @@ func srotm(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 // srotm64 applies the modified Givens transformation.
 //
 // H=(h₁₁h₁₂h₂₁h₂₂), to vectors x and y.
-// Hence, the result is x [k]=h₁₁×x [k]+h₁₂×y [j] and y [j]=h₂₁×x [k]+h₂₂×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
-// The elements , , and of matrix H are stored in param [1], param [2], param [3] and param [4], respectively. The flag = param [0] defines the following predefined values for the matrix H entries
+// Hence, the result is x[k]=h₁₁×x[k]+h₁₂×y[j] and y[j]=h₂₁×x[k]+h₂₂×y[j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// The elements , , and of matrix H are stored in param[1], param[2], param[3] and param[4], respectively. The flag = param[0] defines the following predefined values for the matrix H entries
 //   - flag == -1.0: (h₁₁, h₁₂; h₂₁, h₂₂); flag == 0.0: (1.0, h₁₂; h₂₁, 1.0); flag == 1.0: (h₁₁, 1.0; −1.0, h₂₂); flag == -2.0: (1.0, 0.0; 0.0, 1.0)
 //
 // Notice that the values -1.0, 0.0 and 1.0 implied by the flag are not stored in param.
@@ -17282,7 +17506,7 @@ func srotm(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - param: < type > vector of 5 elements, where param [0] and param [1..4] contain the flag and matrix H
+//   - param: < type > vector of 5 elements, where param[0] and param[1..4] contain the flag and matrix H
 //
 // Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
@@ -17299,7 +17523,7 @@ func srotm64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 // srotmg constructs the modified Givens transformation.
 //
 // H=(h₁₁h₁₂h₂₁h₂₂), that zeros out the second entry of a 2×1 vector (d1*x1,d2*y1)ᵀ .
-// The flag = param [0] defines the following predefined values for the matrix H entries
+// The flag = param[0] defines the following predefined values for the matrix H entries
 //   - flag == -1.0: (h₁₁, h₁₂; h₂₁, h₂₂); flag == 0.0: (1.0, h₁₂; h₂₁, 1.0); flag == 1.0: (h₁₁, 1.0; −1.0, h₂₂); flag == -2.0: (1.0, 0.0; 0.0, 1.0)
 //
 // Notice that the values -1.0, 0.0 and 1.0 implied by the flag are not stored in param.
@@ -17311,7 +17535,7 @@ func srotm64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 //   - d2: < type > scalar that is overwritten on exit
 //   - x1: < type > scalar that is overwritten on exit
 //   - y1: < type > scalar
-//   - param: < type > vector of 5 elements, where param [0] and param [1-4] contain the flag and matrix H
+//   - param: < type > vector of 5 elements, where param[0] and param[1-4] contain the flag and matrix H
 //
 // Errors:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
@@ -17399,7 +17623,7 @@ func ssbmv64(handle Handle, uplo FillMode, n int64, k int64, alpha *float32, a d
 
 // sscal scales the vector x by the scalar α and overwrites it with the result.
 //
-// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is x[j]=α×x[j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
 //
@@ -17425,7 +17649,7 @@ func sscal(handle Handle, n int32, alpha *float32, x driver.DevicePtr, incx int3
 
 // sscal64 scales the vector x by the scalar α and overwrites it with the result.
 //
-// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is x[j]=α×x[j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
 //
@@ -17452,8 +17676,8 @@ func sscal64(handle Handle, n int64, alpha *float32, x driver.DevicePtr, incx in
 // sspmv performs the symmetric packed matrix-vector multiplication.
 //
 // y=αAx+βy, where A is a n×n symmetric matrix stored in packed format, x and y are vectors, and α and β are scalars.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // sspmv(), dspmv()
 //
@@ -17486,8 +17710,8 @@ func sspmv(handle Handle, uplo FillMode, n int32, alpha *float32, ap driver.Devi
 // sspmv64 performs the symmetric packed matrix-vector multiplication.
 //
 // y=αAx+βy, where A is a n×n symmetric matrix stored in packed format, x and y are vectors, and α and β are scalars.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // sspmv(), dspmv()
 //
@@ -17520,8 +17744,8 @@ func sspmv64(handle Handle, uplo FillMode, n int64, alpha *float32, ap driver.De
 // sspr2 performs the packed symmetric rank-2 update.
 //
 // A=α(xyᵀ+yxᵀ)+A, where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // sspr2(), dspr2()
 //
@@ -17553,8 +17777,8 @@ func sspr2(handle Handle, uplo FillMode, n int32, alpha *float32, x driver.Devic
 // sspr264 performs the packed symmetric rank-2 update.
 //
 // A=α(xyᵀ+yxᵀ)+A, where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // sspr2(), dspr2()
 //
@@ -17586,8 +17810,8 @@ func sspr264(handle Handle, uplo FillMode, n int64, alpha *float32, x driver.Dev
 // sspr performs the packed symmetric rank-1 update.
 //
 // A=αxxᵀ+A, where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // sspr(), dspr()
 //
@@ -17617,8 +17841,8 @@ func sspr(handle Handle, uplo FillMode, n int32, alpha *float32, x driver.Device
 // sspr64 performs the packed symmetric rank-1 update.
 //
 // A=αxxᵀ+A, where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // sspr(), dspr()
 //
@@ -17647,7 +17871,7 @@ func sspr64(handle Handle, uplo FillMode, n int64, alpha *float32, x driver.Devi
 
 // sswap interchanges the elements of vector x and y.
 //
-// Hence, the performed operation is y [j]⇔x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is y[j]⇔x[k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sswap(), dswap(), cswap(), zswap()
 //
@@ -17674,7 +17898,7 @@ func sswap(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 
 // sswap64 interchanges the elements of vector x and y.
 //
-// Hence, the performed operation is y [j]⇔x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is y[j]⇔x[k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sswap(), dswap(), cswap(), zswap()
 //
@@ -18331,8 +18555,8 @@ func stbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //
 // x=op(A)x, where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for A(i,j) and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for A(i,j) and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // stpmv(), dtpmv(), ctpmv(), ztpmv()
 //
@@ -18365,8 +18589,8 @@ func stpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //
 // x=op(A)x, where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for A(i,j) and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for A(i,j) and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // stpmv(), dtpmv(), ctpmv(), ztpmv()
 //
@@ -18401,8 +18625,8 @@ func stpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 // op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // stpsv(), dtpsv(), ctpsv(), ztpsv()
 //
@@ -18436,8 +18660,8 @@ func stpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 // op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // stpsv(), dtpsv(), ctpsv(), ztpsv()
 //
@@ -18637,10 +18861,10 @@ func strmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 
 // strsmBatched solves an array of triangular linear systems with multiple right-hand-sides.
 //
-// {op(A [i])X [i]=αB [i]if side == CUBLAS_SIDE_LEFTX [i]op(A [i])=αB [i]if side == [SideRight]
-// where A [i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X [i] and B [i] are m×n matrices, and α is a scalar. Also, for matrix A
-// op(A [i])={A [i]if transa == CUBLAS_OP_NAᵀ[i]if transa == CUBLAS_OP_TAᴴ[i]if transa == [OpC]
-// The solution X [i] overwrites the right-hand-sides B [i] on exit.
+// {op(A[i])X[i]=αB[i]if side == CUBLAS_SIDE_LEFTX[i]op(A[i])=αB[i]if side == [SideRight]
+// where A[i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X[i] and B[i] are m×n matrices, and α is a scalar. Also, for matrix A
+// op(A[i])={A[i]if transa == CUBLAS_OP_NAᵀ[i]if transa == CUBLAS_OP_TAᴴ[i]if transa == [OpC]
+// The solution X[i] overwrites the right-hand-sides B[i] on exit.
 // No test for singularity or near-singularity is included in this function.
 // This function works for any sizes but is intended to be used for matrices of small sizes where the launch overhead is a significant factor. For bigger sizes, it might be advantageous to call batchCount times the regular cublastrsm() within a set of CUDA streams.
 // The current implementation is limited to devices with compute capability above or equal 2.0.
@@ -18650,17 +18874,17 @@ func strmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 // [Handle.StrsmBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - side: Indicates if matrix A [i] is on the left or right of X [i]
-//   - uplo: Indicates if matrix A [i] lower or upper part is stored, the other part is not referenced and is inferred from the stored elements
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - diag: Indicates if the elements on the main diagonal of matrix A [i] are unity and should not be accessed
-//   - m: Number of rows of matrix B [i], with matrix A [i] sized accordingly
-//   - n: Number of columns of matrix B [i], with matrix A [i] is sized accordingly
-//   - alpha: < type > scalar used for multiplication, if alpha == 0 then A [i] is not referenced and B [i] does not have to be a valid input
+//   - side: Indicates if matrix A[i] is on the left or right of X[i]
+//   - uplo: Indicates if matrix A[i] lower or upper part is stored, the other part is not referenced and is inferred from the stored elements
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - diag: Indicates if the elements on the main diagonal of matrix A[i] are unity and should not be accessed
+//   - m: Number of rows of matrix B[i], with matrix A[i] sized accordingly
+//   - n: Number of columns of matrix B[i], with matrix A[i] is sized accordingly
+//   - alpha: < type > scalar used for multiplication, if alpha == 0 then A[i] is not referenced and B[i] does not have to be a valid input
 //   - a: Array of pointers to < type > array, with each array of dim. lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
-//   - lda: Leading dimension of two-dimensional array used to store matrix A [i]
-//   - b: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
+//   - lda: Leading dimension of two-dimensional array used to store matrix A[i]
+//   - b: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldb: Leading dimension of two-dimensional array used to store matrix B[i]
 //   - batchCount: Number of pointers contained in A and B
 //
 // Errors:
@@ -18678,10 +18902,10 @@ func strsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, 
 
 // strsmBatched64 solves an array of triangular linear systems with multiple right-hand-sides.
 //
-// {op(A [i])X [i]=αB [i]if side == CUBLAS_SIDE_LEFTX [i]op(A [i])=αB [i]if side == [SideRight]
-// where A [i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X [i] and B [i] are m×n matrices, and α is a scalar. Also, for matrix A
-// op(A [i])={A [i]if transa == CUBLAS_OP_NAᵀ[i]if transa == CUBLAS_OP_TAᴴ[i]if transa == [OpC]
-// The solution X [i] overwrites the right-hand-sides B [i] on exit.
+// {op(A[i])X[i]=αB[i]if side == CUBLAS_SIDE_LEFTX[i]op(A[i])=αB[i]if side == [SideRight]
+// where A[i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X[i] and B[i] are m×n matrices, and α is a scalar. Also, for matrix A
+// op(A[i])={A[i]if transa == CUBLAS_OP_NAᵀ[i]if transa == CUBLAS_OP_TAᴴ[i]if transa == [OpC]
+// The solution X[i] overwrites the right-hand-sides B[i] on exit.
 // No test for singularity or near-singularity is included in this function.
 // This function works for any sizes but is intended to be used for matrices of small sizes where the launch overhead is a significant factor. For bigger sizes, it might be advantageous to call batchCount times the regular cublastrsm() within a set of CUDA streams.
 // The current implementation is limited to devices with compute capability above or equal 2.0.
@@ -18691,17 +18915,17 @@ func strsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, 
 // It is [Handle.StrsmBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - side: Indicates if matrix A [i] is on the left or right of X [i]
-//   - uplo: Indicates if matrix A [i] lower or upper part is stored, the other part is not referenced and is inferred from the stored elements
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - diag: Indicates if the elements on the main diagonal of matrix A [i] are unity and should not be accessed
-//   - m: Number of rows of matrix B [i], with matrix A [i] sized accordingly
-//   - n: Number of columns of matrix B [i], with matrix A [i] is sized accordingly
-//   - alpha: < type > scalar used for multiplication, if alpha == 0 then A [i] is not referenced and B [i] does not have to be a valid input
+//   - side: Indicates if matrix A[i] is on the left or right of X[i]
+//   - uplo: Indicates if matrix A[i] lower or upper part is stored, the other part is not referenced and is inferred from the stored elements
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - diag: Indicates if the elements on the main diagonal of matrix A[i] are unity and should not be accessed
+//   - m: Number of rows of matrix B[i], with matrix A[i] sized accordingly
+//   - n: Number of columns of matrix B[i], with matrix A[i] is sized accordingly
+//   - alpha: < type > scalar used for multiplication, if alpha == 0 then A[i] is not referenced and B[i] does not have to be a valid input
 //   - a: Array of pointers to < type > array, with each array of dim. lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
-//   - lda: Leading dimension of two-dimensional array used to store matrix A [i]
-//   - b: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
+//   - lda: Leading dimension of two-dimensional array used to store matrix A[i]
+//   - b: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldb: Leading dimension of two-dimensional array used to store matrix B[i]
 //   - batchCount: Number of pointers contained in A and B
 //
 // Errors:
@@ -18910,11 +19134,11 @@ func swapEx64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx i
 // tSSgemvBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
-// y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// y[i]=αop(A[i])x[i]+βy[i], for i∈[0,batchCount−1]
+// where α and β are scalars, and A is an array of pointers to matrice A[i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i] ,
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -18922,17 +19146,17 @@ func swapEx64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx i
 // [Handle.TSSgemvBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - incx: Stride of each one-dimensional array x [i]
+//   - incx: Stride of each one-dimensional array x[i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - incy: Stride of each one-dimensional array y [i]
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - incy: Stride of each one-dimensional array y[i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
 // Errors:
@@ -18951,11 +19175,11 @@ func tSSgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *flo
 // tSSgemvBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
-// y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// y[i]=αop(A[i])x[i]+βy[i], for i∈[0,batchCount−1]
+// where α and β are scalars, and A is an array of pointers to matrice A[i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i] ,
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -18963,17 +19187,17 @@ func tSSgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *flo
 // It is [Handle.TSSgemvBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - incx: Stride of each one-dimensional array x [i]
+//   - incx: Stride of each one-dimensional array x[i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - incy: Stride of each one-dimensional array y [i]
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - incy: Stride of each one-dimensional array y[i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
 // Errors:
@@ -18993,31 +19217,31 @@ func tSSgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *f
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A[i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i]
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], x[i], y[i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A[i-1], x[i-1], y[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // [Handle.TSSgemvStridedBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
-//   - incx: Stride of each one-dimensional array x [i]
-//   - stridex: Value of type long long int that gives the offset in number of elements between x [i] and x [i+1]
+//   - incx: Stride of each one-dimensional array x[i]
+//   - stridex: Value of type long long int that gives the offset in number of elements between x[i] and x[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected
-//   - incy: Stride of each one-dimensional array y [i]
-//   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
+//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected
+//   - incy: Stride of each one-dimensional array y[i]
+//   - stridey: Value of type long long int that gives the offset in number of elements between y[i] and y[i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
 // Errors:
@@ -19037,31 +19261,31 @@ func tSSgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alp
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A[i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i]
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], x[i], y[i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A[i-1], x[i-1], y[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // It is [Handle.TSSgemvStridedBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
-//   - incx: Stride of each one-dimensional array x [i]
-//   - stridex: Value of type long long int that gives the offset in number of elements between x [i] and x [i+1]
+//   - incx: Stride of each one-dimensional array x[i]
+//   - stridex: Value of type long long int that gives the offset in number of elements between x[i] and x[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected
-//   - incy: Stride of each one-dimensional array y [i]
-//   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
+//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected
+//   - incy: Stride of each one-dimensional array y[i]
+//   - stridey: Value of type long long int that gives the offset in number of elements between y[i] and y[i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
 // Errors:
@@ -19080,11 +19304,11 @@ func tSSgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, a
 // tSTgemvBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
-// y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// y[i]=αop(A[i])x[i]+βy[i], for i∈[0,batchCount−1]
+// where α and β are scalars, and A is an array of pointers to matrice A[i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i] ,
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -19092,17 +19316,17 @@ func tSSgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, a
 // [Handle.TSTgemvBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - incx: Stride of each one-dimensional array x [i]
+//   - incx: Stride of each one-dimensional array x[i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - incy: Stride of each one-dimensional array y [i]
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - incy: Stride of each one-dimensional array y[i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
 // Errors:
@@ -19121,11 +19345,11 @@ func tSTgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *flo
 // tSTgemvBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
-// y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// y[i]=αop(A[i])x[i]+βy[i], for i∈[0,batchCount−1]
+// where α and β are scalars, and A is an array of pointers to matrice A[i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i] ,
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -19133,17 +19357,17 @@ func tSTgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *flo
 // It is [Handle.TSTgemvBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - incx: Stride of each one-dimensional array x [i]
+//   - incx: Stride of each one-dimensional array x[i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - incy: Stride of each one-dimensional array y [i]
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - incy: Stride of each one-dimensional array y[i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
 // Errors:
@@ -19163,31 +19387,31 @@ func tSTgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *f
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A[i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i]
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], x[i], y[i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A[i-1], x[i-1], y[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // [Handle.TSTgemvStridedBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
-//   - incx: Stride of each one-dimensional array x [i]
-//   - stridex: Value of type long long int that gives the offset in number of elements between x [i] and x [i+1]
+//   - incx: Stride of each one-dimensional array x[i]
+//   - stridex: Value of type long long int that gives the offset in number of elements between x[i] and x[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected
-//   - incy: Stride of each one-dimensional array y [i]
-//   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
+//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected
+//   - incy: Stride of each one-dimensional array y[i]
+//   - stridey: Value of type long long int that gives the offset in number of elements between y[i] and y[i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
 // Errors:
@@ -19207,31 +19431,31 @@ func tSTgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alp
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A[i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i]
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], x[i], y[i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A[i-1], x[i-1], y[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // It is [Handle.TSTgemvStridedBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
-//   - incx: Stride of each one-dimensional array x [i]
-//   - stridex: Value of type long long int that gives the offset in number of elements between x [i] and x [i+1]
+//   - incx: Stride of each one-dimensional array x[i]
+//   - stridex: Value of type long long int that gives the offset in number of elements between x[i] and x[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected
-//   - incy: Stride of each one-dimensional array y [i]
-//   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
+//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected
+//   - incy: Stride of each one-dimensional array y[i]
+//   - stridey: Value of type long long int that gives the offset in number of elements between y[i] and y[i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
 // Errors:
@@ -19257,7 +19481,7 @@ func uint8gemmBias(handle Handle, transa Operation, transb Operation, transc Ope
 
 // zaxpy multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
 //
-// Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is y[j]=α×x[k]+y[j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // saxpy(), daxpy(), caxpy(), zaxpy()
 //
@@ -19285,7 +19509,7 @@ func zaxpy(handle Handle, n int32, alpha *Complex128, x driver.DevicePtr, incx i
 
 // zaxpy64 multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
 //
-// Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is y[j]=α×x[k]+y[j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // saxpy(), daxpy(), caxpy(), zaxpy()
 //
@@ -19313,7 +19537,7 @@ func zaxpy64(handle Handle, n int64, alpha *Complex128, x driver.DevicePtr, incx
 
 // zcopy copies the vector x into the vector y.
 //
-// Hence, the performed operation is y [j]=x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is y[j]=x[k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // scopy(), dcopy(), ccopy(), zcopy()
 //
@@ -19340,7 +19564,7 @@ func zcopy(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 
 // zcopy64 copies the vector x into the vector y.
 //
-// Hence, the performed operation is y [j]=x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is y[j]=x[k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // scopy(), dcopy(), ccopy(), zcopy()
 //
@@ -19369,10 +19593,10 @@ func zcopy64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 //
 // C={A×diag(X)if mode == CUBLAS_SIDE_RIGHTdiag(X)×Aif mode == [SideLeft]
 // where A and C are matrices stored in column-major format with dimensions m×n . X is a vector of size n if mode == [SideRight] and of size m if mode == [SideLeft]. X is gathered from one-dimensional array x with stride incx. The absolute value of incx is the stride and the sign of incx is direction of the stride. If incx is positive, then we forward x from the first element. Otherwise, we backward x from the last element. The formula of X is
-// X [j]={x [j×incx]if incx≥0x[(χ−1)×|incx|−j×|incx|]if incx<0
+// X[j]={x[j×incx]if incx≥0x[(χ−1)×|incx|−j×|incx|]if incx<0
 // where χ=m if mode == [SideLeft] and χ=n if mode == [SideRight].
 // Example 1: if the user wants to perform diag(diag(B))×A , then incx=ldb+1 where ldb is leading dimension of matrix B, either row-major or column-major.
-// Example 2: if the user wants to perform α×A , then there are two choices, either cublasgeam() with *beta == 0 and transa == [OpN] or cublasdgmm() with incx == 0 and x [0] == alpha.
+// Example 2: if the user wants to perform α×A , then there are two choices, either cublasgeam() with *beta == 0 and transa == [OpN] or cublasdgmm() with incx == 0 and x[0] == alpha.
 // The operation is out-of-place. The in-place only works if lda == ldc.
 //
 // [Handle.Zdgmm64] takes 64-bit sizes.
@@ -19405,10 +19629,10 @@ func zdgmm(handle Handle, mode SideMode, m int32, n int32, a driver.DevicePtr, l
 //
 // C={A×diag(X)if mode == CUBLAS_SIDE_RIGHTdiag(X)×Aif mode == [SideLeft]
 // where A and C are matrices stored in column-major format with dimensions m×n . X is a vector of size n if mode == [SideRight] and of size m if mode == [SideLeft]. X is gathered from one-dimensional array x with stride incx. The absolute value of incx is the stride and the sign of incx is direction of the stride. If incx is positive, then we forward x from the first element. Otherwise, we backward x from the last element. The formula of X is
-// X [j]={x [j×incx]if incx≥0x[(χ−1)×|incx|−j×|incx|]if incx<0
+// X[j]={x[j×incx]if incx≥0x[(χ−1)×|incx|−j×|incx|]if incx<0
 // where χ=m if mode == [SideLeft] and χ=n if mode == [SideRight].
 // Example 1: if the user wants to perform diag(diag(B))×A , then incx=ldb+1 where ldb is leading dimension of matrix B, either row-major or column-major.
-// Example 2: if the user wants to perform α×A , then there are two choices, either cublasgeam() with *beta == 0 and transa == [OpN] or cublasdgmm() with incx == 0 and x [0] == alpha.
+// Example 2: if the user wants to perform α×A , then there are two choices, either cublasgeam() with *beta == 0 and transa == [OpN] or cublasdgmm() with incx == 0 and x[0] == alpha.
 // The operation is out-of-place. The in-place only works if lda == ldc.
 //
 // It is [Handle.Zdgmm] with int64 sizes and strides.
@@ -19439,7 +19663,7 @@ func zdgmm64(handle Handle, mode SideMode, m int64, n int64, a driver.DevicePtr,
 
 // zdotc computes the dot product of vectors x and y.
 //
-// Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)(x[k]×y[j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -19477,7 +19701,7 @@ var slotZdotc outSlot[Complex128]
 
 // zdotc64 computes the dot product of vectors x and y.
 //
-// Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)(x[k]×y[j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -19515,7 +19739,7 @@ var slotZdotc64 outSlot[Complex128]
 
 // zdotu computes the dot product of vectors x and y.
 //
-// Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)(x[k]×y[j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -19553,7 +19777,7 @@ var slotZdotu outSlot[Complex128]
 
 // zdotu64 computes the dot product of vectors x and y.
 //
-// Hence, the result is ∑_(i=1)^(n)(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is ∑_(i=1)^(n)(x[k]×y[j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
 //
@@ -19593,7 +19817,7 @@ var slotZdotu64 outSlot[Complex128]
 //
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x[k]=c×x[k]+s×y[j] and y[j]=−s×x[k]+c×y[j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
 //
@@ -19624,7 +19848,7 @@ func zdrot(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 //
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x[k]=c×x[k]+s×y[j] and y[j]=−s×x[k]+c×y[j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
 //
@@ -19653,7 +19877,7 @@ func zdrot64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 
 // zdscal scales the vector x by the scalar α and overwrites it with the result.
 //
-// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is x[j]=α×x[j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
 //
@@ -19679,7 +19903,7 @@ func zdscal(handle Handle, n int32, alpha *float64, x driver.DevicePtr, incx int
 
 // zdscal64 scales the vector x by the scalar α and overwrites it with the result.
 //
-// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is x[j]=α×x[j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
 //
@@ -19871,7 +20095,10 @@ func zgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64
 //
 // Carray is an array of pointers to matrices stored in column-major format.
 // This function find the least squares solution of a batch of overdetermined systems: it solves the least squares problem described as follows :
-// On exit, each Aarray [i] is overwritten with their QR factorization and each Carray [i] is overwritten with the least square solution
+//
+//	minimize  || Carray[i] - Aarray[i]*Xarray[i] || , with i = 0, ...,batchSize-1
+//
+// On exit, each Aarray[i] is overwritten with their QR factorization and each Carray[i] is overwritten with the least square solution
 // cublasgelsBatched supports only the non-transpose operation and only solves over-determined systems (m >= n).
 // cublasgelsBatched only supports compute capability 2.0 or above.
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.
@@ -19879,16 +20106,16 @@ func zgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64
 // sgels(), dgels(), cgels(), zgels()
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( Aarray [i]) that is non- or (conj.) transpose. Only non-transpose operation is currently supported
-//   - m: Number of rows of each Aarray [i] and Carray [i] if trans == [OpN], numbers of columns of each Aarray [i] otherwise (not supported currently)
-//   - n: Number of columns of each Aarray [i] if trans == [OpN], and number of rows of each Aarray [i] and Carray [i] otherwise (not supported currently)
-//   - nrhs: Number of columns of each Carray [i]
-//   - aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m) if trans == [OpN], and n x m with lda >= max(1, n) otherwise (not supported currently). Matrices Aarray [i] should not overlap; otherwise, behavior is undefined
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - carray: Array of pointers to < type > array, with each array of dim. m x nrhs with ldc >= max(1, m) if trans == [OpN], and n x nrhs with lda >= max(1, n) otherwise (not supported currently). Matrices Carray [i] should not overlap; otherwise, behavior is undefined
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray [i]
+//   - trans: Operation op( Aarray[i]) that is non- or (conj.) transpose. Only non-transpose operation is currently supported
+//   - m: Number of rows of each Aarray[i] and Carray[i] if trans == [OpN], numbers of columns of each Aarray[i] otherwise (not supported currently)
+//   - n: Number of columns of each Aarray[i] if trans == [OpN], and number of rows of each Aarray[i] and Carray[i] otherwise (not supported currently)
+//   - nrhs: Number of columns of each Carray[i]
+//   - aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m) if trans == [OpN], and n x m with lda >= max(1, n) otherwise (not supported currently). Matrices Aarray[i] should not overlap; otherwise, behavior is undefined
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
+//   - carray: Array of pointers to < type > array, with each array of dim. m x nrhs with ldc >= max(1, m) if trans == [OpN], and n x nrhs with lda >= max(1, n) otherwise (not supported currently). Matrices Carray[i] should not overlap; otherwise, behavior is undefined
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray[i]
 //   - info: If info == 0 the parameters passed to the function are valid. If info < 0 the parameter in position -info is invalid
-//   - devInfoArray: Optional array of integers of dimension batchsize. If non-null, every element of devInfoArray [i] == V has the following meaning: V == 0 : the i-th problem was successfully solved. V > 0 : the V-th diagonal element of the Aarray [i] is zero. Aarray [i] does not have full rank
+//   - devInfoArray: Optional array of integers of dimension batchsize. If non-null, every element of devInfoArray[i] == V has the following meaning: V == 0 : the i-th problem was successfully solved. V > 0 : the V-th diagonal element of the Aarray[i] is zero. Aarray[i] does not have full rank
 //   - batchSize: Number of pointers contained in Aarray and Carray
 //
 // Errors:
@@ -19992,12 +20219,12 @@ func zgemm3m64(handle Handle, transa Operation, transb Operation, m int64, n int
 // zgemmBatched performs the matrix-matrix multiplication of a batch of matrices.
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
-// C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
-// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
+// C[i]=αop(A[i])op(B[i])+βC[i], for i ∈[0,batchCount−1]
+// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A[i])m×k , op(B[i])k×n and C[i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
-// and op(B [i]) is defined similarly for matrix B [i] .
+// and op(B[i]) is defined similarly for matrix B[i] .
 //
-// Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -20005,19 +20232,19 @@ func zgemm3m64(handle Handle, transa Operation, transb Operation, m int64, n int
 // [Handle.ZgemmBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transa: Operation op( A [i]) that is non- or (conj.) transpose
-//   - transb: Operation op( B [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix op( A [i]) and C [i]
-//   - n: Number of columns of op( B [i]) and C [i]
-//   - k: Number of columns of op( A [i]) and rows of op( B [i])
+//   - transa: Operation op( A[i]) that is non- or (conj.) transpose
+//   - transb: Operation op( B[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix op( A[i]) and C[i]
+//   - n: Number of columns of op( B[i]) and C[i]
+//   - k: Number of columns of op( A[i]) and rows of op( B[i])
 //   - alpha: < type > scalar used for multiplication
 //   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
 //   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
+//   - ldb: Leading dimension of two-dimensional array used to store each matrix B[i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C[i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix C[i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
 // Errors:
@@ -20037,12 +20264,12 @@ func zgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 // zgemmBatched64 performs the matrix-matrix multiplication of a batch of matrices.
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
-// C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
-// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
+// C[i]=αop(A[i])op(B[i])+βC[i], for i ∈[0,batchCount−1]
+// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A[i])m×k , op(B[i])k×n and C[i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
-// and op(B [i]) is defined similarly for matrix B [i] .
+// and op(B[i]) is defined similarly for matrix B[i] .
 //
-// Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -20050,19 +20277,19 @@ func zgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 // It is [Handle.ZgemmBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transa: Operation op( A [i]) that is non- or (conj.) transpose
-//   - transb: Operation op( B [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix op( A [i]) and C [i]
-//   - n: Number of columns of op( B [i]) and C [i]
-//   - k: Number of columns of op( A [i]) and rows of op( B [i])
+//   - transa: Operation op( A[i]) that is non- or (conj.) transpose
+//   - transb: Operation op( B[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix op( A[i]) and C[i]
+//   - n: Number of columns of op( B[i]) and C[i]
+//   - k: Number of columns of op( A[i]) and rows of op( B[i])
 //   - alpha: < type > scalar used for multiplication
 //   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
 //   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
+//   - ldb: Leading dimension of two-dimensional array used to store each matrix B[i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C[i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix C[i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
 // Errors:
@@ -20083,34 +20310,34 @@ func zgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, 
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
 // C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
+// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A[i])m×k , op(B[i])k×n and C[i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
-// and op(B [i]) is defined similarly for matrix B [i] .
+// and op(B[i]) is defined similarly for matrix B[i] .
 //
-// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], B[i], C[i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A[i-1], B[i-1], C[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // [Handle.ZgemmStridedBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transa: Operation op( A [i]) that is non- or (conj.) transpose
-//   - transb: Operation op( B [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix op( A [i]) and C [i]
-//   - n: Number of columns of op( B [i]) and C [i]
-//   - k: Number of columns of op( A [i]) and rows of op( B [i])
+//   - transa: Operation op( A[i]) that is non- or (conj.) transpose
+//   - transb: Operation op( B[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix op( A[i]) and C[i]
+//   - n: Number of columns of op( B[i]) and C[i]
+//   - k: Number of columns of op( A[i]) and rows of op( B[i])
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - b: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
-//   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
-//   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
+//   - ldb: Leading dimension of two-dimensional array used to store each matrix B[i]
+//   - strideB: Value of type long long int that gives the offset in number of elements between B[i] and B[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
-//   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
+//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix C[i]
+//   - strideC: Value of type long long int that gives the offset in number of elements between C[i] and C[i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
 //
 // Errors:
@@ -20131,34 +20358,34 @@ func zgemmStridedBatched(handle Handle, transa Operation, transb Operation, m in
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
 // C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
+// where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A[i])m×k , op(B[i])k×n and C[i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
-// and op(B [i]) is defined similarly for matrix B [i] .
+// and op(B[i]) is defined similarly for matrix B[i] .
 //
-// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: C[i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], B[i], C[i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A[i-1], B[i-1], C[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // It is [Handle.ZgemmStridedBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - transa: Operation op( A [i]) that is non- or (conj.) transpose
-//   - transb: Operation op( B [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix op( A [i]) and C [i]
-//   - n: Number of columns of op( B [i]) and C [i]
-//   - k: Number of columns of op( A [i]) and rows of op( B [i])
+//   - transa: Operation op( A[i]) that is non- or (conj.) transpose
+//   - transb: Operation op( B[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix op( A[i]) and C[i]
+//   - n: Number of columns of op( B[i]) and C[i]
+//   - k: Number of columns of op( A[i]) and rows of op( B[i])
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - b: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
-//   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
-//   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
+//   - ldb: Leading dimension of two-dimensional array used to store each matrix B[i]
+//   - strideB: Value of type long long int that gives the offset in number of elements between B[i] and B[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
-//   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
+//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix C[i]
+//   - strideC: Value of type long long int that gives the offset in number of elements between C[i] and C[i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
 //
 // Errors:
@@ -20256,11 +20483,11 @@ func zgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64
 // zgemvBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
-// y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// y[i]=αop(A[i])x[i]+βy[i], for i∈[0,batchCount−1]
+// where α and β are scalars, and A is an array of pointers to matrice A[i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i] ,
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -20268,17 +20495,17 @@ func zgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64
 // [Handle.ZgemvBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - incx: Stride of each one-dimensional array x [i]
+//   - incx: Stride of each one-dimensional array x[i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - incy: Stride of each one-dimensional array y [i]
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - incy: Stride of each one-dimensional array y[i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
 // Errors:
@@ -20297,11 +20524,11 @@ func zgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *Compl
 // zgemvBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
-// y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// y[i]=αop(A[i])x[i]+βy[i], for i∈[0,batchCount−1]
+// where α and β are scalars, and A is an array of pointers to matrice A[i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i] ,
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 //   - if k % 4 == 0 then ensure intptr_t(ptr) % 16 == 0,
@@ -20309,17 +20536,17 @@ func zgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *Compl
 // It is [Handle.ZgemvBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m). All pointers must meet certain alignment criteria. Please see below for details
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise. All pointers must meet certain alignment criteria. Please see below for details
-//   - incx: Stride of each one-dimensional array x [i]
+//   - incx: Stride of each one-dimensional array x[i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
-//   - incy: Stride of each one-dimensional array y [i]
+//   - yarray: Array of pointers to < type > array. It has dimensions m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected. All pointers must meet certain alignment criteria. Please see below for details
+//   - incy: Stride of each one-dimensional array y[i]
 //   - batchCount: Number of pointers contained in Aarray, xarray and yarray
 //
 // Errors:
@@ -20339,31 +20566,31 @@ func zgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *Com
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A[i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i]
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], x[i], y[i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A[i-1], x[i-1], y[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // [Handle.ZgemvStridedBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
-//   - incx: Stride of each one-dimensional array x [i]
-//   - stridex: Value of type long long int that gives the offset in number of elements between x [i] and x [i+1]
+//   - incx: Stride of each one-dimensional array x[i]
+//   - stridex: Value of type long long int that gives the offset in number of elements between x[i] and x[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected
-//   - incy: Stride of each one-dimensional array y [i]
-//   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
+//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected
+//   - incy: Stride of each one-dimensional array y[i]
+//   - stridey: Value of type long long int that gives the offset in number of elements between y[i] and y[i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
 // Errors:
@@ -20383,31 +20610,31 @@ func zgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha
 //
 // The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
-// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
+// where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A[i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A[i]
+// op(A[i])={A[i]if trans == CUBLAS_OP_NA[i]ᵀif trans == CUBLAS_OP_TA[i]ᴴif trans == [OpC]
 //
-// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+// Note: y[i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 //
-// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+// Note: In the table below, we use A[i], x[i], y[i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A[i-1], x[i-1], y[i-1]. The unit for the offset is number of elements and must not be zero .
 //
 // It is [Handle.ZgemvStridedBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - m: Number of rows of matrix A [i]
-//   - n: Number of columns of matrix A [i]
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - m: Number of rows of matrix A[i]
+//   - n: Number of columns of matrix A[i]
 //   - alpha: < type > scalar used for multiplication
 //   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - strideA: Value of type long long int that gives the offset in number of elements between A[i] and A[i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
-//   - incx: Stride of each one-dimensional array x [i]
-//   - stridex: Value of type long long int that gives the offset in number of elements between x [i] and x [i+1]
+//   - incx: Stride of each one-dimensional array x[i]
+//   - stridex: Value of type long long int that gives the offset in number of elements between x[i] and x[i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, y does not have to be a valid input
-//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y [i] should not overlap; otherwise, undefined behavior is expected
-//   - incy: Stride of each one-dimensional array y [i]
-//   - stridey: Value of type long long int that gives the offset in number of elements between y [i] and y [i+1]
+//   - y: < type >* pointer to the y vector corresponding to the first instance of the batch, with each dimension m if trans == [OpN] and n otherwise. Vectors y[i] should not overlap; otherwise, undefined behavior is expected
+//   - incy: Stride of each one-dimensional array y[i]
+//   - stridey: Value of type long long int that gives the offset in number of elements between y[i] and y[i+1]
 //   - batchCount: Number of GEMVs to perform in the batch
 //
 // Errors:
@@ -20498,9 +20725,15 @@ func zgemv64(handle Handle, trans Operation, m int64, n int64, alpha *Complex128
 // Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
 //
 // TauArray is an array of pointers to vectors of dimension of at least max (1, min(m, n).
-// This function performs the QR factorization of each Aarray [i] for i = 0, ...,batchSize-1 using Householder reflections. Each matrix Q [i] is represented as a product of elementary reflectors and is stored in the lower part of each Aarray [i] as follows :
-// Each H [j][i] has the form
-// where tau [j] is a real scalar, and v is a real vector with v(1:i-1) = 0 and v(i) = 1; v(i+1:m) is stored on exit in Aarray [j][i+1:m,i], and tau in TauArray [j][i].
+// This function performs the QR factorization of each Aarray[i] for i = 0, ...,batchSize-1 using Householder reflections. Each matrix Q[i] is represented as a product of elementary reflectors and is stored in the lower part of each Aarray[i] as follows :
+//
+//	Q[j] = H[j][1] H[j][2] . . . H[j](k), where k = min(m,n).
+//
+// Each H[j][i] has the form
+//
+//	H[j][i] = I - tau[j] * v * v'
+//
+// where tau[j] is a real scalar, and v is a real vector with v(1:i-1) = 0 and v(i) = 1; v(i+1:m) is stored on exit in Aarray[j][i+1:m,i], and tau in TauArray[j][i].
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.
 // cublasgeqrfBatched supports arbitrary dimension.
 // cublasgeqrfBatched only supports compute capability 2.0 or above.
@@ -20508,10 +20741,10 @@ func zgemv64(handle Handle, trans Operation, m int64, n int64, alpha *Complex128
 // sgeqrf(), dgeqrf(), cgeqrf(), zgeqrf()
 //
 //   - handle: Handle to the cuBLAS library context
-//   - m: Number of rows Aarray [i]
-//   - n: Number of columns of Aarray [i]
+//   - m: Number of rows Aarray[i]
+//   - n: Number of columns of Aarray[i]
 //   - aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
 //   - tauArray: Array of pointers to < type > vector, with each vector of dim. max(1 ,min(m, n))
 //   - info: If info == 0, the parameters passed to the function are valid. If info < 0, the parameter in position -info is invalid
 //   - batchSize: Number of pointers contained in Aarray
@@ -20665,12 +20898,44 @@ func zgeru64(handle Handle, m int64, n int64, alpha *Complex128, x driver.Device
 //
 // Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
 //
-// This function performs the LU factorization of each Aarray [i] for i = 0, …, batchSize-1 by the following equation
-// P*Aarray [i]=L*U
+// This function performs the LU factorization of each Aarray[i] for i = 0, …, batchSize-1 by the following equation
+// P*Aarray[i]=L*U
 // where P is a permutation matrix which represents partial pivoting with row interchanges. L is a lower triangular matrix with unit diagonal and U is an upper triangular matrix.
-// Formally P is written by a product of permutation matrices Pj, for j = 1,2,...,n, say P = P1 * P2 * P3 * .... * Pn. Pj is a permutation matrix which interchanges two rows of vector x when performing Pj*x. Pj can be constructed by j element of PivotArray [i] by the following Matlab code
+// Formally P is written by a product of permutation matrices Pj, for j = 1,2,...,n, say P = P1 * P2 * P3 * .... * Pn. Pj is a permutation matrix which interchanges two rows of vector x when performing Pj*x. Pj can be constructed by j element of PivotArray[i] by the following Matlab code
+//
+//	// In Matlab PivotArray[i] is an array of base-1.
+//	// In C, PivotArray[i] is base-0.
+//	Pj = eye(n);
+//	swap Pj(j,:) and Pj(PivotArray[i][j]  ,:)
+//
 // L and U are written back to original matrix A, and diagonal elements of L are discarded. The L and U can be constructed by the following Matlab code
-// If matrix A(=Aarray [i]) is singular, getrf still works and the value of info(=infoArray [i]) reports first row index that LU factorization cannot proceed. If info is k, U(k,k) is zero. The equation P*A == L*U still holds, however L and U reconstruction needs a different Matlab code as follows:
+//
+//	// A is a matrix of nxn after getrf.
+//	L = eye(n);
+//	for j = 1:n
+//	    L(j+1:n,j) = A(j+1:n,j)
+//	end
+//	U = zeros(n);
+//	for i = 1:n
+//	    U(i,i:n) = A(i,i:n)
+//	end
+//
+// If matrix A(=Aarray[i]) is singular, getrf still works and the value of info(=infoArray[i]) reports first row index that LU factorization cannot proceed. If info is k, U(k,k) is zero. The equation P*A == L*U still holds, however L and U reconstruction needs a different Matlab code as follows:
+//
+//	// A is a matrix of nxn after getrf.
+//	// info is k, which means U(k,k) is zero.
+//	L = eye(n);
+//	for j = 1:k-1
+//	    L(j+1:n,j) = A(j+1:n,j)
+//	end
+//	U = zeros(n);
+//	for i = 1:k-1
+//	    U(i,i:n) = A(i,i:n)
+//	end
+//	for i = k:n
+//	    U(i,k:n) = A(i,k:n)
+//	end
+//
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.
 // cublasgetrfBatched supports non-pivot LU factorization if PivotArray is NULL.
 // cublasgetrfBatched supports arbitrary dimension.
@@ -20679,8 +20944,8 @@ func zgeru64(handle Handle, m int64, n int64, alpha *Complex128, x driver.Device
 // sgeqrf(), dgeqrf(), cgeqrf(), zgeqrf()
 //
 //   - handle: Handle to the cuBLAS library context
-//   - n: Number of rows and columns of Aarray [i]
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
+//   - n: Number of rows and columns of Aarray[i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
 //   - batchSize: Number of pointers contained in A
 //
 // Errors:
@@ -20700,10 +20965,21 @@ func zgetrfBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 //
 // Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
 //
-// This function performs the inversion of matrices A [i] for i = 0, …, batchSize-1.
-// Prior to calling cublasgetriBatched, the matrix A [i] must be factorized first using the routine cublasgetrfBatched. After the call of cublasgetrfBatched, the matrix pointing by Aarray [i] will contain the LU factors of the matrix A [i] and the vector pointing by (PivotArray+i) will contain the pivoting sequence.
-// Following the LU factorization, cublasgetriBatched uses forward and backward triangular solvers to complete inversion of matrices A [i] for i = 0, …, batchSize-1. The inversion is out-of-place, so memory space of Carray [i] cannot overlap memory space of Array [i].
+// This function performs the inversion of matrices A[i] for i = 0, …, batchSize-1.
+// Prior to calling cublasgetriBatched, the matrix A[i] must be factorized first using the routine cublasgetrfBatched. After the call of cublasgetrfBatched, the matrix pointing by Aarray[i] will contain the LU factors of the matrix A[i] and the vector pointing by (PivotArray+i) will contain the pivoting sequence.
+// Following the LU factorization, cublasgetriBatched uses forward and backward triangular solvers to complete inversion of matrices A[i] for i = 0, …, batchSize-1. The inversion is out-of-place, so memory space of Carray[i] cannot overlap memory space of Array[i].
 // Typically all parameters in cublasgetrfBatched would be passed into cublasgetriBatched. For example,
+//
+//	// step 1: perform in-place LU decomposition, P*A = L*U.
+//	//      Aarray[i] is n*n matrix A[i]
+//	    cublasDgetrfBatched(handle, n, Aarray, lda, PivotArray, infoArray, batchSize);
+//	//      check infoArray[i] to see if factorization of A[i] is successful or not.
+//	//      Array[i] contains LU factorization of A[i]
+//
+//	// step 2: perform out-of-place inversion, Carray[i] = inv(A[i])
+//	    cublasDgetriBatched(handle, n, Aarray, lda, PivotArray, Carray, ldc, infoArray, batchSize);
+//	//      check infoArray[i] to see if inversion of A[i] is successful or not.
+//
 // The user can check singularity from either cublasgetrfBatched or cublasgetriBatched.
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.
 // If cublasgetrfBatched is performed by non-pivoting, PivotArray of cublasgetriBatched should be NULL.
@@ -20711,9 +20987,9 @@ func zgetrfBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 // cublasgetriBatched only supports compute capability 2.0 or above.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - n: Number of rows and columns of Aarray [i]
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray [i]
+//   - n: Number of rows and columns of Aarray[i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
+//   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray[i]
 //   - batchSize: Number of pointers contained in A
 //
 // Errors:
@@ -20731,9 +21007,9 @@ func zgetriBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 
 // zgetrsBatched solves an array of systems of linear equations of the form:
 //
-// op(A [i])X [i]=B [i]
-// where A [i] is a matrix which has been LU factorized with pivoting, X [i] and B [i] are n×nrhs matrices. Also, for matrix A
-// op(A [i])={A [i]if trans == CUBLAS_OP_NAᵀ[i]if trans == CUBLAS_OP_TAᴴ[i]if trans == [OpC]
+// op(A[i])X[i]=B[i]
+// where A[i] is a matrix which has been LU factorized with pivoting, X[i] and B[i] are n×nrhs matrices. Also, for matrix A
+// op(A[i])={A[i]if trans == CUBLAS_OP_NAᵀ[i]if trans == CUBLAS_OP_TAᴴ[i]if trans == [OpC]
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.
 // cublasgetrsBatched() supports non-pivot LU factorization if devIpiv is NULL.
 // cublasgetrsBatched() supports arbitrary dimension.
@@ -20743,13 +21019,13 @@ func zgetriBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 //
 //   - handle: Handle to the cuBLAS library context
 //   - trans: Operation op( A) that is non- or (conj.) transpose
-//   - n: Number of rows and columns of Aarray [i]
-//   - nrhs: Number of columns of Barray [i]
+//   - n: Number of rows and columns of Aarray[i]
+//   - nrhs: Number of columns of Barray[i]
 //   - aarray: Array of pointers to < type > array, with each array of dim. n x n with lda >= max(1, n)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - devIpiv: Array of size n x batchSize that contains the pivoting sequence of each factorization of Aarray [i] stored in a linear fashion. If devIpiv is NULL, pivoting for all Aarray [i] is ignored
-//   - barray: Array of pointers to < type > array, with each array of dim. n x nrhs with ldb >= max(1, n). Matrices Barray [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldb: Leading dimension of two-dimensional array used to store each solution matrix Barray [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
+//   - devIpiv: Array of size n x batchSize that contains the pivoting sequence of each factorization of Aarray[i] stored in a linear fashion. If devIpiv is NULL, pivoting for all Aarray[i] is ignored
+//   - barray: Array of pointers to < type > array, with each array of dim. n x nrhs with ldb >= max(1, n). Matrices Barray[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldb: Leading dimension of two-dimensional array used to store each solution matrix Barray[i]
 //   - info: If info == 0, the execution is successful. If info = -j, the j-th parameter had an illegal value
 //   - batchSize: Number of pointers contained in A
 //
@@ -21323,8 +21599,8 @@ func zherkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 // zhpmv performs the Hermitian packed matrix-vector multiplication.
 //
 // y=αAx+βy, where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α and β are scalars.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // chpmv(), zhpmv()
 //
@@ -21357,8 +21633,8 @@ func zhpmv(handle Handle, uplo FillMode, n int32, alpha *Complex128, ap driver.D
 // zhpmv64 performs the Hermitian packed matrix-vector multiplication.
 //
 // y=αAx+βy, where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α and β are scalars.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // chpmv(), zhpmv()
 //
@@ -21391,8 +21667,8 @@ func zhpmv64(handle Handle, uplo FillMode, n int64, alpha *Complex128, ap driver
 // zhpr2 performs the packed Hermitian rank-2 update.
 //
 // A=αxyᴴ+αˉyxᴴ+A, where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α is a scalar.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // chpr2, zhpr2
 //
@@ -21424,8 +21700,8 @@ func zhpr2(handle Handle, uplo FillMode, n int32, alpha *Complex128, x driver.De
 // zhpr264 performs the packed Hermitian rank-2 update.
 //
 // A=αxyᴴ+αˉyxᴴ+A, where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α is a scalar.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // chpr2, zhpr2
 //
@@ -21457,8 +21733,8 @@ func zhpr264(handle Handle, uplo FillMode, n int64, alpha *Complex128, x driver.
 // zhpr performs the packed Hermitian rank-1 update.
 //
 // A=αxxᴴ+A, where A is a n×n Hermitian matrix stored in packed format, x is a vector, and α is a scalar.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // chpr(), zhpr()
 //
@@ -21488,8 +21764,8 @@ func zhpr(handle Handle, uplo FillMode, n int32, alpha *float64, x driver.Device
 // zhpr64 performs the packed Hermitian rank-1 update.
 //
 // A=αxxᴴ+A, where A is a n×n Hermitian matrix stored in packed format, x is a vector, and α is a scalar.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // chpr(), zhpr()
 //
@@ -21518,17 +21794,17 @@ func zhpr64(handle Handle, uplo FillMode, n int64, alpha *float64, x driver.Devi
 
 // zmatinvBatched A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldaInv respectively.
 //
-// This function performs the inversion of matrices A [i] for i = 0, …, batchSize-1.
+// This function performs the inversion of matrices A[i] for i = 0, …, batchSize-1.
 // This function is a short cut of cublasgetrfBatched() plus cublasgetriBatched(). However it doesn’t work if n is greater than 32. If not, the user has to go through cublasgetrfBatched() and cublasgetriBatched().
-// If the matrix A [i] is singular, then info [i] reports singularity, the same as cublasgetrfBatched().
+// If the matrix A[i] is singular, then info[i] reports singularity, the same as cublasgetrfBatched().
 //
 //   - handle: Handle to the cuBLAS library context
-//   - n: Number of rows and columns of A [i]
+//   - n: Number of rows and columns of A[i]
 //   - a: Array of pointers to < type > array, with each array of dimension n*n with lda >= max(1, n)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - ainv: Array of pointers to < type > array, with each array of dimension n*n with ldaInv >= max(1, n). Matrices Ainv [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldaInv: Leading dimension of two-dimensional array used to store each matrix Ainv [i]
-//   - info: Array of size batchSize that info [i] contains the information of inversion of A [i]. If info [i] == 0, the execution is successful. If info [i] == k, then U(k, k) == 0. The U is exactly singular and the inversion failed
+//   - lda: Leading dimension of two-dimensional array used to store each matrix A[i]
+//   - ainv: Array of pointers to < type > array, with each array of dimension n*n with ldaInv >= max(1, n). Matrices Ainv[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldaInv: Leading dimension of two-dimensional array used to store each matrix Ainv[i]
+//   - info: Array of size batchSize that info[i] contains the information of inversion of A[i]. If info[i] == 0, the execution is successful. If info[i] == k, then U(k, k) == 0. The U is exactly singular and the inversion failed
 //   - batchSize: Number of pointers contained in A
 //
 // Errors:
@@ -21548,7 +21824,7 @@ func zmatinvBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, ainv 
 //
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x[k]=c×x[k]+s×y[j] and y[j]=−s×x[k]+c×y[j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
 //
@@ -21579,7 +21855,7 @@ func zrot(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devic
 //
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x[k]=c×x[k]+s×y[j] and y[j]=−s×x[k]+c×y[j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
 //
@@ -21639,7 +21915,7 @@ func zrotg(handle Handle, a *Complex128, b *Complex128, c *float64, s *Complex12
 
 // zscal scales the vector x by the scalar α and overwrites it with the result.
 //
-// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is x[j]=α×x[j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
 //
@@ -21665,7 +21941,7 @@ func zscal(handle Handle, n int32, alpha *Complex128, x driver.DevicePtr, incx i
 
 // zscal64 scales the vector x by the scalar α and overwrites it with the result.
 //
-// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is x[j]=α×x[j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
 //
@@ -21691,7 +21967,7 @@ func zscal64(handle Handle, n int64, alpha *Complex128, x driver.DevicePtr, incx
 
 // zswap interchanges the elements of vector x and y.
 //
-// Hence, the performed operation is y [j]⇔x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is y[j]⇔x[k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sswap(), dswap(), cswap(), zswap()
 //
@@ -21718,7 +21994,7 @@ func zswap(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 
 // zswap64 interchanges the elements of vector x and y.
 //
-// Hence, the performed operation is y [j]⇔x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the performed operation is y[j]⇔x[k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // For references please refer to NETLIB documentation:
 // sswap(), dswap(), cswap(), zswap()
 //
@@ -22375,8 +22651,8 @@ func ztbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //
 // x=op(A)x, where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for A(i,j) and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for A(i,j) and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // stpmv(), dtpmv(), ctpmv(), ztpmv()
 //
@@ -22409,8 +22685,8 @@ func ztpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //
 // x=op(A)x, where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for A(i,j) and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for A(i,j) and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // stpmv(), dtpmv(), ctpmv(), ztpmv()
 //
@@ -22445,8 +22721,8 @@ func ztpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 // op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // stpsv(), dtpsv(), ctpsv(), ztpsv()
 //
@@ -22480,8 +22756,8 @@ func ztpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 // op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
-// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
-// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
+// If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP[i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // For references please refer to NETLIB documentation:
 // stpsv(), dtpsv(), ctpsv(), ztpsv()
 //
@@ -22681,10 +22957,10 @@ func ztrmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 
 // ztrsmBatched solves an array of triangular linear systems with multiple right-hand-sides.
 //
-// {op(A [i])X [i]=αB [i]if side == CUBLAS_SIDE_LEFTX [i]op(A [i])=αB [i]if side == [SideRight]
-// where A [i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X [i] and B [i] are m×n matrices, and α is a scalar. Also, for matrix A
-// op(A [i])={A [i]if transa == CUBLAS_OP_NAᵀ[i]if transa == CUBLAS_OP_TAᴴ[i]if transa == [OpC]
-// The solution X [i] overwrites the right-hand-sides B [i] on exit.
+// {op(A[i])X[i]=αB[i]if side == CUBLAS_SIDE_LEFTX[i]op(A[i])=αB[i]if side == [SideRight]
+// where A[i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X[i] and B[i] are m×n matrices, and α is a scalar. Also, for matrix A
+// op(A[i])={A[i]if transa == CUBLAS_OP_NAᵀ[i]if transa == CUBLAS_OP_TAᴴ[i]if transa == [OpC]
+// The solution X[i] overwrites the right-hand-sides B[i] on exit.
 // No test for singularity or near-singularity is included in this function.
 // This function works for any sizes but is intended to be used for matrices of small sizes where the launch overhead is a significant factor. For bigger sizes, it might be advantageous to call batchCount times the regular cublastrsm() within a set of CUDA streams.
 // The current implementation is limited to devices with compute capability above or equal 2.0.
@@ -22694,17 +22970,17 @@ func ztrmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 // [Handle.ZtrsmBatched64] takes 64-bit sizes.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - side: Indicates if matrix A [i] is on the left or right of X [i]
-//   - uplo: Indicates if matrix A [i] lower or upper part is stored, the other part is not referenced and is inferred from the stored elements
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - diag: Indicates if the elements on the main diagonal of matrix A [i] are unity and should not be accessed
-//   - m: Number of rows of matrix B [i], with matrix A [i] sized accordingly
-//   - n: Number of columns of matrix B [i], with matrix A [i] is sized accordingly
-//   - alpha: < type > scalar used for multiplication, if alpha == 0 then A [i] is not referenced and B [i] does not have to be a valid input
+//   - side: Indicates if matrix A[i] is on the left or right of X[i]
+//   - uplo: Indicates if matrix A[i] lower or upper part is stored, the other part is not referenced and is inferred from the stored elements
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - diag: Indicates if the elements on the main diagonal of matrix A[i] are unity and should not be accessed
+//   - m: Number of rows of matrix B[i], with matrix A[i] sized accordingly
+//   - n: Number of columns of matrix B[i], with matrix A[i] is sized accordingly
+//   - alpha: < type > scalar used for multiplication, if alpha == 0 then A[i] is not referenced and B[i] does not have to be a valid input
 //   - a: Array of pointers to < type > array, with each array of dim. lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
-//   - lda: Leading dimension of two-dimensional array used to store matrix A [i]
-//   - b: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
+//   - lda: Leading dimension of two-dimensional array used to store matrix A[i]
+//   - b: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldb: Leading dimension of two-dimensional array used to store matrix B[i]
 //   - batchCount: Number of pointers contained in A and B
 //
 // Errors:
@@ -22722,10 +22998,10 @@ func ztrsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, 
 
 // ztrsmBatched64 solves an array of triangular linear systems with multiple right-hand-sides.
 //
-// {op(A [i])X [i]=αB [i]if side == CUBLAS_SIDE_LEFTX [i]op(A [i])=αB [i]if side == [SideRight]
-// where A [i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X [i] and B [i] are m×n matrices, and α is a scalar. Also, for matrix A
-// op(A [i])={A [i]if transa == CUBLAS_OP_NAᵀ[i]if transa == CUBLAS_OP_TAᴴ[i]if transa == [OpC]
-// The solution X [i] overwrites the right-hand-sides B [i] on exit.
+// {op(A[i])X[i]=αB[i]if side == CUBLAS_SIDE_LEFTX[i]op(A[i])=αB[i]if side == [SideRight]
+// where A[i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X[i] and B[i] are m×n matrices, and α is a scalar. Also, for matrix A
+// op(A[i])={A[i]if transa == CUBLAS_OP_NAᵀ[i]if transa == CUBLAS_OP_TAᴴ[i]if transa == [OpC]
+// The solution X[i] overwrites the right-hand-sides B[i] on exit.
 // No test for singularity or near-singularity is included in this function.
 // This function works for any sizes but is intended to be used for matrices of small sizes where the launch overhead is a significant factor. For bigger sizes, it might be advantageous to call batchCount times the regular cublastrsm() within a set of CUDA streams.
 // The current implementation is limited to devices with compute capability above or equal 2.0.
@@ -22735,17 +23011,17 @@ func ztrsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, 
 // It is [Handle.ZtrsmBatched] with int64 sizes and strides.
 //
 //   - handle: Handle to the cuBLAS library context
-//   - side: Indicates if matrix A [i] is on the left or right of X [i]
-//   - uplo: Indicates if matrix A [i] lower or upper part is stored, the other part is not referenced and is inferred from the stored elements
-//   - trans: Operation op( A [i]) that is non- or (conj.) transpose
-//   - diag: Indicates if the elements on the main diagonal of matrix A [i] are unity and should not be accessed
-//   - m: Number of rows of matrix B [i], with matrix A [i] sized accordingly
-//   - n: Number of columns of matrix B [i], with matrix A [i] is sized accordingly
-//   - alpha: < type > scalar used for multiplication, if alpha == 0 then A [i] is not referenced and B [i] does not have to be a valid input
+//   - side: Indicates if matrix A[i] is on the left or right of X[i]
+//   - uplo: Indicates if matrix A[i] lower or upper part is stored, the other part is not referenced and is inferred from the stored elements
+//   - trans: Operation op( A[i]) that is non- or (conj.) transpose
+//   - diag: Indicates if the elements on the main diagonal of matrix A[i] are unity and should not be accessed
+//   - m: Number of rows of matrix B[i], with matrix A[i] sized accordingly
+//   - n: Number of columns of matrix B[i], with matrix A[i] is sized accordingly
+//   - alpha: < type > scalar used for multiplication, if alpha == 0 then A[i] is not referenced and B[i] does not have to be a valid input
 //   - a: Array of pointers to < type > array, with each array of dim. lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
-//   - lda: Leading dimension of two-dimensional array used to store matrix A [i]
-//   - b: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B [i] should not overlap; otherwise, undefined behavior is expected
-//   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
+//   - lda: Leading dimension of two-dimensional array used to store matrix A[i]
+//   - b: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B[i] should not overlap; otherwise, undefined behavior is expected
+//   - ldb: Leading dimension of two-dimensional array used to store matrix B[i]
 //   - batchCount: Number of pointers contained in A and B
 //
 // Errors:

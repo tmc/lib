@@ -32,7 +32,7 @@ func (e *Expectation) Close() error {
 //   - time: in Specified time
 //   - batchSize: in Batch size (>=1)
 //   - numParams: in Number of variable parameters defined by the user
-//   - params: in GPU-accessible pointer to an F-order 2d-array of user-defined real parameter values: params [numParams, batchSize]
+//   - params: in GPU-accessible pointer to an F-order 2d-array of user-defined real parameter values: params[numParams, batchSize]
 //   - state: in Quantum state (or a batch of quantum states)
 //   - expectationValue: out Pointer to the expectation value(s) vector storage in GPU-accessible RAM of the same data type as used by the state and operator
 //   - workspace: in Allocated workspace descriptor

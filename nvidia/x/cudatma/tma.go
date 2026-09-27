@@ -140,7 +140,7 @@ func (d Descriptor) EncodeTiled() (*driver.TensorMap, error) {
 	case 128:
 		sw = driver.TensorMapSwizzle128B
 	}
-	if err := driver.TensorMapEncodeTiled(m, dt, uint32(d.Rank), uintptr(d.Base), &dims[0], &strides[0], &box[0], &elems[0], d.Interleave, sw, d.L2Promotion, d.OOBFill); err != nil {
+	if err := driver.TensorMapEncodeTiled(m, dt, uint32(d.Rank), driver.DevicePtr(d.Base), &dims[0], &strides[0], &box[0], &elems[0], d.Interleave, sw, d.L2Promotion, d.OOBFill); err != nil {
 		return nil, fmt.Errorf("encode tensor map: %w", err)
 	}
 	return m, nil

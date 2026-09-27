@@ -209,10 +209,26 @@ func (g Graph) AddHostNode(dependencies *GraphNode, numDependencies uint, nodePa
 //
 // Creates a new kernel execution node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // The [KernelNodeParams] structure is defined as:
+//
+//	typedef struct CUDA_KERNEL_NODE_PARAMS_st {
+//	    CUfunction func;
+//	    unsigned int gridDimX;
+//	    unsigned int gridDimY;
+//	    unsigned int gridDimZ;
+//	    unsigned int blockDimX;
+//	    unsigned int blockDimY;
+//	    unsigned int blockDimZ;
+//	    unsigned int sharedMemBytes;
+//	    void **kernelParams;
+//	    void **extra;
+//	    CUkernel kern;
+//	    CUcontext ctx;
+//	} CUDA_KERNEL_NODE_PARAMS;
+//
 // When the graph is launched, the node will invoke kernel func on a ( gridDimX x gridDimY x gridDimZ) grid of blocks. Each block contains ( blockDimX x blockDimY x blockDimZ) threads.
 // sharedMemBytes sets the amount of dynamic shared memory that will be available to each thread block.
 // Kernel parameters to func can be specified in one of two ways:
-//   - Kernel parameters can be specified via kernelParams. If the kernel has N parameters, then kernelParams needs to be an array of N pointers. Each pointer, from kernelParams [0] to kernelParams [N-1], points to the region of memory from which the actual parameter will be copied. The number of kernel parameters and their offsets and sizes do not need to be specified as that information is retrieved directly from the kernel’s image.
+//   - Kernel parameters can be specified via kernelParams. If the kernel has N parameters, then kernelParams needs to be an array of N pointers. Each pointer, from kernelParams[0] to kernelParams[N-1], points to the region of memory from which the actual parameter will be copied. The number of kernel parameters and their offsets and sizes do not need to be specified as that information is retrieved directly from the kernel’s image.
 //   - Kernel parameters for non-cooperative kernels can also be packaged by the application into a single buffer that is passed in via extra. This places the burden on the application of knowing each kernel parameter’s size and alignment/padding within the buffer. The extra parameter exists to allow this function to take additional less commonly used arguments. extra specifies a list of names of extra settings and their corresponding values. Each extra setting name is immediately followed by the corresponding value. The list must be terminated with either NULL or CU_LAUNCH_PARAM_END.
 //   - CU_LAUNCH_PARAM_END, which indicates the end of the extra array;
 //   - CU_LAUNCH_PARAM_BUFFER_POINTER, which specifies that the next value in extra will be a pointer to a buffer containing all the kernel parameters for launching kernel func;
@@ -564,6 +580,14 @@ func (g Graph) Instantiate(flags GraphinstantiateFlags) (GraphExec, error) {
 //
 // Instantiates hGraph as an executable graph according to the instantiateParams structure. The graph is validated for any structural constraints or intra-node constraints which were not previously validated. If instantiation is successful, a handle to the instantiated graph is returned in phGraphExec.
 // instantiateParams controls the behavior of instantiation and subsequent graph launches, as well as returning more detailed information in the event of an error. [GraphInstantiateParams] is defined as:
+//
+//	typedef struct {
+//	    cuuint64_t flags;
+//	    CUstream hUploadStream;
+//	    CUgraphNode hErrNode_out;
+//	    CUgraphInstantiateResult result_out;
+//	} CUDA_GRAPH_INSTANTIATE_PARAMS;
+//
 // The flags field controls the behavior of instantiation and subsequent graph launches. Valid flags are:
 //   - [GraphInstantiateFlagAutoFreeOnLaunch], which configures a graph containing memory allocation nodes to automatically free any unfreed memory allocations before the graph is relaunched.
 //   - [GraphInstantiateFlagUpload], which will perform an upload of the graph into hUploadStream once the graph has been instantiated.

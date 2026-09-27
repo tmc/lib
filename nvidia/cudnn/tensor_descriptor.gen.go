@@ -71,7 +71,7 @@ func (t TensorDescriptor) Get4D() (Tensor4DConfig, error) {
 
 // Get retrieves values stored in a previously initialized TensorNd descriptor object.
 //
-//   - nbDimsRequested: Input. Number of dimensions to extract from a given tensor descriptor. It is also the minimum size of the arrays dimA and strideA. If this number is greater than the resulting nbDims [0], only nbDims [0] dimensions will be returned
+//   - nbDimsRequested: Input. Number of dimensions to extract from a given tensor descriptor. It is also the minimum size of the arrays dimA and strideA. If this number is greater than the resulting nbDims[0], only nbDims[0] dimensions will be returned
 //
 // A nil error means the results were returned successfully.
 //

@@ -93,6 +93,126 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Alignof(IOParams{}); got != 8 {
 		t.Errorf("alignof(IOParams) = %d, want 8", got)
 	}
+	{ // IOParams.Mode
+		var z IOParams
+		if got := unsafe.Sizeof(z.Mode()); got != 4 {
+			t.Errorf("sizeof(IOParams.Mode()) = %d, want 4", got)
+		}
+		for _, p := range layoutPatterns(len(layoutBytes(&z))) {
+			var v IOParams
+			zero := make([]byte, len(p))
+			var w IOParams
+			copy(layoutBytes(&v), p)
+			w.SetMode(v.Mode())
+			layoutCheckBits(t, "IOParams.Mode copied", layoutBytes(&w), p, zero, 0, 32)
+			copy(layoutBytes(&v), p)
+			v.SetMode(z.Mode())
+			layoutCheckBits(t, "IOParams.Mode cleared", layoutBytes(&v), zero, p, 0, 32)
+			if v.Mode() != z.Mode() {
+				t.Errorf("IOParams.Mode() reads bits outside [0, 32)")
+			}
+		}
+	}
+	{ // IOParams.Fh
+		var z IOParams
+		if got := unsafe.Sizeof(z.Fh()); got != 8 {
+			t.Errorf("sizeof(IOParams.Fh()) = %d, want 8", got)
+		}
+		for _, p := range layoutPatterns(len(layoutBytes(&z))) {
+			var v IOParams
+			zero := make([]byte, len(p))
+			var w IOParams
+			copy(layoutBytes(&v), p)
+			w.SetFh(v.Fh())
+			layoutCheckBits(t, "IOParams.Fh copied", layoutBytes(&w), p, zero, 320, 384)
+			copy(layoutBytes(&v), p)
+			v.SetFh(z.Fh())
+			layoutCheckBits(t, "IOParams.Fh cleared", layoutBytes(&v), zero, p, 320, 384)
+			if v.Fh() != z.Fh() {
+				t.Errorf("IOParams.Fh() reads bits outside [320, 384)")
+			}
+		}
+	}
+	{ // IOParams.Opcode
+		var z IOParams
+		if got := unsafe.Sizeof(z.Opcode()); got != 4 {
+			t.Errorf("sizeof(IOParams.Opcode()) = %d, want 4", got)
+		}
+		for _, p := range layoutPatterns(len(layoutBytes(&z))) {
+			var v IOParams
+			zero := make([]byte, len(p))
+			var w IOParams
+			copy(layoutBytes(&v), p)
+			w.SetOpcode(v.Opcode())
+			layoutCheckBits(t, "IOParams.Opcode copied", layoutBytes(&w), p, zero, 384, 416)
+			copy(layoutBytes(&v), p)
+			v.SetOpcode(z.Opcode())
+			layoutCheckBits(t, "IOParams.Opcode cleared", layoutBytes(&v), zero, p, 384, 416)
+			if v.Opcode() != z.Opcode() {
+				t.Errorf("IOParams.Opcode() reads bits outside [384, 416)")
+			}
+		}
+	}
+	{ // IOParams.Cookie
+		var z IOParams
+		if got := unsafe.Sizeof(z.Cookie()); got != 8 {
+			t.Errorf("sizeof(IOParams.Cookie()) = %d, want 8", got)
+		}
+		for _, p := range layoutPatterns(len(layoutBytes(&z))) {
+			var v IOParams
+			zero := make([]byte, len(p))
+			var w IOParams
+			copy(layoutBytes(&v), p)
+			w.SetCookie(v.Cookie())
+			layoutCheckBits(t, "IOParams.Cookie copied", layoutBytes(&w), p, zero, 448, 512)
+			copy(layoutBytes(&v), p)
+			v.SetCookie(z.Cookie())
+			layoutCheckBits(t, "IOParams.Cookie cleared", layoutBytes(&v), zero, p, 448, 512)
+			if v.Cookie() != z.Cookie() {
+				t.Errorf("IOParams.Cookie() reads bits outside [448, 512)")
+			}
+		}
+	}
+	{ // IOParams.DevPtrBase
+		var z IOParams
+		if got := unsafe.Sizeof(z.DevPtrBase()); got != 8 {
+			t.Errorf("sizeof(IOParams.DevPtrBase()) = %d, want 8", got)
+		}
+		for _, p := range layoutPatterns(len(layoutBytes(&z))) {
+			var v IOParams
+			zero := make([]byte, len(p))
+			var w IOParams
+			copy(layoutBytes(&v), p)
+			w.SetDevPtrBase(v.DevPtrBase())
+			layoutCheckBits(t, "IOParams.DevPtrBase copied", layoutBytes(&w), p, zero, 64, 128)
+			copy(layoutBytes(&v), p)
+			v.SetDevPtrBase(z.DevPtrBase())
+			layoutCheckBits(t, "IOParams.DevPtrBase cleared", layoutBytes(&v), zero, p, 64, 128)
+			if v.DevPtrBase() != z.DevPtrBase() {
+				t.Errorf("IOParams.DevPtrBase() reads bits outside [64, 128)")
+			}
+		}
+	}
+	{ // IOParams.Size
+		var z IOParams
+		if got := unsafe.Sizeof(z.Size()); got != 8 {
+			t.Errorf("sizeof(IOParams.Size()) = %d, want 8", got)
+		}
+		for _, p := range layoutPatterns(len(layoutBytes(&z))) {
+			var v IOParams
+			zero := make([]byte, len(p))
+			var w IOParams
+			copy(layoutBytes(&v), p)
+			w.SetSize(v.Size())
+			layoutCheckBits(t, "IOParams.Size copied", layoutBytes(&w), p, zero, 256, 320)
+			copy(layoutBytes(&v), p)
+			v.SetSize(z.Size())
+			layoutCheckBits(t, "IOParams.Size cleared", layoutBytes(&v), zero, p, 256, 320)
+			if v.Size() != z.Size() {
+				t.Errorf("IOParams.Size() reads bits outside [256, 320)")
+			}
+		}
+	}
 	if got := unsafe.Sizeof(IOEvents{}); got != 24 {
 		t.Errorf("sizeof(IOEvents) = %d, want 24", got)
 	}
@@ -380,5 +500,54 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Offsetof(StatsLevel3{}.PerGpuStats); got != 1032 {
 		t.Errorf("offsetof(StatsLevel3.PerGpuStats) = %d, want 1032", got)
+	}
+}
+
+// layoutBytes returns the memory of *p.
+func layoutBytes[T any](p *T) []byte {
+	return unsafe.Slice((*byte)(unsafe.Pointer(p)), unsafe.Sizeof(*p))
+}
+
+// layoutPatterns returns patterns of n bytes that tell every bit position
+// apart: in pattern 2k, bit i is bit k of i, and pattern 2k+1 is its
+// complement. An accessor that reads or writes any bit other than the one it
+// should differs from the expected result under at least one of them.
+func layoutPatterns(n int) [][]byte {
+	var ps [][]byte
+	for k := 0; k == 0 || 1<<k < n*8; k++ {
+		p, q := make([]byte, n), make([]byte, n)
+		for i := 0; i < n*8; i++ {
+			if i>>k&1 != 0 {
+				p[i/8] |= 1 << (i % 8)
+			} else {
+				q[i/8] |= 1 << (i % 8)
+			}
+		}
+		ps = append(ps, p, q)
+	}
+	return ps
+}
+
+// layoutBit returns n bytes with only bit i set.
+func layoutBit(n, i int) []byte {
+	b := make([]byte, n)
+	b[i/8] = 1 << (i % 8)
+	return b
+}
+
+// layoutCheckBits reports the first bit of got that differs from inside in
+// bits [lo, hi) or from outside elsewhere. Bit i is bit i%8 of byte i/8,
+// the numbering the C layout oracle measures bitfields in.
+func layoutCheckBits(t *testing.T, what string, got, inside, outside []byte, lo, hi int) {
+	t.Helper()
+	for i := 0; i < len(got)*8; i++ {
+		want := outside
+		if lo <= i && i < hi {
+			want = inside
+		}
+		if g, w := got[i/8]>>(i%8)&1, want[i/8]>>(i%8)&1; g != w {
+			t.Errorf("%s: bit %d = %d, want %d (member bits [%d, %d))", what, i, g, w, lo, hi)
+			return
+		}
 	}
 }

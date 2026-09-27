@@ -2,6 +2,8 @@
 
 package nvml
 
+import "unsafe"
+
 // PciInfoExt represents PCI information about a GPU device.
 type PciInfoExt struct {
 	Version        uint32
@@ -177,6 +179,48 @@ type Value struct {
 	Data [1]uint64
 }
 
+// DVal returns a pointer to the dVal member of nvmlValue_t, which shares its
+// storage with every other member of the union.
+func (rec *Value) DVal() *float64 {
+	return (*float64)(unsafe.Pointer(&rec.Data))
+}
+
+// SiVal returns a pointer to the siVal member of nvmlValue_t, which shares its
+// storage with every other member of the union.
+func (rec *Value) SiVal() *int32 {
+	return (*int32)(unsafe.Pointer(&rec.Data))
+}
+
+// UiVal returns a pointer to the uiVal member of nvmlValue_t, which shares its
+// storage with every other member of the union.
+func (rec *Value) UiVal() *uint32 {
+	return (*uint32)(unsafe.Pointer(&rec.Data))
+}
+
+// UlVal returns a pointer to the ulVal member of nvmlValue_t, which shares its
+// storage with every other member of the union.
+func (rec *Value) UlVal() *uint {
+	return (*uint)(unsafe.Pointer(&rec.Data))
+}
+
+// UllVal returns a pointer to the ullVal member of nvmlValue_t, which shares its
+// storage with every other member of the union.
+func (rec *Value) UllVal() *uint64 {
+	return (*uint64)(unsafe.Pointer(&rec.Data))
+}
+
+// SllVal returns a pointer to the sllVal member of nvmlValue_t, which shares its
+// storage with every other member of the union.
+func (rec *Value) SllVal() *int64 {
+	return (*int64)(unsafe.Pointer(&rec.Data))
+}
+
+// UsVal returns a pointer to the usVal member of nvmlValue_t, which shares its
+// storage with every other member of the union.
+func (rec *Value) UsVal() *uint16 {
+	return (*uint16)(unsafe.Pointer(&rec.Data))
+}
+
 // Sample represents information for Sample.
 type Sample struct {
 	TimeStamp   uint64
@@ -209,6 +253,18 @@ type CoolerInfo struct {
 type UUIDValue struct {
 	// Data stores the raw bytes of the underlying C union.
 	Data [41]byte
+}
+
+// Str returns a pointer to the str member of nvmlUUIDValue_t, which shares its
+// storage with every other member of the union.
+func (u *UUIDValue) Str() *[41]byte {
+	return (*[41]byte)(unsafe.Pointer(&u.Data))
+}
+
+// Bytes returns a pointer to the bytes member of nvmlUUIDValue_t, which shares its
+// storage with every other member of the union.
+func (u *UUIDValue) Bytes() *[16]uint8 {
+	return (*[16]uint8)(unsafe.Pointer(&u.Data))
 }
 
 // UUID represents NVML UUID information.
@@ -519,6 +575,11 @@ type VgpuRuntimeState struct {
 }
 
 // VgpuSchedulerParams represents the vGPU Scheduler Parameters.
+//
+// These members have no accessor:
+//
+//   - vgpuSchedDataWithARR: its type is an anonymous record, which has no Go type
+//   - vgpuSchedData: its type is an anonymous record, which has no Go type
 type VgpuSchedulerParams struct {
 	// Data stores the raw bytes of the underlying C union.
 	Data [2]uint32
@@ -552,6 +613,11 @@ type VgpuSchedulerGetState struct {
 }
 
 // VgpuSchedulerSetParams represents the vGPU Scheduler set Parameters.
+//
+// These members have no accessor:
+//
+//   - vgpuSchedDataWithARR: its type is an anonymous record, which has no Go type
+//   - vgpuSchedData: its type is an anonymous record, which has no Go type
 type VgpuSchedulerSetParams struct {
 	// Data stores the raw bytes of the underlying C union.
 	Data [2]uint32
@@ -1087,6 +1153,18 @@ type PRMTLVV1 struct {
 	DataSize       uint32
 	Status         uint32
 	AnonymousUnion [496]byte
+}
+
+// InData returns a pointer to the inData member of nvmlPRMTLV_v1_t, which shares its
+// storage with every other member of the union.
+func (p *PRMTLVV1) InData() *[496]uint8 {
+	return (*[496]uint8)(unsafe.Pointer(&p.AnonymousUnion))
+}
+
+// OutData returns a pointer to the outData member of nvmlPRMTLV_v1_t, which shares its
+// storage with every other member of the union.
+func (p *PRMTLVV1) OutData() *[496]uint8 {
+	return (*[496]uint8)(unsafe.Pointer(&p.AnonymousUnion))
 }
 
 // PRMCounterInputV1 represents PRM counter input values.

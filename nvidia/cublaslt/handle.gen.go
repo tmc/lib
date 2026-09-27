@@ -154,7 +154,7 @@ func (h Handle) MatmulAlgoCheck(operationDesc MatmulDesc, adesc MatrixLayout, bd
 //   - heuristicResultsArray: Array containing the algorithm heuristics and associated runtime characteristics, returned by this function, in the order of increasing estimated compute time
 //   - returnAlgoCount: Number of algorithms returned by this function. This is the number of heuristicResultsArray elements written
 //
-// A nil error means query was successful. Inspect heuristicResultsArray [0 to (returnAlgoCount -1)].state for the status of the results.
+// A nil error means query was successful. Inspect heuristicResultsArray[0 to (returnAlgoCount -1)].state for the status of the results.
 //
 // Errors:
 //   - [ErrInvalidValue]: If requestedAlgoCount is less or equal to zero.

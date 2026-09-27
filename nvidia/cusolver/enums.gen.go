@@ -4,7 +4,9 @@ package cusolver
 
 import "fmt"
 
-// Function represents cusolverDnFunction_t.
+// Function indicates which routine needs to be configured by [Params.SetAdvOptions].
+//
+// The value CUSOLVERDN_GETRF corresponds to the routine Getrf.
 type Function int32
 
 const (
@@ -26,7 +28,9 @@ func (e Function) String() string {
 	return fmt.Sprintf("Function(%d)", e)
 }
 
-// EigType represents cusolverEigType_t.
+// EigType indicates which type of eigenvalue the solver is.
+//
+// Notice that LAPACK implementations often use Fortran integer 1 (A*x = lambda*B*x), 2 (A*B*x = lambda*x), 3 (B*A*x = lambda*x) to indicate which type of eigenvalue the solver is.
 type EigType int32
 
 const (
@@ -48,7 +52,9 @@ func (e EigType) String() string {
 	return fmt.Sprintf("EigType(%d)", e)
 }
 
-// EigMode represents cusolverEigMode_t.
+// EigMode indicates whether or not eigenvectors are computed.
+//
+// Notice that LAPACK implementations often use Fortran character 'N' (only eigenvalues are computed), 'V' (both eigenvalues and eigenvectors are computed) to indicate whether or not eigenvectors are computed.
 type EigMode int32
 
 const (
@@ -114,7 +120,9 @@ func (e Norm) String() string {
 	return fmt.Sprintf("Norm(%d)", e)
 }
 
-// IRSRefinement represents cusolverIRSRefinement_t.
+// IRSRefinement indicates which solver type would be used for the specific cusolver function.
+//
+// Most of our experimentation shows that [IrsRefineGmres] is the best option. More details about the refinement process can be found in Azzam Haidar, Stanimire Tomov, Jack Dongarra, and Nicholas J. Higham. 2018. Harnessing GPU tensor cores for fast FP16 arithmetic to speed up mixed-precision iterative refinement solvers. In Proceedings of the International Conference for High Performance Computing, Networking, Storage, and Analysis (SC ‘18). IEEE Press, Piscataway, NJ, USA, Article 47, 11 pages. [IrsRefineNotSet] Solver is not set; this value is what is set when creating the params structure. IRS solver will return an error. [IrsRefineNone] No refinement solver, the IRS solver performs a factorization followed by a solve without any refinement. For example if the IRS solver was [Handle.IRSXgesv], this is equivalent to a Xgesv routine without refinement and where the factorization is carried out in the lowest precision. If for example the main precision was R64F and the lowest was R64F as well, then this is equivalent to a call to cusolverDnDgesv(). [IrsRefineClassical] Classical iterative refinement solver. Similar to the one used in LAPACK routines. [IrsRefineGmres] GMRES (Generalized Minimal Residual) based iterative refinement solver. In recent study, the GMRES method has drawn the scientific community attention for its ability to be used as refinement solver that outperforms the classical iterative refinement method. Based on our experimentation, we recommend this setting. [IrsRefineClassicalGmres] Classical iterative refinement solver that uses the GMRES (Generalized Minimal Residual) internally to solve the correction equation at each iteration. We call the classical refinement iteration the outer iteration while the GMRES is called inner iteration. Note that if the tolerance of the inner GMRES is set very low, lets say to machine precision, then the outer classical refinement iteration will performs only one iteration and thus this option will behave like [IrsRefineGmres]. [IrsRefineGmresGmres] Similar to [IrsRefineClassicalGmres] which consists of classical refinement process that uses GMRES to solve the inner correction system; here it is a GMRES (Generalized Minimal Residual) based iterative refinement solver that uses another GMRES internally to solve the preconditioned system.
 type IRSRefinement int32
 
 const (
@@ -218,7 +226,9 @@ func (e PrecType) String() string {
 	return fmt.Sprintf("PrecType(%d)", e)
 }
 
-// AlgMode represents cusolverAlgMode_t.
+// AlgMode indicates which algorithm is selected by [Params.SetAdvOptions].
+//
+// The set of algorithms supported for each routine is described in detail along with the routine’s documentation. The default algorithm is [Alg0]. The user can also provide NULL to use the default algorithm.
 type AlgMode int32
 
 const (
@@ -240,7 +250,7 @@ func (e AlgMode) String() string {
 	return fmt.Sprintf("AlgMode(%d)", e)
 }
 
-// StorevMode represents cusolverStorevMode_t.
+// StorevMode specifies how the vectors which define the elementary reflectors are stored.
 type StorevMode int32
 
 const (
@@ -259,7 +269,7 @@ func (e StorevMode) String() string {
 	return fmt.Sprintf("StorevMode(%d)", e)
 }
 
-// DirectMode represents cusolverDirectMode_t.
+// DirectMode specifies the order in which the elementary reflectors are multiplied to form the block reflector.
 type DirectMode int32
 
 const (
@@ -278,7 +288,7 @@ func (e DirectMode) String() string {
 	return fmt.Sprintf("DirectMode(%d)", e)
 }
 
-// DeterministicMode represents cusolverDeterministicMode_t.
+// DeterministicMode indicates whether multiple cuSolver function executions with the same input have the same bitwise equal result (deterministic) or might have bitwise different results (non-deterministic). In comparison to cublasAtomicsMode_t, which only includes the usage of atomic functions, [DeterministicMode] includes all non-deterministic programming patterns. The deterministic mode can be set and queried using [Handle.SetDeterministicMode] and [Handle.DeterministicMode] routines, respectively.
 type DeterministicMode int32
 
 const (
@@ -297,7 +307,7 @@ func (e DeterministicMode) String() string {
 	return fmt.Sprintf("DeterministicMode(%d)", e)
 }
 
-// MathMode represents cusolverMathMode_t.
+// MathMode is used in [Handle.SetMathMode] to choose compute precision modes as defined in the following table: The following combinations of [MathMode] using the bitwise OR operator are allowed.
 type MathMode int32
 
 const (

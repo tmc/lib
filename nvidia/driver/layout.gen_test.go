@@ -53,11 +53,92 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Alignof(StreamBatchMemOpParams{}); got != 8 {
 		t.Errorf("alignof(StreamBatchMemOpParams) = %d, want 8", got)
 	}
+	{ // StreamBatchMemOpParams.Operation
+		var v StreamBatchMemOpParams
+		if got := uintptr(unsafe.Pointer(v.Operation())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of StreamBatchMemOpParams.Operation() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.Operation()); got != 4 {
+			t.Errorf("sizeof(*StreamBatchMemOpParams.Operation()) = %d, want 4", got)
+		}
+	}
+	{ // StreamBatchMemOpParams.WaitValue
+		var v StreamBatchMemOpParams
+		if got := uintptr(unsafe.Pointer(v.WaitValue())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of StreamBatchMemOpParams.WaitValue() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.WaitValue()); got != 40 {
+			t.Errorf("sizeof(*StreamBatchMemOpParams.WaitValue()) = %d, want 40", got)
+		}
+	}
+	{ // StreamBatchMemOpParams.WriteValue
+		var v StreamBatchMemOpParams
+		if got := uintptr(unsafe.Pointer(v.WriteValue())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of StreamBatchMemOpParams.WriteValue() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.WriteValue()); got != 40 {
+			t.Errorf("sizeof(*StreamBatchMemOpParams.WriteValue()) = %d, want 40", got)
+		}
+	}
+	{ // StreamBatchMemOpParams.FlushRemoteWrites
+		var v StreamBatchMemOpParams
+		if got := uintptr(unsafe.Pointer(v.FlushRemoteWrites())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of StreamBatchMemOpParams.FlushRemoteWrites() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.FlushRemoteWrites()); got != 8 {
+			t.Errorf("sizeof(*StreamBatchMemOpParams.FlushRemoteWrites()) = %d, want 8", got)
+		}
+	}
+	{ // StreamBatchMemOpParams.MemoryBarrier
+		var v StreamBatchMemOpParams
+		if got := uintptr(unsafe.Pointer(v.MemoryBarrier())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of StreamBatchMemOpParams.MemoryBarrier() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.MemoryBarrier()); got != 8 {
+			t.Errorf("sizeof(*StreamBatchMemOpParams.MemoryBarrier()) = %d, want 8", got)
+		}
+	}
+	{ // StreamBatchMemOpParams.AtomicReduction
+		var v StreamBatchMemOpParams
+		if got := uintptr(unsafe.Pointer(v.AtomicReduction())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of StreamBatchMemOpParams.AtomicReduction() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.AtomicReduction()); got != 40 {
+			t.Errorf("sizeof(*StreamBatchMemOpParams.AtomicReduction()) = %d, want 40", got)
+		}
+	}
+	{ // StreamBatchMemOpParams.Pad
+		var v StreamBatchMemOpParams
+		if got := uintptr(unsafe.Pointer(v.Pad())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of StreamBatchMemOpParams.Pad() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.Pad()); got != 48 {
+			t.Errorf("sizeof(*StreamBatchMemOpParams.Pad()) = %d, want 48", got)
+		}
+	}
 	if got := unsafe.Sizeof(StreammemopwaitvalueparamsSt{}); got != 40 {
 		t.Errorf("sizeof(StreammemopwaitvalueparamsSt) = %d, want 40", got)
 	}
 	if got := unsafe.Alignof(StreammemopwaitvalueparamsSt{}); got != 8 {
 		t.Errorf("alignof(StreammemopwaitvalueparamsSt) = %d, want 8", got)
+	}
+	{ // StreammemopwaitvalueparamsSt.Value
+		var v StreammemopwaitvalueparamsSt
+		if got := uintptr(unsafe.Pointer(v.Value())) - uintptr(unsafe.Pointer(&v)); got != 16 {
+			t.Errorf("offset of StreammemopwaitvalueparamsSt.Value() = %d, want 16", got)
+		}
+		if got := unsafe.Sizeof(*v.Value()); got != 4 {
+			t.Errorf("sizeof(*StreammemopwaitvalueparamsSt.Value()) = %d, want 4", got)
+		}
+	}
+	{ // StreammemopwaitvalueparamsSt.Value64
+		var v StreammemopwaitvalueparamsSt
+		if got := uintptr(unsafe.Pointer(v.Value64())) - uintptr(unsafe.Pointer(&v)); got != 16 {
+			t.Errorf("offset of StreammemopwaitvalueparamsSt.Value64() = %d, want 16", got)
+		}
+		if got := unsafe.Sizeof(*v.Value64()); got != 8 {
+			t.Errorf("sizeof(*StreammemopwaitvalueparamsSt.Value64()) = %d, want 8", got)
+		}
 	}
 	if got := unsafe.Offsetof(StreammemopwaitvalueparamsSt{}.Operation); got != 0 {
 		t.Errorf("offsetof(StreammemopwaitvalueparamsSt.Operation) = %d, want 0", got)
@@ -76,6 +157,24 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Alignof(StreammemopwritevalueparamsSt{}); got != 8 {
 		t.Errorf("alignof(StreammemopwritevalueparamsSt) = %d, want 8", got)
+	}
+	{ // StreammemopwritevalueparamsSt.Value
+		var v StreammemopwritevalueparamsSt
+		if got := uintptr(unsafe.Pointer(v.Value())) - uintptr(unsafe.Pointer(&v)); got != 16 {
+			t.Errorf("offset of StreammemopwritevalueparamsSt.Value() = %d, want 16", got)
+		}
+		if got := unsafe.Sizeof(*v.Value()); got != 4 {
+			t.Errorf("sizeof(*StreammemopwritevalueparamsSt.Value()) = %d, want 4", got)
+		}
+	}
+	{ // StreammemopwritevalueparamsSt.Value64
+		var v StreammemopwritevalueparamsSt
+		if got := uintptr(unsafe.Pointer(v.Value64())) - uintptr(unsafe.Pointer(&v)); got != 16 {
+			t.Errorf("offset of StreammemopwritevalueparamsSt.Value64() = %d, want 16", got)
+		}
+		if got := unsafe.Sizeof(*v.Value64()); got != 8 {
+			t.Errorf("sizeof(*StreammemopwritevalueparamsSt.Value64()) = %d, want 8", got)
+		}
 	}
 	if got := unsafe.Offsetof(StreammemopwritevalueparamsSt{}.Operation); got != 0 {
 		t.Errorf("offsetof(StreammemopwritevalueparamsSt.Operation) = %d, want 0", got)
@@ -481,6 +580,123 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Alignof(StreamAttrValueV1{}); got != 8 {
 		t.Errorf("alignof(StreamAttrValueV1) = %d, want 8", got)
+	}
+	{ // StreamAttrValueV1.Pad
+		var v StreamAttrValueV1
+		if got := uintptr(unsafe.Pointer(v.Pad())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of StreamAttrValueV1.Pad() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.Pad()); got != 64 {
+			t.Errorf("sizeof(*StreamAttrValueV1.Pad()) = %d, want 64", got)
+		}
+	}
+	{ // StreamAttrValueV1.AccessPolicyWindow
+		var v StreamAttrValueV1
+		if got := uintptr(unsafe.Pointer(v.AccessPolicyWindow())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of StreamAttrValueV1.AccessPolicyWindow() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.AccessPolicyWindow()); got != 32 {
+			t.Errorf("sizeof(*StreamAttrValueV1.AccessPolicyWindow()) = %d, want 32", got)
+		}
+	}
+	{ // StreamAttrValueV1.Cooperative
+		var v StreamAttrValueV1
+		if got := uintptr(unsafe.Pointer(v.Cooperative())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of StreamAttrValueV1.Cooperative() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.Cooperative()); got != 4 {
+			t.Errorf("sizeof(*StreamAttrValueV1.Cooperative()) = %d, want 4", got)
+		}
+	}
+	{ // StreamAttrValueV1.SyncPolicy
+		var v StreamAttrValueV1
+		if got := uintptr(unsafe.Pointer(v.SyncPolicy())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of StreamAttrValueV1.SyncPolicy() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.SyncPolicy()); got != 4 {
+			t.Errorf("sizeof(*StreamAttrValueV1.SyncPolicy()) = %d, want 4", got)
+		}
+	}
+	{ // StreamAttrValueV1.ClusterSchedulingPolicyPreference
+		var v StreamAttrValueV1
+		if got := uintptr(unsafe.Pointer(v.ClusterSchedulingPolicyPreference())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of StreamAttrValueV1.ClusterSchedulingPolicyPreference() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.ClusterSchedulingPolicyPreference()); got != 4 {
+			t.Errorf("sizeof(*StreamAttrValueV1.ClusterSchedulingPolicyPreference()) = %d, want 4", got)
+		}
+	}
+	{ // StreamAttrValueV1.ProgrammaticStreamSerializationAllowed
+		var v StreamAttrValueV1
+		if got := uintptr(unsafe.Pointer(v.ProgrammaticStreamSerializationAllowed())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of StreamAttrValueV1.ProgrammaticStreamSerializationAllowed() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.ProgrammaticStreamSerializationAllowed()); got != 4 {
+			t.Errorf("sizeof(*StreamAttrValueV1.ProgrammaticStreamSerializationAllowed()) = %d, want 4", got)
+		}
+	}
+	{ // StreamAttrValueV1.Priority
+		var v StreamAttrValueV1
+		if got := uintptr(unsafe.Pointer(v.Priority())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of StreamAttrValueV1.Priority() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.Priority()); got != 4 {
+			t.Errorf("sizeof(*StreamAttrValueV1.Priority()) = %d, want 4", got)
+		}
+	}
+	{ // StreamAttrValueV1.MemSyncDomainMap
+		var v StreamAttrValueV1
+		if got := uintptr(unsafe.Pointer(v.MemSyncDomainMap())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of StreamAttrValueV1.MemSyncDomainMap() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.MemSyncDomainMap()); got != 2 {
+			t.Errorf("sizeof(*StreamAttrValueV1.MemSyncDomainMap()) = %d, want 2", got)
+		}
+	}
+	{ // StreamAttrValueV1.MemSyncDomain
+		var v StreamAttrValueV1
+		if got := uintptr(unsafe.Pointer(v.MemSyncDomain())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of StreamAttrValueV1.MemSyncDomain() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.MemSyncDomain()); got != 4 {
+			t.Errorf("sizeof(*StreamAttrValueV1.MemSyncDomain()) = %d, want 4", got)
+		}
+	}
+	{ // StreamAttrValueV1.SharedMemCarveout
+		var v StreamAttrValueV1
+		if got := uintptr(unsafe.Pointer(v.SharedMemCarveout())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of StreamAttrValueV1.SharedMemCarveout() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.SharedMemCarveout()); got != 4 {
+			t.Errorf("sizeof(*StreamAttrValueV1.SharedMemCarveout()) = %d, want 4", got)
+		}
+	}
+	{ // StreamAttrValueV1.NvlinkUtilCentricScheduling
+		var v StreamAttrValueV1
+		if got := uintptr(unsafe.Pointer(v.NvlinkUtilCentricScheduling())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of StreamAttrValueV1.NvlinkUtilCentricScheduling() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.NvlinkUtilCentricScheduling()); got != 4 {
+			t.Errorf("sizeof(*StreamAttrValueV1.NvlinkUtilCentricScheduling()) = %d, want 4", got)
+		}
+	}
+	{ // StreamAttrValueV1.PortableClusterSizeMode
+		var v StreamAttrValueV1
+		if got := uintptr(unsafe.Pointer(v.PortableClusterSizeMode())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of StreamAttrValueV1.PortableClusterSizeMode() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.PortableClusterSizeMode()); got != 4 {
+			t.Errorf("sizeof(*StreamAttrValueV1.PortableClusterSizeMode()) = %d, want 4", got)
+		}
+	}
+	{ // StreamAttrValueV1.SharedMemoryMode
+		var v StreamAttrValueV1
+		if got := uintptr(unsafe.Pointer(v.SharedMemoryMode())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of StreamAttrValueV1.SharedMemoryMode() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.SharedMemoryMode()); got != 4 {
+			t.Errorf("sizeof(*StreamAttrValueV1.SharedMemoryMode()) = %d, want 4", got)
+		}
 	}
 	if got := unsafe.Sizeof(LaunchAttribute{}); got != 72 {
 		t.Errorf("sizeof(LaunchAttribute) = %d, want 72", got)
@@ -1535,6 +1751,132 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Alignof(GraphNodeParams{}); got != 8 {
 		t.Errorf("alignof(GraphNodeParams) = %d, want 8", got)
 	}
+	{ // GraphNodeParams.Reserved1
+		var v GraphNodeParams
+		if got := uintptr(unsafe.Pointer(v.Reserved1())) - uintptr(unsafe.Pointer(&v)); got != 16 {
+			t.Errorf("offset of GraphNodeParams.Reserved1() = %d, want 16", got)
+		}
+		if got := unsafe.Sizeof(*v.Reserved1()); got != 232 {
+			t.Errorf("sizeof(*GraphNodeParams.Reserved1()) = %d, want 232", got)
+		}
+	}
+	{ // GraphNodeParams.Kernel
+		var v GraphNodeParams
+		if got := uintptr(unsafe.Pointer(v.Kernel())) - uintptr(unsafe.Pointer(&v)); got != 16 {
+			t.Errorf("offset of GraphNodeParams.Kernel() = %d, want 16", got)
+		}
+		if got := unsafe.Sizeof(*v.Kernel()); got != 72 {
+			t.Errorf("sizeof(*GraphNodeParams.Kernel()) = %d, want 72", got)
+		}
+	}
+	{ // GraphNodeParams.Memcpy
+		var v GraphNodeParams
+		if got := uintptr(unsafe.Pointer(v.Memcpy())) - uintptr(unsafe.Pointer(&v)); got != 16 {
+			t.Errorf("offset of GraphNodeParams.Memcpy() = %d, want 16", got)
+		}
+		if got := unsafe.Sizeof(*v.Memcpy()); got != 216 {
+			t.Errorf("sizeof(*GraphNodeParams.Memcpy()) = %d, want 216", got)
+		}
+	}
+	{ // GraphNodeParams.Memset
+		var v GraphNodeParams
+		if got := uintptr(unsafe.Pointer(v.Memset())) - uintptr(unsafe.Pointer(&v)); got != 16 {
+			t.Errorf("offset of GraphNodeParams.Memset() = %d, want 16", got)
+		}
+		if got := unsafe.Sizeof(*v.Memset()); got != 48 {
+			t.Errorf("sizeof(*GraphNodeParams.Memset()) = %d, want 48", got)
+		}
+	}
+	{ // GraphNodeParams.Host
+		var v GraphNodeParams
+		if got := uintptr(unsafe.Pointer(v.Host())) - uintptr(unsafe.Pointer(&v)); got != 16 {
+			t.Errorf("offset of GraphNodeParams.Host() = %d, want 16", got)
+		}
+		if got := unsafe.Sizeof(*v.Host()); got != 24 {
+			t.Errorf("sizeof(*GraphNodeParams.Host()) = %d, want 24", got)
+		}
+	}
+	{ // GraphNodeParams.Graph
+		var v GraphNodeParams
+		if got := uintptr(unsafe.Pointer(v.Graph())) - uintptr(unsafe.Pointer(&v)); got != 16 {
+			t.Errorf("offset of GraphNodeParams.Graph() = %d, want 16", got)
+		}
+		if got := unsafe.Sizeof(*v.Graph()); got != 16 {
+			t.Errorf("sizeof(*GraphNodeParams.Graph()) = %d, want 16", got)
+		}
+	}
+	{ // GraphNodeParams.EventWait
+		var v GraphNodeParams
+		if got := uintptr(unsafe.Pointer(v.EventWait())) - uintptr(unsafe.Pointer(&v)); got != 16 {
+			t.Errorf("offset of GraphNodeParams.EventWait() = %d, want 16", got)
+		}
+		if got := unsafe.Sizeof(*v.EventWait()); got != 8 {
+			t.Errorf("sizeof(*GraphNodeParams.EventWait()) = %d, want 8", got)
+		}
+	}
+	{ // GraphNodeParams.EventRecord
+		var v GraphNodeParams
+		if got := uintptr(unsafe.Pointer(v.EventRecord())) - uintptr(unsafe.Pointer(&v)); got != 16 {
+			t.Errorf("offset of GraphNodeParams.EventRecord() = %d, want 16", got)
+		}
+		if got := unsafe.Sizeof(*v.EventRecord()); got != 8 {
+			t.Errorf("sizeof(*GraphNodeParams.EventRecord()) = %d, want 8", got)
+		}
+	}
+	{ // GraphNodeParams.ExtSemSignal
+		var v GraphNodeParams
+		if got := uintptr(unsafe.Pointer(v.ExtSemSignal())) - uintptr(unsafe.Pointer(&v)); got != 16 {
+			t.Errorf("offset of GraphNodeParams.ExtSemSignal() = %d, want 16", got)
+		}
+		if got := unsafe.Sizeof(*v.ExtSemSignal()); got != 24 {
+			t.Errorf("sizeof(*GraphNodeParams.ExtSemSignal()) = %d, want 24", got)
+		}
+	}
+	{ // GraphNodeParams.ExtSemWait
+		var v GraphNodeParams
+		if got := uintptr(unsafe.Pointer(v.ExtSemWait())) - uintptr(unsafe.Pointer(&v)); got != 16 {
+			t.Errorf("offset of GraphNodeParams.ExtSemWait() = %d, want 16", got)
+		}
+		if got := unsafe.Sizeof(*v.ExtSemWait()); got != 24 {
+			t.Errorf("sizeof(*GraphNodeParams.ExtSemWait()) = %d, want 24", got)
+		}
+	}
+	{ // GraphNodeParams.Alloc
+		var v GraphNodeParams
+		if got := uintptr(unsafe.Pointer(v.Alloc())) - uintptr(unsafe.Pointer(&v)); got != 16 {
+			t.Errorf("offset of GraphNodeParams.Alloc() = %d, want 16", got)
+		}
+		if got := unsafe.Sizeof(*v.Alloc()); got != 120 {
+			t.Errorf("sizeof(*GraphNodeParams.Alloc()) = %d, want 120", got)
+		}
+	}
+	{ // GraphNodeParams.Free
+		var v GraphNodeParams
+		if got := uintptr(unsafe.Pointer(v.Free())) - uintptr(unsafe.Pointer(&v)); got != 16 {
+			t.Errorf("offset of GraphNodeParams.Free() = %d, want 16", got)
+		}
+		if got := unsafe.Sizeof(*v.Free()); got != 8 {
+			t.Errorf("sizeof(*GraphNodeParams.Free()) = %d, want 8", got)
+		}
+	}
+	{ // GraphNodeParams.MemOp
+		var v GraphNodeParams
+		if got := uintptr(unsafe.Pointer(v.MemOp())) - uintptr(unsafe.Pointer(&v)); got != 16 {
+			t.Errorf("offset of GraphNodeParams.MemOp() = %d, want 16", got)
+		}
+		if got := unsafe.Sizeof(*v.MemOp()); got != 32 {
+			t.Errorf("sizeof(*GraphNodeParams.MemOp()) = %d, want 32", got)
+		}
+	}
+	{ // GraphNodeParams.Conditional
+		var v GraphNodeParams
+		if got := uintptr(unsafe.Pointer(v.Conditional())) - uintptr(unsafe.Pointer(&v)); got != 16 {
+			t.Errorf("offset of GraphNodeParams.Conditional() = %d, want 16", got)
+		}
+		if got := unsafe.Sizeof(*v.Conditional()); got != 32 {
+			t.Errorf("sizeof(*GraphNodeParams.Conditional()) = %d, want 32", got)
+		}
+	}
 	if got := unsafe.Offsetof(GraphNodeParams{}.Type); got != 0 {
 		t.Errorf("offsetof(GraphNodeParams.Type) = %d, want 0", got)
 	}
@@ -1703,6 +2045,42 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Alignof(DevResource{}); got != 8 {
 		t.Errorf("alignof(DevResource) = %d, want 8", got)
 	}
+	{ // DevResource.Sm
+		var v DevResource
+		if got := uintptr(unsafe.Pointer(v.Sm())) - uintptr(unsafe.Pointer(&v)); got != 96 {
+			t.Errorf("offset of DevResource.Sm() = %d, want 96", got)
+		}
+		if got := unsafe.Sizeof(*v.Sm()); got != 16 {
+			t.Errorf("sizeof(*DevResource.Sm()) = %d, want 16", got)
+		}
+	}
+	{ // DevResource.WqConfig
+		var v DevResource
+		if got := uintptr(unsafe.Pointer(v.WqConfig())) - uintptr(unsafe.Pointer(&v)); got != 96 {
+			t.Errorf("offset of DevResource.WqConfig() = %d, want 96", got)
+		}
+		if got := unsafe.Sizeof(*v.WqConfig()); got != 12 {
+			t.Errorf("sizeof(*DevResource.WqConfig()) = %d, want 12", got)
+		}
+	}
+	{ // DevResource.Wq
+		var v DevResource
+		if got := uintptr(unsafe.Pointer(v.Wq())) - uintptr(unsafe.Pointer(&v)); got != 96 {
+			t.Errorf("offset of DevResource.Wq() = %d, want 96", got)
+		}
+		if got := unsafe.Sizeof(*v.Wq()); got != 40 {
+			t.Errorf("sizeof(*DevResource.Wq()) = %d, want 40", got)
+		}
+	}
+	{ // DevResource.Oversize
+		var v DevResource
+		if got := uintptr(unsafe.Pointer(v.Oversize())) - uintptr(unsafe.Pointer(&v)); got != 96 {
+			t.Errorf("offset of DevResource.Oversize() = %d, want 96", got)
+		}
+		if got := unsafe.Sizeof(*v.Oversize()); got != 40 {
+			t.Errorf("sizeof(*DevResource.Oversize()) = %d, want 40", got)
+		}
+	}
 	if got := unsafe.Offsetof(DevResource{}.Type); got != 0 {
 		t.Errorf("offsetof(DevResource.Type) = %d, want 0", got)
 	}
@@ -1711,5 +2089,54 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Offsetof(DevResource{}.NextResource); got != 136 {
 		t.Errorf("offsetof(DevResource.NextResource) = %d, want 136", got)
+	}
+}
+
+// layoutBytes returns the memory of *p.
+func layoutBytes[T any](p *T) []byte {
+	return unsafe.Slice((*byte)(unsafe.Pointer(p)), unsafe.Sizeof(*p))
+}
+
+// layoutPatterns returns patterns of n bytes that tell every bit position
+// apart: in pattern 2k, bit i is bit k of i, and pattern 2k+1 is its
+// complement. An accessor that reads or writes any bit other than the one it
+// should differs from the expected result under at least one of them.
+func layoutPatterns(n int) [][]byte {
+	var ps [][]byte
+	for k := 0; k == 0 || 1<<k < n*8; k++ {
+		p, q := make([]byte, n), make([]byte, n)
+		for i := 0; i < n*8; i++ {
+			if i>>k&1 != 0 {
+				p[i/8] |= 1 << (i % 8)
+			} else {
+				q[i/8] |= 1 << (i % 8)
+			}
+		}
+		ps = append(ps, p, q)
+	}
+	return ps
+}
+
+// layoutBit returns n bytes with only bit i set.
+func layoutBit(n, i int) []byte {
+	b := make([]byte, n)
+	b[i/8] = 1 << (i % 8)
+	return b
+}
+
+// layoutCheckBits reports the first bit of got that differs from inside in
+// bits [lo, hi) or from outside elsewhere. Bit i is bit i%8 of byte i/8,
+// the numbering the C layout oracle measures bitfields in.
+func layoutCheckBits(t *testing.T, what string, got, inside, outside []byte, lo, hi int) {
+	t.Helper()
+	for i := 0; i < len(got)*8; i++ {
+		want := outside
+		if lo <= i && i < hi {
+			want = inside
+		}
+		if g, w := got[i/8]>>(i%8)&1, want[i/8]>>(i%8)&1; g != w {
+			t.Errorf("%s: bit %d = %d, want %d (member bits [%d, %d))", what, i, g, w, lo, hi)
+			return
+		}
 	}
 }

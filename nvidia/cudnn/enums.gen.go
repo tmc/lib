@@ -2523,7 +2523,7 @@ func (e PoolingMode) String() string {
 type LRNMode int32
 
 const (
-	LrnCrossChannelDIM1 LRNMode = 0 // Normalize across tensor's dimA [1] dimension
+	LrnCrossChannelDIM1 LRNMode = 0 // Normalize across tensor's dimA[1] dimension
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -3130,7 +3130,7 @@ func (e LossNormalizationMode) String() string {
 	return fmt.Sprintf("LossNormalizationMode(%d)", e)
 }
 
-// FusedOps represents the [FusedOps] type is an enumerated type to select a specific sequence of computations to perform in the fused operations. Members and Descriptions [FusedScaleBiasActivationConvBnstats] = 0 On a per-channel basis, it performs these operations in this order: scale, add bias, activation, convolution, and generate batchNorm statistics. cudnnFusedOps_tCUDNN_FUSED_SCALE_BIAS_ACTIVATION_WGRAD = 1 On a per-channel basis, it performs these operations in this order: scale, add bias, activation, convolution backward weights, and generate batchNorm statistics. cudnnFusedOps_tCUDNN_FUSED_BN_FINALIZE_STATISTICS_TRAINING = 2 Computes the equivalent scale and bias from ySum, ySqSum, learned scale, and bias. Optionally, update running statistics and generate saved stats. [FusedBnFinalizeStatisticsInference] = 3 Computes the equivalent scale and bias from the learned running statistics and the learned scale and bias. [FusedConvScaleBiasAddActivation] = 4 On a per-channel basis, performs these operations in this order: convolution, scale, add bias, element-wise addition with another tensor, and activation. [FusedScaleBiasAddActivationGenBitmask] = 5 On a per-channel basis, performs these operations in this order: scale and bias on one tensor, scale and bias on a second tensor, element-wise addition of these two tensors, and on the resulting tensor performs activation and generates activation bit mask. [FusedDactivationForkDbatchnorm] = 6 On a per-channel basis, performs these operations in this order: backward activation, fork (meaning, write out gradient for the residual branch), and backward batch norm.
+// FusedOps is an enumerated type to select a specific sequence of computations to perform in the fused operations. Members and Descriptions [FusedScaleBiasActivationConvBnstats] = 0 On a per-channel basis, it performs these operations in this order: scale, add bias, activation, convolution, and generate batchNorm statistics. cudnnFusedOps_tCUDNN_FUSED_SCALE_BIAS_ACTIVATION_WGRAD = 1 On a per-channel basis, it performs these operations in this order: scale, add bias, activation, convolution backward weights, and generate batchNorm statistics. cudnnFusedOps_tCUDNN_FUSED_BN_FINALIZE_STATISTICS_TRAINING = 2 Computes the equivalent scale and bias from ySum, ySqSum, learned scale, and bias. Optionally, update running statistics and generate saved stats. [FusedBnFinalizeStatisticsInference] = 3 Computes the equivalent scale and bias from the learned running statistics and the learned scale and bias. [FusedConvScaleBiasAddActivation] = 4 On a per-channel basis, performs these operations in this order: convolution, scale, add bias, element-wise addition with another tensor, and activation. [FusedScaleBiasAddActivationGenBitmask] = 5 On a per-channel basis, performs these operations in this order: scale and bias on one tensor, scale and bias on a second tensor, element-wise addition of these two tensors, and on the resulting tensor performs activation and generates activation bit mask. [FusedDactivationForkDbatchnorm] = 6 On a per-channel basis, performs these operations in this order: backward activation, fork (meaning, write out gradient for the residual branch), and backward batch norm.
 //
 // Deprecated: This enumerated type is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this enumerated type.
 type FusedOps int32
@@ -3166,7 +3166,11 @@ func (e FusedOps) String() string {
 	return fmt.Sprintf("FusedOps(%d)", e)
 }
 
-// FusedOpsConstParamLabel represents for the Attribute [FusedScaleBiasActivationConvBnstats] in [FusedOpsVariantParamLabel]  Note As of cuDNN 7.6.0, if the following conditions in the table are met, then the fully fused fast path will be triggered. Otherwise, a slower partially fused path will be triggered. Conditions for Fully Fused Fast Path (Forward) for [FusedOpsConstParamLabel]  For the attribute [FusedScaleBiasActivationWgrad] in [FusedOpsConstParamLabel]  Note As of cuDNN 7.6.0, if the following conditions in the table are met, then the fully fused fast path will be triggered. Otherwise, a slower partially fused path will be triggered. Conditions for Fully Fused Fast Path (Backward) for [FusedOpsConstParamLabel]  For the attribute [FusedBnFinalizeStatisticsTraining] in [FusedOpsConstParamLabel]  For the attribute [FusedBnFinalizeStatisticsInference] in [FusedOpsConstParamLabel]  The following operation performs the computation, where * denotes convolution operator: y=α₁(w*x)+α₂z+b For the attribute CUDNN_FUSED_CONVOLUTION_SCALE_BIAS_ADD_RELU in [FusedOpsConstParamLabel] .
+// FusedOpsConstParamLabel is an enumerated type for the selection of the type of the cudnnFusedOps descriptor.
+//
+// For more information, refer to [FusedOpsConstParamPack.SetAttribute]. Legend For Tables in [FusedOpsConstParamLabel]  For the Attribute [FusedScaleBiasActivationConvBnstats] in [FusedOpsVariantParamLabel]  Note As of cuDNN 7.6.0, if the following conditions in the table are met, then the fully fused fast path will be triggered. Otherwise, a slower partially fused path will be triggered. Conditions for Fully Fused Fast Path (Forward) for [FusedOpsConstParamLabel]  For the attribute [FusedScaleBiasActivationWgrad] in [FusedOpsConstParamLabel]  Note As of cuDNN 7.6.0, if the following conditions in the table are met, then the fully fused fast path will be triggered. Otherwise, a slower partially fused path will be triggered. Conditions for Fully Fused Fast Path (Backward) for [FusedOpsConstParamLabel]  For the attribute [FusedBnFinalizeStatisticsTraining] in [FusedOpsConstParamLabel]  For the attribute [FusedBnFinalizeStatisticsInference] in [FusedOpsConstParamLabel]  The following operation performs the computation, where * denotes convolution operator: y=α₁(w*x)+α₂z+b For the attribute CUDNN_FUSED_CONVOLUTION_SCALE_BIAS_ADD_RELU in [FusedOpsConstParamLabel] 
+//
+// Deprecated: This enumerated type is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this enumerated type.
 type FusedOpsConstParamLabel int32
 
 const (
@@ -3320,7 +3324,11 @@ func (e FusedOpsPointerPlaceHolder) String() string {
 	return fmt.Sprintf("FusedOpsPointerPlaceHolder(%d)", e)
 }
 
-// FusedOpsVariantParamLabel represents for the Attribute [FusedScaleBiasActivationConvBnstats] in [FusedOpsConstParamLabel]  Note For the attribute [FusedScaleBiasActivationWgrad] in [FusedOpsVariantParamLabel]  Note For the attribute [FusedBnFinalizeStatisticsTraining] in [FusedOpsVariantParamLabel]  Note For the attribute [FusedBnFinalizeStatisticsInference] in [FusedOpsVariantParamLabel]  Note For the attribute [FusedBnFinalizeStatisticsInference] in [FusedOpsVariantParamLabel]  Note.
+// FusedOpsVariantParamLabel is an enumerated type that is used to set the buffer pointers.
+//
+// These buffer pointers can be changed in each iteration. Legend For Tables in [FusedOpsVariantParamLabel]  For the Attribute [FusedScaleBiasActivationConvBnstats] in [FusedOpsConstParamLabel]  Note For the attribute [FusedScaleBiasActivationWgrad] in [FusedOpsVariantParamLabel]  Note For the attribute [FusedBnFinalizeStatisticsTraining] in [FusedOpsVariantParamLabel]  Note For the attribute [FusedBnFinalizeStatisticsInference] in [FusedOpsVariantParamLabel]  Note For the attribute [FusedBnFinalizeStatisticsInference] in [FusedOpsVariantParamLabel]  Note.
+//
+// Deprecated: This enumerated type is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this enumerated type.
 type FusedOpsVariantParamLabel int32
 
 const (

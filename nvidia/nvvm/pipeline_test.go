@@ -118,11 +118,11 @@ func TestCompilerPipeline(t *testing.T) {
 	dim := [2]uint64{32, 4}
 	globalStride := uint64(128)
 	box, stride := [2]uint32{32, 1}, [2]uint32{1, 1}
-	check(driver.TensorMapEncodeTiled(descriptor, driver.TensorMapDataTypeFloat32, 2, uintptr(ptr), &dim[0], &globalStride, &box[0], &stride[0], driver.TensorMapInterleaveNone, driver.TensorMapSwizzleNone, 0, 0))
+	check(driver.TensorMapEncodeTiled(descriptor, driver.TensorMapDataTypeFloat32, 2, ptr, &dim[0], &globalStride, &box[0], &stride[0], driver.TensorMapInterleaveNone, driver.TensorMapSwizzleNone, 0, 0))
 	if *descriptor == (driver.TensorMap{}) {
 		t.Fatal("tensor-map encode left a zero descriptor")
 	}
-	check(driver.TensorMapReplaceAddress(descriptor, uintptr(ptr)))
+	check(driver.TensorMapReplaceAddress(descriptor, ptr))
 	t.Log("verified tensor-map encoding and address replacement")
 	invalid, err := nvvm.CreateProgram()
 	check(err)

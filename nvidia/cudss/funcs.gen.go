@@ -475,13 +475,13 @@ func fnMatrixDestroy(a0 Matrix) Result {
 }
 
 // fnMatrixGetBatchCsr calls cudssMatrixGetBatchCsr.
-func fnMatrixGetBatchCsr(a0 Matrix, a1 *int64, a2 *uintptr, a3 *uintptr, a4 *uintptr, a5 *uintptr, a6 *uintptr, a7 *uintptr, a8 *uintptr, a9 *DataType, a10 *DataType, a11 *DataType, a12 *MatrixType, a13 *MatrixViewType, a14 *IndexBase) Result {
+func fnMatrixGetBatchCsr(a0 Matrix, a1 *int64, a2 *uintptr, a3 *uintptr, a4 *uintptr, a5 **uintptr, a6 **uintptr, a7 **uintptr, a8 **uintptr, a9 *DataType, a10 *DataType, a11 *DataType, a12 *MatrixType, a13 *MatrixViewType, a14 *IndexBase) Result {
 	r1, _ := ffiCall15(symMatrixGetBatchCsr, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)), uintptr(unsafe.Pointer(a10)), uintptr(unsafe.Pointer(a11)), uintptr(unsafe.Pointer(a12)), uintptr(unsafe.Pointer(a13)), uintptr(unsafe.Pointer(a14)))
 	return Result(r1)
 }
 
 // fnMatrixGetBatchDn calls cudssMatrixGetBatchDn.
-func fnMatrixGetBatchDn(a0 Matrix, a1 *int64, a2 *uintptr, a3 *uintptr, a4 *uintptr, a5 *uintptr, a6 *DataType, a7 *DataType, a8 *Layout) Result {
+func fnMatrixGetBatchDn(a0 Matrix, a1 *int64, a2 *uintptr, a3 *uintptr, a4 *uintptr, a5 **uintptr, a6 *DataType, a7 *DataType, a8 *Layout) Result {
 	r1, _ := ffiCall9(symMatrixGetBatchDn, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)))
 	return Result(r1)
 }
@@ -816,7 +816,7 @@ func MatrixDestroy(matrix Matrix) error {
 }
 
 // MatrixGetBatchCsr wraps cudssMatrixGetBatchCsr.
-func MatrixGetBatchCsr(matrix Matrix, batchCount *int64, nrows *uintptr, ncols *uintptr, nnz *uintptr, rowStart *uintptr, rowEnd *uintptr, colIndices *uintptr, values *uintptr, offsetType *DataType, indexType *DataType, valueType *DataType, mtype *MatrixType, mview *MatrixViewType, indexBase *IndexBase) error {
+func MatrixGetBatchCsr(matrix Matrix, batchCount *int64, nrows *uintptr, ncols *uintptr, nnz *uintptr, rowStart **uintptr, rowEnd **uintptr, colIndices **uintptr, values **uintptr, offsetType *DataType, indexType *DataType, valueType *DataType, mtype *MatrixType, mview *MatrixViewType, indexBase *IndexBase) error {
 	if err := checkLibSym("cudssMatrixGetBatchCsr"); err != nil {
 		return err
 	}
@@ -824,7 +824,7 @@ func MatrixGetBatchCsr(matrix Matrix, batchCount *int64, nrows *uintptr, ncols *
 }
 
 // MatrixGetBatchDn wraps cudssMatrixGetBatchDn.
-func MatrixGetBatchDn(matrix Matrix, batchCount *int64, nrows *uintptr, ncols *uintptr, ld *uintptr, values *uintptr, indexType *DataType, valueType *DataType, layout *Layout) error {
+func MatrixGetBatchDn(matrix Matrix, batchCount *int64, nrows *uintptr, ncols *uintptr, ld *uintptr, values **uintptr, indexType *DataType, valueType *DataType, layout *Layout) error {
 	if err := checkLibSym("cudssMatrixGetBatchDn"); err != nil {
 		return err
 	}

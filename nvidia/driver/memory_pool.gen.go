@@ -221,6 +221,8 @@ func (m MemoryPool) MemAllocFromPoolAsync[T any](n int, hStream Stream) (DeviceP
 
 // MemAllocFromPoolAsyncBytes is [MemoryPool.MemAllocFromPoolAsync] with the size given in bytes.
 //
+//   - bytesize: Number of bytes to allocate
+//
 // Wraps cuMemAllocFromPoolAsync.
 func (m MemoryPool) MemAllocFromPoolAsyncBytes(bytesize uint, hStream Stream) (DevicePtr, error) {
 	return memAllocFromPoolAsync(bytesize, m, hStream)

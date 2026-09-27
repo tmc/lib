@@ -362,6 +362,69 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Alignof(Value{}); got != 8 {
 		t.Errorf("alignof(Value) = %d, want 8", got)
 	}
+	{ // Value.DVal
+		var v Value
+		if got := uintptr(unsafe.Pointer(v.DVal())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of Value.DVal() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.DVal()); got != 8 {
+			t.Errorf("sizeof(*Value.DVal()) = %d, want 8", got)
+		}
+	}
+	{ // Value.SiVal
+		var v Value
+		if got := uintptr(unsafe.Pointer(v.SiVal())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of Value.SiVal() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.SiVal()); got != 4 {
+			t.Errorf("sizeof(*Value.SiVal()) = %d, want 4", got)
+		}
+	}
+	{ // Value.UiVal
+		var v Value
+		if got := uintptr(unsafe.Pointer(v.UiVal())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of Value.UiVal() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.UiVal()); got != 4 {
+			t.Errorf("sizeof(*Value.UiVal()) = %d, want 4", got)
+		}
+	}
+	{ // Value.UlVal
+		var v Value
+		if got := uintptr(unsafe.Pointer(v.UlVal())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of Value.UlVal() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.UlVal()); got != 8 {
+			t.Errorf("sizeof(*Value.UlVal()) = %d, want 8", got)
+		}
+	}
+	{ // Value.UllVal
+		var v Value
+		if got := uintptr(unsafe.Pointer(v.UllVal())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of Value.UllVal() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.UllVal()); got != 8 {
+			t.Errorf("sizeof(*Value.UllVal()) = %d, want 8", got)
+		}
+	}
+	{ // Value.SllVal
+		var v Value
+		if got := uintptr(unsafe.Pointer(v.SllVal())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of Value.SllVal() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.SllVal()); got != 8 {
+			t.Errorf("sizeof(*Value.SllVal()) = %d, want 8", got)
+		}
+	}
+	{ // Value.UsVal
+		var v Value
+		if got := uintptr(unsafe.Pointer(v.UsVal())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of Value.UsVal() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.UsVal()); got != 2 {
+			t.Errorf("sizeof(*Value.UsVal()) = %d, want 2", got)
+		}
+	}
 	if got := unsafe.Sizeof(Sample{}); got != 16 {
 		t.Errorf("sizeof(Sample) = %d, want 16", got)
 	}
@@ -421,6 +484,24 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Alignof(UUIDValue{}); got != 1 {
 		t.Errorf("alignof(UUIDValue) = %d, want 1", got)
+	}
+	{ // UUIDValue.Str
+		var v UUIDValue
+		if got := uintptr(unsafe.Pointer(v.Str())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of UUIDValue.Str() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.Str()); got != 41 {
+			t.Errorf("sizeof(*UUIDValue.Str()) = %d, want 41", got)
+		}
+	}
+	{ // UUIDValue.Bytes
+		var v UUIDValue
+		if got := uintptr(unsafe.Pointer(v.Bytes())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of UUIDValue.Bytes() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.Bytes()); got != 16 {
+			t.Errorf("sizeof(*UUIDValue.Bytes()) = %d, want 16", got)
+		}
 	}
 	if got := unsafe.Sizeof(UUID{}); got != 52 {
 		t.Errorf("sizeof(UUID) = %d, want 52", got)
@@ -2303,6 +2384,24 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Alignof(PRMTLVV1{}); got != 4 {
 		t.Errorf("alignof(PRMTLVV1) = %d, want 4", got)
 	}
+	{ // PRMTLVV1.InData
+		var v PRMTLVV1
+		if got := uintptr(unsafe.Pointer(v.InData())) - uintptr(unsafe.Pointer(&v)); got != 8 {
+			t.Errorf("offset of PRMTLVV1.InData() = %d, want 8", got)
+		}
+		if got := unsafe.Sizeof(*v.InData()); got != 496 {
+			t.Errorf("sizeof(*PRMTLVV1.InData()) = %d, want 496", got)
+		}
+	}
+	{ // PRMTLVV1.OutData
+		var v PRMTLVV1
+		if got := uintptr(unsafe.Pointer(v.OutData())) - uintptr(unsafe.Pointer(&v)); got != 8 {
+			t.Errorf("offset of PRMTLVV1.OutData() = %d, want 8", got)
+		}
+		if got := unsafe.Sizeof(*v.OutData()); got != 496 {
+			t.Errorf("sizeof(*PRMTLVV1.OutData()) = %d, want 496", got)
+		}
+	}
 	if got := unsafe.Offsetof(PRMTLVV1{}.DataSize); got != 0 {
 		t.Errorf("offsetof(PRMTLVV1.DataSize) = %d, want 0", got)
 	}
@@ -2842,5 +2941,54 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Offsetof(PowerSmoothingState{}.State); got != 4 {
 		t.Errorf("offsetof(PowerSmoothingState.State) = %d, want 4", got)
+	}
+}
+
+// layoutBytes returns the memory of *p.
+func layoutBytes[T any](p *T) []byte {
+	return unsafe.Slice((*byte)(unsafe.Pointer(p)), unsafe.Sizeof(*p))
+}
+
+// layoutPatterns returns patterns of n bytes that tell every bit position
+// apart: in pattern 2k, bit i is bit k of i, and pattern 2k+1 is its
+// complement. An accessor that reads or writes any bit other than the one it
+// should differs from the expected result under at least one of them.
+func layoutPatterns(n int) [][]byte {
+	var ps [][]byte
+	for k := 0; k == 0 || 1<<k < n*8; k++ {
+		p, q := make([]byte, n), make([]byte, n)
+		for i := 0; i < n*8; i++ {
+			if i>>k&1 != 0 {
+				p[i/8] |= 1 << (i % 8)
+			} else {
+				q[i/8] |= 1 << (i % 8)
+			}
+		}
+		ps = append(ps, p, q)
+	}
+	return ps
+}
+
+// layoutBit returns n bytes with only bit i set.
+func layoutBit(n, i int) []byte {
+	b := make([]byte, n)
+	b[i/8] = 1 << (i % 8)
+	return b
+}
+
+// layoutCheckBits reports the first bit of got that differs from inside in
+// bits [lo, hi) or from outside elsewhere. Bit i is bit i%8 of byte i/8,
+// the numbering the C layout oracle measures bitfields in.
+func layoutCheckBits(t *testing.T, what string, got, inside, outside []byte, lo, hi int) {
+	t.Helper()
+	for i := 0; i < len(got)*8; i++ {
+		want := outside
+		if lo <= i && i < hi {
+			want = inside
+		}
+		if g, w := got[i/8]>>(i%8)&1, want[i/8]>>(i%8)&1; g != w {
+			t.Errorf("%s: bit %d = %d, want %d (member bits [%d, %d))", what, i, g, w, lo, hi)
+			return
+		}
 	}
 }

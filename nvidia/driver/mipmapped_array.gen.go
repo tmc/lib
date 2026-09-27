@@ -91,6 +91,16 @@ func (m MipmappedArray) SparseProperties() (ArraySparseProperties, error) {
 //
 // Creates a CUDA mipmapped array according to the [Array3dDescriptor] structure pMipmappedArrayDesc and returns a handle to the new CUDA mipmapped array in *pHandle. numMipmapLevels specifies the number of mipmap levels to be allocated. This value is clamped to the range [1, 1 + floor(log2(max(width, height, depth)))].
 // The [Array3dDescriptor] is defined as:
+//
+//	typedef struct {
+//	    unsigned int Width;
+//	    unsigned int Height;
+//	    unsigned int Depth;
+//	    CUarray_format Format;
+//	    unsigned int NumChannels;
+//	    unsigned int Flags;
+//	} CUDA_ARRAY3D_DESCRIPTOR;
+//
 // where:
 //   - Width, Height, and Depth are the width, height, and depth of the CUDA array (in elements); the following types of CUDA arrays can be allocated: A 1D mipmapped array is allocated if Height and Depth extents are both zero. A 2D mipmapped array is allocated if only Depth extent is zero. A 3D mipmapped array is allocated if all three extents are non-zero. A 1D layered CUDA mipmapped array is allocated if only Height is zero and the CUDA_ARRAY3D_LAYERED flag is set. Each layer is a 1D array. The number of layers is determined by the depth extent. A 2D layered CUDA mipmapped array is allocated if all three extents are non-zero and the CUDA_ARRAY3D_LAYERED flag is set. Each layer is a 2D array. The number of layers is determined by the depth extent. A cubemap CUDA mipmapped array is allocated if all three extents are non-zero and the CUDA_ARRAY3D_CUBEMAP flag is set. Width must be equal to Height, and Depth must be six. A cubemap is a special type of 2D layered CUDA array, where the six layers represent the six faces of a cube. The order of the six layers in memory is the same as that listed in [ArrayCubemapFace]. A cubemap layered CUDA mipmapped array is allocated if all three extents are non-zero, and both, CUDA_ARRAY3D_CUBEMAP and CUDA_ARRAY3D_LAYERED flags are set. Width must be equal to Height, and Depth must be a multiple of six. A cubemap layered CUDA array is a special type of 2D layered CUDA array that consists of a collection of cubemaps. The first six layers represent the first cubemap, the next six layers form the second cubemap, and so on.
 //   - Format specifies the format of the elements; [ArrayFormat] is defined as:

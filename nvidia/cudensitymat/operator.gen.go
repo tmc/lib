@@ -50,7 +50,7 @@ func (o *Operator) Close() error {
 //   - time: in Time value
 //   - batchSize: in Batch size (>=1)
 //   - numParams: in Number of variable parameters defined by the user
-//   - params: in GPU-accessible pointer to an F-order 2d-array of user-defined real parameter values: params [numParams, batchSize]
+//   - params: in GPU-accessible pointer to an F-order 2d-array of user-defined real parameter values: params[numParams, batchSize]
 //   - stateIn: in Input quantum state (or a batch of input quantum states)
 //   - stateOut: inout Updated resulting quantum state which accumulates operator action on the input quantum state
 //   - workspace: in Allocated workspace descriptor

@@ -442,7 +442,7 @@ func DriverGetProperties() (DrvProps, error) {
 //   - [DriverNotInitialized]: on a failure to open the driver.
 //   - [DriverVersionMismatch]: when there is a mismatch between the cuFile library and its kernel driver.
 //   - [NvfsSetupError]: for a cuFile-specific internal error. Refer to the cufile.log file for more information.
-//   - [PermissionDenied]: on a failure to open. This can happen when the character device ( /dev/nvidia_fs [0-15]) is restricted to certain users by an administrator, for example, admin, where /dev is not exposed with read permissions in the container.
+//   - [PermissionDenied]: on a failure to open. This can happen when the character device ( /dev/nvidia_fs[0-15]) is restricted to certain users by an administrator, for example, admin, where /dev is not exposed with read permissions in the container.
 //
 // Wraps cuFileDriverOpen.
 func DriverOpen() error {

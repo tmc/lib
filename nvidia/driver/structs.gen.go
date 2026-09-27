@@ -33,6 +33,48 @@ type StreamBatchMemOpParams struct {
 	Data [6]uint64
 }
 
+// Operation returns a pointer to the operation member of CUstreamBatchMemOpParams_v1, which shares its
+// storage with every other member of the union.
+func (s *StreamBatchMemOpParams) Operation() *StreamBatchMemOpType {
+	return (*StreamBatchMemOpType)(unsafe.Pointer(&s.Data))
+}
+
+// WaitValue returns a pointer to the waitValue member of CUstreamBatchMemOpParams_v1, which shares its
+// storage with every other member of the union.
+func (s *StreamBatchMemOpParams) WaitValue() *StreammemopwaitvalueparamsSt {
+	return (*StreammemopwaitvalueparamsSt)(unsafe.Pointer(&s.Data))
+}
+
+// WriteValue returns a pointer to the writeValue member of CUstreamBatchMemOpParams_v1, which shares its
+// storage with every other member of the union.
+func (s *StreamBatchMemOpParams) WriteValue() *StreammemopwritevalueparamsSt {
+	return (*StreammemopwritevalueparamsSt)(unsafe.Pointer(&s.Data))
+}
+
+// FlushRemoteWrites returns a pointer to the flushRemoteWrites member of CUstreamBatchMemOpParams_v1, which shares its
+// storage with every other member of the union.
+func (s *StreamBatchMemOpParams) FlushRemoteWrites() *StreammemopflushremotewritesparamsSt {
+	return (*StreammemopflushremotewritesparamsSt)(unsafe.Pointer(&s.Data))
+}
+
+// MemoryBarrier returns a pointer to the memoryBarrier member of CUstreamBatchMemOpParams_v1, which shares its
+// storage with every other member of the union.
+func (s *StreamBatchMemOpParams) MemoryBarrier() *StreammemopmemorybarrierparamsSt {
+	return (*StreammemopmemorybarrierparamsSt)(unsafe.Pointer(&s.Data))
+}
+
+// AtomicReduction returns a pointer to the atomicReduction member of CUstreamBatchMemOpParams_v1, which shares its
+// storage with every other member of the union.
+func (s *StreamBatchMemOpParams) AtomicReduction() *StreammemopatomicreductionparamsSt {
+	return (*StreammemopatomicreductionparamsSt)(unsafe.Pointer(&s.Data))
+}
+
+// Pad returns a pointer to the pad member of CUstreamBatchMemOpParams_v1, which shares its
+// storage with every other member of the union.
+func (s *StreamBatchMemOpParams) Pad() *[6]uint64 {
+	return (*[6]uint64)(unsafe.Pointer(&s.Data))
+}
+
 // StreammemopwaitvalueparamsSt represents CUstreamMemOpWaitValueParams_st.
 type StreammemopwaitvalueparamsSt struct {
 	Operation      StreamBatchMemOpType
@@ -42,6 +84,18 @@ type StreammemopwaitvalueparamsSt struct {
 	Alias          DevicePtr
 }
 
+// Value returns a pointer to the value member of CUstreamMemOpWaitValueParams_st, which shares its
+// storage with every other member of the union.
+func (s *StreammemopwaitvalueparamsSt) Value() *uint32 {
+	return (*uint32)(unsafe.Pointer(&s.AnonymousUnion))
+}
+
+// Value64 returns a pointer to the value64 member of CUstreamMemOpWaitValueParams_st, which shares its
+// storage with every other member of the union.
+func (s *StreammemopwaitvalueparamsSt) Value64() *uint64 {
+	return (*uint64)(unsafe.Pointer(&s.AnonymousUnion))
+}
+
 // StreammemopwritevalueparamsSt represents CUstreamMemOpWriteValueParams_st.
 type StreammemopwritevalueparamsSt struct {
 	Operation      StreamBatchMemOpType
@@ -49,6 +103,18 @@ type StreammemopwritevalueparamsSt struct {
 	AnonymousUnion [1]uint64
 	Flags          uint32
 	Alias          DevicePtr
+}
+
+// Value returns a pointer to the value member of CUstreamMemOpWriteValueParams_st, which shares its
+// storage with every other member of the union.
+func (s *StreammemopwritevalueparamsSt) Value() *uint32 {
+	return (*uint32)(unsafe.Pointer(&s.AnonymousUnion))
+}
+
+// Value64 returns a pointer to the value64 member of CUstreamMemOpWriteValueParams_st, which shares its
+// storage with every other member of the union.
+func (s *StreammemopwritevalueparamsSt) Value64() *uint64 {
+	return (*uint64)(unsafe.Pointer(&s.AnonymousUnion))
 }
 
 // StreammemopflushremotewritesparamsSt represents CUstreamMemOpFlushRemoteWritesParams_st.
@@ -305,9 +371,95 @@ type LaunchMemSyncDomainMap struct {
 }
 
 // StreamAttrValueV1 represents launch attributes union; used as value field of [LaunchAttribute].
+//
+// These members have no accessor:
+//
+//   - clusterDim: its type is an anonymous record, which has no Go type
+//   - programmaticEvent: its type is an anonymous record, which has no Go type
+//   - launchCompletionEvent: its type is an anonymous record, which has no Go type
+//   - preferredClusterDim: its type is an anonymous record, which has no Go type
+//   - deviceUpdatableKernelNode: its type is an anonymous record, which has no Go type
 type StreamAttrValueV1 struct {
 	// Data stores the raw bytes of the underlying C union.
 	Data [8]uint64
+}
+
+// Pad returns a pointer to the pad member of CUlaunchAttributeValue, which shares its
+// storage with every other member of the union.
+func (s *StreamAttrValueV1) Pad() *[64]byte {
+	return (*[64]byte)(unsafe.Pointer(&s.Data))
+}
+
+// AccessPolicyWindow returns a pointer to the accessPolicyWindow member of CUlaunchAttributeValue, which shares its
+// storage with every other member of the union.
+func (s *StreamAttrValueV1) AccessPolicyWindow() *AccessPolicyWindow {
+	return (*AccessPolicyWindow)(unsafe.Pointer(&s.Data))
+}
+
+// Cooperative returns a pointer to the cooperative member of CUlaunchAttributeValue, which shares its
+// storage with every other member of the union.
+func (s *StreamAttrValueV1) Cooperative() *int32 {
+	return (*int32)(unsafe.Pointer(&s.Data))
+}
+
+// SyncPolicy returns a pointer to the syncPolicy member of CUlaunchAttributeValue, which shares its
+// storage with every other member of the union.
+func (s *StreamAttrValueV1) SyncPolicy() *SynchronizationPolicy {
+	return (*SynchronizationPolicy)(unsafe.Pointer(&s.Data))
+}
+
+// ClusterSchedulingPolicyPreference returns a pointer to the clusterSchedulingPolicyPreference member of CUlaunchAttributeValue, which shares its
+// storage with every other member of the union.
+func (s *StreamAttrValueV1) ClusterSchedulingPolicyPreference() *ClusterSchedulingPolicy {
+	return (*ClusterSchedulingPolicy)(unsafe.Pointer(&s.Data))
+}
+
+// ProgrammaticStreamSerializationAllowed returns a pointer to the programmaticStreamSerializationAllowed member of CUlaunchAttributeValue, which shares its
+// storage with every other member of the union.
+func (s *StreamAttrValueV1) ProgrammaticStreamSerializationAllowed() *int32 {
+	return (*int32)(unsafe.Pointer(&s.Data))
+}
+
+// Priority returns a pointer to the priority member of CUlaunchAttributeValue, which shares its
+// storage with every other member of the union.
+func (s *StreamAttrValueV1) Priority() *int32 {
+	return (*int32)(unsafe.Pointer(&s.Data))
+}
+
+// MemSyncDomainMap returns a pointer to the memSyncDomainMap member of CUlaunchAttributeValue, which shares its
+// storage with every other member of the union.
+func (s *StreamAttrValueV1) MemSyncDomainMap() *LaunchMemSyncDomainMap {
+	return (*LaunchMemSyncDomainMap)(unsafe.Pointer(&s.Data))
+}
+
+// MemSyncDomain returns a pointer to the memSyncDomain member of CUlaunchAttributeValue, which shares its
+// storage with every other member of the union.
+func (s *StreamAttrValueV1) MemSyncDomain() *LaunchMemSyncDomain {
+	return (*LaunchMemSyncDomain)(unsafe.Pointer(&s.Data))
+}
+
+// SharedMemCarveout returns a pointer to the sharedMemCarveout member of CUlaunchAttributeValue, which shares its
+// storage with every other member of the union.
+func (s *StreamAttrValueV1) SharedMemCarveout() *uint32 {
+	return (*uint32)(unsafe.Pointer(&s.Data))
+}
+
+// NvlinkUtilCentricScheduling returns a pointer to the nvlinkUtilCentricScheduling member of CUlaunchAttributeValue, which shares its
+// storage with every other member of the union.
+func (s *StreamAttrValueV1) NvlinkUtilCentricScheduling() *uint32 {
+	return (*uint32)(unsafe.Pointer(&s.Data))
+}
+
+// PortableClusterSizeMode returns a pointer to the portableClusterSizeMode member of CUlaunchAttributeValue, which shares its
+// storage with every other member of the union.
+func (s *StreamAttrValueV1) PortableClusterSizeMode() *LaunchAttributePortableClusterMode {
+	return (*LaunchAttributePortableClusterMode)(unsafe.Pointer(&s.Data))
+}
+
+// SharedMemoryMode returns a pointer to the sharedMemoryMode member of CUlaunchAttributeValue, which shares its
+// storage with every other member of the union.
+func (s *StreamAttrValueV1) SharedMemoryMode() *SharedMemoryMode {
+	return (*SharedMemoryMode)(unsafe.Pointer(&s.Data))
 }
 
 // LaunchAttribute represents launch attribute.
@@ -975,6 +1127,90 @@ type GraphNodeParams struct {
 	Reserved2 int64
 }
 
+// Reserved1 returns a pointer to the reserved1 member of CUgraphNodeParams, which shares its
+// storage with every other member of the union.
+func (g *GraphNodeParams) Reserved1() *[29]int64 {
+	return (*[29]int64)(unsafe.Pointer(&g.AnonymousUnion))
+}
+
+// Kernel returns a pointer to the kernel member of CUgraphNodeParams, which shares its
+// storage with every other member of the union.
+func (g *GraphNodeParams) Kernel() *KernelNodeParamsV3 {
+	return (*KernelNodeParamsV3)(unsafe.Pointer(&g.AnonymousUnion))
+}
+
+// Memcpy returns a pointer to the memcpy member of CUgraphNodeParams, which shares its
+// storage with every other member of the union.
+func (g *GraphNodeParams) Memcpy() *MemcpyNodeParams {
+	return (*MemcpyNodeParams)(unsafe.Pointer(&g.AnonymousUnion))
+}
+
+// Memset returns a pointer to the memset member of CUgraphNodeParams, which shares its
+// storage with every other member of the union.
+func (g *GraphNodeParams) Memset() *MemsetNodeParamsV2 {
+	return (*MemsetNodeParamsV2)(unsafe.Pointer(&g.AnonymousUnion))
+}
+
+// Host returns a pointer to the host member of CUgraphNodeParams, which shares its
+// storage with every other member of the union.
+func (g *GraphNodeParams) Host() *HostNodeParamsV2 {
+	return (*HostNodeParamsV2)(unsafe.Pointer(&g.AnonymousUnion))
+}
+
+// Graph returns a pointer to the graph member of CUgraphNodeParams, which shares its
+// storage with every other member of the union.
+func (g *GraphNodeParams) Graph() *ChildGraphNodeParams {
+	return (*ChildGraphNodeParams)(unsafe.Pointer(&g.AnonymousUnion))
+}
+
+// EventWait returns a pointer to the eventWait member of CUgraphNodeParams, which shares its
+// storage with every other member of the union.
+func (g *GraphNodeParams) EventWait() *EventWaitNodeParams {
+	return (*EventWaitNodeParams)(unsafe.Pointer(&g.AnonymousUnion))
+}
+
+// EventRecord returns a pointer to the eventRecord member of CUgraphNodeParams, which shares its
+// storage with every other member of the union.
+func (g *GraphNodeParams) EventRecord() *EventRecordNodeParams {
+	return (*EventRecordNodeParams)(unsafe.Pointer(&g.AnonymousUnion))
+}
+
+// ExtSemSignal returns a pointer to the extSemSignal member of CUgraphNodeParams, which shares its
+// storage with every other member of the union.
+func (g *GraphNodeParams) ExtSemSignal() *ExtSemSignalNodeParamsV2 {
+	return (*ExtSemSignalNodeParamsV2)(unsafe.Pointer(&g.AnonymousUnion))
+}
+
+// ExtSemWait returns a pointer to the extSemWait member of CUgraphNodeParams, which shares its
+// storage with every other member of the union.
+func (g *GraphNodeParams) ExtSemWait() *ExtSemWaitNodeParamsV2 {
+	return (*ExtSemWaitNodeParamsV2)(unsafe.Pointer(&g.AnonymousUnion))
+}
+
+// Alloc returns a pointer to the alloc member of CUgraphNodeParams, which shares its
+// storage with every other member of the union.
+func (g *GraphNodeParams) Alloc() *MemAllocNodeParamsV2 {
+	return (*MemAllocNodeParamsV2)(unsafe.Pointer(&g.AnonymousUnion))
+}
+
+// Free returns a pointer to the free member of CUgraphNodeParams, which shares its
+// storage with every other member of the union.
+func (g *GraphNodeParams) Free() *MemFreeNodeParams {
+	return (*MemFreeNodeParams)(unsafe.Pointer(&g.AnonymousUnion))
+}
+
+// MemOp returns a pointer to the memOp member of CUgraphNodeParams, which shares its
+// storage with every other member of the union.
+func (g *GraphNodeParams) MemOp() *BatchMemOpNodeParamsV2 {
+	return (*BatchMemOpNodeParamsV2)(unsafe.Pointer(&g.AnonymousUnion))
+}
+
+// Conditional returns a pointer to the conditional member of CUgraphNodeParams, which shares its
+// storage with every other member of the union.
+func (g *GraphNodeParams) Conditional() *ConditionalNodeParams {
+	return (*ConditionalNodeParams)(unsafe.Pointer(&g.AnonymousUnion))
+}
+
 // CheckpointLockArgs represents CUDA checkpoint optional lock arguments.
 type CheckpointLockArgs struct {
 	// Timeout in milliseconds to attempt to lock the process, 0 indicates no timeout
@@ -1076,6 +1312,30 @@ type DevResource struct {
 	InternalPadding [92]uint8
 	AnonymousUnion  [10]uint32
 	NextResource    uintptr
+}
+
+// Sm returns a pointer to the sm member of CUdevResource_v1, which shares its
+// storage with every other member of the union.
+func (d *DevResource) Sm() *DevSmResource {
+	return (*DevSmResource)(unsafe.Pointer(&d.AnonymousUnion))
+}
+
+// WqConfig returns a pointer to the wqConfig member of CUdevResource_v1, which shares its
+// storage with every other member of the union.
+func (d *DevResource) WqConfig() *DevWorkqueueConfigResource {
+	return (*DevWorkqueueConfigResource)(unsafe.Pointer(&d.AnonymousUnion))
+}
+
+// Wq returns a pointer to the wq member of CUdevResource_v1, which shares its
+// storage with every other member of the union.
+func (d *DevResource) Wq() *DevWorkqueueResource {
+	return (*DevWorkqueueResource)(unsafe.Pointer(&d.AnonymousUnion))
+}
+
+// Oversize returns a pointer to the _oversize member of CUdevResource_v1, which shares its
+// storage with every other member of the union.
+func (d *DevResource) Oversize() *[40]uint8 {
+	return (*[40]uint8)(unsafe.Pointer(&d.AnonymousUnion))
 }
 
 // Dim3 is an extent along X, Y and Z, such as the size of a grid in

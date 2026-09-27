@@ -2,6 +2,8 @@
 
 package dcgm
 
+import "encoding/binary"
+
 // FieldOutputFormat represents dcgm_field_output_format_t.
 type FieldOutputFormat struct {
 	ShortName [10]byte
@@ -21,11 +23,76 @@ type FieldMeta struct {
 	ValueFormat FieldOutputFormatP
 }
 
-// Link is the opaque form of dcgm_link_t, whose members the
-// header does not describe in terms this generator can model.
+// Link is the packed form of dcgm_link_t, whose members sit at
+// offsets no Go struct gives its fields. Its methods reach each
+// member at the position the C compiler measured.
 type Link struct {
 	// Data stores the raw bytes of the underlying C type.
 	Data [4]byte
+}
+
+// Raw returns the raw member of dcgm_link_t, at byte 0.
+func (l *Link) Raw() FieldEid {
+	b := &l.Data
+	return FieldEid(binary.NativeEndian.Uint32(b[0:]))
+}
+
+// SetRaw sets the raw member of dcgm_link_t.
+func (l *Link) SetRaw(v FieldEid) {
+	b := &l.Data
+	binary.NativeEndian.PutUint32(b[0:], uint32(v))
+}
+
+// Type returns the type member of dcgm_link_t, in bits 0 through 7.
+func (l *Link) Type() FieldEntityGroup {
+	b := &l.Data
+	return FieldEntityGroup(b[0])
+}
+
+// SetType sets the type member of dcgm_link_t.
+func (l *Link) SetType(v FieldEntityGroup) {
+	b := &l.Data
+	w := uint8(v)
+	b[0] = w
+}
+
+// Index returns the index member of dcgm_link_t, in bits 8 through 23.
+func (l *Link) Index() uint32 {
+	b := &l.Data
+	return uint32(binary.LittleEndian.Uint16(b[1:]))
+}
+
+// SetIndex sets the index member of dcgm_link_t.
+func (l *Link) SetIndex(v uint32) {
+	b := &l.Data
+	w := uint16(v)
+	binary.LittleEndian.PutUint16(b[1:], w)
+}
+
+// GpuId returns the gpuId member of dcgm_link_t, in bits 24 through 31.
+func (l *Link) GpuId() FieldEid {
+	b := &l.Data
+	return FieldEid(b[3])
+}
+
+// SetGpuId sets the gpuId member of dcgm_link_t.
+func (l *Link) SetGpuId(v FieldEid) {
+	b := &l.Data
+	w := uint8(v)
+	b[3] = w
+}
+
+// SwitchId returns the switchId member of dcgm_link_t, in bits 24 through 31.
+func (l *Link) SwitchId() FieldEid {
+	b := &l.Data
+	return FieldEid(b[3])
+}
+
+// SetSwitchId sets the switchId member of dcgm_link_t.
+func (l *Link) SetSwitchId(v FieldEid) {
+	b := &l.Data
+	w := uint8(v)
+	b[3] = w
 }
 
 // ConnectV2ParamsV1 represents connection options for [ConnectV2] (v1).

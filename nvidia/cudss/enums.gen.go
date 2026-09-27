@@ -157,8 +157,8 @@ const (
 	DataScaleRow              DataParam = 15 // (out, supported only when matching is enabled)
 	DataScaleCol              DataParam = 16 // (out, supported only when matching with scaling is enabled)
 	DataNsuperpanels          DataParam = 17 // (out)
-	DataUserSchurIndices      DataParam = 18 // (in) indices [n] (1s for Schur complement, 0s for the rest)
-	DataSchurShape            DataParam = 19 // (out) int64_t shape [3]
+	DataUserSchurIndices      DataParam = 18 // (in) indices[n] (1s for Schur complement, 0s for the rest)
+	DataSchurShape            DataParam = 19 // (out) int64_t shape[3]
 	DataSchurMatrix           DataParam = 20 // (out) [Matrix]
 	DataUserNdPartitionTree   DataParam = 21
 	DataNdPartitionTree       DataParam = 22 // (out) retrieves the partition tree information

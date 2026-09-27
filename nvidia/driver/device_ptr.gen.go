@@ -561,6 +561,8 @@ func (d DevicePtr) CopyToHost[T any](dstHost []T) error {
 // CopyToHostPtr is [DevicePtr.CopyToHost] with the host memory given as a pointer
 // and a byte count, for memory Go does not own.
 //
+//   - byteCount: Size of memory copy in bytes
+//
 // Wraps cuMemcpyDtoH, bound as cuMemcpyDtoH_v2.
 func (d DevicePtr) CopyToHostPtr(dstHost unsafe.Pointer, byteCount uint) error {
 	return memcpyDtoH(dstHost, d, byteCount)
@@ -603,6 +605,8 @@ func (d DevicePtr) CopyToHostAsync[T any](dstHost []T, hStream Stream) error {
 // CopyToHostAsyncPtr is [DevicePtr.CopyToHostAsync] with the host memory given as a pointer
 // and a byte count, for memory Go does not own.
 //
+//   - byteCount: Size of memory copy in bytes
+//
 // Wraps cuMemcpyDtoHAsync, bound as cuMemcpyDtoHAsync_v2.
 func (d DevicePtr) CopyToHostAsyncPtr(dstHost unsafe.Pointer, byteCount uint, hStream Stream) error {
 	return memcpyDtoHAsync(dstHost, d, byteCount, hStream)
@@ -635,6 +639,8 @@ func (d DevicePtr) CopyFromHost[T any](srcHost []T) error {
 
 // CopyFromHostPtr is [DevicePtr.CopyFromHost] with the host memory given as a pointer
 // and a byte count, for memory Go does not own.
+//
+//   - byteCount: Size of memory copy in bytes
 //
 // Wraps cuMemcpyHtoD, bound as cuMemcpyHtoD_v2.
 func (d DevicePtr) CopyFromHostPtr(srcHost unsafe.Pointer, byteCount uint) error {
@@ -677,6 +683,8 @@ func (d DevicePtr) CopyFromHostAsync[T any](srcHost []T, hStream Stream) error {
 
 // CopyFromHostAsyncPtr is [DevicePtr.CopyFromHostAsync] with the host memory given as a pointer
 // and a byte count, for memory Go does not own.
+//
+//   - byteCount: Size of memory copy in bytes
 //
 // Wraps cuMemcpyHtoDAsync, bound as cuMemcpyHtoDAsync_v2.
 func (d DevicePtr) CopyFromHostAsyncPtr(srcHost unsafe.Pointer, byteCount uint, hStream Stream) error {

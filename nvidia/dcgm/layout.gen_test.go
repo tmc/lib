@@ -62,6 +62,94 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Alignof(Link{}); got != 1 {
 		t.Errorf("alignof(Link) = %d, want 1", got)
 	}
+	{ // Link.Raw
+		var z Link
+		if got := unsafe.Sizeof(z.Raw()); got != 4 {
+			t.Errorf("sizeof(Link.Raw()) = %d, want 4", got)
+		}
+		for _, p := range layoutPatterns(len(layoutBytes(&z))) {
+			var v Link
+			zero := make([]byte, len(p))
+			var w Link
+			copy(layoutBytes(&v), p)
+			w.SetRaw(v.Raw())
+			layoutCheckBits(t, "Link.Raw copied", layoutBytes(&w), p, zero, 0, 32)
+			copy(layoutBytes(&v), p)
+			v.SetRaw(z.Raw())
+			layoutCheckBits(t, "Link.Raw cleared", layoutBytes(&v), zero, p, 0, 32)
+			if v.Raw() != z.Raw() {
+				t.Errorf("Link.Raw() reads bits outside [0, 32)")
+			}
+		}
+	}
+	{ // Link.Type
+		var z Link
+		for _, p := range layoutPatterns(len(layoutBytes(&z))) {
+			var v Link
+			zero := make([]byte, len(p))
+			var w Link
+			copy(layoutBytes(&v), p)
+			w.SetType(v.Type())
+			layoutCheckBits(t, "Link.Type copied", layoutBytes(&w), p, zero, 0, 8)
+			copy(layoutBytes(&v), p)
+			v.SetType(z.Type())
+			layoutCheckBits(t, "Link.Type cleared", layoutBytes(&v), zero, p, 0, 8)
+			if v.Type() != z.Type() {
+				t.Errorf("Link.Type() reads bits outside [0, 8)")
+			}
+		}
+	}
+	{ // Link.Index
+		var z Link
+		for _, p := range layoutPatterns(len(layoutBytes(&z))) {
+			var v Link
+			zero := make([]byte, len(p))
+			var w Link
+			copy(layoutBytes(&v), p)
+			w.SetIndex(v.Index())
+			layoutCheckBits(t, "Link.Index copied", layoutBytes(&w), p, zero, 8, 24)
+			copy(layoutBytes(&v), p)
+			v.SetIndex(z.Index())
+			layoutCheckBits(t, "Link.Index cleared", layoutBytes(&v), zero, p, 8, 24)
+			if v.Index() != z.Index() {
+				t.Errorf("Link.Index() reads bits outside [8, 24)")
+			}
+		}
+	}
+	{ // Link.GpuId
+		var z Link
+		for _, p := range layoutPatterns(len(layoutBytes(&z))) {
+			var v Link
+			zero := make([]byte, len(p))
+			var w Link
+			copy(layoutBytes(&v), p)
+			w.SetGpuId(v.GpuId())
+			layoutCheckBits(t, "Link.GpuId copied", layoutBytes(&w), p, zero, 24, 32)
+			copy(layoutBytes(&v), p)
+			v.SetGpuId(z.GpuId())
+			layoutCheckBits(t, "Link.GpuId cleared", layoutBytes(&v), zero, p, 24, 32)
+			if v.GpuId() != z.GpuId() {
+				t.Errorf("Link.GpuId() reads bits outside [24, 32)")
+			}
+		}
+	}
+	{ // Link.SwitchId
+		var z Link
+		for _, p := range layoutPatterns(len(layoutBytes(&z))) {
+			var v Link
+			zero := make([]byte, len(p))
+			var w Link
+			copy(layoutBytes(&v), p)
+			w.SetSwitchId(v.SwitchId())
+			layoutCheckBits(t, "Link.SwitchId copied", layoutBytes(&w), p, zero, 24, 32)
+			copy(layoutBytes(&v), p)
+			v.SetSwitchId(z.SwitchId())
+			layoutCheckBits(t, "Link.SwitchId cleared", layoutBytes(&v), zero, p, 24, 32)
+			if v.SwitchId() != z.SwitchId() {
+				t.Errorf("Link.SwitchId() reads bits outside [24, 32)")
+			}
+		}
+	}
 	if got := unsafe.Sizeof(ConnectV2ParamsV1{}); got != 8 {
 		t.Errorf("sizeof(ConnectV2ParamsV1) = %d, want 8", got)
 	}
@@ -3361,5 +3449,54 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Offsetof(ModulesReloadable{}.ModuleMask); got != 4 {
 		t.Errorf("offsetof(ModulesReloadable.ModuleMask) = %d, want 4", got)
+	}
+}
+
+// layoutBytes returns the memory of *p.
+func layoutBytes[T any](p *T) []byte {
+	return unsafe.Slice((*byte)(unsafe.Pointer(p)), unsafe.Sizeof(*p))
+}
+
+// layoutPatterns returns patterns of n bytes that tell every bit position
+// apart: in pattern 2k, bit i is bit k of i, and pattern 2k+1 is its
+// complement. An accessor that reads or writes any bit other than the one it
+// should differs from the expected result under at least one of them.
+func layoutPatterns(n int) [][]byte {
+	var ps [][]byte
+	for k := 0; k == 0 || 1<<k < n*8; k++ {
+		p, q := make([]byte, n), make([]byte, n)
+		for i := 0; i < n*8; i++ {
+			if i>>k&1 != 0 {
+				p[i/8] |= 1 << (i % 8)
+			} else {
+				q[i/8] |= 1 << (i % 8)
+			}
+		}
+		ps = append(ps, p, q)
+	}
+	return ps
+}
+
+// layoutBit returns n bytes with only bit i set.
+func layoutBit(n, i int) []byte {
+	b := make([]byte, n)
+	b[i/8] = 1 << (i % 8)
+	return b
+}
+
+// layoutCheckBits reports the first bit of got that differs from inside in
+// bits [lo, hi) or from outside elsewhere. Bit i is bit i%8 of byte i/8,
+// the numbering the C layout oracle measures bitfields in.
+func layoutCheckBits(t *testing.T, what string, got, inside, outside []byte, lo, hi int) {
+	t.Helper()
+	for i := 0; i < len(got)*8; i++ {
+		want := outside
+		if lo <= i && i < hi {
+			want = inside
+		}
+		if g, w := got[i/8]>>(i%8)&1, want[i/8]>>(i%8)&1; g != w {
+			t.Errorf("%s: bit %d = %d, want %d (member bits [%d, %d))", what, i, g, w, lo, hi)
+			return
+		}
 	}
 }

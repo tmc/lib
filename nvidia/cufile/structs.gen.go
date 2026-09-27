@@ -5,6 +5,11 @@
 
 package cufile
 
+import (
+	"encoding/binary"
+	"unsafe"
+)
+
 // Error represents cufileop status string.
 type Error struct {
 	Err   OpError
@@ -36,11 +41,89 @@ type Descr struct {
 	FsOps  uintptr
 }
 
-// IOParams is the opaque form of CUfileIOParams_t, whose members the
-// header does not describe in terms this generator can model.
+// IOParams is the opaque form of CUfileIOParams_t, whose members Go cannot
+// declare as fields. Its methods reach each member at the position
+// the C compiler measured.
+//
+// These members have no accessor:
+//
+//   - file_offset: its type has no computable size
+//   - devPtr_offset: its type has no computable size
 type IOParams struct {
 	// Data stores the raw bytes of the underlying C type.
 	Data [8]uint64
+}
+
+// Mode returns the mode member of CUfileIOParams_t, at byte 0.
+func (i *IOParams) Mode() BatchMode {
+	b := (*[64]byte)(unsafe.Pointer(&i.Data))
+	return BatchMode(binary.NativeEndian.Uint32(b[0:]))
+}
+
+// SetMode sets the mode member of CUfileIOParams_t.
+func (i *IOParams) SetMode(v BatchMode) {
+	b := (*[64]byte)(unsafe.Pointer(&i.Data))
+	binary.NativeEndian.PutUint32(b[0:], uint32(v))
+}
+
+// Fh returns the fh member of CUfileIOParams_t, at byte 40.
+func (i *IOParams) Fh() Handle {
+	b := (*[64]byte)(unsafe.Pointer(&i.Data))
+	return Handle(binary.NativeEndian.Uint64(b[40:]))
+}
+
+// SetFh sets the fh member of CUfileIOParams_t.
+func (i *IOParams) SetFh(v Handle) {
+	b := (*[64]byte)(unsafe.Pointer(&i.Data))
+	binary.NativeEndian.PutUint64(b[40:], uint64(v))
+}
+
+// Opcode returns the opcode member of CUfileIOParams_t, at byte 48.
+func (i *IOParams) Opcode() Opcode {
+	b := (*[64]byte)(unsafe.Pointer(&i.Data))
+	return Opcode(binary.NativeEndian.Uint32(b[48:]))
+}
+
+// SetOpcode sets the opcode member of CUfileIOParams_t.
+func (i *IOParams) SetOpcode(v Opcode) {
+	b := (*[64]byte)(unsafe.Pointer(&i.Data))
+	binary.NativeEndian.PutUint32(b[48:], uint32(v))
+}
+
+// Cookie returns the cookie member of CUfileIOParams_t, at byte 56.
+func (i *IOParams) Cookie() uintptr {
+	b := (*[64]byte)(unsafe.Pointer(&i.Data))
+	return uintptr(binary.NativeEndian.Uint64(b[56:]))
+}
+
+// SetCookie sets the cookie member of CUfileIOParams_t.
+func (i *IOParams) SetCookie(v uintptr) {
+	b := (*[64]byte)(unsafe.Pointer(&i.Data))
+	binary.NativeEndian.PutUint64(b[56:], uint64(v))
+}
+
+// DevPtrBase returns the devPtr_base member of CUfileIOParams_t, at byte 8.
+func (i *IOParams) DevPtrBase() uintptr {
+	b := (*[64]byte)(unsafe.Pointer(&i.Data))
+	return uintptr(binary.NativeEndian.Uint64(b[8:]))
+}
+
+// SetDevPtrBase sets the devPtr_base member of CUfileIOParams_t.
+func (i *IOParams) SetDevPtrBase(v uintptr) {
+	b := (*[64]byte)(unsafe.Pointer(&i.Data))
+	binary.NativeEndian.PutUint64(b[8:], uint64(v))
+}
+
+// Size returns the size member of CUfileIOParams_t, at byte 32.
+func (i *IOParams) Size() uint {
+	b := (*[64]byte)(unsafe.Pointer(&i.Data))
+	return uint(binary.NativeEndian.Uint64(b[32:]))
+}
+
+// SetSize sets the size member of CUfileIOParams_t.
+func (i *IOParams) SetSize(v uint) {
+	b := (*[64]byte)(unsafe.Pointer(&i.Data))
+	binary.NativeEndian.PutUint64(b[32:], uint64(v))
 }
 
 // IOEvents represents CUfileIOEvents_t.

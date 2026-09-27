@@ -13,14 +13,14 @@ import (
 // All tensor formats are supported for 4 and 5 dimensions, however, the best performance is obtained when the strides of yDesc and xDesc are equal and HW-packed. For more than 5 dimensions the tensors must have their spatial dimensions packed.
 //
 //   - activationDesc: Input. Activation descriptor. For more information, refer to [ActivationDescriptor]
-//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha[0]*result + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - yDesc: Input. Handle to the previously initialized input tensor descriptor. For more information, refer to [TensorDescriptor]
 //   - y: Input. Data pointer to GPU memory associated with the tensor descriptor yDesc
 //   - dyDesc: Input. Handle to the previously initialized input differential tensor descriptor
 //   - dy: Input. Data pointer to GPU memory associated with the tensor descriptor dyDesc
 //   - xDesc: Input. Handle to the previously initialized output tensor descriptor
 //   - x: Input. Data pointer to GPU memory associated with the output tensor descriptor xDesc
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha[0]*result + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - dxDesc: Input. Handle to the previously initialized output differential tensor descriptor
 //   - dx: Output. Data pointer to GPU memory associated with the output tensor descriptor dxDesc
 //
@@ -44,10 +44,10 @@ func (h Handle) ActivationBackward(activationDesc ActivationDescriptor, alpha un
 // All tensor formats are supported for 4 and 5 dimensions, however, the best performance is obtained when the strides of xDesc and yDesc are equal and HW-packed. For more than 5 dimensions the tensors must have their spatial dimensions packed.
 //
 //   - activationDesc: Input. Activation descriptor. For more information, refer to [ActivationDescriptor]
-//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha[0]*result + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - xDesc: Input. Handle to the previously initialized input tensor descriptor. For more information, refer to [TensorDescriptor]
 //   - x: Input. Data pointer to GPU memory associated with the tensor descriptor xDesc
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha[0]*result + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - yDesc: Input. Handle to the previously initialized input tensor descriptor
 //   - y: Input. Data pointer to GPU memory associated with the tensor descriptor yDesc
 //
@@ -100,10 +100,10 @@ func (h Handle) AddTensor(alpha unsafe.Pointer, aDesc TensorDescriptor, a driver
 // This function supports the following combinations of data types for various descriptors.
 //
 //   - mode: Input. Mode of operation (spatial or per-activation). For more information, refer to [BatchNormMode]
-//   - alphaDataDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient output dx with a prior value in the destination tensor as follows: dstValue = alphaDataDiff [0]*resultValue + betaDataDiff [0]*priorDstValue. For more information, refer to Scaling Parameters
-//   - betaDataDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient output dx with a prior value in the destination tensor as follows: dstValue = alphaDataDiff [0]*resultValue + betaDataDiff [0]*priorDstValue. For more information, refer to Scaling Parameters
-//   - alphaParamDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient outputs resultBnScaleDiff and resultBnBiasDiff with prior values in the destination tensor as follows: dstValue = alphaParamDiff [0]*resultValue + betaParamDiff [0]*priorDstValue. For more information, refer to Scaling Parameters
-//   - betaParamDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient outputs resultBnScaleDiff and resultBnBiasDiff with prior values in the destination tensor as follows: dstValue = alphaParamDiff [0]*resultValue + betaParamDiff [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alphaDataDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient output dx with a prior value in the destination tensor as follows: dstValue = alphaDataDiff[0]*resultValue + betaDataDiff[0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - betaDataDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient output dx with a prior value in the destination tensor as follows: dstValue = alphaDataDiff[0]*resultValue + betaDataDiff[0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alphaParamDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient outputs resultBnScaleDiff and resultBnBiasDiff with prior values in the destination tensor as follows: dstValue = alphaParamDiff[0]*resultValue + betaParamDiff[0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - betaParamDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient outputs resultBnScaleDiff and resultBnBiasDiff with prior values in the destination tensor as follows: dstValue = alphaParamDiff[0]*resultValue + betaParamDiff[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - xDesc: Input. Handles to the previously initialized tensor descriptors
 //   - x: Input. Data pointer to GPU memory associated with the tensor descriptor xDesc, for the layer’s x data
 //   - dyDesc: Input. Handles to the previously initialized tensor descriptors
@@ -141,10 +141,10 @@ func (h Handle) BatchNormalizationBackward(mode BatchNormMode, alphaDataDiff uns
 //
 //   - mode: Input. Mode of operation (spatial or per-activation). For more information, refer to [BatchNormMode]
 //   - bnOps: Input. Mode of operation. Currently, [BatchnormOpsBnActivation] and [BatchnormOpsBnAddActivation] are only supported in the NHWC layout. For more information, refer to [BatchNormOps]. This input can be used to set this function to perform either only the batch normalization, or batch normalization followed by activation, or batch normalization followed by element-wise addition and then activation
-//   - alphaDataDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient output dx with a prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
-//   - betaDataDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient output dx with a prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
-//   - alphaParamDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient outputs dBnScaleData and dBnBiasData with prior values in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
-//   - betaParamDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient outputs dBnScaleData and dBnBiasData with prior values in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alphaDataDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient output dx with a prior value in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - betaDataDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient output dx with a prior value in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alphaParamDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient outputs dBnScaleData and dBnBiasData with prior values in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - betaParamDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient outputs dBnScaleData and dBnBiasData with prior values in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - xDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, backpropagated gradient input dy, the original forward output y data. yDesc and yData are not needed if bnOps is set to [BatchnormOpsBn], users may pass NULL. For more information, refer to [TensorDescriptor]
 //   - yDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, backpropagated gradient input dy, the original forward output y data. yDesc and yData are not needed if bnOps is set to [BatchnormOpsBn], users may pass NULL. For more information, refer to [TensorDescriptor]
 //   - yData: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, backpropagated gradient input dy, the original forward output y data. yDesc and yData are not needed if bnOps is set to [BatchnormOpsBn], users may pass NULL. For more information, refer to [TensorDescriptor]
@@ -192,8 +192,8 @@ func (h Handle) BatchNormalizationBackwardEx(mode BatchNormMode, bnOps BatchNorm
 // This function supports the following combinations of data types for various descriptors.
 //
 //   - mode: Input. Mode of operation (spatial or per-activation). For more information, refer to [BatchNormMode]
-//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - xDesc: Input. Handles to the previously initialized tensor descriptors
 //   - x: Input. Data pointer to GPU memory associated with the tensor descriptor xDesc, for the layer’s x input data
 //   - yDesc: Input. Handles to the previously initialized tensor descriptors
@@ -228,8 +228,8 @@ func (h Handle) BatchNormalizationForwardInference(mode BatchNormMode, alpha uns
 // This function supports the following combinations of data types for various descriptors.
 //
 //   - mode: Input. Mode of operation (spatial or per-activation). For more information, refer to [BatchNormMode]
-//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - xDesc: Input. Tensor descriptors and pointers in device memory for the layer’s x and y data. For more information, refer to [TensorDescriptor]
 //   - x: Input. Data pointer to GPU memory associated with the tensor descriptor xDesc, for the layer’s x input data
 //   - yDesc: Input. Tensor descriptors and pointers in device memory for the layer’s x and y data. For more information, refer to [TensorDescriptor]
@@ -237,7 +237,7 @@ func (h Handle) BatchNormalizationForwardInference(mode BatchNormMode, alpha uns
 //   - bnScaleBiasMeanVarDesc: Input. Shared tensor descriptor desc for the secondary tensor that was derived by [TensorDescriptor.DeriveBN]. The dimensions for this tensor descriptor are dependent on the normalization mode
 //   - bnScale: Input. Pointers in device memory for the batch normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma). Note that bnBias parameter can replace the previous layer’s bias parameter for improved efficiency
 //   - bnBias: Input. Pointers in device memory for the batch normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma). Note that bnBias parameter can replace the previous layer’s bias parameter for improved efficiency
-//   - exponentialAverageFactor: Input. Factor used in the moving average computation as follows: runningMean = runningMean*(1-factor) + newMean*factor. Use a factor=1/(1+n) at N-th call to the function to get the Cumulative Moving Average (CMA) behavior, for example: CMAn = (x [1]+...+xn)/n. For example:
+//   - exponentialAverageFactor: Input. Factor used in the moving average computation as follows: runningMean = runningMean*(1-factor) + newMean*factor. Use a factor=1/(1+n) at N-th call to the function to get the Cumulative Moving Average (CMA) behavior, for example: CMAn = (x[1]+...+xn)/n. For example:
 //   - resultRunningMean: Input/Output. Running mean and variance tensors (these have the same descriptor as the bias and scale). Both of these pointers can be NULL but only at the same time. The value stored in resultRunningVariance (or passed as an input in inference mode) is the sample variance and is the moving average of variancex where the variance is computed either over batch or spatial+batch dimensions depending on the mode. If these pointers are not NULL, the tensors should be initialized to some reasonable values or to 0
 //   - resultRunningVariance: Input/Output. Running mean and variance tensors (these have the same descriptor as the bias and scale). Both of these pointers can be NULL but only at the same time. The value stored in resultRunningVariance (or passed as an input in inference mode) is the sample variance and is the moving average of variancex where the variance is computed either over batch or spatial+batch dimensions depending on the mode. If these pointers are not NULL, the tensors should be initialized to some reasonable values or to 0
 //   - epsilon: Input. Epsilon value used in the batch normalization formula. Its value should be equal to or greater than the value defined for CUDNN_BN_MIN_EPSILON in cudnn.h. The same epsilon value should be used in forward and backward functions
@@ -270,8 +270,8 @@ func (h Handle) BatchNormalizationForwardTraining(mode BatchNormMode, alpha unsa
 //
 //   - mode: Input. Mode of operation (spatial or per-activation). For more information, refer to [BatchNormMode]
 //   - bnOps: Input. Mode of operation for the fast NHWC kernel. For more information, refer to [BatchNormOps]. This input can be used to set this function to perform either only the batch normalization, or batch normalization followed by activation, or batch normalization followed by element-wise addition and then activation
-//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - xDesc: Input. Tensor descriptors and pointers in device memory for the layer’s input x and output y, and for the optional z tensor input for residual addition to the result of the batch normalization operation, prior to the activation. The optional zDesc and *zData descriptors are only used when bnOps is [BatchnormOpsBnAddActivation], otherwise users may pass NULL. When in use, z should have exactly the same dimension as x and the final output y. For more information, refer to [TensorDescriptor]
 //   - xData: Input. Tensor descriptors and pointers in device memory for the layer’s input x and output y, and for the optional z tensor input for residual addition to the result of the batch normalization operation, prior to the activation. The optional zDesc and *zData descriptors are only used when bnOps is [BatchnormOpsBnAddActivation], otherwise users may pass NULL. When in use, z should have exactly the same dimension as x and the final output y. For more information, refer to [TensorDescriptor]
 //   - zDesc: Input. Tensor descriptors and pointers in device memory for the layer’s input x and output y, and for the optional z tensor input for residual addition to the result of the batch normalization operation, prior to the activation. The optional zDesc and *zData descriptors are only used when bnOps is [BatchnormOpsBnAddActivation], otherwise users may pass NULL. When in use, z should have exactly the same dimension as x and the final output y. For more information, refer to [TensorDescriptor]
@@ -279,7 +279,7 @@ func (h Handle) BatchNormalizationForwardTraining(mode BatchNormMode, alpha unsa
 //   - yDesc: Input. Tensor descriptors and pointers in device memory for the layer’s input x and output y, and for the optional z tensor input for residual addition to the result of the batch normalization operation, prior to the activation. The optional zDesc and *zData descriptors are only used when bnOps is [BatchnormOpsBnAddActivation], otherwise users may pass NULL. When in use, z should have exactly the same dimension as x and the final output y. For more information, refer to [TensorDescriptor]
 //   - yData: Input. Tensor descriptors and pointers in device memory for the layer’s input x and output y, and for the optional z tensor input for residual addition to the result of the batch normalization operation, prior to the activation. The optional zDesc and *zData descriptors are only used when bnOps is [BatchnormOpsBnAddActivation], otherwise users may pass NULL. When in use, z should have exactly the same dimension as x and the final output y. For more information, refer to [TensorDescriptor]
 //   - bnScaleBiasMeanVarDesc: Input. Shared tensor descriptor desc for the secondary tensor that was derived by [TensorDescriptor.DeriveBN]. The dimensions for this tensor descriptor are dependent on the normalization mode
-//   - exponentialAverageFactor: Input. Factor used in the moving average computation as follows: runningMean = runningMean*(1-factor) + newMean*factor. Use a factor=1/(1+n) at N-th call to the function to get the Cumulative Moving Average (CMA) behavior, for example: CMAn = (x [1]+...+xn)/n. For example:
+//   - exponentialAverageFactor: Input. Factor used in the moving average computation as follows: runningMean = runningMean*(1-factor) + newMean*factor. Use a factor=1/(1+n) at N-th call to the function to get the Cumulative Moving Average (CMA) behavior, for example: CMAn = (x[1]+...+xn)/n. For example:
 //   - epsilon: Input. Epsilon value used in the batch normalization formula. Its value should be equal to or greater than the value defined for CUDNN_BN_MIN_EPSILON in cudnn.h. The same epsilon value should be used in forward and backward functions
 //   - activationDesc: Input. The tensor descriptor for the activation operation. When the bnOps input is set to either [BatchnormOpsBnActivation] or [BatchnormOpsBnAddActivation] then this activation is used, otherwise user may pass NULL
 //   - workspace: Input. *workspace is a pointer to the GPU workspace, and workSpaceSizeInBytes is the size of the workspace. When *workspace is not NULL and *workSpaceSizeInBytes is large enough, and the tensor layout is NHWC and the data type configuration is supported, then this function will trigger a new semi-persistent NHWC kernel for batch normalization. The workspace is not required to be clean. Also, the workspace does not need to remain unchanged between the forward and backward passes
@@ -375,10 +375,10 @@ func (h Handle) CTCLossV8(algo CTCLossAlgo, ctcLossDesc CTCLossDescriptor, probs
 //
 // This function computes the convolution function gradient with respect to the bias, which is the sum of every element belonging to the same feature map across all of the images of the input tensor. Therefore, the number of elements produced is equal to the number of features maps of the input tensor.
 //
-//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha[0]*result + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - dyDesc: Input. Handle to the previously initialized input tensor descriptor. For more information, refer to [TensorDescriptor]
 //   - dy: Input. Data pointer to GPU memory associated with the tensor descriptor dyDesc
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha[0]*result + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - dbDesc: Input. Handle to the previously initialized output tensor descriptor
 //   - db: Output. Data pointer to GPU memory associated with the output tensor descriptor dbDesc
 //
@@ -411,7 +411,7 @@ func (h Handle) ConvolutionBackwardBias(alpha unsafe.Pointer, dyDesc TensorDescr
 // The table below shows the list of the supported 2D and 3D convolutions. The 2D convolutions are described first, followed by the 3D convolutions.
 // For brevity, the short-form versions followed by > are used in the table below:
 //
-//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha[0]*result + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - wDesc: Input. Handle to a previously initialized filter descriptor. For more information, refer to [FilterDescriptor]
 //   - w: Input. Data pointer to GPU memory associated with the filter descriptor wDesc
 //   - dyDesc: Input. Handle to the previously initialized input differential tensor descriptor. For more information, refer to [TensorDescriptor]
@@ -420,7 +420,7 @@ func (h Handle) ConvolutionBackwardBias(alpha unsafe.Pointer, dyDesc TensorDescr
 //   - algo: Input. Enumerant that specifies which backward data convolution algorithm should be used to compute the results. For more information, refer to [ConvolutionBwdDataAlgo]
 //   - workSpace: Input. Data pointer to GPU memory to a workspace needed to be able to execute the specified algorithm. If no workspace is needed for a particular algorithm, that pointer can be NIL
 //   - workSpaceSizeInBytes: Input. Specifies the size in bytes of the provided workSpace
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha[0]*result + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - dxDesc: Input. Handle to the previously initialized output tensor descriptor
 //   - dx: Input/Output. Data pointer to GPU memory associated with the output tensor descriptor dxDesc that carries the result
 //
@@ -456,7 +456,7 @@ func (h Handle) ConvolutionBackwardData(alpha unsafe.Pointer, wDesc FilterDescri
 // For the following terms, the short-form versions shown in parentheses are used in the table below, for brevity:
 // For brevity, the short-form versions followed by > are used in the table below:
 //
-//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha[0]*result + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - xDesc: Input. Handle to a previously initialized tensor descriptor. For more information, refer to [TensorDescriptor]
 //   - x: Input. Data pointer to GPU memory associated with the tensor descriptor xDesc
 //   - dyDesc: Input. Handle to the previously initialized input differential tensor descriptor
@@ -465,7 +465,7 @@ func (h Handle) ConvolutionBackwardData(alpha unsafe.Pointer, wDesc FilterDescri
 //   - algo: Input. Enumerant that specifies which convolution algorithm should be used to compute the results. For more information, refer to [ConvolutionBwdFilterAlgo]
 //   - workSpace: Input. Data pointer to GPU memory to a workspace needed to be able to execute the specified algorithm. If no workspace is needed for a particular algorithm, that pointer can be NIL
 //   - workSpaceSizeInBytes: Input. Specifies the size in bytes of the provided workSpace
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha[0]*result + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - dwDesc: Input. Handle to a previously initialized filter gradient descriptor. For more information, refer to [FilterDescriptor]
 //   - dw: Input/Output. Data pointer to GPU memory associated with the filter gradient descriptor dwDesc that carries the result
 //
@@ -550,7 +550,7 @@ func (h Handle) ConvolutionBiasActivationForward(alpha1 unsafe.Pointer, xDesc Te
 // For brevity, the short-form versions followed by > are used in the table below:
 // Tensors can be converted to and from [TensorNchwVectC] with [Handle.TransformTensor].
 //
-//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha[0]*result + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - xDesc: Input. Handle to a previously initialized tensor descriptor. For more information, refer to [TensorDescriptor]
 //   - x: Input. Data pointer to GPU memory associated with the tensor descriptor xDesc
 //   - wDesc: Input. Handle to a previously initialized filter descriptor. For more information, refer to [FilterDescriptor]
@@ -559,7 +559,7 @@ func (h Handle) ConvolutionBiasActivationForward(alpha1 unsafe.Pointer, xDesc Te
 //   - algo: Input. Enumerant that specifies which convolution algorithm should be used to compute the results. For more information, refer to [ConvolutionFwdAlgo]
 //   - workSpace: Input. Data pointer to GPU memory to a workspace needed to be able to execute the specified algorithm. If no workspace is needed for a particular algorithm, that pointer can be NIL
 //   - workSpaceSizeInBytes: Input. Specifies the size in bytes of the provided workSpace
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha[0]*result + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - yDesc: Input. Handle to a previously initialized tensor descriptor
 //   - y: Input/Output. Data pointer to GPU memory associated with the tensor descriptor yDesc that carries the result of the convolution
 //
@@ -595,14 +595,14 @@ func (h Handle) Destroy() error {
 //
 //   - normDesc: Input. Handle to a previously initialized LRN parameter descriptor (this descriptor is used for both LRN and DivisiveNormalization layers)
 //   - mode: Input. DivisiveNormalization layer mode of operation. Currently only [DivnormPrecomputedMeans] is implemented. Normalization is performed using the means input tensor that is expected to be precomputed by the user
-//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - xDesc: Input. Tensor descriptor and pointers in device memory for the layer’s x and means data. Note that the means tensor is expected to be precomputed by the user. It can also contain any valid values (not required to be actual means, and can be for instance a result of a convolution with a Gaussian kernel)
 //   - x: Input. Tensor descriptor and pointers in device memory for the layer’s x and means data. Note that the means tensor is expected to be precomputed by the user. It can also contain any valid values (not required to be actual means, and can be for instance a result of a convolution with a Gaussian kernel)
 //   - means: Input. Tensor descriptor and pointers in device memory for the layer’s x and means data. Note that the means tensor is expected to be precomputed by the user. It can also contain any valid values (not required to be actual means, and can be for instance a result of a convolution with a Gaussian kernel)
 //   - dy: Input. Tensor pointer in device memory for the layer’s dy cumulative loss differential data (error backpropagation)
 //   - temp: Workspace. Temporary tensors in device memory. These are used for computing intermediate values during the backward pass. These tensors do not have to be preserved from forward to backward pass. Both use xDesc as a descriptor
 //   - temp2: Workspace. Temporary tensors in device memory. These are used for computing intermediate values during the backward pass. These tensors do not have to be preserved from forward to backward pass. Both use xDesc as a descriptor
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - dx: Output. Tensor pointers (in device memory) for the layers resulting in cumulative gradients dx and dMeans ( dLoss/dx and dLoss/dMeans). Both share the same descriptor
 //   - dMeans: Output. Tensor pointers (in device memory) for the layers resulting in cumulative gradients dx and dMeans ( dLoss/dx and dLoss/dMeans). Both share the same descriptor
 //
@@ -623,13 +623,13 @@ func (h Handle) DivisiveNormalizationBackward(normDesc LRNDescriptor, mode DivNo
 // Supported tensor formats are NCHW for 4D and NCDHW for 5D with any non-overlapping non-negative strides. Only 4D and 5D tensors are supported.
 //
 //   - normDesc: Input. Handle to a previously initialized LRN parameter descriptor. This descriptor is used for both LRN and DivisiveNormalization layers
-//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - xDesc: Input. Tensor descriptor objects for the input and output tensors. Note that xDesc is shared between x, means, temp, and temp2 tensors
 //   - x: Input. Input tensor data pointer in device memory
 //   - means: Input. Input means tensor data pointer in device memory. Note that this tensor can be NULL (in that case its values are assumed to be zero during the computation). This tensor also doesn’t have to contain means, these can be any values, a frequently used variation is a result of convolution with a normalized positive kernel (such as Gaussian)
 //   - temp: Workspace. Temporary tensors in device memory. These are used for computing intermediate values during the forward pass. These tensors do not have to be preserved as inputs from forward to the backward pass. Both use xDesc as their descriptor
 //   - temp2: Workspace. Temporary tensors in device memory. These are used for computing intermediate values during the forward pass. These tensors do not have to be preserved as inputs from forward to the backward pass. Both use xDesc as their descriptor
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - yDesc: Input. Tensor descriptor objects for the input and output tensors. Note that xDesc is shared between x, means, temp, and temp2 tensors
 //   - y: Output. Pointer in device memory to a tensor for the result of the forward DivisiveNormalization computation
 //
@@ -1303,8 +1303,8 @@ func (h Handle) RNNTempSpaceSizes(rnnDesc RNNDescriptor, fwdMode ForwardMode, xD
 //   - weightSpaceSize: Input. Address of the weight space buffer. Starting from cuDNN version 9.1, this parameter can be NULL. This allows you to retrieve weight/bias offsets instead of the actual pointers within the buffer. For best performance, the recommended alignment of the weight space buffer should be 256 B or the same as returned by cudaMalloc()
 //   - weightSpace: Input. Pointer to the weight space buffer
 //   - linLayerID: Input. Weight matrix or bias vector linear ID index. If cellMode in rnnDesc was set to [RnnRelu] or [RnnTanh]: Value 0 references the weight matrix or bias vector used in conjunction with the input from the previous layer or input to the RNN model. Value 1 references the weight matrix or bias vector used in conjunction with the hidden state from the previous time step or the initial hidden state. If cellMode in rnnDesc was set to [Lstm]: Values 0, 1, 2, and 3 reference weight matrices or bias vectors used in conjunction with the input from the previous layer or input to the RNN model. Values 4, 5, 6, and 7 reference weight matrices or bias vectors used in conjunction with the hidden state from the previous time step or the initial hidden state. Value 8 corresponds to the projection matrix, if enabled (there is no bias in this operation). Values and their LSTM gates: If cellMode in rnnDesc was set to [Gru]: Values 0, 1, and 2 reference weight matrices or bias vectors used in conjunction with the input from the previous layer or input to the RNN model. Values 3, 4, and 5 reference weight matrices or bias vectors used in conjunction with the hidden state from the previous time step or the initial hidden state. Values and their GRU gates: For more information on modes and bias modes, refer to [RNNMode]
-//   - mDesc: Output. Handle to a previously created tensor descriptor. The shape of the corresponding weight matrix is returned in this descriptor in the following format: dimA [3] = {1, rows, cols}. The reported number of tensor dimensions is zero when the weight matrix does not exist. This situation occurs for input GEMM matrices of the first layer when [SkipInput] is selected or for the LSTM projection matrix when the feature is disabled
-//   - bDesc: Output. Handle to a previously created tensor descriptor. The shape of the corresponding bias vector is returned in this descriptor in the following format: dimA [3] = {1, rows, 1}. The reported number of tensor dimensions is zero when the bias vector does not exist
+//   - mDesc: Output. Handle to a previously created tensor descriptor. The shape of the corresponding weight matrix is returned in this descriptor in the following format: dimA[3] = {1, rows, cols}. The reported number of tensor dimensions is zero when the weight matrix does not exist. This situation occurs for input GEMM matrices of the first layer when [SkipInput] is selected or for the LSTM projection matrix when the feature is disabled
+//   - bDesc: Output. Handle to a previously created tensor descriptor. The shape of the corresponding bias vector is returned in this descriptor in the following format: dimA[3] = {1, rows, 1}. The reported number of tensor dimensions is zero when the bias vector does not exist
 //
 // A nil error means the query was completed successfully.
 //
@@ -1403,15 +1403,15 @@ func (h Handle) Im2Col(xDesc TensorDescriptor, x driver.DevicePtr, wDesc FilterD
 // Supported formats are: positive-strided, NCHW and NHWC for 4D x and y, and only NCDHW DHW-packed for 5D (for both x and y). Only non-overlapping 4D and 5D tensors are supported. NCHW layout is preferred for performance.
 //
 //   - normDesc: Input. Handle to a previously initialized LRN parameter descriptor
-//   - lrnMode: Input. LRN layer mode of operation. Currently only [LrnCrossChannelDIM1] is implemented. Normalization is performed along the tensor’s dimA [1]
-//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - lrnMode: Input. LRN layer mode of operation. Currently only [LrnCrossChannelDIM1] is implemented. Normalization is performed along the tensor’s dimA[1]
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - yDesc: Input. Tensor descriptor and pointer in device memory for the layer’s y data
 //   - y: Input. Tensor descriptor and pointer in device memory for the layer’s y data
 //   - dyDesc: Input. Tensor descriptor and pointer in device memory for the layer’s input cumulative loss differential data dy (including error backpropagation)
 //   - dy: Input. Tensor descriptor and pointer in device memory for the layer’s input cumulative loss differential data dy (including error backpropagation)
 //   - xDesc: Input. Tensor descriptor and pointer in device memory for the layer’s x data. Note that these values are not modified during backpropagation
 //   - x: Input. Tensor descriptor and pointer in device memory for the layer’s x data. Note that these values are not modified during backpropagation
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - dxDesc: Output. Tensor descriptor and pointer in device memory for the layer’s resulting cumulative loss differential data dx (including error backpropagation)
 //   - dx: Output. Tensor descriptor and pointer in device memory for the layer’s resulting cumulative loss differential data dx (including error backpropagation)
 //
@@ -1429,11 +1429,11 @@ func (h Handle) LRNCrossChannelBackward(normDesc LRNDescriptor, lrnMode LRNMode,
 // Supported formats are: positive-strided, NCHW and NHWC for 4D x and y, and only NCDHW DHW-packed for 5D (for both x and y). Only non-overlapping 4D and 5D tensors are supported. NCHW layout is preferred for performance.
 //
 //   - normDesc: Input. Handle to a previously initialized LRN parameter descriptor
-//   - lrnMode: Input. LRN layer mode of operation. Currently only [LrnCrossChannelDIM1] is implemented. Normalization is performed along the tensor’s dimA [1]
-//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - lrnMode: Input. LRN layer mode of operation. Currently only [LrnCrossChannelDIM1] is implemented. Normalization is performed along the tensor’s dimA[1]
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - xDesc: Input. Tensor descriptor objects for the input and output tensors
 //   - x: Input. Input tensor data pointer in device memory
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - yDesc: Input. Tensor descriptor objects for the input and output tensors
 //   - y: Output. Output tensor data pointer in device memory
 //
@@ -1556,7 +1556,7 @@ func (h Handle) MultiHeadAttnBackwardWeights(attnDesc AttnDescriptor, addGrad Wg
 // The loWinIdx[] and hiWinIdx[] host arrays specify the attention window size for each Q time-step. In a typical self-attention case, the user must include all previously visited embedding vectors but not the current or future vectors. In this situation, the user should set:
 // When currIdx is negative in [Handle.MultiHeadAttnForward], the loWinIdx[] and hiWinIdx[] arrays must be fully initialized for all time-steps. When [Handle.MultiHeadAttnForward] is invoked with currIdx=0, currIdx=1, currIdx=2, and so on, then the user can update loWinIdxcurrIdx and hiWinIdxcurrIdx elements only before invoking the forward response function. All other elements in the loWinIdx[] and hiWinIdx[] arrays will not be accessed. Any adaptive attention window scheme can be implemented that way.
 // Use the following settings when the attention window should be the maximum size, for example, in cross-attention:
-// The maxSeqLenK value above should be equal to or larger than dimA [SeqdataTimeDim] in the kDesc descriptor. A good choice is to use maxSeqLenK=INT_MAX from limits.h.
+// The maxSeqLenK value above should be equal to or larger than dimA[SeqdataTimeDim] in the kDesc descriptor. A good choice is to use maxSeqLenK=INT_MAX from limits.h.
 // devSeqLengthsQO[] and devSeqLengthsKV[] are pointers to device (not host) arrays with Q, O, and K, V sequence lengths. Note that the same information is also passed in the corresponding descriptors of type [SeqDataDescriptor] on the host side. The need for extra device arrays comes from the asynchronous nature of cuDNN calls and limited size of the constant memory dedicated to GPU kernel arguments. When the [Handle.MultiHeadAttnForward] API returns, the sequence length arrays stored in the descriptors can be immediately modified for the next iteration. However, the GPU kernels launched by the forward call may not have started at this point. For this reason, copies of sequence arrays are needed on the device side to be accessed directly by GPU kernels. Those copies cannot be created inside the [Handle.MultiHeadAttnForward] function for very large K, V inputs without the device memory allocation and CUDA stream synchronization.
 // To reduce the [Handle.MultiHeadAttnForward] API overhead, devSeqLengthsQO[] and devSeqLengthsKV[] device arrays are not validated to contain the same settings as seqLengthArray[] in the sequence data descriptors.
 // Sequence lengths in the kDesc and vDesc descriptors should be the same. Similarly, sequence lengths in the qDesc and oDesc descriptors should match. The user can define six different data layouts in the qDesc, kDesc, vDesc, and oDesc descriptors. Refer to the [SeqDataDescriptor.Set] function for the discussion of those layouts. All multihead attention API calls require that the same layout is used in all sequence data descriptors.
@@ -1616,10 +1616,10 @@ func (h Handle) MultiHeadAttnForward(attnDesc AttnDescriptor, currIdx int32, loW
 //   - mode: Input. Mode of operation (per-channel or per-activation). For more information, refer to [NormMode]
 //   - normOps: Input. Mode of post-operative. Currently [NormOpsNormActivation] and [NormOpsNormAddActivation] are only supported in the NHWC layout. For more information, refer to [NormOps]. This input can be used to set this function to perform either only the normalization, or normalization followed by activation, or normalization followed by element-wise addition and then activation
 //   - algo: Input. Algorithm to be performed. For more information, refer to [NormAlgo]
-//   - alphaDataDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient output dx with a prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
-//   - betaDataDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient output dx with a prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
-//   - alphaParamDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient outputs dNormScaleData and dNormBiasData with prior values in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
-//   - betaParamDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient outputs dNormScaleData and dNormBiasData with prior values in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alphaDataDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient output dx with a prior value in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - betaDataDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient output dx with a prior value in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alphaParamDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient outputs dNormScaleData and dNormBiasData with prior values in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - betaParamDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient outputs dNormScaleData and dNormBiasData with prior values in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - xDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, backpropagated gradient input dy, the original forward output y data. yDesc and yData are not needed if normOps is set to [NormOpsNorm], users may pass NULL. For more information, refer to [TensorDescriptor]
 //   - xData: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, backpropagated gradient input dy, the original forward output y data. yDesc and yData are not needed if normOps is set to [NormOpsNorm], users may pass NULL. For more information, refer to [TensorDescriptor]
 //   - yDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, backpropagated gradient input dy, the original forward output y data. yDesc and yData are not needed if normOps is set to [NormOpsNorm], users may pass NULL. For more information, refer to [TensorDescriptor]
@@ -1668,8 +1668,8 @@ func (h Handle) NormalizationBackward(mode NormMode, normOps NormOps, algo NormA
 //   - mode: Input. Mode of operation (per-channel or per-activation). For more information, refer to [NormMode]
 //   - normOps: Input. Mode of post-operative. Currently [NormOpsNormActivation] and [NormOpsNormAddActivation] are only supported in the NHWC layout. For more information, refer to [NormOps]. This input can be used to set this function to perform either only the normalization, or normalization followed by activation, or normalization followed by element-wise addition and then activation
 //   - algo: Input. Algorithm to be performed. For more information, refer to [NormAlgo]
-//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - xDesc: Input. Handles to the previously initialized tensor descriptors
 //   - x: Input. Data pointer to GPU memory associated with the tensor descriptor xDesc, for the layer’s x input data
 //   - normScaleBiasDesc: Input. Tensor descriptors and pointers in device memory for the normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma)
@@ -1712,14 +1712,14 @@ func (h Handle) NormalizationForwardInference(mode NormMode, normOps NormOps, al
 //   - mode: Input. Mode of operation (per-channel or per-activation). For more information, refer to [NormMode]
 //   - normOps: Input. Mode of post-operative. Currently [NormOpsNormActivation] and [NormOpsNormAddActivation] are only supported in the NHWC layout. For more information, refer to [NormOps]. This input can be used to set this function to perform either only the normalization, or normalization followed by activation, or normalization followed by element-wise addition and then activation
 //   - algo: Input. Algorithm to be performed. For more information, refer to [NormAlgo]
-//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - xDesc: Input. Handles to the previously initialized tensor descriptors
 //   - xData: Input. Data pointer to GPU memory associated with the tensor descriptor xDesc, for the layer’s x input data
 //   - normScaleBiasDesc: Input. Tensor descriptors and pointers in device memory for the normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma). The dimensions for the tensor descriptor are dependent on the normalization mode
 //   - normScale: Input. Tensor descriptors and pointers in device memory for the normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma). The dimensions for the tensor descriptor are dependent on the normalization mode
 //   - normBias: Input. Tensor descriptors and pointers in device memory for the normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma). The dimensions for the tensor descriptor are dependent on the normalization mode
-//   - exponentialAverageFactor: Input. Factor used in the moving average computation as follows: runningMean = runningMean*(1-factor) + newMean*factor. Use a factor=1/(1+n) at N-th call to the function to get Cumulative Moving Average (CMA) behavior such that: CMAn = (x [1]+...+xn)/n. This is proved below:
+//   - exponentialAverageFactor: Input. Factor used in the moving average computation as follows: runningMean = runningMean*(1-factor) + newMean*factor. Use a factor=1/(1+n) at N-th call to the function to get Cumulative Moving Average (CMA) behavior such that: CMAn = (x[1]+...+xn)/n. This is proved below:
 //   - normMeanVarDesc: Input. Tensor descriptor used for following tensors: resultRunningMean, resultRunningVariance, resultSaveMean, resultSaveInvVariance
 //   - resultRunningMean: Input/Output. Pointers to the running mean and running variance data. Both these pointers can be NULL but only at the same time. The value stored in resultRunningVariance (or passed as an input in inference mode) is the sample variance and is the moving average of variancex where the variance is computed either over batch or spatial+batch dimensions depending on the mode. If these pointers are not NULL, the tensors should be initialized to some reasonable values or to 0
 //   - resultRunningVariance: Input/Output. Pointers to the running mean and running variance data. Both these pointers can be NULL but only at the same time. The value stored in resultRunningVariance (or passed as an input in inference mode) is the sample variance and is the moving average of variancex where the variance is computed either over batch or spatial+batch dimensions depending on the mode. If these pointers are not NULL, the tensors should be initialized to some reasonable values or to 0
@@ -1747,9 +1747,9 @@ func (h Handle) NormalizationForwardTraining(mode NormMode, normOps NormOps, alg
 	return normalizationForwardTraining(h, mode, normOps, algo, alpha, beta, xDesc, xData, normScaleBiasDesc, normScale, normBias, exponentialAverageFactor, normMeanVarDesc, resultRunningMean, resultRunningVariance, epsilon, resultSaveMean, resultSaveInvVariance, activationDesc, zDesc, zData, yDesc, yData, workspace, workSpaceSizeInBytes, reserveSpace, reserveSpaceSizeInBytes, groupCnt)
 }
 
-// OpTensor implements the equation C = op(alpha1 [0] * A, alpha2 [0] * B) + beta [0] * C, given the tensors A, B, and C and the scaling factors alpha1, alpha2, and beta.
+// OpTensor implements the equation C = op(alpha1[0] * A, alpha2[0] * B) + beta[0] * C, given the tensors A, B, and C and the scaling factors alpha1, alpha2, and beta.
 //
-// This function implements the equation C = op(alpha1 [0] * A, alpha2 [0] * B) + beta [0] * C, given the tensors A, B, and C and the scaling factors alpha1, alpha2, and beta. The op to use is indicated by the descriptor [OpTensorDescriptor], meaning, the type of opTensorDesc. Currently-supported ops are listed by the [OpTensorOp] enum.
+// This function implements the equation C = op(alpha1[0] * A, alpha2[0] * B) + beta[0] * C, given the tensors A, B, and C and the scaling factors alpha1, alpha2, and beta. The op to use is indicated by the descriptor [OpTensorDescriptor], meaning, the type of opTensorDesc. Currently-supported ops are listed by the [OpTensorOp] enum.
 // The following restrictions on the input and destination tensors apply:
 //   - opTensorCompType in opTensorDesc: FLOAT; Tensor A: FLOAT; Tensor B: FLOAT; Destination Tensor C: FLOAT
 //   - opTensorCompType in opTensorDesc: FLOAT; Tensor A: INT8; Tensor B: INT8; Destination Tensor C: FLOAT
@@ -1766,13 +1766,13 @@ func (h Handle) NormalizationForwardTraining(mode NormMode, normOps NormOps, alg
 // [TensorNchwVectC] is not supported as input tensor format. All tensors up to dimension five (5) are supported. This routine does not support tensor formats beyond these dimensions.
 //
 //   - opTensorDesc: Input. Handle to a previously initialized op tensor descriptor
-//   - alpha1: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alpha1: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - aDesc: Input. Handle to a previously initialized tensor descriptor
 //   - a: Input. Pointer to data of the tensors described by the aDesc and bDesc descriptors, respectively
-//   - alpha2: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alpha2: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - bDesc: Input. Handle to a previously initialized tensor descriptor
 //   - b: Input. Pointer to data of the tensors described by the aDesc and bDesc descriptors, respectively
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - cDesc: Input. Handle to a previously initialized tensor descriptor
 //   - c: Input/Output. Pointer to data of the tensor described by the cDesc descriptor
 //
@@ -1795,14 +1795,14 @@ func (h Handle) OpTensor(opTensorDesc OpTensorDescriptor, alpha1 unsafe.Pointer,
 // Tensor vectorization is not supported for any tensor descriptor arguments in this function. Best performance is expected when using HW-packed tensors. Only 2 and 3 spatial dimensions are supported.
 //
 //   - poolingDesc: Input. Handle to the previously initialized pooling descriptor
-//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha[0]*result + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - yDesc: Input. Handle to the previously initialized input tensor descriptor. Can be NULL for avg pooling
 //   - y: Input. Data pointer to GPU memory associated with the tensor descriptor yDesc. Can be NULL for avg pooling
 //   - dyDesc: Input. Handle to the previously initialized input differential tensor descriptor. Must be of type FLOAT, DOUBLE, HALF, or BFLOAT16. For more information, refer to [DataType]
 //   - dy: Input. Data pointer to GPU memory associated with the tensor descriptor dyData
 //   - xDesc: Input. Handle to the previously initialized output tensor descriptor. Can be NULL for avg pooling
 //   - x: Input. Data pointer to GPU memory associated with the output tensor descriptor xDesc. Can be NULL for avg pooling
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha[0]*result + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - dxDesc: Input. Handle to the previously initialized output differential tensor descriptor. Must be of type FLOAT, DOUBLE, HALF, or BFLOAT16. For more information, refer to [DataType]
 //   - dx: Output. Data pointer to GPU memory associated with the output tensor descriptor dxDesc
 //
@@ -1828,10 +1828,10 @@ func (h Handle) PoolingBackward(poolingDesc PoolingDescriptor, alpha unsafe.Poin
 // For average pooling, the compute type is float even for integer input and output data type. Output round is nearest-even and clamp to the most negative or most positive value of type if out of range.
 //
 //   - poolingDesc: Input. Handle to a previously initialized pooling descriptor
-//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha[0]*result + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - xDesc: Input. Handle to the previously initialized input tensor descriptor. Must be of type FLOAT, DOUBLE, HALF, INT8, INT8x4, INT8x32, or BFLOAT16. For more information, refer to [DataType]
 //   - x: Input. Data pointer to GPU memory associated with the tensor descriptor xDesc
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha[0]*result + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - yDesc: Input. Handle to the previously initialized output tensor descriptor. Must be of type FLOAT, DOUBLE, HALF, INT8, INT8x4, INT8x32, or BFLOAT16. For more information, refer to [DataType]
 //   - y: Output. Data pointer to GPU memory associated with the output tensor descriptor yDesc
 //
@@ -2024,10 +2024,10 @@ func (h Handle) RNNForward(rnnDesc RNNDescriptor, fwdMode ForwardMode, devSeqLen
 //   - indicesSizeInBytes: Input. Size of the above previously allocated space
 //   - workspace: Input. Handle to a previously allocated space for the reduction implementation
 //   - workspaceSizeInBytes: Input. Size of the above previously allocated space
-//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - aDesc: Input. Handle to a previously initialized tensor descriptor
 //   - a: Input. Pointer to data of the tensor described by the aDesc descriptor
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha[0]*resultValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - cDesc: Input. Handle to a previously initialized tensor descriptor
 //   - c: Input/Output. Pointer to data of the tensor described by the cDesc descriptor
 //
@@ -2118,7 +2118,7 @@ func (h Handle) SetStream(streamId driver.Stream) error {
 //
 //   - yDesc: Input. Handle to a previously initialized tensor descriptor
 //   - y: Input/Output. Pointer to data of the tensor described by the yDesc descriptor
-//   - valuePtr: Input. Pointer in host memory to a single value. All elements of the y tensor will be set to value [0]. The data type of the element in value [0] has to match the data type of tensor y
+//   - valuePtr: Input. Pointer in host memory to a single value. All elements of the y tensor will be set to value[0]. The data type of the element in value[0] has to match the data type of tensor y
 //
 // A nil error means the function launched successfully.
 //
@@ -2138,12 +2138,12 @@ func (h Handle) SetTensor(yDesc TensorDescriptor, y driver.DevicePtr, valuePtr u
 // All tensor formats are supported for all modes and algorithms with 4 and 5D tensors. Performance is expected to be highest with NCHW fully-packed tensors. For more than 5 dimensions tensors must be packed in their spatial dimensions.
 //
 //   - mode: Input. Enumerant to specify the softmax mode
-//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha[0]*result + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - yDesc: Input. Handle to the previously initialized input tensor descriptor
 //   - y: Input. Data pointer to GPU memory associated with the tensor descriptor yDesc
 //   - dyDesc: Input. Handle to the previously initialized input differential tensor descriptor
 //   - dy: Input. Data pointer to GPU memory associated with the tensor descriptor dyData
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha[0]*result + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - dxDesc: Input. Handle to the previously initialized output differential tensor descriptor
 //   - dx: Output. Data pointer to GPU memory associated with the output tensor descriptor dxDesc
 //
@@ -2165,10 +2165,10 @@ func (h Handle) SoftmaxBackward(algo SoftmaxAlgorithm, mode SoftmaxMode, alpha u
 // All tensor formats are supported for all modes and algorithms with 4 and 5D tensors. Performance is expected to be highest with NCHW fully-packed tensors. For more than 5 dimensions tensors must be packed in their spatial dimensions.
 //
 //   - mode: Input. Enumerant to specify the softmax mode
-//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha[0]*result + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - xDesc: Input. Handle to the previously initialized input tensor descriptor
 //   - x: Input. Data pointer to GPU memory associated with the tensor descriptor xDesc
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha[0]*result + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - yDesc: Input. Handle to the previously initialized output tensor descriptor
 //   - y: Output. Data pointer to GPU memory associated with the output tensor descriptor yDesc
 //
@@ -2225,17 +2225,17 @@ func (h Handle) SpatialTfGridGeneratorForward(stDesc SpatialTransformerDescripto
 // Only 2D transformation is supported.
 //
 //   - stDesc: Input. Previously created spatial transformer descriptor object
-//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha [0]*srcValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha[0]*srcValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - xDesc: Input. Handle to the previously initialized input tensor descriptor
 //   - x: Input. Data pointer to GPU memory associated with the tensor descriptor xDesc
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha [0]*srcValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha[0]*srcValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - dxDesc: Input. Handle to the previously initialized output differential tensor descriptor
 //   - dx: Output. Data pointer to GPU memory associated with the output tensor descriptor dxDesc
-//   - alphaDgrid: Input. Pointers to scaling factors (in host memory) used to blend the gradient outputs dgrid with prior value in the destination pointer as follows: dstValue = alpha [0]*srcValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alphaDgrid: Input. Pointers to scaling factors (in host memory) used to blend the gradient outputs dgrid with prior value in the destination pointer as follows: dstValue = alpha[0]*srcValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - dyDesc: Input. Handle to the previously initialized input differential tensor descriptor
 //   - dy: Input. Data pointer to GPU memory associated with the tensor descriptor dyDesc
 //   - grid: Input. A grid of coordinates generated by [Handle.SpatialTfGridGeneratorForward]
-//   - betaDgrid: Input. Pointers to scaling factors (in host memory) used to blend the gradient outputs dgrid with prior value in the destination pointer as follows: dstValue = alpha [0]*srcValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - betaDgrid: Input. Pointers to scaling factors (in host memory) used to blend the gradient outputs dgrid with prior value in the destination pointer as follows: dstValue = alpha[0]*srcValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - dgrid: Output. Data pointer to GPU memory contains the output differential data
 //
 // Errors:
@@ -2253,11 +2253,11 @@ func (h Handle) SpatialTfSamplerBackward(stDesc SpatialTransformerDescriptor, al
 // Only 2D transformation is supported.
 //
 //   - stDesc: Input. Previously created spatial transformer descriptor object
-//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha [0]*srcValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha[0]*srcValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - xDesc: Input. Handle to the previously initialized input tensor descriptor
 //   - x: Input. Data pointer to GPU memory associated with the tensor descriptor xDesc
 //   - grid: Input. A grid of coordinates generated by [Handle.SpatialTfGridGeneratorForward]
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha [0]*srcValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha[0]*srcValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - yDesc: Input. Handle to the previously initialized output tensor descriptor
 //   - y: Output. Data pointer to GPU memory associated with the output tensor descriptor yDesc
 //
@@ -2304,10 +2304,10 @@ func (h Handle) TransformFilter(transDesc TensorTransformDescriptor, alpha unsaf
 //
 // This function copies the scaled data from one tensor to another tensor with a different layout. Those descriptors need to have the same dimensions but not necessarily the same strides. The input and output tensors must not overlap in any way (meaning, tensors cannot be transformed in place). This function can be used to convert a tensor with an unsupported format to a supported one.
 //
-//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha [0]*srcValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha[0]*srcValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - xDesc: Input. Handle to a previously initialized tensor descriptor. For more information, refer to [TensorDescriptor]
 //   - x: Input. Pointer to data of the tensor described by the xDesc descriptor
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha [0]*srcValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha[0]*srcValue + beta[0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - yDesc: Input. Handle to a previously initialized tensor descriptor. For more information, refer to [TensorDescriptor]
 //   - y: Output. Pointer to data of the tensor described by the yDesc descriptor
 //

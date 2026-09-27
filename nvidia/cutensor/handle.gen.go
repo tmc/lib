@@ -100,16 +100,16 @@ func (h Handle) ContractTrinary(plan Plan, alpha Scalar, a driver.DevicePtr, b d
 //
 //   - desc: This opaque struct gets allocated and filled with the information that encodes the tensor contraction operation
 //   - descA: The descriptor that holds the information about the data type, modes and strides of A
-//   - modeA: Array with ‘nmodeA’ entries that represent the modes of A. The modeA [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
+//   - modeA: Array with ‘nmodeA’ entries that represent the modes of A. The modeA[i] corresponds to extent[i] and stride[i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
 //   - opA: Unary operator that will be applied to each element of A before it is further processed. The original data of this tensor remains unchanged
 //   - descB: The descriptor that holds information about the data type, modes, and strides of B
-//   - modeB: Array with ‘nmodeB’ entries that represent the modes of B. The modeB [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
+//   - modeB: Array with ‘nmodeB’ entries that represent the modes of B. The modeB[i] corresponds to extent[i] and stride[i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
 //   - opB: Unary operator that will be applied to each element of B before it is further processed. The original data of this tensor remains unchanged
 //   - descC: The descriptor that holds information about the data type, modes, and strides of C
-//   - modeC: Array with ‘nmodeC’ entries that represent the modes of C. The modeC [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
+//   - modeC: Array with ‘nmodeC’ entries that represent the modes of C. The modeC[i] corresponds to extent[i] and stride[i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
 //   - opC: Unary operator applied to each element of C before it is further processed. Currently only [OpIdentity] is supported. The original data of this tensor remains unchanged
 //   - descD: The descriptor that holds information about the data type, modes, and strides of D (must be identical to descC for now)
-//   - modeD: Array with ‘nmodeD’ entries that represent the modes of D (must be identical to modeC for now). The modeD [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
+//   - modeD: Array with ‘nmodeD’ entries that represent the modes of D (must be identical to modeC for now). The modeD[i] corresponds to extent[i] and stride[i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
 //   - descCompute: Determines the precision in which this operations is performed
 //
 // Errors:
@@ -138,19 +138,19 @@ func (h Handle) CreateContraction(descA TensorDescriptor, modeA []int32, opA Ope
 //
 //   - desc: This opaque struct gets allocated and filled with the information that encodes the tensor contraction operation
 //   - descA: The descriptor that holds the information about the data type, modes and strides of A
-//   - modeA: Array with ‘nmodeA’ entries that represent the modes of A. The modeA [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
+//   - modeA: Array with ‘nmodeA’ entries that represent the modes of A. The modeA[i] corresponds to extent[i] and stride[i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
 //   - opA: Unary operator that will be applied to each element of A before it is further processed. The original data of this tensor remains unchanged
 //   - descB: The descriptor that holds information about the data type, modes, and strides of B
-//   - modeB: Array with ‘nmodeB’ entries that represent the modes of B. The modeB [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
+//   - modeB: Array with ‘nmodeB’ entries that represent the modes of B. The modeB[i] corresponds to extent[i] and stride[i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
 //   - opB: Unary operator that will be applied to each element of B before it is further processed. The original data of this tensor remains unchanged
 //   - descC: The escriptor that holds information about the data type, modes, and strides of C
-//   - modeC: Array with ‘nmodeC’ entries that represent the modes of C. The modeC [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
+//   - modeC: Array with ‘nmodeC’ entries that represent the modes of C. The modeC[i] corresponds to extent[i] and stride[i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
 //   - opC: Unary operator that will be applied to each element of C before it is further processed. The original data of this tensor remains unchanged
 //   - descD: The escriptor that holds information about the data type, modes, and strides of D
-//   - modeD: Array with ‘nmodeD’ entries that represent the modes of D. The modeD [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
+//   - modeD: Array with ‘nmodeD’ entries that represent the modes of D. The modeD[i] corresponds to extent[i] and stride[i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
 //   - opD: Unary operator that will be applied to each element of D before it is further processed. The original data of this tensor remains unchanged
 //   - descE: The descriptor that holds information about the data type, modes, and strides of E (must be identical to descD for now)
-//   - modeE: Array with ‘nmodeE’ entries that represent the modes of E (must be identical to modeD for now). The modeE [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
+//   - modeE: Array with ‘nmodeE’ entries that represent the modes of E (must be identical to modeD for now). The modeE[i] corresponds to extent[i] and stride[i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
 //   - descCompute: Determines the precision in which this operations is performed
 //
 // Errors:
@@ -192,13 +192,13 @@ func (h Handle) CreateContractionTrinary(descA TensorDescriptor, modeA []int32, 
 //
 //   - desc: This opaque struct gets allocated and filled with the information that encodes the requested elementwise operation
 //   - descA: The descriptor that holds the information about the data type, modes, and strides of A
-//   - modeA: Array (in host memory) of size descA->numModes that holds the names of the modes of A (e.g., if A_{a,b,c} => modeA = {‘a’,’b’,’c’}). The modeA [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to [Handle.CreateTensorDescriptor]
+//   - modeA: Array (in host memory) of size descA->numModes that holds the names of the modes of A (e.g., if A_{a,b,c} => modeA = {‘a’,’b’,’c’}). The modeA[i] corresponds to extent[i] and stride[i] w.r.t. the arguments provided to [Handle.CreateTensorDescriptor]
 //   - opA: Unary operator that will be applied to each element of A before it is further processed. The original data of this tensor remains unchanged
 //   - descC: The descriptor that holds information about the data type, modes, and strides of C
-//   - modeC: Array (in host memory) of size descC->numModes that holds the names of the modes of C. The modeC [i] corresponds to extent [i] and stride [i] of the [Handle.CreateTensorDescriptor]
+//   - modeC: Array (in host memory) of size descC->numModes that holds the names of the modes of C. The modeC[i] corresponds to extent[i] and stride[i] of the [Handle.CreateTensorDescriptor]
 //   - opC: Unary operator that will be applied to each element of C before it is further processed. The original data of this tensor remains unchanged
 //   - descD: The descriptor that holds information about the data type, modes, and strides of D. Notice that we currently request descD and descC to be identical
-//   - modeD: Array (in host memory) of size descD->numModes that holds the names of the modes of D. The modeD [i] corresponds to extent [i] and stride [i] of the [Handle.CreateTensorDescriptor]
+//   - modeD: Array (in host memory) of size descD->numModes that holds the names of the modes of D. The modeD[i] corresponds to extent[i] and stride[i] of the [Handle.CreateTensorDescriptor]
 //   - opAC: Element-wise binary operator (corresponding to Φ_(AC) above)
 //   - descCompute: Determines the precision in which this operations is performed
 //
@@ -258,16 +258,16 @@ func (h Handle) CreateElementwiseBinary(descA TensorDescriptor, modeA []int32, o
 //
 //   - desc: This opaque struct gets allocated and filled with the information that encodes the requested elementwise operation
 //   - descA: A descriptor that holds the information about the data type, modes, and strides of A
-//   - modeA: Array (in host memory) of size descA->numModes that holds the names of the modes of A (e.g., if A_(a,b,c) then modeA = {‘a’,’b’,’c’}). The modeA [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to [Handle.CreateTensorDescriptor]
+//   - modeA: Array (in host memory) of size descA->numModes that holds the names of the modes of A (e.g., if A_(a,b,c) then modeA = {‘a’,’b’,’c’}). The modeA[i] corresponds to extent[i] and stride[i] w.r.t. the arguments provided to [Handle.CreateTensorDescriptor]
 //   - opA: Unary operator that will be applied to each element of A before it is further processed. The original data of this tensor remains unchanged
 //   - descB: A descriptor that holds information about the data type, modes, and strides of B
-//   - modeB: Array (in host memory) of size descB->numModes that holds the names of the modes of B. modeB [i] corresponds to extent [i] and stride [i] of the [Handle.CreateTensorDescriptor]
+//   - modeB: Array (in host memory) of size descB->numModes that holds the names of the modes of B. modeB[i] corresponds to extent[i] and stride[i] of the [Handle.CreateTensorDescriptor]
 //   - opB: Unary operator that will be applied to each element of B before it is further processed. The original data of this tensor remains unchanged
 //   - descC: A descriptor that holds information about the data type, modes, and strides of C
-//   - modeC: Array (in host memory) of size descC->numModes that holds the names of the modes of C. The modeC [i] corresponds to extent [i] and stride [i] of the [Handle.CreateTensorDescriptor]
+//   - modeC: Array (in host memory) of size descC->numModes that holds the names of the modes of C. The modeC[i] corresponds to extent[i] and stride[i] of the [Handle.CreateTensorDescriptor]
 //   - opC: Unary operator that will be applied to each element of C before it is further processed. The original data of this tensor remains unchanged
 //   - descD: A descriptor that holds information about the data type, modes, and strides of D. Notice that we currently request descD and descC to be identical
-//   - modeD: Array (in host memory) of size descD->numModes that holds the names of the modes of D. The modeD [i] corresponds to extent [i] and stride [i] of the [Handle.CreateTensorDescriptor]
+//   - modeD: Array (in host memory) of size descD->numModes that holds the names of the modes of D. The modeD[i] corresponds to extent[i] and stride[i] of the [Handle.CreateTensorDescriptor]
 //   - opAB: Element-wise binary operator (see Φ_(AB) above)
 //   - opABC: Element-wise binary operator (see Φ_(ABC) above)
 //   - descCompute: Determines the precision in which this operations is performed
@@ -380,8 +380,8 @@ func (h Handle) CreatePlanPreference(algo AlgoT, jitMode JitmodeT) (PlanPreferen
 
 // CreateReduction creates a cutensorOperatorDescriptor_t object that encodes a tensor reduction of the form D=alpha*opReduce(opA(A))+beta*opC(C).
 //
-// For example this function enables users to reduce an entire tensor to a scalar: C[] = alpha * A [i,j,k];
-// This function is also able to perform partial reductions; for instance: C [i,j] = alpha * A [k,j,i]; in this case only elements along the k-mode are contracted.
+// For example this function enables users to reduce an entire tensor to a scalar: C[] = alpha * A[i,j,k];
+// This function is also able to perform partial reductions; for instance: C[i,j] = alpha * A[k,j,i]; in this case only elements along the k-mode are contracted.
 // The binary opReduce operator provides extra control over what kind of a reduction ought to be performed. For instance, setting opReduce to [OpAdd] reduces element of A via a summation while [OpMax] would find the largest element in A.
 // Supported data-type combinations are:
 //   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; typeC: CUDA_R_16F; typeCompute: CUTENSOR_COMPUTE_DESC_16F
@@ -396,10 +396,10 @@ func (h Handle) CreatePlanPreference(algo AlgoT, jitMode JitmodeT) (PlanPreferen
 // Parameters:
 //   - desc: This opaque struct gets allocated and filled with the information that encodes the requested tensor reduction operation
 //   - descA: The descriptor that holds the information about the data type, modes and strides of A
-//   - modeA: Array with ‘nmodeA’ entries that represent the modes of A. modeA [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to [Handle.CreateTensorDescriptor]. Modes that only appear in modeA but not in modeC are reduced (contracted)
+//   - modeA: Array with ‘nmodeA’ entries that represent the modes of A. modeA[i] corresponds to extent[i] and stride[i] w.r.t. the arguments provided to [Handle.CreateTensorDescriptor]. Modes that only appear in modeA but not in modeC are reduced (contracted)
 //   - opA: Unary operator that will be applied to each element of A before it is further processed. The original data of this tensor remains unchanged
 //   - descC: The descriptor that holds the information about the data type, modes and strides of C
-//   - modeC: Array with ‘nmodeC’ entries that represent the modes of C. modeC [i] corresponds to extent [i] and stride [i] w.r.t. the arguments provided to [Handle.CreateTensorDescriptor]
+//   - modeC: Array with ‘nmodeC’ entries that represent the modes of C. modeC[i] corresponds to extent[i] and stride[i] w.r.t. the arguments provided to [Handle.CreateTensorDescriptor]
 //   - opC: Unary operator that will be applied to each element of C before it is further processed. The original data of this tensor remains unchanged
 //   - descD: Must be identical to descC for now
 //   - modeD: Must be identical to modeC for now
@@ -427,7 +427,7 @@ func (h Handle) CreateReduction(descA TensorDescriptor, modeA []int32, opA Opera
 //   - desc: Pointer to the address where the allocated tensor descriptor object will be stored
 //   - numModes: Number of modes
 //   - extent: Extent of each mode (must be larger than zero)
-//   - stride: stride [i] denotes the displacement (a.k.a. stride)—in elements of the base type—between two consecutive elements in the ith-mode. If stride is NULL, a packed generalized column-major memory layout is assumed (i.e., the strides increase monotonically from left to right). Each stride must be larger than zero; to be precise, a stride of zero can be achieved by omitting this mode entirely; for instance instead of writing C [a,b] = A [b,a] with strideA(a) = 0, you can write C [a,b] = A [b] directly; cuTENSOR will then automatically infer that the a-mode in A should be broadcasted
+//   - stride: stride[i] denotes the displacement (a.k.a. stride)—in elements of the base type—between two consecutive elements in the ith-mode. If stride is NULL, a packed generalized column-major memory layout is assumed (i.e., the strides increase monotonically from left to right). Each stride must be larger than zero; to be precise, a stride of zero can be achieved by omitting this mode entirely; for instance instead of writing C[a,b] = A[b,a] with strideA(a) = 0, you can write C[a,b] = A[b] directly; cuTENSOR will then automatically infer that the a-mode in A should be broadcasted
 //   - dataType: Data type of the stored entries
 //   - alignmentRequirement: Alignment (in bytes) to the base pointer that will be used in conjunction with this tensor descriptor (e.g., cudaMalloc has a default alignment of 256 bytes)
 //

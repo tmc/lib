@@ -367,6 +367,10 @@ func (f Function) MaxActiveClusters(config *LaunchConfig) (int32, error) {
 // If per-block dynamic shared memory allocation is not needed, the user should leave both blockSizeToDynamicSMemSize and dynamicSMemSize as 0.
 // If per-block dynamic shared memory allocation is needed, then if the dynamic shared memory size is constant regardless of block size, the size should be passed through dynamicSMemSize, and blockSizeToDynamicSMemSize should be NULL.
 // Otherwise, if the per-block dynamic shared memory size varies with different block sizes, the user needs to provide a unary function through blockSizeToDynamicSMemSize that computes the dynamic shared memory needed by func for any given block size. dynamicSMemSize is ignored. An example signature is:
+//
+//	// Take block size, returns dynamic shared memory needed
+//	size_t blockToSmem(int blockSize);
+//
 // Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context.
 //
 // See also: cudaOccupancyMaxPotentialBlockSize
@@ -473,7 +477,7 @@ func (f Function) Launch() error {
 // The device on which this kernel is invoked must have a non-zero value for the device attribute [DevAttrCooperativeLaunch].
 // The total number of blocks launched cannot exceed the maximum number of blocks per multiprocessor as returned by [Function.MaxActiveBlocksPerMultiprocessor] (or [Function.MaxActiveBlocksPerMultiprocessorWithFlags]) times the number of multiprocessors as specified by the device attribute [DevAttrMultiprocessorCount].
 // The kernel cannot make use of CUDA dynamic parallelism.
-// Kernel parameters must be specified via kernelParams. If f has N parameters, then kernelParams needs to be an array of N pointers. Each of kernelParams [0] through kernelParams [N-1] must point to a region of memory from which the actual kernel parameter will be copied. The number of kernel parameters and their offsets and sizes do not need to be specified as that information is retrieved directly from the kernel’s image.
+// Kernel parameters must be specified via kernelParams. If f has N parameters, then kernelParams needs to be an array of N pointers. Each of kernelParams[0] through kernelParams[N-1] must point to a region of memory from which the actual kernel parameter will be copied. The number of kernel parameters and their offsets and sizes do not need to be specified as that information is retrieved directly from the kernel’s image.
 // Calling [Function.LaunchCooperativeKernel] sets persistent function state that is the same as function state set through [Function.LaunchKernel] API
 // When the kernel f is launched via [Function.LaunchCooperativeKernel], the previous block shape, shared size and parameter info associated with f is overwritten.
 // Note that to use [Function.LaunchCooperativeKernel], the kernel f must either have been compiled with toolchain version 3.2 or later so that it will contain kernel parameter information, or have no kernel parameters. If either of these conditions is not met, then [Function.LaunchCooperativeKernel] will return [ErrInvalidImage].
@@ -588,7 +592,7 @@ func (f Function) LaunchGridAsync(gridWidth int32, gridHeight int32, hStream Str
 // Invokes the function [Function] or the kernel [Kernel] f on a gridDimX x gridDimY x gridDimZ grid of blocks. Each block contains blockDimX x blockDimY x blockDimZ threads.
 // sharedMemBytes sets the amount of dynamic shared memory that will be available to each thread block.
 // Kernel parameters to f can be specified in one of two ways:
-//   - Kernel parameters can be specified via kernelParams. If f has N parameters, then kernelParams needs to be an array of N pointers. Each of kernelParams [0] through kernelParams [N-1] must point to a region of memory from which the actual kernel parameter will be copied. The number of kernel parameters and their offsets and sizes do not need to be specified as that information is retrieved directly from the kernel’s image.
+//   - Kernel parameters can be specified via kernelParams. If f has N parameters, then kernelParams needs to be an array of N pointers. Each of kernelParams[0] through kernelParams[N-1] must point to a region of memory from which the actual kernel parameter will be copied. The number of kernel parameters and their offsets and sizes do not need to be specified as that information is retrieved directly from the kernel’s image.
 //   - Kernel parameters can also be packaged by the application into a single buffer that is passed in via the extra parameter. This places the burden on the application of knowing each kernel parameter’s size and alignment/padding within the buffer. Here is an example of using the extra parameter in this manner:
 //
 // The extra parameter exists to allow [Function.LaunchKernel] to take additional less commonly used arguments. extra specifies a list of names of extra settings and their corresponding values. Each extra setting name is immediately followed by the corresponding value. The list must be terminated with either NULL or CU_LAUNCH_PARAM_END.
@@ -644,6 +648,20 @@ func (f Function) LaunchKernel(gridDim Dim3, blockDim Dim3, sharedMemBytes uint3
 //
 // Invokes the function [Function] or the kernel [Kernel] f with the specified launch-time configuration config.
 // The [LaunchConfig] structure is defined as:
+//
+//	      typedef struct CUlaunchConfig_st {
+//	    unsigned int gridDimX;
+//	    unsigned int gridDimY;
+//	    unsigned int gridDimZ;
+//	    unsigned int blockDimX;
+//	    unsigned int blockDimY;
+//	    unsigned int blockDimZ;
+//	    unsigned int sharedMemBytes;
+//	    CUstream hStream;
+//	    CUlaunchAttribute *attrs;
+//	    unsigned int numAttrs;
+//	} CUlaunchConfig;
+//
 // where:
 //   - [LaunchConfig].gridDimX is the width of the grid in blocks.
 //   - [LaunchConfig].gridDimY is the height of the grid in blocks.
@@ -658,13 +676,81 @@ func (f Function) LaunchKernel(gridDim Dim3, blockDim Dim3, sharedMemBytes uint3
 //
 // Launch-time configuration is specified by adding entries to [LaunchConfig].attrs. Each entry is an attribute ID and a corresponding attribute value.
 // The [LaunchAttribute] structure is defined as:
+//
+//	      typedef struct CUlaunchAttribute_st {
+//	    CUlaunchAttributeID id;
+//	    CUlaunchAttributeValue value;
+//	} CUlaunchAttribute;
+//
 // where:
 //   - [LaunchAttribute].id is a unique enum identifying the attribute.
 //   - [LaunchAttribute].value is a union that hold the attribute value.
 //
 // An example of using the config parameter:
+//
+//	      CUlaunchAttribute coopAttr = {.id = CU_LAUNCH_ATTRIBUTE_COOPERATIVE,
+//	                              .value = 1};
+//	CUlaunchConfig config = {... // set block and grid dimensions
+//	                       .attrs = &coopAttr,
+//	                       .numAttrs = 1};
+//
+//	cuLaunchKernelEx(&config, kernel, NULL, NULL);
+//
 // The [LaunchAttributeID] enum is defined as:
+//
+//	      typedef enum CUlaunchAttributeID_enum {
+//	    CU_LAUNCH_ATTRIBUTE_IGNORE = 0,
+//	    CU_LAUNCH_ATTRIBUTE_ACCESS_POLICY_WINDOW   = 1,
+//	    CU_LAUNCH_ATTRIBUTE_COOPERATIVE            = 2,
+//	    CU_LAUNCH_ATTRIBUTE_SYNCHRONIZATION_POLICY = 3,
+//	    CU_LAUNCH_ATTRIBUTE_CLUSTER_DIMENSION                    = 4,
+//	    CU_LAUNCH_ATTRIBUTE_CLUSTER_SCHEDULING_POLICY_PREFERENCE = 5,
+//	    CU_LAUNCH_ATTRIBUTE_PROGRAMMATIC_STREAM_SERIALIZATION    = 6,
+//	    CU_LAUNCH_ATTRIBUTE_PROGRAMMATIC_EVENT                   = 7,
+//	    CU_LAUNCH_ATTRIBUTE_PRIORITY               = 8,
+//	    CU_LAUNCH_ATTRIBUTE_MEM_SYNC_DOMAIN_MAP    = 9,
+//	    CU_LAUNCH_ATTRIBUTE_MEM_SYNC_DOMAIN        = 10,
+//	    CU_LAUNCH_ATTRIBUTE_PREFERRED_CLUSTER_DIMENSION = 11,
+//	    CU_LAUNCH_ATTRIBUTE_LAUNCH_COMPLETION_EVENT = 12,
+//	    CU_LAUNCH_ATTRIBUTE_DEVICE_UPDATABLE_KERNEL_NODE = 13,
+//	} CUlaunchAttributeID;
+//
 // and the corresponding CUlaunchAttributeValue union as :
+//
+//	      typedef union CUlaunchAttributeValue_union {
+//	    CUaccessPolicyWindow accessPolicyWindow;
+//	    int cooperative;
+//	    CUsynchronizationPolicy syncPolicy;
+//	    struct {
+//	        unsigned int x;
+//	        unsigned int y;
+//	        unsigned int z;
+//	    } clusterDim;
+//	    CUclusterSchedulingPolicy clusterSchedulingPolicyPreference;
+//	    int programmaticStreamSerializationAllowed;
+//	    struct {
+//	        CUevent event;
+//	        int flags;
+//	        int triggerAtBlockStart;
+//	    } programmaticEvent;
+//	    int priority;
+//	    CUlaunchMemSyncDomainMap memSyncDomainMap;
+//	    CUlaunchMemSyncDomain memSyncDomain;
+//	    struct {
+//	        unsigned int x;
+//	        unsigned int y;
+//	        unsigned int z;
+//	    } preferredClusterDim;
+//	    struct {
+//	        CUevent event;
+//	        int flags;
+//	    } launchCompletionEvent;
+//	    struct {
+//	        int deviceUpdatable;
+//	        CUgraphDeviceNode devNode;
+//	    } deviceUpdatableKernelNode;
+//	} CUlaunchAttributeValue;
+//
 // Setting [LaunchAttributeCooperative] to a non-zero value causes the kernel launch to be a cooperative launch, with exactly the same usage and semantics of [Function.LaunchCooperativeKernel].
 // Setting [LaunchAttributeProgrammaticStreamSerialization] to a non-zero values causes the kernel to use programmatic means to resolve its stream dependency — enabling the CUDA runtime to opportunistically allow the grid’s execution to overlap with the previous kernel in the stream, if that kernel requests the overlap.
 // [LaunchAttributeProgrammaticEvent] records an event along with the kernel launch. Event recorded through this launch attribute is guaranteed to only trigger after all block in the associated kernel trigger the event. A block can trigger the event through PTX launchdep.release or CUDA builtin function cudaTriggerProgrammaticLaunchCompletion(). A trigger can also be inserted at the beginning of each block’s execution if triggerAtBlockStart is set to non-0. Note that dependents (including the CPU thread calling [Event.Synchronize]) are not guaranteed to observe the release precisely when it is released. For example, [Event.Synchronize] may only observe the event trigger long after the associated kernel has completed. This recording type is primarily meant for establishing programmatic dependency between device tasks. The event supplied must not be an interprocess or interop event. The event must disable timing (i.e. created with [EventDisableTiming] flag set).

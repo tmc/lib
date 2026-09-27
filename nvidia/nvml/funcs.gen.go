@@ -4088,7 +4088,7 @@ func DeviceGetCount() (uint32, error) {
 
 var slotDeviceGetCount outSlot[uint32]
 
-// deviceGetCpuAffinity retrieves an array of unsigned ints (sized to cpuSetSize) of bitmasks with the ideal CPU affinity for the device For example, if processors 0, 1, 32, and 33 are ideal for the device and cpuSetSize == 2, result [0] = 0x3, result [1] = 0x3 This is equivalent to calling [Device.CpuAffinityWithinScope] with [AffinityScopeNode].
+// deviceGetCpuAffinity retrieves an array of unsigned ints (sized to cpuSetSize) of bitmasks with the ideal CPU affinity for the device For example, if processors 0, 1, 32, and 33 are ideal for the device and cpuSetSize == 2, result[0] = 0x3, result[1] = 0x3 This is equivalent to calling [Device.CpuAffinityWithinScope] with [AffinityScopeNode].
 //
 // For Kepler or newer fully supported devices. Supported on Linux only.
 //
@@ -4117,7 +4117,7 @@ func deviceGetCpuAffinity(device Device, cpuSetSize uint32, cpuSet *uint) error 
 
 // deviceGetCpuAffinityWithinScope retrieves an array of unsigned ints (sized to cpuSetSize) of bitmasks with the ideal CPU affinity within node or socket for the device.
 //
-// For example, if processors 0, 1, 32, and 33 are ideal for the device and cpuSetSize == 2, result [0] = 0x3, result [1] = 0x3
+// For example, if processors 0, 1, 32, and 33 are ideal for the device and cpuSetSize == 2, result[0] = 0x3, result[1] = 0x3
 // For Kepler or newer fully supported devices. Supported on Linux only.
 //
 // Note: If requested scope is not applicable to the target topology, the API will fall back to reporting the CPU affinity for the immediate non-I/O ancestor of the device.
@@ -5175,6 +5175,11 @@ func deviceGetGpuFabricInfo(device Device, gpuFabricInfo *GpuFabricInfo) error {
 //
 // Note: The caller must set the [GpuFabricInfoV].version field to the appropriate version prior to calling this function. For example:
 //
+//	nvmlGpuFabricInfoV_t fabricInfo =
+//	    { .version = nvmlGpuFabricInfo_v2 };
+//	nvmlReturn_t result = nvmlDeviceGetGpuFabricInfoV(device,&fabricInfo);
+//
+// Parameters:
 //   - device: The identifier of the target device
 //   - gpuFabricInfo: Information about GPU fabric state
 //
@@ -5329,6 +5334,13 @@ var slotDeviceGetGpuInstanceProfileInfo outSlot[GpuInstanceProfileInfo]
 //
 // Note: The caller must set the [GpuInstanceProfileInfoV2].version field to the appropriate version prior to calling this function. For example:
 //
+//	nvmlGpuInstanceProfileInfo_v2_t profileInfo =
+//	    { .version = nvmlGpuInstanceProfileInfo_v2 };
+//	nvmlReturn_t result = nvmlDeviceGetGpuInstanceProfileInfoV(device,
+//	                                                           profile,
+//	                                                           &profileInfo);
+//
+// Parameters:
 //   - device: The identifier of the target device
 //   - profileId: One of the profile IDs
 //   - info: Returns detailed profile information
@@ -5367,6 +5379,13 @@ var slotDeviceGetGpuInstanceProfileInfoByIdV outSlot[GpuInstanceProfileInfoV2]
 //
 // Note: The caller must set the [GpuInstanceProfileInfoV2].version field to the appropriate version prior to calling this function. For example:
 //
+//	nvmlGpuInstanceProfileInfo_v2_t profileInfo =
+//	    { .version = nvmlGpuInstanceProfileInfo_v2 };
+//	nvmlReturn_t result = nvmlDeviceGetGpuInstanceProfileInfoV(device,
+//	                                                           profile,
+//	                                                           &profileInfo);
+//
+// Parameters:
 //   - device: The identifier of the target device
 //   - profile: One of the NVML_GPU_INSTANCE_PROFILE_*
 //   - info: Returns detailed profile information
@@ -6454,7 +6473,7 @@ var slotDeviceGetMemClkVfOffset outSlot[int32]
 
 // deviceGetMemoryAffinity retrieves an array of unsigned ints (sized to nodeSetSize) of bitmasks with the ideal memory affinity within node or socket for the device.
 //
-// For example, if NUMA node 0, 1 are ideal within the socket for the device and nodeSetSize == 1, result [0] = 0x3
+// For example, if NUMA node 0, 1 are ideal within the socket for the device and nodeSetSize == 1, result[0] = 0x3
 // For Kepler or newer fully supported devices. Supported on Linux only.
 //
 // Note: If requested scope is not applicable to the target topology, the API will fall back to reporting the memory affinity for the immediate non-I/O ancestor of the device.
@@ -6735,7 +6754,7 @@ var slotDeviceGetMinMaxFanSpeed outSlot[struct {
 
 // deviceGetMinorNumber retrieves minor number for the device.
 //
-// The minor number for the device is such that the Nvidia device node file for each GPU will have the form /dev/nvidia [minor number].
+// The minor number for the device is such that the Nvidia device node file for each GPU will have the form /dev/nvidia[minor number].
 // For all products. Supported only for Linux
 //
 //   - device: The identifier of the target device
@@ -11343,7 +11362,7 @@ func GetVgpuVersion(supported *VgpuVersion, current *VgpuVersion) error {
 // GpmMetricsGet calculates GPM metrics from two samples.
 //
 // For Hopper or newer fully supported devices.
-// To retrieve metrics, the user must first allocate the two sample buffers at metricsGet->sample1 and metricsGet->sample2 by calling [NewGpmSample]. Next, the user should fill in the ID of each metric in metricsGet->metrics [i].metricId and specify the total number of metrics to retrieve in metricsGet->numMetrics, The version should be set to [GpmMetricsGetVersion] in metricsGet->version. The user then calls the [GpmSample.Get] API twice to obtain 2 samples of counters.
+// To retrieve metrics, the user must first allocate the two sample buffers at metricsGet->sample1 and metricsGet->sample2 by calling [NewGpmSample]. Next, the user should fill in the ID of each metric in metricsGet->metrics[i].metricId and specify the total number of metrics to retrieve in metricsGet->numMetrics, The version should be set to [GpmMetricsGetVersion] in metricsGet->version. The user then calls the [GpmSample.Get] API twice to obtain 2 samples of counters.
 //
 // Note: The interval between these two [GpmSample.Get] calls should be greater than 100ms due to the internal sample refresh rate. Finally, the user calls [GpmMetricsGet] to retrieve the metrics, which will be stored at metricsGet->metrics
 //
@@ -11752,6 +11771,14 @@ var slotGpuInstanceGetComputeInstanceProfileInfo outSlot[ComputeInstanceProfileI
 //
 // Note: The caller must set the [GpuInstanceProfileInfoV2].version field to the appropriate version prior to calling this function. For example:
 //
+//	nvmlComputeInstanceProfileInfo_v2_t profileInfo =
+//	    { .version = nvmlComputeInstanceProfileInfo_v2 };
+//	nvmlReturn_t result = nvmlGpuInstanceGetComputeInstanceProfileInfoV(gpuInstance,
+//	                                                                    profile,
+//	                                                                    engProfile,
+//	                                                                    &profileInfo);
+//
+// Parameters:
 //   - gpuInstance: The identifier of the target GPU instance
 //   - profile: One of the NVML_COMPUTE_INSTANCE_PROFILE_*
 //   - engProfile: One of the NVML_COMPUTE_INSTANCE_ENGINE_PROFILE_*

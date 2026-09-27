@@ -121,7 +121,7 @@ func (g Group) MaskClean(stream driver.Stream) error {
 //
 // Query the active-mask status of all ranks. Copies the mask buffer to a user-provided device tensor. Requires enable_mask=true in the group config.
 //
-//   - maskStatus: out Device pointer to int [nRanks]. 1 = active, 0 = masked (failed)
+//   - maskStatus: out Device pointer to int[nRanks]. 1 = active, 0 = masked (failed)
 //   - stream: in CUDA stream
 //
 // Wraps ncclEpMaskQuery.
@@ -133,7 +133,7 @@ func (g Group) MaskQuery(maskStatus nccl.Buffer, stream driver.Stream) error {
 //
 // Set the mask for all ranks at once. Requires enable_mask=true in the group config.
 //
-//   - mask: in Host pointer to int [nRanks]. 1 = active, 0 = masked (failed)
+//   - mask: in Host pointer to int[nRanks]. 1 = active, 0 = masked (failed)
 //   - stream: in CUDA stream
 //
 // Wraps ncclEpMaskUpdate.

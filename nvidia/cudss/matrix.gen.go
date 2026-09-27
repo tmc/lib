@@ -26,12 +26,12 @@ func NewMatrixDn(nrows int64, ncols int64, ld int64, values uintptr, valueType D
 }
 
 // BatchCsr wraps cudssMatrixGetBatchCsr.
-func (m Matrix) BatchCsr(batchCount *int64, nrows *uintptr, ncols *uintptr, nnz *uintptr, rowStart *uintptr, rowEnd *uintptr, colIndices *uintptr, values *uintptr, offsetType *DataType, indexType *DataType, valueType *DataType, mtype *MatrixType, mview *MatrixViewType, indexBase *IndexBase) error {
+func (m Matrix) BatchCsr(batchCount *int64, nrows *uintptr, ncols *uintptr, nnz *uintptr, rowStart **uintptr, rowEnd **uintptr, colIndices **uintptr, values **uintptr, offsetType *DataType, indexType *DataType, valueType *DataType, mtype *MatrixType, mview *MatrixViewType, indexBase *IndexBase) error {
 	return MatrixGetBatchCsr(m, batchCount, nrows, ncols, nnz, rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase)
 }
 
 // BatchDn wraps cudssMatrixGetBatchDn.
-func (m Matrix) BatchDn(batchCount *int64, nrows *uintptr, ncols *uintptr, ld *uintptr, values *uintptr, indexType *DataType, valueType *DataType, layout *Layout) error {
+func (m Matrix) BatchDn(batchCount *int64, nrows *uintptr, ncols *uintptr, ld *uintptr, values **uintptr, indexType *DataType, valueType *DataType, layout *Layout) error {
 	return MatrixGetBatchDn(m, batchCount, nrows, ncols, ld, values, indexType, valueType, layout)
 }
 

@@ -128,6 +128,14 @@ func (g GpuInstance) ComputeInstanceProfileInfo(profile uint32, engProfile uint3
 //
 // Note: The caller must set the [GpuInstanceProfileInfoV2].version field to the appropriate version prior to calling this function. For example:
 //
+//	nvmlComputeInstanceProfileInfo_v2_t profileInfo =
+//	    { .version = nvmlComputeInstanceProfileInfo_v2 };
+//	nvmlReturn_t result = nvmlGpuInstanceGetComputeInstanceProfileInfoV(gpuInstance,
+//	                                                                    profile,
+//	                                                                    engProfile,
+//	                                                                    &profileInfo);
+//
+// Parameters:
 //   - profile: One of the NVML_COMPUTE_INSTANCE_PROFILE_*
 //   - engProfile: One of the NVML_COMPUTE_INSTANCE_ENGINE_PROFILE_*
 //   - info: Returns detailed profile information

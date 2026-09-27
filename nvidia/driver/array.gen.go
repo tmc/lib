@@ -179,6 +179,8 @@ func (a Array) CopyToHost[T any](dstHost []T, srcOffset uint) error {
 // CopyToHostPtr is [Array.CopyToHost] with the host memory given as a pointer
 // and a byte count, for memory Go does not own.
 //
+//   - byteCount: Size of memory copy in bytes
+//
 // Wraps cuMemcpyAtoH, bound as cuMemcpyAtoH_v2.
 func (a Array) CopyToHostPtr(dstHost unsafe.Pointer, srcOffset uint, byteCount uint) error {
 	return memcpyAtoH(dstHost, a, srcOffset, byteCount)
@@ -221,6 +223,8 @@ func (a Array) CopyToHostAsync[T any](dstHost []T, srcOffset uint, hStream Strea
 
 // CopyToHostAsyncPtr is [Array.CopyToHostAsync] with the host memory given as a pointer
 // and a byte count, for memory Go does not own.
+//
+//   - byteCount: Size of memory copy in bytes
 //
 // Wraps cuMemcpyAtoHAsync, bound as cuMemcpyAtoHAsync_v2.
 func (a Array) CopyToHostAsyncPtr(dstHost unsafe.Pointer, srcOffset uint, byteCount uint, hStream Stream) error {
@@ -279,6 +283,8 @@ func (a Array) CopyFromHost[T any](dstOffset uint, srcHost []T) error {
 // CopyFromHostPtr is [Array.CopyFromHost] with the host memory given as a pointer
 // and a byte count, for memory Go does not own.
 //
+//   - byteCount: Size of memory copy in bytes
+//
 // Wraps cuMemcpyHtoA, bound as cuMemcpyHtoA_v2.
 func (a Array) CopyFromHostPtr(dstOffset uint, srcHost unsafe.Pointer, byteCount uint) error {
 	return memcpyHtoA(a, dstOffset, srcHost, byteCount)
@@ -322,6 +328,8 @@ func (a Array) CopyFromHostAsync[T any](dstOffset uint, srcHost []T, hStream Str
 // CopyFromHostAsyncPtr is [Array.CopyFromHostAsync] with the host memory given as a pointer
 // and a byte count, for memory Go does not own.
 //
+//   - byteCount: Size of memory copy in bytes
+//
 // Wraps cuMemcpyHtoAAsync, bound as cuMemcpyHtoAAsync_v2.
 func (a Array) CopyFromHostAsyncPtr(dstOffset uint, srcHost unsafe.Pointer, byteCount uint, hStream Stream) error {
 	return memcpyHtoAAsync(a, dstOffset, srcHost, byteCount, hStream)
@@ -330,6 +338,16 @@ func (a Array) CopyFromHostAsyncPtr(dstOffset uint, srcHost unsafe.Pointer, byte
 // NewArray3D creates a 3D CUDA array.
 //
 // Creates a CUDA array according to the [Array3dDescriptor] structure pAllocateArray and returns a handle to the new CUDA array in *pHandle. The [Array3dDescriptor] is defined as:
+//
+//	typedef struct {
+//	    unsigned int Width;
+//	    unsigned int Height;
+//	    unsigned int Depth;
+//	    CUarray_format Format;
+//	    unsigned int NumChannels;
+//	    unsigned int Flags;
+//	} CUDA_ARRAY3D_DESCRIPTOR;
+//
 // where:
 //   - Width, Height, and Depth are the width, height, and depth of the CUDA array (in elements); the following types of CUDA arrays can be allocated: A 1D array is allocated if Height and Depth extents are both zero. A 2D array is allocated if only Depth extent is zero. A 3D array is allocated if all three extents are non-zero. A 1D layered CUDA array is allocated if only Height is zero and the CUDA_ARRAY3D_LAYERED flag is set. Each layer is a 1D array. The number of layers is determined by the depth extent. A 2D layered CUDA array is allocated if all three extents are non-zero and the CUDA_ARRAY3D_LAYERED flag is set. Each layer is a 2D array. The number of layers is determined by the depth extent. A cubemap CUDA array is allocated if all three extents are non-zero and the CUDA_ARRAY3D_CUBEMAP flag is set. Width must be equal to Height, and Depth must be six. A cubemap is a special type of 2D layered CUDA array, where the six layers represent the six faces of a cube. The order of the six layers in memory is the same as that listed in [ArrayCubemapFace]. A cubemap layered CUDA array is allocated if all three extents are non-zero, and both, CUDA_ARRAY3D_CUBEMAP and CUDA_ARRAY3D_LAYERED flags are set. Width must be equal to Height, and Depth must be a multiple of six. A cubemap layered CUDA array is a special type of 2D layered CUDA array that consists of a collection of cubemaps. The first six layers represent the first cubemap, the next six layers form the second cubemap, and so on.
 //   - Format specifies the format of the elements; [ArrayFormat] is defined as:
@@ -340,8 +358,31 @@ func (a Array) CopyFromHostAsyncPtr(dstOffset uint, srcHost unsafe.Pointer, byte
 // Note that 2D CUDA arrays have different size requirements if the CUDA_ARRAY3D_TEXTURE_GATHER flag is set. Width and Height must not be greater than [DevAttrMaximumTexture2dGatherWidth] and [DevAttrMaximumTexture2dGatherHeight] respectively, in that case.
 // Here are examples of CUDA array descriptions:
 // Description for a CUDA array of 2048 floats:
+//
+//	CUDA_ARRAY3D_DESCRIPTOR desc;
+//	desc.Format = CU_AD_FORMAT_FLOAT;
+//	desc.NumChannels = 1;
+//	desc.Width = 2048;
+//	desc.Height = 0;
+//	desc.Depth = 0;
+//
 // Description for a 64 x 64 CUDA array of floats:
+//
+//	CUDA_ARRAY3D_DESCRIPTOR desc;
+//	desc.Format = CU_AD_FORMAT_FLOAT;
+//	desc.NumChannels = 1;
+//	desc.Width = 64;
+//	desc.Height = 64;
+//	desc.Depth = 0;
+//
 // Description for a width x height x depth CUDA array of 64-bit, 4x16-bit float16’s:
+//
+//	CUDA_ARRAY3D_DESCRIPTOR desc;
+//	desc.Format = CU_AD_FORMAT_HALF;
+//	desc.NumChannels = 4;
+//	desc.Width = width;
+//	desc.Height = height;
+//	desc.Depth = depth;
 //
 // See also: [Array.Get3DDescriptor], [NewArray], [Array.Close], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMalloc3DArray
 //
@@ -363,6 +404,14 @@ func NewArray3D(pAllocateArray *Array3dDescriptor) (Array, error) {
 // NewArray creates a 1D or 2D CUDA array.
 //
 // Creates a CUDA array according to the [ArrayDescriptor] structure pAllocateArray and returns a handle to the new CUDA array in *pHandle. The [ArrayDescriptor] is defined as:
+//
+//	typedef struct {
+//	    unsigned int Width;
+//	    unsigned int Height;
+//	    CUarray_format Format;
+//	    unsigned int NumChannels;
+//	} CUDA_ARRAY_DESCRIPTOR;
+//
 // where:
 //   - Width, and Height are the width, and height of the CUDA array (in elements); the CUDA array is one-dimensional if height is 0, two-dimensional otherwise;
 //   - Format specifies the format of the elements; [ArrayFormat] is defined as:
@@ -370,9 +419,36 @@ func NewArray3D(pAllocateArray *Array3dDescriptor) (Array, error) {
 //
 // Here are examples of CUDA array descriptions:
 // Description for a CUDA array of 2048 floats:
+//
+//	CUDA_ARRAY_DESCRIPTOR desc;
+//	desc.Format = CU_AD_FORMAT_FLOAT;
+//	desc.NumChannels = 1;
+//	desc.Width = 2048;
+//	desc.Height = 1;
+//
 // Description for a 64 x 64 CUDA array of floats:
+//
+//	CUDA_ARRAY_DESCRIPTOR desc;
+//	desc.Format = CU_AD_FORMAT_FLOAT;
+//	desc.NumChannels = 1;
+//	desc.Width = 64;
+//	desc.Height = 64;
+//
 // Description for a width x height CUDA array of 64-bit, 4x16-bit float16’s:
+//
+//	CUDA_ARRAY_DESCRIPTOR desc;
+//	desc.Format = CU_AD_FORMAT_HALF;
+//	desc.NumChannels = 4;
+//	desc.Width = width;
+//	desc.Height = height;
+//
 // Description for a width x height CUDA array of 16-bit elements, each of which is two 8-bit unsigned chars:
+//
+//	CUDA_ARRAY_DESCRIPTOR arrayDesc;
+//	desc.Format = CU_AD_FORMAT_UNSIGNED_INT8;
+//	desc.NumChannels = 2;
+//	desc.Width = width;
+//	desc.Height = height;
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [Array.Close], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMallocArray
 //

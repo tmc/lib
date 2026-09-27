@@ -311,10 +311,24 @@ func (d Device) PCIBusId() (string, error) {
 // Properties returns properties for a selected device.
 //
 // Returns in *prop the properties of device dev. The [Devprop] structure is defined as:
+//
+//	   typedef struct CUdevprop_st {
+//	   int maxThreadsPerBlock;
+//	   int maxThreadsDim[3];
+//	   int maxGridSize[3];
+//	   int sharedMemPerBlock;
+//	   int totalConstantMemory;
+//	   int SIMDWidth;
+//	   int memPitch;
+//	   int regsPerBlock;
+//	   int clockRate;
+//	   int textureAlign
+//	} CUdevprop;
+//
 // where:
 //   - maxThreadsPerBlock is the maximum number of threads per block;
-//   - maxThreadsDim [3] is the maximum sizes of each dimension of a block;
-//   - maxGridSize [3] is the maximum sizes of each dimension of a grid;
+//   - maxThreadsDim[3] is the maximum sizes of each dimension of a block;
+//   - maxGridSize[3] is the maximum sizes of each dimension of a grid;
 //   - sharedMemPerBlock is the total amount of shared memory available per block in bytes;
 //   - totalConstantMemory is the total amount of constant memory available on the device in bytes;
 //   - SIMDWidth is the warp size;

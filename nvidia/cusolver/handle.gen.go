@@ -26,7 +26,7 @@ import (
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gels for the FP64 case).
 //   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -118,7 +118,7 @@ func (h Handle) CCgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gesv for the FP64 case).
 //   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -145,7 +145,7 @@ func (h Handle) CCgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -173,7 +173,7 @@ func (h Handle) CCgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldd
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -213,7 +213,7 @@ func (h Handle) CCgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.Devi
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gels for the FP64 case).
 //   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -305,7 +305,7 @@ func (h Handle) CEgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gesv for the FP64 case).
 //   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -332,7 +332,7 @@ func (h Handle) CEgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -360,7 +360,7 @@ func (h Handle) CEgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldd
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -400,7 +400,7 @@ func (h Handle) CEgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.Devi
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gels for the FP64 case).
 //   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -492,7 +492,7 @@ func (h Handle) CKgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gesv for the FP64 case).
 //   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -519,7 +519,7 @@ func (h Handle) CKgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -547,7 +547,7 @@ func (h Handle) CKgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldd
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -587,7 +587,7 @@ func (h Handle) CKgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.Devi
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gels for the FP64 case).
 //   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -679,7 +679,7 @@ func (h Handle) CYgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gesv for the FP64 case).
 //   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -706,7 +706,7 @@ func (h Handle) CYgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -734,7 +734,7 @@ func (h Handle) CYgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldd
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -918,9 +918,9 @@ func (h Handle) CgesvdBufferSize(m int32, n int32) (int32, error) {
 // in Frobenius norm sense, that is, how far U is from unitary.
 // gesvdaStridedBatched performs gesvda on each matrix. It requires that all matrices are of the same size m,n and are packed in a contiguous way,
 // A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Aₖ(i,j)=A [i+lda*j+strideA*k] . Similarly, the formula for random access of S is Sₖ(j)=S [j+StrideS*k] , the formula for random access of U is Uₖ(i,j)=U [i+ldu*j+strideU*k] and the formula for random access of V is Vₖ(i,j)=V [i+ldv*j+strideV*k] .
+// Each matrix is column-major with leading dimension lda, so the formula for random access is Aₖ(i,j)=A[i+lda*j+strideA*k] . Similarly, the formula for random access of S is Sₖ(j)=S[j+StrideS*k] , the formula for random access of U is Uₖ(i,j)=U[i+ldu*j+strideU*k] and the formula for random access of V is Vₖ(i,j)=V[i+ldv*j+strideV*k] .
 // The input parameter lwork is the size of the working space, and it is returned by gesvdaStridedBatched_bufferSize().
-// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdaStridedBatched did not converge on the i-th matrix. If 0 < info [i] < min(m,n)+1, gesvdaStridedBatched could not compute an SVD of the i-th matrix fully; the leading singular values Si [k], 0 <= k <= info [i]-1, and corresponding singular vectors may still be useful. In this case, if h_RnrmF is requested, h_RnrmF reports the residual as if rank was set to info [i]-1.
+// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info[0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info[i] = min(m,n)+1, gesvdaStridedBatched did not converge on the i-th matrix. If 0 < info[i] < min(m,n)+1, gesvdaStridedBatched could not compute an SVD of the i-th matrix fully; the leading singular values Si[k], 0 <= k <= info[i]-1, and corresponding singular vectors may still be useful. In this case, if h_RnrmF is requested, h_RnrmF reports the residual as if rank was set to info[i]-1.
 // Note that the problem size is limited by the condition batchSize*stride{A/S/U/V}<=INT32_MAX primarily due to the current implementation constraints.
 // Please visit cuSOLVER Library Samples - gesvdaStridedBatched for a code example.
 // Remark 1: The routine returns V, not Vᴴ . This is different from gesvd.
@@ -933,14 +933,14 @@ func (h Handle) CgesvdBufferSize(m int32, n int32) (int32, error) {
 //   - m: Number of rows of matrix Aj
 //   - n: Number of columns of matrix Aj
 //   - lda: Leading dimension of two-dimensional array used to store matrix Aj
-//   - strideA: Value of type long long int that gives the address offset between A [i] and A [i+1]. strideA is not less than lda*n
-//   - strideS: Value of type long long int that gives the address offset between S [i] and S [i+1]. strideS is not less than rank
+//   - strideA: Value of type long long int that gives the address offset between A[i] and A[i+1]. strideA is not less than lda*n
+//   - strideS: Value of type long long int that gives the address offset between S[i] and S[i+1]. strideS is not less than rank
 //   - ldu: Leading dimension of two-dimensional array used to store matrix Uj. ldu is not less than max(1,m)
-//   - strideU: Value of type long long int that gives the address offset between U [i] and U [i+1]. strideU is not less than ldu*rank
+//   - strideU: Value of type long long int that gives the address offset between U[i] and U[i+1]. strideU is not less than ldu*rank
 //   - ldv: Leading dimension of two-dimensional array used to store matrix Vj. ldv is not less than max(1,n)
-//   - strideV: Value of type long long int that gives the address offset between V [i] and V [i+1]. strideV is not less than ldv*rank
+//   - strideV: Value of type long long int that gives the address offset between V[i] and V[i+1]. strideV is not less than ldv*rank
 //   - lwork: Size of work, returned by gesvdaStridedBatched_bufferSize
-//   - hRNrmF: array of size batchSize. h_RnrmF [i] is norm of residual of i-th matrix. If 0 < info [i] < min(m,n)+1, h_RnrmF [i] reports the residual as if rank of the i-th matrix had been set to info [i]-1
+//   - hRNrmF: array of size batchSize. h_RnrmF[i] is norm of residual of i-th matrix. If 0 < info[i] < min(m,n)+1, h_RnrmF[i] reports the residual as if rank of the i-th matrix had been set to info[i]-1
 //   - batchSize: Number of matrices. batchSize is not less than 1
 //
 // Errors:
@@ -960,12 +960,12 @@ func (h Handle) CgesvdaStridedBatched(jobz EigMode, rank int32, m int32, n int32
 //   - m: Number of rows of matrix Aj
 //   - n: Number of columns of matrix Aj
 //   - lda: Leading dimension of two-dimensional array used to store matrix Aj
-//   - strideA: Value of type long long int that gives the address offset between A [i] and A [i+1]. strideA is not less than lda*n
-//   - strideS: Value of type long long int that gives the address offset between S [i] and S [i+1]. strideS is not less than rank
+//   - strideA: Value of type long long int that gives the address offset between A[i] and A[i+1]. strideA is not less than lda*n
+//   - strideS: Value of type long long int that gives the address offset between S[i] and S[i+1]. strideS is not less than rank
 //   - ldu: Leading dimension of two-dimensional array used to store matrix Uj. ldu is not less than max(1,m)
-//   - strideU: Value of type long long int that gives the address offset between U [i] and U [i+1]. strideU is not less than ldu*rank
+//   - strideU: Value of type long long int that gives the address offset between U[i] and U[i+1]. strideU is not less than ldu*rank
 //   - ldv: Leading dimension of two-dimensional array used to store matrix Vj. ldv is not less than max(1,n)
-//   - strideV: Value of type long long int that gives the address offset between V [i] and V [i+1]. strideV is not less than ldv*rank
+//   - strideV: Value of type long long int that gives the address offset between V[i] and V[i+1]. strideV is not less than ldv*rank
 //   - lwork: Size of work, in elements of complex64
 //   - batchSize: Number of matrices. batchSize is not less than 1
 //
@@ -1035,14 +1035,14 @@ func (h Handle) Cgesvdj(jobz EigMode, econ int32, m int32, n int32, a driver.Dev
 // Aⱼ=Uⱼ*Σⱼ*Vⱼᴴ, where Σⱼ is a real m×n diagonal matrix which is zero except for its min(m,n) diagonal elements. Uⱼ (left singular vectors) is an m×m unitary matrix and Vⱼ (right singular vectors) is a n×n unitary matrix. The diagonal elements of Σⱼ are the singular values of Aⱼ in either descending order or non-sorting order.
 // gesvdjBatched performs gesvdj on each matrix. It requires that all matrices are of the same size m,n no greater than 32 and are packed in contiguous way,
 // A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Aₖ(i,j)=A [i+lda*j+lda*n*k] .
+// Each matrix is column-major with leading dimension lda, so the formula for random access is Aₖ(i,j)=A[i+lda*j+lda*n*k] .
 // The parameter S also contains singular values of each matrix in contiguous way,
 // S=(S0S1⋯)
-// The formula for random access of S is Sₖ(j)=S [j+min(m,n)*k] .
+// The formula for random access of S is Sₖ(j)=S[j+min(m,n)*k] .
 // Except for tolerance and maximum sweeps, gesvdjBatched can either sort the singular values in descending order (default) or chose as-is (without sorting) by the function [GesvdjInfo.XgesvdjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate singular values of those tiny matrices.
 // gesvdjBatched cannot report residual and executed sweeps by function [Handle.XgesvdjGetResidual] and [Handle.XgesvdjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
 // The input parameter lwork is the size of the working space, and it is returned by gesvdjBatched_bufferSize().
-// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
+// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info[0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info[i] = min(m,n)+1, gesvdjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
 // Please visit cuSOLVER Library Samples - gesvdjBatched for a code example.
 //
 //   - jobz: Specifies options to either compute singular value only or singular vectors as well: jobz = [EigModeNovector] : Compute singular values only; jobz = [EigModeVector] : Compute singular values and singular vectors
@@ -1057,7 +1057,7 @@ func (h Handle) Cgesvdj(jobz EigMode, econ int32, m int32, n int32, a driver.Dev
 //   - ldv: Leading dimension of two-dimensional array used to store matrix Vj. ldv is not less than max(1,n)
 //   - work: array of size lwork, working space
 //   - lwork: Size of work, returned by gesvdjBatched_bufferSize
-//   - info: An integer array of dimension batchSize. If [ErrInvalidValue] is returned, info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = 0, the operation is successful. if info [i] = min(m,n)+1, gesvdjBatched dose not converge on i-th matrix under given tolerance and maximum sweeps
+//   - info: An integer array of dimension batchSize. If [ErrInvalidValue] is returned, info[0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info[i] = 0, the operation is successful. if info[i] = min(m,n)+1, gesvdjBatched dose not converge on i-th matrix under given tolerance and maximum sweeps
 //   - params: Structure filled with parameters of Jacobi algorithm. params can be destroyed after the host thread exits the routine
 //   - batchSize: Number of matrices
 //
@@ -1356,26 +1356,26 @@ func (h Handle) Cheevj(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr,
 // Aⱼ*Qⱼ=Qⱼ*Λⱼ, where Λⱼ is a real n×n diagonal matrix. Qⱼ is an n×n unitary matrix. The diagonal elements of Λⱼ are the eigenvalues of Aⱼ in either ascending order or non-sorting order.
 // syevjBatched performs syevj on each matrix. It requires that all matrices are of the same size n and are packed in contiguous way,
 // A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Aₖ(i,j)=A [i+lda*j+lda*n*k] .
+// Each matrix is column-major with leading dimension lda, so the formula for random access is Aₖ(i,j)=A[i+lda*j+lda*n*k] .
 // The parameter W also contains eigenvalues of each matrix in contiguous way,
 // W=(W0W1⋯)
-// The formula for random access of W is Wₖ(j)=W [j+n*k] .
+// The formula for random access of W is Wₖ(j)=W[j+n*k] .
 // Except for tolerance and maximum sweeps, syevjBatched can either sort the eigenvalues in ascending order (default) or chose as-is (without sorting) by the function [SyevjInfo.XsyevjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate spectrum of those tiny matrices.
 // syevjBatched cannot report residual and executed sweeps by function [Handle.XsyevjGetResidual] and [Handle.XsyevjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
 // The input parameter lwork is the size of the working space, and it is returned by syevjBatched_bufferSize().
-// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
+// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info[0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info[i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
 // If jobz = [EigModeVector], Aⱼ contains the orthonormal eigenvectors Vⱼ.
 // Please visit cuSOLVER Library Samples - syevjBatched for a code example.
 //
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - uplo: Specifies which part of Aj is stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of Aj is stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of Aj is stored
 //   - n: Number of rows (or columns) of matrix each Aj
-//   - a: array of dimension lda * n * batchSize with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of Aj contains the upper triangular part of the matrix Aj. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of Aj contains the lower triangular part of the matrix Aj. On exit, if jobz = [EigModeVector], and info [j] = 0, Aj contains the orthonormal eigenvectors of the matrix Aj. If jobz = [EigModeNovector], the contents of Aj are destroyed
+//   - a: array of dimension lda * n * batchSize with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of Aj contains the upper triangular part of the matrix Aj. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of Aj contains the lower triangular part of the matrix Aj. On exit, if jobz = [EigModeVector], and info[j] = 0, Aj contains the orthonormal eigenvectors of the matrix Aj. If jobz = [EigModeNovector], the contents of Aj are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix Aj
 //   - w: A real array of dimension n*batchSize. It stores the eigenvalues of Aj in ascending order or non-sorting order
 //   - work: array of size lwork, workspace
 //   - lwork: Size of work, returned by syevjBatched_bufferSize
-//   - info: An integer array of dimension batchSize. If [ErrInvalidValue] is returned, info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = 0, the operation is successful. If info [i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps
+//   - info: An integer array of dimension batchSize. If [ErrInvalidValue] is returned, info[0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info[i] = 0, the operation is successful. If info[i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps
 //   - params: Structure filled with parameters of Jacobi algorithm
 //   - batchSize: Number of matrices
 //
@@ -1394,7 +1394,7 @@ func (h Handle) CheevjBatched(jobz EigMode, uplo FillMode, n int32, a driver.Dev
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - uplo: Specifies which part of Aj is stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of Aj is stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of Aj is stored
 //   - n: Number of rows (or columns) of matrix each Aj
-//   - a: array of dimension lda * n * batchSize with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of Aj contains the upper triangular part of the matrix Aj. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of Aj contains the lower triangular part of the matrix Aj. On exit, if jobz = [EigModeVector], and info [j] = 0, Aj contains the orthonormal eigenvectors of the matrix Aj. If jobz = [EigModeNovector], the contents of Aj are destroyed
+//   - a: array of dimension lda * n * batchSize with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of Aj contains the upper triangular part of the matrix Aj. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of Aj contains the lower triangular part of the matrix Aj. On exit, if jobz = [EigModeVector], and info[j] = 0, Aj contains the orthonormal eigenvectors of the matrix Aj. If jobz = [EigModeNovector], the contents of Aj are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix Aj
 //   - w: A real array of dimension n*batchSize. It stores the eigenvalues of Aj in ascending order or non-sorting order
 //   - lwork: Size of work, in elements of complex64
@@ -1731,20 +1731,20 @@ func (h Handle) Cpotrf(uplo FillMode, n int32, a driver.DevicePtr, lda int32, wo
 
 // CpotrfBatched computes the Cholesky factorization of a sequence of Hermitian positive-definite matrices.
 //
-// Each Aarray [i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
+// Each Aarray[i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
 // If input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced by lower triangular Cholesky factor L.
 // A=L*Lᴴ
 // If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular Cholesky factor U.
 // A=Uᴴ*U
 // If Cholesky factorization failed, i.e. some leading minor of A is not positive definite, or equivalently some diagonal elements of L or U is not a real number. The output parameter infoArray would indicate smallest leading minor of A which is not positive definite.
-// infoArray is an integer array of size batchsize. If potrfBatched returns [ErrInvalidValue], infoArray [0] = -i (less than zero), meaning that the i-th parameter is wrong (not counting handle). If potrfBatched returns [Success] but infoArray [i] = k is positive, then i-th matrix is not positive definite and the Cholesky factorization failed at row k.
+// infoArray is an integer array of size batchsize. If potrfBatched returns [ErrInvalidValue], infoArray[0] = -i (less than zero), meaning that the i-th parameter is wrong (not counting handle). If potrfBatched returns [Success] but infoArray[i] = k is positive, then i-th matrix is not positive definite and the Cholesky factorization failed at row k.
 // Remark: the other part of A is used as a workspace. For example, if uplo is CUBLAS_FILL_MODE_UPPER, upper triangle of A contains Cholesky factor U and lower triangle of A is destroyed after potrfBatched.
 //
 //   - uplo: Indicates if lower or upper part is stored; the other part is used as a workspace
 //   - n: Number of rows and columns of matrix A
 //   - aarray: Array of pointers to array of dimension lda * n with lda is not less than max(1,n)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - infoArray: Array of size batchSize. infoArray [i] contains information of factorization of Aarray [i]. if potrfBatched returns [ErrInvalidValue], infoArray [0] = -i (less than zero) means the i-th parameter is wrong (not counting handle). if potrfBatched returns [Success], infoArray [i] = 0 means the Cholesky factorization of i-th matrix is successful, and infoArray [i] = k means the leading submatrix of order k of i-th matrix is not positive definite
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
+//   - infoArray: Array of size batchSize. infoArray[i] contains information of factorization of Aarray[i]. if potrfBatched returns [ErrInvalidValue], infoArray[0] = -i (less than zero) means the i-th parameter is wrong (not counting handle). if potrfBatched returns [Success], infoArray[i] = 0 means the Cholesky factorization of i-th matrix is successful, and infoArray[i] = k means the leading submatrix of order k of i-th matrix is not positive definite
 //   - batchSize: Number of pointers in Aarray
 //
 // Errors:
@@ -1849,8 +1849,8 @@ func (h Handle) Cpotrs(uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, l
 
 // CpotrsBatched solves a sequence of linear systems.
 //
-// A [i]*X [i]=B [i], where each Aarray [i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
-// The user has to call potrfBatched first to factorize matrix Aarray [i]. If input parameter uplo is CUBLAS_FILL_MODE_LOWER, A is lower triangular Cholesky factor L corresponding to A=L*Lᴴ . If input parameter uplo is CUBLAS_FILL_MODE_UPPER, A is upper triangular Cholesky factor U corresponding to A=Uᴴ*U .
+// A[i]*X[i]=B[i], where each Aarray[i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
+// The user has to call potrfBatched first to factorize matrix Aarray[i]. If input parameter uplo is CUBLAS_FILL_MODE_LOWER, A is lower triangular Cholesky factor L corresponding to A=L*Lᴴ . If input parameter uplo is CUBLAS_FILL_MODE_UPPER, A is upper triangular Cholesky factor U corresponding to A=Uᴴ*U .
 // The operation is in-place, i.e. matrix X overwrites matrix B with the same leading dimension ldb.
 // The output parameter info is a scalar. If info = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // Remark 1: only nrhs=1 is supported.
@@ -1861,8 +1861,8 @@ func (h Handle) Cpotrs(uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, l
 //   - uplo: Indicates if matrix A lower or upper part is stored
 //   - n: Number of rows and columns of matrix A
 //   - nrhs: Number of columns of matrix X and B
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - ldb: Leading dimension of two-dimensional array used to store each matrix Barray [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
+//   - ldb: Leading dimension of two-dimensional array used to store each matrix Barray[i]
 //   - batchSize: Number of pointers in Aarray
 //
 // Errors:
@@ -2205,7 +2205,7 @@ func (h Handle) CunmtrBufferSize(side SideMode, uplo FillMode, trans Operation, 
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gels for the FP64 case).
 //   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -2297,7 +2297,7 @@ func (h Handle) DBgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gesv for the FP64 case).
 //   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -2324,7 +2324,7 @@ func (h Handle) DBgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -2352,7 +2352,7 @@ func (h Handle) DBgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldd
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -2392,7 +2392,7 @@ func (h Handle) DBgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.Devi
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gels for the FP64 case).
 //   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -2484,7 +2484,7 @@ func (h Handle) DDgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gesv for the FP64 case).
 //   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -2511,7 +2511,7 @@ func (h Handle) DDgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -2539,7 +2539,7 @@ func (h Handle) DDgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldd
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -2579,7 +2579,7 @@ func (h Handle) DDgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.Devi
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gels for the FP64 case).
 //   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -2671,7 +2671,7 @@ func (h Handle) DHgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gesv for the FP64 case).
 //   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -2698,7 +2698,7 @@ func (h Handle) DHgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -2726,7 +2726,7 @@ func (h Handle) DHgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldd
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -2766,7 +2766,7 @@ func (h Handle) DHgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.Devi
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gels for the FP64 case).
 //   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -2858,7 +2858,7 @@ func (h Handle) DSgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gesv for the FP64 case).
 //   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -2885,7 +2885,7 @@ func (h Handle) DSgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -2913,7 +2913,7 @@ func (h Handle) DSgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldd
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -2953,7 +2953,7 @@ func (h Handle) DSgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.Devi
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gels for the FP64 case).
 //   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -3045,7 +3045,7 @@ func (h Handle) DXgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gesv for the FP64 case).
 //   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -3072,7 +3072,7 @@ func (h Handle) DXgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -3100,7 +3100,7 @@ func (h Handle) DXgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldd
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -3299,9 +3299,9 @@ func (h Handle) DgesvdBufferSize(m int32, n int32) (int32, error) {
 // in Frobenius norm sense, that is, how far U is from unitary.
 // gesvdaStridedBatched performs gesvda on each matrix. It requires that all matrices are of the same size m,n and are packed in a contiguous way,
 // A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Aₖ(i,j)=A [i+lda*j+strideA*k] . Similarly, the formula for random access of S is Sₖ(j)=S [j+StrideS*k] , the formula for random access of U is Uₖ(i,j)=U [i+ldu*j+strideU*k] and the formula for random access of V is Vₖ(i,j)=V [i+ldv*j+strideV*k] .
+// Each matrix is column-major with leading dimension lda, so the formula for random access is Aₖ(i,j)=A[i+lda*j+strideA*k] . Similarly, the formula for random access of S is Sₖ(j)=S[j+StrideS*k] , the formula for random access of U is Uₖ(i,j)=U[i+ldu*j+strideU*k] and the formula for random access of V is Vₖ(i,j)=V[i+ldv*j+strideV*k] .
 // The input parameter lwork is the size of the working space, and it is returned by gesvdaStridedBatched_bufferSize().
-// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdaStridedBatched did not converge on the i-th matrix. If 0 < info [i] < min(m,n)+1, gesvdaStridedBatched could not compute an SVD of the i-th matrix fully; the leading singular values Si [k], 0 <= k <= info [i]-1, and corresponding singular vectors may still be useful. In this case, if h_RnrmF is requested, h_RnrmF reports the residual as if rank was set to info [i]-1.
+// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info[0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info[i] = min(m,n)+1, gesvdaStridedBatched did not converge on the i-th matrix. If 0 < info[i] < min(m,n)+1, gesvdaStridedBatched could not compute an SVD of the i-th matrix fully; the leading singular values Si[k], 0 <= k <= info[i]-1, and corresponding singular vectors may still be useful. In this case, if h_RnrmF is requested, h_RnrmF reports the residual as if rank was set to info[i]-1.
 // Note that the problem size is limited by the condition batchSize*stride{A/S/U/V}<=INT32_MAX primarily due to the current implementation constraints.
 // Please visit cuSOLVER Library Samples - gesvdaStridedBatched for a code example.
 // Remark 1: The routine returns V, not Vᴴ . This is different from gesvd.
@@ -3314,14 +3314,14 @@ func (h Handle) DgesvdBufferSize(m int32, n int32) (int32, error) {
 //   - m: Number of rows of matrix Aj
 //   - n: Number of columns of matrix Aj
 //   - lda: Leading dimension of two-dimensional array used to store matrix Aj
-//   - strideA: Value of type long long int that gives the address offset between A [i] and A [i+1]. strideA is not less than lda*n
-//   - strideS: Value of type long long int that gives the address offset between S [i] and S [i+1]. strideS is not less than rank
+//   - strideA: Value of type long long int that gives the address offset between A[i] and A[i+1]. strideA is not less than lda*n
+//   - strideS: Value of type long long int that gives the address offset between S[i] and S[i+1]. strideS is not less than rank
 //   - ldu: Leading dimension of two-dimensional array used to store matrix Uj. ldu is not less than max(1,m)
-//   - strideU: Value of type long long int that gives the address offset between U [i] and U [i+1]. strideU is not less than ldu*rank
+//   - strideU: Value of type long long int that gives the address offset between U[i] and U[i+1]. strideU is not less than ldu*rank
 //   - ldv: Leading dimension of two-dimensional array used to store matrix Vj. ldv is not less than max(1,n)
-//   - strideV: Value of type long long int that gives the address offset between V [i] and V [i+1]. strideV is not less than ldv*rank
+//   - strideV: Value of type long long int that gives the address offset between V[i] and V[i+1]. strideV is not less than ldv*rank
 //   - lwork: Size of work, returned by gesvdaStridedBatched_bufferSize
-//   - hRNrmF: array of size batchSize. h_RnrmF [i] is norm of residual of i-th matrix. If 0 < info [i] < min(m,n)+1, h_RnrmF [i] reports the residual as if rank of the i-th matrix had been set to info [i]-1
+//   - hRNrmF: array of size batchSize. h_RnrmF[i] is norm of residual of i-th matrix. If 0 < info[i] < min(m,n)+1, h_RnrmF[i] reports the residual as if rank of the i-th matrix had been set to info[i]-1
 //   - batchSize: Number of matrices. batchSize is not less than 1
 //
 // Errors:
@@ -3341,12 +3341,12 @@ func (h Handle) DgesvdaStridedBatched(jobz EigMode, rank int32, m int32, n int32
 //   - m: Number of rows of matrix Aj
 //   - n: Number of columns of matrix Aj
 //   - lda: Leading dimension of two-dimensional array used to store matrix Aj
-//   - strideA: Value of type long long int that gives the address offset between A [i] and A [i+1]. strideA is not less than lda*n
-//   - strideS: Value of type long long int that gives the address offset between S [i] and S [i+1]. strideS is not less than rank
+//   - strideA: Value of type long long int that gives the address offset between A[i] and A[i+1]. strideA is not less than lda*n
+//   - strideS: Value of type long long int that gives the address offset between S[i] and S[i+1]. strideS is not less than rank
 //   - ldu: Leading dimension of two-dimensional array used to store matrix Uj. ldu is not less than max(1,m)
-//   - strideU: Value of type long long int that gives the address offset between U [i] and U [i+1]. strideU is not less than ldu*rank
+//   - strideU: Value of type long long int that gives the address offset between U[i] and U[i+1]. strideU is not less than ldu*rank
 //   - ldv: Leading dimension of two-dimensional array used to store matrix Vj. ldv is not less than max(1,n)
-//   - strideV: Value of type long long int that gives the address offset between V [i] and V [i+1]. strideV is not less than ldv*rank
+//   - strideV: Value of type long long int that gives the address offset between V[i] and V[i+1]. strideV is not less than ldv*rank
 //   - lwork: Size of work, in elements of float64
 //   - batchSize: Number of matrices. batchSize is not less than 1
 //
@@ -3416,14 +3416,14 @@ func (h Handle) Dgesvdj(jobz EigMode, econ int32, m int32, n int32, a driver.Dev
 // Aⱼ=Uⱼ*Σⱼ*Vⱼᴴ, where Σⱼ is a real m×n diagonal matrix which is zero except for its min(m,n) diagonal elements. Uⱼ (left singular vectors) is an m×m unitary matrix and Vⱼ (right singular vectors) is a n×n unitary matrix. The diagonal elements of Σⱼ are the singular values of Aⱼ in either descending order or non-sorting order.
 // gesvdjBatched performs gesvdj on each matrix. It requires that all matrices are of the same size m,n no greater than 32 and are packed in contiguous way,
 // A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Aₖ(i,j)=A [i+lda*j+lda*n*k] .
+// Each matrix is column-major with leading dimension lda, so the formula for random access is Aₖ(i,j)=A[i+lda*j+lda*n*k] .
 // The parameter S also contains singular values of each matrix in contiguous way,
 // S=(S0S1⋯)
-// The formula for random access of S is Sₖ(j)=S [j+min(m,n)*k] .
+// The formula for random access of S is Sₖ(j)=S[j+min(m,n)*k] .
 // Except for tolerance and maximum sweeps, gesvdjBatched can either sort the singular values in descending order (default) or chose as-is (without sorting) by the function [GesvdjInfo.XgesvdjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate singular values of those tiny matrices.
 // gesvdjBatched cannot report residual and executed sweeps by function [Handle.XgesvdjGetResidual] and [Handle.XgesvdjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
 // The input parameter lwork is the size of the working space, and it is returned by gesvdjBatched_bufferSize().
-// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
+// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info[0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info[i] = min(m,n)+1, gesvdjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
 // Please visit cuSOLVER Library Samples - gesvdjBatched for a code example.
 //
 //   - jobz: Specifies options to either compute singular value only or singular vectors as well: jobz = [EigModeNovector] : Compute singular values only; jobz = [EigModeVector] : Compute singular values and singular vectors
@@ -3438,7 +3438,7 @@ func (h Handle) Dgesvdj(jobz EigMode, econ int32, m int32, n int32, a driver.Dev
 //   - ldv: Leading dimension of two-dimensional array used to store matrix Vj. ldv is not less than max(1,n)
 //   - work: array of size lwork, working space
 //   - lwork: Size of work, returned by gesvdjBatched_bufferSize
-//   - info: An integer array of dimension batchSize. If [ErrInvalidValue] is returned, info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = 0, the operation is successful. if info [i] = min(m,n)+1, gesvdjBatched dose not converge on i-th matrix under given tolerance and maximum sweeps
+//   - info: An integer array of dimension batchSize. If [ErrInvalidValue] is returned, info[0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info[i] = 0, the operation is successful. if info[i] = min(m,n)+1, gesvdjBatched dose not converge on i-th matrix under given tolerance and maximum sweeps
 //   - params: Structure filled with parameters of Jacobi algorithm. params can be destroyed after the host thread exits the routine
 //   - batchSize: Number of matrices
 //
@@ -3879,20 +3879,20 @@ func (h Handle) Dpotrf(uplo FillMode, n int32, a driver.DevicePtr, lda int32, wo
 
 // DpotrfBatched computes the Cholesky factorization of a sequence of Hermitian positive-definite matrices.
 //
-// Each Aarray [i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
+// Each Aarray[i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
 // If input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced by lower triangular Cholesky factor L.
 // A=L*Lᴴ
 // If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular Cholesky factor U.
 // A=Uᴴ*U
 // If Cholesky factorization failed, i.e. some leading minor of A is not positive definite, or equivalently some diagonal elements of L or U is not a real number. The output parameter infoArray would indicate smallest leading minor of A which is not positive definite.
-// infoArray is an integer array of size batchsize. If potrfBatched returns [ErrInvalidValue], infoArray [0] = -i (less than zero), meaning that the i-th parameter is wrong (not counting handle). If potrfBatched returns [Success] but infoArray [i] = k is positive, then i-th matrix is not positive definite and the Cholesky factorization failed at row k.
+// infoArray is an integer array of size batchsize. If potrfBatched returns [ErrInvalidValue], infoArray[0] = -i (less than zero), meaning that the i-th parameter is wrong (not counting handle). If potrfBatched returns [Success] but infoArray[i] = k is positive, then i-th matrix is not positive definite and the Cholesky factorization failed at row k.
 // Remark: the other part of A is used as a workspace. For example, if uplo is CUBLAS_FILL_MODE_UPPER, upper triangle of A contains Cholesky factor U and lower triangle of A is destroyed after potrfBatched.
 //
 //   - uplo: Indicates if lower or upper part is stored; the other part is used as a workspace
 //   - n: Number of rows and columns of matrix A
 //   - aarray: Array of pointers to array of dimension lda * n with lda is not less than max(1,n)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - infoArray: Array of size batchSize. infoArray [i] contains information of factorization of Aarray [i]. if potrfBatched returns [ErrInvalidValue], infoArray [0] = -i (less than zero) means the i-th parameter is wrong (not counting handle). if potrfBatched returns [Success], infoArray [i] = 0 means the Cholesky factorization of i-th matrix is successful, and infoArray [i] = k means the leading submatrix of order k of i-th matrix is not positive definite
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
+//   - infoArray: Array of size batchSize. infoArray[i] contains information of factorization of Aarray[i]. if potrfBatched returns [ErrInvalidValue], infoArray[0] = -i (less than zero) means the i-th parameter is wrong (not counting handle). if potrfBatched returns [Success], infoArray[i] = 0 means the Cholesky factorization of i-th matrix is successful, and infoArray[i] = k means the leading submatrix of order k of i-th matrix is not positive definite
 //   - batchSize: Number of pointers in Aarray
 //
 // Errors:
@@ -3997,8 +3997,8 @@ func (h Handle) Dpotrs(uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, l
 
 // DpotrsBatched solves a sequence of linear systems.
 //
-// A [i]*X [i]=B [i], where each Aarray [i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
-// The user has to call potrfBatched first to factorize matrix Aarray [i]. If input parameter uplo is CUBLAS_FILL_MODE_LOWER, A is lower triangular Cholesky factor L corresponding to A=L*Lᴴ . If input parameter uplo is CUBLAS_FILL_MODE_UPPER, A is upper triangular Cholesky factor U corresponding to A=Uᴴ*U .
+// A[i]*X[i]=B[i], where each Aarray[i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
+// The user has to call potrfBatched first to factorize matrix Aarray[i]. If input parameter uplo is CUBLAS_FILL_MODE_LOWER, A is lower triangular Cholesky factor L corresponding to A=L*Lᴴ . If input parameter uplo is CUBLAS_FILL_MODE_UPPER, A is upper triangular Cholesky factor U corresponding to A=Uᴴ*U .
 // The operation is in-place, i.e. matrix X overwrites matrix B with the same leading dimension ldb.
 // The output parameter info is a scalar. If info = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // Remark 1: only nrhs=1 is supported.
@@ -4009,8 +4009,8 @@ func (h Handle) Dpotrs(uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, l
 //   - uplo: Indicates if matrix A lower or upper part is stored
 //   - n: Number of rows and columns of matrix A
 //   - nrhs: Number of columns of matrix X and B
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - ldb: Leading dimension of two-dimensional array used to store each matrix Barray [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
+//   - ldb: Leading dimension of two-dimensional array used to store each matrix Barray[i]
 //   - batchSize: Number of pointers in Aarray
 //
 // Errors:
@@ -4180,26 +4180,26 @@ func (h Handle) Dsyevj(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr,
 // Aⱼ*Qⱼ=Qⱼ*Λⱼ, where Λⱼ is a real n×n diagonal matrix. Qⱼ is an n×n unitary matrix. The diagonal elements of Λⱼ are the eigenvalues of Aⱼ in either ascending order or non-sorting order.
 // syevjBatched performs syevj on each matrix. It requires that all matrices are of the same size n and are packed in contiguous way,
 // A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Aₖ(i,j)=A [i+lda*j+lda*n*k] .
+// Each matrix is column-major with leading dimension lda, so the formula for random access is Aₖ(i,j)=A[i+lda*j+lda*n*k] .
 // The parameter W also contains eigenvalues of each matrix in contiguous way,
 // W=(W0W1⋯)
-// The formula for random access of W is Wₖ(j)=W [j+n*k] .
+// The formula for random access of W is Wₖ(j)=W[j+n*k] .
 // Except for tolerance and maximum sweeps, syevjBatched can either sort the eigenvalues in ascending order (default) or chose as-is (without sorting) by the function [SyevjInfo.XsyevjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate spectrum of those tiny matrices.
 // syevjBatched cannot report residual and executed sweeps by function [Handle.XsyevjGetResidual] and [Handle.XsyevjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
 // The input parameter lwork is the size of the working space, and it is returned by syevjBatched_bufferSize().
-// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
+// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info[0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info[i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
 // If jobz = [EigModeVector], Aⱼ contains the orthonormal eigenvectors Vⱼ.
 // Please visit cuSOLVER Library Samples - syevjBatched for a code example.
 //
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - uplo: Specifies which part of Aj is stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of Aj is stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of Aj is stored
 //   - n: Number of rows (or columns) of matrix each Aj
-//   - a: array of dimension lda * n * batchSize with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of Aj contains the upper triangular part of the matrix Aj. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of Aj contains the lower triangular part of the matrix Aj. On exit, if jobz = [EigModeVector], and info [j] = 0, Aj contains the orthonormal eigenvectors of the matrix Aj. If jobz = [EigModeNovector], the contents of Aj are destroyed
+//   - a: array of dimension lda * n * batchSize with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of Aj contains the upper triangular part of the matrix Aj. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of Aj contains the lower triangular part of the matrix Aj. On exit, if jobz = [EigModeVector], and info[j] = 0, Aj contains the orthonormal eigenvectors of the matrix Aj. If jobz = [EigModeNovector], the contents of Aj are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix Aj
 //   - w: A real array of dimension n*batchSize. It stores the eigenvalues of Aj in ascending order or non-sorting order
 //   - work: array of size lwork, workspace
 //   - lwork: Size of work, returned by syevjBatched_bufferSize
-//   - info: An integer array of dimension batchSize. If [ErrInvalidValue] is returned, info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = 0, the operation is successful. If info [i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps
+//   - info: An integer array of dimension batchSize. If [ErrInvalidValue] is returned, info[0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info[i] = 0, the operation is successful. If info[i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps
 //   - params: Structure filled with parameters of Jacobi algorithm
 //   - batchSize: Number of matrices
 //
@@ -4218,7 +4218,7 @@ func (h Handle) DsyevjBatched(jobz EigMode, uplo FillMode, n int32, a driver.Dev
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - uplo: Specifies which part of Aj is stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of Aj is stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of Aj is stored
 //   - n: Number of rows (or columns) of matrix each Aj
-//   - a: array of dimension lda * n * batchSize with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of Aj contains the upper triangular part of the matrix Aj. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of Aj contains the lower triangular part of the matrix Aj. On exit, if jobz = [EigModeVector], and info [j] = 0, Aj contains the orthonormal eigenvectors of the matrix Aj. If jobz = [EigModeNovector], the contents of Aj are destroyed
+//   - a: array of dimension lda * n * batchSize with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of Aj contains the upper triangular part of the matrix Aj. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of Aj contains the lower triangular part of the matrix Aj. On exit, if jobz = [EigModeVector], and info[j] = 0, Aj contains the orthonormal eigenvectors of the matrix Aj. If jobz = [EigModeNovector], the contents of Aj are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix Aj
 //   - w: A real array of dimension n*batchSize. It stores the eigenvalues of Aj in ascending order or non-sorting order
 //   - lwork: Size of work, in elements of float64
@@ -4857,7 +4857,7 @@ func (h Handle) MathMode() (MathMode, error) {
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gels for the FP64 case).
 //   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -4949,7 +4949,7 @@ func (h Handle) SBgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gesv for the FP64 case).
 //   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -4976,7 +4976,7 @@ func (h Handle) SBgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -5004,7 +5004,7 @@ func (h Handle) SBgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldd
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -5044,7 +5044,7 @@ func (h Handle) SBgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.Devi
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gels for the FP64 case).
 //   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -5136,7 +5136,7 @@ func (h Handle) SHgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gesv for the FP64 case).
 //   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -5163,7 +5163,7 @@ func (h Handle) SHgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -5191,7 +5191,7 @@ func (h Handle) SHgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldd
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -5231,7 +5231,7 @@ func (h Handle) SHgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.Devi
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gels for the FP64 case).
 //   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -5323,7 +5323,7 @@ func (h Handle) SSgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gesv for the FP64 case).
 //   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -5350,7 +5350,7 @@ func (h Handle) SSgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -5378,7 +5378,7 @@ func (h Handle) SSgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldd
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -5418,7 +5418,7 @@ func (h Handle) SSgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.Devi
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gels for the FP64 case).
 //   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -5510,7 +5510,7 @@ func (h Handle) SXgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gesv for the FP64 case).
 //   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -5537,7 +5537,7 @@ func (h Handle) SXgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -5565,7 +5565,7 @@ func (h Handle) SXgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldd
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -5909,9 +5909,9 @@ func (h Handle) SgesvdBufferSize(m int32, n int32) (int32, error) {
 // in Frobenius norm sense, that is, how far U is from unitary.
 // gesvdaStridedBatched performs gesvda on each matrix. It requires that all matrices are of the same size m,n and are packed in a contiguous way,
 // A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Aₖ(i,j)=A [i+lda*j+strideA*k] . Similarly, the formula for random access of S is Sₖ(j)=S [j+StrideS*k] , the formula for random access of U is Uₖ(i,j)=U [i+ldu*j+strideU*k] and the formula for random access of V is Vₖ(i,j)=V [i+ldv*j+strideV*k] .
+// Each matrix is column-major with leading dimension lda, so the formula for random access is Aₖ(i,j)=A[i+lda*j+strideA*k] . Similarly, the formula for random access of S is Sₖ(j)=S[j+StrideS*k] , the formula for random access of U is Uₖ(i,j)=U[i+ldu*j+strideU*k] and the formula for random access of V is Vₖ(i,j)=V[i+ldv*j+strideV*k] .
 // The input parameter lwork is the size of the working space, and it is returned by gesvdaStridedBatched_bufferSize().
-// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdaStridedBatched did not converge on the i-th matrix. If 0 < info [i] < min(m,n)+1, gesvdaStridedBatched could not compute an SVD of the i-th matrix fully; the leading singular values Si [k], 0 <= k <= info [i]-1, and corresponding singular vectors may still be useful. In this case, if h_RnrmF is requested, h_RnrmF reports the residual as if rank was set to info [i]-1.
+// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info[0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info[i] = min(m,n)+1, gesvdaStridedBatched did not converge on the i-th matrix. If 0 < info[i] < min(m,n)+1, gesvdaStridedBatched could not compute an SVD of the i-th matrix fully; the leading singular values Si[k], 0 <= k <= info[i]-1, and corresponding singular vectors may still be useful. In this case, if h_RnrmF is requested, h_RnrmF reports the residual as if rank was set to info[i]-1.
 // Note that the problem size is limited by the condition batchSize*stride{A/S/U/V}<=INT32_MAX primarily due to the current implementation constraints.
 // Please visit cuSOLVER Library Samples - gesvdaStridedBatched for a code example.
 // Remark 1: The routine returns V, not Vᴴ . This is different from gesvd.
@@ -5924,14 +5924,14 @@ func (h Handle) SgesvdBufferSize(m int32, n int32) (int32, error) {
 //   - m: Number of rows of matrix Aj
 //   - n: Number of columns of matrix Aj
 //   - lda: Leading dimension of two-dimensional array used to store matrix Aj
-//   - strideA: Value of type long long int that gives the address offset between A [i] and A [i+1]. strideA is not less than lda*n
-//   - strideS: Value of type long long int that gives the address offset between S [i] and S [i+1]. strideS is not less than rank
+//   - strideA: Value of type long long int that gives the address offset between A[i] and A[i+1]. strideA is not less than lda*n
+//   - strideS: Value of type long long int that gives the address offset between S[i] and S[i+1]. strideS is not less than rank
 //   - ldu: Leading dimension of two-dimensional array used to store matrix Uj. ldu is not less than max(1,m)
-//   - strideU: Value of type long long int that gives the address offset between U [i] and U [i+1]. strideU is not less than ldu*rank
+//   - strideU: Value of type long long int that gives the address offset between U[i] and U[i+1]. strideU is not less than ldu*rank
 //   - ldv: Leading dimension of two-dimensional array used to store matrix Vj. ldv is not less than max(1,n)
-//   - strideV: Value of type long long int that gives the address offset between V [i] and V [i+1]. strideV is not less than ldv*rank
+//   - strideV: Value of type long long int that gives the address offset between V[i] and V[i+1]. strideV is not less than ldv*rank
 //   - lwork: Size of work, returned by gesvdaStridedBatched_bufferSize
-//   - hRNrmF: array of size batchSize. h_RnrmF [i] is norm of residual of i-th matrix. If 0 < info [i] < min(m,n)+1, h_RnrmF [i] reports the residual as if rank of the i-th matrix had been set to info [i]-1
+//   - hRNrmF: array of size batchSize. h_RnrmF[i] is norm of residual of i-th matrix. If 0 < info[i] < min(m,n)+1, h_RnrmF[i] reports the residual as if rank of the i-th matrix had been set to info[i]-1
 //   - batchSize: Number of matrices. batchSize is not less than 1
 //
 // Errors:
@@ -5951,12 +5951,12 @@ func (h Handle) SgesvdaStridedBatched(jobz EigMode, rank int32, m int32, n int32
 //   - m: Number of rows of matrix Aj
 //   - n: Number of columns of matrix Aj
 //   - lda: Leading dimension of two-dimensional array used to store matrix Aj
-//   - strideA: Value of type long long int that gives the address offset between A [i] and A [i+1]. strideA is not less than lda*n
-//   - strideS: Value of type long long int that gives the address offset between S [i] and S [i+1]. strideS is not less than rank
+//   - strideA: Value of type long long int that gives the address offset between A[i] and A[i+1]. strideA is not less than lda*n
+//   - strideS: Value of type long long int that gives the address offset between S[i] and S[i+1]. strideS is not less than rank
 //   - ldu: Leading dimension of two-dimensional array used to store matrix Uj. ldu is not less than max(1,m)
-//   - strideU: Value of type long long int that gives the address offset between U [i] and U [i+1]. strideU is not less than ldu*rank
+//   - strideU: Value of type long long int that gives the address offset between U[i] and U[i+1]. strideU is not less than ldu*rank
 //   - ldv: Leading dimension of two-dimensional array used to store matrix Vj. ldv is not less than max(1,n)
-//   - strideV: Value of type long long int that gives the address offset between V [i] and V [i+1]. strideV is not less than ldv*rank
+//   - strideV: Value of type long long int that gives the address offset between V[i] and V[i+1]. strideV is not less than ldv*rank
 //   - lwork: Size of work, in elements of float32
 //   - batchSize: Number of matrices. batchSize is not less than 1
 //
@@ -6026,14 +6026,14 @@ func (h Handle) Sgesvdj(jobz EigMode, econ int32, m int32, n int32, a driver.Dev
 // Aⱼ=Uⱼ*Σⱼ*Vⱼᴴ, where Σⱼ is a real m×n diagonal matrix which is zero except for its min(m,n) diagonal elements. Uⱼ (left singular vectors) is an m×m unitary matrix and Vⱼ (right singular vectors) is a n×n unitary matrix. The diagonal elements of Σⱼ are the singular values of Aⱼ in either descending order or non-sorting order.
 // gesvdjBatched performs gesvdj on each matrix. It requires that all matrices are of the same size m,n no greater than 32 and are packed in contiguous way,
 // A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Aₖ(i,j)=A [i+lda*j+lda*n*k] .
+// Each matrix is column-major with leading dimension lda, so the formula for random access is Aₖ(i,j)=A[i+lda*j+lda*n*k] .
 // The parameter S also contains singular values of each matrix in contiguous way,
 // S=(S0S1⋯)
-// The formula for random access of S is Sₖ(j)=S [j+min(m,n)*k] .
+// The formula for random access of S is Sₖ(j)=S[j+min(m,n)*k] .
 // Except for tolerance and maximum sweeps, gesvdjBatched can either sort the singular values in descending order (default) or chose as-is (without sorting) by the function [GesvdjInfo.XgesvdjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate singular values of those tiny matrices.
 // gesvdjBatched cannot report residual and executed sweeps by function [Handle.XgesvdjGetResidual] and [Handle.XgesvdjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
 // The input parameter lwork is the size of the working space, and it is returned by gesvdjBatched_bufferSize().
-// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
+// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info[0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info[i] = min(m,n)+1, gesvdjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
 // Please visit cuSOLVER Library Samples - gesvdjBatched for a code example.
 //
 //   - jobz: Specifies options to either compute singular value only or singular vectors as well: jobz = [EigModeNovector] : Compute singular values only; jobz = [EigModeVector] : Compute singular values and singular vectors
@@ -6048,7 +6048,7 @@ func (h Handle) Sgesvdj(jobz EigMode, econ int32, m int32, n int32, a driver.Dev
 //   - ldv: Leading dimension of two-dimensional array used to store matrix Vj. ldv is not less than max(1,n)
 //   - work: array of size lwork, working space
 //   - lwork: Size of work, returned by gesvdjBatched_bufferSize
-//   - info: An integer array of dimension batchSize. If [ErrInvalidValue] is returned, info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = 0, the operation is successful. if info [i] = min(m,n)+1, gesvdjBatched dose not converge on i-th matrix under given tolerance and maximum sweeps
+//   - info: An integer array of dimension batchSize. If [ErrInvalidValue] is returned, info[0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info[i] = 0, the operation is successful. if info[i] = min(m,n)+1, gesvdjBatched dose not converge on i-th matrix under given tolerance and maximum sweeps
 //   - params: Structure filled with parameters of Jacobi algorithm. params can be destroyed after the host thread exits the routine
 //   - batchSize: Number of matrices
 //
@@ -6489,20 +6489,20 @@ func (h Handle) Spotrf(uplo FillMode, n int32, a driver.DevicePtr, lda int32, wo
 
 // SpotrfBatched computes the Cholesky factorization of a sequence of Hermitian positive-definite matrices.
 //
-// Each Aarray [i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
+// Each Aarray[i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
 // If input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced by lower triangular Cholesky factor L.
 // A=L*Lᴴ
 // If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular Cholesky factor U.
 // A=Uᴴ*U
 // If Cholesky factorization failed, i.e. some leading minor of A is not positive definite, or equivalently some diagonal elements of L or U is not a real number. The output parameter infoArray would indicate smallest leading minor of A which is not positive definite.
-// infoArray is an integer array of size batchsize. If potrfBatched returns [ErrInvalidValue], infoArray [0] = -i (less than zero), meaning that the i-th parameter is wrong (not counting handle). If potrfBatched returns [Success] but infoArray [i] = k is positive, then i-th matrix is not positive definite and the Cholesky factorization failed at row k.
+// infoArray is an integer array of size batchsize. If potrfBatched returns [ErrInvalidValue], infoArray[0] = -i (less than zero), meaning that the i-th parameter is wrong (not counting handle). If potrfBatched returns [Success] but infoArray[i] = k is positive, then i-th matrix is not positive definite and the Cholesky factorization failed at row k.
 // Remark: the other part of A is used as a workspace. For example, if uplo is CUBLAS_FILL_MODE_UPPER, upper triangle of A contains Cholesky factor U and lower triangle of A is destroyed after potrfBatched.
 //
 //   - uplo: Indicates if lower or upper part is stored; the other part is used as a workspace
 //   - n: Number of rows and columns of matrix A
 //   - aarray: Array of pointers to array of dimension lda * n with lda is not less than max(1,n)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - infoArray: Array of size batchSize. infoArray [i] contains information of factorization of Aarray [i]. if potrfBatched returns [ErrInvalidValue], infoArray [0] = -i (less than zero) means the i-th parameter is wrong (not counting handle). if potrfBatched returns [Success], infoArray [i] = 0 means the Cholesky factorization of i-th matrix is successful, and infoArray [i] = k means the leading submatrix of order k of i-th matrix is not positive definite
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
+//   - infoArray: Array of size batchSize. infoArray[i] contains information of factorization of Aarray[i]. if potrfBatched returns [ErrInvalidValue], infoArray[0] = -i (less than zero) means the i-th parameter is wrong (not counting handle). if potrfBatched returns [Success], infoArray[i] = 0 means the Cholesky factorization of i-th matrix is successful, and infoArray[i] = k means the leading submatrix of order k of i-th matrix is not positive definite
 //   - batchSize: Number of pointers in Aarray
 //
 // Errors:
@@ -6607,8 +6607,8 @@ func (h Handle) Spotrs(uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, l
 
 // SpotrsBatched solves a sequence of linear systems.
 //
-// A [i]*X [i]=B [i], where each Aarray [i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
-// The user has to call potrfBatched first to factorize matrix Aarray [i]. If input parameter uplo is CUBLAS_FILL_MODE_LOWER, A is lower triangular Cholesky factor L corresponding to A=L*Lᴴ . If input parameter uplo is CUBLAS_FILL_MODE_UPPER, A is upper triangular Cholesky factor U corresponding to A=Uᴴ*U .
+// A[i]*X[i]=B[i], where each Aarray[i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
+// The user has to call potrfBatched first to factorize matrix Aarray[i]. If input parameter uplo is CUBLAS_FILL_MODE_LOWER, A is lower triangular Cholesky factor L corresponding to A=L*Lᴴ . If input parameter uplo is CUBLAS_FILL_MODE_UPPER, A is upper triangular Cholesky factor U corresponding to A=Uᴴ*U .
 // The operation is in-place, i.e. matrix X overwrites matrix B with the same leading dimension ldb.
 // The output parameter info is a scalar. If info = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // Remark 1: only nrhs=1 is supported.
@@ -6619,8 +6619,8 @@ func (h Handle) Spotrs(uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, l
 //   - uplo: Indicates if matrix A lower or upper part is stored
 //   - n: Number of rows and columns of matrix A
 //   - nrhs: Number of columns of matrix X and B
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - ldb: Leading dimension of two-dimensional array used to store each matrix Barray [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
+//   - ldb: Leading dimension of two-dimensional array used to store each matrix Barray[i]
 //   - batchSize: Number of pointers in Aarray
 //
 // Errors:
@@ -6790,26 +6790,26 @@ func (h Handle) Ssyevj(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr,
 // Aⱼ*Qⱼ=Qⱼ*Λⱼ, where Λⱼ is a real n×n diagonal matrix. Qⱼ is an n×n unitary matrix. The diagonal elements of Λⱼ are the eigenvalues of Aⱼ in either ascending order or non-sorting order.
 // syevjBatched performs syevj on each matrix. It requires that all matrices are of the same size n and are packed in contiguous way,
 // A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Aₖ(i,j)=A [i+lda*j+lda*n*k] .
+// Each matrix is column-major with leading dimension lda, so the formula for random access is Aₖ(i,j)=A[i+lda*j+lda*n*k] .
 // The parameter W also contains eigenvalues of each matrix in contiguous way,
 // W=(W0W1⋯)
-// The formula for random access of W is Wₖ(j)=W [j+n*k] .
+// The formula for random access of W is Wₖ(j)=W[j+n*k] .
 // Except for tolerance and maximum sweeps, syevjBatched can either sort the eigenvalues in ascending order (default) or chose as-is (without sorting) by the function [SyevjInfo.XsyevjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate spectrum of those tiny matrices.
 // syevjBatched cannot report residual and executed sweeps by function [Handle.XsyevjGetResidual] and [Handle.XsyevjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
 // The input parameter lwork is the size of the working space, and it is returned by syevjBatched_bufferSize().
-// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
+// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info[0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info[i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
 // If jobz = [EigModeVector], Aⱼ contains the orthonormal eigenvectors Vⱼ.
 // Please visit cuSOLVER Library Samples - syevjBatched for a code example.
 //
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - uplo: Specifies which part of Aj is stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of Aj is stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of Aj is stored
 //   - n: Number of rows (or columns) of matrix each Aj
-//   - a: array of dimension lda * n * batchSize with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of Aj contains the upper triangular part of the matrix Aj. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of Aj contains the lower triangular part of the matrix Aj. On exit, if jobz = [EigModeVector], and info [j] = 0, Aj contains the orthonormal eigenvectors of the matrix Aj. If jobz = [EigModeNovector], the contents of Aj are destroyed
+//   - a: array of dimension lda * n * batchSize with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of Aj contains the upper triangular part of the matrix Aj. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of Aj contains the lower triangular part of the matrix Aj. On exit, if jobz = [EigModeVector], and info[j] = 0, Aj contains the orthonormal eigenvectors of the matrix Aj. If jobz = [EigModeNovector], the contents of Aj are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix Aj
 //   - w: A real array of dimension n*batchSize. It stores the eigenvalues of Aj in ascending order or non-sorting order
 //   - work: array of size lwork, workspace
 //   - lwork: Size of work, returned by syevjBatched_bufferSize
-//   - info: An integer array of dimension batchSize. If [ErrInvalidValue] is returned, info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = 0, the operation is successful. If info [i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps
+//   - info: An integer array of dimension batchSize. If [ErrInvalidValue] is returned, info[0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info[i] = 0, the operation is successful. If info[i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps
 //   - params: Structure filled with parameters of Jacobi algorithm
 //   - batchSize: Number of matrices
 //
@@ -6828,7 +6828,7 @@ func (h Handle) SsyevjBatched(jobz EigMode, uplo FillMode, n int32, a driver.Dev
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - uplo: Specifies which part of Aj is stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of Aj is stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of Aj is stored
 //   - n: Number of rows (or columns) of matrix each Aj
-//   - a: array of dimension lda * n * batchSize with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of Aj contains the upper triangular part of the matrix Aj. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of Aj contains the lower triangular part of the matrix Aj. On exit, if jobz = [EigModeVector], and info [j] = 0, Aj contains the orthonormal eigenvectors of the matrix Aj. If jobz = [EigModeNovector], the contents of Aj are destroyed
+//   - a: array of dimension lda * n * batchSize with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of Aj contains the upper triangular part of the matrix Aj. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of Aj contains the lower triangular part of the matrix Aj. On exit, if jobz = [EigModeVector], and info[j] = 0, Aj contains the orthonormal eigenvectors of the matrix Aj. If jobz = [EigModeNovector], the contents of Aj are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix Aj
 //   - w: A real array of dimension n*batchSize. It stores the eigenvalues of Aj in ascending order or non-sorting order
 //   - lwork: Size of work, in elements of float32
@@ -7877,12 +7877,12 @@ func (h Handle) Xpotrs(params Params, uplo FillMode, n int64, nrhs int64, dataTy
 // Aⱼ*Vⱼ=Vⱼ*Λⱼ, where Λⱼ is a real n×n diagonal matrix. Vⱼ is an n×n unitary matrix. The diagonal elements of Λⱼ are the eigenvalues of Aⱼ in ascending order.
 // syevBatched performs an eigendecomposition on each matrix. It requires that all matrices are of the same size n and are packed in a contiguous way,
 // A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Aₖ(i,j)=A [i+lda*j+lda*n*k] .
+// Each matrix is column-major with leading dimension lda, so the formula for random access is Aₖ(i,j)=A[i+lda*j+lda*n*k] .
 // The parameter W also contains the eigenvalues of each matrix in a contiguous way,
 // W=(W0W1⋯)
-// The formula for random access of W is Wₖ(j)=W [j+n*k] .
+// The formula for random access of W is Wₖ(j)=W[j+n*k] .
 // The user has to provide device and host working space which are pointed to by the input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice and workspaceInBytesOnHost denote the size in bytes of the device and host working space, and returned by [Handle.XsyevBatchedBufferSize].
-// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates the i-th parameter is wrong (not counting handle). Otherwise, if info [i] > 0, syevBatched does not converge on the i-th matrix.
+// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info[0] = -i (less than zero) indicates the i-th parameter is wrong (not counting handle). Otherwise, if info[i] > 0, syevBatched does not converge on the i-th matrix.
 // If jobz = [EigModeVector], Aⱼ contains the orthonormal eigenvectors of the matrix Aⱼ.
 // Note that the problem size is limited by the condition n*lda*batchSize<=INT32_MAX primarily due to the current implementation constraints.
 //   - [Alg0], the zero value: Default. May switch between algorithms for best performance.
@@ -7901,7 +7901,7 @@ func (h Handle) Xpotrs(params Params, uplo FillMode, n int64, nrhs int64, dataTy
 //   - uplo: Specifies which part of A is stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A is stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A is stored
 //   - n: Number of rows (or columns) of matrix A
 //   - dataTypeA: Data type of array A
-//   - a: Array of dimension lda * n * batchSize with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of Aj contains the upper triangular part of the matrix Aj. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of Aj contains the lower triangular part of the matrix Aj. On exit, if jobz = [EigModeVector], and info [j] = 0, Aj contains the orthonormal eigenvectors of the matrix Aj. If jobz = [EigModeNovector], the contents of Aj are destroyed
+//   - a: Array of dimension lda * n * batchSize with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of Aj contains the upper triangular part of the matrix Aj. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of Aj contains the lower triangular part of the matrix Aj. On exit, if jobz = [EigModeVector], and info[j] = 0, Aj contains the orthonormal eigenvectors of the matrix Aj. If jobz = [EigModeNovector], the contents of Aj are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix Aj. lda is not less than max(1,n)
 //   - dataTypeW: Data type of array W
 //   - w: A real array of dimension n * batchSize. The eigenvalue values of Aj, in ascending order, i.e., sorted so that Wj(i) <= Wj(i+1)
@@ -7910,7 +7910,7 @@ func (h Handle) Xpotrs(params Params, uplo FillMode, n int64, nrhs int64, dataTy
 //   - workspaceInBytesOnDevice: Size in bytes of bufferOnDevice, returned by [Handle.XsyevBatchedBufferSize]
 //   - bufferOnHost: Host workspace. Array of type void of size workspaceInBytesOnHost bytes
 //   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XsyevBatchedBufferSize]
-//   - info: An integer array of dimension batchSize. If [ErrInvalidValue] is returned, info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = 0, the operation is successful. If info [i] > 0, syevBatched does not converge on the i-th matrix
+//   - info: An integer array of dimension batchSize. If [ErrInvalidValue] is returned, info[0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info[i] = 0, the operation is successful. If info[i] > 0, syevBatched does not converge on the i-th matrix
 //   - batchSize: Number of matrices. batchSize is not less than 1
 //
 // Errors:
@@ -7930,7 +7930,7 @@ func (h Handle) XsyevBatched(params Params, jobz EigMode, uplo FillMode, n int64
 //   - uplo: Specifies which part of A is stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A is stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A is stored
 //   - n: Number of rows (or columns) of matrix A
 //   - dataTypeA: Data type of array A
-//   - a: Array of dimension lda * n * batchSize with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of Aj contains the upper triangular part of the matrix Aj. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of Aj contains the lower triangular part of the matrix Aj. On exit, if jobz = [EigModeVector], and info [j] = 0, Aj contains the orthonormal eigenvectors of the matrix Aj. If jobz = [EigModeNovector], the contents of Aj are destroyed
+//   - a: Array of dimension lda * n * batchSize with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of Aj contains the upper triangular part of the matrix Aj. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of Aj contains the lower triangular part of the matrix Aj. On exit, if jobz = [EigModeVector], and info[j] = 0, Aj contains the orthonormal eigenvectors of the matrix Aj. If jobz = [EigModeNovector], the contents of Aj are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix Aj. lda is not less than max(1,n)
 //   - dataTypeW: Data type of array W
 //   - w: A real array of dimension n * batchSize. The eigenvalue values of Aj, in ascending order, i.e., sorted so that Wj(i) <= Wj(i+1)
@@ -8419,7 +8419,7 @@ func (h Handle) XtrtriBufferSize(uplo FillMode, diag DiagType, n int64, dataType
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gels for the FP64 case).
 //   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -8511,7 +8511,7 @@ func (h Handle) ZCgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gesv for the FP64 case).
 //   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -8538,7 +8538,7 @@ func (h Handle) ZCgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -8566,7 +8566,7 @@ func (h Handle) ZCgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldd
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -8606,7 +8606,7 @@ func (h Handle) ZCgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.Devi
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gels for the FP64 case).
 //   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -8698,7 +8698,7 @@ func (h Handle) ZEgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gesv for the FP64 case).
 //   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -8725,7 +8725,7 @@ func (h Handle) ZEgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -8753,7 +8753,7 @@ func (h Handle) ZEgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldd
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -8793,7 +8793,7 @@ func (h Handle) ZEgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.Devi
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gels for the FP64 case).
 //   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -8885,7 +8885,7 @@ func (h Handle) ZKgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gesv for the FP64 case).
 //   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -8912,7 +8912,7 @@ func (h Handle) ZKgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -8940,7 +8940,7 @@ func (h Handle) ZKgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldd
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -8980,7 +8980,7 @@ func (h Handle) ZKgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.Devi
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gels for the FP64 case).
 //   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -9072,7 +9072,7 @@ func (h Handle) ZYgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gesv for the FP64 case).
 //   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -9099,7 +9099,7 @@ func (h Handle) ZYgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -9127,7 +9127,7 @@ func (h Handle) ZYgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldd
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -9167,7 +9167,7 @@ func (h Handle) ZYgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.Devi
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
 // We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gels for the FP64 case).
 //   - Interface function: [Handle.ZZgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgels]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -9259,7 +9259,7 @@ func (h Handle) ZZgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
+// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn[DD,ZZ]gesv for the FP64 case).
 //   - Interface function: [Handle.ZZgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: double complex
 //   - Interface function: [Handle.ZCgesv]*; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: single complex
 //   - Interface function: [Handle.ZKgesv]; Main precision (matrix, rhs and solution datatype): cuDoubleComplex; Lowest precision allowed to be used internally: half complex
@@ -9286,7 +9286,7 @@ func (h Handle) ZZgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt,
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -9314,7 +9314,7 @@ func (h Handle) ZZgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldd
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
 //   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv [i]
+//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
 //   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
@@ -9498,9 +9498,9 @@ func (h Handle) ZgesvdBufferSize(m int32, n int32) (int32, error) {
 // in Frobenius norm sense, that is, how far U is from unitary.
 // gesvdaStridedBatched performs gesvda on each matrix. It requires that all matrices are of the same size m,n and are packed in a contiguous way,
 // A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Aₖ(i,j)=A [i+lda*j+strideA*k] . Similarly, the formula for random access of S is Sₖ(j)=S [j+StrideS*k] , the formula for random access of U is Uₖ(i,j)=U [i+ldu*j+strideU*k] and the formula for random access of V is Vₖ(i,j)=V [i+ldv*j+strideV*k] .
+// Each matrix is column-major with leading dimension lda, so the formula for random access is Aₖ(i,j)=A[i+lda*j+strideA*k] . Similarly, the formula for random access of S is Sₖ(j)=S[j+StrideS*k] , the formula for random access of U is Uₖ(i,j)=U[i+ldu*j+strideU*k] and the formula for random access of V is Vₖ(i,j)=V[i+ldv*j+strideV*k] .
 // The input parameter lwork is the size of the working space, and it is returned by gesvdaStridedBatched_bufferSize().
-// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdaStridedBatched did not converge on the i-th matrix. If 0 < info [i] < min(m,n)+1, gesvdaStridedBatched could not compute an SVD of the i-th matrix fully; the leading singular values Si [k], 0 <= k <= info [i]-1, and corresponding singular vectors may still be useful. In this case, if h_RnrmF is requested, h_RnrmF reports the residual as if rank was set to info [i]-1.
+// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info[0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info[i] = min(m,n)+1, gesvdaStridedBatched did not converge on the i-th matrix. If 0 < info[i] < min(m,n)+1, gesvdaStridedBatched could not compute an SVD of the i-th matrix fully; the leading singular values Si[k], 0 <= k <= info[i]-1, and corresponding singular vectors may still be useful. In this case, if h_RnrmF is requested, h_RnrmF reports the residual as if rank was set to info[i]-1.
 // Note that the problem size is limited by the condition batchSize*stride{A/S/U/V}<=INT32_MAX primarily due to the current implementation constraints.
 // Please visit cuSOLVER Library Samples - gesvdaStridedBatched for a code example.
 // Remark 1: The routine returns V, not Vᴴ . This is different from gesvd.
@@ -9513,14 +9513,14 @@ func (h Handle) ZgesvdBufferSize(m int32, n int32) (int32, error) {
 //   - m: Number of rows of matrix Aj
 //   - n: Number of columns of matrix Aj
 //   - lda: Leading dimension of two-dimensional array used to store matrix Aj
-//   - strideA: Value of type long long int that gives the address offset between A [i] and A [i+1]. strideA is not less than lda*n
-//   - strideS: Value of type long long int that gives the address offset between S [i] and S [i+1]. strideS is not less than rank
+//   - strideA: Value of type long long int that gives the address offset between A[i] and A[i+1]. strideA is not less than lda*n
+//   - strideS: Value of type long long int that gives the address offset between S[i] and S[i+1]. strideS is not less than rank
 //   - ldu: Leading dimension of two-dimensional array used to store matrix Uj. ldu is not less than max(1,m)
-//   - strideU: Value of type long long int that gives the address offset between U [i] and U [i+1]. strideU is not less than ldu*rank
+//   - strideU: Value of type long long int that gives the address offset between U[i] and U[i+1]. strideU is not less than ldu*rank
 //   - ldv: Leading dimension of two-dimensional array used to store matrix Vj. ldv is not less than max(1,n)
-//   - strideV: Value of type long long int that gives the address offset between V [i] and V [i+1]. strideV is not less than ldv*rank
+//   - strideV: Value of type long long int that gives the address offset between V[i] and V[i+1]. strideV is not less than ldv*rank
 //   - lwork: Size of work, returned by gesvdaStridedBatched_bufferSize
-//   - hRNrmF: array of size batchSize. h_RnrmF [i] is norm of residual of i-th matrix. If 0 < info [i] < min(m,n)+1, h_RnrmF [i] reports the residual as if rank of the i-th matrix had been set to info [i]-1
+//   - hRNrmF: array of size batchSize. h_RnrmF[i] is norm of residual of i-th matrix. If 0 < info[i] < min(m,n)+1, h_RnrmF[i] reports the residual as if rank of the i-th matrix had been set to info[i]-1
 //   - batchSize: Number of matrices. batchSize is not less than 1
 //
 // Errors:
@@ -9540,12 +9540,12 @@ func (h Handle) ZgesvdaStridedBatched(jobz EigMode, rank int32, m int32, n int32
 //   - m: Number of rows of matrix Aj
 //   - n: Number of columns of matrix Aj
 //   - lda: Leading dimension of two-dimensional array used to store matrix Aj
-//   - strideA: Value of type long long int that gives the address offset between A [i] and A [i+1]. strideA is not less than lda*n
-//   - strideS: Value of type long long int that gives the address offset between S [i] and S [i+1]. strideS is not less than rank
+//   - strideA: Value of type long long int that gives the address offset between A[i] and A[i+1]. strideA is not less than lda*n
+//   - strideS: Value of type long long int that gives the address offset between S[i] and S[i+1]. strideS is not less than rank
 //   - ldu: Leading dimension of two-dimensional array used to store matrix Uj. ldu is not less than max(1,m)
-//   - strideU: Value of type long long int that gives the address offset between U [i] and U [i+1]. strideU is not less than ldu*rank
+//   - strideU: Value of type long long int that gives the address offset between U[i] and U[i+1]. strideU is not less than ldu*rank
 //   - ldv: Leading dimension of two-dimensional array used to store matrix Vj. ldv is not less than max(1,n)
-//   - strideV: Value of type long long int that gives the address offset between V [i] and V [i+1]. strideV is not less than ldv*rank
+//   - strideV: Value of type long long int that gives the address offset between V[i] and V[i+1]. strideV is not less than ldv*rank
 //   - lwork: Size of work, in elements of complex128
 //   - batchSize: Number of matrices. batchSize is not less than 1
 //
@@ -9615,14 +9615,14 @@ func (h Handle) Zgesvdj(jobz EigMode, econ int32, m int32, n int32, a driver.Dev
 // Aⱼ=Uⱼ*Σⱼ*Vⱼᴴ, where Σⱼ is a real m×n diagonal matrix which is zero except for its min(m,n) diagonal elements. Uⱼ (left singular vectors) is an m×m unitary matrix and Vⱼ (right singular vectors) is a n×n unitary matrix. The diagonal elements of Σⱼ are the singular values of Aⱼ in either descending order or non-sorting order.
 // gesvdjBatched performs gesvdj on each matrix. It requires that all matrices are of the same size m,n no greater than 32 and are packed in contiguous way,
 // A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Aₖ(i,j)=A [i+lda*j+lda*n*k] .
+// Each matrix is column-major with leading dimension lda, so the formula for random access is Aₖ(i,j)=A[i+lda*j+lda*n*k] .
 // The parameter S also contains singular values of each matrix in contiguous way,
 // S=(S0S1⋯)
-// The formula for random access of S is Sₖ(j)=S [j+min(m,n)*k] .
+// The formula for random access of S is Sₖ(j)=S[j+min(m,n)*k] .
 // Except for tolerance and maximum sweeps, gesvdjBatched can either sort the singular values in descending order (default) or chose as-is (without sorting) by the function [GesvdjInfo.XgesvdjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate singular values of those tiny matrices.
 // gesvdjBatched cannot report residual and executed sweeps by function [Handle.XgesvdjGetResidual] and [Handle.XgesvdjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
 // The input parameter lwork is the size of the working space, and it is returned by gesvdjBatched_bufferSize().
-// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
+// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info[0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info[i] = min(m,n)+1, gesvdjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
 // Please visit cuSOLVER Library Samples - gesvdjBatched for a code example.
 //
 //   - jobz: Specifies options to either compute singular value only or singular vectors as well: jobz = [EigModeNovector] : Compute singular values only; jobz = [EigModeVector] : Compute singular values and singular vectors
@@ -9637,7 +9637,7 @@ func (h Handle) Zgesvdj(jobz EigMode, econ int32, m int32, n int32, a driver.Dev
 //   - ldv: Leading dimension of two-dimensional array used to store matrix Vj. ldv is not less than max(1,n)
 //   - work: array of size lwork, working space
 //   - lwork: Size of work, returned by gesvdjBatched_bufferSize
-//   - info: An integer array of dimension batchSize. If [ErrInvalidValue] is returned, info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = 0, the operation is successful. if info [i] = min(m,n)+1, gesvdjBatched dose not converge on i-th matrix under given tolerance and maximum sweeps
+//   - info: An integer array of dimension batchSize. If [ErrInvalidValue] is returned, info[0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info[i] = 0, the operation is successful. if info[i] = min(m,n)+1, gesvdjBatched dose not converge on i-th matrix under given tolerance and maximum sweeps
 //   - params: Structure filled with parameters of Jacobi algorithm. params can be destroyed after the host thread exits the routine
 //   - batchSize: Number of matrices
 //
@@ -9936,26 +9936,26 @@ func (h Handle) Zheevj(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr,
 // Aⱼ*Qⱼ=Qⱼ*Λⱼ, where Λⱼ is a real n×n diagonal matrix. Qⱼ is an n×n unitary matrix. The diagonal elements of Λⱼ are the eigenvalues of Aⱼ in either ascending order or non-sorting order.
 // syevjBatched performs syevj on each matrix. It requires that all matrices are of the same size n and are packed in contiguous way,
 // A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Aₖ(i,j)=A [i+lda*j+lda*n*k] .
+// Each matrix is column-major with leading dimension lda, so the formula for random access is Aₖ(i,j)=A[i+lda*j+lda*n*k] .
 // The parameter W also contains eigenvalues of each matrix in contiguous way,
 // W=(W0W1⋯)
-// The formula for random access of W is Wₖ(j)=W [j+n*k] .
+// The formula for random access of W is Wₖ(j)=W[j+n*k] .
 // Except for tolerance and maximum sweeps, syevjBatched can either sort the eigenvalues in ascending order (default) or chose as-is (without sorting) by the function [SyevjInfo.XsyevjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate spectrum of those tiny matrices.
 // syevjBatched cannot report residual and executed sweeps by function [Handle.XsyevjGetResidual] and [Handle.XsyevjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
 // The input parameter lwork is the size of the working space, and it is returned by syevjBatched_bufferSize().
-// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
+// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info[0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info[i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
 // If jobz = [EigModeVector], Aⱼ contains the orthonormal eigenvectors Vⱼ.
 // Please visit cuSOLVER Library Samples - syevjBatched for a code example.
 //
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - uplo: Specifies which part of Aj is stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of Aj is stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of Aj is stored
 //   - n: Number of rows (or columns) of matrix each Aj
-//   - a: array of dimension lda * n * batchSize with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of Aj contains the upper triangular part of the matrix Aj. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of Aj contains the lower triangular part of the matrix Aj. On exit, if jobz = [EigModeVector], and info [j] = 0, Aj contains the orthonormal eigenvectors of the matrix Aj. If jobz = [EigModeNovector], the contents of Aj are destroyed
+//   - a: array of dimension lda * n * batchSize with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of Aj contains the upper triangular part of the matrix Aj. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of Aj contains the lower triangular part of the matrix Aj. On exit, if jobz = [EigModeVector], and info[j] = 0, Aj contains the orthonormal eigenvectors of the matrix Aj. If jobz = [EigModeNovector], the contents of Aj are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix Aj
 //   - w: A real array of dimension n*batchSize. It stores the eigenvalues of Aj in ascending order or non-sorting order
 //   - work: array of size lwork, workspace
 //   - lwork: Size of work, returned by syevjBatched_bufferSize
-//   - info: An integer array of dimension batchSize. If [ErrInvalidValue] is returned, info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = 0, the operation is successful. If info [i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps
+//   - info: An integer array of dimension batchSize. If [ErrInvalidValue] is returned, info[0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info[i] = 0, the operation is successful. If info[i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps
 //   - params: Structure filled with parameters of Jacobi algorithm
 //   - batchSize: Number of matrices
 //
@@ -9974,7 +9974,7 @@ func (h Handle) ZheevjBatched(jobz EigMode, uplo FillMode, n int32, a driver.Dev
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
 //   - uplo: Specifies which part of Aj is stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of Aj is stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of Aj is stored
 //   - n: Number of rows (or columns) of matrix each Aj
-//   - a: array of dimension lda * n * batchSize with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of Aj contains the upper triangular part of the matrix Aj. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of Aj contains the lower triangular part of the matrix Aj. On exit, if jobz = [EigModeVector], and info [j] = 0, Aj contains the orthonormal eigenvectors of the matrix Aj. If jobz = [EigModeNovector], the contents of Aj are destroyed
+//   - a: array of dimension lda * n * batchSize with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of Aj contains the upper triangular part of the matrix Aj. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of Aj contains the lower triangular part of the matrix Aj. On exit, if jobz = [EigModeVector], and info[j] = 0, Aj contains the orthonormal eigenvectors of the matrix Aj. If jobz = [EigModeNovector], the contents of Aj are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix Aj
 //   - w: A real array of dimension n*batchSize. It stores the eigenvalues of Aj in ascending order or non-sorting order
 //   - lwork: Size of work, in elements of complex128
@@ -10288,20 +10288,20 @@ func (h Handle) Zpotrf(uplo FillMode, n int32, a driver.DevicePtr, lda int32, wo
 
 // ZpotrfBatched computes the Cholesky factorization of a sequence of Hermitian positive-definite matrices.
 //
-// Each Aarray [i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
+// Each Aarray[i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
 // If input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced by lower triangular Cholesky factor L.
 // A=L*Lᴴ
 // If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular Cholesky factor U.
 // A=Uᴴ*U
 // If Cholesky factorization failed, i.e. some leading minor of A is not positive definite, or equivalently some diagonal elements of L or U is not a real number. The output parameter infoArray would indicate smallest leading minor of A which is not positive definite.
-// infoArray is an integer array of size batchsize. If potrfBatched returns [ErrInvalidValue], infoArray [0] = -i (less than zero), meaning that the i-th parameter is wrong (not counting handle). If potrfBatched returns [Success] but infoArray [i] = k is positive, then i-th matrix is not positive definite and the Cholesky factorization failed at row k.
+// infoArray is an integer array of size batchsize. If potrfBatched returns [ErrInvalidValue], infoArray[0] = -i (less than zero), meaning that the i-th parameter is wrong (not counting handle). If potrfBatched returns [Success] but infoArray[i] = k is positive, then i-th matrix is not positive definite and the Cholesky factorization failed at row k.
 // Remark: the other part of A is used as a workspace. For example, if uplo is CUBLAS_FILL_MODE_UPPER, upper triangle of A contains Cholesky factor U and lower triangle of A is destroyed after potrfBatched.
 //
 //   - uplo: Indicates if lower or upper part is stored; the other part is used as a workspace
 //   - n: Number of rows and columns of matrix A
 //   - aarray: Array of pointers to array of dimension lda * n with lda is not less than max(1,n)
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - infoArray: Array of size batchSize. infoArray [i] contains information of factorization of Aarray [i]. if potrfBatched returns [ErrInvalidValue], infoArray [0] = -i (less than zero) means the i-th parameter is wrong (not counting handle). if potrfBatched returns [Success], infoArray [i] = 0 means the Cholesky factorization of i-th matrix is successful, and infoArray [i] = k means the leading submatrix of order k of i-th matrix is not positive definite
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
+//   - infoArray: Array of size batchSize. infoArray[i] contains information of factorization of Aarray[i]. if potrfBatched returns [ErrInvalidValue], infoArray[0] = -i (less than zero) means the i-th parameter is wrong (not counting handle). if potrfBatched returns [Success], infoArray[i] = 0 means the Cholesky factorization of i-th matrix is successful, and infoArray[i] = k means the leading submatrix of order k of i-th matrix is not positive definite
 //   - batchSize: Number of pointers in Aarray
 //
 // Errors:
@@ -10406,8 +10406,8 @@ func (h Handle) Zpotrs(uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, l
 
 // ZpotrsBatched solves a sequence of linear systems.
 //
-// A [i]*X [i]=B [i], where each Aarray [i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
-// The user has to call potrfBatched first to factorize matrix Aarray [i]. If input parameter uplo is CUBLAS_FILL_MODE_LOWER, A is lower triangular Cholesky factor L corresponding to A=L*Lᴴ . If input parameter uplo is CUBLAS_FILL_MODE_UPPER, A is upper triangular Cholesky factor U corresponding to A=Uᴴ*U .
+// A[i]*X[i]=B[i], where each Aarray[i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
+// The user has to call potrfBatched first to factorize matrix Aarray[i]. If input parameter uplo is CUBLAS_FILL_MODE_LOWER, A is lower triangular Cholesky factor L corresponding to A=L*Lᴴ . If input parameter uplo is CUBLAS_FILL_MODE_UPPER, A is upper triangular Cholesky factor U corresponding to A=Uᴴ*U .
 // The operation is in-place, i.e. matrix X overwrites matrix B with the same leading dimension ldb.
 // The output parameter info is a scalar. If info = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // Remark 1: only nrhs=1 is supported.
@@ -10418,8 +10418,8 @@ func (h Handle) Zpotrs(uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, l
 //   - uplo: Indicates if matrix A lower or upper part is stored
 //   - n: Number of rows and columns of matrix A
 //   - nrhs: Number of columns of matrix X and B
-//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - ldb: Leading dimension of two-dimensional array used to store each matrix Barray [i]
+//   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray[i]
+//   - ldb: Leading dimension of two-dimensional array used to store each matrix Barray[i]
 //   - batchSize: Number of pointers in Aarray
 //
 // Errors:

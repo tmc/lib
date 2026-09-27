@@ -73,6 +73,12 @@ func getCftDeviceLeInfo(window Window, offset uint, peerCft int32, cftTeam Team)
 // The window must be registered with a communicator that supports LSA. The LSA rank must be within the valid range for the LSA team, and the target peer must be load/store accessible (P2P connectivity required).
 // Example:
 //
+//	void* lsaPtr;
+//	ncclResult_t result = ncclGetLsaDevicePointer(window, 0, 1, &lsaPtr);
+//	if (result == ncclSuccess) {
+//	    // Use lsaPtr to access LSA peer 1's memory
+//	}
+//
 // Wraps ncclGetLsaDevicePointer.
 func getLsaDevicePointer(window Window, offset uint, lsaRank int32) (driver.DevicePtr, error) {
 	if err := checkLibSym("ncclGetLsaDevicePointer"); err != nil {
@@ -98,6 +104,16 @@ var slotGetLsaDevicePointer outSlot[uintptr]
 //
 // Note: If the system does not support multimem, the function returns ncclSuccess with *outPtr set to nullptr. This allows applications to gracefully detect and handle the absence of multimem support without breaking the communicator. Users should check if the returned pointer is nullptr to determine availability.
 // Example:
+//
+//	void* multimemPtr;
+//	ncclResult_t result = ncclGetLsaMultimemDevicePointer(window, 0, &multimemPtr);
+//	if (result == ncclSuccess) {
+//	    if (multimemPtr != nullptr) {
+//	        // Use multimemPtr for multimem operations
+//	    } else {
+//	        // Multimem not supported, use fallback approach
+//	    }
+//	}
 //
 // Wraps ncclGetLsaMultimemDevicePointer.
 func getLsaMultimemDevicePointer(window Window, offset uint) (driver.DevicePtr, error) {
@@ -147,6 +163,20 @@ var slotGetMultimemDeviceLeInfo outSlot[struct {
 // Note: If the system does not support multimem, the function returns ncclSuccess with *outPtr set to nullptr. The function validates that multimem.mcBasePtr is not nullptr before proceeding.
 // Example:
 //
+//	// Get multimem handle from device communicator setup
+//	ncclMultimemHandle customHandle;
+//	// ... (obtain handle)
+//
+//	void* multimemPtr;
+//	ncclResult_t result = ncclGetMultimemDevicePointer(window, 0, customHandle, &multimemPtr);
+//	if (result == ncclSuccess) {
+//	    if (multimemPtr != nullptr) {
+//	        // Use multimemPtr for multimem operations with custom handle
+//	    } else {
+//	        // Multimem not supported, use fallback approach
+//	    }
+//	}
+//
 // Wraps ncclGetMultimemDevicePointer.
 func getMultimemDevicePointer(window Window, offset uint, multimem MultimemHandle) (driver.DevicePtr, error) {
 	if err := checkLibSym("ncclGetMultimemDevicePointer"); err != nil {
@@ -192,6 +222,16 @@ var slotGetPeerDeviceLeInfo outSlot[struct {
 // The window must be registered with a communicator that supports LSA. The peer rank must be within the valid range for the communicator, and the target peer must be load/store accessible (P2P connectivity required).
 // Example:
 //
+//	void* peerPtr;
+//	ncclResult_t result = ncclGetPeerDevicePointer(window, 0, 2, &peerPtr);
+//	if (result == ncclSuccess) {
+//	    if (peerPtr != NULL) {
+//	        // Use peerPtr to access world rank 2's memory
+//	    } else {
+//	        // Peer 2 is not reachable via LSA
+//	    }
+//	}
+//
 // Wraps ncclGetPeerDevicePointer.
 func getPeerDevicePointer(window Window, offset uint, peer int32) (driver.DevicePtr, error) {
 	if err := checkLibSym("ncclGetPeerDevicePointer"); err != nil {
@@ -226,6 +266,12 @@ func (w Window) CftDeviceLeInfo(offset uint, peerCft int32, cftTeam Team) (leId 
 // The window must be registered with a communicator that supports LSA. The LSA rank must be within the valid range for the LSA team, and the target peer must be load/store accessible (P2P connectivity required).
 // Example:
 //
+//	void* lsaPtr;
+//	ncclResult_t result = ncclGetLsaDevicePointer(window, 0, 1, &lsaPtr);
+//	if (result == ncclSuccess) {
+//	    // Use lsaPtr to access LSA peer 1's memory
+//	}
+//
 // Wraps ncclGetLsaDevicePointer.
 func (w Window) LsaDevicePointer(offset uint, lsaRank int32) (driver.DevicePtr, error) {
 	return getLsaDevicePointer(w, offset, lsaRank)
@@ -239,6 +285,16 @@ func (w Window) LsaDevicePointer(offset uint, lsaRank int32) (driver.DevicePtr, 
 //
 // Note: If the system does not support multimem, the function returns ncclSuccess with *outPtr set to nullptr. This allows applications to gracefully detect and handle the absence of multimem support without breaking the communicator. Users should check if the returned pointer is nullptr to determine availability.
 // Example:
+//
+//	void* multimemPtr;
+//	ncclResult_t result = ncclGetLsaMultimemDevicePointer(window, 0, &multimemPtr);
+//	if (result == ncclSuccess) {
+//	    if (multimemPtr != nullptr) {
+//	        // Use multimemPtr for multimem operations
+//	    } else {
+//	        // Multimem not supported, use fallback approach
+//	    }
+//	}
 //
 // Wraps ncclGetLsaMultimemDevicePointer.
 func (w Window) LsaMultimemDevicePointer(offset uint) (driver.DevicePtr, error) {
@@ -263,6 +319,20 @@ func (w Window) MultimemDeviceLeInfo(offset uint) (leId CftLeId, leOffset uint, 
 // Note: If the system does not support multimem, the function returns ncclSuccess with *outPtr set to nullptr. The function validates that multimem.mcBasePtr is not nullptr before proceeding.
 // Example:
 //
+//	// Get multimem handle from device communicator setup
+//	ncclMultimemHandle customHandle;
+//	// ... (obtain handle)
+//
+//	void* multimemPtr;
+//	ncclResult_t result = ncclGetMultimemDevicePointer(window, 0, customHandle, &multimemPtr);
+//	if (result == ncclSuccess) {
+//	    if (multimemPtr != nullptr) {
+//	        // Use multimemPtr for multimem operations with custom handle
+//	    } else {
+//	        // Multimem not supported, use fallback approach
+//	    }
+//	}
+//
 // Wraps ncclGetMultimemDevicePointer.
 func (w Window) MultimemDevicePointer(offset uint, multimem MultimemHandle) (driver.DevicePtr, error) {
 	return getMultimemDevicePointer(w, offset, multimem)
@@ -285,6 +355,16 @@ func (w Window) PeerDeviceLeInfo(offset uint, peerWorld int32) (leId CftLeId, le
 // If the peer is not reachable via LSA (not in LSA team), outPtr is set to NULL and ncclSuccess is returned. This matches the behavior of the device-side ncclGetPeerPointer function.
 // The window must be registered with a communicator that supports LSA. The peer rank must be within the valid range for the communicator, and the target peer must be load/store accessible (P2P connectivity required).
 // Example:
+//
+//	void* peerPtr;
+//	ncclResult_t result = ncclGetPeerDevicePointer(window, 0, 2, &peerPtr);
+//	if (result == ncclSuccess) {
+//	    if (peerPtr != NULL) {
+//	        // Use peerPtr to access world rank 2's memory
+//	    } else {
+//	        // Peer 2 is not reachable via LSA
+//	    }
+//	}
 //
 // Wraps ncclGetPeerDevicePointer.
 func (w Window) PeerDevicePointer(offset uint, peer int32) (driver.DevicePtr, error) {

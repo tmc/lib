@@ -93,7 +93,7 @@ func (t TexRef) Array() (Array, error) {
 
 // BorderColor gets the border color used by a texture reference.
 //
-// Returns in pBorderColor, values of the RGBA color used by the texture reference hTexRef. The color value is of type float and holds color components in the following sequence: pBorderColor [0] holds ‘R’ component pBorderColor [1] holds ‘G’ component pBorderColor [2] holds ‘B’ component pBorderColor [3] holds ‘A’ component
+// Returns in pBorderColor, values of the RGBA color used by the texture reference hTexRef. The color value is of type float and holds color components in the following sequence: pBorderColor[0] holds ‘R’ component pBorderColor[1] holds ‘G’ component pBorderColor[2] holds ‘B’ component pBorderColor[3] holds ‘A’ component
 //
 // See also: [TexRef.SetAddressMode], [TexRef.SetBorderColor]
 //
@@ -318,6 +318,14 @@ func (t TexRef) SetAddress2D(desc *ArrayDescriptor, dptr DevicePtr, pitch uint) 
 // SetAddressMode sets the addressing mode for a texture reference.
 //
 // Specifies the addressing mode am for the given dimension dim of the texture reference hTexRef. If dim is zero, the addressing mode is applied to the first parameter of the functions used to fetch from the texture; if dim is 1, the second, and so on. [AddressMode] is defined as:
+//
+//	typedef enum CUaddress_mode_enum {
+//	   CU_TR_ADDRESS_MODE_WRAP = 0,
+//	   CU_TR_ADDRESS_MODE_CLAMP = 1,
+//	   CU_TR_ADDRESS_MODE_MIRROR = 2,
+//	   CU_TR_ADDRESS_MODE_BORDER = 3
+//	} CUaddress_mode;
+//
 // Note that this call has no effect if hTexRef is bound to linear memory. Also, if the flag, CU_TRSF_NORMALIZED_COORDINATES, is not set, the only supported address mode is [TrAddressModeClamp].
 //
 // See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
@@ -362,7 +370,7 @@ func (t TexRef) SetArray(hArray Array, flags uint32) error {
 
 // SetBorderColor sets the border color for a texture reference.
 //
-// Specifies the value of the RGBA color via the pBorderColor to the texture reference hTexRef. The color value supports only float type and holds color components in the following sequence: pBorderColor [0] holds ‘R’ component pBorderColor [1] holds ‘G’ component pBorderColor [2] holds ‘B’ component pBorderColor [3] holds ‘A’ component
+// Specifies the value of the RGBA color via the pBorderColor to the texture reference hTexRef. The color value supports only float type and holds color components in the following sequence: pBorderColor[0] holds ‘R’ component pBorderColor[1] holds ‘G’ component pBorderColor[2] holds ‘B’ component pBorderColor[3] holds ‘A’ component
 // Note that the color values can be set only when the Address mode is set to [TrAddressModeBorder] using [TexRef.SetAddressMode]. Applications using integer border color values have to “reinterpret_cast” their values to float.
 //
 // See also: [TexRef.SetAddressMode], [TexRef.AddressMode], [TexRef.BorderColor]
@@ -383,6 +391,12 @@ func (t TexRef) SetBorderColor() (float32, error) {
 // SetFilterMode sets the filtering mode for a texture reference.
 //
 // Specifies the filtering mode fm to be used when reading memory through the texture reference hTexRef. CUfilter_mode_enum is defined as:
+//
+//	typedef enum CUfilter_mode_enum {
+//	   CU_TR_FILTER_MODE_POINT = 0,
+//	   CU_TR_FILTER_MODE_LINEAR = 1
+//	} CUfilter_mode;
+//
 // Note that this call has no effect if hTexRef is bound to linear memory.
 //
 // See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
@@ -473,6 +487,12 @@ func (t TexRef) SetMaxAnisotropy(maxAniso uint32) error {
 // SetMipmapFilterMode sets the mipmap filtering mode for a texture reference.
 //
 // Specifies the mipmap filtering mode fm to be used when reading memory through the texture reference hTexRef. CUfilter_mode_enum is defined as:
+//
+//	typedef enum CUfilter_mode_enum {
+//	   CU_TR_FILTER_MODE_POINT = 0,
+//	   CU_TR_FILTER_MODE_LINEAR = 1
+//	} CUfilter_mode;
+//
 // Note that this call has no effect if hTexRef is not bound to a mipmapped array.
 //
 // See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]

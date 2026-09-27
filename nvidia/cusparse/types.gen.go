@@ -93,4 +93,8 @@ const (
 )
 
 // LoggerCallback represents cusparseLoggerCallback_t.
+//
+//   - logLevel: Selected log level
+//   - functionName: The name of the API that logged this message
+//   - message: The log message
 type LoggerCallback uintptr

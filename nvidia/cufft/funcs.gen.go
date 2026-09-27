@@ -1050,11 +1050,11 @@ var slotMakePlan3d outSlot[uint]
 //
 //   - plan: [Handle] returned by [Create]
 //   - rank: Dimensionality of the transform (1, 2, or 3)
-//   - n: Array of size rank, describing the size of each dimension, n [0] being the size of the outermost and n [rank-1] innermost (contiguous) dimension of a transform. For multiple GPUs and rank equal to 1, the sizes must be a power of 2. For multiple GPUs and rank equal to 2 or 3, the sizes must be factorable into primes less than or equal to 127
-//   - inembed: Pointer of size rank that indicates the storage dimensions of the input data in memory, inembed [0] being the storage dimension of the outermost dimension. If set to NULL all other advanced data layout parameters are ignored
+//   - n: Array of size rank, describing the size of each dimension, n[0] being the size of the outermost and n[rank-1] innermost (contiguous) dimension of a transform. For multiple GPUs and rank equal to 1, the sizes must be a power of 2. For multiple GPUs and rank equal to 2 or 3, the sizes must be factorable into primes less than or equal to 127
+//   - inembed: Pointer of size rank that indicates the storage dimensions of the input data in memory, inembed[0] being the storage dimension of the outermost dimension. If set to NULL all other advanced data layout parameters are ignored
 //   - istride: Indicates the distance between two successive input elements in the least significant (i.e., innermost) dimension
 //   - idist: Indicates the distance between the first element of two consecutive signals in a batch of the input data
-//   - onembed: Pointer of size rank that indicates the storage dimensions of the output data in memory, onembed [0] being the storage dimension of the outermost dimension. If set to NULL all other advanced data layout parameters are ignored
+//   - onembed: Pointer of size rank that indicates the storage dimensions of the output data in memory, onembed[0] being the storage dimension of the outermost dimension. If set to NULL all other advanced data layout parameters are ignored
 //   - ostride: Indicates the distance between two successive output elements in the output array in the least significant (i.e., innermost) dimension
 //   - odist: Indicates the distance between the first element of two consecutive signals in a batch of the output data
 //   - type_: The transform data type (e.g., R2C for single precision real to complex). For 2 GPUs this must be a complex to complex transform
@@ -1272,7 +1272,7 @@ var slotPlan3d outSlot[Handle]
 // This call can only be used once for a given handle. It will fail and return [ErrInvalidPlan] if the plan is locked, i.e. the handle was previously used with a different cufftPlan or cufftMakePlan call.
 //
 //   - rank: Dimensionality of the transform (1, 2, or 3)
-//   - n: Array of size rank, describing the size of each dimension, n [0] being the size of the outermost and n [rank-1] innermost (contiguous) dimension of a transform
+//   - n: Array of size rank, describing the size of each dimension, n[0] being the size of the outermost and n[rank-1] innermost (contiguous) dimension of a transform
 //   - inembed: Pointer of size rank that indicates the storage dimensions of the input data in memory. If set to NULL all other advanced data layout parameters are ignored
 //   - istride: Indicates the distance between two successive input elements in the least significant (i.e., innermost) dimension
 //   - idist: Indicates the distance between the first element of two consecutive signals in a batch of the input data

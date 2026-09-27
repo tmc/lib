@@ -281,6 +281,9 @@ func (p Program) TileIRSize() (uint, error) {
 //
 // The callback function must satisfy the following constraints:
 // (1) Its signature should be:
+//
+//	int callback(void* param1, void* param2);
+//
 // When invoking the callback, the compiler will always pass payload to param1 so that the callback may make decisions based on payload . It’ll always pass NULL to param2 for now which is reserved for future extensions.
 // (2) It must return 1 to cancel compilation or 0 to continue. Other return values are reserved for future use.
 // (3) It must return consistent values. Once it returns 1 at one point, it must return 1 in all following invocations during the current [Program.Compile] call in progress.

@@ -4,7 +4,7 @@ package cublas
 
 import "fmt"
 
-// FillMode represents cublasFillMode_t.
+// FillMode indicates which part (lower or upper) of the dense matrix was filled and consequently should be used by the function. Its values correspond to Fortran characters L or l (lower) and U or u (upper) that are often used as parameters to legacy BLAS implementations.
 type FillMode int32
 
 const (
@@ -26,7 +26,7 @@ func (e FillMode) String() string {
 	return fmt.Sprintf("FillMode(%d)", e)
 }
 
-// DiagType represents cublasDiagType_t.
+// DiagType indicates whether the main diagonal of the dense matrix is unity and consequently should not be touched or modified by the function. Its values correspond to Fortran characters ‘N’ or ‘n’ (non-unit) and ‘U’ or ‘u’ (unit) that are often used as parameters to legacy BLAS implementations.
 type DiagType int32
 
 const (
@@ -45,7 +45,7 @@ func (e DiagType) String() string {
 	return fmt.Sprintf("DiagType(%d)", e)
 }
 
-// SideMode represents cublasSideMode_t.
+// SideMode indicates whether the dense matrix is on the left or right side in the matrix equation solved by a particular function. Its values correspond to Fortran characters ‘L’ or ‘l’ (left) and ‘R’ or ‘r’ (right) that are often used as parameters to legacy BLAS implementations.
 type SideMode int32
 
 const (
@@ -64,7 +64,9 @@ func (e SideMode) String() string {
 	return fmt.Sprintf("SideMode(%d)", e)
 }
 
-// Operation represents cublasOperation_t.
+// Operation indicates which operation needs to be performed with the dense matrix.
+//
+// Its values correspond to Fortran characters ‘N’ or ‘n’ (non-transpose), ‘T’ or ‘t’ (transpose) and ‘C’ or ‘c’ (conjugate transpose) that are often used as parameters to legacy BLAS implementations.
 type Operation int32
 
 const (
@@ -90,7 +92,9 @@ func (e Operation) String() string {
 	return fmt.Sprintf("Operation(%d)", e)
 }
 
-// PointerMode represents cublasPointerMode_t.
+// PointerMode indicates whether the scalar values are passed by reference on the host or device.
+//
+// It is important to point out that if several scalar values are present in the function call, all of them must conform to the same single pointer mode. The pointer mode can be set and retrieved using [Handle.SetPointerMode] and [Handle.PointerMode] routines, respectively.
 type PointerMode int32
 
 const (
@@ -109,7 +113,9 @@ func (e PointerMode) String() string {
 	return fmt.Sprintf("PointerMode(%d)", e)
 }
 
-// AtomicsMode represents cublasAtomicsMode_t.
+// AtomicsMode indicates whether cuBLAS routines which has an alternate implementation using atomics can be used.
+//
+// The atomics mode can be set and queried using [Handle.SetAtomicsMode] and [Handle.AtomicsMode] and routines, respectively.
 type AtomicsMode int32
 
 const (
@@ -128,7 +134,7 @@ func (e AtomicsMode) String() string {
 	return fmt.Sprintf("AtomicsMode(%d)", e)
 }
 
-// GemmAlgo represents cublasGemmAlgo_t.
+// GemmAlgo is an enumerant to specify the algorithm for matrix-matrix multiplication on GPU architectures up to sm_75. On sm_80 and newer GPU architectures, this enumerant has no effect. cuBLAS has the following algorithm options.
 type GemmAlgo int32
 
 const (
@@ -272,7 +278,7 @@ func (e GemmAlgo) String() string {
 	return fmt.Sprintf("GemmAlgo(%d)", e)
 }
 
-// Math represents cublasMath_t.
+// Math is used in [Handle.SetMathMode] to choose compute precision modes as defined in the following table. Since this setting does not directly control the use of Tensor Cores, the mode [TensorOpMath] is being deprecated, and will be removed in a future release.
 type Math int32
 
 const (
@@ -306,7 +312,7 @@ func (e Math) String() string {
 	return fmt.Sprintf("Math(%d)", e)
 }
 
-// ComputeType represents cublasComputeType_t.
+// ComputeType is used in [Handle.GemmEx] and cublasLtMatmul() (including all batched and strided batched variants) to choose compute precision modes as defined below. Note Setting the environment variable NVIDIA_TF32_OVERRIDE = 0 will override any defaults or programmatic configuration of NVIDIA libraries, and consequently, cuBLAS will not accelerate single-precision computations with TF32 tensor cores.
 type ComputeType int32
 
 const (
@@ -358,7 +364,7 @@ func (e ComputeType) String() string {
 	return fmt.Sprintf("ComputeType(%d)", e)
 }
 
-// EmulationStrategy represents cublasEmulationStrategy_t.
+// EmulationStrategy is used in [Handle.SetEmulationStrategy] to choose how to leverage floating point emulation algorithms. Note In general, the [Handle.SetEmulationStrategy] function takes precedence over the environment variable setting. However, setting the environment variable [EmulationStrategy] to performant or eager will override the default emulation strategy with the corresponding emulation strategy, even if the default strategy was set by the function call.
 type EmulationStrategy int32
 
 const (

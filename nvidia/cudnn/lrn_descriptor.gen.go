@@ -20,7 +20,7 @@ func (l LRNDescriptor) Get() (lrnN uint32, lrnAlpha float64, lrnBeta float64, lr
 
 // Set initializes a previously created LRN descriptor object.
 //
-//   - lrnN: Input. Normalization window width in elements. The LRN layer uses a window [center-lookBehind, center+lookAhead], where lookBehind = floor( (lrnN-1)/2 ), lookAhead = lrnN-lookBehind-1. So for n=10, the window is [k-4...k...k+5] with a total of 10 samples. For the DivisiveNormalization layer, the window has the same extent as above in all spatial dimensions ( dimA [2], dimA [3], dimA [4]). By default, lrnN is set to 5 in [CreateLRNDescriptor]
+//   - lrnN: Input. Normalization window width in elements. The LRN layer uses a window [center-lookBehind, center+lookAhead], where lookBehind = floor( (lrnN-1)/2 ), lookAhead = lrnN-lookBehind-1. So for n=10, the window is [k-4...k...k+5] with a total of 10 samples. For the DivisiveNormalization layer, the window has the same extent as above in all spatial dimensions ( dimA[2], dimA[3], dimA[4]). By default, lrnN is set to 5 in [CreateLRNDescriptor]
 //   - lrnAlpha: Input. Value of the alpha variance scaling parameter in the normalization formula. Inside the library code, this value is divided by the window width for LRN and by (window width)^#spatialDimensions for DivisiveNormalization. By default, this value is set to 1e-4 in [CreateLRNDescriptor]
 //   - lrnBeta: Input. Value of the beta power parameter in the normalization formula. By default, this value is set to 0.75 in [CreateLRNDescriptor]
 //   - lrnK: Input. Value of the k parameter in the normalization formula. By default, this value is set to 2.0

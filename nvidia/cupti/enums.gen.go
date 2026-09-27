@@ -2417,7 +2417,7 @@ const (
 	// UvmCounterFieldProcessId: uint32_t processId; ID of the process to which this record belongs.
 	UvmCounterFieldProcessId ActivityUvmCounterFieldIds = 9
 	UvmCounterFieldFlags     ActivityUvmCounterFieldIds = 10 // uint32_t flags; Flags associated with this record.
-	// UvmCounterFieldProcessors: uint64_t processors [5]; Bitmask of devices involved in the operation.
+	// UvmCounterFieldProcessors: uint64_t processors[5]; Bitmask of devices involved in the operation.
 	UvmCounterFieldProcessors ActivityUvmCounterFieldIds = 11
 )
 
@@ -3469,7 +3469,7 @@ const (
 	GreenContextFieldNumTpcs ActivityGreenContextFieldIds = 5
 	// GreenContextFieldLogicalTpcMaskSize: uint8_t logicalTpcMaskSize; The size (in 32-bit words) of the logical TPC mask.
 	GreenContextFieldLogicalTpcMaskSize ActivityGreenContextFieldIds = 6
-	// GreenContextFieldLogicalTpcMask: uint32_t logicalTpcMask [32]; The logical TPC mask for the green context.
+	// GreenContextFieldLogicalTpcMask: uint32_t logicalTpcMask[32]; The logical TPC mask for the green context.
 	GreenContextFieldLogicalTpcMask ActivityGreenContextFieldIds = 7
 )
 

@@ -31,7 +31,7 @@ func (h *Handle) Close() error {
 // A tensor operator is composed of a set of the ket modes and a set of the
 // corresponding bra modes of matching extents, where both sets have the same
 // number of modes and the ket modes precede the bra modes, both in the same order.
-// For example, T [i0, i1, j0, j1] is a 2-body tensor operator in which modes {i0, i1}
+// For example, T[i0, i1, j0, j1] is a 2-body tensor operator in which modes {i0, i1}
 // form a set of the ket modes while modes {j0, j1} form the corresponding set of
 // the bra modes, where the ket mode i0 corresponds to the bra mode j0, and the ket mode
 // i1 corresponds to the bra mode j1 (the modes are always paired this way). Only one mode
@@ -137,13 +137,13 @@ func (h Handle) CreateOperatorTerm(numSpaceModes int32, spaceModeExtents *int64)
 // The number of modes in a mixed-state tensor equals twice the number of the space modes,
 // consisting of a set of the ket modes and a set of the bra modes, which are identical in terms
 // of their extents between the two sets, with the ket modes preceding the bra modes, for example:
-// S [i0, i1, j0, j1] tensor represents a mixed quantum state with two degrees of freedom,
+// S[i0, i1, j0, j1] tensor represents a mixed quantum state with two degrees of freedom,
 // where modes {i0, i1} form the ket set, and modes {j0, j1} form the bra set such that
 // ket mode i0 corresponds to the bra mode j0, and ket mode i1 corresponds to the bra mode j1.
 // In contrast, a pure quantum state with two degrees of freedom is represented by the tensor
-// S [i0, i1] with only the ket modes (no bra modes). Furthermore, batched pure/mixed states
+// S[i0, i1] with only the ket modes (no bra modes). Furthermore, batched pure/mixed states
 // introduce one additional (batch) mode to their dense tensor representation, namely:
-// S [i0, i1, b] for the batched pure state, and S [i0, i1, j0, j1, b] for the batched
+// S[i0, i1, b] for the batched pure state, and S[i0, i1, j0, j1, b] for the batched
 // mixed state, where b is the size of the batch (batch size or extent of the batch mode).
 //
 //   - purity: in Desired quantum state purity
