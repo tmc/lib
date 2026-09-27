@@ -40,7 +40,7 @@ type SOLReport struct {
 // ComputeSOLBounds computes intended per-op unfused/fused bounds and SOLAR's
 // whole-graph values. Fused input and output tensors are deduplicated by name;
 // intermediates are excluded. Shared external reads are charged to the
-// consumer with the largest MAC count, breaking ties by node ID. Start nodes
+// consumer with the largest MAC count, breaking ties by smallest node ID. Start nodes
 // supply external inputs, not work.
 func ComputeSOLBounds(g *CanonicalGraph, c Ceiling) (SOLReport, error) {
 	if !canonicalGraphValid(g) {

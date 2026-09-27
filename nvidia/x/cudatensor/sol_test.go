@@ -64,8 +64,7 @@ func TestComputeSOLBounds_FusedSharedInputAttributionIgnoresNodeOrder(t *testing
 		{Nodes: []EinsumNode{{ID: "input", OutputRank: 1, OutputTensors: []TensorInfo{{Name: "shared", Elements: 500}}}, large, small}},
 		{Nodes: []EinsumNode{{ID: "input", OutputRank: 1, OutputTensors: []TensorInfo{{Name: "shared", Elements: 500}}}, small, large}},
 	}
-	var want float64
-	for i, graph := range graphs {
+	for _, graph := range graphs {
 		canonical, err := CanonicalizeRanks(graph)
 		if err != nil {
 			t.Fatal(err)
@@ -74,10 +73,30 @@ func TestComputeSOLBounds_FusedSharedInputAttributionIgnoresNodeOrder(t *testing
 		if err != nil {
 			t.Fatal(err)
 		}
-		if i == 0 {
-			want = report.Fused
-		} else if report.Fused != want {
-			t.Fatalf("Fused depends on node order: first=%g reversed=%g", want, report.Fused)
+		if report.Fused != 1.001e-6 {
+			t.Fatalf("Fused = %.12g, want 1.001e-6", report.Fused)
+		}
+	}
+}
+
+func TestComputeSOLBounds_FusedSharedInputTieUsesSmallestNodeID(t *testing.T) {
+	smallOutput := EinsumNode{ID: "a-small", Equation: "A->A", Inputs: []string{"input"}, MACs: 15,
+		InputTensors: []TensorInfo{{Name: "shared", Elements: 500}}, OutputTensors: []TensorInfo{{Name: "small", Elements: 1}}}
+	largeOutput := EinsumNode{ID: "z-large", Equation: "A->A", Inputs: []string{"input"}, MACs: 15,
+		InputTensors: []TensorInfo{{Name: "shared", Elements: 500}}, OutputTensors: []TensorInfo{{Name: "large", Elements: 1000}}}
+	for _, nodes := range [][]EinsumNode{{smallOutput, largeOutput}, {largeOutput, smallOutput}} {
+		graph := &Graph{Nodes: []EinsumNode{{ID: "input", OutputRank: 1, OutputTensors: []TensorInfo{{Name: "shared", Elements: 500}}}}}
+		graph.Nodes = append(graph.Nodes, nodes...)
+		canonical, err := CanonicalizeRanks(graph)
+		if err != nil {
+			t.Fatal(err)
+		}
+		report, err := ComputeSOLBounds(canonical, Ceiling{MACsPerCycle: 1, BytesPerCycle: 100, FrequencyGHz: 1, BytesPerElement: 2})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if report.Fused != 35e-9 {
+			t.Fatalf("Fused = %.12g, want 35e-9", report.Fused)
 		}
 	}
 }
@@ -102,15 +121,23 @@ func TestComputeSOLBounds_ProducedWeightRemainsExternal(t *testing.T) {
 }
 
 func TestComputeSOLBounds_FailsClosedWithoutTensorMetrics(t *testing.T) {
-	canonical, err := CanonicalizeRanks(&Graph{Nodes: []EinsumNode{
-		{ID: "x", OutputRank: 1}, {ID: "y", Equation: "A->A", Inputs: []string{"x"}},
-	}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = ComputeSOLBounds(canonical, Ceiling{MACsPerCycle: 1, BytesPerCycle: 1, FrequencyGHz: 1, BytesPerElement: 2})
-	if !errors.Is(err, ErrMissingSOLData) {
-		t.Fatalf("error = %v", err)
+	for _, tc := range []struct {
+		name string
+		node EinsumNode
+	}{
+		{name: "missing output", node: EinsumNode{ID: "op", Equation: "A->A", Inputs: []string{""}, InputTensors: []TensorInfo{{Name: "x", Elements: 4}}}},
+		{name: "missing second input", node: EinsumNode{ID: "op", Equation: "A,B->A", Inputs: []string{"", ""}, InputTensors: []TensorInfo{{Name: "x", Elements: 4}}, OutputTensors: []TensorInfo{{Name: "y", Elements: 4}}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			canonical, err := CanonicalizeRanks(&Graph{Nodes: []EinsumNode{{ID: "start", OutputRank: 1}, tc.node}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = ComputeSOLBounds(canonical, Ceiling{MACsPerCycle: 1, BytesPerCycle: 1, FrequencyGHz: 1, BytesPerElement: 2})
+			if !errors.Is(err, ErrMissingSOLData) {
+				t.Fatalf("error = %v", err)
+			}
+		})
 	}
 }
 

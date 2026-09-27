@@ -58,6 +58,29 @@ func TestCanonicalizeRanksFreshLabelsHaveStableOrder(t *testing.T) {
 	}
 }
 
+func TestCanonicalizeRanksMintsOutputRanksBeforeOperandOnlyRanks(t *testing.T) {
+	g := &Graph{Nodes: []EinsumNode{{ID: "op", Equation: "ij->ji", Inputs: []string{""}}}}
+	canonical, err := CanonicalizeRanks(g)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := canonical.Nodes[0].Equation, "BA->AB"; got != want {
+		t.Fatalf("canonical equation = %q, want %q", got, want)
+	}
+}
+
+func TestCanonicalizeRanksRejectsConflictingShapeRank(t *testing.T) {
+	g := &Graph{Nodes: []EinsumNode{
+		{ID: "p", OutputRank: 2},
+		{ID: "t1", Equation: "ij->ij", Inputs: []string{"p"}},
+		{ID: "t2", Equation: "ji->ij", Inputs: []string{"t1"}},
+	}, Shape: map[string]string{"I": "I", "J": "J"}}
+	_, err := CanonicalizeRanks(g)
+	if err == nil || !strings.Contains(err.Error(), `shape rank "J"`) {
+		t.Fatalf("error = %v, want conflict naming rank J", err)
+	}
+}
+
 func TestCanonicalizeRanks_DefersUntilPredecessorsReady(t *testing.T) {
 	g := &Graph{Nodes: []EinsumNode{
 		{ID: "short", OutputRank: 1},
@@ -117,6 +140,19 @@ func TestCanonicalKeyIncludesStructureAndDimensionBounds(t *testing.T) {
 			t.Fatalf("different einsum structures share key: %q vs %q", pair[0].Nodes[2].Equation, pair[1].Nodes[2].Equation)
 		}
 	}
+	withMetrics := func(macs, elements uint64) *Graph {
+		return &Graph{Nodes: []EinsumNode{
+			{ID: "input", OutputRank: 1, OutputTensors: []TensorInfo{{Name: "x", Elements: 4}}},
+			{ID: "op", Equation: "A->A", Inputs: []string{"input"}, MACs: macs,
+				InputTensors: []TensorInfo{{Name: "x", Elements: elements}}, OutputTensors: []TensorInfo{{Name: "y", Elements: 4}}},
+		}}
+	}
+	if CanonicalKey(withMetrics(10, 4)) == CanonicalKey(withMetrics(11, 4)) {
+		t.Fatal("MAC count was omitted from canonical key")
+	}
+	if CanonicalKey(withMetrics(10, 4)) == CanonicalKey(withMetrics(10, 5)) {
+		t.Fatal("input element count was omitted from canonical key")
+	}
 }
 
 func TestCanonicalizeRanksRenamesShapeNamespace(t *testing.T) {
@@ -146,6 +182,20 @@ func TestCanonicalGraphRejectsMutation(t *testing.T) {
 	}
 	if _, err := ComputeSOLBounds(g, Ceiling{MACsPerCycle: 1, BytesPerCycle: 1, FrequencyGHz: 1, BytesPerElement: 1}); !errors.Is(err, ErrNotCanonicalized) {
 		t.Fatalf("mutated SOL error = %v", err)
+	}
+}
+
+func TestCanonicalGraphRejectsShapeMutation(t *testing.T) {
+	g, err := CanonicalizeRanks(&Graph{Nodes: []EinsumNode{
+		{ID: "input", OutputRank: 1},
+		{ID: "op", Equation: "i->i", Inputs: []string{"input"}},
+	}, Shape: map[string]string{"I": "64"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	g.Shape["A"] = "128"
+	if err := ExportTimeloopWorkload(g, &strings.Builder{}); !errors.Is(err, ErrNotCanonicalized) {
+		t.Fatalf("mutated shape export error = %v", err)
 	}
 }
 

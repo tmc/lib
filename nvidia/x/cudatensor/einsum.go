@@ -42,7 +42,8 @@ type TensorInfo struct {
 // stable order used to resolve otherwise equivalent traversals.
 type Graph struct {
 	Nodes []EinsumNode
-	// Shape maps dimension labels to Timeloop bound expressions.
+	// Shape maps upper-case source equation ranks to Timeloop bound expressions.
+	// Keys are kept verbatim; canonicalization renames matching upper-case keys.
 	Shape map[string]string
 }
 
