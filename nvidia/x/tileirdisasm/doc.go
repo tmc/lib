@@ -20,4 +20,7 @@
 //	for _, op := range fn.Operations {
 //		fmt.Printf("%s = %s\n", strings.Join(op.Results, ", "), op.OpCode)
 //	}
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package tileirdisasm

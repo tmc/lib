@@ -36,4 +36,7 @@
 // For a float32 kernel gradient, pass its own tolerance, for example
 // GradOptions{Tolerance: cudagradcheck.Accumulated(cudagradcheck.TF32Roundoff, k, 1)},
 // or compare it with the oracle's backward using Compare.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudagradcheck

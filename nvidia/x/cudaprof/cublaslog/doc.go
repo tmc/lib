@@ -14,4 +14,7 @@
 // the defaults cublasLt.h documents. The header calls the logger
 // experimental; Parse keeps every field it saw in [Matmul.Fields], so a
 // field it does not know is still available.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cublaslog

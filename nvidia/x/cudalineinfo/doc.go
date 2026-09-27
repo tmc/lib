@@ -35,6 +35,9 @@
 // fuses one statement's operation into its consumer attributes the result to
 // one line and the other gets zero instructions; a statement is not
 // guaranteed to survive as instructions of its own.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudalineinfo
 
 //go:generate go run testdata/gen.go

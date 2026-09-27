@@ -15,6 +15,9 @@
 // first collective to bound each round: a rank whose round expires returns an
 // error and, once it closes, releases the ranks still waiting on it.
 // Each peer must set its own timeout; a timeout does not close the connection.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package tcpboot
 
 import (

@@ -10,4 +10,7 @@
 //
 //	mf, err := cudahf.Resolve("meta-llama/Llama-3.2-1B-Instruct")
 //	ckpt, err := safetensors.OpenSharded(mf.SnapshotDir)
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudahf

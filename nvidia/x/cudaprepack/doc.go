@@ -17,4 +17,7 @@
 // The package repacks sub-byte formats (IQ2_XXS, Q8_0, FP8, and MXFP4) into
 // contiguous hardware tiles so TMA bulk transfers can stream tiles directly
 // into shared memory with zero register bit-manipulation.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudaprepack

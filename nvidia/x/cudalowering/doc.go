@@ -30,4 +30,7 @@
 // [github.com/tmc/lib/nvidia/x/cudasass.JoinPressure] attaches to instructions, are a different
 // measurement: high pressure explains a spill but does not count one, so this
 // package reports pressure only as supporting detail on a [Spill] divergence.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudalowering

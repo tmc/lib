@@ -18,4 +18,7 @@
 //	...
 //	err = red.ColumnSum(stream, dbias, dy, rows, n, scratch, false)
 //	err = red.LayerNormGrad(stream, dw, db, dy, x, mean, rstd, rows, n, scratch, true)
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudareduce

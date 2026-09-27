@@ -11,4 +11,7 @@
 // A capture whose journals are absent, omitted, truncated, or lossy is refused
 // rather than analyzed, because a duty cycle computed from a surviving prefix
 // reads exactly like one computed from the whole run.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package gaps

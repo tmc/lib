@@ -10,4 +10,7 @@
 // [Events] and [APIRecords] give the stream events and host API calls of a
 // capture, from the pprof samples where they carry timestamps and from the
 // journals otherwise. [Union] totals the time a set of intervals covers.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package timeline

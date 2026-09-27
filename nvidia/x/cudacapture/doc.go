@@ -37,4 +37,7 @@
 // recomputed over the retained CUBIN. The digest is a producer record checked
 // against retained bytes, not a driver attestation, and a kernel name that
 // resolves is not module-generation proof.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudacapture

@@ -14,4 +14,7 @@
 // Profiling can change execution; its results are not an uninstrumented timing
 // baseline. Hardware support and permissions are checked by the loaded CUPTI
 // library. No library installation or privilege changes are performed.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cuptirange

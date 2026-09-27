@@ -24,6 +24,9 @@
 // table is a superset used to audit parser output, so generating it from newer
 // documentation is safe, and neither version number should be changed to match
 // the other.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudaptx
 
 //go:generate go run ./internal/genptxtables -docs ../../../../libgen/docs/ptx -out tables.gen.go -docout ptxdoc.jsonl.gz

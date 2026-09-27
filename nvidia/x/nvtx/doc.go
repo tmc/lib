@@ -8,4 +8,7 @@
 // provider invocation.
 // When set, the injection provider is dynamically loaded via purego, enabling high-resolution
 // timeline markers, nested ranges, domains, CUDA resource naming, and thread naming for Nsight timelines.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package nvtx

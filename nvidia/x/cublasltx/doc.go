@@ -28,4 +28,7 @@
 // A nil stream selects the CUDA default stream. Keep buffers alive until work completes and
 // synchronize before reading results on the host or calling [Engine.Close].
 // A closed Engine cannot be reused.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cublasltx

@@ -13,4 +13,7 @@
 //
 // TreeAttentionCUDA and TreeAttentionReference execute 2D Causal Tree Attention
 // with 64-bit row bitmasks for speculative candidate tree verification.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudaattn

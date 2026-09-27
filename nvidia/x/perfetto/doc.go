@@ -8,4 +8,7 @@
 // # Visualization
 //
 // Trace files emitted by this package can be opened directly at https://ui.perfetto.dev.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package perfetto

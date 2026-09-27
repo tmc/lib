@@ -10,4 +10,7 @@
 // A zero Tile is invalid. There are no aliasing or broadcast layouts. Element
 // slots are 1, 2, or 4 bytes; they describe logical slots and do not allocate
 // GPRs. Padding can leave holes in the physical and register tile.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudalayout

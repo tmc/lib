@@ -20,4 +20,7 @@
 // retained primary context current on a locked OS thread. Callers provide device
 // isolation and must not launch unrelated work during measurements. Native support
 // and collection permission are determined at runtime, without configuration changes.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cuptibench

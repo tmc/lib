@@ -21,4 +21,7 @@
 //
 // The float64 host reference the tests compare against is
 // [github.com/tmc/lib/nvidia/x/cudaref.AdamW].
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudaoptim

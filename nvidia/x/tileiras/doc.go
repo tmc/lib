@@ -27,4 +27,7 @@
 // It rejects the architecture-specific spelling "sm_121a", which is the spelling
 // ptxas and nvdisasm require for the same target. Assemble reports ErrArchSuffix
 // for a suffixed name instead of invoking the assembler.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package tileiras

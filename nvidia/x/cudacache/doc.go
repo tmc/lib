@@ -35,4 +35,7 @@
 // Remote downloads are subject to configurable size limits ([Config.MaxRemoteDownloadBytes]),
 // SHA-256 digest validation, and trust policies. Corrupt or unverified artifacts
 // are isolated in a quarantine directory and never returned to callers or executed.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudacache

@@ -34,4 +34,7 @@
 // WriteRecord produces a standalone CUPTI-relative timeline; it does not align
 // CUPTI timestamps with host clocks. This package does not collect hardware
 // metrics; see github.com/tmc/lib/nvidia/x/cuptirange for Range Profiling.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cuptiactivity

@@ -12,4 +12,7 @@
 // The fluent API follows standard Go builder conventions with sticky error propagation:
 // operations on an invalid or errored tensor preserve the error ([Tensor.Err]),
 // eliminating runtime panics on shape mismatches, cross-graph operands, or invalid axes.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudatensor

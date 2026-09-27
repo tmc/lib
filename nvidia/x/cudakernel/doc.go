@@ -27,4 +27,7 @@
 // JITOptions captures driver-side JIT compilation parameters (such as MaxRegisters,
 // ThreadsPerBlock, and OptLevel) that must be passed to cuModuleLoadDataEx when
 // loading PTX artifacts to prevent unconstrained register allocation and SM occupancy drops.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudakernel

@@ -18,4 +18,7 @@
 // Grounded in sm_100 and sm_121a (Blackwell) where TMA (cp.async.bulk.tensor.2d),
 // TMEM, mbarrier, and multimem assemble and execute. WGMMA (sm_90) and tcgen05 (sm_100) paths
 // are modeled with their respective hardware constraints.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudapipeline

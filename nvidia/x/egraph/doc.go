@@ -59,4 +59,7 @@
 //
 // Graph construction and rewriting run in Go. GPU candidate benchmarking
 // additionally uses the CUDA driver and runtime compiler through the CUDA wrappers.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package egraph

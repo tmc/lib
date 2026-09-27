@@ -4,4 +4,7 @@
 // The selected NVVM library determines supported IR versions and options.
 // Compilation is synchronous and does not require a CUDA device context.
 // Do not unload the native library while compilation or cleanup is pending.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package nvvmx

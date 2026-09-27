@@ -8,4 +8,7 @@
 // physical multi-GPU equivalence and additional datatypes remain unverified.
 // CheckTeamCalls separately qualifies the host calls that take an nccl.Team by
 // value, reporting each call's status instead of failing on the first rejection.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package nccltest

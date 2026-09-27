@@ -68,4 +68,7 @@
 // runtime.LockOSThread) before calling any allocation function. All ranks
 // must run on the same host (POSIX fd exchange) with NVLink peer access
 // between the GPUs.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package nvlshm

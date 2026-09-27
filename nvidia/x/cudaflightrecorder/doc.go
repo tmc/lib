@@ -34,4 +34,7 @@
 //	}
 //	fmt.Printf("Recorded %d GPU records across %v (overlap: %v, reliable: %t)\n",
 //		manifest.GPURecords, manifest.GPUSpan(), manifest.OverlapSpan(), manifest.OverlapReliable)
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudaflightrecorder

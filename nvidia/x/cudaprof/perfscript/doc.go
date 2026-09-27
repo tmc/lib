@@ -6,4 +6,7 @@
 //
 //	perf record -k CLOCK_MONOTONIC --call-graph fp -e cpu-clock --all-user -o perf.data -- cudaprof capture -o run.pprof -- ./target
 //	perf script -i perf.data --ns -F comm,tid,time,ip,sym > host.txt
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package perfscript

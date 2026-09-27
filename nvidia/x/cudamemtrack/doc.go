@@ -28,4 +28,7 @@
 //	// 100 MB free, but largest contiguous block is only 20 MB:
 //	f := cudamemtrack.Fragmentation(100*1024*1024, 20*1024*1024)
 //	fmt.Printf("Fragmentation: %.1f%%\n", f*100) // 80.0%
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudamemtrack

@@ -12,4 +12,7 @@
 // this one is imported by capability gates that must stay cheap to import.
 // Wrap these at the call site with fmt.Errorf so the message carries the
 // caller's context; match them with errors.Is.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudaerrors

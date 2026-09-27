@@ -31,4 +31,7 @@
 // A memory check compares process-global free device memory around a serialized
 // scope. It does not prove that contexts, modules, streams, events, host memory,
 // or allocations outside the CUDA context were released.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudatest

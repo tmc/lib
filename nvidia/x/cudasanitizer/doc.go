@@ -119,4 +119,7 @@
 // and nothing about detecting a real race on a real GPU. The tests that would
 // establish those things are in cuda_test.go and require a GPU, a CUDA
 // installation, and the real binary.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudasanitizer

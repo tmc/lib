@@ -23,4 +23,7 @@
 // On linux, capturing with cudaprof capture --finalize=exit-group makes the
 // agent finalize on the exit_group syscall instead, which needs no change to
 // the target.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudaprofagent

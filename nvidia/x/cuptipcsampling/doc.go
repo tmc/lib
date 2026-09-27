@@ -24,4 +24,7 @@
 // Collection is restricted to Linux amd64/arm64 and CUPTI 13.x layouts.
 // This layout restriction is not native hardware qualification. Native reason
 // counts are not legacy stall enums or inferred instruction metrics.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cuptipcsampling

@@ -11,4 +11,7 @@
 //
 // In environments lacking physical devices or libraries, execution fails closed
 // with ErrExecutionUnavailable or ErrUnsupportedBackend rather than pretending success.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudacollective

@@ -32,4 +32,7 @@
 //		fmt.Printf("%s: %d/%d warps (%.1f%%) limited by %s\n",
 //			k.Name, res.TheoreticalWarps, res.MaxWarps, res.Occupancy*100, res.LimitingFactor)
 //	}
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudaoccupancy

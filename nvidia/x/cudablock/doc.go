@@ -4,4 +4,7 @@
 // The embedded header ([Header]) can be directly passed to [github.com/tmc/lib/nvidia/x/nvrtcx]
 // using [nvrtcx.WithHeader]("cudablock.cuh", cudablock.Header) to enable optimized cooperative
 // block algorithms in JIT-compiled kernels without external CUDA SDK dependencies.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudablock

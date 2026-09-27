@@ -62,4 +62,7 @@
 // Regenerate the feature facts on any host with a CUDA toolchain:
 //
 //	go run ./cmd/cudadevicetable -ptxas /usr/local/cuda/bin/ptxas -update x/cudadevicetable/devices.json
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudadevicetable

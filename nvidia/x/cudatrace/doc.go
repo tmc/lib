@@ -14,4 +14,7 @@
 // [Tracer.Span] creates a runtime/trace region around the supplied host function.
 // Runtime trace regions and Perfetto GPU spans are separate outputs; this
 // package does not create runtime/trace tasks or automatically align device clocks.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudatrace

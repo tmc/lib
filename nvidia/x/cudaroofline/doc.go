@@ -48,4 +48,7 @@
 // Render an SVG plot of evaluated kernels against the device ceilings:
 //
 //	err := model.RenderSVG(w, []cudaroofline.KernelPoint{point})
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudaroofline

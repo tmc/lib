@@ -26,4 +26,7 @@
 // [io.Writer] and [io.ReaderFrom]. Transfers between device memory and these
 // interfaces use host staging buffers. They do not provide direct file or
 // network DMA into device memory.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudamem

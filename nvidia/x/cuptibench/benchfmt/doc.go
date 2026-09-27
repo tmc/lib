@@ -8,4 +8,7 @@
 // Source identities and provenance remain in JSON comments; they do not alter
 // the benchmark names or split benchstat tables. Config holds matching Go
 // headers such as goos, goarch, pkg, and cpu.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package benchfmt

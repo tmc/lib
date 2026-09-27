@@ -17,4 +17,7 @@
 // holds that: it checks the options the package emits against every toolkit the
 // option corpus in x/internal/cudatool records, and a version that starts to
 // differ fails there rather than in a caller's command line.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudaobjdump

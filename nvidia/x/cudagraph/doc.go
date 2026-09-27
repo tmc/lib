@@ -16,4 +16,7 @@
 // an executable with [Graph.Instantiate], check its error, and release that
 // executable with [Exec.Destroy]. Check [Exec.Launch] and synchronize the stream
 // before releasing resources still used by queued work.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudagraph

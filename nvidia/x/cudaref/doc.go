@@ -16,4 +16,7 @@
 //   - Signed zero: preserve distinction between +0.0 and -0.0 in negation and reciprocal operations.
 //   - Empty reduction sets: sum reduction on an empty set yields 0.0; max reduction yields -Inf.
 //   - Completely masked attention: rows with all elements masked return an exact zero vector without NaNs.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudaref

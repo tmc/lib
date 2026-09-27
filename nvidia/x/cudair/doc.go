@@ -25,4 +25,7 @@
 // The [PlanMemory] function calculates tensor live ranges and overlays non-overlapping
 // intermediate tensor buffers into a single contiguous device memory scratchpad,
 // minimizing GPU VRAM allocations while respecting storage aliases and memory limits.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudair

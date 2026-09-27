@@ -31,4 +31,7 @@
 // while polling and returns [context.Canceled] or [context.DeadlineExceeded]. Native
 // calls and lock acquisition are not interrupted by cancellation. Hardware
 // execution on the physical GPU Streaming Multiprocessors continues until the kernel finishes.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cuda

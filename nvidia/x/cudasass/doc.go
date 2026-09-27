@@ -66,4 +66,7 @@
 // system must define TOOLS_VERSION_EXTENDED" while nvdisasm-13.0-sm121.json
 // records a real branch string for another image of the same release, so the
 // field does not mean the same thing in every cubin.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudasass

@@ -26,4 +26,7 @@
 // [Report.Advise] reads the steady state for four costs a per-kernel profile
 // does not show: device allocation, CUDA graph construction and host
 // synchronization repeated every iteration, and a large idle share.
+//
+// This package is outside the compatibility promise of
+// github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package iteration
