@@ -207,7 +207,7 @@ func TestPinMapCopy(t *testing.T) {
 		t.Errorf("UnpinBuffer while mapped = %v, want ErrMapped", err)
 	}
 	if err := g.Close(); !errors.Is(err, gdrcopy.ErrMapped) {
-		t.Errorf("Close while mapped = %v, want ErrMapped", err)
+		t.Fatalf("Close while mapped = %v, want ErrMapped", err)
 	}
 	if err := g.Unmap(mh, va, mapSize); err != nil {
 		t.Fatalf("Unmap: %v", err)
