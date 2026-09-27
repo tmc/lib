@@ -1,24 +1,19 @@
 {
   "schema_version": 1,
-  "generator": "github.com/tmc/libgen/cmd/gen-nvidia",
+  "generator": "github.com/tmc/libgen/cmd/nvrtc-survey",
   "upstream_version": "unrecorded",
   "version_source": "unrecorded",
   "cwd": ".",
   "argv": [
-    "gen-nvidia",
-    "-api",
-    "nvrtc",
-    "-headers-dir",
-    "cuda-headers",
+    "nvrtc-survey",
     "-header",
     "nvrtc.h",
-    "-output",
-    "nvrtc",
-    "-package",
-    "nvrtc",
-    "-deprecated=true",
+    "-headers-dir",
+    "cuda-headers",
     "-docs-dir",
-    "docs"
+    "docs",
+    "-output",
+    "${OUTPUT_DIR}"
   ],
   "inputs": [
     {

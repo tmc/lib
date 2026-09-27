@@ -9648,110 +9648,120 @@
     },
     "nvrtc": {
       "documentation": {
-        "note": "Generator merges all selected files, not only NVRTC documentation; upstream document retrieval identities are not fully recorded.",
+        "note": "Loads the retained NVRTC external documentation index.",
         "path": "docs",
         "repository": "codegen",
-        "selected_files": 85,
-        "selection": "*-docs.json",
-        "tree": "aeade4477b2d665ca705f1d660c14e71c56e5398"
+        "selected_files": 1,
+        "selection": "nvrtc-docs.json",
+        "tree": "dd76c51d9ca52fb2847df7b8b889197490e530b3"
       },
       "generation": {
         "argv": [
           "go",
           "run",
-          "./cmd/gen-nvidia",
-          "-api",
-          "nvrtc",
-          "-headers-dir",
-          "${HEADERS_REPO}",
+          "./cmd/nvrtc-survey",
           "-header",
           "${HEADERS_REPO}/nvrtc/nvrtc.h",
-          "-output",
-          "${OUTPUT_DIR}",
-          "-package",
-          "nvrtc",
-          "-deprecated=true",
+          "-headers-dir",
+          "${HEADERS_REPO}",
           "-docs-dir",
-          "${CODEGEN_REPO}/docs"
+          "${CODEGEN_REPO}/docs",
+          "-output",
+          "${OUTPUT_DIR}"
         ],
-        "comparison": "All 13 outputs regenerated. Against the previously recorded generation the change is additive: the 13.4.59 header adds nvrtcInstallBundledHeaders, nvrtcRemoveBundledHeaders and nvrtcGetBundledHeadersInfo, the NVRTC_INSTALL_HEADERS_* flags and NVRTC_ERROR_BUSY, which produce two new files (structs.gen.go for nvrtcBundledHeadersInfo and its layout_test.go) and additions in enums.gen.go, funcs.gen.go, init.gen.go and result.gen.go. doc.gen.go changed only where the generator now drops Doxygen \\ingroup lines. No exported declaration was dropped; apidiff reports additions only.",
         "cwd": "${CODEGEN_REPO}",
         "environment": {
           "GOWORK": "off",
           "TMPDIR": "${SCRATCH_DIR}"
         },
+        "options": {
+          "clang": true,
+          "docs_enabled": true
+        },
         "maintained_files_excluded": [
           "example_test.go",
+          "flags.gen.go",
           "flow_physical_test.go"
         ],
-        "note": "Regeneration from the recorded codegen commit and header reproduces all 13 outputs byte for byte, verified by generating into a scratch directory and comparing. Both recorded commits are local at the time of recording and not yet pushed to their remotes.",
-        "options": {
-          "api": "nvrtc",
-          "clang": true,
-          "deprecated": true,
-          "docs_enabled": true,
-          "package": "nvrtc"
-        },
         "outputs": [
           {
-            "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/nvrtc/doc.gen.go",
-            "sha256": "5e00fc35977f81c6981a335c98cc9e6c883ab06e6b66c91f668f466ae983d626"
+            "sha256": "07f2334cce664162b58de76719eace859cee156336cd2b03af4047dd587e17bc"
           },
           {
             "path": "nvidia/nvrtc/enums.gen.go",
-            "sha256": "586ec3cb0c74561850974ce4fc575006b09e834a56b5ca7efa8dd2f409a294cb"
-          },
-          {
-            "path": "nvidia/nvrtc/funcs.gen.go",
-            "sha256": "ff51c89bba8d00ec9605db7c8b84e643299c8184a3af78634f6629d45906884f"
-          },
-          {
-            "path": "nvidia/nvrtc/handles.gen.go",
-            "sha256": "7d0ab2defec0f8369235cb58a7e8dddd331656d1f834887050a20587352012eb"
-          },
-          {
-            "path": "nvidia/nvrtc/init.gen.go",
-            "sha256": "bcd7f34e75f641ae228ca9c13b9eeea11c866607812c9dd9e14f5e146515cee0"
-          },
-          {
-            "path": "nvidia/nvrtc/layout.gen_test.go",
-            "sha256": "a7445db09eb86299a4c594b3cc64e425c4f912fd095d34895d299b956a9cb875"
-          },
-          {
-            "path": "nvidia/nvrtc/loader.gen_test.go",
-            "sha256": "d79e29631dab5fd5addbf07245cef2e252b3c9199f2da19f357dbc0af83257be"
-          },
-          {
-            "path": "nvidia/nvrtc/loader_unix.gen.go",
-            "sha256": "50dba3e5d3967d2fa3f058c6ed1444d08b7c703bdecdadc0198ec832983b660c"
-          },
-          {
-            "path": "nvidia/nvrtc/loader_windows.gen.go",
-            "sha256": "95c37825eed5073ecc721bc569db241cec8f6c27d6e62eff2a94f5949865be85"
-          },
-          {
-            "path": "nvidia/nvrtc/program.gen.go",
-            "sha256": "a593fc1082898261912df2b362dd0812c1e644266abf96bf7fb660fd9017e156"
-          },
-          {
-            "path": "nvidia/nvrtc/provenance.gen.go",
-            "sha256": "f5b5240fcea867d4fdc33e92dff1c82c4c74eda63d7fe0cc01fd25def645fcae"
-          },
-          {
-            "path": "nvidia/nvrtc/result.gen.go",
-            "sha256": "0ee07c0766338fa0018ea7de5fcb05f2b02edef8d86227b260a1929b2549616d"
-          },
-          {
-            "path": "nvidia/nvrtc/structs.gen.go",
-            "sha256": "36ff83e409221089926d792b5fb1b20d03e2f4515900983454e603bac4787748"
+            "sha256": "99e8ccaf000467a654099fa6cf2be9579c246f7eb55cd532b79a411cc7f5b9ea"
           },
           {
             "path": "nvidia/nvrtc/flags.gen.go",
             "sha256": "0ff3530d51e291fa2e8cf7dc238c86a50e090da335fa02159253473c706c7d10"
+          },
+          {
+            "path": "nvidia/nvrtc/funcs.gen.go",
+            "sha256": "270ceb6203a3286fd44e1412ef12f10b9b0dfb56840afba358f5eb6a065d94a4"
+          },
+          {
+            "path": "nvidia/nvrtc/handles.gen.go",
+            "sha256": "d2e90662bcd79f231b6b8c68821ba5f62326378bfd36a52ecca32fc326ecfd4c"
+          },
+          {
+            "path": "nvidia/nvrtc/init.gen.go",
+            "sha256": "ef3b7ed009ae8bc1eb59ba1e5ec9e1cecce339cde642c9e4e2bdd0c2e1452b77"
+          },
+          {
+            "path": "nvidia/nvrtc/layout.gen_test.go",
+            "sha256": "4edd2ec6a226c41be541974eb5c919d4594cd3cfaf71cce0161d9e7546572914"
+          },
+          {
+            "path": "nvidia/nvrtc/loader.gen_test.go",
+            "sha256": "c63fb218a32e5a25c764e496ecd5c6ca64863e4ccf4833e55d133ec60392599b"
+          },
+          {
+            "path": "nvidia/nvrtc/loader_unix.gen.go",
+            "sha256": "5f131dc0758411ae3e797befd529fc28ae6bb28d726f1784fc5f995c0742d673"
+          },
+          {
+            "path": "nvidia/nvrtc/loader_windows.gen.go",
+            "sha256": "d83f77b5b09c51febbf3c7f602ed8acb9938aba2a0e9b472e26eab6fe0c5e3d3"
+          },
+          {
+            "path": "nvidia/nvrtc/program.gen.go",
+            "sha256": "09646fae3e4ae7daedf82cff49348c7cac756c8901b8c8070bfe4a4e62ce10b3"
+          },
+          {
+            "path": "nvidia/nvrtc/provenance.gen.go",
+            "sha256": "494aebefe9bbe200d9b311762f2b939836f79f49393414babda5f977be5054e0"
+          },
+          {
+            "path": "nvidia/nvrtc/provenance.json",
+            "sha256": "c6bb49b539a56380aa45695091d938fdbca3e7d42279e2d25a262a870103feac"
+          },
+          {
+            "path": "nvidia/nvrtc/result.gen.go",
+            "sha256": "4ecd942660a974206e620b19995502aeaf011d8550397165a42bb9c8a333ab32"
+          },
+          {
+            "path": "nvidia/nvrtc/structs.gen.go",
+            "sha256": "b0c4be6d4825c3bf64b5b3699a257477e4f89bf0895d6477e069f0b8d29118fb"
           }
         ],
-        "source_state": "codegen and headers checkouts clean at the recorded commits for every path reaching this generation; unrelated peer work in other products was present but is not an input",
+        "comparison": "All 15 generated outputs, including layout and loader tests, provenance, and the genoptions flags output, match the clean generation. apidiff reports no public API changes on linux/amd64, linux/arm64, or darwin/arm64. Changes are recipe ownership, paired header-slice and error-log wrappers, accepted runtime majors 12 and 13, generated method ordering, and documentation; shipped names and signatures are preserved.",
+        "source_state": "Generated from clean committed libgen f776782a and compared with clean lib baseline 967feece1.",
+        "note": "Reproduced from a clean libgen worktree; nvjitlink outputs also regenerate byte-identically at the same ffigen source commit.",
+        "toolchain": {
+          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+          "clang_target": "arm64-apple-darwin25.6.0",
+          "go": "go version go1.27.0 darwin/arm64",
+          "go_environment": {
+            "CC": "clang",
+            "CGO_ENABLED": "1",
+            "GOARCH": "arm64",
+            "GOFLAGS": "",
+            "GOOS": "darwin",
+            "GOTOOLCHAIN": "go1.27.0",
+            "GOVERSION": "go1.27.0"
+          }
+        },
         "supplemental_runs": [
           {
             "argv": [
@@ -9775,40 +9785,26 @@
             ],
             "purpose": "Generate the compiler flag constants and option tables from the canonical option metadata, without regenerating any binding.",
             "repository": {
-              "commit": "61a0ee9f42ac11dcd7c7d4dd8651fec883f71727",
-              "tree": "12b753cf179712b3633b1bae80bb5c0a4772051e",
-              "url": "ssh://gpu-host/home/user/go/src/github.com/tmc/lib"
+              "commit": "967feece1e548e34edfc68c536d1be091f504a8d",
+              "tree": "ad67c632b621dba8307c672b8a594c23263a2077",
+              "url": "https://github.com/tmc/lib.git"
             },
-            "verification": "Reproduced byte for byte at the recorded commit on 2026-09-18. That commit is where the reproduction was checked, not where the file was first generated; the original run is lib 2cd8e927. The recipe first recorded here ran with cwd ${OUTPUT_DIR} and a bare -out, which is how go:generate invokes it in place and which cannot run anywhere else: outside the module there is no go.mod for go run to resolve the package against. The cwd is now the module root and -out is absolute, so the recipe reproduces into a scratch directory; the digest is unchanged, verified for all three packages on 2026-09-18."
+            "verification": "Reproduced byte for byte from the clean lib baseline 967feece1 with Go 1.27.0; output SHA256 matches the manifest."
           }
-        ],
-        "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
-          "clang_target": "arm64-apple-darwin25.6.0",
-          "go": "go version go1.27.0 darwin/arm64",
-          "go_environment": {
-            "CC": "clang",
-            "CGO_ENABLED": "1",
-            "GOARCH": "arm64",
-            "GOFLAGS": "",
-            "GOOS": "darwin",
-            "GOTOOLCHAIN": "auto",
-            "GOVERSION": "go1.27.0"
-          }
-        }
+        ]
       },
       "header": {
         "path": "nvrtc/nvrtc.h",
         "repository": "headers",
         "sha256": "0b8cbeb0b5a6ec2c835b03b4b6c8b8e9e8eae4f1cd95a1a652e6fc5cb1b3efed"
       },
-      "note": "The package was regenerated to record this entry. It had been carrying a loader older than the generator: binding went straight through purego.RegisterFunc, which panics on a signature it cannot build, making nvrtc the last package that could panic at import. It was also the last package whose Linux candidate list still ended with the unversioned libnvrtc.so, which on a CUDA-12-only host silently bound a CUDA 12 library. Regenerating fixed both; nothing else in the package changed. Regenerated to add the post-load version gate: the loader calls this library's own version entry point once after binding symbols and refuses the load if the major does not match the declared soname major. Re-recorded after repinning cuda_nvrtc from 13.2.51 to 13.4.59 and regenerating: 13.2.51 predates the bundled-headers API, which is what lets NVRTC callers get the CUDA headers on disk for -I instead of hand-declaring fixed-width types in device source.",
+      "note": "Switched NVRTC from gen-nvidia to nvrtc-survey. The API remains unchanged; the generated loader accepts runtime majors 12 and 13, matching shipped behavior. Paired headers are exposed as Header values, and optional C error-log outputs are hidden while their detail is appended to returned errors.",
       "package": "github.com/tmc/lib/nvidia/nvrtc",
       "repositories": {
         "codegen": {
-          "commit": "b3dc359c9db53dea61a497ef6f5c4a305f945132",
-          "note": "The generator changes these bytes depend on -- the ErrorLogParams customization and its errorLogDetail helper, Generator.zeroValue, the bundled-headers entries and NVRTC_INSTALL_HEADERS_* define group in contrib/cuda/nvrtc_config.go, and the \\ingroup strip in internal/cparser -- are committed here. Two untracked directories unrelated to generation, cgotest/ and cmd/fetch-ptx-isa/, were present in the checkout. The repository is github.com/tmc/libgen; earlier entries record its former github.com/tmc/codegen URL. init.gen.go was restamped at this commit for the LibraryError loader and changes nothing else. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 80aa768: parameters are camel case. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen b3dc359c",
-          "tree": "f54815ecdd777ae664e200e000db35f1e948469d",
+          "commit": "f776782a0d99108a61b65bfc4ce6e377a281c2f3",
+          "note": "The generator changes these bytes depend on -- the ErrorLogParams customization and its errorLogDetail helper, Generator.zeroValue, the bundled-headers entries and NVRTC_INSTALL_HEADERS_* define group in contrib/cuda/nvrtc_config.go, and the \\ingroup strip in internal/cparser -- are committed here. Two untracked directories unrelated to generation, cgotest/ and cmd/fetch-ptx-isa/, were present in the checkout. The repository is github.com/tmc/libgen; earlier entries record its former github.com/tmc/codegen URL. init.gen.go was restamped at this commit for the LibraryError loader and changes nothing else. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 80aa768: parameters are camel case. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen b3dc359c NVRTC survey recipe committed at 336715e0; AcceptedMajors and empty error-log preservation committed at 4e528182 and f776782a.",
+          "tree": "795dc09f6fa0475fb8c69198da3481005e9af22f",
           "url": "https://github.com/tmc/libgen.git"
         },
         "headers": {
@@ -9818,10 +9814,10 @@
           "url": "https://github.com/tmc/cuda-headers.git"
         },
         "lib": {
-          "commit": "f6e1184d9851ddcea1e4faf63e5e82536ee88a34",
-          "note": "The outputs below are committed at this commit's ancestor cee1bf94; the checkout carried unrelated concurrent work in other packages.",
-          "tree": "3c0838717f23fd5f48254f6ebfefcd9d94cc2100",
-          "url": "https://github.com/tmc/lib.git"
+          "commit": "967feece1e548e34edfc68c536d1be091f504a8d",
+          "tree": "ad67c632b621dba8307c672b8a594c23263a2077",
+          "url": "https://github.com/tmc/lib.git",
+          "note": "Clean package baseline used for the NVRTC regeneration; output changes are pending in this task worktree."
         }
       },
       "runtime_support": "Not established by this manifest; no public minimum/newest runtime, complete TileIR capability or native ABI/platform promotion is claimed. Separate targeted callback runtime tests do not establish general support.",
