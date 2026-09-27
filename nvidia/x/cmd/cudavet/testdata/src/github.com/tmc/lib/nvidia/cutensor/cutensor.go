@@ -21,8 +21,11 @@ const WorkspaceDefault WorksizepreferenceT = 2
 
 type ComputeDescriptor uintptr
 
-func ComputeDesc32F() (ComputeDescriptor, error) { return 0, nil }
-func ComputeDesc64F() (ComputeDescriptor, error) { return 0, nil }
+func ComputeDesc32F() (ComputeDescriptor, error)    { return 0, nil }
+func ComputeDesc64F() (ComputeDescriptor, error)    { return 0, nil }
+func ComputeDesc4X16F() (ComputeDescriptor, error)  { return 0, nil }
+func ComputeDesc8XInt8() (ComputeDescriptor, error) { return 0, nil }
+func ComputeDesc9X16BF() (ComputeDescriptor, error) { return 0, nil }
 
 type Scalar struct{}
 

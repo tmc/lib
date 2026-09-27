@@ -45,6 +45,120 @@ func contract32(h cutensor.Handle, dA, dB, dC cutensor.TensorDescriptor, a, b, c
 	return h.Contract(plan, cutensor.Float32Scalar(1), a, b, cutensor.Float32Scalar(0), c, c, 0, 0, s)
 }
 
+func contract8XInt8(h cutensor.Handle, dA, dB, dC cutensor.TensorDescriptor, a, b, c driver.DevicePtr, s driver.Stream) error {
+	compute, err := cutensor.ComputeDesc8XInt8()
+	if err != nil {
+		return err
+	}
+	op, err := h.CreateContraction(dA, []int32{'i', 'k'}, cutensor.OpIdentity, dB, []int32{'k', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, compute)
+	if err != nil {
+		return err
+	}
+	defer op.Close()
+	plan, err := h.CreatePlan(op, 0, 0)
+	if err != nil {
+		return err
+	}
+	defer plan.Close()
+	alpha, beta := cutensor.Float32Scalar(1), cutensor.Float32Scalar(0)
+	return h.Contract(plan, alpha, a, b, beta, c, c, 0, 0, s) // want `alpha is a float32 Scalar, but ComputeDesc8XInt8 takes float64 or complex128` `beta is a float32 Scalar, but ComputeDesc8XInt8 takes float64 or complex128`
+}
+
+func contract8XInt8Clean(h cutensor.Handle, dA, dB, dC cutensor.TensorDescriptor, a, b, c driver.DevicePtr, s driver.Stream) error {
+	compute, err := cutensor.ComputeDesc8XInt8()
+	if err != nil {
+		return err
+	}
+	op, err := h.CreateContraction(dA, []int32{'i', 'k'}, cutensor.OpIdentity, dB, []int32{'k', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, compute)
+	if err != nil {
+		return err
+	}
+	defer op.Close()
+	plan, err := h.CreatePlan(op, 0, 0)
+	if err != nil {
+		return err
+	}
+	defer plan.Close()
+	alpha, beta := cutensor.Float64Scalar(1), cutensor.Float64Scalar(0)
+	return h.Contract(plan, alpha, a, b, beta, c, c, 0, 0, s)
+}
+
+func contract9X16BF(h cutensor.Handle, dA, dB, dC cutensor.TensorDescriptor, a, b, c driver.DevicePtr, s driver.Stream) error {
+	compute, err := cutensor.ComputeDesc9X16BF()
+	if err != nil {
+		return err
+	}
+	op, err := h.CreateContraction(dA, []int32{'i', 'k'}, cutensor.OpIdentity, dB, []int32{'k', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, compute)
+	if err != nil {
+		return err
+	}
+	defer op.Close()
+	plan, err := h.CreatePlan(op, 0, 0)
+	if err != nil {
+		return err
+	}
+	defer plan.Close()
+	alpha, beta := cutensor.Float64Scalar(1), cutensor.Float64Scalar(0)
+	return h.Contract(plan, alpha, a, b, beta, c, c, 0, 0, s) // want `alpha is a float64 Scalar, but ComputeDesc9X16BF takes float32 or complex64` `beta is a float64 Scalar, but ComputeDesc9X16BF takes float32 or complex64`
+}
+
+func contract9X16BFClean(h cutensor.Handle, dA, dB, dC cutensor.TensorDescriptor, a, b, c driver.DevicePtr, s driver.Stream) error {
+	compute, err := cutensor.ComputeDesc9X16BF()
+	if err != nil {
+		return err
+	}
+	op, err := h.CreateContraction(dA, []int32{'i', 'k'}, cutensor.OpIdentity, dB, []int32{'k', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, compute)
+	if err != nil {
+		return err
+	}
+	defer op.Close()
+	plan, err := h.CreatePlan(op, 0, 0)
+	if err != nil {
+		return err
+	}
+	defer plan.Close()
+	alpha, beta := cutensor.Float32Scalar(1), cutensor.Float32Scalar(0)
+	return h.Contract(plan, alpha, a, b, beta, c, c, 0, 0, s)
+}
+
+func contract4X16F(h cutensor.Handle, dA, dB, dC cutensor.TensorDescriptor, a, b, c driver.DevicePtr, s driver.Stream) error {
+	compute, err := cutensor.ComputeDesc4X16F()
+	if err != nil {
+		return err
+	}
+	op, err := h.CreateContraction(dA, []int32{'i', 'k'}, cutensor.OpIdentity, dB, []int32{'k', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, compute)
+	if err != nil {
+		return err
+	}
+	defer op.Close()
+	plan, err := h.CreatePlan(op, 0, 0)
+	if err != nil {
+		return err
+	}
+	defer plan.Close()
+	alpha, beta := cutensor.Float64Scalar(1), cutensor.Float64Scalar(0)
+	return h.Contract(plan, alpha, a, b, beta, c, c, 0, 0, s) // want `alpha is a float64 Scalar, but ComputeDesc4X16F takes float32 or complex64` `beta is a float64 Scalar, but ComputeDesc4X16F takes float32 or complex64`
+}
+
+func contract4X16FClean(h cutensor.Handle, dA, dB, dC cutensor.TensorDescriptor, a, b, c driver.DevicePtr, s driver.Stream) error {
+	compute, err := cutensor.ComputeDesc4X16F()
+	if err != nil {
+		return err
+	}
+	op, err := h.CreateContraction(dA, []int32{'i', 'k'}, cutensor.OpIdentity, dB, []int32{'k', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, compute)
+	if err != nil {
+		return err
+	}
+	defer op.Close()
+	plan, err := h.CreatePlan(op, 0, 0)
+	if err != nil {
+		return err
+	}
+	defer plan.Close()
+	alpha, beta := cutensor.Float32Scalar(1), cutensor.Float32Scalar(0)
+	return h.Contract(plan, alpha, a, b, beta, c, c, 0, 0, s)
+}
+
 func gemm(h cublas.Handle, a, b, c driver.DevicePtr, n int32) error {
 	alpha, beta := cublas.Float32Scalar(1), cublas.Float32Scalar(0)
 	return h.GemmEx(cublas.OpN, cublas.OpN, n, n, n, alpha, a, cublas.R64F, n, b, cublas.R64F, n, beta, c, cublas.R64F, n, cublas.Compute64F, cublas.GemmDefault) // want `alpha is a float32 Scalar, but Compute64F takes float64 or complex128` `beta is a float32 Scalar, but Compute64F takes float64 or complex128`

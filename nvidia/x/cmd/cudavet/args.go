@@ -522,10 +522,13 @@ var (
 )
 
 // cutensorScalar gives the Scalar kinds each cuTENSOR compute descriptor
-// reads. Reduced-precision descriptors take float scalars.
+// reads. Reduced-precision descriptors take float scalars. The emulation
+// descriptors take the typeScalar of the contraction tables in cutensor.h:
+// 9X16BF and 4X16F emulate float32, 8XINT8 emulates float64.
 var cutensorScalar = map[string][]string{
 	"ComputeDesc16F": real32, "ComputeDesc16BF": real32, "ComputeDescTF32": real32,
 	"ComputeDesc3XTF32": real32, "ComputeDesc32F": real32, "ComputeDesc64F": real64,
+	"ComputeDesc9X16BF": real32, "ComputeDesc4X16F": real32, "ComputeDesc8XInt8": real64,
 }
 
 // cublasScalar gives the Scalar kinds each cuBLAS compute type reads, as the
