@@ -25,9 +25,11 @@ An asynchronous copy reads or writes the host buffer after the call returns,
 so the garbage collector must not move it in between. Converting the address
 of Go memory to unsafe.Pointer does not stop that, and neither does passing a
 slice: only a runtime.Pinner held until the stream completes does. unpinned
-reports such a conversion, or a slice, passed to an asynchronous copy from a
-function that pins nothing. A slice over host memory from the driver, made
-with unsafe.Slice, needs no pinning and is not reported when the call makes it.`,
+reports such a conversion, or a slice, passed to an asynchronous copy of a
+generated binding from a function that pins nothing. A slice over host memory
+from the driver, made with unsafe.Slice, needs no pinning and is not reported
+when the call makes it. The copies of the packages under x/, such as
+cudamem's, pin the buffer themselves and are not reported.`,
 	Run: runUnpinned,
 }
 
@@ -57,7 +59,7 @@ func reportUnpinned(pass *analysis.Pass, body *ast.BlockStmt) {
 		if !ok {
 			return true
 		}
-		if !asyncHostCopy[sel.Sel.Name] {
+		if fn := callee(pass.TypesInfo, call); !asyncHostCopy[sel.Sel.Name] || fn == nil || !isBinding(fn.Pkg()) {
 			return true
 		}
 		for _, arg := range call.Args {
