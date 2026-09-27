@@ -45,6 +45,7 @@ func TestGEMMHelper(t *testing.T) {
 
 	h, err := cublaslt.Create()
 	check("cublasLtCreate", err)
+	defer func() { check("cublasLtDestroy", h.Close()) }()
 	desc, err := cublaslt.NewMatmulDesc(cublaslt.Compute32F, cublaslt.R32F)
 	check("matmul desc", err)
 	op := cublaslt.CublasOpT

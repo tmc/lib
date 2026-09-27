@@ -46,18 +46,22 @@ func TestHeuristicPick(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Create: %v", err)
 		}
-		defer h.Destroy()
+		defer h.Close()
 		desc, err := cublaslt.NewMatmulDesc(cublaslt.Compute32F, cublaslt.R32F)
 		if err != nil {
 			t.Fatalf("NewMatmulDesc: %v", err)
 		}
-		defer desc.Destroy()
+		defer desc.Close()
 		layout := func(typ cublaslt.DataType, rows, cols int) cublaslt.MatrixLayout {
 			l, err := cublaslt.NewMatrixLayout(typ, uint64(rows), uint64(cols), int64(rows))
 			if err != nil {
 				t.Fatalf("NewMatrixLayout: %v", err)
 			}
-			t.Cleanup(func() { l.Destroy() })
+			t.Cleanup(func() {
+				if err := l.Close(); err != nil {
+					t.Errorf("close layout: %v", err)
+				}
+			})
 			return l
 		}
 		a := layout(cublaslt.R16BF, m, k)
@@ -67,7 +71,7 @@ func TestHeuristicPick(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewMatmulPreference: %v", err)
 		}
-		defer pref.Destroy()
+		defer pref.Close()
 		ws := uint64(32 << 20)
 		if err := pref.SetAttribute(cublaslt.MatmulPrefMaxWorkspaceBytes, uintptr(unsafe.Pointer(&ws)), 8); err != nil {
 			t.Fatalf("set workspace: %v", err)
