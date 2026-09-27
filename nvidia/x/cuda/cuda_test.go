@@ -32,6 +32,7 @@ func TestInitAndDevices(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDevice(0) failed: %v", err)
 	}
+	defer dev.Close()
 
 	name, err := dev.Name()
 	if err != nil {
@@ -70,6 +71,7 @@ func TestStreamAndEventLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDevice(0) failed: %v", err)
 	}
+	defer dev.Close()
 
 	stream, err := dev.NewStream()
 	if err != nil {
@@ -128,6 +130,7 @@ func TestStreamCleanup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDevice(0) failed: %v", err)
 	}
+	defer dev.Close()
 
 	stream, err := dev.NewStream()
 	if err != nil {
