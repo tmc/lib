@@ -128,6 +128,22 @@ func TestCapacityPruningRejection(t *testing.T) {
 	if err := ValidateCapacity(registerFact, bypass, dtypes, registerLimits); !errors.Is(err, ErrCapacityExceeded) || !strings.Contains(err.Error(), "register") {
 		t.Fatalf("register capacity error = %v, want ErrCapacityExceeded naming registers", err)
 	}
+
+	// This tile uses 16 bytes per thread: 4 32-bit registers, or 512 per block.
+	// Counting bytes as registers would incorrectly reject it at a 1024-register limit.
+	unitFact := NewIndexFactorization(levels, map[StorageLevel]map[string]int{
+		LevelRegister: {"B": 2, "M": 1, "N": 1, "K": 1},
+		LevelShared:   {"B": 1, "M": 1, "N": 1, "K": 1},
+		LevelDRAM:     {"B": 1, "M": 1, "N": 1, "K": 1},
+	})
+	unitLimits := HardwareConstraints{MaxRegistersPerBlock: 1024, MaxThreadsPerBlock: 128}
+	if err := ValidateCapacity(unitFact, bypass, dtypes, unitLimits); err != nil {
+		t.Fatalf("16 bytes/thread should use 512 registers/block: %v", err)
+	}
+	unitLimits.MaxRegistersPerBlock = 511
+	if err := ValidateCapacity(unitFact, bypass, dtypes, unitLimits); !errors.Is(err, ErrCapacityExceeded) {
+		t.Fatalf("512 registers should exceed limit 511: %v", err)
+	}
 }
 
 func TestDatatypeBypassMemoryFootprint(t *testing.T) {

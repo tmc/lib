@@ -143,7 +143,7 @@ func TestLinearPrunedSearchRechecksEachBypass(t *testing.T) {
 }
 
 func TestLinearPrunedSearchSplit(t *testing.T) {
-	for _, tt := range []struct{ total, n int }{{5, 4}, {3, 3}, {1, 4}, {0, 2}} {
+	for _, tt := range []struct{ total, n int }{{5, 4}, {7, 4}, {3, 3}, {1, 4}, {0, 2}} {
 		t.Run(fmt.Sprintf("%d_%d", tt.total, tt.n), func(t *testing.T) {
 			facts := make([]cudalayout.IndexFactorization, tt.total)
 			for i := range facts {
@@ -157,13 +157,39 @@ func TestLinearPrunedSearchSplit(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			wantParts := tt.n
+			if wantParts > tt.total {
+				wantParts = tt.total
+			}
+			if len(parts) != wantParts {
+				t.Fatalf("Split returned %d partitions, want %d", len(parts), wantParts)
+			}
 			seen := make([]int, 0, tt.total)
+			partitionSizes := make([]int, 0, len(parts))
 			for _, part := range parts {
 				if part == nil {
 					t.Fatal("Split returned a nil partition")
 				}
+				partitionSizes = append(partitionSizes, len(part.Factorizations))
+				if tt.total > 0 && len(part.Factorizations) == 0 {
+					t.Fatal("Split returned an empty partition")
+				}
 				for _, fact := range part.Factorizations {
 					seen = append(seen, fact.Factors[cudalayout.LevelRegister]["M"])
+				}
+			}
+			if len(partitionSizes) > 1 {
+				minSize, maxSize := partitionSizes[0], partitionSizes[0]
+				for _, size := range partitionSizes[1:] {
+					if size < minSize {
+						minSize = size
+					}
+					if size > maxSize {
+						maxSize = size
+					}
+				}
+				if maxSize-minSize > 1 {
+					t.Fatalf("partition sizes = %v, want sizes differing by at most one", partitionSizes)
 				}
 			}
 			if len(seen) != tt.total {

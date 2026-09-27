@@ -346,6 +346,24 @@ func TestHardwareVerificationPendingWithoutGPU(t *testing.T) {
 	}
 }
 
+func TestHardwareVerificationPendingWithAvailableDevice(t *testing.T) {
+	cal, err := VerifyHardwareExecution("sm_121", func(target string) (bool, error) {
+		if target != "sm_121" {
+			t.Errorf("probe target = %q, want sm_121", target)
+		}
+		return true, nil
+	})
+	if cal.Status != VerificationPending {
+		t.Errorf("cal.Status = %q, want %q", cal.Status, VerificationPending)
+	}
+	if cal.LatencyNs != FloorUnavailable {
+		t.Errorf("cal.LatencyNs = %v, want %v", cal.LatencyNs, FloorUnavailable)
+	}
+	if !errors.Is(err, cudaerrors.ErrHardwarePending) {
+		t.Errorf("err = %v, want ErrHardwarePending", err)
+	}
+}
+
 func TestAnalyticalDataMovementBoundsRectangular(t *testing.T) {
 	problem := map[string]int{"B": 2, "M": 5, "N": 7, "K": 3}
 	tiles := map[string]int{"M": 2, "N": 4}
