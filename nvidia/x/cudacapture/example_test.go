@@ -95,3 +95,20 @@ func ExampleBuildActivityProfile() {
 	// samples: 1
 	// grid: 128,1,1
 }
+
+func ExampleExportFoldedStacks() {
+	var buf bytes.Buffer
+	joins := []cudacapture.CorrelationJoin{
+		{
+			KernelName:  "fused_gemm",
+			Callstack:   []string{"main", "runForward"},
+			DeviceStart: 1000,
+			DeviceEnd:   3000,
+		},
+	}
+	_ = cudacapture.ExportFoldedStacks(&buf, joins)
+	fmt.Print(buf.String())
+
+	// Output:
+	// main;runForward;[GPU]fused_gemm 2000
+}

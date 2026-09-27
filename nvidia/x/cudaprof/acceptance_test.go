@@ -269,3 +269,68 @@ func TestRecipeReportSchemaV1(t *testing.T) {
 		t.Errorf("expected error validating unknown feature with non-null zero value")
 	}
 }
+
+func TestFoldedStackExport(t *testing.T) {
+	// Slice 7 controls:
+	// 1. Host time is not kernel time: region sleeping 10ms on host then launching short kernel
+	// has region weight = kernel device time in folded output.
+	hostSleepStart := time.Now()
+	time.Sleep(10 * time.Millisecond)
+	_ = time.Since(hostSleepStart)
+
+	executions := []cudaprof.KernelExecution{
+		{
+			KernelName: "short_kernel",
+			Callstack:  []string{"main.main", "main.runBenchmark"},
+			StartNs:    100_000,
+			EndNs:      100_500, // 500 ns device duration
+		},
+		// 2. Overlapping intervals for another kernel: [200_000, 201_000) and [200_500, 201_500)
+		// Union duration is 1500 ns (not naive sum 2000 ns)
+		{
+			KernelName: "stream_kernel",
+			Callstack:  []string{"main.main", "main.runStream"},
+			StartNs:    200_000,
+			EndNs:      201_000,
+		},
+		{
+			KernelName: "stream_kernel",
+			Callstack:  []string{"main.main", "main.runStream"},
+			StartNs:    200_500,
+			EndNs:      201_500,
+		},
+		// 3. Kernel with no host stack (nil)
+		{
+			KernelName: "driver_kernel",
+			Callstack:  nil,
+			StartNs:    300_000,
+			EndNs:      300_800,
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := cudaprof.ExportFoldedStacks(&buf, executions); err != nil {
+		t.Fatalf("ExportFoldedStacks failed: %v", err)
+	}
+
+	out := buf.String()
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("expected 3 folded stack lines, got %d: %q", len(lines), out)
+	}
+
+	// Verify line 1: driver_kernel (no host stack) -> [GPU]driver_kernel 800
+	if lines[0] != "[GPU]driver_kernel 800" {
+		t.Errorf("line 0 = %q, want %q", lines[0], "[GPU]driver_kernel 800")
+	}
+
+	// Verify line 2: short_kernel has weight 500 (device time), NOT 10ms host sleep
+	if lines[1] != "main.main;main.runBenchmark;[GPU]short_kernel 500" {
+		t.Errorf("line 1 = %q, want %q", lines[1], "main.main;main.runBenchmark;[GPU]short_kernel 500")
+	}
+
+	// Verify line 3: stream_kernel interval union = 1500 (not 2000)
+	if lines[2] != "main.main;main.runStream;[GPU]stream_kernel 1500" {
+		t.Errorf("line 2 = %q, want %q", lines[2], "main.main;main.runStream;[GPU]stream_kernel 1500")
+	}
+}

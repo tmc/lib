@@ -68,3 +68,20 @@ func ExampleFlightRecorder() {
 	// Output:
 	// snapshot written: true
 }
+
+func ExampleExportFoldedStacks() {
+	var buf bytes.Buffer
+	executions := []cudaprof.KernelExecution{
+		{
+			KernelName: "fused_attention",
+			Callstack:  []string{"main", "runInference"},
+			StartNs:    1000,
+			EndNs:      2500,
+		},
+	}
+	_ = cudaprof.ExportFoldedStacks(&buf, executions)
+	fmt.Print(buf.String())
+
+	// Output:
+	// main;runInference;[GPU]fused_attention 1500
+}

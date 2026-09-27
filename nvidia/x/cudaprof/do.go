@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"runtime/pprof"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	"github.com/tmc/lib/nvidia/cupti"
@@ -102,6 +103,12 @@ func init() {
 // the region when [Correlate] has enabled it. Recorded GPU observations inherit
 // labels only when the caller passes the labeled context to the recording method.
 //
+// When correlation is enabled via [Correlate], Do captures the host Go call stack
+// at the Do call site once using [runtime.Callers] and keys it by the pushed external
+// correlation ID. Granularity: the stack is the stack of the Do call site (not
+// per-launch); all device activities launched within f inherit this call site stack
+// when joined by exact external correlation ID.
+//
 // Both brackets are per-thread: NVTX range nesting and the CUPTI external
 // correlation stack belong to the calling OS thread, and CUPTI attributes an ID
 // only to activities launched from the thread holding it. A goroutine may move
@@ -134,6 +141,91 @@ func Labels(args ...string) pprof.LabelSet {
 // Label returns a copy of ctx in which the pprof label with the given key is set to value.
 func Label(ctx context.Context, key, value string) context.Context {
 	return pprof.WithLabels(ctx, pprof.Labels(key, value))
+}
+
+const maxCallstackFrames = 64
+
+var (
+	externalStacksMu sync.RWMutex
+	externalStacks   = make(map[uint64][]string)
+)
+
+// ExternalStack returns the captured Go call stack for the given external correlation ID,
+// or false if no stack was recorded.
+// Granularity: the stack is the stack of the Do call site (not per-launch).
+func ExternalStack(id uint64) ([]string, bool) {
+	externalStacksMu.RLock()
+	defer externalStacksMu.RUnlock()
+	stack, ok := externalStacks[id]
+	if !ok {
+		return nil, false
+	}
+	res := make([]string, len(stack))
+	copy(res, stack)
+	return res, true
+}
+
+// RecordExternalStack records a call stack for the given external correlation ID.
+// Granularity: the stack is the stack of the Do call site (not per-launch).
+func RecordExternalStack(id uint64, stack []string) {
+	externalStacksMu.Lock()
+	defer externalStacksMu.Unlock()
+	if stack == nil {
+		delete(externalStacks, id)
+		return
+	}
+	s := make([]string, len(stack))
+	copy(s, stack)
+	externalStacks[id] = s
+}
+
+// ResetExternalStacks clears all captured external call stacks.
+func ResetExternalStacks() {
+	externalStacksMu.Lock()
+	defer externalStacksMu.Unlock()
+	externalStacks = make(map[uint64][]string)
+}
+
+func captureCallerStack(id uint64) {
+	var rpc [maxCallstackFrames]uintptr
+	n := runtime.Callers(2, rpc[:])
+	if n == 0 {
+		return
+	}
+	frames := runtime.CallersFrames(rpc[:n])
+	var leafToRoot []string
+	for {
+		frame, more := frames.Next()
+		if frame.Function != "" {
+			leafToRoot = append(leafToRoot, frame.Function)
+		}
+		if !more {
+			break
+		}
+	}
+	var filtered []string
+	skipping := true
+	for _, fn := range leafToRoot {
+		if skipping {
+			if strings.HasPrefix(fn, "github.com/tmc/lib/nvidia/x/cudaprof.Do") ||
+				strings.HasPrefix(fn, "github.com/tmc/lib/nvidia/x/cudaprof.pushCorrelation") ||
+				strings.HasPrefix(fn, "github.com/tmc/lib/nvidia/x/cudaprof.captureCallerStack") ||
+				strings.HasPrefix(fn, "runtime/pprof.Do") {
+				continue
+			}
+			skipping = false
+		}
+		filtered = append(filtered, fn)
+	}
+	if len(filtered) == 0 {
+		filtered = leafToRoot
+	}
+	// Folded stack format uses root-first ordering (ancestor;...;leaf).
+	rootToLeaf := make([]string, len(filtered))
+	for i, fn := range filtered {
+		rootToLeaf[len(filtered)-1-i] = fn
+	}
+	RecordExternalStack(id, rootToLeaf)
 }
 
 // regionBrackets records what a region actually entered, so its exit unwinds
@@ -171,6 +263,9 @@ func pushCorrelation(ctx context.Context, id uint64) (entered regionBrackets) {
 		entered.nvtx = true
 	}
 	if wantCUPTI {
+		// Capture caller's Go stack once, keyed by the external correlation ID.
+		captureCallerStack(id)
+
 		// A push that fails is recorded rather than retried: the symbol is
 		// either callable in this process or it is not, and a region that
 		// silently skipped its push would be indistinguishable from one whose
