@@ -1,6 +1,7 @@
 package cudalock
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -947,11 +948,11 @@ func TestInteropReferenceScript(t *testing.T) {
 		}
 		defer h.Release()
 
-		// Run gpu-lock with MAXWAIT=1s
+		// Run gpu-lock with MAXWAIT=2
 		cmd := exec.Command(bashPath, scriptPath, "true")
 		cmd.Env = append(os.Environ(),
 			"GPU_LOCKDIR="+lockDir,
-			"GPU_LOCK_MAXWAIT=1",
+			"GPU_LOCK_MAXWAIT=2",
 			"GPU_LOCK_POLL=1",
 		)
 		out, err := cmd.CombinedOutput()
@@ -967,30 +968,44 @@ func TestInteropReferenceScript(t *testing.T) {
 	// Subtest 2: cudalock blocks when reference script holds the lock
 	t.Run("CudalockBlocksOnReferenceScript", func(t *testing.T) {
 		scriptLockDir := filepath.Join(tmp, "script-lock")
-		cmd := exec.Command(bashPath, scriptPath, "sleep", "0.5")
+		releaseFile := filepath.Join(tmp, "release-script")
+		// The script blocks on existence of releaseFile so it holds the lock deterministically.
+		cmd := exec.Command(bashPath, scriptPath, "bash", "-c", `while [ ! -e "$RELEASE" ]; do sleep 0.05; done`)
 		cmd.Env = append(os.Environ(),
 			"GPU_LOCKDIR="+scriptLockDir,
 			"GPU_LOCK_POLL=1",
+			"RELEASE="+releaseFile,
 		)
+		var outBuf bytes.Buffer
+		cmd.Stdout = &outBuf
+		cmd.Stderr = &outBuf
 		if err := cmd.Start(); err != nil {
 			t.Fatalf("failed to start reference script: %v", err)
 		}
-		defer cmd.Wait()
+		defer func() {
+			_ = os.WriteFile(releaseFile, []byte("release"), 0644)
+			_ = cmd.Wait()
+		}()
 
-		// Wait briefly for script to acquire
+		// Wait for reference script to acquire with generous deadline (10 s)
+		ownerPath := filepath.Join(scriptLockDir, "owner")
+		deadline := time.Now().Add(10 * time.Second)
 		var scriptAcquired bool
-		for i := 0; i < 50; i++ {
-			if _, err := os.Stat(filepath.Join(scriptLockDir, "owner")); err == nil {
+		for time.Now().Before(deadline) {
+			if fi, err := os.Stat(ownerPath); err == nil && fi.Size() > 0 {
 				scriptAcquired = true
 				break
 			}
-			time.Sleep(10 * time.Millisecond)
+			time.Sleep(20 * time.Millisecond)
 		}
 		if !scriptAcquired {
-			t.Fatal("reference script did not acquire in time")
+			_ = os.WriteFile(releaseFile, []byte("release"), 0644)
+			_ = cmd.Wait()
+			t.Fatalf("reference script did not acquire lock in 10s; output:\n%s", outBuf.String())
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		// Verify that cudalock blocks while reference script holds lock
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 		defer cancel()
 		_, err := Acquire(ctx, WithDir(scriptLockDir), WithPollInterval(20*time.Millisecond))
 		if err == nil {
@@ -1000,8 +1015,15 @@ func TestInteropReferenceScript(t *testing.T) {
 			t.Errorf("unexpected error: %v", err)
 		}
 
-		// Wait for script to finish
-		_ = cmd.Wait()
+		// Now release the reference script by creating releaseFile
+		if err := os.WriteFile(releaseFile, []byte("release"), 0644); err != nil {
+			t.Fatalf("failed to write release file: %v", err)
+		}
+
+		// Wait for reference script to exit cleanly
+		if err := cmd.Wait(); err != nil {
+			t.Fatalf("reference script exited with error: %v; output:\n%s", err, outBuf.String())
+		}
 
 		// Now cudalock should acquire cleanly
 		h, err := Acquire(context.Background(), WithDir(scriptLockDir), WithLabel("go-after-script"))
@@ -1027,7 +1049,7 @@ func TestInteropReferenceScript(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		h, err := Acquire(ctx, WithDir(deadDir), WithLabel("cudalock-reclaimer"))
 		if err != nil {
@@ -1060,7 +1082,7 @@ func TestInteropReferenceScript(t *testing.T) {
 		cmd := exec.Command(bashPath, scriptPath, "true")
 		cmd.Env = append(os.Environ(),
 			"GPU_LOCKDIR="+deadDir,
-			"GPU_LOCK_MAXWAIT=3",
+			"GPU_LOCK_MAXWAIT=5",
 			"GPU_LOCK_POLL=1",
 		)
 		out, err := cmd.CombinedOutput()
