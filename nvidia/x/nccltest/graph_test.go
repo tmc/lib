@@ -1,8 +1,14 @@
 package nccltest
 
-import "testing"
+import (
+	"runtime"
+	"testing"
+)
 
 func TestGraphValidationBeforeCapture(t *testing.T) {
+	// launchGraphs and closeGraphs make each rank's context current.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	for _, states := range [][]rankState{nil, {{}}, {{stream: 1}, {}}} {
 		called := false
 		graphs, err := captureGraphs(states, func() error { called = true; return nil })
@@ -30,6 +36,9 @@ func TestGraphValidationBeforeCapture(t *testing.T) {
 // A cleanup error must preserve every rank, since captured NCCL work can
 // reference peer buffers. A rank-count error exercises this without CUDA.
 func TestGraphCleanupRetainsPeerResources(t *testing.T) {
+	// launchGraphs and closeGraphs make each rank's context current.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	for _, graph := range []rankGraph{
 		{capturing: true}, {graph: 1}, {executable: 1},
 	} {

@@ -49,6 +49,10 @@ func Example_bellState() {
 	const nAmplitudes = 1 << nIndexBits
 
 	// The CUDA context. cuStateVec operates on the current context's device.
+	// A context is current on an OS thread, so keep this goroutine on the
+	// thread that makes it current.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	if err := driver.Init(0); err != nil {
 		panic(err)
 	}
