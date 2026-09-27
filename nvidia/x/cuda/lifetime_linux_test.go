@@ -4,6 +4,7 @@ package cuda_test
 
 import (
 	"context"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -188,6 +189,10 @@ func TestEventQuerySerializedWithClose(t *testing.T) {
 }
 
 func TestContextRunRestoresCurrent(t *testing.T) {
+	// The current context is per thread, so the checks below read the one
+	// Run restored only while this goroutine stays on the same thread.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	dev := cudatest.RequireDevice(t)
 	defer dev.Close()
 	ctx, err := dev.PrimaryContext()

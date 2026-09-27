@@ -5,6 +5,7 @@ package cudss_test
 
 import (
 	"fmt"
+	"runtime"
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cudss"
@@ -23,6 +24,10 @@ import (
 // It prints an error and returns when libcudss or a CUDA device is not
 // available, so it is useful as a compile-time check on a machine with no GPU.
 func Example() {
+	// A context is current on an OS thread, so keep this goroutine on the
+	// thread that makes it current.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	if err := driver.Init(0); err != nil {
 		fmt.Println("CUDA unavailable:", err)
 		return
