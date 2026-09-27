@@ -120,7 +120,7 @@ const keepPerRule = 3
 // rest of its findings.
 var ruleNames = map[string]string{
 	"imad-wide":           "scalar address arithmetic (IMAD.WIDE)",
-	"fchk":                "IEEE compliance check (FCHK)",
+	"fastmath":            "precise float math with local memory",
 	"spill":               "register spill",
 	"gpr-limit":           "register limit",
 	"gpr-cliff":           "register occupancy cliff",

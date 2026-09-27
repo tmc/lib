@@ -255,6 +255,7 @@ func auditPreciseFloatMath(cap *cudacapture.Capture, report *Report, kernels []s
 			ActionableRecommendation: "Try --use_fast_math (an nvcc and NVRTC option), " + narrow + " " +
 				"This changes numerics: sinf/cosf lose accuracy for large arguments, divisions and square roots round differently, and denormals flush to zero. Rerun the output-agreement gate (for example KL against a reference) before keeping it.",
 			NextMeasurement: "cuobjdump -res-usage before and after (STACK and the LDL/STL count should fall to zero) and this kernel's device time before and after, then the output-agreement gate",
+			rule:            "fastmath",
 		})
 	}
 }
