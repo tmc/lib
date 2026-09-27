@@ -16,6 +16,7 @@
 //	useafterdestroy    a handle used after it is released
 //	sizeunits          a legacy BufferSize in elements allocated as bytes
 //	sizetrunc          a size_t result narrowed without a bounds check
+//	uintptrlive        the address of Go memory stored as a uintptr and not kept alive
 //
 //	asynchost          a host buffer written or freed while an async copy uses it
 //	readbeforesync     a host buffer read before its async copy has finished
@@ -81,6 +82,7 @@ var analyzers = []*analysis.Analyzer{
 	useAfterDestroyAnalyzer,
 	sizeUnitsAnalyzer,
 	sizeTruncAnalyzer,
+	uintptrLiveAnalyzer,
 
 	asyncHostAnalyzer,
 	readBeforeSyncAnalyzer,
