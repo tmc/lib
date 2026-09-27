@@ -475,13 +475,21 @@ func waited(info *types.Info, waits []*ast.CallExpr, from, to token.Pos, s, writ
 
 var queryDoneAnalyzer = &analysis.Analyzer{
 	Name: "querydone",
-	Doc: `check that the done result of Event.Query and Stream.Query is used
+	Doc: `check that the answer of Event.Query and Stream.Query is used
 
-Query returns whether the work is done and an error. A nil error does not mean
-done: it means the query worked. querydone reports a Query whose done result is
-discarded. A Query of a handle the function closes, outside a defer, before
-the Query or while the Query runs in a goroutine, is left alone: it tests the
-closed handle, and only the error means anything there.`,
+The cuda package's Query returns whether the work is done and an error. A nil
+error does not mean done: it means the query worked. querydone reports a Query
+whose done result is discarded. A Query of a handle the function closes,
+outside a defer, before the Query or while the Query runs in a goroutine, is
+left alone: it tests the closed handle, and only the error means anything
+there.
+
+The driver's Query returns only an error: nil when the work is done,
+ErrNotReady when it is not, and another error when the query failed.
+querydone reports such a Query called as a bare statement, which throws the
+answer away, and a loop that runs while the Query's error is non-nil and
+never mentions ErrNotReady: a failure, which Query keeps returning, spins it
+forever.`,
 	Run: runQueryDone,
 }
 
@@ -510,6 +518,12 @@ func runQueryDone(pass *analysis.Pass) (any, error) {
 			if fn == nil || fn.Name() != "Query" || !inNvidia(fn.Pkg()) || recvNamed(fn) == nil {
 				return
 			}
+			if errQuery(info, call) != "" {
+				if _, bare := stack[len(stack)-1].(*ast.ExprStmt); bare {
+					pass.Reportf(call.Pos(), "the result of %s.Query is discarded; it is nil when the work is done and ErrNotReady when it is not", recvNamed(fn).Obj().Name())
+				}
+				return
+			}
 			res := fn.Type().(*types.Signature).Results()
 			if res.Len() != 2 || !types.Identical(res.At(0).Type(), types.Typ[types.Bool]) {
 				return
@@ -535,8 +549,85 @@ func runQueryDone(pass *analysis.Pass) (any, error) {
 			}
 			pass.Reportf(call.Pos(), "the done result of %s.Query is discarded; a nil error does not mean the work is done", recvNamed(fn).Obj().Name())
 		})
+		ast.Inspect(body, func(n ast.Node) bool {
+			loop, ok := n.(*ast.ForStmt)
+			if !ok {
+				return true
+			}
+			if name := spinQuery(info, loop); name != "" && !mentionsNotReady(info, loop) {
+				pass.Reportf(loop.Cond.Pos(), "the loop waits while %s.Query returns any error; only ErrNotReady means not done, and a failure spins it forever", name)
+			}
+			return true
+		})
 	})
 	return nil, nil
+}
+
+// errQuery returns the receiver type name of call if it calls a Query method
+// of a binding that returns only an error, as the driver's does, or "".
+func errQuery(info *types.Info, call *ast.CallExpr) string {
+	fn := callee(info, call)
+	if fn == nil || fn.Name() != "Query" || !inNvidia(fn.Pkg()) || recvNamed(fn) == nil {
+		return ""
+	}
+	res := fn.Type().(*types.Signature).Results()
+	if res.Len() != 1 || !isError(res.At(0).Type()) {
+		return ""
+	}
+	return recvNamed(fn).Obj().Name()
+}
+
+// spinQuery returns the receiver type name of the error-only Query whose
+// result the condition of loop tests against nil, directly or through a
+// variable the loop assigns from the Query, or "".
+func spinQuery(info *types.Info, loop *ast.ForStmt) string {
+	cond, ok := ast.Unparen(loop.Cond).(*ast.BinaryExpr)
+	if !ok || cond.Op != token.NEQ {
+		return ""
+	}
+	x := cond.X
+	if isNil(info, x) {
+		x = cond.Y
+	} else if !isNil(info, cond.Y) {
+		return ""
+	}
+	if c, ok := ast.Unparen(x).(*ast.CallExpr); ok {
+		return errQuery(info, c)
+	}
+	v := objOf(info, x)
+	if v == nil {
+		return ""
+	}
+	name := ""
+	ast.Inspect(loop, func(n ast.Node) bool {
+		a, ok := n.(*ast.AssignStmt)
+		if !ok || len(a.Lhs) != len(a.Rhs) {
+			return true
+		}
+		for i, l := range a.Lhs {
+			if c, ok := ast.Unparen(a.Rhs[i]).(*ast.CallExpr); ok && objOf(info, l) == v {
+				if q := errQuery(info, c); q != "" {
+					name = q
+				}
+			}
+		}
+		return true
+	})
+	return name
+}
+
+// mentionsNotReady reports whether n refers to a binding's ErrNotReady.
+func mentionsNotReady(info *types.Info, n ast.Node) bool {
+	found := false
+	ast.Inspect(n, func(n ast.Node) bool {
+		if id, ok := n.(*ast.Ident); ok && id.Name == "ErrNotReady" {
+			if obj := info.Uses[id]; obj != nil && inNvidia(obj.Pkg()) {
+				found = true
+			}
+		}
+		return !found
+	})
+	return found
 }
 
 // deferred reports whether a node with ancestors stack runs as a cleanup: it

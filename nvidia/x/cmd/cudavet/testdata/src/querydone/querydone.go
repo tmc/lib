@@ -74,3 +74,36 @@ func closedLater(e *cuda.Event) error {
 	_, err := e.Query() // want `the done result of Event.Query is discarded; a nil error does not mean the work is done`
 	return errors.Join(err, e.Close())
 }
+
+// dropDriver throws away the driver's whole answer.
+func dropDriver(s driver.Stream, e driver.Event) {
+	s.Query() // want `the result of Stream.Query is discarded; it is nil when the work is done and ErrNotReady when it is not`
+	e.Query() // want `the result of Event.Query is discarded; it is nil when the work is done and ErrNotReady when it is not`
+}
+
+// blankDriver discards the answer on purpose.
+func blankDriver(s driver.Stream) {
+	_ = s.Query()
+}
+
+// spinDriver waits on any error, so a failed stream spins forever.
+func spinDriver(s driver.Stream, e driver.Event) {
+	for s.Query() != nil { // want `the loop waits while Stream.Query returns any error; only ErrNotReady means not done, and a failure spins it forever`
+	}
+	for err := e.Query(); err != nil; err = e.Query() { // want `the loop waits while Event.Query returns any error; only ErrNotReady means not done, and a failure spins it forever`
+	}
+}
+
+// waitDriver stops on an error other than ErrNotReady.
+func waitDriver(s driver.Stream) error {
+	err := s.Query()
+	for err != nil {
+		if !errors.Is(err, driver.ErrNotReady) {
+			return err
+		}
+		err = s.Query()
+	}
+	for errors.Is(s.Query(), driver.ErrNotReady) {
+	}
+	return nil
+}

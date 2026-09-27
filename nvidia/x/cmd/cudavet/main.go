@@ -22,7 +22,7 @@
 //	readbeforesync     a host buffer read before its async copy has finished
 //	launcherr          a launch whose first synchronizing call discards its error
 //	streammismatch     device memory written on one stream and used on another
-//	querydone          the done result of Query discarded
+//	querydone          a Query result discarded, or a wait loop that spins on failure
 //	profilerexit       a deferred ProfilerStop skipped by os.Exit or log.Fatal
 //
 //	errcompare         a binding error compared with == instead of errors.Is
