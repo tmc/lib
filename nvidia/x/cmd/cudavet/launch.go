@@ -5,6 +5,7 @@ import (
 	"go/token"
 	"go/types"
 	"regexp"
+	"strings"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -17,7 +18,12 @@ A compile option such as --gpu-architecture=sm_90 fails, or falls back to a
 slow JIT, on a GPU of another architecture. arch reports a constant
 architecture option passed to an nvidia binding, such as nvrtc's
 Program.Compile or nvJitLink's Create. Derive it from
-Device.ComputeCapability instead.`,
+Device.ComputeCapability instead.
+
+A test, benchmark, fuzz target or example that only compiles is not
+reported: nothing runs its output on a GPU, so a fixed architecture is the
+point. It is reported once it loads a module or launches a kernel, directly,
+in a function literal, or through a function of its package that does.`,
 	Run: runArch,
 }
 
@@ -25,36 +31,121 @@ var archRE = regexp.MustCompile(`^(?:-arch[= ]?|--gpu-architecture[= ]?)?((?:sm|
 
 func runArch(pass *analysis.Pass) (any, error) {
 	info := pass.TypesInfo
-	eachFunc(pass, func(body *ast.BlockStmt) {
-		for _, call := range calls(body) {
-			fn := callee(info, call)
-			if fn == nil || !inNvidia(fn.Pkg()) {
+	runs := gpuRunners(pass)
+	for _, file := range srcFiles(pass) {
+		for _, decl := range file.Decls {
+			if fd, ok := decl.(*ast.FuncDecl); ok && hostOnlyTest(pass, fd, runs) {
 				continue
 			}
-			for i, arg := range call.Args {
-				s, ok := constString(info, arg)
+			ast.Inspect(decl, func(n ast.Node) bool {
+				call, ok := n.(*ast.CallExpr)
 				if !ok {
-					continue
+					return true
 				}
-				m := archRE.FindStringSubmatch(s)
-				if m == nil {
-					continue
+				fn := callee(info, call)
+				if fn == nil || !inNvidia(fn.Pkg()) {
+					return true
 				}
-				// A bare sm_90 counts only after an -arch option.
-				if s == m[1] {
-					prev, ok := "", i > 0
-					if ok {
-						prev, ok = constString(info, call.Args[i-1])
-					}
-					if !ok || (prev != "-arch" && prev != "--gpu-architecture") {
+				for i, arg := range call.Args {
+					s, ok := constString(info, arg)
+					if !ok {
 						continue
 					}
+					m := archRE.FindStringSubmatch(s)
+					if m == nil {
+						continue
+					}
+					// A bare sm_90 counts only after an -arch option.
+					if s == m[1] {
+						prev, ok := "", i > 0
+						if ok {
+							prev, ok = constString(info, call.Args[i-1])
+						}
+						if !ok || (prev != "-arch" && prev != "--gpu-architecture") {
+							continue
+						}
+					}
+					pass.Reportf(arg.Pos(), "%s fixes the GPU architecture at %s; derive it from Device.ComputeCapability", fn.Name(), m[1])
 				}
-				pass.Reportf(arg.Pos(), "%s fixes the GPU architecture at %s; derive it from Device.ComputeCapability", fn.Name(), m[1])
+				return true
+			})
+		}
+	}
+	return nil, nil
+}
+
+var testFuncRE = regexp.MustCompile(`^(Test|Benchmark|Fuzz|Example)`)
+
+// hostOnlyTest reports whether fd is a test, benchmark, fuzz target or
+// example that never loads or launches compiled code. Such a function
+// returns nothing, so its compiler output cannot reach a GPU elsewhere.
+func hostOnlyTest(pass *analysis.Pass, fd *ast.FuncDecl, runs map[*types.Func]bool) bool {
+	if fd.Recv != nil || fd.Body == nil || !testFuncRE.MatchString(fd.Name.Name) ||
+		!strings.HasSuffix(pass.Fset.Position(fd.Pos()).Filename, "_test.go") {
+		return false
+	}
+	return !runsOnGPU(pass.TypesInfo, fd.Body, runs)
+}
+
+// isLoadOrLaunch reports whether fn loads a module or launches device code:
+// a ModuleLoad, LibraryLoad or Launch function of an nvidia package, or a
+// Load or Launch method, such as nvrtcx's CompiledModule.Load.
+func isLoadOrLaunch(fn *types.Func) bool {
+	if fn == nil || !inNvidia(fn.Pkg()) {
+		return false
+	}
+	name := fn.Name()
+	switch {
+	case name == "LaunchHostFunc":
+		return false
+	case strings.HasPrefix(name, "ModuleLoad"), strings.HasPrefix(name, "LibraryLoad"),
+		strings.HasPrefix(name, "Launch"), strings.HasPrefix(name, "GraphLaunch"):
+		return true
+	}
+	// A package-level Load opens the shared library instead.
+	return recvNamed(fn) != nil && strings.HasPrefix(name, "Load")
+}
+
+// runsOnGPU reports whether body, including its function literals, calls a
+// load or launch function or one of runs.
+func runsOnGPU(info *types.Info, body ast.Node, runs map[*types.Func]bool) bool {
+	found := false
+	ast.Inspect(body, func(n ast.Node) bool {
+		if call, ok := n.(*ast.CallExpr); ok {
+			fn := callee(info, call)
+			found = isLoadOrLaunch(fn) || runs[fn]
+		}
+		return !found
+	})
+	return found
+}
+
+// gpuRunners returns the functions of the package that load or launch,
+// directly or through each other.
+func gpuRunners(pass *analysis.Pass) map[*types.Func]bool {
+	decls := make(map[*types.Func]*ast.FuncDecl)
+	for _, file := range pass.Files {
+		for _, decl := range file.Decls {
+			fd, ok := decl.(*ast.FuncDecl)
+			if !ok || fd.Body == nil {
+				continue
+			}
+			if fn, ok := pass.TypesInfo.Defs[fd.Name].(*types.Func); ok {
+				decls[fn] = fd
 			}
 		}
-	})
-	return nil, nil
+	}
+	runs := make(map[*types.Func]bool)
+	for changed := true; changed; {
+		changed = false
+		for fn, fd := range decls {
+			if !runs[fn] && runsOnGPU(pass.TypesInfo, fd.Body, runs) {
+				runs[fn] = true
+				changed = true
+			}
+		}
+	}
+	return runs
 }
 
 var gridTruncAnalyzer = &analysis.Analyzer{

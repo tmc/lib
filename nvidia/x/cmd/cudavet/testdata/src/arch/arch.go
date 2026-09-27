@@ -26,3 +26,8 @@ func derived(p nvrtc.Program, dev driver.Device) error {
 func unrelated(p nvrtc.Program) error {
 	return p.Compile("-default-device", "sm_90")
 }
+
+// Only a _test.go file holds tests; this is an ordinary function.
+func TestLike(p nvrtc.Program) error {
+	return p.Compile("-arch=sm_80") // want `Compile fixes the GPU architecture at sm_80`
+}
