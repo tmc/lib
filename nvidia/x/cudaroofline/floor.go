@@ -1,6 +1,10 @@
 package cudaroofline
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/tmc/lib/nvidia/x/cudaerrors"
+)
 
 // Operation is a unit of work whose cost is claimed rather than observed: a
 // candidate kernel a search proposes, an entry in a plan, a row in a report.
@@ -173,4 +177,115 @@ func (m *Model) Judge(op Operation, durationNs uint64) Judgment {
 		j.Verdict = VerdictAccepted
 	}
 	return j
+}
+
+// CompoundDataMovement captures theoretical data movement counts and operational intensity.
+type CompoundDataMovement struct {
+	ReadBytes            uint64
+	WriteBytes           uint64
+	TotalBytes           uint64
+	OperationalIntensity float64
+	TensorTransfers      map[string]uint64
+}
+
+// AnalyticalDataMovement computes exact theoretical DRAM transfer counts and
+// operational intensity for a tensor contraction (e.g. GEMM) with given problem
+// extents, tile factors, element byte sizes, and datatype bypass settings.
+func AnalyticalDataMovement(problem map[string]int, tileFactors map[string]int, dtypes map[string]int, bypassed map[string]bool) CompoundDataMovement {
+	b := uint64(problem["B"])
+	if b <= 0 {
+		b = 1
+	}
+	m := uint64(problem["M"])
+	n := uint64(problem["N"])
+	k := uint64(problem["K"])
+
+	mt := uint64(tileFactors["M"])
+	if mt <= 0 {
+		mt = 1
+	}
+	nt := uint64(tileFactors["N"])
+	if nt <= 0 {
+		nt = 1
+	}
+
+	dtA := uint64(dtypes["A"])
+	if dtA <= 0 {
+		dtA = 2
+	}
+	dtB := uint64(dtypes["B"])
+	if dtB <= 0 {
+		dtB = 2
+	}
+	dtC := uint64(dtypes["C"])
+	if dtC <= 0 {
+		dtC = 4
+	}
+
+	// FLOPs = 2 * B * M * N * K
+	flops := 2 * b * m * n * k
+
+	transfers := make(map[string]uint64)
+	var readBytes, writeBytes uint64
+
+	// Tensor A: B x M x K. Reused across N / N_t outer tiles.
+	if !bypassed["A"] {
+		nTiles := (n + nt - 1) / nt
+		transfersA := b * m * k * nTiles * dtA
+		transfers["A"] = transfersA
+		readBytes += transfersA
+	}
+
+	// Tensor B: B x K x N. Reused across M / M_t outer tiles.
+	if !bypassed["B"] {
+		mTiles := (m + mt - 1) / mt
+		transfersB := b * k * n * mTiles * dtB
+		transfers["B"] = transfersB
+		readBytes += transfersB
+	}
+
+	// Tensor C: B x M x N. Accumulated and written to DRAM.
+	if !bypassed["C"] {
+		writesC := b * m * n * dtC
+		transfers["C"] = writesC
+		writeBytes += writesC
+	}
+
+	totalBytes := readBytes + writeBytes
+	var opIntensity float64
+	if totalBytes > 0 {
+		opIntensity = float64(flops) / float64(totalBytes)
+	}
+
+	return CompoundDataMovement{
+		ReadBytes:            readBytes,
+		WriteBytes:           writeBytes,
+		TotalBytes:           totalBytes,
+		OperationalIntensity: opIntensity,
+		TensorTransfers:      transfers,
+	}
+}
+
+// HardwareVerificationStatus represents calibration qualification status.
+type HardwareVerificationStatus string
+
+const (
+	VerificationPending  HardwareVerificationStatus = "pending"
+	VerificationMeasured HardwareVerificationStatus = "measured"
+)
+
+// HardwareCalibration holds hardware verification outcome.
+type HardwareCalibration struct {
+	Status    HardwareVerificationStatus
+	LatencyNs float64
+}
+
+// VerifyHardwareExecution gates execution latency measurement on physical hardware availability.
+// Without an accessible, probed GPU, it returns status VerificationPending and wraps
+// cudaerrors.ErrHardwarePending rather than emitting synthesized execution times.
+func VerifyHardwareExecution(target string) (HardwareCalibration, error) {
+	return HardwareCalibration{
+		Status:    VerificationPending,
+		LatencyNs: FloorUnavailable,
+	}, fmt.Errorf("hardware verification on %s: %w", target, cudaerrors.ErrHardwarePending)
 }

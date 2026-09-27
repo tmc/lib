@@ -19,10 +19,20 @@
 // A [Layout] is CuTe's shape:stride function from coordinates to offsets,
 // written in CuTe notation ("((2,2),2):((4,1),2)") and evaluated
 // colexicographically. [Coalesce], [Composition], [Complement],
-// [LogicalDivide] and [ZippedDivide] implement CuTe's algebra over it, and
-// reject rather than approximate an operation whose divisibility conditions
-// fail. Offsets are in the unit of the strides; a Layout does not know
+// [LogicalDivide], [ZippedDivide], [RightInverse], [Nullspace], and
+// [GreatestCommonDomain] implement CuTe's algebra over it, and reject
+// rather than approximate an operation whose divisibility conditions fail.
+// Offsets are in the unit of the strides; a Layout does not know
 // elements from bytes.
+//
+// # Mapspace decomposition
+//
+// The package provides Timeloop-style four-axis mapspace representations:
+// [IndexFactorization] (tiling factors across memory hierarchy levels),
+// [LoopPermutation] (nest ordering per level), [SpatialTiling] (CTA and warp
+// spatial splits), and [DatatypeBypass] (per-level tensor retention flags).
+// [ValidateCapacity] prunes tile factorizations that exceed block shared memory
+// capacity, register file bounds, or TMA alignment constraints.
 //
 // A [Stride] leaf is an integer, a basis stride that maps into one axis of a
 // coordinate-valued offset, or an F2 stride whose contributions combine by

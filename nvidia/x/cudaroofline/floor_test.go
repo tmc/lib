@@ -2,11 +2,14 @@ package cudaroofline
 
 import (
 	"bytes"
+	"errors"
 	"flag"
 	"math"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/tmc/lib/nvidia/x/cudaerrors"
 )
 
 var update = flag.Bool("update", false, "rewrite the golden floor vector")
@@ -263,5 +266,72 @@ func TestUnjudgedWhenNoCeilingForDevice(t *testing.T) {
 	}
 	if j.Reason == "" {
 		t.Error("unjudged with no reason")
+	}
+}
+
+func TestAnalyticalDataMovementBounds(t *testing.T) {
+	problem := map[string]int{
+		"B": 1,
+		"M": 1024,
+		"N": 1024,
+		"K": 1024,
+	}
+	tileFactors := map[string]int{
+		"M": 128,
+		"N": 128,
+		"K": 64,
+	}
+	dtypes := map[string]int{
+		"A": 2, // FP16: 2 bytes
+		"B": 2, // FP16: 2 bytes
+		"C": 4, // FP32: 4 bytes
+	}
+	bypassed := map[string]bool{}
+
+	dm := AnalyticalDataMovement(problem, tileFactors, dtypes, bypassed)
+
+	// Exact analytical derivation:
+	// A: 1024*1024 * (1024/128) * 2 = 16,777,216 bytes
+	// B: 1024*1024 * (1024/128) * 2 = 16,777,216 bytes
+	// C: 1024*1024 * 4 = 4,194,304 bytes
+	// ReadBytes = 33,554,432 bytes
+	// WriteBytes = 4,194,304 bytes
+	// TotalBytes = 37,748,736 bytes
+	// FLOPs = 2 * 1024^3 = 2,147,483,648
+	// OpIntensity = 2147483648 / 37748736 = 56.88888888888889
+
+	wantRead := uint64(33554432)
+	wantWrite := uint64(4194304)
+	wantTotal := uint64(37748736)
+
+	if dm.ReadBytes != wantRead {
+		t.Errorf("ReadBytes = %d, want %d", dm.ReadBytes, wantRead)
+	}
+	if dm.WriteBytes != wantWrite {
+		t.Errorf("WriteBytes = %d, want %d", dm.WriteBytes, wantWrite)
+	}
+	if dm.TotalBytes != wantTotal {
+		t.Errorf("TotalBytes = %d, want %d", dm.TotalBytes, wantTotal)
+	}
+
+	expectedIntensity := float64(2147483648) / float64(wantTotal)
+	if math.Abs(dm.OperationalIntensity-expectedIntensity) > 1e-6 {
+		t.Errorf("OperationalIntensity = %v, want %v", dm.OperationalIntensity, expectedIntensity)
+	}
+}
+
+func TestHardwareVerificationPendingWithoutGPU(t *testing.T) {
+	cal, err := VerifyHardwareExecution("sm_121")
+	if err == nil {
+		t.Fatalf("expected error from VerifyHardwareExecution without hardware, got nil")
+	}
+	if !errors.Is(err, cudaerrors.ErrHardwarePending) {
+		t.Errorf("err = %v, want ErrHardwarePending", err)
+	}
+	if cal.Status != VerificationPending {
+		t.Errorf("cal.Status = %q, want %q", cal.Status, VerificationPending)
+	}
+	if cal.LatencyNs != FloorUnavailable {
+		t.Errorf("cal.LatencyNs = %v, want %v (FloorUnavailable)", cal.LatencyNs, FloorUnavailable)
 	}
 }

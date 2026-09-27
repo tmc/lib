@@ -876,3 +876,101 @@ func add(a, b int) (int, error) {
 	}
 	return s, nil
 }
+
+// RightInverse returns the layout r, ordered by increasing offset, such that
+// a(r(i)) == i for every index i < r.Size(). If a has no contiguous component
+// starting at stride 1, RightInverse returns a layout with extent 1 and stride 0.
+func RightInverse(a Layout) Layout {
+	if a.size == 0 {
+		return mustLayout(IntShape(1), IntStride(0))
+	}
+	type dsa struct {
+		stride  int
+		shape   int
+		rstride int
+	}
+	var modes []dsa
+	rstride := 1
+	for _, f := range a.leaves {
+		if f.kind == strideInt {
+			modes = append(modes, dsa{stride: f.d, shape: f.n, rstride: rstride})
+		}
+		var err error
+		if rstride, err = mul(rstride, f.n); err != nil {
+			return mustLayout(IntShape(1), IntStride(0))
+		}
+	}
+	slices.SortStableFunc(modes, func(x, y dsa) int {
+		return x.stride - y.stride
+	})
+	var out []leaf
+	cur := 1
+	for _, m := range modes {
+		if m.shape == 1 {
+			continue
+		}
+		if cur != m.stride {
+			break
+		}
+		out = append(out, leaf{n: m.shape, d: m.rstride})
+		var err error
+		if cur, err = mul(m.stride, m.shape); err != nil {
+			break
+		}
+	}
+	if len(out) == 0 {
+		return mustLayout(IntShape(1), IntStride(0))
+	}
+	return Coalesce(fromLeaves(out))
+}
+
+// Nullspace returns a layout representing the kernel of a: coordinates mapping to offset 0.
+// If a has no stride-0 modes, Nullspace returns a layout with extent 1 and stride 0.
+func Nullspace(a Layout) Layout {
+	if a.size == 0 {
+		return mustLayout(IntShape(1), IntStride(0))
+	}
+	var out []leaf
+	rstride := 1
+	for _, f := range a.leaves {
+		if f.kind == strideInt && f.d == 0 {
+			out = append(out, leaf{n: f.n, d: rstride})
+		}
+		var err error
+		if rstride, err = mul(rstride, f.n); err != nil {
+			return mustLayout(IntShape(1), IntStride(0))
+		}
+	}
+	if len(out) == 0 {
+		return mustLayout(IntShape(1), IntStride(0))
+	}
+	return Coalesce(fromLeaves(out))
+}
+
+// GreatestCommonDomain returns a layout representing the maximal contiguous
+// domain over which a and b logically correspond and produce identical offsets:
+// for all 0 <= i < r.Size(), a(r(i)) == i and b(r(i)) == i.
+func GreatestCommonDomain(a, b Layout) Layout {
+	if a.size == 0 || b.size == 0 {
+		return mustLayout(IntShape(1), IntStride(0))
+	}
+	invB := RightInverse(b)
+	comp, err := Composition(a, invB)
+	if err != nil {
+		return mustLayout(IntShape(1), IntStride(0))
+	}
+	common := Coalesce(comp)
+	if len(common.leaves) > 0 && common.leaves[0].kind == strideInt && common.leaves[0].d == 1 {
+		vecLen := common.leaves[0].n
+		vecLayout, err := NewLayout(IntShape(vecLen), IntStride(1))
+		if err != nil {
+			return mustLayout(IntShape(1), IntStride(0))
+		}
+		res, err := Composition(invB, vecLayout)
+		if err != nil {
+			return mustLayout(IntShape(1), IntStride(0))
+		}
+		return Coalesce(res)
+	}
+	return mustLayout(IntShape(1), IntStride(0))
+}

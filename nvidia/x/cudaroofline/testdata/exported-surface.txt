@@ -5,6 +5,11 @@
   field Ceiling.PeakMemoryGBps float64
   field Ceiling.PeakTFLOPS float64
   field Ceiling.Residency Residency
+  field CompoundDataMovement.OperationalIntensity float64
+  field CompoundDataMovement.ReadBytes uint64
+  field CompoundDataMovement.TensorTransfers map[string]uint64
+  field CompoundDataMovement.TotalBytes uint64
+  field CompoundDataMovement.WriteBytes uint64
   field DeviceRecord.Architecture string
   field DeviceRecord.ComputeProvenance string
   field DeviceRecord.MemoryProvenance string
@@ -12,6 +17,8 @@
   field DeviceRecord.PeakPrecision string
   field DeviceRecord.PeakTFLOPS float64
   field DeviceRecord.Residency string
+  field HardwareCalibration.LatencyNs float64
+  field HardwareCalibration.Status HardwareVerificationStatus
   field Judgment.Axis LimitingAxis
   field Judgment.Basis FloorBasis
   field Judgment.CeilingProvenance Provenance
@@ -83,6 +90,8 @@ const Unverified
 const VerdictAccepted
 const VerdictRejected
 const VerdictUnjudged
+const VerificationMeasured
+const VerificationPending
 func (*Model) CeilingAt(intensity float64) float64
 func (*Model) Evaluate(kernelName string, flops uint64, bytesTransferred uint64, durationNs uint64) KernelPoint
 func (*Model) Floor(op Operation) Judgment
@@ -91,6 +100,7 @@ func (*Model) KneeIntensity() float64
 func (*Model) RenderSVG(w io.Writer, points []KernelPoint) error
 func (Record) Encode(w io.Writer) error
 func (Record) Validate() error
+func AnalyticalDataMovement(problem map[string]int, tileFactors map[string]int, dtypes map[string]int, bypassed map[string]bool) CompoundDataMovement
 func DecodeRecord(rd io.Reader) (Record, error)
 func LookupCeiling(arch string, residency Residency) (Ceiling, error)
 func NewModel(arch string, residency Residency) (*Model, error)
@@ -98,9 +108,13 @@ func NewModelWithCeiling(c Ceiling) *Model
 func NewRecord(m *Model, judgments []Judgment) Record
 func PeakTFLOPSFor(arch string, p Precision) (float64, Provenance, error)
 func ValidateCeiling(c Ceiling) error
+func VerifyHardwareExecution(target string) (HardwareCalibration, error)
 type Ceiling struct
+type CompoundDataMovement struct
 type DeviceRecord struct
 type FloorBasis string
+type HardwareCalibration struct
+type HardwareVerificationStatus string
 type Judgment struct
 type KernelPoint struct
 type LimitingAxis string

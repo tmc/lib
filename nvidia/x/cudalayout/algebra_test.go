@@ -737,3 +737,118 @@ func FuzzParseLayout(f *testing.F) {
 		}
 	})
 }
+
+func TestLayoutRightInverse(t *testing.T) {
+	tests := []struct {
+		layout string
+		want   string
+	}{
+		{"8:1", "8:1"},
+		{"(4,2):(1,4)", "8:1"},
+		{"(4,2):(2,8)", "1:0"},
+		{"(4,2):(1,8)", "4:1"},
+		{"((2,2),2):((4,1),2)", "(4,2):(2,1)"},
+	}
+	if len(tests) < 5 {
+		t.Fatalf("expected at least 5 test cases, got %d", len(tests))
+	}
+	for _, tt := range tests {
+		l := mustParse(t, tt.layout)
+		inv := RightInverse(l)
+		if inv.String() != tt.want {
+			t.Errorf("RightInverse(%s) = %v, want %s", tt.layout, inv, tt.want)
+		}
+		// Invariant: for all i in [0, inv.Size()), l(inv(i)) == i
+		for i := 0; i < inv.Size(); i++ {
+			invOff, err := inv.Index(i)
+			if err != nil {
+				t.Fatalf("%v.Index(%d): %v", inv, i, err)
+			}
+			off, err := l.Index(invOff)
+			if err != nil {
+				t.Fatalf("%v.Index(%d): %v", l, invOff, err)
+			}
+			if off != i {
+				t.Errorf("%s∘RightInverse at %d: got %d, want %d", tt.layout, i, off, i)
+			}
+		}
+	}
+}
+
+func TestLayoutNullspace(t *testing.T) {
+	tests := []struct {
+		layout string
+		want   string
+	}{
+		{"(4,2):(1,0)", "2:4"},
+		{"(4,2):(1,4)", "1:0"},
+		{"(4,2,3):(1,0,0)", "6:4"},
+		{"(2,(2,2)):(0,(1,10))", "2:1"},
+	}
+	if len(tests) < 4 {
+		t.Fatalf("expected at least 4 test cases, got %d", len(tests))
+	}
+	for _, tt := range tests {
+		l := mustParse(t, tt.layout)
+		null := Nullspace(l)
+		if null.String() != tt.want {
+			t.Errorf("Nullspace(%s) = %v, want %s", tt.layout, null, tt.want)
+		}
+		// Invariant: for all i in [0, null.Size()), l(null(i)) == 0
+		for i := 0; i < null.Size(); i++ {
+			nullOff, err := null.Index(i)
+			if err != nil {
+				t.Fatalf("%v.Index(%d): %v", null, i, err)
+			}
+			off, err := l.Index(nullOff)
+			if err != nil {
+				t.Fatalf("%v.Index(%d): %v", l, nullOff, err)
+			}
+			if off != 0 {
+				t.Errorf("%s∘Nullspace at %d: got %d, want 0", tt.layout, i, off)
+			}
+		}
+	}
+}
+
+func TestLayoutGreatestCommonDomain(t *testing.T) {
+	tests := []struct {
+		a    string
+		b    string
+		want string
+	}{
+		{"(8,4):(1,8)", "(8,4):(1,8)", "32:1"},
+		{"(4,4):(1,8)", "(4,4):(1,4)", "4:1"},
+		{"4:2", "4:1", "1:0"},
+		{"(4,4):(1,8)", "16:1", "4:1"},
+	}
+	if len(tests) < 4 {
+		t.Fatalf("expected at least 4 test cases, got %d", len(tests))
+	}
+	for _, tt := range tests {
+		a := mustParse(t, tt.a)
+		b := mustParse(t, tt.b)
+		gcd := GreatestCommonDomain(a, b)
+		if gcd.String() != tt.want {
+			t.Errorf("GreatestCommonDomain(%s, %s) = %v, want %s", tt.a, tt.b, gcd, tt.want)
+		}
+		// Invariant: for all i in [0, gcd.Size()), a(gcd(i)) == i and b(gcd(i)) == i
+		for i := 0; i < gcd.Size(); i++ {
+			gcdOff, err := gcd.Index(i)
+			if err != nil {
+				t.Fatalf("%v.Index(%d): %v", gcd, i, err)
+			}
+			aOff, err := a.Index(gcdOff)
+			if err != nil {
+				t.Fatalf("%v.Index(%d): %v", a, gcdOff, err)
+			}
+			bOff, err := b.Index(gcdOff)
+			if err != nil {
+				t.Fatalf("%v.Index(%d): %v", b, gcdOff, err)
+			}
+			if aOff != i || bOff != i {
+				t.Errorf("GCD(%s, %s) at %d: a=%d, b=%d, want %d", tt.a, tt.b, i, aOff, bOff, i)
+			}
+		}
+	}
+}

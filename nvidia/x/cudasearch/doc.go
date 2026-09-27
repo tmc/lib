@@ -10,6 +10,11 @@
 // Phase 1 screening via interleaved trials (cudatrial), and Phase 2 attribution
 // with hardware stall profiling guidance.
 //
+// In addition to program rewrite search, cudasearch supports structured
+// mapspace search over tensor loop nests ([LinearPrunedSearch]), pruning
+// candidate factorizations that fail shared memory or register capacity
+// constraints before permutation and bypass evaluation.
+//
 // Basic usage:
 //
 //	bindings := cudasearch.WorkloadBindings{
