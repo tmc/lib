@@ -109,20 +109,32 @@ var devptrUintptrAnalyzer = &analysis.Analyzer{
 	Name: "devptruintptr",
 	Doc: `report device pointers passed to bindings as uintptr
 
-A binding parameter that takes a device buffer should be a DevicePtr. One typed
-uintptr means the generator did not classify the buffer as device memory, and
-the caller has to convert, losing the type. devptruintptr reports uintptr(d),
-d a DevicePtr, passed to a uintptr parameter of an nvidia binding, naming the
-parameter so that the classification can be fixed in the generator.`,
+A binding that types device memory, one that declares a DevicePtr or names
+one in an exported signature, should take every device buffer as a DevicePtr.
+A uintptr parameter there means the generator did not classify the buffer as
+device memory, and the caller has to convert, losing the type. devptruintptr
+reports uintptr(d), d a DevicePtr, passed to a uintptr parameter of such a
+binding, naming the parameter so that the classification can be fixed in the
+generator. A binding that never names a DevicePtr takes all device memory as
+uintptr by policy, and calls to it are not reported.`,
 	Run: runDevptrUintptr,
 }
 
 func runDevptrUintptr(pass *analysis.Pass) (any, error) {
 	info := pass.TypesInfo
+	typed := make(map[*types.Package]bool)
 	eachFunc(pass, func(body *ast.BlockStmt) {
 		for _, call := range calls(body) {
 			fn := callee(info, call)
 			if fn == nil || !isBinding(fn.Pkg()) || fn.Pkg() == pass.Pkg || !fn.Exported() {
+				continue
+			}
+			t, ok := typed[fn.Pkg()]
+			if !ok {
+				t = typesDeviceMemory(fn.Pkg())
+				typed[fn.Pkg()] = t
+			}
+			if !t {
 				continue
 			}
 			sig := fn.Type().(*types.Signature)
@@ -142,6 +154,49 @@ func runDevptrUintptr(pass *analysis.Pass) (any, error) {
 		}
 	})
 	return nil, nil
+}
+
+// typesDeviceMemory reports whether pkg declares a DevicePtr or names one in
+// the parameters or results of an exported function or method. A binding that
+// does neither passes all device memory as uintptr.
+func typesDeviceMemory(pkg *types.Package) bool {
+	scope := pkg.Scope()
+	for _, name := range scope.Names() {
+		obj := scope.Lookup(name)
+		if !obj.Exported() {
+			continue
+		}
+		switch obj := obj.(type) {
+		case *types.Func:
+			if namesDevicePtr(obj.Type().(*types.Signature)) {
+				return true
+			}
+		case *types.TypeName:
+			if isDevicePtr(obj.Type()) {
+				return true
+			}
+			if n, ok := types.Unalias(obj.Type()).(*types.Named); ok {
+				for m := range n.Methods() {
+					if m.Exported() && namesDevicePtr(m.Type().(*types.Signature)) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+// namesDevicePtr reports whether a parameter or result of sig is a DevicePtr.
+func namesDevicePtr(sig *types.Signature) bool {
+	for _, tup := range []*types.Tuple{sig.Params(), sig.Results()} {
+		for v := range tup.Variables() {
+			if isDevicePtr(v.Type()) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 var memallocPtrAnalyzer = &analysis.Analyzer{

@@ -11,7 +11,7 @@
 //	graphshare         a graph used concurrently from two goroutines
 //
 //	devicederef        a device address turned into a Go pointer
-//	devptruintptr      a DevicePtr passed where the binding says only uintptr
+//	devptruintptr      a DevicePtr passed as uintptr to a binding that types device memory
 //	memallocptr        a Go pointer type stored in device memory
 //	useafterdestroy    a handle used after it is released
 //	sizeunits          a legacy BufferSize in elements allocated as bytes

@@ -2,6 +2,7 @@ package devptruintptr
 
 import (
 	"github.com/tmc/lib/nvidia/cublas"
+	"github.com/tmc/lib/nvidia/custatevec"
 	"github.com/tmc/lib/nvidia/driver"
 )
 
@@ -16,4 +17,9 @@ func norm(h cublas.Handle, x driver.DevicePtr) (float32, error) {
 func typed(h cublas.Handle, x, y driver.DevicePtr) error {
 	a := float32(2)
 	return h.Saxpy(4, &a, x, 1, y, 1)
+}
+
+// custatevec names no DevicePtr: uintptr is its policy for all device memory.
+func initialize(h custatevec.Handle, sv driver.DevicePtr) error {
+	return h.InitializeStateVector(uintptr(sv), custatevec.C64F, 3, custatevec.StateVectorTypeZero)
 }
