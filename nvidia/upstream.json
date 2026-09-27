@@ -6603,7 +6603,7 @@
           "-output",
           "${OUTPUT_DIR}"
         ],
-        "comparison": "Regenerated from the pinned nccl 2.31.2-1 headers with nccl-survey at libgen d61bc79a. All 20 generated Go files, including the provenance source, are recorded below. The package test passes; apidiff reports zero incompatible changes on linux/amd64, linux/arm64 and darwin/arm64; go vet passes on linux/amd64, linux/arm64, darwin/arm64 and windows/amd64. Compiler-measured 12-byte ncclTeam_t calls, including TeamRankToWorld and TeamRankToLsa, bind through the configured ffi registrar. The regenerated package retains the ffiCall bridge and pooled output slots. No NCCL runtime or GPU workload was run.",
+        "comparison": "Regenerated from the pinned nccl 2.31.2-1 headers with nccl-survey at libgen de1b8c78. All 20 generated Go files, including the provenance source, are recorded below. The package test passes; apidiff reports zero incompatible changes on linux/amd64, linux/arm64 and darwin/arm64; go vet passes on linux/amd64, linux/arm64, darwin/arm64 and windows/amd64. Compiler-measured 12-byte ncclTeam_t calls, including TeamRankToWorld and TeamRankToLsa, bind through the configured ffi registrar. The regenerated package retains the ffiCall bridge and pooled output slots. No NCCL runtime or GPU workload was run.",
         "cwd": "${CODEGEN_REPO}",
         "dependency_inventory": {
           "method": "Primary-header clang -M closure over the pinned 2.31.2-1 nccl.h plus the complete .h tree of that pin, which supplies every merged device sibling and layout probe; includes all selected inputs, may include unused device headers.",
@@ -6783,11 +6783,11 @@
           },
           {
             "path": "nvidia/nccl/devcomm.gen.go",
-            "sha256": "28f4fd4f9f08ceb76faec72a6a6cfdee3b76a18d35de7063661ce0cf05f446dc"
+            "sha256": "ced68ab5d9ecb0f8caa8404264c6a6f3fbcdd6dc38972fe71a1efb821bcc8a6a"
           },
           {
             "path": "nvidia/nccl/devptr.gen.go",
-            "sha256": "b003bded710f38834ce4a6d329a9fc412c76b75474f52a1b73b4b2e1ddaed1a0"
+            "sha256": "2668e9b3e4b39a8acac77f79b3e484db8460f32d5a20c5d255f4a1ceed887a93"
           },
           {
             "path": "nvidia/nccl/doc.gen.go",
@@ -6800,11 +6800,11 @@
           },
           {
             "path": "nvidia/nccl/funcs.gen.go",
-            "sha256": "35916fd1f0405060983032198ec969a351aac89899181f709e003b30901dcdfd"
+            "sha256": "7bea6c90f4902f4acb67dafd3254137f46ac794b313ad47f482e9c154300f203"
           },
           {
             "path": "nvidia/nccl/gin.gen.go",
-            "sha256": "9ef097baed359b154e0ee6eed2ac25c32802853757f4a4121f027e9839ee2946"
+            "sha256": "710b33a92c3ec4eb8456f43a8c3c6d1023b84ccab37ccebe75442045734fe929"
           },
           {
             "path": "nvidia/nccl/handles.gen.go",
@@ -7277,10 +7277,10 @@
       "package": "github.com/tmc/lib/nvidia/nccl",
       "repositories": {
         "codegen": {
-          "commit": "d61bc79a2258a2513b951cb0cf70f6d52ee4de9e",
-          "tree": "edb59f2ccb968fa5fec46303520c705dcc09f1f8",
+          "commit": "de1b8c78ba85d2a5b552899217517091232393f2",
+          "tree": "8cefad17e795d428753fc9b81f915d971f614a36",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 80aa768: ParamHandle methods drop the ParamGet stem. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen b3dc359c Regenerated with nccl-survey at libgen d61bc79a; the package API is compatible, and 12-byte team aggregates now use compiler-measured ffi registration."
+          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 80aa768: ParamHandle methods drop the ParamGet stem. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen b3dc359c Regenerated with nccl-survey at libgen d61bc79a; the package API is compatible, and 12-byte team aggregates now use compiler-measured ffi registration. Regenerated at libgen de1b8c78: split function files keep only their own comments, and the generated-code header precedes the package clause."
         },
         "headers": {
           "commit": "0187274c798507606df855dfe4ec17f99d8ffe97",

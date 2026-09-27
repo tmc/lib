@@ -6,10 +6,10 @@
   "cwd": ".",
   "argv": [
     "nccl-survey",
-    "-cuda-headers",
-    "cuda-headers",
     "-header",
     "nccl.h",
+    "-cuda-headers",
+    "cuda-headers",
     "-docs-dir",
     "docs",
     "-output",
