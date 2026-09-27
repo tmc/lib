@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -145,7 +146,7 @@ func TestCaptureModuleFileBytes(t *testing.T) {
 		callEnv   []string
 		want      string
 	}{
-		{name: "default budget", want: "67108864"},
+		{name: "default budget", want: strconv.FormatInt(captureFileBytes, 10)},
 		{name: "raised budget", fileBytes: 100 << 20, want: "104857600"},
 		{name: "caller keeps", fileBytes: 100 << 20, callEnv: []string{"CUDAPROF_MODULE_FILE_BYTES=1024"}, want: "1024"},
 	}
