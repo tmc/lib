@@ -56,6 +56,9 @@ func TestCanonicalizeRanks_CycleFails(t *testing.T) {
 	if _, err := CanonicalizeRanks(g); !errors.Is(err, ErrCyclicGraph) {
 		t.Fatalf("error = %v", err)
 	}
+	if CanonicalKey(g) == CanonicalKey(&Graph{}) {
+		t.Fatal("invalid graph key collides with the empty graph")
+	}
 }
 
 func TestCanonicalizeRanks_ReachableNodeWithCyclicPredecessorFails(t *testing.T) {
