@@ -7,10 +7,280 @@ import (
 	"unsafe"
 )
 
-// Parsed by: regex
-// Layouts: compiled sizeof probe for the host
+// Parsed by: clang (10 of 18 merged headers from the translation unit, parsed separately by clang: cupti_checkpoint.h cupti_pcsampling.h cupti_pmsampling.h cupti_profiler_host.h cupti_profiler_target.h cupti_range_profiler.h cupti_sass_metrics.h cupti_target.h)
+// Layouts: clang record dump for the host
+
+// The C layout oracle did not measure 3 type(s):
+//
+//	CUpti_PmSampling_Object: field has incomplete type 'CUpti_PmSampling_Object'
+//	CUpti_Profiler_Host_Object: field has incomplete type 'CUpti_Profiler_Host_Object'
+//	CUpti_RangeProfiler_Object: field has incomplete type 'CUpti_RangeProfiler_Object'
 
 func TestGeneratedLayouts(t *testing.T) {
+	if got := unsafe.Sizeof(CallbackData{}); got != 72 {
+		t.Errorf("sizeof(CallbackData) = %d, want 72", got)
+	}
+	if got := unsafe.Alignof(CallbackData{}); got != 8 {
+		t.Errorf("alignof(CallbackData) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(CallbackData{}.CallbackSite); got != 0 {
+		t.Errorf("offsetof(CallbackData.CallbackSite) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(CallbackData{}.FunctionName); got != 8 {
+		t.Errorf("offsetof(CallbackData.FunctionName) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(CallbackData{}.FunctionParams); got != 16 {
+		t.Errorf("offsetof(CallbackData.FunctionParams) = %d, want 16", got)
+	}
+	if got := unsafe.Offsetof(CallbackData{}.FunctionReturnValue); got != 24 {
+		t.Errorf("offsetof(CallbackData.FunctionReturnValue) = %d, want 24", got)
+	}
+	if got := unsafe.Offsetof(CallbackData{}.SymbolName); got != 32 {
+		t.Errorf("offsetof(CallbackData.SymbolName) = %d, want 32", got)
+	}
+	if got := unsafe.Offsetof(CallbackData{}.Context); got != 40 {
+		t.Errorf("offsetof(CallbackData.Context) = %d, want 40", got)
+	}
+	if got := unsafe.Offsetof(CallbackData{}.ContextUid); got != 48 {
+		t.Errorf("offsetof(CallbackData.ContextUid) = %d, want 48", got)
+	}
+	if got := unsafe.Offsetof(CallbackData{}.CorrelationData); got != 56 {
+		t.Errorf("offsetof(CallbackData.CorrelationData) = %d, want 56", got)
+	}
+	if got := unsafe.Offsetof(CallbackData{}.CorrelationId); got != 64 {
+		t.Errorf("offsetof(CallbackData.CorrelationId) = %d, want 64", got)
+	}
+	if got := unsafe.Sizeof(ResourceData{}); got != 24 {
+		t.Errorf("sizeof(ResourceData) = %d, want 24", got)
+	}
+	if got := unsafe.Alignof(ResourceData{}); got != 8 {
+		t.Errorf("alignof(ResourceData) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(ResourceData{}.Context); got != 0 {
+		t.Errorf("offsetof(ResourceData.Context) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(ResourceData{}.ResourceHandle); got != 8 {
+		t.Errorf("offsetof(ResourceData.ResourceHandle) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(ResourceData{}.ResourceDescriptor); got != 16 {
+		t.Errorf("offsetof(ResourceData.ResourceDescriptor) = %d, want 16", got)
+	}
+	if got := unsafe.Sizeof(ModuleResourceData{}); got != 24 {
+		t.Errorf("sizeof(ModuleResourceData) = %d, want 24", got)
+	}
+	if got := unsafe.Alignof(ModuleResourceData{}); got != 8 {
+		t.Errorf("alignof(ModuleResourceData) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(ModuleResourceData{}.ModuleId); got != 0 {
+		t.Errorf("offsetof(ModuleResourceData.ModuleId) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(ModuleResourceData{}.CubinSize); got != 8 {
+		t.Errorf("offsetof(ModuleResourceData.CubinSize) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(ModuleResourceData{}.PCubin); got != 16 {
+		t.Errorf("offsetof(ModuleResourceData.PCubin) = %d, want 16", got)
+	}
+	if got := unsafe.Sizeof(GraphData{}); got != 56 {
+		t.Errorf("sizeof(GraphData) = %d, want 56", got)
+	}
+	if got := unsafe.Alignof(GraphData{}); got != 8 {
+		t.Errorf("alignof(GraphData) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(GraphData{}.Graph); got != 0 {
+		t.Errorf("offsetof(GraphData.Graph) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(GraphData{}.OriginalGraph); got != 8 {
+		t.Errorf("offsetof(GraphData.OriginalGraph) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(GraphData{}.Node); got != 16 {
+		t.Errorf("offsetof(GraphData.Node) = %d, want 16", got)
+	}
+	if got := unsafe.Offsetof(GraphData{}.OriginalNode); got != 24 {
+		t.Errorf("offsetof(GraphData.OriginalNode) = %d, want 24", got)
+	}
+	if got := unsafe.Offsetof(GraphData{}.NodeType); got != 32 {
+		t.Errorf("offsetof(GraphData.NodeType) = %d, want 32", got)
+	}
+	if got := unsafe.Offsetof(GraphData{}.Dependency); got != 40 {
+		t.Errorf("offsetof(GraphData.Dependency) = %d, want 40", got)
+	}
+	if got := unsafe.Offsetof(GraphData{}.GraphExec); got != 48 {
+		t.Errorf("offsetof(GraphData.GraphExec) = %d, want 48", got)
+	}
+	if got := unsafe.Sizeof(SynchronizeData{}); got != 16 {
+		t.Errorf("sizeof(SynchronizeData) = %d, want 16", got)
+	}
+	if got := unsafe.Alignof(SynchronizeData{}); got != 8 {
+		t.Errorf("alignof(SynchronizeData) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(SynchronizeData{}.Context); got != 0 {
+		t.Errorf("offsetof(SynchronizeData.Context) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(SynchronizeData{}.Stream); got != 8 {
+		t.Errorf("offsetof(SynchronizeData.Stream) = %d, want 8", got)
+	}
+	if got := unsafe.Sizeof(NvtxData{}); got != 24 {
+		t.Errorf("sizeof(NvtxData) = %d, want 24", got)
+	}
+	if got := unsafe.Alignof(NvtxData{}); got != 8 {
+		t.Errorf("alignof(NvtxData) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(NvtxData{}.FunctionName); got != 0 {
+		t.Errorf("offsetof(NvtxData.FunctionName) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(NvtxData{}.FunctionParams); got != 8 {
+		t.Errorf("offsetof(NvtxData.FunctionParams) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(NvtxData{}.FunctionReturnValue); got != 16 {
+		t.Errorf("offsetof(NvtxData.FunctionReturnValue) = %d, want 16", got)
+	}
+	if got := unsafe.Sizeof(StreamAttrData{}); got != 24 {
+		t.Errorf("sizeof(StreamAttrData) = %d, want 24", got)
+	}
+	if got := unsafe.Alignof(StreamAttrData{}); got != 8 {
+		t.Errorf("alignof(StreamAttrData) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(StreamAttrData{}.Stream); got != 0 {
+		t.Errorf("offsetof(StreamAttrData.Stream) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(StreamAttrData{}.Attr); got != 8 {
+		t.Errorf("offsetof(StreamAttrData.Attr) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(StreamAttrData{}.Value); got != 16 {
+		t.Errorf("offsetof(StreamAttrData.Value) = %d, want 16", got)
+	}
+	if got := unsafe.Sizeof(StateData{}); got != 16 {
+		t.Errorf("sizeof(StateData) = %d, want 16", got)
+	}
+	if got := unsafe.Alignof(StateData{}); got != 8 {
+		t.Errorf("alignof(StateData) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(StateData{}.Notification); got != 0 {
+		t.Errorf("offsetof(StateData.Notification) = %d, want 0", got)
+	}
+	if got := unsafe.Sizeof(SubscriberParams{}); got != 40 {
+		t.Errorf("sizeof(SubscriberParams) = %d, want 40", got)
+	}
+	if got := unsafe.Alignof(SubscriberParams{}); got != 8 {
+		t.Errorf("alignof(SubscriberParams) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(SubscriberParams{}.StructSize); got != 0 {
+		t.Errorf("offsetof(SubscriberParams.StructSize) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(SubscriberParams{}.SubscriberName); got != 8 {
+		t.Errorf("offsetof(SubscriberParams.SubscriberName) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(SubscriberParams{}.OldSubscriberName); got != 16 {
+		t.Errorf("offsetof(SubscriberParams.OldSubscriberName) = %d, want 16", got)
+	}
+	if got := unsafe.Offsetof(SubscriberParams{}.OldSubscriberSize); got != 24 {
+		t.Errorf("offsetof(SubscriberParams.OldSubscriberSize) = %d, want 24", got)
+	}
+	if got := unsafe.Offsetof(SubscriberParams{}.AllowMultipleSubscribers); got != 32 {
+		t.Errorf("offsetof(SubscriberParams.AllowMultipleSubscribers) = %d, want 32", got)
+	}
+	if got := unsafe.Offsetof(SubscriberParams{}.Padding); got != 33 {
+		t.Errorf("offsetof(SubscriberParams.Padding) = %d, want 33", got)
+	}
+	if got := unsafe.Sizeof(EventGroupSet{}); got != 16 {
+		t.Errorf("sizeof(EventGroupSet) = %d, want 16", got)
+	}
+	if got := unsafe.Alignof(EventGroupSet{}); got != 8 {
+		t.Errorf("alignof(EventGroupSet) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(EventGroupSet{}.NumEventGroups); got != 0 {
+		t.Errorf("offsetof(EventGroupSet.NumEventGroups) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(EventGroupSet{}.EventGroups); got != 8 {
+		t.Errorf("offsetof(EventGroupSet.EventGroups) = %d, want 8", got)
+	}
+	if got := unsafe.Sizeof(EventGroupSets{}); got != 16 {
+		t.Errorf("sizeof(EventGroupSets) = %d, want 16", got)
+	}
+	if got := unsafe.Alignof(EventGroupSets{}); got != 8 {
+		t.Errorf("alignof(EventGroupSets) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(EventGroupSets{}.NumSets); got != 0 {
+		t.Errorf("offsetof(EventGroupSets.NumSets) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(EventGroupSets{}.Sets); got != 8 {
+		t.Errorf("offsetof(EventGroupSets.Sets) = %d, want 8", got)
+	}
+	if got := unsafe.Sizeof(MetricValue{}); got != 8 {
+		t.Errorf("sizeof(MetricValue) = %d, want 8", got)
+	}
+	if got := unsafe.Alignof(MetricValue{}); got != 8 {
+		t.Errorf("alignof(MetricValue) = %d, want 8", got)
+	}
+	{ // MetricValue.MetricValueDouble
+		var v MetricValue
+		if got := uintptr(unsafe.Pointer(v.MetricValueDouble())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of MetricValue.MetricValueDouble() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.MetricValueDouble()); got != 8 {
+			t.Errorf("sizeof(*MetricValue.MetricValueDouble()) = %d, want 8", got)
+		}
+	}
+	{ // MetricValue.MetricValueUint64
+		var v MetricValue
+		if got := uintptr(unsafe.Pointer(v.MetricValueUint64())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of MetricValue.MetricValueUint64() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.MetricValueUint64()); got != 8 {
+			t.Errorf("sizeof(*MetricValue.MetricValueUint64()) = %d, want 8", got)
+		}
+	}
+	{ // MetricValue.MetricValueInt64
+		var v MetricValue
+		if got := uintptr(unsafe.Pointer(v.MetricValueInt64())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of MetricValue.MetricValueInt64() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.MetricValueInt64()); got != 8 {
+			t.Errorf("sizeof(*MetricValue.MetricValueInt64()) = %d, want 8", got)
+		}
+	}
+	{ // MetricValue.MetricValuePercent
+		var v MetricValue
+		if got := uintptr(unsafe.Pointer(v.MetricValuePercent())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of MetricValue.MetricValuePercent() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.MetricValuePercent()); got != 8 {
+			t.Errorf("sizeof(*MetricValue.MetricValuePercent()) = %d, want 8", got)
+		}
+	}
+	{ // MetricValue.MetricValueThroughput
+		var v MetricValue
+		if got := uintptr(unsafe.Pointer(v.MetricValueThroughput())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of MetricValue.MetricValueThroughput() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.MetricValueThroughput()); got != 8 {
+			t.Errorf("sizeof(*MetricValue.MetricValueThroughput()) = %d, want 8", got)
+		}
+	}
+	{ // MetricValue.MetricValueUtilizationLevel
+		var v MetricValue
+		if got := uintptr(unsafe.Pointer(v.MetricValueUtilizationLevel())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of MetricValue.MetricValueUtilizationLevel() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.MetricValueUtilizationLevel()); got != 4 {
+			t.Errorf("sizeof(*MetricValue.MetricValueUtilizationLevel()) = %d, want 4", got)
+		}
+	}
+	{ // MetricValue.MetricValueNvtxExtendedPayload
+		var v MetricValue
+		if got := uintptr(unsafe.Pointer(v.MetricValueNvtxExtendedPayload())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of MetricValue.MetricValueNvtxExtendedPayload() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.MetricValueNvtxExtendedPayload()); got != 8 {
+			t.Errorf("sizeof(*MetricValue.MetricValueNvtxExtendedPayload()) = %d, want 8", got)
+		}
+	}
+	if got := unsafe.Sizeof(ActivityObjectKindId{}); got != 12 {
+		t.Errorf("sizeof(ActivityObjectKindId) = %d, want 12", got)
+	}
+	if got := unsafe.Alignof(ActivityObjectKindId{}); got != 4 {
+		t.Errorf("alignof(ActivityObjectKindId) = %d, want 4", got)
+	}
 	if got := unsafe.Sizeof(ActivityOverheadCommandBufferFullData{}); got != 12 {
 		t.Errorf("sizeof(ActivityOverheadCommandBufferFullData) = %d, want 12", got)
 	}
@@ -1099,27 +1369,6 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Offsetof(ActivityDevice6{}.Reserved0); got != 188 {
 		t.Errorf("offsetof(ActivityDevice6.Reserved0) = %d, want 188", got)
-	}
-	if got := unsafe.Sizeof(ActivityDeviceAttribute{}); got != 24 {
-		t.Errorf("sizeof(ActivityDeviceAttribute) = %d, want 24", got)
-	}
-	if got := unsafe.Alignof(ActivityDeviceAttribute{}); got != 8 {
-		t.Errorf("alignof(ActivityDeviceAttribute) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(ActivityDeviceAttribute{}.Kind); got != 0 {
-		t.Errorf("offsetof(ActivityDeviceAttribute.Kind) = %d, want 0", got)
-	}
-	if got := unsafe.Offsetof(ActivityDeviceAttribute{}.Flags); got != 4 {
-		t.Errorf("offsetof(ActivityDeviceAttribute.Flags) = %d, want 4", got)
-	}
-	if got := unsafe.Offsetof(ActivityDeviceAttribute{}.DeviceId); got != 8 {
-		t.Errorf("offsetof(ActivityDeviceAttribute.DeviceId) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(ActivityDeviceAttribute{}.Attribute); got != 12 {
-		t.Errorf("offsetof(ActivityDeviceAttribute.Attribute) = %d, want 12", got)
-	}
-	if got := unsafe.Offsetof(ActivityDeviceAttribute{}.Value); got != 16 {
-		t.Errorf("offsetof(ActivityDeviceAttribute.Value) = %d, want 16", got)
 	}
 	if got := unsafe.Sizeof(ActivityContext4{}); got != 40 {
 		t.Errorf("sizeof(ActivityContext4) = %d, want 40", got)
@@ -2581,12 +2830,6 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Offsetof(BufferCallbackCompleteInfo{}.NumRecordLayouts); got != 24 {
 		t.Errorf("offsetof(BufferCallbackCompleteInfo.NumRecordLayouts) = %d, want 24", got)
-	}
-	if got := unsafe.Sizeof(ActivityObjectKindId{}); got != 12 {
-		t.Errorf("sizeof(ActivityObjectKindId) = %d, want 12", got)
-	}
-	if got := unsafe.Alignof(ActivityObjectKindId{}); got != 4 {
-		t.Errorf("alignof(ActivityObjectKindId) = %d, want 4", got)
 	}
 	if got := unsafe.Sizeof(ActivityOverhead{}); got != 40 {
 		t.Errorf("sizeof(ActivityOverhead) = %d, want 40", got)
@@ -5642,201 +5885,6 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(ActivityMarkerData{}.Category); got != 28 {
 		t.Errorf("offsetof(ActivityMarkerData.Category) = %d, want 28", got)
 	}
-	if got := unsafe.Sizeof(CallbackData{}); got != 72 {
-		t.Errorf("sizeof(CallbackData) = %d, want 72", got)
-	}
-	if got := unsafe.Alignof(CallbackData{}); got != 8 {
-		t.Errorf("alignof(CallbackData) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(CallbackData{}.CallbackSite); got != 0 {
-		t.Errorf("offsetof(CallbackData.CallbackSite) = %d, want 0", got)
-	}
-	if got := unsafe.Offsetof(CallbackData{}.FunctionName); got != 8 {
-		t.Errorf("offsetof(CallbackData.FunctionName) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(CallbackData{}.FunctionParams); got != 16 {
-		t.Errorf("offsetof(CallbackData.FunctionParams) = %d, want 16", got)
-	}
-	if got := unsafe.Offsetof(CallbackData{}.FunctionReturnValue); got != 24 {
-		t.Errorf("offsetof(CallbackData.FunctionReturnValue) = %d, want 24", got)
-	}
-	if got := unsafe.Offsetof(CallbackData{}.SymbolName); got != 32 {
-		t.Errorf("offsetof(CallbackData.SymbolName) = %d, want 32", got)
-	}
-	if got := unsafe.Offsetof(CallbackData{}.Context); got != 40 {
-		t.Errorf("offsetof(CallbackData.Context) = %d, want 40", got)
-	}
-	if got := unsafe.Offsetof(CallbackData{}.ContextUid); got != 48 {
-		t.Errorf("offsetof(CallbackData.ContextUid) = %d, want 48", got)
-	}
-	if got := unsafe.Offsetof(CallbackData{}.CorrelationData); got != 56 {
-		t.Errorf("offsetof(CallbackData.CorrelationData) = %d, want 56", got)
-	}
-	if got := unsafe.Offsetof(CallbackData{}.CorrelationId); got != 64 {
-		t.Errorf("offsetof(CallbackData.CorrelationId) = %d, want 64", got)
-	}
-	if got := unsafe.Sizeof(ResourceData{}); got != 24 {
-		t.Errorf("sizeof(ResourceData) = %d, want 24", got)
-	}
-	if got := unsafe.Alignof(ResourceData{}); got != 8 {
-		t.Errorf("alignof(ResourceData) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(ResourceData{}.Context); got != 0 {
-		t.Errorf("offsetof(ResourceData.Context) = %d, want 0", got)
-	}
-	if got := unsafe.Offsetof(ResourceData{}.ResourceHandle); got != 8 {
-		t.Errorf("offsetof(ResourceData.ResourceHandle) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(ResourceData{}.ResourceDescriptor); got != 16 {
-		t.Errorf("offsetof(ResourceData.ResourceDescriptor) = %d, want 16", got)
-	}
-	if got := unsafe.Sizeof(ModuleResourceData{}); got != 24 {
-		t.Errorf("sizeof(ModuleResourceData) = %d, want 24", got)
-	}
-	if got := unsafe.Alignof(ModuleResourceData{}); got != 8 {
-		t.Errorf("alignof(ModuleResourceData) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(ModuleResourceData{}.ModuleId); got != 0 {
-		t.Errorf("offsetof(ModuleResourceData.ModuleId) = %d, want 0", got)
-	}
-	if got := unsafe.Offsetof(ModuleResourceData{}.CubinSize); got != 8 {
-		t.Errorf("offsetof(ModuleResourceData.CubinSize) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(ModuleResourceData{}.PCubin); got != 16 {
-		t.Errorf("offsetof(ModuleResourceData.PCubin) = %d, want 16", got)
-	}
-	if got := unsafe.Sizeof(GraphData{}); got != 56 {
-		t.Errorf("sizeof(GraphData) = %d, want 56", got)
-	}
-	if got := unsafe.Alignof(GraphData{}); got != 8 {
-		t.Errorf("alignof(GraphData) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(GraphData{}.Graph); got != 0 {
-		t.Errorf("offsetof(GraphData.Graph) = %d, want 0", got)
-	}
-	if got := unsafe.Offsetof(GraphData{}.OriginalGraph); got != 8 {
-		t.Errorf("offsetof(GraphData.OriginalGraph) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(GraphData{}.Node); got != 16 {
-		t.Errorf("offsetof(GraphData.Node) = %d, want 16", got)
-	}
-	if got := unsafe.Offsetof(GraphData{}.OriginalNode); got != 24 {
-		t.Errorf("offsetof(GraphData.OriginalNode) = %d, want 24", got)
-	}
-	if got := unsafe.Offsetof(GraphData{}.NodeType); got != 32 {
-		t.Errorf("offsetof(GraphData.NodeType) = %d, want 32", got)
-	}
-	if got := unsafe.Offsetof(GraphData{}.Dependency); got != 40 {
-		t.Errorf("offsetof(GraphData.Dependency) = %d, want 40", got)
-	}
-	if got := unsafe.Offsetof(GraphData{}.GraphExec); got != 48 {
-		t.Errorf("offsetof(GraphData.GraphExec) = %d, want 48", got)
-	}
-	if got := unsafe.Sizeof(SynchronizeData{}); got != 16 {
-		t.Errorf("sizeof(SynchronizeData) = %d, want 16", got)
-	}
-	if got := unsafe.Alignof(SynchronizeData{}); got != 8 {
-		t.Errorf("alignof(SynchronizeData) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(SynchronizeData{}.Context); got != 0 {
-		t.Errorf("offsetof(SynchronizeData.Context) = %d, want 0", got)
-	}
-	if got := unsafe.Offsetof(SynchronizeData{}.Stream); got != 8 {
-		t.Errorf("offsetof(SynchronizeData.Stream) = %d, want 8", got)
-	}
-	if got := unsafe.Sizeof(NvtxData{}); got != 24 {
-		t.Errorf("sizeof(NvtxData) = %d, want 24", got)
-	}
-	if got := unsafe.Alignof(NvtxData{}); got != 8 {
-		t.Errorf("alignof(NvtxData) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(NvtxData{}.FunctionName); got != 0 {
-		t.Errorf("offsetof(NvtxData.FunctionName) = %d, want 0", got)
-	}
-	if got := unsafe.Offsetof(NvtxData{}.FunctionParams); got != 8 {
-		t.Errorf("offsetof(NvtxData.FunctionParams) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(NvtxData{}.FunctionReturnValue); got != 16 {
-		t.Errorf("offsetof(NvtxData.FunctionReturnValue) = %d, want 16", got)
-	}
-	if got := unsafe.Sizeof(StreamAttrData{}); got != 24 {
-		t.Errorf("sizeof(StreamAttrData) = %d, want 24", got)
-	}
-	if got := unsafe.Alignof(StreamAttrData{}); got != 8 {
-		t.Errorf("alignof(StreamAttrData) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(StreamAttrData{}.Stream); got != 0 {
-		t.Errorf("offsetof(StreamAttrData.Stream) = %d, want 0", got)
-	}
-	if got := unsafe.Offsetof(StreamAttrData{}.Attr); got != 8 {
-		t.Errorf("offsetof(StreamAttrData.Attr) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(StreamAttrData{}.Value); got != 16 {
-		t.Errorf("offsetof(StreamAttrData.Value) = %d, want 16", got)
-	}
-	if got := unsafe.Sizeof(StateData{}); got != 16 {
-		t.Errorf("sizeof(StateData) = %d, want 16", got)
-	}
-	if got := unsafe.Alignof(StateData{}); got != 8 {
-		t.Errorf("alignof(StateData) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(StateData{}.Notification); got != 0 {
-		t.Errorf("offsetof(StateData.Notification) = %d, want 0", got)
-	}
-	if got := unsafe.Sizeof(SubscriberParams{}); got != 40 {
-		t.Errorf("sizeof(SubscriberParams) = %d, want 40", got)
-	}
-	if got := unsafe.Alignof(SubscriberParams{}); got != 8 {
-		t.Errorf("alignof(SubscriberParams) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(SubscriberParams{}.StructSize); got != 0 {
-		t.Errorf("offsetof(SubscriberParams.StructSize) = %d, want 0", got)
-	}
-	if got := unsafe.Offsetof(SubscriberParams{}.SubscriberName); got != 8 {
-		t.Errorf("offsetof(SubscriberParams.SubscriberName) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(SubscriberParams{}.OldSubscriberName); got != 16 {
-		t.Errorf("offsetof(SubscriberParams.OldSubscriberName) = %d, want 16", got)
-	}
-	if got := unsafe.Offsetof(SubscriberParams{}.OldSubscriberSize); got != 24 {
-		t.Errorf("offsetof(SubscriberParams.OldSubscriberSize) = %d, want 24", got)
-	}
-	if got := unsafe.Offsetof(SubscriberParams{}.AllowMultipleSubscribers); got != 32 {
-		t.Errorf("offsetof(SubscriberParams.AllowMultipleSubscribers) = %d, want 32", got)
-	}
-	if got := unsafe.Offsetof(SubscriberParams{}.Padding); got != 33 {
-		t.Errorf("offsetof(SubscriberParams.Padding) = %d, want 33", got)
-	}
-	if got := unsafe.Sizeof(EventGroupSet{}); got != 16 {
-		t.Errorf("sizeof(EventGroupSet) = %d, want 16", got)
-	}
-	if got := unsafe.Alignof(EventGroupSet{}); got != 8 {
-		t.Errorf("alignof(EventGroupSet) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(EventGroupSet{}.NumEventGroups); got != 0 {
-		t.Errorf("offsetof(EventGroupSet.NumEventGroups) = %d, want 0", got)
-	}
-	if got := unsafe.Offsetof(EventGroupSet{}.EventGroups); got != 8 {
-		t.Errorf("offsetof(EventGroupSet.EventGroups) = %d, want 8", got)
-	}
-	if got := unsafe.Sizeof(EventGroupSets{}); got != 16 {
-		t.Errorf("sizeof(EventGroupSets) = %d, want 16", got)
-	}
-	if got := unsafe.Alignof(EventGroupSets{}); got != 8 {
-		t.Errorf("alignof(EventGroupSets) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(EventGroupSets{}.NumSets); got != 0 {
-		t.Errorf("offsetof(EventGroupSets.NumSets) = %d, want 0", got)
-	}
-	if got := unsafe.Offsetof(EventGroupSets{}.Sets); got != 8 {
-		t.Errorf("offsetof(EventGroupSets.Sets) = %d, want 8", got)
-	}
-	if got := unsafe.Sizeof(MetricValue{}); got != 8 {
-		t.Errorf("sizeof(MetricValue) = %d, want 8", got)
-	}
-	if got := unsafe.Alignof(MetricValue{}); got != 8 {
-		t.Errorf("alignof(MetricValue) = %d, want 8", got)
-	}
 	if got := unsafe.Sizeof(ProfilerInitializeParams{}); got != 16 {
 		t.Errorf("sizeof(ProfilerInitializeParams) = %d, want 16", got)
 	}
@@ -7756,5 +7804,54 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Offsetof(DeviceGetChipNameParams{}.PChipName); got != 24 {
 		t.Errorf("offsetof(DeviceGetChipNameParams.PChipName) = %d, want 24", got)
+	}
+}
+
+// layoutBytes returns the memory of *p.
+func layoutBytes[T any](p *T) []byte {
+	return unsafe.Slice((*byte)(unsafe.Pointer(p)), unsafe.Sizeof(*p))
+}
+
+// layoutPatterns returns patterns of n bytes that tell every bit position
+// apart: in pattern 2k, bit i is bit k of i, and pattern 2k+1 is its
+// complement. An accessor that reads or writes any bit other than the one it
+// should differs from the expected result under at least one of them.
+func layoutPatterns(n int) [][]byte {
+	var ps [][]byte
+	for k := 0; k == 0 || 1<<k < n*8; k++ {
+		p, q := make([]byte, n), make([]byte, n)
+		for i := 0; i < n*8; i++ {
+			if i>>k&1 != 0 {
+				p[i/8] |= 1 << (i % 8)
+			} else {
+				q[i/8] |= 1 << (i % 8)
+			}
+		}
+		ps = append(ps, p, q)
+	}
+	return ps
+}
+
+// layoutBit returns n bytes with only bit i set.
+func layoutBit(n, i int) []byte {
+	b := make([]byte, n)
+	b[i/8] = 1 << (i % 8)
+	return b
+}
+
+// layoutCheckBits reports the first bit of got that differs from inside in
+// bits [lo, hi) or from outside elsewhere. Bit i is bit i%8 of byte i/8,
+// the numbering the C layout oracle measures bitfields in.
+func layoutCheckBits(t *testing.T, what string, got, inside, outside []byte, lo, hi int) {
+	t.Helper()
+	for i := 0; i < len(got)*8; i++ {
+		want := outside
+		if lo <= i && i < hi {
+			want = inside
+		}
+		if g, w := got[i/8]>>(i%8)&1, want[i/8]>>(i%8)&1; g != w {
+			t.Errorf("%s: bit %d = %d, want %d (member bits [%d, %d))", what, i, g, w, lo, hi)
+			return
+		}
 	}
 }

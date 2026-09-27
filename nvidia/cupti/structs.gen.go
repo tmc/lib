@@ -2,9 +2,156 @@
 
 package cupti
 
-import "github.com/tmc/lib/nvidia/driver"
+import (
+	"github.com/tmc/lib/nvidia/driver"
+	"unsafe"
+)
 
-// ActivityOverheadCommandBufferFullData represents the structure to provide additional data for [ActivityOverheadCommandBufferFull].
+// CallbackData represents CUpti_CallbackData.
+type CallbackData struct {
+	CallbackSite        ApiCallbackSite
+	FunctionName        uintptr
+	FunctionParams      uintptr
+	FunctionReturnValue uintptr
+	SymbolName          uintptr
+	Context             driver.Context
+	ContextUid          uint32
+	CorrelationData     uintptr
+	CorrelationId       uint32
+}
+
+// ResourceData represents CUpti_ResourceData.
+type ResourceData struct {
+	Context            driver.Context
+	ResourceHandle     [1]uint64
+	ResourceDescriptor uintptr
+}
+
+// ModuleResourceData represents CUpti_ModuleResourceData.
+type ModuleResourceData struct {
+	ModuleId  uint32
+	CubinSize uint
+	PCubin    uintptr
+}
+
+// GraphData represents CUpti_GraphData.
+type GraphData struct {
+	Graph         Graph
+	OriginalGraph Graph
+	Node          GraphNode
+	OriginalNode  GraphNode
+	NodeType      int32
+	Dependency    GraphNode
+	GraphExec     GraphExec
+}
+
+// SynchronizeData represents CUpti_SynchronizeData.
+type SynchronizeData struct {
+	Context driver.Context
+	Stream  driver.Stream
+}
+
+// NvtxData represents CUpti_NvtxData.
+type NvtxData struct {
+	FunctionName        uintptr
+	FunctionParams      uintptr
+	FunctionReturnValue uintptr
+}
+
+// StreamAttrData represents CUpti_StreamAttrData.
+type StreamAttrData struct {
+	Stream driver.Stream
+	Attr   int32
+	Value  uintptr
+}
+
+// StateData represents CUpti_StateData.
+type StateData struct {
+	Notification [2]uint64
+}
+
+// SubscriberParams represents CUpti_SubscriberParams.
+type SubscriberParams struct {
+	StructSize               uint
+	SubscriberName           uintptr
+	OldSubscriberName        uintptr
+	OldSubscriberSize        uint
+	AllowMultipleSubscribers uint8
+	Padding                  [7]uint8
+}
+
+// EventGroupSet represents CUpti_EventGroupSet.
+type EventGroupSet struct {
+	NumEventGroups uint32
+	EventGroups    uintptr
+}
+
+// EventGroupSets represents CUpti_EventGroupSets.
+type EventGroupSets struct {
+	NumSets uint32
+	Sets    uintptr
+}
+
+// MetricValue represents CUpti_MetricValue.
+type MetricValue struct {
+	// Data stores the raw bytes of the underlying C union.
+	Data [1]uint64
+}
+
+// MetricValueDouble returns a pointer to the metricValueDouble member of CUpti_MetricValue, which shares its
+// storage with every other member of the union.
+func (m *MetricValue) MetricValueDouble() *float64 {
+	return (*float64)(unsafe.Pointer(&m.Data))
+}
+
+// MetricValueUint64 returns a pointer to the metricValueUint64 member of CUpti_MetricValue, which shares its
+// storage with every other member of the union.
+func (m *MetricValue) MetricValueUint64() *uint64 {
+	return (*uint64)(unsafe.Pointer(&m.Data))
+}
+
+// MetricValueInt64 returns a pointer to the metricValueInt64 member of CUpti_MetricValue, which shares its
+// storage with every other member of the union.
+func (m *MetricValue) MetricValueInt64() *int64 {
+	return (*int64)(unsafe.Pointer(&m.Data))
+}
+
+// MetricValuePercent returns a pointer to the metricValuePercent member of CUpti_MetricValue, which shares its
+// storage with every other member of the union.
+func (m *MetricValue) MetricValuePercent() *float64 {
+	return (*float64)(unsafe.Pointer(&m.Data))
+}
+
+// MetricValueThroughput returns a pointer to the metricValueThroughput member of CUpti_MetricValue, which shares its
+// storage with every other member of the union.
+func (m *MetricValue) MetricValueThroughput() *uint64 {
+	return (*uint64)(unsafe.Pointer(&m.Data))
+}
+
+// MetricValueUtilizationLevel returns a pointer to the metricValueUtilizationLevel member of CUpti_MetricValue, which shares its
+// storage with every other member of the union.
+func (m *MetricValue) MetricValueUtilizationLevel() *MetricValueUtilizationLevel {
+	return (*MetricValueUtilizationLevel)(unsafe.Pointer(&m.Data))
+}
+
+// MetricValueNvtxExtendedPayload returns a pointer to the metricValueNvtxExtendedPayload member of CUpti_MetricValue, which shares its
+// storage with every other member of the union.
+func (m *MetricValue) MetricValueNvtxExtendedPayload() *uint64 {
+	return (*uint64)(unsafe.Pointer(&m.Data))
+}
+
+// ActivityObjectKindId represents CUpti_ActivityObjectKindId.
+//
+// These members have no accessor:
+//
+//   - pt: its type is an anonymous record, which has no Go type
+//   - dcs: its type is an anonymous record, which has no Go type
+type ActivityObjectKindId struct {
+	// Data stores the raw bytes of the underlying C union.
+	Data [3]uint32
+}
+
+// ActivityOverheadCommandBufferFullData represents CUpti_ActivityOverheadCommandBufferFullData.
 type ActivityOverheadCommandBufferFullData struct {
 	CommandBufferLength uint32
 	ChannelID           uint32
@@ -18,9 +165,7 @@ type NvtxExtPayloadAttr struct {
 	Attributes uintptr
 }
 
-// ActivityUnifiedMemoryCounterConfig represents unified Memory counters configuration structure.
-//
-// This structure controls the enable/disable of the various Unified Memory counters consisting of scope, kind and other parameters. See function [ActivityConfigureUnifiedMemoryCounter]
+// ActivityUnifiedMemoryCounterConfig represents CUpti_ActivityUnifiedMemoryCounterConfig.
 type ActivityUnifiedMemoryCounterConfig struct {
 	_        [0]uint64
 	Scope    ActivityUnifiedMemoryCounterScope
@@ -29,18 +174,14 @@ type ActivityUnifiedMemoryCounterConfig struct {
 	Enable   uint32
 }
 
-// ActivityAutoBoostState represents device auto boost state structure.
-//
-// This structure defines auto boost state for a device. See function [GetAutoBoostState]
+// ActivityAutoBoostState represents CUpti_ActivityAutoBoostState.
 type ActivityAutoBoostState struct {
 	_       [0]uint64
 	Enabled uint32
 	Pid     uint32
 }
 
-// ActivityPCSamplingConfig represents PC sampling configuration structure.
-//
-// This structure defines the pc sampling configuration. See function [ActivityConfigurePCSampling]
+// ActivityPCSamplingConfig represents CUpti_ActivityPCSamplingConfig.
 type ActivityPCSamplingConfig struct {
 	_               [0]uint64
 	Size            uint32
@@ -72,17 +213,13 @@ type ActivityFieldSelection struct {
 	PFieldIds  uintptr
 }
 
-// Activity represents the base activity record.
-//
-// The activity API uses a [Activity] as a generic representation for any activity. The 'kind' field is used to determine the specific activity kind, and from that the [Activity] object can be cast to the specific activity record type appropriate for that kind. Note that all activity record types are padded and aligned to ensure that each member of the record is naturally aligned. [ActivityKind]
+// Activity represents CUpti_Activity.
 type Activity struct {
 	_    [0]uint64
 	Kind ActivityKind
 }
 
-// ActivityMemcpy6 represents the activity record for memory copies.
-//
-// This activity record represents a memory copy ([ActivityKindMemcpy]).
+// ActivityMemcpy6 represents CUpti_ActivityMemcpy6.
 type ActivityMemcpy6 struct {
 	Kind                 ActivityKind
 	CopyKind             uint8
@@ -108,9 +245,7 @@ type ActivityMemcpy6 struct {
 	CopyCount            uint64
 }
 
-// ActivityMemcpyPtoP4 represents the activity record for peer-to-peer memory copies.
-//
-// This activity record represents a peer-to-peer memory copy ([ActivityKindMemcpy2]).
+// ActivityMemcpyPtoP4 represents CUpti_ActivityMemcpyPtoP4.
 type ActivityMemcpyPtoP4 struct {
 	Kind          ActivityKind
 	CopyKind      uint8
@@ -135,9 +270,7 @@ type ActivityMemcpyPtoP4 struct {
 	ChannelType   ChannelType
 }
 
-// ActivityMemset4 represents the activity record for memset.
-//
-// This activity record represents a memory set operation ([ActivityKindMemset]).
+// ActivityMemset4 represents CUpti_ActivityMemset4.
 type ActivityMemset4 struct {
 	Kind             ActivityKind
 	Value            uint32
@@ -160,11 +293,7 @@ type ActivityMemset4 struct {
 	Pad2             [3]uint8
 }
 
-// ActivityMemory represents the activity record for memory.
-//
-// This activity record represents a memory allocation and free operation ([ActivityKindMemory]). This activity record provides a single record for the memory allocation and memory release operations.
-//
-// Note: It is recommended to move to the new activity record [ActivityMemory4] enabled using the kind [ActivityKindMemory2]. [ActivityMemory4] provides separate records for memory allocation and memory release operations. This allows to correlate the corresponding driver and runtime API activity record with the memory operation.
+// ActivityMemory represents CUpti_ActivityMemory.
 type ActivityMemory struct {
 	Kind       ActivityKind
 	MemoryKind ActivityMemoryKind
@@ -181,11 +310,7 @@ type ActivityMemory struct {
 	Name       uintptr
 }
 
-// ActivityMemory4 represents the activity record for memory.
-//
-// This activity record represents a memory allocation and free operation ([ActivityKindMemory2]). This activity record provides separate records for memory allocation and memory release operations. This allows to correlate the corresponding driver and runtime API activity record with the memory operation.
-//
-// Note: This activity record is an upgrade over [ActivityMemory] enabled using the kind [ActivityKindMemory]. [ActivityMemory] provides a single record for the memory allocation and memory release operations.
+// ActivityMemory4 represents CUpti_ActivityMemory4.
 type ActivityMemory4 struct {
 	Kind                ActivityKind
 	MemoryOperationType ActivityMemoryOperationType
@@ -206,9 +331,7 @@ type ActivityMemory4 struct {
 	Source              uintptr
 }
 
-// ActivityMemoryPool3 represents the activity record for memory pool.
-//
-// This activity record represents a memory pool creation, destruction and trimming ([ActivityKindMemoryPool]). This activity record provides separate records for memory pool creation, destruction and trimming operations. This allows to correlate the corresponding driver and runtime API activity record with the memory pool operation.
+// ActivityMemoryPool3 represents CUpti_ActivityMemoryPool3.
 type ActivityMemoryPool3 struct {
 	Kind                    ActivityKind
 	MemoryPoolOperationType ActivityMemoryPoolOperationType
@@ -226,9 +349,7 @@ type ActivityMemoryPool3 struct {
 	Pad2                    [7]uint8
 }
 
-// ActivityKernel11 represents the activity record for kernel.
-//
-// This activity record represents a kernel execution ([ActivityKindKernel] and [ActivityKindConcurrentKernel]).
+// ActivityKernel11 represents CUpti_ActivityKernel11.
 type ActivityKernel11 struct {
 	Kind                            ActivityKind
 	CacheConfig                     [1]byte
@@ -280,9 +401,7 @@ type ActivityKernel11 struct {
 	Padding4                        uint32
 }
 
-// ActivityCdpKernel represents the activity record for CDP (CUDA Dynamic Parallelism) kernel.
-//
-// This activity record represents a CDP kernel execution.
+// ActivityCdpKernel represents CUpti_ActivityCdpKernel.
 type ActivityCdpKernel struct {
 	Kind                 ActivityKind
 	CacheConfig          [1]byte
@@ -314,9 +433,7 @@ type ActivityCdpKernel struct {
 	Name                 uintptr
 }
 
-// ActivityPreemption represents the activity record for a preemption of a CDP kernel.
-//
-// This activity record represents a preemption of a CDP kernel.
+// ActivityPreemption represents CUpti_ActivityPreemption.
 type ActivityPreemption struct {
 	Kind           ActivityKind
 	PreemptionKind ActivityPreemptionKind
@@ -326,9 +443,7 @@ type ActivityPreemption struct {
 	Pad            uint32
 }
 
-// ActivityAPI represents the activity record for a driver or runtime API invocation.
-//
-// This activity record represents an invocation of a driver or runtime API ([ActivityKindDriver] and [ActivityKindRuntime]).
+// ActivityAPI represents CUpti_ActivityAPI.
 type ActivityAPI struct {
 	Kind          ActivityKind
 	Cbid          uint32
@@ -340,9 +455,7 @@ type ActivityAPI struct {
 	ReturnValue   uint32
 }
 
-// ActivityEvent represents the activity record for a CUPTI event.
-//
-// This activity record represents a CUPTI event value ([ActivityKindEvent]). This activity record kind is not produced by the activity API but is included for completeness and ease-of-use. Profile frameworks built on top of CUPTI that collect event data may choose to use this type to store the collected event data.
+// ActivityEvent represents CUpti_ActivityEvent.
 type ActivityEvent struct {
 	Kind          ActivityKind
 	Id            uint32
@@ -351,9 +464,7 @@ type ActivityEvent struct {
 	CorrelationId uint32
 }
 
-// ActivityEventInstance represents the activity record for a CUPTI event with instance information.
-//
-// This activity record represents the a CUPTI event value for a specific event domain instance ([ActivityKindEventInstance]). This activity record kind is not produced by the activity API but is included for completeness and ease-of-use. Profile frameworks built on top of CUPTI that collect event data may choose to use this type to store the collected event data. This activity record should be used when event domain instance information needs to be associated with the event.
+// ActivityEventInstance represents CUpti_ActivityEventInstance.
 type ActivityEventInstance struct {
 	Kind          ActivityKind
 	Id            uint32
@@ -364,9 +475,7 @@ type ActivityEventInstance struct {
 	Pad           uint32
 }
 
-// ActivityMetric represents the activity record for a CUPTI metric.
-//
-// This activity record represents the collection of a CUPTI metric value ([ActivityKindMetric]). This activity record kind is not produced by the activity API but is included for completeness and ease-of-use. Profile frameworks built on top of CUPTI that collect metric data may choose to use this type to store the collected metric data.
+// ActivityMetric represents CUpti_ActivityMetric.
 type ActivityMetric struct {
 	Kind          ActivityKind
 	Id            uint32
@@ -376,9 +485,7 @@ type ActivityMetric struct {
 	Pad           [3]uint8
 }
 
-// ActivityMetricInstance represents the activity record for a CUPTI metric with instance information.
-//
-// This activity record represents a CUPTI metric value for a specific metric domain instance ([ActivityKindMetricInstance]). This activity record kind is not produced by the activity API but is included for completeness and ease-of-use. Profile frameworks built on top of CUPTI that collect metric data may choose to use this type to store the collected metric data. This activity record should be used when metric domain instance information needs to be associated with the metric.
+// ActivityMetricInstance represents CUpti_ActivityMetricInstance.
 type ActivityMetricInstance struct {
 	Kind          ActivityKind
 	Id            uint32
@@ -389,9 +496,7 @@ type ActivityMetricInstance struct {
 	Pad           [7]uint8
 }
 
-// ActivitySourceLocator represents the activity record for source locator.
-//
-// This activity record represents a source locator ([ActivityKindSourceLocator]).
+// ActivitySourceLocator represents CUpti_ActivitySourceLocator.
 type ActivitySourceLocator struct {
 	Kind       ActivityKind
 	Id         uint32
@@ -400,9 +505,7 @@ type ActivitySourceLocator struct {
 	FileName   uintptr
 }
 
-// ActivityGlobalAccess3 represents the activity record for source-level global access.
-//
-// This activity records the locations of the global accesses in the source ([ActivityKindGlobalAccess]).
+// ActivityGlobalAccess3 represents CUpti_ActivityGlobalAccess3.
 type ActivityGlobalAccess3 struct {
 	Kind                      ActivityKind
 	Flags                     ActivityFlag
@@ -416,9 +519,7 @@ type ActivityGlobalAccess3 struct {
 	TheoreticalL2Transactions uint64
 }
 
-// ActivityBranch2 represents the activity record for source level result branch.
-//
-// This activity record the locations of the branches in the source ([ActivityKindBranch]).
+// ActivityBranch2 represents CUpti_ActivityBranch2.
 type ActivityBranch2 struct {
 	Kind            ActivityKind
 	SourceLocatorId uint32
@@ -431,9 +532,7 @@ type ActivityBranch2 struct {
 	Pad             uint32
 }
 
-// ActivityDevice6 represents the activity record for a device.
-//
-// This activity record represents information about a GPU device ([ActivityKindDevice]).
+// ActivityDevice6 represents CUpti_ActivityDevice6.
 type ActivityDevice6 struct {
 	Kind                             ActivityKind
 	Flags                            ActivityFlag
@@ -473,20 +572,7 @@ type ActivityDevice6 struct {
 	Reserved0                        uint32
 }
 
-// ActivityDeviceAttribute represents the activity record for a device attribute.
-//
-// This activity record represents information about a GPU device: either a [DeviceAttribute] or CUdevice_attribute value ([ActivityKindDeviceAttribute]).
-type ActivityDeviceAttribute struct {
-	Kind      ActivityKind
-	Flags     ActivityFlag
-	DeviceId  uint32
-	Attribute [1]uint32
-	Value     [1]uint64
-}
-
-// ActivityContext4 represents the activity record for a context.
-//
-// This activity record represents information about a context ([ActivityKindContext]).
+// ActivityContext4 represents CUpti_ActivityContext4.
 type ActivityContext4 struct {
 	Kind               ActivityKind
 	ContextId          uint32
@@ -502,9 +588,7 @@ type ActivityContext4 struct {
 	ProcessId          uint64
 }
 
-// ActivityName represents the activity record providing a name.
-//
-// This activity record provides a name for a device, context, thread, etc. and other resource naming done via NVTX APIs ([ActivityKindName]).
+// ActivityName represents CUpti_ActivityName.
 type ActivityName struct {
 	Kind       ActivityKind
 	ObjectKind ActivityObjectKind
@@ -513,9 +597,7 @@ type ActivityName struct {
 	Name       uintptr
 }
 
-// ActivityMarker2 represents the activity record providing a marker which is an instantaneous point in time.
-//
-// The marker is specified with a descriptive name and unique id ([ActivityKindMarker]).
+// ActivityMarker2 represents CUpti_ActivityMarker2.
 type ActivityMarker2 struct {
 	Kind       ActivityKind
 	Flags      ActivityFlag
@@ -528,9 +610,7 @@ type ActivityMarker2 struct {
 	Domain     uintptr
 }
 
-// ActivityMarkerData2 represents the activity record providing detailed information for a marker.
-//
-// User must enable [ActivityKindMarker] as well to get records for marker data. The marker data contains color, payload, and category. ([ActivityKindMarkerData]).
+// ActivityMarkerData2 represents CUpti_ActivityMarkerData2.
 type ActivityMarkerData2 struct {
 	Kind          ActivityKind
 	Flags         ActivityFlag
@@ -543,9 +623,7 @@ type ActivityMarkerData2 struct {
 	Padding       uint32
 }
 
-// ActivityOverhead3 represents the activity record for CUPTI and driver overheads.
-//
-// This activity record provides CUPTI and driver overhead information ([ActivityKindOverhead]).
+// ActivityOverhead3 represents CUpti_ActivityOverhead3.
 type ActivityOverhead3 struct {
 	Kind          ActivityKind
 	OverheadKind  ActivityOverheadKind
@@ -558,9 +636,7 @@ type ActivityOverhead3 struct {
 	OverheadData  uintptr
 }
 
-// ActivityEnvironment represents the activity record for CUPTI environmental data.
-//
-// This activity record provides CUPTI environmental data, include power, clocks, and thermals. This information is sampled at various rates and returned in this activity record. The consumer of the record needs to check the environmentKind field to figure out what kind of environmental record this is.
+// ActivityEnvironment represents CUpti_ActivityEnvironment.
 type ActivityEnvironment struct {
 	Kind            ActivityKind
 	DeviceId        uint32
@@ -569,9 +645,7 @@ type ActivityEnvironment struct {
 	Data            [5]uint32
 }
 
-// ActivityInstructionExecution represents the activity record for source-level instruction execution.
-//
-// This activity records result for source level instruction execution. ([ActivityKindInstructionExecution]).
+// ActivityInstructionExecution represents CUpti_ActivityInstructionExecution.
 type ActivityInstructionExecution struct {
 	Kind                      ActivityKind
 	Flags                     ActivityFlag
@@ -585,9 +659,7 @@ type ActivityInstructionExecution struct {
 	Pad                       uint32
 }
 
-// ActivityPCSampling3 represents the activity record for PC sampling.
-//
-// This activity records information obtained by sampling PC ([ActivityKindPcSampling]).
+// ActivityPCSampling3 represents CUpti_ActivityPCSampling3.
 type ActivityPCSampling3 struct {
 	Kind            ActivityKind
 	Flags           ActivityFlag
@@ -600,9 +672,7 @@ type ActivityPCSampling3 struct {
 	PcOffset        uint64
 }
 
-// ActivityPCSamplingRecordInfo represents the activity record for record status for PC sampling.
-//
-// This activity records information obtained by sampling PC ([ActivityKindPcSamplingRecordInfo]).
+// ActivityPCSamplingRecordInfo represents CUpti_ActivityPCSamplingRecordInfo.
 type ActivityPCSamplingRecordInfo struct {
 	Kind                   ActivityKind
 	CorrelationId          uint32
@@ -611,9 +681,7 @@ type ActivityPCSamplingRecordInfo struct {
 	SamplingPeriodInCycles uint64
 }
 
-// ActivityUnifiedMemoryCounter3 represents the activity record for Unified Memory counters (CUDA 7.0 and beyond).
-//
-// This activity record represents a Unified Memory counter ([ActivityKindUnifiedMemoryCounter]).
+// ActivityUnifiedMemoryCounter3 represents CUpti_ActivityUnifiedMemoryCounter3.
 type ActivityUnifiedMemoryCounter3 struct {
 	Kind        ActivityKind
 	CounterKind ActivityUnifiedMemoryCounterKind
@@ -630,9 +698,7 @@ type ActivityUnifiedMemoryCounter3 struct {
 	Processors  [5]uint64
 }
 
-// ActivityFunction represents the activity record for global/device functions.
-//
-// This activity records function name and corresponding module information. ([ActivityKindFunction]).
+// ActivityFunction represents CUpti_ActivityFunction.
 type ActivityFunction struct {
 	Kind          ActivityKind
 	Id            uint32
@@ -643,9 +709,7 @@ type ActivityFunction struct {
 	Name          uintptr
 }
 
-// ActivityModule represents the activity record for a CUDA module.
-//
-// This activity record represents a CUDA module ([ActivityKindModule]). This activity record kind is not produced by the activity API but is included for completeness and ease-of-use. Profile frameworks built on top of CUPTI that collect module data from the module callback may choose to use this type to store the collected module data.
+// ActivityModule represents CUpti_ActivityModule.
 type ActivityModule struct {
 	Kind      ActivityKind
 	ContextId uint32
@@ -654,9 +718,7 @@ type ActivityModule struct {
 	Cubin     uintptr
 }
 
-// ActivitySharedAccess represents the activity record for source-level shared access.
-//
-// This activity records the locations of the shared accesses in the source ([ActivityKindSharedAccess]).
+// ActivitySharedAccess represents CUpti_ActivitySharedAccess.
 type ActivitySharedAccess struct {
 	Kind                          ActivityKind
 	Flags                         ActivityFlag
@@ -671,9 +733,7 @@ type ActivitySharedAccess struct {
 	Pad                           uint32
 }
 
-// ActivityCudaEvent2 represents the activity record for CUDA event.
-//
-// This activity is used to track recorded events. ([ActivityKindCudaEvent]).
+// ActivityCudaEvent2 represents CUpti_ActivityCudaEvent2.
 type ActivityCudaEvent2 struct {
 	Kind            ActivityKind
 	CorrelationId   uint32
@@ -688,9 +748,7 @@ type ActivityCudaEvent2 struct {
 	CudaEventSyncId uint64
 }
 
-// ActivityStream represents the activity record for CUDA stream.
-//
-// This activity is used to track created streams. ([ActivityKindStream]).
+// ActivityStream represents CUpti_ActivityStream.
 type ActivityStream struct {
 	_             [0]uint64
 	Kind          ActivityKind
@@ -701,9 +759,7 @@ type ActivityStream struct {
 	CorrelationId uint32
 }
 
-// ActivitySynchronization2 represents the activity record for synchronization management.
-//
-// This activity is used to track various CUDA synchronization APIs. ([ActivityKindSynchronization]).
+// ActivitySynchronization2 represents CUpti_ActivitySynchronization2.
 type ActivitySynchronization2 struct {
 	Kind            ActivityKind
 	Type            ActivitySynchronizationType
@@ -718,9 +774,7 @@ type ActivitySynchronization2 struct {
 	Pad             uint32
 }
 
-// ActivityInstructionCorrelation represents the activity record for source-level sass/source line-by-line correlation.
-//
-// This activity records source level sass/source correlation information. ([ActivityKindInstructionCorrelation]).
+// ActivityInstructionCorrelation represents CUpti_ActivityInstructionCorrelation.
 type ActivityInstructionCorrelation struct {
 	_               [0]uint64
 	Kind            ActivityKind
@@ -731,9 +785,7 @@ type ActivityInstructionCorrelation struct {
 	Pad             uint32
 }
 
-// ActivityOpenAcc represents the base activity record for OpenAcc records.
-//
-// The OpenACC activity API part uses a [ActivityOpenAcc] as a generic representation for any OpenACC activity. The 'kind' field is used to determine the specific activity kind, and from that the [ActivityOpenAcc] object can be cast to the specific OpenACC activity record type appropriate for that kind. Note that all OpenACC activity record types are padded and aligned to ensure that each member of the record is naturally aligned. [ActivityKind]
+// ActivityOpenAcc represents CUpti_ActivityOpenAcc.
 type ActivityOpenAcc struct {
 	Kind            ActivityKind
 	EventKind       OpenAccEventKind
@@ -761,9 +813,7 @@ type ActivityOpenAcc struct {
 	FuncName        uintptr
 }
 
-// ActivityOpenAccData represents the activity record for OpenACC data.
-//
-// ([ActivityKindOpenaccData]).
+// ActivityOpenAccData represents CUpti_ActivityOpenAccData.
 type ActivityOpenAccData struct {
 	Kind            ActivityKind
 	EventKind       OpenAccEventKind
@@ -795,9 +845,7 @@ type ActivityOpenAccData struct {
 	VarName         uintptr
 }
 
-// ActivityOpenAccLaunch represents the activity record for OpenACC launch.
-//
-// ([ActivityKindOpenaccLaunch]).
+// ActivityOpenAccLaunch represents CUpti_ActivityOpenAccLaunch.
 type ActivityOpenAccLaunch struct {
 	Kind            ActivityKind
 	EventKind       OpenAccEventKind
@@ -829,9 +877,7 @@ type ActivityOpenAccLaunch struct {
 	KernelName      uintptr
 }
 
-// ActivityOpenAccOther represents the activity record for OpenACC other.
-//
-// ([ActivityKindOpenaccOther]).
+// ActivityOpenAccOther represents CUpti_ActivityOpenAccOther.
 type ActivityOpenAccOther struct {
 	Kind            ActivityKind
 	EventKind       OpenAccEventKind
@@ -859,9 +905,7 @@ type ActivityOpenAccOther struct {
 	FuncName        uintptr
 }
 
-// ActivityOpenMp represents the base activity record for OpenMp records.
-//
-// [ActivityKind]
+// ActivityOpenMp represents CUpti_ActivityOpenMp.
 type ActivityOpenMp struct {
 	Kind        ActivityKind
 	EventKind   OpenMpEventKind
@@ -873,9 +917,7 @@ type ActivityOpenMp struct {
 	CuThreadId  uint32
 }
 
-// ActivityExternalCorrelation represents the activity record for correlation with external records.
-//
-// This activity record correlates native CUDA records (e.g. CUDA Driver API, kernels, memcpys, ...) with records from external APIs such as OpenACC. ([ActivityKindExternalCorrelation]). [ActivityKind]
+// ActivityExternalCorrelation represents CUpti_ActivityExternalCorrelation.
 type ActivityExternalCorrelation struct {
 	Kind          ActivityKind
 	ExternalKind  ExternalCorrelationKind
@@ -884,9 +926,7 @@ type ActivityExternalCorrelation struct {
 	Reserved      uint32
 }
 
-// ActivityNvLink5 represents NVLink information.
-//
-// This structure gives capabilities of each logical NVLink connection between two devices, gpu<->gpu or gpu<->CPU which can be used to understand the topology.
+// ActivityNvLink5 represents CUpti_ActivityNvLink5.
 type ActivityNvLink5 struct {
 	Kind                ActivityKind
 	NvlinkVersion       uint32
@@ -903,9 +943,7 @@ type ActivityNvLink5 struct {
 	Pad                 [7]uint8
 }
 
-// ActivityPcie represents PCI devices information required to construct topology.
-//
-// This structure gives capabilities of GPU and PCI bridge connected to the PCIE bus which can be used to understand the topology.
+// ActivityPcie represents CUpti_ActivityPcie.
 type ActivityPcie struct {
 	_              [0]uint64
 	Kind           ActivityKind
@@ -919,9 +957,7 @@ type ActivityPcie struct {
 	Attr           [36]uint32
 }
 
-// ActivityConfidentialComputeRotation represents event related to confidential compute encryption rotation.
-//
-// This structure gives timestamps for stages of encryption rotation.
+// ActivityConfidentialComputeRotation represents CUpti_ActivityConfidentialComputeRotation.
 type ActivityConfidentialComputeRotation struct {
 	Kind        ActivityKind
 	EventType   ConfidentialComputeRotationEventType
@@ -932,9 +968,7 @@ type ActivityConfidentialComputeRotation struct {
 	Timestamp   uint64
 }
 
-// ActivityInstantaneousEvent represents the activity record for an instantaneous CUPTI event.
-//
-// This activity record represents a CUPTI event value ([ActivityKindEvent]) sampled at a particular instant. This activity record kind is not produced by the activity API but is included for completeness and ease-of-use. Profiler frameworks built on top of CUPTI that collect event data at a particular time may choose to use this type to store the collected event data.
+// ActivityInstantaneousEvent represents CUpti_ActivityInstantaneousEvent.
 type ActivityInstantaneousEvent struct {
 	Kind      ActivityKind
 	Id        uint32
@@ -944,9 +978,7 @@ type ActivityInstantaneousEvent struct {
 	Reserved  uint32
 }
 
-// ActivityInstantaneousEventInstance represents the activity record for an instantaneous CUPTI event with event domain instance information.
-//
-// This activity record represents the a CUPTI event value for a specific event domain instance ([ActivityKindEventInstance]) sampled at a particular instant. This activity record kind is not produced by the activity API but is included for completeness and ease-of-use. Profiler frameworks built on top of CUPTI that collect event data may choose to use this type to store the collected event data. This activity record should be used when event domain instance information needs to be associated with the event.
+// ActivityInstantaneousEventInstance represents CUpti_ActivityInstantaneousEventInstance.
 type ActivityInstantaneousEventInstance struct {
 	Kind      ActivityKind
 	Id        uint32
@@ -957,9 +989,7 @@ type ActivityInstantaneousEventInstance struct {
 	Pad       [3]uint8
 }
 
-// ActivityInstantaneousMetric represents the activity record for an instantaneous CUPTI metric.
-//
-// This activity record represents the collection of a CUPTI metric value ([ActivityKindMetric]) at a particular instance. This activity record kind is not produced by the activity API but is included for completeness and ease-of-use. Profiler frameworks built on top of CUPTI that collect metric data may choose to use this type to store the collected metric data.
+// ActivityInstantaneousMetric represents CUpti_ActivityInstantaneousMetric.
 type ActivityInstantaneousMetric struct {
 	Kind      ActivityKind
 	Id        uint32
@@ -970,9 +1000,7 @@ type ActivityInstantaneousMetric struct {
 	Pad       [3]uint8
 }
 
-// ActivityInstantaneousMetricInstance represents the instantaneous activity record for a CUPTI metric with instance information.
-//
-// This activity record represents a CUPTI metric value for a specific metric domain instance ([ActivityKindMetricInstance]) sampled at a particular time. This activity record kind is not produced by the activity API but is included for completeness and ease-of-use. Profiler frameworks built on top of CUPTI that collect metric data may choose to use this type to store the collected metric data. This activity record should be used when metric domain instance information needs to be associated with the metric.
+// ActivityInstantaneousMetricInstance represents CUpti_ActivityInstantaneousMetricInstance.
 type ActivityInstantaneousMetricInstance struct {
 	Kind      ActivityKind
 	Id        uint32
@@ -984,9 +1012,7 @@ type ActivityInstantaneousMetricInstance struct {
 	Pad       [2]uint8
 }
 
-// ActivityJit2 represents the activity record for JIT operations.
-//
-// This activity represents the JIT operations (compile, load, store) of a CUmodule from the Compute Cache. Gives the exact hashed path of where the cached module is loaded from, or where the module will be stored after Just-In-Time (JIT) compilation.
+// ActivityJit2 represents CUpti_ActivityJit2.
 type ActivityJit2 struct {
 	Kind                      ActivityKind
 	JitEntryType              ActivityJitEntryType
@@ -1003,9 +1029,7 @@ type ActivityJit2 struct {
 	ThreadId                  uint32
 }
 
-// ActivityGraphTrace2 represents the activity record for trace of graph execution.
-//
-// This activity record represents execution for a graph without giving visibility about the execution of its nodes. This is intended to reduce overheads in tracing each node. The activity kind is [ActivityKindGraphTrace]
+// ActivityGraphTrace2 represents CUpti_ActivityGraphTrace2.
 type ActivityGraphTrace2 struct {
 	Kind          ActivityKind
 	CorrelationId uint32
@@ -1020,9 +1044,7 @@ type ActivityGraphTrace2 struct {
 	EndContextId  uint32
 }
 
-// ActivityDeviceGraphTrace represents the activity record for trace of device graph execution.
-//
-// This activity record represents execution for a device launched graph without giving visibility about the execution of its nodes. This is intended to reduce overheads in tracing each node. The activity kind is [ActivityKindDeviceGraphTrace]
+// ActivityDeviceGraphTrace represents CUpti_ActivityDeviceGraphTrace.
 type ActivityDeviceGraphTrace struct {
 	Kind             ActivityKind
 	DeviceId         uint32
@@ -1036,9 +1058,7 @@ type ActivityDeviceGraphTrace struct {
 	Reserved         uintptr
 }
 
-// ActivityMemDecompress represents the activity record for trace of decompression operations.
-//
-// This activity record represents execution for a batch of decompression operatios. The activity kind is [ActivityKindMemDecompress]
+// ActivityMemDecompress represents CUpti_ActivityMemDecompress.
 type ActivityMemDecompress struct {
 	Kind               ActivityKind
 	DeviceId           uint32
@@ -1069,9 +1089,7 @@ type ActivityGraphHostNode struct {
 	End           uint64
 }
 
-// ActivityComputeEngineCtxSwitch represents the activity record for trace of CUDA context switch events.
-//
-// The corresponding activity kind is [ActivityKindComputeEngineCtxSwitch].
+// ActivityComputeEngineCtxSwitch represents CUpti_ActivityComputeEngineCtxSwitch.
 type ActivityComputeEngineCtxSwitch struct {
 	Kind          ActivityKind
 	ContextId     uint32
@@ -1080,9 +1098,7 @@ type ActivityComputeEngineCtxSwitch struct {
 	Padding       uint32
 }
 
-// ActivityHostLaunch represents the activity record for host launch functions.
-//
-// The corresponding activity kind is [ActivityKindHostLaunch].
+// ActivityHostLaunch represents CUpti_ActivityHostLaunch.
 type ActivityHostLaunch struct {
 	Kind          ActivityKind
 	StreamId      uint32
@@ -1096,9 +1112,7 @@ type ActivityHostLaunch struct {
 	End           uint64
 }
 
-// ActivityGreenContext represents the activity record for a green context.
-//
-// The corresponding activity kind is [ActivityKindGreenContext]. Green contexts enable resource partitioning by allocating a subset of SMs (Streaming Multiprocessors) from the GPU to a context. \par TPC (Thread Processing Cluster) Thread Processing Clusters are hardware units within a GPC (Graphics Processing Cluster). Each TPC contains one or more SMs, along with texture units, L1 cache, instruction cache, and constant cache. Green contexts allocate resources at the TPC level.
+// ActivityGreenContext represents CUpti_ActivityGreenContext.
 type ActivityGreenContext struct {
 	_                  [0]uint64
 	Kind               ActivityKind
@@ -1112,7 +1126,7 @@ type ActivityGreenContext struct {
 	LogicalTpcMask     [32]uint32
 }
 
-// ActivityConfig represents activity configuration.
+// ActivityConfig represents CUpti_ActivityConfig.
 type ActivityConfig struct {
 	StructSize     uint
 	FieldSelection ActivityFieldSelection
@@ -1131,19 +1145,7 @@ type BufferCallbackCompleteInfo struct {
 	NumRecordLayouts uint
 }
 
-// ActivityObjectKindId represents identifiers for object kinds as specified by [ActivityObjectKind].
-//
-// [ActivityObjectKind]
-type ActivityObjectKindId struct {
-	// Data stores the raw bytes of the underlying C union.
-	Data [3]uint32
-}
-
-// ActivityOverhead represents the activity record for CUPTI and driver overheads.
-//
-// This activity record provides CUPTI and driver overhead information ([ActivityOverhead]). These records are now reported using [ActivityOverhead3]
-//
-// Deprecated: This type is deprecated in CUDA 12.2.
+// ActivityOverhead represents CUpti_ActivityOverhead.
 type ActivityOverhead struct {
 	Kind         ActivityKind
 	OverheadKind ActivityOverheadKind
@@ -1153,9 +1155,7 @@ type ActivityOverhead struct {
 	End          uint64
 }
 
-// ActivityOverhead2 represents the activity record for CUPTI and driver overheads.
-//
-// This activity record provides CUPTI and driver overhead information ([ActivityOverhead]).
+// ActivityOverhead2 represents CUpti_ActivityOverhead2.
 type ActivityOverhead2 struct {
 	Kind          ActivityKind
 	OverheadKind  ActivityOverheadKind
@@ -1167,11 +1167,7 @@ type ActivityOverhead2 struct {
 	Reserved0     uint32
 }
 
-// ActivityDevice represents the activity record for a device.
-//
-// This activity record represents information about a GPU device ([ActivityKindDevice]). Device activity is now reported using the [ActivityDevice6] activity record.
-//
-// Deprecated: This type is deprecated.
+// ActivityDevice represents CUpti_ActivityDevice.
 type ActivityDevice struct {
 	Kind                       ActivityKind
 	Flags                      ActivityFlag
@@ -1198,11 +1194,7 @@ type ActivityDevice struct {
 	Name                       uintptr
 }
 
-// ActivityDevice2 represents the activity record for a device.
-//
-// This activity record represents information about a GPU device ([ActivityKindDevice]). Device activity is now reported using the [ActivityDevice6] activity record.
-//
-// Deprecated: This type is deprecated.
+// ActivityDevice2 represents CUpti_ActivityDevice2.
 type ActivityDevice2 struct {
 	Kind                             ActivityKind
 	Flags                            ActivityFlag
@@ -1232,9 +1224,7 @@ type ActivityDevice2 struct {
 	Name                             uintptr
 }
 
-// ActivityDevice3 represents the activity record for a device.
-//
-// (CUDA 7.0 onwards). This activity record represents information about a GPU device ([ActivityKindDevice]). Device activity is now reported using the [ActivityDevice6] activity record.
+// ActivityDevice3 represents CUpti_ActivityDevice3.
 type ActivityDevice3 struct {
 	Kind                             ActivityKind
 	Flags                            ActivityFlag
@@ -1266,9 +1256,7 @@ type ActivityDevice3 struct {
 	Reserved                         [7]uint8
 }
 
-// ActivityDevice4 represents the activity record for a device.
-//
-// (CUDA 11.6 onwards). This activity record represents information about a GPU device ([ActivityKindDevice]). Device activity is now reported using the [ActivityDevice6] activity record.
+// ActivityDevice4 represents CUpti_ActivityDevice4.
 type ActivityDevice4 struct {
 	Kind                             ActivityKind
 	Flags                            ActivityFlag
@@ -1304,9 +1292,7 @@ type ActivityDevice4 struct {
 	MigUuid                          [16]byte
 }
 
-// ActivityDevice5 represents the activity record for a device.
-//
-// (CUDA 11.6 onwards). This activity record represents information about a GPU device ([ActivityKindDevice]).
+// ActivityDevice5 represents CUpti_ActivityDevice5.
 type ActivityDevice5 struct {
 	Kind                             ActivityKind
 	Flags                            ActivityFlag
@@ -1344,11 +1330,7 @@ type ActivityDevice5 struct {
 	NumaId                           uint32
 }
 
-// ActivityKernel represents the activity record for kernel.
-//
-// This activity record represents a kernel execution ([ActivityKindKernel] and [ActivityKindConcurrentKernel]) but is no longer generated by CUPTI. Kernel activities are now reported using the [ActivityKernel9] activity record.
-//
-// Deprecated: This type is deprecated.
+// ActivityKernel represents CUpti_ActivityKernel.
 type ActivityKernel struct {
 	Kind                 ActivityKind
 	CacheConfigRequested uint8
@@ -1376,11 +1358,7 @@ type ActivityKernel struct {
 	Reserved0            uintptr
 }
 
-// ActivityKernel2 represents the activity record for kernel.
-//
-// This activity record represents a kernel execution ([ActivityKindKernel] and [ActivityKindConcurrentKernel]) but is no longer generated by CUPTI. Kernel activities are now reported using the [ActivityKernel9] activity record.
-//
-// Deprecated: This type is deprecated.
+// ActivityKernel2 represents CUpti_ActivityKernel2.
 type ActivityKernel2 struct {
 	Kind                 ActivityKind
 	CacheConfig          [1]byte
@@ -1408,11 +1386,7 @@ type ActivityKernel2 struct {
 	Reserved0            uintptr
 }
 
-// ActivityKernel3 represents the activity record for a kernel (CUDA 6.5(with sm_52 support) onwards).
-//
-// This activity record represents a kernel execution ([ActivityKindKernel] and [ActivityKindConcurrentKernel]). Kernel activities are now reported using the [ActivityKernel9] activity record.
-//
-// Deprecated: This type is deprecated in CUDA 9.0.
+// ActivityKernel3 represents CUpti_ActivityKernel3.
 type ActivityKernel3 struct {
 	Kind                            ActivityKind
 	CacheConfig                     [1]byte
@@ -1442,11 +1416,7 @@ type ActivityKernel3 struct {
 	Reserved0                       uintptr
 }
 
-// ActivityKernel4 represents the activity record for a kernel (CUDA 9.0(with sm_70 support) onwards).
-//
-// This activity record represents a kernel execution ([ActivityKindKernel] and [ActivityKindConcurrentKernel]). Kernel activities are now reported using the [ActivityKernel9] activity record.
-//
-// Deprecated: This type is deprecated in CUDA 11.0.
+// ActivityKernel4 represents CUpti_ActivityKernel4.
 type ActivityKernel4 struct {
 	Kind                            ActivityKind
 	CacheConfig                     [1]byte
@@ -1483,11 +1453,7 @@ type ActivityKernel4 struct {
 	SharedMemoryExecuted            uint32
 }
 
-// ActivityKernel5 represents the activity record for a kernel (CUDA 11.0(with sm_80 support) onwards).
-//
-// This activity record represents a kernel execution ([ActivityKindKernel] and [ActivityKindConcurrentKernel]) but is no longer generated by CUPTI. Kernel activities are now reported using the [ActivityKernel9] activity record.
-//
-// Deprecated: This type is deprecated in CUDA 11.2.
+// ActivityKernel5 represents CUpti_ActivityKernel5.
 type ActivityKernel5 struct {
 	Kind                            ActivityKind
 	CacheConfig                     [1]byte
@@ -1527,11 +1493,7 @@ type ActivityKernel5 struct {
 	GraphId                         uint32
 }
 
-// ActivityKernel6 represents the activity record for kernel.
-//
-// This activity record represents a kernel execution ([ActivityKindKernel] and [ActivityKindConcurrentKernel]) but is no longer generated by CUPTI. Kernel activities are now reported using the [ActivityKernel9] activity record.
-//
-// Deprecated: This type is deprecated in CUDA 11.6.
+// ActivityKernel6 represents CUpti_ActivityKernel6.
 type ActivityKernel6 struct {
 	Kind                            ActivityKind
 	CacheConfig                     [1]byte
@@ -1572,11 +1534,7 @@ type ActivityKernel6 struct {
 	PAccessPolicyWindow             uintptr
 }
 
-// ActivityKernel7 represents the activity record for kernel.
-//
-// This activity record represents a kernel execution ([ActivityKindKernel] and [ActivityKindConcurrentKernel]) but is no longer generated by CUPTI. Kernel activities are now reported using the [ActivityKernel9] activity record.
-//
-// Deprecated: This type is deprecated in CUDA 11.8.
+// ActivityKernel7 represents CUpti_ActivityKernel7.
 type ActivityKernel7 struct {
 	Kind                            ActivityKind
 	CacheConfig                     [1]byte
@@ -1619,9 +1577,7 @@ type ActivityKernel7 struct {
 	ChannelType                     ChannelType
 }
 
-// ActivityKernel8 represents the activity record for kernel.
-//
-// This activity record represents a kernel execution ([ActivityKindKernel] and [ActivityKindConcurrentKernel]).
+// ActivityKernel8 represents CUpti_ActivityKernel8.
 type ActivityKernel8 struct {
 	Kind                            ActivityKind
 	CacheConfig                     [1]byte
@@ -1667,9 +1623,7 @@ type ActivityKernel8 struct {
 	LocalMemoryTotalV2              uint64
 }
 
-// ActivityKernel9 represents the activity record for kernel.
-//
-// This activity record represents a kernel execution ([ActivityKindKernel] and [ActivityKindConcurrentKernel]).
+// ActivityKernel9 represents CUpti_ActivityKernel9.
 type ActivityKernel9 struct {
 	Kind                            ActivityKind
 	CacheConfig                     [1]byte
@@ -1717,9 +1671,7 @@ type ActivityKernel9 struct {
 	MaxActiveClusters               uint32
 }
 
-// ActivityKernel10 represents the activity record for kernel.
-//
-// This activity record represents a kernel execution ([ActivityKindKernel] and [ActivityKindConcurrentKernel]).
+// ActivityKernel10 represents CUpti_ActivityKernel10.
 type ActivityKernel10 struct {
 	Kind                            ActivityKind
 	CacheConfig                     [1]byte
@@ -1769,11 +1721,7 @@ type ActivityKernel10 struct {
 	Padding3                        [7]uint8
 }
 
-// ActivityMemcpy represents the activity record for memory copies.
-//
-// This activity record represents a memory copy ([ActivityKindMemcpy]).
-//
-// Deprecated: This type is deprecated.
+// ActivityMemcpy represents CUpti_ActivityMemcpy.
 type ActivityMemcpy struct {
 	Kind                 ActivityKind
 	CopyKind             uint8
@@ -1792,11 +1740,7 @@ type ActivityMemcpy struct {
 	Reserved0            uintptr
 }
 
-// ActivityMemcpy3 represents the activity record for memory copies.
-//
-// This activity record represents a memory copy ([ActivityKindMemcpy]).
-//
-// Deprecated: This type is deprecated in CUDA 11.1.
+// ActivityMemcpy3 represents CUpti_ActivityMemcpy3.
 type ActivityMemcpy3 struct {
 	Kind                 ActivityKind
 	CopyKind             uint8
@@ -1816,11 +1760,7 @@ type ActivityMemcpy3 struct {
 	GraphNodeId          uint64
 }
 
-// ActivityMemcpy4 represents the activity record for memory copies.
-//
-// This activity record represents a memory copy ([ActivityKindMemcpy]).
-//
-// Deprecated: This type is deprecated in CUDA 11.6.
+// ActivityMemcpy4 represents CUpti_ActivityMemcpy4.
 type ActivityMemcpy4 struct {
 	Kind                 ActivityKind
 	CopyKind             uint8
@@ -1842,9 +1782,7 @@ type ActivityMemcpy4 struct {
 	Padding              uint32
 }
 
-// ActivityMemcpy2 represents the activity record for peer-to-peer memory copies.
-//
-// This activity record represents a peer-to-peer memory copy ([ActivityKindMemcpy2]) but is no longer generated by CUPTI. Peer-to-peer memory copy activities are now reported using the [ActivityMemcpyPtoP2] activity record..
+// ActivityMemcpy2 represents CUpti_ActivityMemcpyPtoP.
 type ActivityMemcpy2 struct {
 	Kind          ActivityKind
 	CopyKind      uint8
@@ -1865,11 +1803,7 @@ type ActivityMemcpy2 struct {
 	Reserved0     uintptr
 }
 
-// ActivityMemcpyPtoP2 represents the activity record for peer-to-peer memory copies.
-//
-// This activity record represents a peer-to-peer memory copy ([ActivityKindMemcpy2]).
-//
-// Deprecated: This type is deprecated in CUDA 11.1.
+// ActivityMemcpyPtoP2 represents CUpti_ActivityMemcpyPtoP2.
 type ActivityMemcpyPtoP2 struct {
 	Kind          ActivityKind
 	CopyKind      uint8
@@ -1891,11 +1825,7 @@ type ActivityMemcpyPtoP2 struct {
 	GraphNodeId   uint64
 }
 
-// ActivityMemcpyPtoP3 represents the activity record for peer-to-peer memory copies.
-//
-// This activity record represents a peer-to-peer memory copy ([ActivityKindMemcpy2]).
-//
-// Deprecated: This type is deprecated in CUDA 11.6.
+// ActivityMemcpyPtoP3 represents CUpti_ActivityMemcpyPtoP3.
 type ActivityMemcpyPtoP3 struct {
 	Kind          ActivityKind
 	CopyKind      uint8
@@ -1919,11 +1849,7 @@ type ActivityMemcpyPtoP3 struct {
 	Padding       uint32
 }
 
-// ActivityMemset represents the activity record for memset.
-//
-// This activity record represents a memory set operation ([ActivityKindMemset]).
-//
-// Deprecated: This type is deprecated.
+// ActivityMemset represents CUpti_ActivityMemset.
 type ActivityMemset struct {
 	Kind          ActivityKind
 	Value         uint32
@@ -1940,11 +1866,7 @@ type ActivityMemset struct {
 	Reserved0     uintptr
 }
 
-// ActivityMemset2 represents the activity record for memset.
-//
-// This activity record represents a memory set operation ([ActivityKindMemset]).
-//
-// Deprecated: This type is deprecated in CUDA 11.1.
+// ActivityMemset2 represents CUpti_ActivityMemset2.
 type ActivityMemset2 struct {
 	Kind          ActivityKind
 	Value         uint32
@@ -1962,11 +1884,7 @@ type ActivityMemset2 struct {
 	GraphNodeId   uint64
 }
 
-// ActivityMemset3 represents the activity record for memset.
-//
-// This activity record represents a memory set operation ([ActivityKindMemset]).
-//
-// Deprecated: This type is deprecated in CUDA 11.6.
+// ActivityMemset3 represents CUpti_ActivityMemset3.
 type ActivityMemset3 struct {
 	Kind          ActivityKind
 	Value         uint32
@@ -1986,11 +1904,7 @@ type ActivityMemset3 struct {
 	Padding       uint32
 }
 
-// ActivityMemory2 represents the activity record for memory.
-//
-// This activity record represents a memory allocation and free operation ([ActivityKindMemory2]). This activity record provides separate records for memory allocation and memory release operations. This allows to correlate the corresponding driver and runtime API activity record with the memory operation.
-//
-// Note: This activity record is an upgrade over [ActivityMemory] enabled using the kind [ActivityKindMemory]. [ActivityMemory] provides a single record for the memory allocation and memory release operations.
+// ActivityMemory2 represents CUpti_ActivityMemory2.
 type ActivityMemory2 struct {
 	Kind                ActivityKind
 	MemoryOperationType ActivityMemoryOperationType
@@ -2010,11 +1924,7 @@ type ActivityMemory2 struct {
 	MemoryPoolConfig    [4]uint64
 }
 
-// ActivityMemory3 represents the activity record for memory.
-//
-// This activity record represents a memory allocation and free operation ([ActivityKindMemory2]). This activity record provides separate records for memory allocation and memory release operations. This allows to correlate the corresponding driver and runtime API activity record with the memory operation.
-//
-// Note: This activity record is an upgrade over [ActivityMemory2] enabled using the kind [ActivityKindMemory]. [ActivityMemory] provides a single record for the memory allocation and memory release operations.
+// ActivityMemory3 represents CUpti_ActivityMemory3.
 type ActivityMemory3 struct {
 	Kind                ActivityKind
 	MemoryOperationType ActivityMemoryOperationType
@@ -2034,9 +1944,7 @@ type ActivityMemory3 struct {
 	MemoryPoolConfig    [5]uint64
 }
 
-// ActivityMemoryPool represents the activity record for memory pool.
-//
-// This activity record represents a memory pool creation, destruction and trimming ([ActivityKindMemoryPool]). This activity record provides separate records for memory pool creation, destruction and trimming operations. This allows to correlate the corresponding driver and runtime API activity record with the memory pool operation.
+// ActivityMemoryPool represents CUpti_ActivityMemoryPool.
 type ActivityMemoryPool struct {
 	Kind                    ActivityKind
 	MemoryPoolOperationType ActivityMemoryPoolOperationType
@@ -2051,9 +1959,7 @@ type ActivityMemoryPool struct {
 	Timestamp               uint64
 }
 
-// ActivityMemoryPool2 represents the activity record for memory pool.
-//
-// This activity record represents a memory pool creation, destruction and trimming ([ActivityKindMemoryPool]). This activity record provides separate records for memory pool creation, destruction and trimming operations. This allows to correlate the corresponding driver and runtime API activity record with the memory pool operation.
+// ActivityMemoryPool2 represents CUpti_ActivityMemoryPool2.
 type ActivityMemoryPool2 struct {
 	Kind                    ActivityKind
 	MemoryPoolOperationType ActivityMemoryPoolOperationType
@@ -2069,11 +1975,7 @@ type ActivityMemoryPool2 struct {
 	UtilizedSize            uint64
 }
 
-// ActivityMarker represents the activity record providing a marker which is an instantaneous point in time.
-//
-// The marker is specified with a descriptive name and unique id ([ActivityKindMarker]). Marker activity is now reported using the [ActivityMarker2] activity record.
-//
-// Deprecated: This type is deprecated in CUDA 8.0.
+// ActivityMarker represents CUpti_ActivityMarker.
 type ActivityMarker struct {
 	Kind       ActivityKind
 	Flags      ActivityFlag
@@ -2085,11 +1987,7 @@ type ActivityMarker struct {
 	Name       uintptr
 }
 
-// ActivityGlobalAccess represents the activity record for source-level global access.
-//
-// This activity records the locations of the global accesses in the source ([ActivityKindGlobalAccess]). Global access activities are now reported using the [ActivityGlobalAccess3] activity record.
-//
-// Deprecated: This type is deprecated.
+// ActivityGlobalAccess represents CUpti_ActivityGlobalAccess.
 type ActivityGlobalAccess struct {
 	Kind            ActivityKind
 	Flags           ActivityFlag
@@ -2101,11 +1999,7 @@ type ActivityGlobalAccess struct {
 	L2Transactions  uint64
 }
 
-// ActivityGlobalAccess2 represents the activity record for source-level global access.
-//
-// This activity records the locations of the global accesses in the source ([ActivityKindGlobalAccess]). Global access activities are now reported using the [ActivityGlobalAccess3] activity record.
-//
-// Deprecated: This type is deprecated in CUDA 9.0.
+// ActivityGlobalAccess2 represents CUpti_ActivityGlobalAccess2.
 type ActivityGlobalAccess2 struct {
 	Kind                      ActivityKind
 	Flags                     ActivityFlag
@@ -2120,11 +2014,7 @@ type ActivityGlobalAccess2 struct {
 	Pad                       uint32
 }
 
-// ActivityBranch represents the activity record for source level result branch.
-//
-// This activity record the locations of the branches in the source ([ActivityKindBranch]). Branch activities are now reported using the [ActivityBranch2] activity record.
-//
-// Deprecated: This type is deprecated.
+// ActivityBranch represents CUpti_ActivityBranch.
 type ActivityBranch struct {
 	Kind            ActivityKind
 	SourceLocatorId uint32
@@ -2135,11 +2025,7 @@ type ActivityBranch struct {
 	ThreadsExecuted uint64
 }
 
-// ActivityPCSampling represents the activity record for PC sampling.
-//
-// This activity records information obtained by sampling PC ([ActivityKindPcSampling]). PC sampling activities are now reported using the [ActivityPCSampling2] activity record.
-//
-// Deprecated: This type is deprecated in CUDA 8.0.
+// ActivityPCSampling represents CUpti_ActivityPCSampling.
 type ActivityPCSampling struct {
 	_               [0]uint64
 	Kind            ActivityKind
@@ -2152,11 +2038,7 @@ type ActivityPCSampling struct {
 	StallReason     ActivityPCSamplingStallReason
 }
 
-// ActivityPCSampling2 represents the activity record for PC sampling.
-//
-// This activity records information obtained by sampling PC ([ActivityKindPcSampling]). PC sampling activities are now reported using the [ActivityPCSampling3] activity record.
-//
-// Deprecated: This type is deprecated in CUDA 9.0.
+// ActivityPCSampling2 represents CUpti_ActivityPCSampling2.
 type ActivityPCSampling2 struct {
 	_               [0]uint64
 	Kind            ActivityKind
@@ -2171,11 +2053,7 @@ type ActivityPCSampling2 struct {
 	Pad             uint32
 }
 
-// ActivityUnifiedMemoryCounter represents the activity record for Unified Memory counters.
-//
-// This activity record represents a Unified Memory counter ([ActivityKindUnifiedMemoryCounter]).
-//
-// Deprecated: This type is deprecated in CUDA 7.0.
+// ActivityUnifiedMemoryCounter represents CUpti_ActivityUnifiedMemoryCounter.
 type ActivityUnifiedMemoryCounter struct {
 	Kind        ActivityKind
 	CounterKind ActivityUnifiedMemoryCounterKind
@@ -2187,11 +2065,7 @@ type ActivityUnifiedMemoryCounter struct {
 	Pad         uint32
 }
 
-// ActivityUnifiedMemoryCounter2 represents the activity record for Unified Memory counters.
-//
-// This activity record represents a Unified Memory counter ([ActivityKindUnifiedMemoryCounter]).
-//
-// Deprecated: This type is deprecated in 12.8.
+// ActivityUnifiedMemoryCounter2 represents CUpti_ActivityUnifiedMemoryCounter2.
 type ActivityUnifiedMemoryCounter2 struct {
 	Kind        ActivityKind
 	CounterKind ActivityUnifiedMemoryCounterKind
@@ -2207,11 +2081,7 @@ type ActivityUnifiedMemoryCounter2 struct {
 	Pad         uint32
 }
 
-// ActivityNvLink represents NVLink information.
-//
-// This structure gives capabilities of each logical NVLink connection between two devices, gpu<->gpu or gpu<->CPU which can be used to understand the topology. NVLink information are now reported using the [ActivityNvLink5] activity record.
-//
-// Deprecated: This type is deprecated in CUDA 9.0.
+// ActivityNvLink represents CUpti_ActivityNvLink.
 type ActivityNvLink struct {
 	Kind                ActivityKind
 	NvlinkVersion       uint32
@@ -2226,11 +2096,7 @@ type ActivityNvLink struct {
 	Bandwidth           uint64
 }
 
-// ActivityNvLink2 represents NVLink information.
-//
-// This structure gives capabilities of each logical NVLink connection between two devices, gpu<->gpu or gpu<->CPU which can be used to understand the topology. NvLink information is now reported using the [ActivityNvLink5] activity record.
-//
-// Deprecated: This type is deprecated in CUDA 10.0.
+// ActivityNvLink2 represents CUpti_ActivityNvLink2.
 type ActivityNvLink2 struct {
 	Kind                ActivityKind
 	NvlinkVersion       uint32
@@ -2245,9 +2111,7 @@ type ActivityNvLink2 struct {
 	Bandwidth           uint64
 }
 
-// ActivityNvLink3 represents NVLink information.
-//
-// This structure gives capabilities of each logical NVLink connection between two devices, gpu<->gpu or gpu<->CPU which can be used to understand the topology. NvLink information is now reported using the [ActivityNvLink5] activity record.
+// ActivityNvLink3 represents CUpti_ActivityNvLink3.
 type ActivityNvLink3 struct {
 	Kind                ActivityKind
 	NvlinkVersion       uint32
@@ -2264,11 +2128,7 @@ type ActivityNvLink3 struct {
 	Pad                 [7]uint8
 }
 
-// ActivityNvLink4 represents NVLink information.
-//
-// This structure gives capabilities of each logical NVLink connection between two devices, gpu<->gpu or gpu<->CPU which can be used to understand the topology. NvLink information is now reported using the [ActivityNvLink5] activity record.
-//
-// Deprecated: This type is deprecated in CUDA 13.2.
+// ActivityNvLink4 represents CUpti_ActivityNvLink4.
 type ActivityNvLink4 struct {
 	Kind                ActivityKind
 	NvlinkVersion       uint32
@@ -2285,9 +2145,7 @@ type ActivityNvLink4 struct {
 	Pad                 [7]uint8
 }
 
-// ActivityGraphTrace represents the activity record for trace of graph execution.
-//
-// This activity record represents execution for a graph without giving visibility about the execution of its nodes. This is intended to reduce overheads in tracing each node. The activity kind is [ActivityKindGraphTrace] Graph trace activity is now reported using [ActivityGraphTrace2] record.
+// ActivityGraphTrace represents CUpti_ActivityGraphTrace.
 type ActivityGraphTrace struct {
 	Kind          ActivityKind
 	CorrelationId uint32
@@ -2300,9 +2158,7 @@ type ActivityGraphTrace struct {
 	Reserved      uintptr
 }
 
-// ActivityContext represents the activity record for a context.
-//
-// This activity record represents information about a context ([ActivityKindContext]). Context activity is now reported using [ActivityContext3] record.
+// ActivityContext represents CUpti_ActivityContext.
 type ActivityContext struct {
 	_              [0]uint64
 	Kind           ActivityKind
@@ -2312,9 +2168,7 @@ type ActivityContext struct {
 	NullStreamId   uint16
 }
 
-// ActivityContext2 represents the activity record for a context.
-//
-// This activity record represents information about a context ([ActivityKindContext]). Context activity is now reported using [ActivityContext3] record.
+// ActivityContext2 represents CUpti_ActivityContext2.
 type ActivityContext2 struct {
 	_                  [0]uint64
 	Kind               ActivityKind
@@ -2328,9 +2182,7 @@ type ActivityContext2 struct {
 	NumMultiprocessors uint16
 }
 
-// ActivityContext3 represents the activity record for a context.
-//
-// This activity record represents information about a context ([ActivityKindContext]).
+// ActivityContext3 represents CUpti_ActivityContext3.
 type ActivityContext3 struct {
 	_                  [0]uint64
 	Kind               ActivityKind
@@ -2346,9 +2198,7 @@ type ActivityContext3 struct {
 	Padding2           uint32
 }
 
-// ActivityJit represents the activity record for JIT operations.
-//
-// This activity represents the JIT operations (compile, load, store) of a CUmodule from the Compute Cache. Gives the exact hashed path of where the cached module is loaded from, or where the module will be stored after Just-In-Time (JIT) compilation. JIT activity is now reported using [ActivityJit2] record.
+// ActivityJit represents CUpti_ActivityJit.
 type ActivityJit struct {
 	Kind                      ActivityKind
 	JitEntryType              ActivityJitEntryType
@@ -2363,11 +2213,7 @@ type ActivityJit struct {
 	CachePath                 uintptr
 }
 
-// ActivityCudaEvent represents the activity record for CUDA event.
-//
-// This activity is used to track recorded events. ([ActivityKindCudaEvent]).
-//
-// Deprecated: Structure deprecated in CUDA 12.8: Refer to [ActivityCudaEvent2] for the latest structure.
+// ActivityCudaEvent represents CUpti_ActivityCudaEvent.
 type ActivityCudaEvent struct {
 	_             [0]uint64
 	Kind          ActivityKind
@@ -2378,11 +2224,7 @@ type ActivityCudaEvent struct {
 	Pad           uint32
 }
 
-// ActivitySynchronization represents the activity record for synchronization management.
-//
-// This activity is used to track various CUDA synchronization APIs. ([ActivityKindSynchronization]).
-//
-// Deprecated: Structure deprecated in CUDA 12.8: Refer to [ActivitySynchronization2] for the latest structure.
+// ActivitySynchronization represents CUpti_ActivitySynchronization.
 type ActivitySynchronization struct {
 	Kind          ActivityKind
 	Type          ActivitySynchronizationType
@@ -2394,11 +2236,7 @@ type ActivitySynchronization struct {
 	CudaEventId   uint32
 }
 
-// ActivityMemcpy5 represents the activity record for memory copies.
-//
-// This activity record represents a memory copy ([ActivityKindMemcpy]).
-//
-// Deprecated: Structure deprecated in CUDA 12.8: Refer to [ActivityMemcpy6] for the latest structure.
+// ActivityMemcpy5 represents CUpti_ActivityMemcpy5.
 type ActivityMemcpy5 struct {
 	Kind                 ActivityKind
 	CopyKind             uint8
@@ -2422,11 +2260,7 @@ type ActivityMemcpy5 struct {
 	Pad2                 uint32
 }
 
-// ActivityMarkerData represents the activity record providing detailed information for a marker.
-//
-// User must enable [ActivityKindMarker] as well to get records for marker data. The marker data contains color, payload, and category. ([ActivityKindMarkerData]).
-//
-// Deprecated: Structure deprecated in CUDA 13.1: Refer to [ActivityMarkerData2] for the latest structure.
+// ActivityMarkerData represents CUpti_ActivityMarkerData.
 type ActivityMarkerData struct {
 	Kind        ActivityKind
 	Flags       ActivityFlag
@@ -2435,119 +2269,6 @@ type ActivityMarkerData struct {
 	Payload     [1]uint64
 	Color       uint32
 	Category    uint32
-}
-
-// CallbackData represents data passed into a runtime or driver API callback function.
-//
-// Data passed into a runtime or driver API callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainDriverApi] or [CbDomainRuntimeApi]. The callback data is valid only within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of that data. For example, if you make a shallow copy of [CallbackData] within a callback, you cannot dereference functionParams outside of that callback to access the function parameters. functionName is an exception: the string pointed to by functionName is a global constant and so may be accessed outside of the callback.
-type CallbackData struct {
-	CallbackSite        ApiCallbackSite
-	FunctionName        uintptr
-	FunctionParams      uintptr
-	FunctionReturnValue uintptr
-	SymbolName          uintptr
-	Context             driver.Context
-	ContextUid          uint32
-	CorrelationData     uintptr
-	CorrelationId       uint32
-}
-
-// ResourceData represents data passed into a resource callback function.
-//
-// Data passed into a resource callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainResource]. The callback data is valid only within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of that data.
-type ResourceData struct {
-	Context            driver.Context
-	ResourceHandle     [1]uint64
-	ResourceDescriptor uintptr
-}
-
-// ModuleResourceData represents module data passed into a resource callback function.
-//
-// CUDA module data passed into a resource callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainResource]. The module data is valid only within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of that data.
-type ModuleResourceData struct {
-	ModuleId  uint32
-	CubinSize uint
-	PCubin    uintptr
-}
-
-// GraphData represents CUDA graphs data passed into a resource callback function.
-//
-// CUDA graphs data passed into a resource callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainResource]. The graph data is valid only within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of that data.
-type GraphData struct {
-	Graph         Graph
-	OriginalGraph Graph
-	Node          GraphNode
-	OriginalNode  GraphNode
-	NodeType      int32
-	Dependency    GraphNode
-	GraphExec     GraphExec
-}
-
-// SynchronizeData represents data passed into a synchronize callback function.
-//
-// Data passed into a synchronize callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainSynchronize]. The callback data is valid only within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of that data.
-type SynchronizeData struct {
-	Context driver.Context
-	Stream  driver.Stream
-}
-
-// NvtxData represents data passed into a NVTX callback function.
-//
-// Data passed into a NVTX callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainNvtx]. Unless otherwise notes, the callback data is valid only within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of that data.
-type NvtxData struct {
-	FunctionName        uintptr
-	FunctionParams      uintptr
-	FunctionReturnValue uintptr
-}
-
-// StreamAttrData represents stream attribute data passed into a resource callback function for [CbidResourceStreamAttributeChanged] callback.
-//
-// Data passed into a resource callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainResource]. The stream attribute data is valid only within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of that data.
-type StreamAttrData struct {
-	Stream driver.Stream
-	Attr   int32
-	Value  uintptr
-}
-
-// StateData represents data passed into a State callback function.
-//
-// Data passed into a State callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainState] and callback Ids belonging to [CallbackIdState]. Unless otherwise noted, the callback data is valid only within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of that data.
-type StateData struct {
-	Notification [2]uint64
-}
-
-// SubscriberParams represents params for [SubscribeV2].
-type SubscriberParams struct {
-	StructSize               uint
-	SubscriberName           uintptr
-	OldSubscriberName        uintptr
-	OldSubscriberSize        uint
-	AllowMultipleSubscribers uint8
-	Padding                  [7]uint8
-}
-
-// EventGroupSet represents a set of event groups.
-//
-// A set of event groups. When returned by [EventGroupSetsCreate] and [MetricCreateEventGroupSets] a set indicates that event groups that can be enabled at the same time (i.e. all the events in the set can be collected simultaneously).
-type EventGroupSet struct {
-	NumEventGroups uint32
-	EventGroups    uintptr
-}
-
-// EventGroupSets represents a set of event group sets.
-//
-// A set of event group sets. When returned by [EventGroupSetsCreate] and [MetricCreateEventGroupSets] a [EventGroupSets] indicates the number of passes required to collect all the events, and the event groups that should be collected during each pass.
-type EventGroupSets struct {
-	NumSets uint32
-	Sets    uintptr
-}
-
-// MetricValue represents a metric value.
-//
-// Metric values can be one of several different kinds. Corresponding to each kind is a member of the [MetricValue] union. The metric value returned by [MetricGetValue] should be accessed using the appropriate member of that union based on its value kind.
-type MetricValue struct {
-	// Data stores the raw bytes of the underlying C union.
-	Data [1]uint64
 }
 
 // ProfilerInitializeParams represents default parameter for [ProfilerInitialize].

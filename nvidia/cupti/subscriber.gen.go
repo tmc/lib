@@ -2,7 +2,9 @@
 
 package cupti
 
-import "unsafe"
+import (
+	"unsafe"
+)
 
 // ActivityDisableV2 disables collection of a specific kind of activity record for the subscriber.
 //
@@ -83,6 +85,7 @@ func (s Subscriber) ActivityGetAttributeV2(attr ActivityAttribute, valueSize *ui
 //
 //   - buffer: The buffer to store the enabled activity kinds. If NULL, the number of enabled activity kinds is returned in enabledKindsCount
 //   - bufferSize: The size of the buffer. If NULL, only the number of enabled activity kinds is returned in enabledKindsCount. If NULL and buffer is not NULL, [ErrInvalidParameter] is returned
+//   - enabledKindsCount: The number of enabled activity kinds. If NULL, [ErrInvalidParameter] is returned
 //
 // Errors:
 //   - [ErrInvalidParameter]: if enabledKindsCount is NULL or if subscriber is invalid.
@@ -124,6 +127,27 @@ func (s Subscriber) ActivityRegisterCallbacksV2(funcBufferRequested uintptr, fun
 // Wraps cuptiActivitySetAttribute_v2.
 func (s Subscriber) ActivitySetAttributeV2(attr ActivityAttribute, valueSize *uint, value unsafe.Pointer) error {
 	return activitySetAttributeV2(s, attr, valueSize, value)
+}
+
+// CallbackState gets the current enabled/disabled state of a callback for a specific domain and function ID.
+//
+// Returns non-zero in *enable if the callback for a domain and callback ID is enabled, and zero if not enabled.
+//
+// Note: Thread-safety
+// : a subscriber must serialize access to [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and [Subscriber.EnableAllDomains]. For example, if [Subscriber.CallbackState](sub,
+// d, c) and [Subscriber.EnableCallback](sub, d, c) are called concurrently, the results are undefined.
+//
+//   - enable: Returns non-zero if callback enabled, zero if not enabled
+//   - domain: The domain of the callback
+//   - cbid: The ID of the callback
+//
+// Errors:
+//   - [ErrInvalidParameter]: if enabled is NULL, or if subscriber, domain or cbid is invalid.
+//   - [ErrNotInitialized]: if unable to initialized CUPTI
+//
+// Wraps cuptiGetCallbackState.
+func (s Subscriber) CallbackState(domain CallbackDomain, cbid uint32) (uint32, error) {
+	return getCallbackState(s, domain, cbid)
 }
 
 // EnableAllDomains enables or disables all callbacks in all domains.
@@ -182,26 +206,6 @@ func (s Subscriber) EnableDomain(enable uint32, domain CallbackDomain) error {
 	return enableDomain(enable, s, domain)
 }
 
-// CallbackState gets the current enabled/disabled state of a callback for a specific domain and function ID.
-//
-// Returns non-zero in *enable if the callback for a domain and callback ID is enabled, and zero if not enabled.
-//
-// Note: Thread-safety
-// : a subscriber must serialize access to [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and [Subscriber.EnableAllDomains]. For example, if [Subscriber.CallbackState](sub,
-// d, c) and [Subscriber.EnableCallback](sub, d, c) are called concurrently, the results are undefined.
-//
-//   - domain: The domain of the callback
-//   - cbid: The ID of the callback
-//
-// Errors:
-//   - [ErrInvalidParameter]: if enabled is NULL, or if subscriber, domain or cbid is invalid.
-//   - [ErrNotInitialized]: if unable to initialized CUPTI
-//
-// Wraps cuptiGetCallbackState.
-func (s Subscriber) CallbackState(domain CallbackDomain, cbid uint32) (uint32, error) {
-	return getCallbackState(s, domain, cbid)
-}
-
 // EnabledCallbacks gets the enabled callbacks for a subscriber.
 //
 // Note: If the provided buffer size is not sufficient to store all the enabled callbacks, we populate the buffer with as much as we can, but return the true value of the number of enabled callbacks in enabledCallbacksCount.
@@ -209,6 +213,7 @@ func (s Subscriber) CallbackState(domain CallbackDomain, cbid uint32) (uint32, e
 //   - domain: The domain of the callbacks to get. If NULL, [ErrInvalidParameter] is returned
 //   - buffer: The buffer to store the enabled callbacks. If NULL, the number of enabled callbacks is returned in enabledCallbacksCount
 //   - bufferSize: The size of the buffer. If NULL, only the number of enabled callbacks is returned in enabledCallbacksCount. If NULL and buffer is not NULL, [ErrInvalidParameter] is returned
+//   - enabledCallbacksCount: The number of enabled callbacks. If NULL, [ErrInvalidParameter] is returned
 //
 // Errors:
 //   - [ErrInvalidParameter]: if enabledCallbacksCount is NULL, or if subscriber or domain is invalid.

@@ -7,1238 +7,200 @@ import (
 	"unsafe"
 )
 
-// Function pointer variables, registered by init via registerFuncs.
+// Generated function pointer variables.
 var (
-	fnActivityConfigurePCSampling                         func(driver.Context, *ActivityPCSamplingConfig) Result
-	symActivityConfigureUnifiedMemoryCounter              uintptr
-	symActivityDisable                                    uintptr
-	fnActivityDisableContext                              func(driver.Context, ActivityKind) Result
-	symactivityDisableV2                                  uintptr
-	symActivityEnable                                     uintptr
-	symActivityEnableAllSyncRecords                       uintptr
-	symActivityEnableAllocationSource                     uintptr
-	symActivityEnableAndDump                              uintptr
-	symactivityEnableAndDumpV2                            uintptr
-	fnActivityEnableContext                               func(driver.Context, ActivityKind) Result
-	symActivityEnableCudaEventDeviceTimestamps            uintptr
-	symActivityEnableDeviceGraph                          uintptr
-	symActivityEnableDriverApi                            uintptr
-	symActivityEnableHWTrace                              uintptr
-	symActivityEnableLatencyTimestamps                    uintptr
-	symActivityEnableLaunchAttributes                     uintptr
-	symActivityEnableRuntimeApi                           uintptr
-	symactivityEnableV2                                   uintptr
-	fnActivityFlush                                       func(driver.Context, uint32, uint32) Result
-	symActivityFlushAll                                   uintptr
-	symActivityFlushPeriod                                uintptr
-	symActivityGetAttribute                               uintptr
-	symactivityGetAttributeV2                             uintptr
-	symactivityGetEnabledKinds                            uintptr
-	symActivityGetNextRecord                              uintptr
-	fnActivityGetNumDroppedRecords                        func(driver.Context, uint32, *uint) Result
-	symActivityGetStructSize                              uintptr
-	symActivityPopExternalCorrelationId                   uintptr
-	symActivityPushExternalCorrelationId                  uintptr
-	symActivityRegisterCallbacks                          uintptr
-	symactivityRegisterCallbacksV2                        uintptr
-	symActivityRegisterTimestampCallback                  uintptr
-	symActivitySetAttribute                               uintptr
-	symactivitySetAttributeV2                             uintptr
-	symCheckpointFree                                     uintptr
-	symCheckpointRestore                                  uintptr
-	symCheckpointSave                                     uintptr
-	symComputeCapabilitySupported                         uintptr
-	symDeviceEnumEventDomains                             uintptr
-	symDeviceEnumMetrics                                  uintptr
-	symDeviceGetAttribute                                 uintptr
-	symDeviceGetChipName                                  uintptr
-	symDeviceGetEventDomainAttribute                      uintptr
-	symDeviceGetNumEventDomains                           uintptr
-	symDeviceGetNumMetrics                                uintptr
-	symDeviceSupported                                    uintptr
-	symDeviceVirtualizationMode                           uintptr
-	fnDisableKernelReplayMode                             func(driver.Context) Result
-	symenableAllDomains                                   uintptr
-	symenableCallback                                     uintptr
-	symenableDomain                                       uintptr
-	fnEnableKernelReplayMode                              func(driver.Context) Result
-	symEnumEventDomains                                   uintptr
-	symEnumMetrics                                        uintptr
-	symEventDomainEnumEvents                              uintptr
-	symEventDomainGetAttribute                            uintptr
-	symEventDomainGetNumEvents                            uintptr
-	symEventGetAttribute                                  uintptr
-	symEventGetIdFromName                                 uintptr
-	symeventGroupAddEvent                                 uintptr
-	fneventGroupCreate                                    func(driver.Context, *EventGroup, uint32) Result
-	symeventGroupDestroy                                  uintptr
-	symeventGroupDisable                                  uintptr
-	symeventGroupEnable                                   uintptr
-	symeventGroupGetAttribute                             uintptr
-	symeventGroupReadAllEvents                            uintptr
-	symeventGroupReadEvent                                uintptr
-	symeventGroupRemoveAllEvents                          uintptr
-	symeventGroupRemoveEvent                              uintptr
-	symeventGroupResetAllEvents                           uintptr
-	symeventGroupSetAttribute                             uintptr
-	symEventGroupSetDisable                               uintptr
-	symEventGroupSetEnable                                uintptr
-	fnEventGroupSetsCreate                                func(driver.Context, uint, *uint32, **EventGroupSets) Result
-	symEventGroupSetsDestroy                              uintptr
-	symFinalize                                           uintptr
-	fnGetAutoBoostState                                   func(driver.Context, *ActivityAutoBoostState) Result
-	symGetCallbackName                                    uintptr
-	symgetCallbackState                                   uintptr
-	fnGetContextId                                        func(driver.Context, *uint32) Result
-	symGetCubinCrc                                        uintptr
-	fnGetDeviceId                                         func(driver.Context, *uint32) Result
-	symgetEnabledCallbacks                                uintptr
-	symGetGraphExecId                                     uintptr
-	symGetGraphId                                         uintptr
-	symGetGraphNodeId                                     uintptr
-	symGetLastError                                       uintptr
-	symGetNumEventDomains                                 uintptr
-	symGetNumMetrics                                      uintptr
-	symGetSassToSourceCorrelation                         uintptr
-	fnGetStreamId                                         func(driver.Context, driver.Stream, *uint32) Result
-	fnGetStreamIdEx                                       func(driver.Context, driver.Stream, uint8, *uint32) Result
-	symGetThreadIdType                                    uintptr
-	symGetTimestamp                                       uintptr
-	fnGetVersion                                          func(*uint32) Result
-	symIsTracingSessionRunning                            uintptr
-	symKernelReplaySubscribeUpdate                        uintptr
-	fnMetricCreateEventGroupSets                          func(driver.Context, uint, *uint32, **EventGroupSets) Result
-	symMetricEnumEvents                                   uintptr
-	symMetricEnumProperties                               uintptr
-	symMetricGetAttribute                                 uintptr
-	symMetricGetIdFromName                                uintptr
-	symMetricGetNumEvents                                 uintptr
-	symMetricGetNumProperties                             uintptr
-	fnMetricGetRequiredEventGroupSets                     func(driver.Context, uint32, **EventGroupSets) Result
-	symMetricGetValue                                     uintptr
-	symMetricGetValue2                                    uintptr
-	symPCSamplingDisable                                  uintptr
-	symPCSamplingEnable                                   uintptr
-	symPCSamplingGetConfigurationAttribute                uintptr
-	symPCSamplingGetData                                  uintptr
-	symPCSamplingGetNumStallReasons                       uintptr
-	symPCSamplingGetStallReasons                          uintptr
-	symPCSamplingSetConfigurationAttribute                uintptr
-	symPCSamplingStart                                    uintptr
-	symPCSamplingStop                                     uintptr
-	symPmSamplingCounterDataGetSampleInfo                 uintptr
-	symPmSamplingCounterDataImageInitialize               uintptr
-	symPmSamplingDecodeData                               uintptr
-	symPmSamplingDisable                                  uintptr
-	symPmSamplingEnable                                   uintptr
-	symPmSamplingGetCounterAvailability                   uintptr
-	symPmSamplingGetCounterDataInfo                       uintptr
-	symPmSamplingGetCounterDataSize                       uintptr
-	symPmSamplingSetConfig                                uintptr
-	symPmSamplingStart                                    uintptr
-	symPmSamplingStop                                     uintptr
-	symProfilerBeginPass                                  uintptr
-	symProfilerBeginSession                               uintptr
-	symProfilerCounterDataImageCalculateScratchBufferSize uintptr
-	symProfilerCounterDataImageCalculateSize              uintptr
-	symProfilerCounterDataImageInitialize                 uintptr
-	symProfilerCounterDataImageInitializeScratchBuffer    uintptr
-	symProfilerDeInitialize                               uintptr
-	symProfilerDeviceSupported                            uintptr
-	symProfilerDisableProfiling                           uintptr
-	symProfilerEnableProfiling                            uintptr
-	symProfilerEndPass                                    uintptr
-	symProfilerEndSession                                 uintptr
-	symProfilerFlushCounterData                           uintptr
-	symProfilerGetCounterAvailability                     uintptr
-	symProfilerHostConfigAddMetrics                       uintptr
-	symProfilerHostDeinitialize                           uintptr
-	symProfilerHostEvaluateToGpuValues                    uintptr
-	symProfilerHostGetBaseMetrics                         uintptr
-	symProfilerHostGetConfigImage                         uintptr
-	symProfilerHostGetConfigImageSize                     uintptr
-	symProfilerHostGetMaxNumHardwareMetricsPerPass        uintptr
-	symProfilerHostGetMetricProperties                    uintptr
-	symProfilerHostGetMetricsInSinglePassSet              uintptr
-	symProfilerHostGetNumOfPasses                         uintptr
-	symProfilerHostGetRangeName                           uintptr
-	symProfilerHostGetSinglePassSets                      uintptr
-	symProfilerHostGetSubMetrics                          uintptr
-	symProfilerHostGetSupportedChips                      uintptr
-	symProfilerHostInitialize                             uintptr
-	symProfilerInitialize                                 uintptr
-	symProfilerIsPassCollected                            uintptr
-	symProfilerPopRange                                   uintptr
-	symProfilerPushRange                                  uintptr
-	symProfilerSetConfig                                  uintptr
-	symProfilerUnsetConfig                                uintptr
-	symRangeProfilerCounterDataGetRangeInfo               uintptr
-	symRangeProfilerCounterDataImageInitialize            uintptr
-	symRangeProfilerDecodeData                            uintptr
-	symRangeProfilerDisable                               uintptr
-	symRangeProfilerEnable                                uintptr
-	symRangeProfilerGetCounterDataInfo                    uintptr
-	symRangeProfilerGetCounterDataSize                    uintptr
-	symRangeProfilerPopRange                              uintptr
-	symRangeProfilerPushRange                             uintptr
-	symRangeProfilerSetConfig                             uintptr
-	symRangeProfilerStart                                 uintptr
-	symRangeProfilerStop                                  uintptr
-	symRegisterComputeCrcCallback                         uintptr
-	symSassMetricsDisable                                 uintptr
-	symSassMetricsEnable                                  uintptr
-	symSassMetricsFlushData                               uintptr
-	symSassMetricsGetDataProperties                       uintptr
-	symSassMetricsGetMetrics                              uintptr
-	symSassMetricsGetNumOfMetrics                         uintptr
-	symSassMetricsGetProperties                           uintptr
-	symSassMetricsSetConfig                               uintptr
-	symSassMetricsUnsetConfig                             uintptr
-	fnSetEventCollectionMode                              func(driver.Context, EventCollectionMode) Result
-	symSetThreadIdType                                    uintptr
-	symSubscribe                                          uintptr
-	symSubscribeV2                                        uintptr
-	symSupportedDomains                                   uintptr
-	symunsubscribe                                        uintptr
+	fnActivityConfigurePCSampling                        func(driver.Context, *ActivityPCSamplingConfig) Result
+	fnActivityConfigureUnifiedMemoryCounter              func(*ActivityUnifiedMemoryCounterConfig, uint32) Result
+	fnActivityDisable                                    func(ActivityKind) Result
+	fnActivityDisableContext                             func(driver.Context, ActivityKind) Result
+	fnactivityDisableV2                                  func(Subscriber, ActivityKind, *ActivityConfig) Result
+	fnActivityEnable                                     func(ActivityKind) Result
+	fnActivityEnableAllSyncRecords                       func(uint8) Result
+	fnActivityEnableAllocationSource                     func(uint8) Result
+	fnActivityEnableAndDump                              func(ActivityKind) Result
+	fnactivityEnableAndDumpV2                            func(Subscriber, ActivityKind, *ActivityConfig) Result
+	fnActivityEnableContext                              func(driver.Context, ActivityKind) Result
+	fnActivityEnableCudaEventDeviceTimestamps            func(uint8) Result
+	fnActivityEnableDeviceGraph                          func(uint8) Result
+	fnActivityEnableDriverApi                            func(uint32, uint8) Result
+	fnActivityEnableHWTrace                              func(uint8) Result
+	fnActivityEnableLatencyTimestamps                    func(uint8) Result
+	fnActivityEnableLaunchAttributes                     func(uint8) Result
+	fnActivityEnableRuntimeApi                           func(uint32, uint8) Result
+	fnactivityEnableV2                                   func(Subscriber, ActivityKind, *ActivityConfig) Result
+	fnActivityFlush                                      func(driver.Context, uint32, uint32) Result
+	fnActivityFlushAll                                   func(uint32) Result
+	fnActivityFlushPeriod                                func(uint32) Result
+	fnActivityGetAttribute                               func(ActivityAttribute, *uint, unsafe.Pointer) Result
+	fnactivityGetAttributeV2                             func(Subscriber, ActivityAttribute, *uint, unsafe.Pointer) Result
+	fnactivityGetEnabledKinds                            func(Subscriber, *ActivityKind, *uint32, *uint32) Result
+	fnActivityGetNextRecord                              func(*uint8, uint, **Activity) Result
+	fnActivityGetNumDroppedRecords                       func(driver.Context, uint32, *uint) Result
+	fnActivityGetStructSize                              func(ActivityKind, uint32, *uint) Result
+	fnActivityPopExternalCorrelationId                   func(ExternalCorrelationKind, *uint64) Result
+	fnActivityPushExternalCorrelationId                  func(ExternalCorrelationKind, uint64) Result
+	fnActivityRegisterCallbacks                          func(uintptr, uintptr) Result
+	fnactivityRegisterCallbacksV2                        func(Subscriber, uintptr, uintptr) Result
+	fnActivityRegisterTimestampCallback                  func(uintptr) Result
+	fnActivitySetAttribute                               func(ActivityAttribute, *uint, unsafe.Pointer) Result
+	fnactivitySetAttributeV2                             func(Subscriber, ActivityAttribute, *uint, unsafe.Pointer) Result
+	fnCheckpointFree                                     func(*Checkpoint) Result
+	fnCheckpointRestore                                  func(*Checkpoint) Result
+	fnCheckpointSave                                     func(*Checkpoint) Result
+	fnComputeCapabilitySupported                         func(int32, int32, *int32) Result
+	fnDeviceEnumEventDomains                             func(Device, *uint, *uint32) Result
+	fnDeviceEnumMetrics                                  func(Device, *uint, *uint32) Result
+	fnDeviceGetAttribute                                 func(Device, DeviceAttribute, *uint, unsafe.Pointer) Result
+	fnDeviceGetChipName                                  func(*DeviceGetChipNameParams) Result
+	fnDeviceGetEventDomainAttribute                      func(Device, uint32, EventDomainAttribute, *uint, unsafe.Pointer) Result
+	fnDeviceGetNumEventDomains                           func(Device, *uint32) Result
+	fnDeviceGetNumMetrics                                func(Device, *uint32) Result
+	fnDeviceSupported                                    func(Device, *int32) Result
+	fnDeviceVirtualizationMode                           func(Device, *VirtualizationMode) Result
+	fnDisableKernelReplayMode                            func(driver.Context) Result
+	fnenableAllDomains                                   func(uint32, Subscriber) Result
+	fnenableCallback                                     func(uint32, Subscriber, CallbackDomain, uint32) Result
+	fnenableDomain                                       func(uint32, Subscriber, CallbackDomain) Result
+	fnEnableKernelReplayMode                             func(driver.Context) Result
+	fnEnumEventDomains                                   func(*uint, *uint32) Result
+	fnEnumMetrics                                        func(*uint, *uint32) Result
+	fnEventDomainEnumEvents                              func(uint32, *uint, *uint32) Result
+	fnEventDomainGetAttribute                            func(uint32, EventDomainAttribute, *uint, unsafe.Pointer) Result
+	fnEventDomainGetNumEvents                            func(uint32, *uint32) Result
+	fnEventGetAttribute                                  func(uint32, EventAttribute, *uint, unsafe.Pointer) Result
+	fnEventGetIdFromName                                 func(Device, *byte, *uint32) Result
+	fneventGroupAddEvent                                 func(EventGroup, uint32) Result
+	fneventGroupCreate                                   func(driver.Context, *EventGroup, uint32) Result
+	fneventGroupDestroy                                  func(EventGroup) Result
+	fneventGroupDisable                                  func(EventGroup) Result
+	fneventGroupEnable                                   func(EventGroup) Result
+	fneventGroupGetAttribute                             func(EventGroup, EventGroupAttribute, *uint, unsafe.Pointer) Result
+	fneventGroupReadAllEvents                            func(EventGroup, ReadEventFlags, *uint, *uint64, *uint, *uint32, *uint) Result
+	fneventGroupReadEvent                                func(EventGroup, ReadEventFlags, uint32, *uint, *uint64) Result
+	fneventGroupRemoveAllEvents                          func(EventGroup) Result
+	fneventGroupRemoveEvent                              func(EventGroup, uint32) Result
+	fneventGroupResetAllEvents                           func(EventGroup) Result
+	fneventGroupSetAttribute                             func(EventGroup, EventGroupAttribute, uint, unsafe.Pointer) Result
+	fnEventGroupSetDisable                               func(*EventGroupSet) Result
+	fnEventGroupSetEnable                                func(*EventGroupSet) Result
+	fnEventGroupSetsCreate                               func(driver.Context, uint, *uint32, **EventGroupSets) Result
+	fnEventGroupSetsDestroy                              func(*EventGroupSets) Result
+	fnFinalize                                           func() Result
+	fnGetAutoBoostState                                  func(driver.Context, *ActivityAutoBoostState) Result
+	fnGetCallbackName                                    func(CallbackDomain, uint32, **byte) Result
+	fngetCallbackState                                   func(*uint32, Subscriber, CallbackDomain, uint32) Result
+	fnGetContextId                                       func(driver.Context, *uint32) Result
+	fnGetCubinCrc                                        func(*GetCubinCrcParams) Result
+	fnGetDeviceId                                        func(driver.Context, *uint32) Result
+	fngetEnabledCallbacks                                func(Subscriber, CallbackDomain, *uint32, *uint32, *uint32) Result
+	fnGetGraphExecId                                     func(GraphExec, *uint32) Result
+	fnGetGraphId                                         func(Graph, *uint32) Result
+	fnGetGraphNodeId                                     func(GraphNode, *uint64) Result
+	fnGetLastError                                       func() Result
+	fnGetNumEventDomains                                 func(*uint32) Result
+	fnGetNumMetrics                                      func(*uint32) Result
+	fnGetSassToSourceCorrelation                         func(*GetSassToSourceCorrelationParams) Result
+	fnGetStreamId                                        func(driver.Context, driver.Stream, *uint32) Result
+	fnGetStreamIdEx                                      func(driver.Context, driver.Stream, uint8, *uint32) Result
+	fnGetThreadIdType                                    func(*ActivityThreadIdType) Result
+	fnGetTimestamp                                       func(*uint64) Result
+	fnGetVersion                                         func(*uint32) Result
+	fnIsTracingSessionRunning                            func(*uint8) Result
+	fnKernelReplaySubscribeUpdate                        func(uintptr, uintptr) Result
+	fnMetricCreateEventGroupSets                         func(driver.Context, uint, *uint32, **EventGroupSets) Result
+	fnMetricEnumEvents                                   func(uint32, *uint, *uint32) Result
+	fnMetricEnumProperties                               func(uint32, *uint, *MetricPropertyID) Result
+	fnMetricGetAttribute                                 func(uint32, MetricAttribute, *uint, unsafe.Pointer) Result
+	fnMetricGetIdFromName                                func(Device, *byte, *uint32) Result
+	fnMetricGetNumEvents                                 func(uint32, *uint32) Result
+	fnMetricGetNumProperties                             func(uint32, *uint32) Result
+	fnMetricGetRequiredEventGroupSets                    func(driver.Context, uint32, **EventGroupSets) Result
+	fnMetricGetValue                                     func(Device, uint32, uint, *uint32, uint, *uint64, uint64, *[1]uint64) Result
+	fnMetricGetValue2                                    func(uint32, uint, *uint32, uint, *uint64, uint, *MetricPropertyID, uint, *uint64, *[1]uint64) Result
+	fnPCSamplingDisable                                  func(*PCSamplingDisableParams) Result
+	fnPCSamplingEnable                                   func(*PCSamplingEnableParams) Result
+	fnPCSamplingGetConfigurationAttribute                func(*PCSamplingConfigurationInfoParams) Result
+	fnPCSamplingGetData                                  func(*PCSamplingGetDataParams) Result
+	fnPCSamplingGetNumStallReasons                       func(*PCSamplingGetNumStallReasonsParams) Result
+	fnPCSamplingGetStallReasons                          func(*PCSamplingGetStallReasonsParams) Result
+	fnPCSamplingSetConfigurationAttribute                func(*PCSamplingConfigurationInfoParams) Result
+	fnPCSamplingStart                                    func(*PCSamplingStartParams) Result
+	fnPCSamplingStop                                     func(*PCSamplingStopParams) Result
+	fnPmSamplingCounterDataGetSampleInfo                 func(*PmSamplingCounterDataGetSampleInfoParams) Result
+	fnPmSamplingCounterDataImageInitialize               func(*PmSamplingCounterDataImageInitializeParams) Result
+	fnPmSamplingDecodeData                               func(*PmSamplingDecodeDataParams) Result
+	fnPmSamplingDisable                                  func(*PmSamplingDisableParams) Result
+	fnPmSamplingEnable                                   func(*PmSamplingEnableParams) Result
+	fnPmSamplingGetCounterAvailability                   func(*PmSamplingGetCounterAvailabilityParams) Result
+	fnPmSamplingGetCounterDataInfo                       func(*PmSamplingGetCounterDataInfoParams) Result
+	fnPmSamplingGetCounterDataSize                       func(*PmSamplingGetCounterDataSizeParams) Result
+	fnPmSamplingSetConfig                                func(*PmSamplingSetConfigParams) Result
+	fnPmSamplingStart                                    func(*PmSamplingStartParams) Result
+	fnPmSamplingStop                                     func(*PmSamplingStopParams) Result
+	fnProfilerBeginPass                                  func(*ProfilerBeginPassParams) Result
+	fnProfilerBeginSession                               func(*ProfilerBeginSessionParams) Result
+	fnProfilerCounterDataImageCalculateScratchBufferSize func(*ProfilerCounterDataImageCalculateScratchBufferSizeParams) Result
+	fnProfilerCounterDataImageCalculateSize              func(*ProfilerCounterDataImageCalculateSizeParams) Result
+	fnProfilerCounterDataImageInitialize                 func(*ProfilerCounterDataImageInitializeParams) Result
+	fnProfilerCounterDataImageInitializeScratchBuffer    func(*ProfilerCounterDataImageInitializeScratchBufferParams) Result
+	fnProfilerDeInitialize                               func(*ProfilerDeInitializeParams) Result
+	fnProfilerDeviceSupported                            func(*ProfilerDeviceSupportedParams) Result
+	fnProfilerDisableProfiling                           func(*ProfilerDisableProfilingParams) Result
+	fnProfilerEnableProfiling                            func(*ProfilerEnableProfilingParams) Result
+	fnProfilerEndPass                                    func(*ProfilerEndPassParams) Result
+	fnProfilerEndSession                                 func(*ProfilerEndSessionParams) Result
+	fnProfilerFlushCounterData                           func(*ProfilerFlushCounterDataParams) Result
+	fnProfilerGetCounterAvailability                     func(*ProfilerGetCounterAvailabilityParams) Result
+	fnProfilerHostConfigAddMetrics                       func(*ProfilerHostConfigAddMetricsParams) Result
+	fnProfilerHostDeinitialize                           func(*ProfilerHostDeinitializeParams) Result
+	fnProfilerHostEvaluateToGpuValues                    func(*ProfilerHostEvaluateToGpuValuesParams) Result
+	fnProfilerHostGetBaseMetrics                         func(*ProfilerHostGetBaseMetricsParams) Result
+	fnProfilerHostGetConfigImage                         func(*ProfilerHostGetConfigImageParams) Result
+	fnProfilerHostGetConfigImageSize                     func(*ProfilerHostGetConfigImageSizeParams) Result
+	fnProfilerHostGetMaxNumHardwareMetricsPerPass        func(*ProfilerHostGetMaxNumHardwareMetricsPerPassParams) Result
+	fnProfilerHostGetMetricProperties                    func(*ProfilerHostGetMetricPropertiesParams) Result
+	fnProfilerHostGetMetricsInSinglePassSet              func(*ProfilerHostGetMetricsInSinglePassSetParams) Result
+	fnProfilerHostGetNumOfPasses                         func(*ProfilerHostGetNumOfPassesParams) Result
+	fnProfilerHostGetRangeName                           func(*ProfilerHostGetRangeNameParams) Result
+	fnProfilerHostGetSinglePassSets                      func(*ProfilerHostGetSinglePassSetsParams) Result
+	fnProfilerHostGetSubMetrics                          func(*ProfilerHostGetSubMetricsParams) Result
+	fnProfilerHostGetSupportedChips                      func(*ProfilerHostGetSupportedChipsParams) Result
+	fnProfilerHostInitialize                             func(*ProfilerHostInitializeParams) Result
+	fnProfilerInitialize                                 func(*ProfilerInitializeParams) Result
+	fnProfilerIsPassCollected                            func(*ProfilerIsPassCollectedParams) Result
+	fnProfilerPopRange                                   func(*ProfilerPopRangeParams) Result
+	fnProfilerPushRange                                  func(*ProfilerPushRangeParams) Result
+	fnProfilerSetConfig                                  func(*ProfilerSetConfigParams) Result
+	fnProfilerUnsetConfig                                func(*ProfilerUnsetConfigParams) Result
+	fnRangeProfilerCounterDataGetRangeInfo               func(*RangeProfilerCounterDataGetRangeInfoParams) Result
+	fnRangeProfilerCounterDataImageInitialize            func(*RangeProfilerCounterDataImageInitializeParams) Result
+	fnRangeProfilerDecodeData                            func(*RangeProfilerDecodeDataParams) Result
+	fnRangeProfilerDisable                               func(*RangeProfilerDisableParams) Result
+	fnRangeProfilerEnable                                func(*RangeProfilerEnableParams) Result
+	fnRangeProfilerGetCounterDataInfo                    func(*RangeProfilerGetCounterDataInfoParams) Result
+	fnRangeProfilerGetCounterDataSize                    func(*RangeProfilerGetCounterDataSizeParams) Result
+	fnRangeProfilerPopRange                              func(*RangeProfilerPopRangeParams) Result
+	fnRangeProfilerPushRange                             func(*RangeProfilerPushRangeParams) Result
+	fnRangeProfilerSetConfig                             func(*RangeProfilerSetConfigParams) Result
+	fnRangeProfilerStart                                 func(*RangeProfilerStartParams) Result
+	fnRangeProfilerStop                                  func(*RangeProfilerStopParams) Result
+	fnRegisterComputeCrcCallback                         func(uintptr) Result
+	fnSassMetricsDisable                                 func(*SassMetricsDisableParams) Result
+	fnSassMetricsEnable                                  func(*SassMetricsEnableParams) Result
+	fnSassMetricsFlushData                               func(*SassMetricsFlushDataParams) Result
+	fnSassMetricsGetDataProperties                       func(*SassMetricsGetDataPropertiesParams) Result
+	fnSassMetricsGetMetrics                              func(*SassMetricsGetMetricsParams) Result
+	fnSassMetricsGetNumOfMetrics                         func(*SassMetricsGetNumOfMetricsParams) Result
+	fnSassMetricsGetProperties                           func(*SassMetricsGetPropertiesParams) Result
+	fnSassMetricsSetConfig                               func(*SassMetricsSetConfigParams) Result
+	fnSassMetricsUnsetConfig                             func(*SassMetricsUnsetConfigParams) Result
+	fnSetEventCollectionMode                             func(driver.Context, EventCollectionMode) Result
+	fnSetThreadIdType                                    func(ActivityThreadIdType) Result
+	fnSubscribe                                          func(*Subscriber, uintptr, uintptr) Result
+	fnSubscribeV2                                        func(*Subscriber, uintptr, uintptr, *SubscriberParams) Result
+	fnSupportedDomains                                   func(*uint, *uintptr) Result
+	fnunsubscribe                                        func(Subscriber) Result
 )
-
-// fnActivityConfigureUnifiedMemoryCounter calls cuptiActivityConfigureUnifiedMemoryCounter.
-func fnActivityConfigureUnifiedMemoryCounter(a0 *ActivityUnifiedMemoryCounterConfig, a1 uint32) Result {
-	r1, _ := ffiCallWidths2(symActivityConfigureUnifiedMemoryCounter, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1))
-	return Result(r1)
-}
-
-// fnActivityDisable calls cuptiActivityDisable.
-func fnActivityDisable(a0 ActivityKind) Result {
-	r1, _ := ffiCallWidths1(symActivityDisable, 0, 0x3, uintptr(a0))
-	return Result(r1)
-}
-
-// fnactivityDisableV2 calls cuptiActivityDisable_v2.
-func fnactivityDisableV2(a0 Subscriber, a1 ActivityKind, a2 *ActivityConfig) Result {
-	r1, _ := ffiCallWidths3(symactivityDisableV2, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
-	return Result(r1)
-}
-
-// fnActivityEnable calls cuptiActivityEnable.
-func fnActivityEnable(a0 ActivityKind) Result {
-	r1, _ := ffiCallWidths1(symActivityEnable, 0, 0x3, uintptr(a0))
-	return Result(r1)
-}
-
-// fnActivityEnableAllSyncRecords calls cuptiActivityEnableAllSyncRecords.
-func fnActivityEnableAllSyncRecords(a0 uint8) Result {
-	r1, _ := ffiCallWidths1(symActivityEnableAllSyncRecords, 0, 0x1, uintptr(a0))
-	return Result(r1)
-}
-
-// fnActivityEnableAllocationSource calls cuptiActivityEnableAllocationSource.
-func fnActivityEnableAllocationSource(a0 uint8) Result {
-	r1, _ := ffiCallWidths1(symActivityEnableAllocationSource, 0, 0x1, uintptr(a0))
-	return Result(r1)
-}
-
-// fnActivityEnableAndDump calls cuptiActivityEnableAndDump.
-func fnActivityEnableAndDump(a0 ActivityKind) Result {
-	r1, _ := ffiCallWidths1(symActivityEnableAndDump, 0, 0x3, uintptr(a0))
-	return Result(r1)
-}
-
-// fnactivityEnableAndDumpV2 calls cuptiActivityEnableAndDump_v2.
-func fnactivityEnableAndDumpV2(a0 Subscriber, a1 ActivityKind, a2 *ActivityConfig) Result {
-	r1, _ := ffiCallWidths3(symactivityEnableAndDumpV2, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
-	return Result(r1)
-}
-
-// fnActivityEnableCudaEventDeviceTimestamps calls cuptiActivityEnableCudaEventDeviceTimestamps.
-func fnActivityEnableCudaEventDeviceTimestamps(a0 uint8) Result {
-	r1, _ := ffiCallWidths1(symActivityEnableCudaEventDeviceTimestamps, 0, 0x1, uintptr(a0))
-	return Result(r1)
-}
-
-// fnActivityEnableDeviceGraph calls cuptiActivityEnableDeviceGraph.
-func fnActivityEnableDeviceGraph(a0 uint8) Result {
-	r1, _ := ffiCallWidths1(symActivityEnableDeviceGraph, 0, 0x1, uintptr(a0))
-	return Result(r1)
-}
-
-// fnActivityEnableDriverApi calls cuptiActivityEnableDriverApi.
-func fnActivityEnableDriverApi(a0 uint32, a1 uint8) Result {
-	r1, _ := ffiCallWidths2(symActivityEnableDriverApi, 0, 0x7, uintptr(a0), uintptr(a1))
-	return Result(r1)
-}
-
-// fnActivityEnableHWTrace calls cuptiActivityEnableHWTrace.
-func fnActivityEnableHWTrace(a0 uint8) Result {
-	r1, _ := ffiCallWidths1(symActivityEnableHWTrace, 0, 0x1, uintptr(a0))
-	return Result(r1)
-}
-
-// fnActivityEnableLatencyTimestamps calls cuptiActivityEnableLatencyTimestamps.
-func fnActivityEnableLatencyTimestamps(a0 uint8) Result {
-	r1, _ := ffiCallWidths1(symActivityEnableLatencyTimestamps, 0, 0x1, uintptr(a0))
-	return Result(r1)
-}
-
-// fnActivityEnableLaunchAttributes calls cuptiActivityEnableLaunchAttributes.
-func fnActivityEnableLaunchAttributes(a0 uint8) Result {
-	r1, _ := ffiCallWidths1(symActivityEnableLaunchAttributes, 0, 0x1, uintptr(a0))
-	return Result(r1)
-}
-
-// fnActivityEnableRuntimeApi calls cuptiActivityEnableRuntimeApi.
-func fnActivityEnableRuntimeApi(a0 uint32, a1 uint8) Result {
-	r1, _ := ffiCallWidths2(symActivityEnableRuntimeApi, 0, 0x7, uintptr(a0), uintptr(a1))
-	return Result(r1)
-}
-
-// fnactivityEnableV2 calls cuptiActivityEnable_v2.
-func fnactivityEnableV2(a0 Subscriber, a1 ActivityKind, a2 *ActivityConfig) Result {
-	r1, _ := ffiCallWidths3(symactivityEnableV2, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
-	return Result(r1)
-}
-
-// fnActivityFlushAll calls cuptiActivityFlushAll.
-func fnActivityFlushAll(a0 uint32) Result {
-	r1, _ := ffiCallWidths1(symActivityFlushAll, 0, 0x3, uintptr(a0))
-	return Result(r1)
-}
-
-// fnActivityFlushPeriod calls cuptiActivityFlushPeriod.
-func fnActivityFlushPeriod(a0 uint32) Result {
-	r1, _ := ffiCallWidths1(symActivityFlushPeriod, 0, 0x3, uintptr(a0))
-	return Result(r1)
-}
-
-// fnActivityGetAttribute calls cuptiActivityGetAttribute.
-func fnActivityGetAttribute(a0 ActivityAttribute, a1 *uint, a2 unsafe.Pointer) Result {
-	r1, _ := ffiCallWidths3(symActivityGetAttribute, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
-	return Result(r1)
-}
-
-// fnactivityGetAttributeV2 calls cuptiActivityGetAttribute_v2.
-func fnactivityGetAttributeV2(a0 Subscriber, a1 ActivityAttribute, a2 *uint, a3 unsafe.Pointer) Result {
-	r1, _ := ffiCallWidths4(symactivityGetAttributeV2, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
-	return Result(r1)
-}
-
-// fnactivityGetEnabledKinds calls cuptiActivityGetEnabledKinds.
-func fnactivityGetEnabledKinds(a0 Subscriber, a1 *ActivityKind, a2 *uint32, a3 *uint32) Result {
-	r1, _ := ffiCall4(symactivityGetEnabledKinds, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
-	return Result(r1)
-}
-
-// fnActivityGetNextRecord calls cuptiActivityGetNextRecord.
-func fnActivityGetNextRecord(a0 *uint8, a1 uint, a2 **Activity) Result {
-	r1, _ := ffiCall3(symActivityGetNextRecord, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)))
-	return Result(r1)
-}
-
-// fnActivityGetStructSize calls cuptiActivityGetStructSize.
-func fnActivityGetStructSize(a0 ActivityKind, a1 uint32, a2 *uint) Result {
-	r1, _ := ffiCallWidths3(symActivityGetStructSize, 0, 0xf, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
-	return Result(r1)
-}
-
-// fnActivityPopExternalCorrelationId calls cuptiActivityPopExternalCorrelationId.
-func fnActivityPopExternalCorrelationId(a0 ExternalCorrelationKind, a1 *uint64) Result {
-	r1, _ := ffiCallWidths2(symActivityPopExternalCorrelationId, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
-	return Result(r1)
-}
-
-// fnActivityPushExternalCorrelationId calls cuptiActivityPushExternalCorrelationId.
-func fnActivityPushExternalCorrelationId(a0 ExternalCorrelationKind, a1 uint64) Result {
-	r1, _ := ffiCallWidths2(symActivityPushExternalCorrelationId, 0, 0x3, uintptr(a0), uintptr(a1))
-	return Result(r1)
-}
-
-// fnActivityRegisterCallbacks calls cuptiActivityRegisterCallbacks.
-func fnActivityRegisterCallbacks(a0 uintptr, a1 uintptr) Result {
-	r1, _ := ffiCall2(symActivityRegisterCallbacks, 0, uintptr(a0), uintptr(a1))
-	return Result(r1)
-}
-
-// fnactivityRegisterCallbacksV2 calls cuptiActivityRegisterCallbacks_v2.
-func fnactivityRegisterCallbacksV2(a0 Subscriber, a1 uintptr, a2 uintptr) Result {
-	r1, _ := ffiCall3(symactivityRegisterCallbacksV2, 0, uintptr(a0), uintptr(a1), uintptr(a2))
-	return Result(r1)
-}
-
-// fnActivityRegisterTimestampCallback calls cuptiActivityRegisterTimestampCallback.
-func fnActivityRegisterTimestampCallback(a0 uintptr) Result {
-	r1, _ := ffiCall1(symActivityRegisterTimestampCallback, 0, uintptr(a0))
-	return Result(r1)
-}
-
-// fnActivitySetAttribute calls cuptiActivitySetAttribute.
-func fnActivitySetAttribute(a0 ActivityAttribute, a1 *uint, a2 unsafe.Pointer) Result {
-	r1, _ := ffiCallWidths3(symActivitySetAttribute, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
-	return Result(r1)
-}
-
-// fnactivitySetAttributeV2 calls cuptiActivitySetAttribute_v2.
-func fnactivitySetAttributeV2(a0 Subscriber, a1 ActivityAttribute, a2 *uint, a3 unsafe.Pointer) Result {
-	r1, _ := ffiCallWidths4(symactivitySetAttributeV2, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
-	return Result(r1)
-}
-
-// fnCheckpointFree calls cuptiCheckpointFree.
-func fnCheckpointFree(a0 *Checkpoint) Result {
-	r1, _ := ffiCall1(symCheckpointFree, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnCheckpointRestore calls cuptiCheckpointRestore.
-func fnCheckpointRestore(a0 *Checkpoint) Result {
-	r1, _ := ffiCall1(symCheckpointRestore, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnCheckpointSave calls cuptiCheckpointSave.
-func fnCheckpointSave(a0 *Checkpoint) Result {
-	r1, _ := ffiCall1(symCheckpointSave, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnComputeCapabilitySupported calls cuptiComputeCapabilitySupported.
-func fnComputeCapabilitySupported(a0 int32, a1 int32, a2 *int32) Result {
-	r1, _ := ffiCallWidths3(symComputeCapabilitySupported, 0, 0xf, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
-	return Result(r1)
-}
-
-// fnDeviceEnumEventDomains calls cuptiDeviceEnumEventDomains.
-func fnDeviceEnumEventDomains(a0 Device, a1 *uint, a2 *uint32) Result {
-	r1, _ := ffiCallWidths3(symDeviceEnumEventDomains, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
-	return Result(r1)
-}
-
-// fnDeviceEnumMetrics calls cuptiDeviceEnumMetrics.
-func fnDeviceEnumMetrics(a0 Device, a1 *uint, a2 *uint32) Result {
-	r1, _ := ffiCallWidths3(symDeviceEnumMetrics, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
-	return Result(r1)
-}
-
-// fnDeviceGetAttribute calls cuptiDeviceGetAttribute.
-func fnDeviceGetAttribute(a0 Device, a1 DeviceAttribute, a2 *uint, a3 unsafe.Pointer) Result {
-	r1, _ := ffiCallWidths4(symDeviceGetAttribute, 0, 0xf, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
-	return Result(r1)
-}
-
-// fnDeviceGetChipName calls cuptiDeviceGetChipName.
-func fnDeviceGetChipName(a0 *DeviceGetChipNameParams) Result {
-	r1, _ := ffiCall1(symDeviceGetChipName, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnDeviceGetEventDomainAttribute calls cuptiDeviceGetEventDomainAttribute.
-func fnDeviceGetEventDomainAttribute(a0 Device, a1 uint32, a2 EventDomainAttribute, a3 *uint, a4 unsafe.Pointer) Result {
-	r1, _ := ffiCallWidths5(symDeviceGetEventDomainAttribute, 0, 0x3f, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4))
-	return Result(r1)
-}
-
-// fnDeviceGetNumEventDomains calls cuptiDeviceGetNumEventDomains.
-func fnDeviceGetNumEventDomains(a0 Device, a1 *uint32) Result {
-	r1, _ := ffiCallWidths2(symDeviceGetNumEventDomains, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
-	return Result(r1)
-}
-
-// fnDeviceGetNumMetrics calls cuptiDeviceGetNumMetrics.
-func fnDeviceGetNumMetrics(a0 Device, a1 *uint32) Result {
-	r1, _ := ffiCallWidths2(symDeviceGetNumMetrics, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
-	return Result(r1)
-}
-
-// fnDeviceSupported calls cuptiDeviceSupported.
-func fnDeviceSupported(a0 Device, a1 *int32) Result {
-	r1, _ := ffiCallWidths2(symDeviceSupported, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
-	return Result(r1)
-}
-
-// fnDeviceVirtualizationMode calls cuptiDeviceVirtualizationMode.
-func fnDeviceVirtualizationMode(a0 Device, a1 *VirtualizationMode) Result {
-	r1, _ := ffiCallWidths2(symDeviceVirtualizationMode, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
-	return Result(r1)
-}
-
-// fnenableAllDomains calls cuptiEnableAllDomains.
-func fnenableAllDomains(a0 uint32, a1 Subscriber) Result {
-	r1, _ := ffiCallWidths2(symenableAllDomains, 0, 0x3, uintptr(a0), uintptr(a1))
-	return Result(r1)
-}
-
-// fnenableCallback calls cuptiEnableCallback.
-func fnenableCallback(a0 uint32, a1 Subscriber, a2 CallbackDomain, a3 uint32) Result {
-	r1, _ := ffiCallWidths4(symenableCallback, 0, 0xf3, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
-	return Result(r1)
-}
-
-// fnenableDomain calls cuptiEnableDomain.
-func fnenableDomain(a0 uint32, a1 Subscriber, a2 CallbackDomain) Result {
-	r1, _ := ffiCallWidths3(symenableDomain, 0, 0x33, uintptr(a0), uintptr(a1), uintptr(a2))
-	return Result(r1)
-}
-
-// fnEnumEventDomains calls cuptiEnumEventDomains.
-func fnEnumEventDomains(a0 *uint, a1 *uint32) Result {
-	r1, _ := ffiCall2(symEnumEventDomains, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
-	return Result(r1)
-}
-
-// fnEnumMetrics calls cuptiEnumMetrics.
-func fnEnumMetrics(a0 *uint, a1 *uint32) Result {
-	r1, _ := ffiCall2(symEnumMetrics, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
-	return Result(r1)
-}
-
-// fnEventDomainEnumEvents calls cuptiEventDomainEnumEvents.
-func fnEventDomainEnumEvents(a0 uint32, a1 *uint, a2 *uint32) Result {
-	r1, _ := ffiCallWidths3(symEventDomainEnumEvents, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
-	return Result(r1)
-}
-
-// fnEventDomainGetAttribute calls cuptiEventDomainGetAttribute.
-func fnEventDomainGetAttribute(a0 uint32, a1 EventDomainAttribute, a2 *uint, a3 unsafe.Pointer) Result {
-	r1, _ := ffiCallWidths4(symEventDomainGetAttribute, 0, 0xf, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
-	return Result(r1)
-}
-
-// fnEventDomainGetNumEvents calls cuptiEventDomainGetNumEvents.
-func fnEventDomainGetNumEvents(a0 uint32, a1 *uint32) Result {
-	r1, _ := ffiCallWidths2(symEventDomainGetNumEvents, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
-	return Result(r1)
-}
-
-// fnEventGetAttribute calls cuptiEventGetAttribute.
-func fnEventGetAttribute(a0 uint32, a1 EventAttribute, a2 *uint, a3 unsafe.Pointer) Result {
-	r1, _ := ffiCallWidths4(symEventGetAttribute, 0, 0xf, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
-	return Result(r1)
-}
-
-// fnEventGetIdFromName calls cuptiEventGetIdFromName.
-func fnEventGetIdFromName(a0 Device, a1 *byte, a2 *uint32) Result {
-	r1, _ := ffiCallWidths3(symEventGetIdFromName, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
-	return Result(r1)
-}
-
-// fneventGroupAddEvent calls cuptiEventGroupAddEvent.
-func fneventGroupAddEvent(a0 EventGroup, a1 uint32) Result {
-	r1, _ := ffiCallWidths2(symeventGroupAddEvent, 0, 0xc, uintptr(a0), uintptr(a1))
-	return Result(r1)
-}
-
-// fneventGroupDestroy calls cuptiEventGroupDestroy.
-func fneventGroupDestroy(a0 EventGroup) Result {
-	r1, _ := ffiCall1(symeventGroupDestroy, 0, uintptr(a0))
-	return Result(r1)
-}
-
-// fneventGroupDisable calls cuptiEventGroupDisable.
-func fneventGroupDisable(a0 EventGroup) Result {
-	r1, _ := ffiCall1(symeventGroupDisable, 0, uintptr(a0))
-	return Result(r1)
-}
-
-// fneventGroupEnable calls cuptiEventGroupEnable.
-func fneventGroupEnable(a0 EventGroup) Result {
-	r1, _ := ffiCall1(symeventGroupEnable, 0, uintptr(a0))
-	return Result(r1)
-}
-
-// fneventGroupGetAttribute calls cuptiEventGroupGetAttribute.
-func fneventGroupGetAttribute(a0 EventGroup, a1 EventGroupAttribute, a2 *uint, a3 unsafe.Pointer) Result {
-	r1, _ := ffiCallWidths4(symeventGroupGetAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
-	return Result(r1)
-}
-
-// fneventGroupReadAllEvents calls cuptiEventGroupReadAllEvents.
-func fneventGroupReadAllEvents(a0 EventGroup, a1 ReadEventFlags, a2 *uint, a3 *uint64, a4 *uint, a5 *uint32, a6 *uint) Result {
-	r1, _ := ffiCallWidths7(symeventGroupReadAllEvents, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)))
-	return Result(r1)
-}
-
-// fneventGroupReadEvent calls cuptiEventGroupReadEvent.
-func fneventGroupReadEvent(a0 EventGroup, a1 ReadEventFlags, a2 uint32, a3 *uint, a4 *uint64) Result {
-	r1, _ := ffiCallWidths5(symeventGroupReadEvent, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
-	return Result(r1)
-}
-
-// fneventGroupRemoveAllEvents calls cuptiEventGroupRemoveAllEvents.
-func fneventGroupRemoveAllEvents(a0 EventGroup) Result {
-	r1, _ := ffiCall1(symeventGroupRemoveAllEvents, 0, uintptr(a0))
-	return Result(r1)
-}
-
-// fneventGroupRemoveEvent calls cuptiEventGroupRemoveEvent.
-func fneventGroupRemoveEvent(a0 EventGroup, a1 uint32) Result {
-	r1, _ := ffiCallWidths2(symeventGroupRemoveEvent, 0, 0xc, uintptr(a0), uintptr(a1))
-	return Result(r1)
-}
-
-// fneventGroupResetAllEvents calls cuptiEventGroupResetAllEvents.
-func fneventGroupResetAllEvents(a0 EventGroup) Result {
-	r1, _ := ffiCall1(symeventGroupResetAllEvents, 0, uintptr(a0))
-	return Result(r1)
-}
-
-// fneventGroupSetAttribute calls cuptiEventGroupSetAttribute.
-func fneventGroupSetAttribute(a0 EventGroup, a1 EventGroupAttribute, a2 uint, a3 unsafe.Pointer) Result {
-	r1, _ := ffiCallWidths4(symeventGroupSetAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
-	return Result(r1)
-}
-
-// fnEventGroupSetDisable calls cuptiEventGroupSetDisable.
-func fnEventGroupSetDisable(a0 *EventGroupSet) Result {
-	r1, _ := ffiCall1(symEventGroupSetDisable, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnEventGroupSetEnable calls cuptiEventGroupSetEnable.
-func fnEventGroupSetEnable(a0 *EventGroupSet) Result {
-	r1, _ := ffiCall1(symEventGroupSetEnable, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnEventGroupSetsDestroy calls cuptiEventGroupSetsDestroy.
-func fnEventGroupSetsDestroy(a0 *EventGroupSets) Result {
-	r1, _ := ffiCall1(symEventGroupSetsDestroy, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnFinalize calls cuptiFinalize.
-func fnFinalize() Result {
-	r1, _ := ffiCall0(symFinalize, 0)
-	return Result(r1)
-}
-
-// fnGetCallbackName calls cuptiGetCallbackName.
-func fnGetCallbackName(a0 CallbackDomain, a1 uint32, a2 **byte) Result {
-	r1, _ := ffiCallWidths3(symGetCallbackName, 0, 0xf, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
-	return Result(r1)
-}
-
-// fngetCallbackState calls cuptiGetCallbackState.
-func fngetCallbackState(a0 *uint32, a1 Subscriber, a2 CallbackDomain, a3 uint32) Result {
-	r1, _ := ffiCallWidths4(symgetCallbackState, 0, 0xf0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3))
-	return Result(r1)
-}
-
-// fnGetCubinCrc calls cuptiGetCubinCrc.
-func fnGetCubinCrc(a0 *GetCubinCrcParams) Result {
-	r1, _ := ffiCall1(symGetCubinCrc, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fngetEnabledCallbacks calls cuptiGetEnabledCallbacks.
-func fngetEnabledCallbacks(a0 Subscriber, a1 CallbackDomain, a2 *uint32, a3 *uint32, a4 *uint32) Result {
-	r1, _ := ffiCallWidths5(symgetEnabledCallbacks, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
-	return Result(r1)
-}
-
-// fnGetGraphExecId calls cuptiGetGraphExecId.
-func fnGetGraphExecId(a0 GraphExec, a1 *uint32) Result {
-	r1, _ := ffiCall2(symGetGraphExecId, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
-	return Result(r1)
-}
-
-// fnGetGraphId calls cuptiGetGraphId.
-func fnGetGraphId(a0 Graph, a1 *uint32) Result {
-	r1, _ := ffiCall2(symGetGraphId, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
-	return Result(r1)
-}
-
-// fnGetGraphNodeId calls cuptiGetGraphNodeId.
-func fnGetGraphNodeId(a0 GraphNode, a1 *uint64) Result {
-	r1, _ := ffiCall2(symGetGraphNodeId, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
-	return Result(r1)
-}
-
-// fnGetLastError calls cuptiGetLastError.
-func fnGetLastError() Result {
-	r1, _ := ffiCall0(symGetLastError, 0)
-	return Result(r1)
-}
-
-// fnGetNumEventDomains calls cuptiGetNumEventDomains.
-func fnGetNumEventDomains(a0 *uint32) Result {
-	r1, _ := ffiCall1(symGetNumEventDomains, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnGetNumMetrics calls cuptiGetNumMetrics.
-func fnGetNumMetrics(a0 *uint32) Result {
-	r1, _ := ffiCall1(symGetNumMetrics, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnGetSassToSourceCorrelation calls cuptiGetSassToSourceCorrelation.
-func fnGetSassToSourceCorrelation(a0 *GetSassToSourceCorrelationParams) Result {
-	r1, _ := ffiCall1(symGetSassToSourceCorrelation, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnGetThreadIdType calls cuptiGetThreadIdType.
-func fnGetThreadIdType(a0 *ActivityThreadIdType) Result {
-	r1, _ := ffiCall1(symGetThreadIdType, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnGetTimestamp calls cuptiGetTimestamp.
-func fnGetTimestamp(a0 *uint64) Result {
-	r1, _ := ffiCall1(symGetTimestamp, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnIsTracingSessionRunning calls cuptiIsTracingSessionRunning.
-func fnIsTracingSessionRunning(a0 *uint8) Result {
-	r1, _ := ffiCall1(symIsTracingSessionRunning, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnKernelReplaySubscribeUpdate calls cuptiKernelReplaySubscribeUpdate.
-func fnKernelReplaySubscribeUpdate(a0 uintptr, a1 uintptr) Result {
-	r1, _ := ffiCall2(symKernelReplaySubscribeUpdate, 0, uintptr(a0), uintptr(a1))
-	return Result(r1)
-}
-
-// fnMetricEnumEvents calls cuptiMetricEnumEvents.
-func fnMetricEnumEvents(a0 uint32, a1 *uint, a2 *uint32) Result {
-	r1, _ := ffiCallWidths3(symMetricEnumEvents, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
-	return Result(r1)
-}
-
-// fnMetricEnumProperties calls cuptiMetricEnumProperties.
-func fnMetricEnumProperties(a0 uint32, a1 *uint, a2 *MetricPropertyID) Result {
-	r1, _ := ffiCallWidths3(symMetricEnumProperties, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
-	return Result(r1)
-}
-
-// fnMetricGetAttribute calls cuptiMetricGetAttribute.
-func fnMetricGetAttribute(a0 uint32, a1 MetricAttribute, a2 *uint, a3 unsafe.Pointer) Result {
-	r1, _ := ffiCallWidths4(symMetricGetAttribute, 0, 0xf, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
-	return Result(r1)
-}
-
-// fnMetricGetIdFromName calls cuptiMetricGetIdFromName.
-func fnMetricGetIdFromName(a0 Device, a1 *byte, a2 *uint32) Result {
-	r1, _ := ffiCallWidths3(symMetricGetIdFromName, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
-	return Result(r1)
-}
-
-// fnMetricGetNumEvents calls cuptiMetricGetNumEvents.
-func fnMetricGetNumEvents(a0 uint32, a1 *uint32) Result {
-	r1, _ := ffiCallWidths2(symMetricGetNumEvents, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
-	return Result(r1)
-}
-
-// fnMetricGetNumProperties calls cuptiMetricGetNumProperties.
-func fnMetricGetNumProperties(a0 uint32, a1 *uint32) Result {
-	r1, _ := ffiCallWidths2(symMetricGetNumProperties, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
-	return Result(r1)
-}
-
-// fnMetricGetValue calls cuptiMetricGetValue.
-func fnMetricGetValue(a0 Device, a1 uint32, a2 uint, a3 *uint32, a4 uint, a5 *uint64, a6 uint64, a7 *[1]uint64) Result {
-	r1, _ := ffiCallWidths8(symMetricGetValue, 0, 0xf, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(unsafe.Pointer(a7)))
-	return Result(r1)
-}
-
-// fnMetricGetValue2 calls cuptiMetricGetValue2.
-func fnMetricGetValue2(a0 uint32, a1 uint, a2 *uint32, a3 uint, a4 *uint64, a5 uint, a6 *MetricPropertyID, a7 uint, a8 *uint64, a9 *[1]uint64) Result {
-	r1, _ := ffiCallWidths10(symMetricGetValue2, 0, 0x3, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)))
-	return Result(r1)
-}
-
-// fnPCSamplingDisable calls cuptiPCSamplingDisable.
-func fnPCSamplingDisable(a0 *PCSamplingDisableParams) Result {
-	r1, _ := ffiCall1(symPCSamplingDisable, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnPCSamplingEnable calls cuptiPCSamplingEnable.
-func fnPCSamplingEnable(a0 *PCSamplingEnableParams) Result {
-	r1, _ := ffiCall1(symPCSamplingEnable, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnPCSamplingGetConfigurationAttribute calls cuptiPCSamplingGetConfigurationAttribute.
-func fnPCSamplingGetConfigurationAttribute(a0 *PCSamplingConfigurationInfoParams) Result {
-	r1, _ := ffiCall1(symPCSamplingGetConfigurationAttribute, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnPCSamplingGetData calls cuptiPCSamplingGetData.
-func fnPCSamplingGetData(a0 *PCSamplingGetDataParams) Result {
-	r1, _ := ffiCall1(symPCSamplingGetData, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnPCSamplingGetNumStallReasons calls cuptiPCSamplingGetNumStallReasons.
-func fnPCSamplingGetNumStallReasons(a0 *PCSamplingGetNumStallReasonsParams) Result {
-	r1, _ := ffiCall1(symPCSamplingGetNumStallReasons, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnPCSamplingGetStallReasons calls cuptiPCSamplingGetStallReasons.
-func fnPCSamplingGetStallReasons(a0 *PCSamplingGetStallReasonsParams) Result {
-	r1, _ := ffiCall1(symPCSamplingGetStallReasons, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnPCSamplingSetConfigurationAttribute calls cuptiPCSamplingSetConfigurationAttribute.
-func fnPCSamplingSetConfigurationAttribute(a0 *PCSamplingConfigurationInfoParams) Result {
-	r1, _ := ffiCall1(symPCSamplingSetConfigurationAttribute, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnPCSamplingStart calls cuptiPCSamplingStart.
-func fnPCSamplingStart(a0 *PCSamplingStartParams) Result {
-	r1, _ := ffiCall1(symPCSamplingStart, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnPCSamplingStop calls cuptiPCSamplingStop.
-func fnPCSamplingStop(a0 *PCSamplingStopParams) Result {
-	r1, _ := ffiCall1(symPCSamplingStop, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnPmSamplingCounterDataGetSampleInfo calls cuptiPmSamplingCounterDataGetSampleInfo.
-func fnPmSamplingCounterDataGetSampleInfo(a0 *PmSamplingCounterDataGetSampleInfoParams) Result {
-	r1, _ := ffiCall1(symPmSamplingCounterDataGetSampleInfo, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnPmSamplingCounterDataImageInitialize calls cuptiPmSamplingCounterDataImageInitialize.
-func fnPmSamplingCounterDataImageInitialize(a0 *PmSamplingCounterDataImageInitializeParams) Result {
-	r1, _ := ffiCall1(symPmSamplingCounterDataImageInitialize, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnPmSamplingDecodeData calls cuptiPmSamplingDecodeData.
-func fnPmSamplingDecodeData(a0 *PmSamplingDecodeDataParams) Result {
-	r1, _ := ffiCall1(symPmSamplingDecodeData, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnPmSamplingDisable calls cuptiPmSamplingDisable.
-func fnPmSamplingDisable(a0 *PmSamplingDisableParams) Result {
-	r1, _ := ffiCall1(symPmSamplingDisable, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnPmSamplingEnable calls cuptiPmSamplingEnable.
-func fnPmSamplingEnable(a0 *PmSamplingEnableParams) Result {
-	r1, _ := ffiCall1(symPmSamplingEnable, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnPmSamplingGetCounterAvailability calls cuptiPmSamplingGetCounterAvailability.
-func fnPmSamplingGetCounterAvailability(a0 *PmSamplingGetCounterAvailabilityParams) Result {
-	r1, _ := ffiCall1(symPmSamplingGetCounterAvailability, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnPmSamplingGetCounterDataInfo calls cuptiPmSamplingGetCounterDataInfo.
-func fnPmSamplingGetCounterDataInfo(a0 *PmSamplingGetCounterDataInfoParams) Result {
-	r1, _ := ffiCall1(symPmSamplingGetCounterDataInfo, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnPmSamplingGetCounterDataSize calls cuptiPmSamplingGetCounterDataSize.
-func fnPmSamplingGetCounterDataSize(a0 *PmSamplingGetCounterDataSizeParams) Result {
-	r1, _ := ffiCall1(symPmSamplingGetCounterDataSize, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnPmSamplingSetConfig calls cuptiPmSamplingSetConfig.
-func fnPmSamplingSetConfig(a0 *PmSamplingSetConfigParams) Result {
-	r1, _ := ffiCall1(symPmSamplingSetConfig, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnPmSamplingStart calls cuptiPmSamplingStart.
-func fnPmSamplingStart(a0 *PmSamplingStartParams) Result {
-	r1, _ := ffiCall1(symPmSamplingStart, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnPmSamplingStop calls cuptiPmSamplingStop.
-func fnPmSamplingStop(a0 *PmSamplingStopParams) Result {
-	r1, _ := ffiCall1(symPmSamplingStop, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerBeginPass calls cuptiProfilerBeginPass.
-func fnProfilerBeginPass(a0 *ProfilerBeginPassParams) Result {
-	r1, _ := ffiCall1(symProfilerBeginPass, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerBeginSession calls cuptiProfilerBeginSession.
-func fnProfilerBeginSession(a0 *ProfilerBeginSessionParams) Result {
-	r1, _ := ffiCall1(symProfilerBeginSession, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerCounterDataImageCalculateScratchBufferSize calls cuptiProfilerCounterDataImageCalculateScratchBufferSize.
-func fnProfilerCounterDataImageCalculateScratchBufferSize(a0 *ProfilerCounterDataImageCalculateScratchBufferSizeParams) Result {
-	r1, _ := ffiCall1(symProfilerCounterDataImageCalculateScratchBufferSize, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerCounterDataImageCalculateSize calls cuptiProfilerCounterDataImageCalculateSize.
-func fnProfilerCounterDataImageCalculateSize(a0 *ProfilerCounterDataImageCalculateSizeParams) Result {
-	r1, _ := ffiCall1(symProfilerCounterDataImageCalculateSize, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerCounterDataImageInitialize calls cuptiProfilerCounterDataImageInitialize.
-func fnProfilerCounterDataImageInitialize(a0 *ProfilerCounterDataImageInitializeParams) Result {
-	r1, _ := ffiCall1(symProfilerCounterDataImageInitialize, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerCounterDataImageInitializeScratchBuffer calls cuptiProfilerCounterDataImageInitializeScratchBuffer.
-func fnProfilerCounterDataImageInitializeScratchBuffer(a0 *ProfilerCounterDataImageInitializeScratchBufferParams) Result {
-	r1, _ := ffiCall1(symProfilerCounterDataImageInitializeScratchBuffer, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerDeInitialize calls cuptiProfilerDeInitialize.
-func fnProfilerDeInitialize(a0 *ProfilerDeInitializeParams) Result {
-	r1, _ := ffiCall1(symProfilerDeInitialize, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerDeviceSupported calls cuptiProfilerDeviceSupported.
-func fnProfilerDeviceSupported(a0 *ProfilerDeviceSupportedParams) Result {
-	r1, _ := ffiCall1(symProfilerDeviceSupported, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerDisableProfiling calls cuptiProfilerDisableProfiling.
-func fnProfilerDisableProfiling(a0 *ProfilerDisableProfilingParams) Result {
-	r1, _ := ffiCall1(symProfilerDisableProfiling, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerEnableProfiling calls cuptiProfilerEnableProfiling.
-func fnProfilerEnableProfiling(a0 *ProfilerEnableProfilingParams) Result {
-	r1, _ := ffiCall1(symProfilerEnableProfiling, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerEndPass calls cuptiProfilerEndPass.
-func fnProfilerEndPass(a0 *ProfilerEndPassParams) Result {
-	r1, _ := ffiCall1(symProfilerEndPass, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerEndSession calls cuptiProfilerEndSession.
-func fnProfilerEndSession(a0 *ProfilerEndSessionParams) Result {
-	r1, _ := ffiCall1(symProfilerEndSession, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerFlushCounterData calls cuptiProfilerFlushCounterData.
-func fnProfilerFlushCounterData(a0 *ProfilerFlushCounterDataParams) Result {
-	r1, _ := ffiCall1(symProfilerFlushCounterData, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerGetCounterAvailability calls cuptiProfilerGetCounterAvailability.
-func fnProfilerGetCounterAvailability(a0 *ProfilerGetCounterAvailabilityParams) Result {
-	r1, _ := ffiCall1(symProfilerGetCounterAvailability, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerHostConfigAddMetrics calls cuptiProfilerHostConfigAddMetrics.
-func fnProfilerHostConfigAddMetrics(a0 *ProfilerHostConfigAddMetricsParams) Result {
-	r1, _ := ffiCall1(symProfilerHostConfigAddMetrics, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerHostDeinitialize calls cuptiProfilerHostDeinitialize.
-func fnProfilerHostDeinitialize(a0 *ProfilerHostDeinitializeParams) Result {
-	r1, _ := ffiCall1(symProfilerHostDeinitialize, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerHostEvaluateToGpuValues calls cuptiProfilerHostEvaluateToGpuValues.
-func fnProfilerHostEvaluateToGpuValues(a0 *ProfilerHostEvaluateToGpuValuesParams) Result {
-	r1, _ := ffiCall1(symProfilerHostEvaluateToGpuValues, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerHostGetBaseMetrics calls cuptiProfilerHostGetBaseMetrics.
-func fnProfilerHostGetBaseMetrics(a0 *ProfilerHostGetBaseMetricsParams) Result {
-	r1, _ := ffiCall1(symProfilerHostGetBaseMetrics, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerHostGetConfigImage calls cuptiProfilerHostGetConfigImage.
-func fnProfilerHostGetConfigImage(a0 *ProfilerHostGetConfigImageParams) Result {
-	r1, _ := ffiCall1(symProfilerHostGetConfigImage, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerHostGetConfigImageSize calls cuptiProfilerHostGetConfigImageSize.
-func fnProfilerHostGetConfigImageSize(a0 *ProfilerHostGetConfigImageSizeParams) Result {
-	r1, _ := ffiCall1(symProfilerHostGetConfigImageSize, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerHostGetMaxNumHardwareMetricsPerPass calls cuptiProfilerHostGetMaxNumHardwareMetricsPerPass.
-func fnProfilerHostGetMaxNumHardwareMetricsPerPass(a0 *ProfilerHostGetMaxNumHardwareMetricsPerPassParams) Result {
-	r1, _ := ffiCall1(symProfilerHostGetMaxNumHardwareMetricsPerPass, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerHostGetMetricProperties calls cuptiProfilerHostGetMetricProperties.
-func fnProfilerHostGetMetricProperties(a0 *ProfilerHostGetMetricPropertiesParams) Result {
-	r1, _ := ffiCall1(symProfilerHostGetMetricProperties, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerHostGetMetricsInSinglePassSet calls cuptiProfilerHostGetMetricsInSinglePassSet.
-func fnProfilerHostGetMetricsInSinglePassSet(a0 *ProfilerHostGetMetricsInSinglePassSetParams) Result {
-	r1, _ := ffiCall1(symProfilerHostGetMetricsInSinglePassSet, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerHostGetNumOfPasses calls cuptiProfilerHostGetNumOfPasses.
-func fnProfilerHostGetNumOfPasses(a0 *ProfilerHostGetNumOfPassesParams) Result {
-	r1, _ := ffiCall1(symProfilerHostGetNumOfPasses, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerHostGetRangeName calls cuptiProfilerHostGetRangeName.
-func fnProfilerHostGetRangeName(a0 *ProfilerHostGetRangeNameParams) Result {
-	r1, _ := ffiCall1(symProfilerHostGetRangeName, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerHostGetSinglePassSets calls cuptiProfilerHostGetSinglePassSets.
-func fnProfilerHostGetSinglePassSets(a0 *ProfilerHostGetSinglePassSetsParams) Result {
-	r1, _ := ffiCall1(symProfilerHostGetSinglePassSets, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerHostGetSubMetrics calls cuptiProfilerHostGetSubMetrics.
-func fnProfilerHostGetSubMetrics(a0 *ProfilerHostGetSubMetricsParams) Result {
-	r1, _ := ffiCall1(symProfilerHostGetSubMetrics, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerHostGetSupportedChips calls cuptiProfilerHostGetSupportedChips.
-func fnProfilerHostGetSupportedChips(a0 *ProfilerHostGetSupportedChipsParams) Result {
-	r1, _ := ffiCall1(symProfilerHostGetSupportedChips, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerHostInitialize calls cuptiProfilerHostInitialize.
-func fnProfilerHostInitialize(a0 *ProfilerHostInitializeParams) Result {
-	r1, _ := ffiCall1(symProfilerHostInitialize, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerInitialize calls cuptiProfilerInitialize.
-func fnProfilerInitialize(a0 *ProfilerInitializeParams) Result {
-	r1, _ := ffiCall1(symProfilerInitialize, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerIsPassCollected calls cuptiProfilerIsPassCollected.
-func fnProfilerIsPassCollected(a0 *ProfilerIsPassCollectedParams) Result {
-	r1, _ := ffiCall1(symProfilerIsPassCollected, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerPopRange calls cuptiProfilerPopRange.
-func fnProfilerPopRange(a0 *ProfilerPopRangeParams) Result {
-	r1, _ := ffiCall1(symProfilerPopRange, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerPushRange calls cuptiProfilerPushRange.
-func fnProfilerPushRange(a0 *ProfilerPushRangeParams) Result {
-	r1, _ := ffiCall1(symProfilerPushRange, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerSetConfig calls cuptiProfilerSetConfig.
-func fnProfilerSetConfig(a0 *ProfilerSetConfigParams) Result {
-	r1, _ := ffiCall1(symProfilerSetConfig, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnProfilerUnsetConfig calls cuptiProfilerUnsetConfig.
-func fnProfilerUnsetConfig(a0 *ProfilerUnsetConfigParams) Result {
-	r1, _ := ffiCall1(symProfilerUnsetConfig, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnRangeProfilerCounterDataGetRangeInfo calls cuptiRangeProfilerCounterDataGetRangeInfo.
-func fnRangeProfilerCounterDataGetRangeInfo(a0 *RangeProfilerCounterDataGetRangeInfoParams) Result {
-	r1, _ := ffiCall1(symRangeProfilerCounterDataGetRangeInfo, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnRangeProfilerCounterDataImageInitialize calls cuptiRangeProfilerCounterDataImageInitialize.
-func fnRangeProfilerCounterDataImageInitialize(a0 *RangeProfilerCounterDataImageInitializeParams) Result {
-	r1, _ := ffiCall1(symRangeProfilerCounterDataImageInitialize, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnRangeProfilerDecodeData calls cuptiRangeProfilerDecodeData.
-func fnRangeProfilerDecodeData(a0 *RangeProfilerDecodeDataParams) Result {
-	r1, _ := ffiCall1(symRangeProfilerDecodeData, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnRangeProfilerDisable calls cuptiRangeProfilerDisable.
-func fnRangeProfilerDisable(a0 *RangeProfilerDisableParams) Result {
-	r1, _ := ffiCall1(symRangeProfilerDisable, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnRangeProfilerEnable calls cuptiRangeProfilerEnable.
-func fnRangeProfilerEnable(a0 *RangeProfilerEnableParams) Result {
-	r1, _ := ffiCall1(symRangeProfilerEnable, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnRangeProfilerGetCounterDataInfo calls cuptiRangeProfilerGetCounterDataInfo.
-func fnRangeProfilerGetCounterDataInfo(a0 *RangeProfilerGetCounterDataInfoParams) Result {
-	r1, _ := ffiCall1(symRangeProfilerGetCounterDataInfo, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnRangeProfilerGetCounterDataSize calls cuptiRangeProfilerGetCounterDataSize.
-func fnRangeProfilerGetCounterDataSize(a0 *RangeProfilerGetCounterDataSizeParams) Result {
-	r1, _ := ffiCall1(symRangeProfilerGetCounterDataSize, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnRangeProfilerPopRange calls cuptiRangeProfilerPopRange.
-func fnRangeProfilerPopRange(a0 *RangeProfilerPopRangeParams) Result {
-	r1, _ := ffiCall1(symRangeProfilerPopRange, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnRangeProfilerPushRange calls cuptiRangeProfilerPushRange.
-func fnRangeProfilerPushRange(a0 *RangeProfilerPushRangeParams) Result {
-	r1, _ := ffiCall1(symRangeProfilerPushRange, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnRangeProfilerSetConfig calls cuptiRangeProfilerSetConfig.
-func fnRangeProfilerSetConfig(a0 *RangeProfilerSetConfigParams) Result {
-	r1, _ := ffiCall1(symRangeProfilerSetConfig, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnRangeProfilerStart calls cuptiRangeProfilerStart.
-func fnRangeProfilerStart(a0 *RangeProfilerStartParams) Result {
-	r1, _ := ffiCall1(symRangeProfilerStart, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnRangeProfilerStop calls cuptiRangeProfilerStop.
-func fnRangeProfilerStop(a0 *RangeProfilerStopParams) Result {
-	r1, _ := ffiCall1(symRangeProfilerStop, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnRegisterComputeCrcCallback calls cuptiRegisterComputeCrcCallback.
-func fnRegisterComputeCrcCallback(a0 uintptr) Result {
-	r1, _ := ffiCall1(symRegisterComputeCrcCallback, 0, uintptr(a0))
-	return Result(r1)
-}
-
-// fnSassMetricsDisable calls cuptiSassMetricsDisable.
-func fnSassMetricsDisable(a0 *SassMetricsDisableParams) Result {
-	r1, _ := ffiCall1(symSassMetricsDisable, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnSassMetricsEnable calls cuptiSassMetricsEnable.
-func fnSassMetricsEnable(a0 *SassMetricsEnableParams) Result {
-	r1, _ := ffiCall1(symSassMetricsEnable, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnSassMetricsFlushData calls cuptiSassMetricsFlushData.
-func fnSassMetricsFlushData(a0 *SassMetricsFlushDataParams) Result {
-	r1, _ := ffiCall1(symSassMetricsFlushData, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnSassMetricsGetDataProperties calls cuptiSassMetricsGetDataProperties.
-func fnSassMetricsGetDataProperties(a0 *SassMetricsGetDataPropertiesParams) Result {
-	r1, _ := ffiCall1(symSassMetricsGetDataProperties, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnSassMetricsGetMetrics calls cuptiSassMetricsGetMetrics.
-func fnSassMetricsGetMetrics(a0 *SassMetricsGetMetricsParams) Result {
-	r1, _ := ffiCall1(symSassMetricsGetMetrics, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnSassMetricsGetNumOfMetrics calls cuptiSassMetricsGetNumOfMetrics.
-func fnSassMetricsGetNumOfMetrics(a0 *SassMetricsGetNumOfMetricsParams) Result {
-	r1, _ := ffiCall1(symSassMetricsGetNumOfMetrics, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnSassMetricsGetProperties calls cuptiSassMetricsGetProperties.
-func fnSassMetricsGetProperties(a0 *SassMetricsGetPropertiesParams) Result {
-	r1, _ := ffiCall1(symSassMetricsGetProperties, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnSassMetricsSetConfig calls cuptiSassMetricsSetConfig.
-func fnSassMetricsSetConfig(a0 *SassMetricsSetConfigParams) Result {
-	r1, _ := ffiCall1(symSassMetricsSetConfig, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnSassMetricsUnsetConfig calls cuptiSassMetricsUnsetConfig.
-func fnSassMetricsUnsetConfig(a0 *SassMetricsUnsetConfigParams) Result {
-	r1, _ := ffiCall1(symSassMetricsUnsetConfig, 0, uintptr(unsafe.Pointer(a0)))
-	return Result(r1)
-}
-
-// fnSetThreadIdType calls cuptiSetThreadIdType.
-func fnSetThreadIdType(a0 ActivityThreadIdType) Result {
-	r1, _ := ffiCallWidths1(symSetThreadIdType, 0, 0x3, uintptr(a0))
-	return Result(r1)
-}
-
-// fnSubscribe calls cuptiSubscribe.
-func fnSubscribe(a0 *Subscriber, a1 uintptr, a2 uintptr) Result {
-	r1, _ := ffiCall3(symSubscribe, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
-	return Result(r1)
-}
-
-// fnSubscribeV2 calls cuptiSubscribe_v2.
-func fnSubscribeV2(a0 *Subscriber, a1 uintptr, a2 uintptr, a3 *SubscriberParams) Result {
-	r1, _ := ffiCall4(symSubscribeV2, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
-	return Result(r1)
-}
-
-// fnSupportedDomains calls cuptiSupportedDomains.
-func fnSupportedDomains(a0 *uint, a1 *uintptr) Result {
-	r1, _ := ffiCall2(symSupportedDomains, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
-	return Result(r1)
-}
-
-// fnunsubscribe calls cuptiUnsubscribe.
-func fnunsubscribe(a0 Subscriber) Result {
-	r1, _ := ffiCall1(symunsubscribe, 0, uintptr(a0))
-	return Result(r1)
-}
 
 // ActivityConfigurePCSampling sets PC sampling configuration.
 //
@@ -1252,8 +214,6 @@ func fnunsubscribe(a0 Subscriber) Result {
 //   - [ErrInvalidOperation]: if this api is called while some valid event collection method is set.
 //   - [ErrInvalidParameter]: if config is NULL or any parameter in the config structures is not a valid value
 //   - [ErrNotSupported]: Indicates that the system/device does not support the unified memory counters
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the PC Sampling API, starting with [PCSamplingEnable].
 //
 // Wraps cuptiActivityConfigurePCSampling.
 func ActivityConfigurePCSampling(ctx driver.Context, config *ActivityPCSamplingConfig) error {
@@ -1295,7 +255,7 @@ func ActivityConfigureUnifiedMemoryCounter(config *ActivityUnifiedMemoryCounterC
 //   - [ErrInvalidKind]: if the activity kind is not supported
 //   - [ErrNotInitialized]
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [Subscriber.ActivityDisableV2].
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [Subscriber.ActivityDisableV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
 //
 // Wraps cuptiActivityDisable.
 func ActivityDisable(kind ActivityKind) error {
@@ -1355,7 +315,7 @@ func activityDisableV2(subscriber Subscriber, kind ActivityKind, pActivityConfig
 //   - [ErrNotCompatible]: if the activity kind cannot be enabled
 //   - [ErrNotInitialized]
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [Subscriber.ActivityEnableV2].
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [Subscriber.ActivityEnableV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
 //
 // Wraps cuptiActivityEnable.
 func ActivityEnable(kind ActivityKind) error {
@@ -1375,7 +335,7 @@ func ActivityEnable(kind ActivityKind) error {
 // Errors:
 //   - [ErrNotInitialized]
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableAllSyncRecords], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2].
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableAllSyncRecords], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
 //
 // Wraps cuptiActivityEnableAllSyncRecords.
 func ActivityEnableAllSyncRecords(enable uint8) error {
@@ -1394,7 +354,7 @@ func ActivityEnableAllSyncRecords(enable uint8) error {
 // Errors:
 //   - [ErrNotInitialized]
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableAllocationSourceTracking], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2].
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableAllocationSourceTracking], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
 //
 // Wraps cuptiActivityEnableAllocationSource.
 func ActivityEnableAllocationSource(enable uint8) error {
@@ -1419,7 +379,7 @@ func ActivityEnableAllocationSource(enable uint8) error {
 //   - [ErrNotInitialized]
 //   - [ErrUnknown]: if buffer is not initialized.
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [Subscriber.ActivityEnableAndDumpV2].
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [Subscriber.ActivityEnableAndDumpV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
 //
 // Wraps cuptiActivityEnableAndDump.
 func ActivityEnableAndDump(kind ActivityKind) error {
@@ -1483,7 +443,7 @@ func ActivityEnableContext(context driver.Context, kind ActivityKind) error {
 // Errors:
 //   - [ErrNotInitialized]
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableCudaEventDeviceTimestamps], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2].
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableCudaEventDeviceTimestamps], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
 //
 // Wraps cuptiActivityEnableCudaEventDeviceTimestamps.
 func ActivityEnableCudaEventDeviceTimestamps(enable uint8) error {
@@ -1502,7 +462,7 @@ func ActivityEnableCudaEventDeviceTimestamps(enable uint8) error {
 // Errors:
 //   - [ErrNotInitialized]
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableDeviceGraphTrace], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2].
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableDeviceGraphTrace], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
 //
 // Wraps cuptiActivityEnableDeviceGraph.
 func ActivityEnableDeviceGraph(enable uint8) error {
@@ -1524,7 +484,7 @@ func ActivityEnableDeviceGraph(enable uint8) error {
 // Errors:
 //   - [ErrNotInitialized]
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is cuptiActivityEnableDriverApi_v2.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is cuptiActivityEnableDriverApi_v2. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
 //
 // Wraps cuptiActivityEnableDriverApi.
 func ActivityEnableDriverApi(cbid uint32, enable uint8) error {
@@ -1554,7 +514,7 @@ func ActivityEnableDriverApi(cbid uint32, enable uint8) error {
 //   - [ErrVirtualizedDeviceNotSupported]
 //   - [ErrWslDeviceNotSupported]
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableHes], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2].
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableHes], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
 //
 // Wraps cuptiActivityEnableHWTrace.
 func ActivityEnableHWTrace(enable uint8) error {
@@ -1574,7 +534,7 @@ func ActivityEnableHWTrace(enable uint8) error {
 // Errors:
 //   - [ErrNotInitialized]
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableKernelLatencyTimestamps], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2].
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableKernelLatencyTimestamps], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
 //
 // Wraps cuptiActivityEnableLatencyTimestamps.
 func ActivityEnableLatencyTimestamps(enable uint8) error {
@@ -1590,7 +550,7 @@ func ActivityEnableLatencyTimestamps(enable uint8) error {
 //
 //   - enable: is a boolean denoting whether these launch attributes should be collected
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableKernelLaunchAttributes], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2].
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableKernelLaunchAttributes], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
 //
 // Wraps cuptiActivityEnableLaunchAttributes.
 func ActivityEnableLaunchAttributes(enable uint8) error {
@@ -1612,7 +572,7 @@ func ActivityEnableLaunchAttributes(enable uint8) error {
 // Errors:
 //   - [ErrNotInitialized]
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is cuptiActivityEnableRuntimeApi_v2.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is cuptiActivityEnableRuntimeApi_v2. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
 //
 // Wraps cuptiActivityEnableRuntimeApi.
 func ActivityEnableRuntimeApi(cbid uint32, enable uint8) error {
@@ -1646,10 +606,10 @@ func activityEnableV2(subscriber Subscriber, kind ActivityKind, pActivityConfig 
 // ActivityFlush waits for all activity records to be delivered via the completion callback.
 //
 // This function does not return until all activity records associated with the specified context/stream are returned to the CUPTI client using the callback registered in [ActivityRegisterCallbacks]. To ensure that all activity records are complete, the requested stream(s), if any, are synchronized.
-// If context is NULL, the global activity records (i.e. those not associated with a particular stream) are flushed (in this case no streams are synchronized). If context is a valid CUcontext and streamId is 0, the buffers of all streams of this context are flushed. Otherwise, the buffers of the specified stream in this context is flushed.
+// If context is NULL, the global activity records (i.e. those not associated with a particular stream) are flushed (in this case no streams are synchronized). If context is a valid driver.Context and streamId is 0, the buffers of all streams of this context are flushed. Otherwise, the buffers of the specified stream in this context is flushed.
 // Before calling this function, the buffer handling callback api must be activated by calling [ActivityRegisterCallbacks].
 //
-//   - context: A valid CUcontext or NULL
+//   - context: A valid driver.Context or NULL
 //   - streamId: The stream ID
 //   - flag: The flag can be set to indicate a forced flush. See [ActivityFlag]
 //
@@ -1729,7 +689,7 @@ func ActivityFlushPeriod(time uint32) error {
 //   - [ErrNotInitialized]
 //   - [ErrParameterSizeNotSufficient]: Indicates that the value buffer is too small to hold the attribute value.
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [Subscriber.ActivityGetAttributeV2].
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [Subscriber.ActivityGetAttributeV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
 //
 // Wraps cuptiActivityGetAttribute.
 func ActivityGetAttribute(attr ActivityAttribute, valueSize *uint, value unsafe.Pointer) error {
@@ -1769,6 +729,7 @@ func activityGetAttributeV2(subscriber Subscriber, attr ActivityAttribute, value
 //   - subscriber: The subscriber handle. If NULL, the union of activity kinds enabled across all subscribers is returned
 //   - buffer: The buffer to store the enabled activity kinds. If NULL, the number of enabled activity kinds is returned in enabledKindsCount
 //   - bufferSize: The size of the buffer. If NULL, only the number of enabled activity kinds is returned in enabledKindsCount. If NULL and buffer is not NULL, [ErrInvalidParameter] is returned
+//   - enabledKindsCount: The number of enabled activity kinds. If NULL, [ErrInvalidParameter] is returned
 //
 // Errors:
 //   - [ErrInvalidParameter]: if enabledKindsCount is NULL or if subscriber is invalid.
@@ -1779,16 +740,13 @@ func activityGetEnabledKinds(subscriber Subscriber, buffer *ActivityKind, buffer
 		var zero uint32
 		return zero, err
 	}
-	out := slotActivityGetEnabledKinds.get()
-	defer slotActivityGetEnabledKinds.put(out)
-	if err := toError(fnactivityGetEnabledKinds(subscriber, buffer, bufferSize, out), "cuptiActivityGetEnabledKinds"); err != nil {
+	var out uint32
+	if err := toError(fnactivityGetEnabledKinds(subscriber, buffer, bufferSize, &out), "cuptiActivityGetEnabledKinds"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return *out, nil
+	return out, nil
 }
-
-var slotActivityGetEnabledKinds outSlot[uint32]
 
 // ActivityGetNextRecord iterates over the activity records in a buffer.
 //
@@ -1822,7 +780,7 @@ var slotActivityGetEnabledKinds outSlot[uint32]
 //   - [ErrMaxLimitReached]: if no more records in the buffer
 //   - [ErrNotInitialized]
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is cuptiActivityGetNextRecord_v2.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is cuptiActivityGetNextRecord_v2. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
 //
 // Wraps cuptiActivityGetNextRecord.
 func ActivityGetNextRecord(buffer *uint8, validBufferSizeBytes uint, record **Activity) error {
@@ -1838,12 +796,13 @@ func ActivityGetNextRecord(buffer *uint8, validBufferSizeBytes uint, record **Ac
 //
 //   - context: The context, or NULL to get dropped count from global queue
 //   - streamId: The stream ID
+//   - dropped: The number of records that were dropped since the last call to this function
 //
 // Errors:
 //   - [ErrInvalidParameter]: if dropped is NULL
 //   - [ErrNotInitialized]
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is cuptiActivityGetNumDroppedRecords_v2.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is cuptiActivityGetNumDroppedRecords_v2. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
 //
 // Wraps cuptiActivityGetNumDroppedRecords.
 func ActivityGetNumDroppedRecords(context driver.Context, streamId uint32) (uint, error) {
@@ -1865,6 +824,7 @@ func ActivityGetNumDroppedRecords(context driver.Context, streamId uint32) (uint
 //
 //   - activityKind: The activity kind to get the size for
 //   - version: The version of the CUPTI API. If 0, returns size for current version. If non-zero, returns size for the specified version. The version format is xxyyzz, e.g., 130000 for CUPTI 13.0, 130100 for CUPTI 13.1. The version of CUPTI can be queried using [GetVersion] API. Only versions >= 130000 are supported
+//   - activityStructSize: The size of the activity struct
 //
 // Errors:
 //   - [ErrInvalidKind]: if activityKind is invalid.
@@ -1877,28 +837,26 @@ func ActivityGetStructSize(activityKind ActivityKind, version uint32) (uint, err
 		var zero uint
 		return zero, err
 	}
-	out := slotActivityGetStructSize.get()
-	defer slotActivityGetStructSize.put(out)
-	if err := toError(fnActivityGetStructSize(activityKind, version, out), "cuptiActivityGetStructSize"); err != nil {
+	var out uint
+	if err := toError(fnActivityGetStructSize(activityKind, version, &out), "cuptiActivityGetStructSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return *out, nil
+	return out, nil
 }
-
-var slotActivityGetStructSize outSlot[uint]
 
 // ActivityPopExternalCorrelationId pops an external correlation id for the calling thread.
 //
 // This function notifies CUPTI that the calling thread is leaving an external API region.
 //
 //   - kind: The kind of external API activities should be correlated with
+//   - lastId: If the function returns successful, contains the last external correlation id for this kind, can be NULL
 //
 // Errors:
 //   - [ErrInvalidParameter]: The external API kind is invalid.
 //   - [ErrQueueEmpty]: No external id is currently associated with kind.
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is cuptiActivityPopExternalCorrelationId_v2.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is cuptiActivityPopExternalCorrelationId_v2. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
 //
 // Wraps cuptiActivityPopExternalCorrelationId.
 func ActivityPopExternalCorrelationId(kind ExternalCorrelationKind) (uint64, error) {
@@ -1906,16 +864,13 @@ func ActivityPopExternalCorrelationId(kind ExternalCorrelationKind) (uint64, err
 		var zero uint64
 		return zero, err
 	}
-	out := slotActivityPopExternalCorrelationId.get()
-	defer slotActivityPopExternalCorrelationId.put(out)
-	if err := toError(fnActivityPopExternalCorrelationId(kind, out), "cuptiActivityPopExternalCorrelationId"); err != nil {
+	var out uint64
+	if err := toError(fnActivityPopExternalCorrelationId(kind, &out), "cuptiActivityPopExternalCorrelationId"); err != nil {
 		var zero uint64
 		return zero, err
 	}
-	return *out, nil
+	return out, nil
 }
-
-var slotActivityPopExternalCorrelationId outSlot[uint64]
 
 // ActivityPushExternalCorrelationId pushes an external correlation id for the calling thread.
 //
@@ -1927,7 +882,7 @@ var slotActivityPopExternalCorrelationId outSlot[uint64]
 // Errors:
 //   - [ErrInvalidParameter]: The external API kind is invalid
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is cuptiActivityPushExternalCorrelationId_v2.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is cuptiActivityPushExternalCorrelationId_v2. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
 //
 // Wraps cuptiActivityPushExternalCorrelationId.
 func ActivityPushExternalCorrelationId(kind ExternalCorrelationKind, id uint64) error {
@@ -1948,7 +903,7 @@ func ActivityPushExternalCorrelationId(kind ExternalCorrelationKind, id uint64) 
 // Errors:
 //   - [ErrInvalidParameter]: if either funcBufferRequested or funcBufferCompleted is NULL
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [Subscriber.ActivityRegisterCallbacksV2].
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [Subscriber.ActivityRegisterCallbacksV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
 //
 // Wraps cuptiActivityRegisterCallbacks.
 func ActivityRegisterCallbacks(funcBufferRequested uintptr, funcBufferCompleted uintptr) error {
@@ -1991,7 +946,7 @@ func activityRegisterCallbacksV2(subscriber Subscriber, funcBufferRequested uint
 //   - [ErrInvalidParameter]: if funcTimestamp is NULL
 //   - [ErrNotInitialized]
 //
-// Deprecated: This API will be deprecated in a future release. In CUDA 13.4 and later, the corresponding V2 activity attribute is [ActivityAttrTimestampCallback], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2].
+// Deprecated: This API will be deprecated in a future release. In CUDA 13.4 and later, the corresponding V2 activity attribute is [ActivityAttrTimestampCallback], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
 //
 // Wraps cuptiActivityRegisterTimestampCallback.
 func ActivityRegisterTimestampCallback(funcTimestamp uintptr) error {
@@ -2015,7 +970,7 @@ func ActivityRegisterTimestampCallback(funcTimestamp uintptr) error {
 //   - [ErrNotSupported]: if multiple subscribers are not allowed.
 //   - [ErrParameterSizeNotSufficient]: Indicates that the value buffer is too small to hold the attribute value.
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [Subscriber.ActivitySetAttributeV2].
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [Subscriber.ActivitySetAttributeV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
 //
 // Wraps cuptiActivitySetAttribute.
 func ActivitySetAttribute(attr ActivityAttribute, valueSize *uint, value unsafe.Pointer) error {
@@ -2049,7 +1004,9 @@ func activitySetAttributeV2(subscriber Subscriber, attr ActivityAttribute, value
 
 // CheckpointFree frees the backing data for a checkpoint.
 //
-// Frees all associated device, host memory and filesystem storage used for this context. After freeing a handle, it may be re-used as if it was new - options may be re-configured and will take effect on the next call to [CheckpointSave].
+// Frees all associated device, host memory and filesystem storage used for this context.
+// After freeing a handle, it may be re-used as if it was new - options may be re-configured and will
+// take effect on the next call to [CheckpointSave].
 //
 //   - handle: A pointer to a previously saved [Checkpoint] object
 //
@@ -2119,6 +1076,7 @@ func CheckpointSave(handle *Checkpoint) error {
 //
 //   - major: The major revision number of the compute capability
 //   - minor: The minor revision number of the compute capability
+//   - support: Pointer to an integer to return the support status
 //
 // Errors:
 //   - [ErrInvalidParameter]: if support is NULL
@@ -2129,36 +1087,15 @@ func ComputeCapabilitySupported(major int32, minor int32) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	out := slotComputeCapabilitySupported.get()
-	defer slotComputeCapabilitySupported.put(out)
-	if err := toError(fnComputeCapabilitySupported(major, minor, out), "cuptiComputeCapabilitySupported"); err != nil {
+	var out int32
+	if err := toError(fnComputeCapabilitySupported(major, minor, &out), "cuptiComputeCapabilitySupported"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return *out, nil
+	return out, nil
 }
 
-var slotComputeCapabilitySupported outSlot[int32]
-
-// DeviceEnumEventDomains gets the event domains for a device.
-//
-// Returns the event domains IDs in domainArray for a device. The
-// size of the domainArray buffer is given by *arraySizeBytes. The size of the domainArray buffer must be at
-// least numdomains * sizeof(CUpti_EventDomainID) or else all
-// domains will not be returned. The value returned in *arraySizeBytes contains the number of bytes returned in domainArray.
-//
-//   - device: CUDA device
-//   - arraySizeBytes: The size of domainArray in bytes, and returns the number of bytes written to domainArray
-//   - domainArray: Returns the IDs of the event domains for the device
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidDevice]
-//   - [ErrInvalidParameter]: if arraySizeBytes or domainArray are NULL
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiDeviceEnumEventDomains.
+// DeviceEnumEventDomains wraps cuptiDeviceEnumEventDomains.
 func DeviceEnumEventDomains(device Device, arraySizeBytes *uint, domainArray *uint32) error {
 	if err := checkLibSym("cuptiDeviceEnumEventDomains"); err != nil {
 		return err
@@ -2166,27 +1103,7 @@ func DeviceEnumEventDomains(device Device, arraySizeBytes *uint, domainArray *ui
 	return toError(fnDeviceEnumEventDomains(device, arraySizeBytes, domainArray), "cuptiDeviceEnumEventDomains")
 }
 
-// DeviceEnumMetrics gets the metrics for a device.
-//
-// Returns the metric IDs in metricArray for a device. The size of
-// the metricArray buffer is given by *arraySizeBytes. The size
-// of the metricArray buffer must be at least numMetrics *
-// sizeof(CUpti_MetricID) or else all metric IDs will not be
-// returned. The value returned in *arraySizeBytes contains the
-// number of bytes returned in metricArray.
-//
-//   - device: The CUDA device
-//   - arraySizeBytes: The size of metricArray in bytes, and returns the number of bytes written to metricArray
-//   - metricArray: Returns the IDs of the metrics for the device
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidDevice]
-//   - [ErrInvalidParameter]: if arraySizeBytes or metricArray are NULL
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiDeviceEnumMetrics.
+// DeviceEnumMetrics wraps cuptiDeviceEnumMetrics.
 func DeviceEnumMetrics(device Device, arraySizeBytes *uint, metricArray *uint32) error {
 	if err := checkLibSym("cuptiDeviceEnumMetrics"); err != nil {
 		return err
@@ -2194,24 +1111,7 @@ func DeviceEnumMetrics(device Device, arraySizeBytes *uint, metricArray *uint32)
 	return toError(fnDeviceEnumMetrics(device, arraySizeBytes, metricArray), "cuptiDeviceEnumMetrics")
 }
 
-// DeviceGetAttribute reads a device attribute.
-//
-// Read a device attribute and return it in *value.
-//
-//   - device: CUDA device
-//   - attrib: The attribute to read
-//   - valueSize: Size of buffer pointed by the value, and returns the number of bytes written to value
-//   - value: Returns the value of the attribute
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidDevice]
-//   - [ErrInvalidParameter]: if valueSize or value is NULL, or if attrib is not a device attribute
-//   - [ErrParameterSizeNotSufficient]: For non-c-string attribute values, indicates that the value buffer is too small to hold the attribute value.
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiDeviceGetAttribute.
+// DeviceGetAttribute wraps cuptiDeviceGetAttribute.
 func DeviceGetAttribute(device Device, attrib DeviceAttribute, valueSize *uint, value unsafe.Pointer) error {
 	if err := checkLibSym("cuptiDeviceGetAttribute"); err != nil {
 		return err
@@ -2227,29 +1127,7 @@ func DeviceGetChipName(pParams *DeviceGetChipNameParams) error {
 	return toError(fnDeviceGetChipName(pParams), "cuptiDeviceGetChipName")
 }
 
-// DeviceGetEventDomainAttribute reads an event domain attribute.
-//
-// Returns an event domain attribute in *value. The size of the value buffer is given by *valueSize. The value returned in *valueSize contains the number of bytes returned in value.
-//
-// If the attribute value is a c-string that is longer than *valueSize, then only the first *valueSize characters will be
-// returned and there will be no terminating null byte.
-//
-//   - device: CUDA device
-//   - eventDomain: ID of the event domain
-//   - attrib: The event domain attribute to read
-//   - valueSize: The size of the value buffer in bytes, and returns the number of bytes written to value
-//   - value: Returns the attribute's value
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidDevice]
-//   - [ErrInvalidEventDomainId]
-//   - [ErrInvalidParameter]: if valueSize or value is NULL, or if attrib is not an event domain attribute
-//   - [ErrParameterSizeNotSufficient]: For non-c-string attribute values, indicates that the value buffer is too small to hold the attribute value.
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiDeviceGetEventDomainAttribute.
+// DeviceGetEventDomainAttribute wraps cuptiDeviceGetEventDomainAttribute.
 func DeviceGetEventDomainAttribute(device Device, eventDomain uint32, attrib EventDomainAttribute, valueSize *uint, value unsafe.Pointer) error {
 	if err := checkLibSym("cuptiDeviceGetEventDomainAttribute"); err != nil {
 		return err
@@ -2257,65 +1135,33 @@ func DeviceGetEventDomainAttribute(device Device, eventDomain uint32, attrib Eve
 	return toError(fnDeviceGetEventDomainAttribute(device, eventDomain, attrib, valueSize, value), "cuptiDeviceGetEventDomainAttribute")
 }
 
-// DeviceGetNumEventDomains gets the number of domains for a device.
-//
-// Returns the number of domains in numDomains for a device.
-//
-//   - device: CUDA device
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidDevice]
-//   - [ErrInvalidParameter]: if numDomains is NULL
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiDeviceGetNumEventDomains.
+// DeviceGetNumEventDomains wraps cuptiDeviceGetNumEventDomains.
 func DeviceGetNumEventDomains(device Device) (uint32, error) {
 	if err := checkLibSym("cuptiDeviceGetNumEventDomains"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	out := slotDeviceGetNumEventDomains.get()
-	defer slotDeviceGetNumEventDomains.put(out)
-	if err := toError(fnDeviceGetNumEventDomains(device, out), "cuptiDeviceGetNumEventDomains"); err != nil {
+	var out uint32
+	if err := toError(fnDeviceGetNumEventDomains(device, &out), "cuptiDeviceGetNumEventDomains"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return *out, nil
+	return out, nil
 }
 
-var slotDeviceGetNumEventDomains outSlot[uint32]
-
-// DeviceGetNumMetrics gets the number of metrics for a device.
-//
-// Returns the number of metrics available for a device.
-//
-//   - device: The CUDA device
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidDevice]
-//   - [ErrInvalidParameter]: if numMetrics is NULL
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiDeviceGetNumMetrics.
+// DeviceGetNumMetrics wraps cuptiDeviceGetNumMetrics.
 func DeviceGetNumMetrics(device Device) (uint32, error) {
 	if err := checkLibSym("cuptiDeviceGetNumMetrics"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	out := slotDeviceGetNumMetrics.get()
-	defer slotDeviceGetNumMetrics.put(out)
-	if err := toError(fnDeviceGetNumMetrics(device, out), "cuptiDeviceGetNumMetrics"); err != nil {
+	var out uint32
+	if err := toError(fnDeviceGetNumMetrics(device, &out), "cuptiDeviceGetNumMetrics"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return *out, nil
+	return out, nil
 }
-
-var slotDeviceGetNumMetrics outSlot[uint32]
 
 // DeviceSupported checks support for a compute device.
 //
@@ -2324,6 +1170,7 @@ var slotDeviceGetNumMetrics outSlot[uint32]
 // See also: [ComputeCapabilitySupported]
 //
 //   - dev: The device handle returned by CUDA Driver API cuDeviceGet
+//   - support: Pointer to an integer to return the support status
 //
 // Errors:
 //   - [ErrInvalidDevice]: if dev is not a valid device
@@ -2335,16 +1182,13 @@ func DeviceSupported(dev Device) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	out := slotDeviceSupported.get()
-	defer slotDeviceSupported.put(out)
-	if err := toError(fnDeviceSupported(dev, out), "cuptiDeviceSupported"); err != nil {
+	var out int32
+	if err := toError(fnDeviceSupported(dev, &out), "cuptiDeviceSupported"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return *out, nil
+	return out, nil
 }
-
-var slotDeviceSupported outSlot[int32]
 
 // DeviceVirtualizationMode queries the virtualization mode of the device.
 //
@@ -2365,18 +1209,7 @@ func DeviceVirtualizationMode(dev Device, mode *VirtualizationMode) error {
 	return toError(fnDeviceVirtualizationMode(dev, mode), "cuptiDeviceVirtualizationMode")
 }
 
-// DisableKernelReplayMode disables kernel replay mode.
-//
-// Set profiling mode for the context to non-replay (default)
-// mode. Event collection mode will be set to
-// [EventCollectionModeKernel]. All previously enabled
-// event groups and event group sets will be disabled.
-//
-//   - context: The context
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiDisableKernelReplayMode.
+// DisableKernelReplayMode wraps cuptiDisableKernelReplayMode.
 func DisableKernelReplayMode(context driver.Context) error {
 	if err := checkLibSym("cuptiDisableKernelReplayMode"); err != nil {
 		return err
@@ -2452,19 +1285,7 @@ func enableDomain(enable uint32, subscriber Subscriber, domain CallbackDomain) e
 	return toError(fnenableDomain(enable, subscriber, domain), "cuptiEnableDomain")
 }
 
-// EnableKernelReplayMode enables kernel replay mode.
-//
-// Set profiling mode for the context to replay mode. In this mode,
-// any number of events can be collected in one run of the kernel. The
-// event collection mode will automatically switch to
-// [EventCollectionModeKernel]. In this mode, [SetEventCollectionMode] will return
-// [ErrInvalidOperation].
-//
-//   - context: The context
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiEnableKernelReplayMode.
+// EnableKernelReplayMode wraps cuptiEnableKernelReplayMode.
 func EnableKernelReplayMode(context driver.Context) error {
 	if err := checkLibSym("cuptiEnableKernelReplayMode"); err != nil {
 		return err
@@ -2472,22 +1293,7 @@ func EnableKernelReplayMode(context driver.Context) error {
 	return toError(fnEnableKernelReplayMode(context), "cuptiEnableKernelReplayMode")
 }
 
-// EnumEventDomains gets the event domains available on any device.
-//
-// Returns all the event domains available on any CUDA-capable device.
-// Event domain IDs are returned in domainArray. The size of the domainArray buffer is given by *arraySizeBytes. The size of the
-// domainArray buffer must be at least numDomains *
-// sizeof(CUpti_EventDomainID) or all domains will not be
-// returned. The value returned in *arraySizeBytes contains the
-// number of bytes returned in domainArray.
-//
-//   - arraySizeBytes: The size of domainArray in bytes, and returns the number of bytes written to domainArray
-//   - domainArray: Returns all the event domains Starting with CUDA 13.0, this function is unsupported and should not be used. It always returns the error code [ErrLegacyProfilerNotSupported]
-//
-// Errors:
-//   - [ErrInvalidParameter]: if arraySizeBytes or domainArray are NULL
-//
-// Wraps cuptiEnumEventDomains.
+// EnumEventDomains wraps cuptiEnumEventDomains.
 func EnumEventDomains(arraySizeBytes *uint, domainArray *uint32) error {
 	if err := checkLibSym("cuptiEnumEventDomains"); err != nil {
 		return err
@@ -2495,23 +1301,7 @@ func EnumEventDomains(arraySizeBytes *uint, domainArray *uint32) error {
 	return toError(fnEnumEventDomains(arraySizeBytes, domainArray), "cuptiEnumEventDomains")
 }
 
-// EnumMetrics gets all the metrics available on any device.
-//
-// Returns the metric IDs in metricArray for all CUDA-capable
-// devices. The size of the metricArray buffer is given by *arraySizeBytes. The size of the metricArray buffer must be at
-// least numMetrics * sizeof(CUpti_MetricID) or all metric IDs will
-// not be returned. The value returned in *arraySizeBytes contains
-// the number of bytes returned in metricArray.
-//
-//   - arraySizeBytes: The size of metricArray in bytes, and returns the number of bytes written to metricArray
-//   - metricArray: Returns the IDs of the metrics
-//
-// Errors:
-//   - [ErrInvalidParameter]: if arraySizeBytes or metricArray are NULL
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiEnumMetrics.
+// EnumMetrics wraps cuptiEnumMetrics.
 func EnumMetrics(arraySizeBytes *uint, metricArray *uint32) error {
 	if err := checkLibSym("cuptiEnumMetrics"); err != nil {
 		return err
@@ -2519,27 +1309,7 @@ func EnumMetrics(arraySizeBytes *uint, metricArray *uint32) error {
 	return toError(fnEnumMetrics(arraySizeBytes, metricArray), "cuptiEnumMetrics")
 }
 
-// EventDomainEnumEvents gets the events in a domain.
-//
-// Returns the event IDs in eventArray for a domain. The size of
-// the eventArray buffer is given by *arraySizeBytes. The size
-// of the eventArray buffer must be at least numdomainevents *
-// sizeof(CUpti_EventID) or else all events will not be returned. The
-// value returned in *arraySizeBytes contains the number of bytes
-// returned in eventArray.
-//
-//   - eventDomain: ID of the event domain
-//   - arraySizeBytes: The size of eventArray in bytes, and returns the number of bytes written to eventArray
-//   - eventArray: Returns the IDs of the events in the domain
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidEventDomainId]
-//   - [ErrInvalidParameter]: if arraySizeBytes or eventArray are NULL
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiEventDomainEnumEvents.
+// EventDomainEnumEvents wraps cuptiEventDomainEnumEvents.
 func EventDomainEnumEvents(eventDomain uint32, arraySizeBytes *uint, eventArray *uint32) error {
 	if err := checkLibSym("cuptiEventDomainEnumEvents"); err != nil {
 		return err
@@ -2547,25 +1317,7 @@ func EventDomainEnumEvents(eventDomain uint32, arraySizeBytes *uint, eventArray 
 	return toError(fnEventDomainEnumEvents(eventDomain, arraySizeBytes, eventArray), "cuptiEventDomainEnumEvents")
 }
 
-// EventDomainGetAttribute reads an event domain attribute.
-//
-// Returns an event domain attribute in *value. The size of the value buffer is given by *valueSize. The value returned in *valueSize contains the number of bytes returned in value.
-//
-// If the attribute value is a c-string that is longer than *valueSize, then only the first *valueSize characters will be
-// returned and there will be no terminating null byte.
-//
-//   - eventDomain: ID of the event domain
-//   - attrib: The event domain attribute to read
-//   - valueSize: The size of the value buffer in bytes, and returns the number of bytes written to value
-//   - value: Returns the attribute's value Starting with CUDA 13.0, this function is unsupported and should not be used. It always returns the error code [ErrLegacyProfilerNotSupported]
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidEventDomainId]
-//   - [ErrInvalidParameter]: if valueSize or value is NULL, or if attrib is not an event domain attribute
-//   - [ErrParameterSizeNotSufficient]: For non-c-string attribute values, indicates that the value buffer is too small to hold the attribute value.
-//
-// Wraps cuptiEventDomainGetAttribute.
+// EventDomainGetAttribute wraps cuptiEventDomainGetAttribute.
 func EventDomainGetAttribute(eventDomain uint32, attrib EventDomainAttribute, valueSize *uint, value unsafe.Pointer) error {
 	if err := checkLibSym("cuptiEventDomainGetAttribute"); err != nil {
 		return err
@@ -2573,57 +1325,21 @@ func EventDomainGetAttribute(eventDomain uint32, attrib EventDomainAttribute, va
 	return toError(fnEventDomainGetAttribute(eventDomain, attrib, valueSize, value), "cuptiEventDomainGetAttribute")
 }
 
-// EventDomainGetNumEvents gets number of events in a domain.
-//
-// Returns the number of events in numEvents for a domain.
-//
-//   - eventDomain: ID of the event domain
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidEventDomainId]
-//   - [ErrInvalidParameter]: if numEvents is NULL
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiEventDomainGetNumEvents.
+// EventDomainGetNumEvents wraps cuptiEventDomainGetNumEvents.
 func EventDomainGetNumEvents(eventDomain uint32) (uint32, error) {
 	if err := checkLibSym("cuptiEventDomainGetNumEvents"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	out := slotEventDomainGetNumEvents.get()
-	defer slotEventDomainGetNumEvents.put(out)
-	if err := toError(fnEventDomainGetNumEvents(eventDomain, out), "cuptiEventDomainGetNumEvents"); err != nil {
+	var out uint32
+	if err := toError(fnEventDomainGetNumEvents(eventDomain, &out), "cuptiEventDomainGetNumEvents"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return *out, nil
+	return out, nil
 }
 
-var slotEventDomainGetNumEvents outSlot[uint32]
-
-// EventGetAttribute gets an event attribute.
-//
-// Returns an event attribute in *value. The size of the value buffer is given by *valueSize. The value returned in *valueSize contains the number of bytes returned in value.
-//
-// If the attribute value is a c-string that is longer than *valueSize, then only the first *valueSize characters will be
-// returned and there will be no terminating null byte.
-//
-//   - event: ID of the event
-//   - attrib: The event attribute to read
-//   - valueSize: The size of the value buffer in bytes, and returns the number of bytes written to value
-//   - value: Returns the attribute's value
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidEventId]
-//   - [ErrInvalidParameter]: if valueSize or value is NULL, or if attrib is not an event attribute
-//   - [ErrParameterSizeNotSufficient]: For non-c-string attribute values, indicates that the value buffer is too small to hold the attribute value.
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiEventGetAttribute.
+// EventGetAttribute wraps cuptiEventGetAttribute.
 func EventGetAttribute(event uint32, attrib EventAttribute, valueSize *uint, value unsafe.Pointer) error {
 	if err := checkLibSym("cuptiEventGetAttribute"); err != nil {
 		return err
@@ -2631,61 +1347,22 @@ func EventGetAttribute(event uint32, attrib EventAttribute, valueSize *uint, val
 	return toError(fnEventGetAttribute(event, attrib, valueSize, value), "cuptiEventGetAttribute")
 }
 
-// EventGetIdFromName finds an event by name.
-//
-// Find an event by name and return the event ID in *event.
-//
-//   - device: CUDA device
-//   - eventName: The name of the event to find
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidDevice]
-//   - [ErrInvalidEventName]: if unable to find an event with name eventName. In this case *event is undefined
-//   - [ErrInvalidParameter]: if eventName or event are NULL
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiEventGetIdFromName.
+// EventGetIdFromName wraps cuptiEventGetIdFromName.
 func EventGetIdFromName(device Device, eventName string) (uint32, error) {
 	if err := checkLibSym("cuptiEventGetIdFromName"); err != nil {
-		return 0, err
+		var zero uint32
+		return zero, err
 	}
-	cstr_eventName := append([]byte(eventName), 0)
-	out := slotEventGetIdFromName.get()
-	defer slotEventGetIdFromName.put(out)
-	if err := toError(fnEventGetIdFromName(device, &cstr_eventName[0], out), "cuptiEventGetIdFromName"); err != nil {
-		return 0, err
+	eventName_cstr := append([]byte(eventName), 0)
+	var out uint32
+	if err := toError(fnEventGetIdFromName(device, &eventName_cstr[0], &out), "cuptiEventGetIdFromName"); err != nil {
+		var zero uint32
+		return zero, err
 	}
-	return *out, nil
+	return out, nil
 }
 
-var slotEventGetIdFromName outSlot[uint32]
-
-// eventGroupAddEvent adds an event to an event group.
-//
-// The event add can fail for a number of reasons:
-//   - The event group is enabled
-//   - The event does not belong to the same event domain as the events that are already in the event group
-//   - Device limitations on the events that can belong to the same group
-//   - The event group is full
-//
-// Parameters:
-//   - eventGroup: The event group
-//   - event: The event to add to the group
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidEventId]
-//   - [ErrOutOfMemory]
-//   - [ErrInvalidOperation]: if eventGroup is enabled
-//   - [ErrNotCompatible]: if event belongs to a different event domain than the events already in eventGroup, or if a device limitation prevents event from being collected at the same time as the events already in eventGroup
-//   - [ErrMaxLimitReached]: if eventGroup is full
-//   - [ErrInvalidParameter]: if eventGroup is NULL
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiEventGroupAddEvent.
+// eventGroupAddEvent wraps cuptiEventGroupAddEvent.
 func eventGroupAddEvent(eventGroup EventGroup, event uint32) error {
 	if err := checkLibSym("cuptiEventGroupAddEvent"); err != nil {
 		return err
@@ -2693,23 +1370,7 @@ func eventGroupAddEvent(eventGroup EventGroup, event uint32) error {
 	return toError(fneventGroupAddEvent(eventGroup, event), "cuptiEventGroupAddEvent")
 }
 
-// eventGroupCreate creates a new event group for a context.
-//
-// Creates a new event group for context and returns the new group
-// in *eventGroup.
-//
-//   - context: The context for the event group
-//   - flags: Reserved - must be zero
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidContext]
-//   - [ErrOutOfMemory]
-//   - [ErrInvalidParameter]: if eventGroup is NULL
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiEventGroupCreate.
+// eventGroupCreate wraps cuptiEventGroupCreate.
 func eventGroupCreate(context driver.Context, flags uint32) (EventGroup, error) {
 	if err := checkLibSym("cuptiEventGroupCreate"); err != nil {
 		var zero EventGroup
@@ -2723,21 +1384,7 @@ func eventGroupCreate(context driver.Context, flags uint32) (EventGroup, error) 
 	return out, nil
 }
 
-// eventGroupDestroy destroys an event group.
-//
-// Destroy an eventGroup and free its resources. An event group
-// cannot be destroyed if it is enabled.
-//
-//   - eventGroup: The event group to destroy
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidOperation]: if the event group is enabled
-//   - [ErrInvalidParameter]: if eventGroup is NULL
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiEventGroupDestroy.
+// eventGroupDestroy wraps cuptiEventGroupDestroy.
 func eventGroupDestroy(eventGroup EventGroup) error {
 	if err := checkLibSym("cuptiEventGroupDestroy"); err != nil {
 		return err
@@ -2745,21 +1392,7 @@ func eventGroupDestroy(eventGroup EventGroup) error {
 	return toError(fneventGroupDestroy(eventGroup), "cuptiEventGroupDestroy")
 }
 
-// eventGroupDisable disables an event group.
-//
-// Disabling an event group stops collection
-// of events contained in the group.
-//
-//   - eventGroup: The event group
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrHardware]
-//   - [ErrInvalidParameter]: if eventGroup is NULL
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiEventGroupDisable.
+// eventGroupDisable wraps cuptiEventGroupDisable.
 func eventGroupDisable(eventGroup EventGroup) error {
 	if err := checkLibSym("cuptiEventGroupDisable"); err != nil {
 		return err
@@ -2767,25 +1400,7 @@ func eventGroupDisable(eventGroup EventGroup) error {
 	return toError(fneventGroupDisable(eventGroup), "cuptiEventGroupDisable")
 }
 
-// eventGroupEnable enables an event group.
-//
-// Enabling an event group zeros the value of
-// all the events in the group and then starts collection of those
-// events.
-//
-//   - eventGroup: The event group
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrHardware]
-//   - [ErrNotReady]: if eventGroup does not contain any events
-//   - [ErrNotCompatible]: if eventGroup cannot be enabled due to other already enabled event groups
-//   - [ErrInvalidParameter]: if eventGroup is NULL
-//   - [ErrHardwareBusy]: if another client is profiling and hardware is busy
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiEventGroupEnable.
+// eventGroupEnable wraps cuptiEventGroupEnable.
 func eventGroupEnable(eventGroup EventGroup) error {
 	if err := checkLibSym("cuptiEventGroupEnable"); err != nil {
 		return err
@@ -2793,29 +1408,7 @@ func eventGroupEnable(eventGroup EventGroup) error {
 	return toError(fneventGroupEnable(eventGroup), "cuptiEventGroupEnable")
 }
 
-// eventGroupGetAttribute reads an event group attribute.
-//
-// Read an event group attribute and return it in *value.
-// must guard against simultaneous destruction or modification of eventGroup (for example, client must guard against simultaneous
-// calls to [EventGroup.Destroy], [EventGroup.AddEvent],
-// etc.), and must guard against simultaneous destruction of the
-// context in which eventGroup was created (for example, client
-// must guard against simultaneous calls to cudaDeviceReset,
-// cuCtxDestroy, etc.).
-//
-//   - eventGroup: The event group
-//   - attrib: The attribute to read
-//   - valueSize: Size of buffer pointed by the value, and returns the number of bytes written to value
-//   - value: Returns the value of the attribute
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidParameter]: if valueSize or value is NULL, or if attrib is not an eventgroup attribute
-//   - [ErrParameterSizeNotSufficient]: For non-c-string attribute values, indicates that the value buffer is too small to hold the attribute value.
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiEventGroupGetAttribute.
+// eventGroupGetAttribute wraps cuptiEventGroupGetAttribute.
 func eventGroupGetAttribute(eventGroup EventGroup, attrib EventGroupAttribute, valueSize *uint, value unsafe.Pointer) error {
 	if err := checkLibSym("cuptiEventGroupGetAttribute"); err != nil {
 		return err
@@ -2823,126 +1416,31 @@ func eventGroupGetAttribute(eventGroup EventGroup, attrib EventGroupAttribute, v
 	return toError(fneventGroupGetAttribute(eventGroup, attrib, valueSize, value), "cuptiEventGroupGetAttribute")
 }
 
-// eventGroupReadAllEvents reads the values for all the events in an event group.
-//
-// The event
-// values are returned in the eventValueBuffer buffer. The buffer must be at least (sizeof(uint64) *
-// number of events in group) if
-// [EventGroupAttrProfileAllDomainInstances] is not set on
-// the group containing the events. The buffer must be at least
-// (sizeof(uint64) * number of domain instances * number of events in
-// group) if [EventGroupAttrProfileAllDomainInstances] is
-// set on the group.
-//
-// The data format returned in eventValueBuffer is:
-//   - domain instance 0: event0 event1 ... eventN
-//   - domain instance 1: event0 event1 ... eventN
-//   - ...
-//   - domain instance M: event0 event1 ... eventN
-//
-// The event order in eventValueBuffer is returned in eventIdArray. The size should be at least
-// (sizeof(CUpti_EventID) * number of events in group).
-//
-// If any instance of any event counter overflows, the value returned
-// for that event instance will be CUPTI_EVENT_OVERFLOW.
-//
-// The only allowed value for flags is [EventReadFlagNone].
-//
-// Reading events from a disabled event group is not allowed. After
-// being read, an event's value is reset to zero.
-// must guard against simultaneous destruction or modification of eventGroup (for example, client must guard against simultaneous
-// calls to [EventGroup.Destroy], [EventGroup.AddEvent],
-// etc.), and must guard against simultaneous destruction of the
-// context in which eventGroup was created (for example, client
-// must guard against simultaneous calls to cudaDeviceReset,
-// cuCtxDestroy, etc.). If [EventGroup.ResetAllEvents] is
-// called simultaneously with this function, then returned event
-// values are undefined.
-//
-//   - eventGroup: The event group
-//   - flags: Flags controlling the reading mode
-//   - eventValueBuffer: Returns the event values
-//   - eventIdArray: Returns the IDs of the events in the same order as the values return in eventValueBuffer
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrHardware]
-//   - [ErrInvalidOperation]: if eventGroup is disabled
-//   - [ErrInvalidParameter]: if eventGroup, eventValueBufferSizeBytes, eventValueBuffer, eventIdArraySizeBytes, eventIdArray or numEventIdsRead is NULL
-//   - [ErrParameterSizeNotSufficient]: if size of eventValueBuffer or eventIdArray is not sufficient
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiEventGroupReadAllEvents.
+// eventGroupReadAllEvents wraps cuptiEventGroupReadAllEvents.
 func eventGroupReadAllEvents(eventGroup EventGroup, flags ReadEventFlags, eventValueBuffer []uint64, eventIdArray []uint32) (int, error) {
 	if err := checkLibSym("cuptiEventGroupReadAllEvents"); err != nil {
-		return 0, err
+		var zero int
+		return zero, err
 	}
-	outs := slotEventGroupReadAllEvents.get()
-	defer slotEventGroupReadAllEvents.put(outs)
+	var out uint
+	var size2 uint
+	var size4 uint
 	if len(eventValueBuffer) == 0 {
 		eventValueBuffer = nil
 	}
-	outs.size2 = uint(len(eventValueBuffer)) * uint(unsafe.Sizeof(eventValueBuffer[0]))
+	size2 = uint(len(eventValueBuffer)) * uint(unsafe.Sizeof(eventValueBuffer[0]))
 	if len(eventIdArray) == 0 {
 		eventIdArray = nil
 	}
-	outs.size4 = uint(len(eventIdArray)) * uint(unsafe.Sizeof(eventIdArray[0]))
-	if err := toError(fneventGroupReadAllEvents(eventGroup, flags, &outs.size2, unsafe.SliceData(eventValueBuffer), &outs.size4, unsafe.SliceData(eventIdArray), &outs.out), "cuptiEventGroupReadAllEvents"); err != nil {
-		return 0, err
+	size4 = uint(len(eventIdArray)) * uint(unsafe.Sizeof(eventIdArray[0]))
+	if err := toError(fneventGroupReadAllEvents(eventGroup, flags, &size2, unsafe.SliceData(eventValueBuffer), &size4, unsafe.SliceData(eventIdArray), &out), "cuptiEventGroupReadAllEvents"); err != nil {
+		var zero int
+		return zero, err
 	}
-	return int(outs.out), nil
+	return int(out), nil
 }
 
-var slotEventGroupReadAllEvents outSlot[struct {
-	out   uint
-	size2 uint
-	size4 uint
-}]
-
-// eventGroupReadEvent reads the value for an event in an event group.
-//
-// The event value is
-// returned in the eventValueBuffer buffer. eventValueBufferSizeBytes indicates the size of the eventValueBuffer buffer. The buffer must be at least sizeof(uint64)
-// if [EventGroupAttrProfileAllDomainInstances] is not set
-// on the group containing the event. The buffer must be at least
-// (sizeof(uint64) * number of domain instances) if
-// [EventGroupAttrProfileAllDomainInstances] is set on the
-// group.
-//
-// If any instance of an event counter overflows, the value returned
-// for that event instance will be CUPTI_EVENT_OVERFLOW.
-//
-// The only allowed value for flags is [EventReadFlagNone].
-//
-// Reading an event from a disabled event group is not allowed. After
-// being read, an event's value is reset to zero.
-// must guard against simultaneous destruction or modification of eventGroup (for example, client must guard against simultaneous
-// calls to [EventGroup.Destroy], [EventGroup.AddEvent],
-// etc.), and must guard against simultaneous destruction of the
-// context in which eventGroup was created (for example, client
-// must guard against simultaneous calls to cudaDeviceReset,
-// cuCtxDestroy, etc.). If [EventGroup.ResetAllEvents] is
-// called simultaneously with this function, then returned event
-// values are undefined.
-//
-//   - eventGroup: The event group
-//   - flags: Flags controlling the reading mode
-//   - event: The event to read
-//   - eventValueBufferSizeBytes: The size of eventValueBuffer in bytes, and returns the number of bytes written to eventValueBuffer
-//   - eventValueBuffer: Returns the event value(s)
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidEventId]
-//   - [ErrHardware]
-//   - [ErrInvalidOperation]: if eventGroup is disabled
-//   - [ErrInvalidParameter]: if eventGroup, eventValueBufferSizeBytes or eventValueBuffer is NULL
-//   - [ErrParameterSizeNotSufficient]: if size of eventValueBuffer is not sufficient
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiEventGroupReadEvent.
+// eventGroupReadEvent wraps cuptiEventGroupReadEvent.
 func eventGroupReadEvent(eventGroup EventGroup, flags ReadEventFlags, event uint32, eventValueBufferSizeBytes *uint, eventValueBuffer *uint64) error {
 	if err := checkLibSym("cuptiEventGroupReadEvent"); err != nil {
 		return err
@@ -2950,21 +1448,7 @@ func eventGroupReadEvent(eventGroup EventGroup, flags ReadEventFlags, event uint
 	return toError(fneventGroupReadEvent(eventGroup, flags, event, eventValueBufferSizeBytes, eventValueBuffer), "cuptiEventGroupReadEvent")
 }
 
-// eventGroupRemoveAllEvents removes all events from an event group.
-//
-// Events cannot be removed if
-// the event group is enabled.
-//
-//   - eventGroup: The event group
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidOperation]: if eventGroup is enabled
-//   - [ErrInvalidParameter]: if eventGroup is NULL
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiEventGroupRemoveAllEvents.
+// eventGroupRemoveAllEvents wraps cuptiEventGroupRemoveAllEvents.
 func eventGroupRemoveAllEvents(eventGroup EventGroup) error {
 	if err := checkLibSym("cuptiEventGroupRemoveAllEvents"); err != nil {
 		return err
@@ -2972,23 +1456,7 @@ func eventGroupRemoveAllEvents(eventGroup EventGroup) error {
 	return toError(fneventGroupRemoveAllEvents(eventGroup), "cuptiEventGroupRemoveAllEvents")
 }
 
-// eventGroupRemoveEvent removes an event from an event group.
-//
-// Remove event from the an event group. The event cannot be
-// removed if the event group is enabled.
-//
-//   - eventGroup: The event group
-//   - event: The event to remove from the group
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidEventId]
-//   - [ErrInvalidOperation]: if eventGroup is enabled
-//   - [ErrInvalidParameter]: if eventGroup is NULL
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiEventGroupRemoveEvent.
+// eventGroupRemoveEvent wraps cuptiEventGroupRemoveEvent.
 func eventGroupRemoveEvent(eventGroup EventGroup, event uint32) error {
 	if err := checkLibSym("cuptiEventGroupRemoveEvent"); err != nil {
 		return err
@@ -2998,24 +1466,6 @@ func eventGroupRemoveEvent(eventGroup EventGroup, event uint32) error {
 
 // eventGroupResetAllEvents zeroes the counts of all the events in the event group.
 //
-// Zero all the event counts in an event group.
-//
-// must guard against simultaneous destruction or modification of eventGroup (for example, client must guard against simultaneous
-// calls to [EventGroup.Destroy], [EventGroup.AddEvent],
-// etc.), and must guard against simultaneous destruction of the
-// context in which eventGroup was created (for example, client
-// must guard against simultaneous calls to cudaDeviceReset,
-// cuCtxDestroy, etc.).
-//
-//   - eventGroup: The event group
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrHardware]
-//   - [ErrInvalidParameter]: if eventGroup is NULL
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
 // Wraps cuptiEventGroupResetAllEvents.
 func eventGroupResetAllEvents(eventGroup EventGroup) error {
 	if err := checkLibSym("cuptiEventGroupResetAllEvents"); err != nil {
@@ -3024,21 +1474,7 @@ func eventGroupResetAllEvents(eventGroup EventGroup) error {
 	return toError(fneventGroupResetAllEvents(eventGroup), "cuptiEventGroupResetAllEvents")
 }
 
-// eventGroupSetAttribute writes an event group attribute.
-//
-//   - eventGroup: The event group
-//   - attrib: The attribute to write
-//   - valueSize: The size, in bytes, of the value
-//   - value: The attribute value to write
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidParameter]: if valueSize or value is NULL, or if attrib is not an event group attribute, or if attrib is not a writable attribute
-//   - [ErrParameterSizeNotSufficient]: Indicates that the value buffer is too small to hold the attribute value.
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiEventGroupSetAttribute.
+// eventGroupSetAttribute wraps cuptiEventGroupSetAttribute.
 func eventGroupSetAttribute(eventGroup EventGroup, attrib EventGroupAttribute, valueSize uint, value unsafe.Pointer) error {
 	if err := checkLibSym("cuptiEventGroupSetAttribute"); err != nil {
 		return err
@@ -3046,22 +1482,7 @@ func eventGroupSetAttribute(eventGroup EventGroup, attrib EventGroupAttribute, v
 	return toError(fneventGroupSetAttribute(eventGroup, attrib, valueSize, value), "cuptiEventGroupSetAttribute")
 }
 
-// EventGroupSetDisable disables an event group set.
-//
-// Disable a set of event groups. Disabling a set of event groups
-// stops collection of events contained in the groups.
-// and other event groups may remain enabled.
-//
-//   - eventGroupSet: The pointer to the event group set
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrHardware]
-//   - [ErrInvalidParameter]: if eventGroupSet is NULL
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiEventGroupSetDisable.
+// EventGroupSetDisable wraps cuptiEventGroupSetDisable.
 func EventGroupSetDisable(eventGroupSet *EventGroupSet) error {
 	if err := checkLibSym("cuptiEventGroupSetDisable"); err != nil {
 		return err
@@ -3069,24 +1490,7 @@ func EventGroupSetDisable(eventGroupSet *EventGroupSet) error {
 	return toError(fnEventGroupSetDisable(eventGroupSet), "cuptiEventGroupSetDisable")
 }
 
-// EventGroupSetEnable enables an event group set.
-//
-// Enable a set of event groups. Enabling a set of event groups zeros the value of
-// all the events in all the groups and then starts collection of those events.
-//
-//   - eventGroupSet: The pointer to the event group set
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrHardware]
-//   - [ErrNotReady]: if eventGroup does not contain any events
-//   - [ErrNotCompatible]: if eventGroup cannot be enabled due to other already enabled event groups
-//   - [ErrInvalidParameter]: if eventGroupSet is NULL
-//   - [ErrHardwareBusy]: if other client is profiling and hardware is busy
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiEventGroupSetEnable.
+// EventGroupSetEnable wraps cuptiEventGroupSetEnable.
 func EventGroupSetEnable(eventGroupSet *EventGroupSet) error {
 	if err := checkLibSym("cuptiEventGroupSetEnable"); err != nil {
 		return err
@@ -3096,59 +1500,19 @@ func EventGroupSetEnable(eventGroupSet *EventGroupSet) error {
 
 // EventGroupSetsCreate returns the event groups, one set per pass, needed to collect a set of events.
 //
-// For a set of events, get the grouping that indicates the number of passes and the event groups necessary to collect the events.
-//
-// The number of events that can be collected simultaneously varies by
-// device and by the type of the events. When events can be collected
-// simultaneously, they may need to be grouped into multiple event
-// groups because they are from different event domains. This function
-// takes a set of events and determines how many passes are required
-// to collect all those events, and which events can be collected
-// simultaneously in each pass.
-//
-// The [EventGroupSets] returned in eventGroupPasses indicates
-// how many passes are required to collect the events with the numSets field. Within each event group set, the sets array
-// indicates the event groups that should be collected on each pass.
-// must guard against another thread simultaneously destroying context.
-//
-//   - context: The context for event collection
-//   - eventIdArraySizeBytes: Size of eventIdArray in bytes
-//   - eventIdArray: Array of event IDs that need to be grouped
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidContext]
-//   - [ErrInvalidEventId]
-//   - [ErrInvalidParameter]: if eventIdArray or eventGroupPasses is NULL
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
 // Wraps cuptiEventGroupSetsCreate.
 func EventGroupSetsCreate(context driver.Context, eventIdArraySizeBytes uint, eventIdArray *uint32) (eventGroupPasses *EventGroupSets, err error) {
 	if err := checkLibSym("cuptiEventGroupSetsCreate"); err != nil {
-		return nil, err
+		return *new(*EventGroupSets), err
 	}
-	var out3 *EventGroupSets
-	if err := toError(fnEventGroupSetsCreate(context, eventIdArraySizeBytes, eventIdArray, &out3), "cuptiEventGroupSetsCreate"); err != nil {
-		return nil, err
+	var out0 *EventGroupSets
+	if err := toError(fnEventGroupSetsCreate(context, eventIdArraySizeBytes, eventIdArray, &out0), "cuptiEventGroupSetsCreate"); err != nil {
+		return *new(*EventGroupSets), err
 	}
-	return out3, nil
+	return out0, nil
 }
 
-// EventGroupSetsDestroy destroys a event group sets object.
-//
-// Destroy a [EventGroupSets] object.
-//
-//   - eventGroupSets: The object to destroy
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidOperation]: if any of the event groups contained in the sets is enabled
-//   - [ErrInvalidParameter]: if eventGroupSets is NULL
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiEventGroupSetsDestroy.
+// EventGroupSetsDestroy wraps cuptiEventGroupSetsDestroy.
 func EventGroupSetsDestroy(eventGroupSets *EventGroupSets) error {
 	if err := checkLibSym("cuptiEventGroupSetsDestroy"); err != nil {
 		return err
@@ -3195,11 +1559,11 @@ func Finalize() error {
 //
 // The profiling results can be inconsistent in case auto boost is enabled. CUPTI tries to disable auto boost while profiling. It can fail to disable in cases where user does not have the permissions or CUDA_AUTO_BOOST env variable is set. The function can be used to query whether auto boost is enabled.
 //
-//   - context: A valid CUcontext
+//   - context: A valid driver.Context
 //   - state: A pointer to [ActivityAutoBoostState] structure which contains the current state and the id of the process that has requested the current state
 //
 // Errors:
-//   - [ErrInvalidParameter]: if CUcontext or state is NULL
+//   - [ErrInvalidParameter]: if driver.Context or state is NULL
 //   - [ErrNotSupported]: Indicates that the device does not support auto boost
 //   - [ErrUnknown]: an internal error occurred
 //
@@ -3245,6 +1609,7 @@ func GetCallbackName(domain CallbackDomain, cbid uint32) (string, error) {
 // : a subscriber must serialize access to [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and [Subscriber.EnableAllDomains]. For example, if [Subscriber.CallbackState](sub,
 // d, c) and [Subscriber.EnableCallback](sub, d, c) are called concurrently, the results are undefined.
 //
+//   - enable: Returns non-zero if callback enabled, zero if not enabled
 //   - subscriber: Handle to the initialize subscriber
 //   - domain: The domain of the callback
 //   - cbid: The ID of the callback
@@ -3259,20 +1624,18 @@ func getCallbackState(subscriber Subscriber, domain CallbackDomain, cbid uint32)
 		var zero uint32
 		return zero, err
 	}
-	out := slotGetCallbackState.get()
-	defer slotGetCallbackState.put(out)
-	if err := toError(fngetCallbackState(out, subscriber, domain, cbid), "cuptiGetCallbackState"); err != nil {
+	var out uint32
+	if err := toError(fngetCallbackState(&out, subscriber, domain, cbid), "cuptiGetCallbackState"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return *out, nil
+	return out, nil
 }
-
-var slotGetCallbackState outSlot[uint32]
 
 // GetContextId gets the ID of a context.
 //
 //   - context: The context
+//   - contextId: Returns a process-unique ID for the context
 //
 // Errors:
 //   - [ErrInvalidContext]: The context is NULL or not valid.
@@ -3315,6 +1678,7 @@ func GetCubinCrc(pParams *GetCubinCrcParams) error {
 // If context is NULL, returns the ID of the device that contains the currently active context. If context is non-NULL, returns the ID of the device which contains that context. Operates in a similar manner to cudaGetDevice() or cuCtxGetDevice() but may be called from within callback functions.
 //
 //   - context: The context, or NULL to indicate the current context
+//   - deviceId: Returns the ID of the device that is current for the calling thread
 //
 // Errors:
 //   - [ErrInvalidDevice]: if unable to get device ID
@@ -3343,6 +1707,7 @@ func GetDeviceId(context driver.Context) (uint32, error) {
 //   - domain: The domain of the callbacks to get. If NULL, [ErrInvalidParameter] is returned
 //   - buffer: The buffer to store the enabled callbacks. If NULL, the number of enabled callbacks is returned in enabledCallbacksCount
 //   - bufferSize: The size of the buffer. If NULL, only the number of enabled callbacks is returned in enabledCallbacksCount. If NULL and buffer is not NULL, [ErrInvalidParameter] is returned
+//   - enabledCallbacksCount: The number of enabled callbacks. If NULL, [ErrInvalidParameter] is returned
 //
 // Errors:
 //   - [ErrInvalidParameter]: if enabledCallbacksCount is NULL, or if subscriber or domain is invalid.
@@ -3353,22 +1718,20 @@ func getEnabledCallbacks(subscriber Subscriber, domain CallbackDomain, buffer *u
 		var zero uint32
 		return zero, err
 	}
-	out := slotGetEnabledCallbacks.get()
-	defer slotGetEnabledCallbacks.put(out)
-	if err := toError(fngetEnabledCallbacks(subscriber, domain, buffer, bufferSize, out), "cuptiGetEnabledCallbacks"); err != nil {
+	var out uint32
+	if err := toError(fngetEnabledCallbacks(subscriber, domain, buffer, bufferSize, &out), "cuptiGetEnabledCallbacks"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return *out, nil
+	return out, nil
 }
-
-var slotGetEnabledCallbacks outSlot[uint32]
 
 // GetGraphExecId gets the unique ID of executable graph.
 //
 // Returns the unique ID of executable CUDA graph.
 //
 //   - graphExec: The executable graph
+//   - pId: Returns the unique ID of the executable graph
 //
 // Errors:
 //   - [ErrInvalidParameter]: if graph is NULL
@@ -3380,22 +1743,20 @@ func GetGraphExecId(graphExec GraphExec) (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	out := slotGetGraphExecId.get()
-	defer slotGetGraphExecId.put(out)
-	if err := toError(fnGetGraphExecId(graphExec, out), "cuptiGetGraphExecId"); err != nil {
+	var out uint32
+	if err := toError(fnGetGraphExecId(graphExec, &out), "cuptiGetGraphExecId"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return *out, nil
+	return out, nil
 }
-
-var slotGetGraphExecId outSlot[uint32]
 
 // GetGraphId gets the unique ID of graph.
 //
 // Returns the unique ID of CUDA graph.
 //
 //   - graph: The graph
+//   - pId: Returns the unique ID of the graph
 //
 // Errors:
 //   - [ErrInvalidParameter]: if graph is NULL
@@ -3407,22 +1768,20 @@ func GetGraphId(graph Graph) (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	out := slotGetGraphId.get()
-	defer slotGetGraphId.put(out)
-	if err := toError(fnGetGraphId(graph, out), "cuptiGetGraphId"); err != nil {
+	var out uint32
+	if err := toError(fnGetGraphId(graph, &out), "cuptiGetGraphId"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return *out, nil
+	return out, nil
 }
-
-var slotGetGraphId outSlot[uint32]
 
 // GetGraphNodeId gets the unique ID of a graph node.
 //
 // Returns the unique ID of the CUDA graph node.
 //
 //   - node: The graph node
+//   - nodeId: Returns the unique ID of the node
 //
 // Errors:
 //   - [ErrInvalidParameter]: if node is NULL
@@ -3434,16 +1793,13 @@ func GetGraphNodeId(node GraphNode) (uint64, error) {
 		var zero uint64
 		return zero, err
 	}
-	out := slotGetGraphNodeId.get()
-	defer slotGetGraphNodeId.put(out)
-	if err := toError(fnGetGraphNodeId(node, out), "cuptiGetGraphNodeId"); err != nil {
+	var out uint64
+	if err := toError(fnGetGraphNodeId(node, &out), "cuptiGetGraphNodeId"); err != nil {
 		var zero uint64
 		return zero, err
 	}
-	return *out, nil
+	return out, nil
 }
-
-var slotGetGraphNodeId outSlot[uint64]
 
 // GetLastError returns the last error from a cupti call or callback.
 //
@@ -3457,59 +1813,33 @@ func GetLastError() error {
 	return toError(fnGetLastError(), "cuptiGetLastError")
 }
 
-// GetNumEventDomains gets the number of event domains available on any device.
-//
-// Returns the total number of event domains available on any
-// CUDA-capable device.
-//
-// Errors:
-//   - [ErrInvalidParameter]: if numDomains is NULL
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiGetNumEventDomains.
+// GetNumEventDomains wraps cuptiGetNumEventDomains.
 func GetNumEventDomains() (uint32, error) {
 	if err := checkLibSym("cuptiGetNumEventDomains"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	out := slotGetNumEventDomains.get()
-	defer slotGetNumEventDomains.put(out)
-	if err := toError(fnGetNumEventDomains(out), "cuptiGetNumEventDomains"); err != nil {
+	var out uint32
+	if err := toError(fnGetNumEventDomains(&out), "cuptiGetNumEventDomains"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return *out, nil
+	return out, nil
 }
 
-var slotGetNumEventDomains outSlot[uint32]
-
-// GetNumMetrics gets the total number of metrics available on any device.
-//
-// Returns the total number of metrics available on any CUDA-capable
-// devices.
-//
-// Errors:
-//   - [ErrInvalidParameter]: if numMetrics is NULL
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiGetNumMetrics.
+// GetNumMetrics wraps cuptiGetNumMetrics.
 func GetNumMetrics() (uint32, error) {
 	if err := checkLibSym("cuptiGetNumMetrics"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	out := slotGetNumMetrics.get()
-	defer slotGetNumMetrics.put(out)
-	if err := toError(fnGetNumMetrics(out), "cuptiGetNumMetrics"); err != nil {
+	var out uint32
+	if err := toError(fnGetNumMetrics(&out), "cuptiGetNumMetrics"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return *out, nil
+	return out, nil
 }
-
-var slotGetNumMetrics outSlot[uint32]
 
 // GetSassToSourceCorrelation SASS to Source correlation.
 //
@@ -3536,6 +1866,7 @@ func GetSassToSourceCorrelation(pParams *GetSassToSourceCorrelationParams) error
 //
 //   - context: If non-NULL then the stream is checked to ensure that it belongs to this context. Typically this parameter should be null
 //   - stream: The stream
+//   - streamId: Returns a context-unique ID for the stream
 //
 // Errors:
 //   - [ErrInvalidParameter]: if streamId is NULL
@@ -3565,6 +1896,7 @@ func GetStreamId(context driver.Context, stream driver.Stream) (uint32, error) {
 //   - context: If non-NULL then the stream is checked to ensure that it belongs to this context. Typically this parameter should be null
 //   - stream: The stream
 //   - perThreadStream: Flag to indicate if program is compiled for per-thread streams
+//   - streamId: Returns a context-unique ID for the stream
 //
 // Errors:
 //   - [ErrInvalidParameter]: if streamId is NULL
@@ -3592,7 +1924,7 @@ func GetStreamIdEx(context driver.Context, stream driver.Stream, perThreadStream
 // Errors:
 //   - [ErrInvalidParameter]: if type is NULL
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrThreadIdType], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2].
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrThreadIdType], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
 //
 // Wraps cuptiGetThreadIdType.
 func GetThreadIdType(type_ *ActivityThreadIdType) error {
@@ -3606,10 +1938,12 @@ func GetThreadIdType(type_ *ActivityThreadIdType) error {
 //
 // Returns a timestamp normalized to correspond with the start and end timestamps reported in the CUPTI activity records. The timestamp is reported in nanoseconds.
 //
+//   - timestamp: Returns the CUPTI timestamp
+//
 // Errors:
 //   - [ErrInvalidParameter]: if timestamp is NULL
 //
-// Deprecated: This API will be deprecated in a future release. In CUDA 13.4 and later, the corresponding V2 API is cuptiGetTimestamp_v2.
+// Deprecated: This API will be deprecated in a future release. In CUDA 13.4 and later, the corresponding V2 API is cuptiGetTimestamp_v2. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
 //
 // Wraps cuptiGetTimestamp.
 func GetTimestamp() (uint64, error) {
@@ -3617,22 +1951,21 @@ func GetTimestamp() (uint64, error) {
 		var zero uint64
 		return zero, err
 	}
-	out := slotGetTimestamp.get()
-	defer slotGetTimestamp.put(out)
-	if err := toError(fnGetTimestamp(out), "cuptiGetTimestamp"); err != nil {
+	var out uint64
+	if err := toError(fnGetTimestamp(&out), "cuptiGetTimestamp"); err != nil {
 		var zero uint64
 		return zero, err
 	}
-	return *out, nil
+	return out, nil
 }
-
-var slotGetTimestamp outSlot[uint64]
 
 // GetVersion gets the CUPTI API version.
 //
 // Return the API version in *version.
 //
 // See also: CUPTI_API_VERSION
+//
+//   - version: Returns the version
 //
 // Errors:
 //   - [ErrInvalidParameter]: if version is NULL previous6.12. CUPTI SASS Metrics API next7. Data Structures
@@ -3655,6 +1988,8 @@ func GetVersion() (uint32, error) {
 //
 // This API returns true if a CUPTI library is already loaded by another CUPTI user by using any CUPTI API. This API returns false when CUPTI is finalized and there is no CUPTI currently loaded and active. Can be used to determine if it is safe to unload your CUPTI based tool. Note that this API itself does not load the CUPTI library, it merely checks if a CUPTI library is already loaded by another CUPTI user.
 //
+//   - isRunning: Returns whether the tracing session is still running
+//
 // Errors:
 //   - [ErrInvalidParameter]: if isRunning is NULL.
 //   - [ErrUnknown]: if an unknown error occurred.
@@ -3665,30 +2000,15 @@ func IsTracingSessionRunning() (uint8, error) {
 		var zero uint8
 		return zero, err
 	}
-	out := slotIsTracingSessionRunning.get()
-	defer slotIsTracingSessionRunning.put(out)
-	if err := toError(fnIsTracingSessionRunning(out), "cuptiIsTracingSessionRunning"); err != nil {
+	var out uint8
+	if err := toError(fnIsTracingSessionRunning(&out), "cuptiIsTracingSessionRunning"); err != nil {
 		var zero uint8
 		return zero, err
 	}
-	return *out, nil
+	return out, nil
 }
 
-var slotIsTracingSessionRunning outSlot[uint8]
-
-// KernelReplaySubscribeUpdate subscribes to kernel replay updates.
-//
-// When subscribed, the function pointer passed in will be called each time a
-// kernel run is finished during kernel replay. Previously subscribed function
-// pointer will be replaced. Pass in NULL as the function pointer unsubscribes
-// the update.
-//
-//   - updateFunc: The update function pointer (see [KernelReplayUpdateFunc])
-//   - customData: Pointer to any custom data
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiKernelReplaySubscribeUpdate.
+// KernelReplaySubscribeUpdate wraps cuptiKernelReplaySubscribeUpdate.
 func KernelReplaySubscribeUpdate(updateFunc uintptr, customData uintptr) error {
 	if err := checkLibSym("cuptiKernelReplaySubscribeUpdate"); err != nil {
 		return err
@@ -3698,58 +2018,19 @@ func KernelReplaySubscribeUpdate(updateFunc uintptr, customData uintptr) error {
 
 // MetricCreateEventGroupSets returns the event groups, one set per pass, needed to collect the events a set of metrics requires.
 //
-// For a set of metrics, get the grouping that indicates the number of passes and the event groups necessary to collect the events required for those metrics.
-//
-// For a set of metrics, get the grouping that indicates the number of
-// passes and the event groups necessary to collect the events
-// required for those metrics.
-//
-// [EventGroupSetsCreate] for details on event group set
-// creation.
-//
-//   - context: The context for event collection
-//   - metricIdArraySizeBytes: Size of the metricIdArray in bytes
-//   - metricIdArray: Array of metric IDs
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidContext]
-//   - [ErrInvalidMetricId]
-//   - [ErrInvalidParameter]: if metricIdArray or eventGroupPasses is NULL
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
 // Wraps cuptiMetricCreateEventGroupSets.
 func MetricCreateEventGroupSets(context driver.Context, metricIdArraySizeBytes uint, metricIdArray *uint32) (eventGroupPasses *EventGroupSets, err error) {
 	if err := checkLibSym("cuptiMetricCreateEventGroupSets"); err != nil {
-		return nil, err
+		return *new(*EventGroupSets), err
 	}
-	var out3 *EventGroupSets
-	if err := toError(fnMetricCreateEventGroupSets(context, metricIdArraySizeBytes, metricIdArray, &out3), "cuptiMetricCreateEventGroupSets"); err != nil {
-		return nil, err
+	var out0 *EventGroupSets
+	if err := toError(fnMetricCreateEventGroupSets(context, metricIdArraySizeBytes, metricIdArray, &out0), "cuptiMetricCreateEventGroupSets"); err != nil {
+		return *new(*EventGroupSets), err
 	}
-	return out3, nil
+	return out0, nil
 }
 
-// MetricEnumEvents gets the events required to calculating a metric.
-//
-// Gets the event IDs in eventIdArray required to calculate a metric. The size of the eventIdArray buffer is given by *eventIdArraySizeBytes and must be at least numEvents *
-// sizeof(CUpti_EventID) or all events will not be returned. The value
-// returned in *eventIdArraySizeBytes contains the number of bytes
-// returned in eventIdArray.
-//
-//   - metric: ID of the metric
-//   - eventIdArraySizeBytes: The size of eventIdArray in bytes, and returns the number of bytes written to eventIdArray
-//   - eventIdArray: Returns the IDs of the events required to calculate metric
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidMetricId]
-//   - [ErrInvalidParameter]: if eventIdArraySizeBytes or eventIdArray are NULL.
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiMetricEnumEvents.
+// MetricEnumEvents wraps cuptiMetricEnumEvents.
 func MetricEnumEvents(metric uint32, eventIdArraySizeBytes *uint, eventIdArray *uint32) error {
 	if err := checkLibSym("cuptiMetricEnumEvents"); err != nil {
 		return err
@@ -3757,25 +2038,7 @@ func MetricEnumEvents(metric uint32, eventIdArraySizeBytes *uint, eventIdArray *
 	return toError(fnMetricEnumEvents(metric, eventIdArraySizeBytes, eventIdArray), "cuptiMetricEnumEvents")
 }
 
-// MetricEnumProperties gets the properties required to calculating a metric.
-//
-// Gets the property IDs in propIdArray required to calculate a metric. The size of the propIdArray buffer is given by *propIdArraySizeBytes and must be at least numProp *
-// sizeof([DeviceAttribute]) or all properties will not be
-// returned. The value returned in *propIdArraySizeBytes contains
-// the number of bytes returned in propIdArray.
-//
-//   - metric: ID of the metric
-//   - propIdArraySizeBytes: The size of propIdArray in bytes, and returns the number of bytes written to propIdArray
-//   - propIdArray: Returns the IDs of the properties required to calculate metric
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidMetricId]
-//   - [ErrInvalidParameter]: if propIdArraySizeBytes or propIdArray are NULL.
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiMetricEnumProperties.
+// MetricEnumProperties wraps cuptiMetricEnumProperties.
 func MetricEnumProperties(metric uint32, propIdArraySizeBytes *uint, propIdArray *MetricPropertyID) error {
 	if err := checkLibSym("cuptiMetricEnumProperties"); err != nil {
 		return err
@@ -3783,27 +2046,7 @@ func MetricEnumProperties(metric uint32, propIdArraySizeBytes *uint, propIdArray
 	return toError(fnMetricEnumProperties(metric, propIdArraySizeBytes, propIdArray), "cuptiMetricEnumProperties")
 }
 
-// MetricGetAttribute gets a metric attribute.
-//
-// Returns a metric attribute in *value. The size of the value buffer is given by *valueSize. The value returned in *valueSize contains the number of bytes returned in value.
-//
-// If the attribute value is a c-string that is longer than *valueSize, then only the first *valueSize characters will be
-// returned and there will be no terminating null byte.
-//
-//   - metric: ID of the metric
-//   - attrib: The metric attribute to read
-//   - valueSize: The size of the value buffer in bytes, and returns the number of bytes written to value
-//   - value: Returns the attribute's value
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidMetricId]
-//   - [ErrInvalidParameter]: if valueSize or value is NULL, or if attrib is not a metric attribute
-//   - [ErrParameterSizeNotSufficient]: For non-c-string attribute values, indicates that the value buffer is too small to hold the attribute value.
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiMetricGetAttribute.
+// MetricGetAttribute wraps cuptiMetricGetAttribute.
 func MetricGetAttribute(metric uint32, attrib MetricAttribute, valueSize *uint, value unsafe.Pointer) error {
 	if err := checkLibSym("cuptiMetricGetAttribute"); err != nil {
 		return err
@@ -3811,238 +2054,90 @@ func MetricGetAttribute(metric uint32, attrib MetricAttribute, valueSize *uint, 
 	return toError(fnMetricGetAttribute(metric, attrib, valueSize, value), "cuptiMetricGetAttribute")
 }
 
-// MetricGetIdFromName finds an metric by name.
-//
-// Find a metric by name and return the metric ID in *metric.
-//
-//   - device: The CUDA device
-//   - metricName: The name of metric to find
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidDevice]
-//   - [ErrInvalidMetricName]: if unable to find a metric with name metricName. In this case *metric is undefined
-//   - [ErrInvalidParameter]: if metricName or metric are NULL.
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiMetricGetIdFromName.
+// MetricGetIdFromName wraps cuptiMetricGetIdFromName.
 func MetricGetIdFromName(device Device, metricName string) (uint32, error) {
 	if err := checkLibSym("cuptiMetricGetIdFromName"); err != nil {
-		return 0, err
+		var zero uint32
+		return zero, err
 	}
-	cstr_metricName := append([]byte(metricName), 0)
-	out := slotMetricGetIdFromName.get()
-	defer slotMetricGetIdFromName.put(out)
-	if err := toError(fnMetricGetIdFromName(device, &cstr_metricName[0], out), "cuptiMetricGetIdFromName"); err != nil {
-		return 0, err
+	metricName_cstr := append([]byte(metricName), 0)
+	var out uint32
+	if err := toError(fnMetricGetIdFromName(device, &metricName_cstr[0], &out), "cuptiMetricGetIdFromName"); err != nil {
+		var zero uint32
+		return zero, err
 	}
-	return *out, nil
+	return out, nil
 }
 
-var slotMetricGetIdFromName outSlot[uint32]
-
-// MetricGetNumEvents gets number of events required to calculate a metric.
-//
-// Returns the number of events in numEvents that are required to
-// calculate a metric.
-//
-//   - metric: ID of the metric
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidMetricId]
-//   - [ErrInvalidParameter]: if numEvents is NULL
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiMetricGetNumEvents.
+// MetricGetNumEvents wraps cuptiMetricGetNumEvents.
 func MetricGetNumEvents(metric uint32) (uint32, error) {
 	if err := checkLibSym("cuptiMetricGetNumEvents"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	out := slotMetricGetNumEvents.get()
-	defer slotMetricGetNumEvents.put(out)
-	if err := toError(fnMetricGetNumEvents(metric, out), "cuptiMetricGetNumEvents"); err != nil {
+	var out uint32
+	if err := toError(fnMetricGetNumEvents(metric, &out), "cuptiMetricGetNumEvents"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return *out, nil
+	return out, nil
 }
 
-var slotMetricGetNumEvents outSlot[uint32]
-
-// MetricGetNumProperties gets number of properties required to calculate a metric.
-//
-// Returns the number of properties in numProp that are required to
-// calculate a metric.
-//
-//   - metric: ID of the metric
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidMetricId]
-//   - [ErrInvalidParameter]: if numProp is NULL
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiMetricGetNumProperties.
+// MetricGetNumProperties wraps cuptiMetricGetNumProperties.
 func MetricGetNumProperties(metric uint32) (uint32, error) {
 	if err := checkLibSym("cuptiMetricGetNumProperties"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	out := slotMetricGetNumProperties.get()
-	defer slotMetricGetNumProperties.put(out)
-	if err := toError(fnMetricGetNumProperties(metric, out), "cuptiMetricGetNumProperties"); err != nil {
+	var out uint32
+	if err := toError(fnMetricGetNumProperties(metric, &out), "cuptiMetricGetNumProperties"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return *out, nil
+	return out, nil
 }
 
-var slotMetricGetNumProperties outSlot[uint32]
-
 // MetricGetRequiredEventGroupSets returns the groups of events that must be collected in the same pass for the metric to be computed correctly.
-//
-// For a metric get the groups of events that must be collected in the same pass.
-//
-// For a metric get the groups of events that must be collected in the
-// same pass to ensure that the metric is calculated correctly. If the
-// events are not collected as specified then the metric value may be
-// inaccurate.
-//
-// The function returns NULL if a metric does not have any required
-// event group. In this case the events needed for the metric can be
-// grouped in any manner for collection.
-//
-//   - context: The context for event collection
-//   - metric: The metric ID
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidMetricId]
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
 //
 // Wraps cuptiMetricGetRequiredEventGroupSets.
 func MetricGetRequiredEventGroupSets(context driver.Context, metric uint32) (eventGroupSets *EventGroupSets, err error) {
 	if err := checkLibSym("cuptiMetricGetRequiredEventGroupSets"); err != nil {
-		return nil, err
+		return *new(*EventGroupSets), err
 	}
-	var out2 *EventGroupSets
-	if err := toError(fnMetricGetRequiredEventGroupSets(context, metric, &out2), "cuptiMetricGetRequiredEventGroupSets"); err != nil {
-		return nil, err
+	var out0 *EventGroupSets
+	if err := toError(fnMetricGetRequiredEventGroupSets(context, metric, &out0), "cuptiMetricGetRequiredEventGroupSets"); err != nil {
+		return *new(*EventGroupSets), err
 	}
-	return out2, nil
+	return out0, nil
 }
 
-// MetricGetValue calculates the value for a metric.
-//
-// Use the events collected for a metric to calculate the metric
-// value. Metric value evaluation depends on the evaluation mode
-// [MetricEvaluationMode] that the metric supports.
-// If a metric has evaluation mode as [MetricEvaluationModePerInstance],
-// then it assumes that the input event value is for one domain instance.
-// If a metric has evaluation mode as [MetricEvaluationModeAggregate],
-// it assumes that input event values are
-// normalized to represent all domain instances on a device. For the
-// most accurate metric collection, the events required for the metric
-// should be collected for all profiled domain instances. For example,
-// to collect all instances of an event, set the
-// [EventGroupAttrProfileAllDomainInstances] attribute on
-// the group containing the event to 1. The normalized value for the
-// event is then: (sum_event_values * totalInstanceCount) / instanceCount, where sum_event_values is the summation of the
-// event values across all profiled domain instances, totalInstanceCount is obtained from querying
-// [EventDomainAttrTotalInstanceCount] and instanceCount
-// is obtained from querying [EventGroupAttrInstanceCount] (or
-// [EventDomainAttrInstanceCount]).
-//
-//   - device: The CUDA device that the metric is being calculated for
-//   - metric: The metric ID
-//   - eventIdArray: The event IDs required to calculate metric
-//   - eventValueArray: The normalized event values required to calculate metric. The values must be order to match the order of events in eventIdArray
-//   - timeDuration: The duration over which the events were collected, in ns
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidMetricId]
-//   - [ErrInvalidOperation]
-//   - [ErrParameterSizeNotSufficient]: if the eventIdArray does not contain all the events needed for metric
-//   - [ErrInvalidEventValue]: if any of the event values required for the metric is CUPTI_EVENT_OVERFLOW
-//   - [ErrInvalidMetricValue]: if the computed metric value cannot be represented in the metric's value type. For example, if the metric value type is unsigned and the computed metric value is negative
-//   - [ErrInvalidParameter]: if metricValue, eventIdArray or eventValueArray is NULL
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiMetricGetValue.
+// MetricGetValue wraps cuptiMetricGetValue.
 func MetricGetValue(device Device, metric uint32, eventIdArray []uint32, eventValueArray []uint64, timeDuration uint64) ([1]uint64, error) {
 	if err := checkLibSym("cuptiMetricGetValue"); err != nil {
-		return [1]uint64{}, err
+		var zero [1]uint64
+		return zero, err
 	}
-	out := slotMetricGetValue.get()
-	defer slotMetricGetValue.put(out)
+	var out [1]uint64
 	if len(eventIdArray) == 0 {
 		eventIdArray = nil
 	}
 	if len(eventValueArray) == 0 {
 		eventValueArray = nil
 	}
-	if err := toError(fnMetricGetValue(device, metric, uint(len(eventIdArray))*uint(unsafe.Sizeof(eventIdArray[0])), unsafe.SliceData(eventIdArray), uint(len(eventValueArray))*uint(unsafe.Sizeof(eventValueArray[0])), unsafe.SliceData(eventValueArray), timeDuration, out), "cuptiMetricGetValue"); err != nil {
-		return [1]uint64{}, err
+	if err := toError(fnMetricGetValue(device, metric, uint(len(eventIdArray))*uint(unsafe.Sizeof(eventIdArray[0])), unsafe.SliceData(eventIdArray), uint(len(eventValueArray))*uint(unsafe.Sizeof(eventValueArray[0])), unsafe.SliceData(eventValueArray), timeDuration, &out), "cuptiMetricGetValue"); err != nil {
+		var zero [1]uint64
+		return zero, err
 	}
-	return *out, nil
+	return out, nil
 }
 
-var slotMetricGetValue outSlot[[1]uint64]
-
-// MetricGetValue2 calculates the value for a metric.
-//
-// Use the events and properties collected for a metric to calculate
-// the metric value. Metric value evaluation depends on the evaluation
-// mode [MetricEvaluationMode] that the metric supports. If
-// a metric has evaluation mode as
-// [MetricEvaluationModePerInstance], then it assumes that the
-// input event value is for one domain instance. If a metric has
-// evaluation mode as [MetricEvaluationModeAggregate], it
-// assumes that input event values are normalized to represent all
-// domain instances on a device. For the most accurate metric
-// collection, the events required for the metric should be collected
-// for all profiled domain instances. For example, to collect all
-// instances of an event, set the
-// [EventGroupAttrProfileAllDomainInstances] attribute on
-// the group containing the event to 1. The normalized value for the
-// event is then: (sum_event_values * totalInstanceCount) / instanceCount, where sum_event_values is the summation of the
-// event values across all profiled domain instances, totalInstanceCount is obtained from querying
-// [EventDomainAttrTotalInstanceCount] and instanceCount
-// is obtained from querying [EventGroupAttrInstanceCount] (or
-// [EventDomainAttrInstanceCount]).
-//
-//   - metric: The metric ID
-//   - eventIdArray: The event IDs required to calculate metric
-//   - eventValueArray: The normalized event values required to calculate metric. The values must be order to match the order of events in eventIdArray
-//   - propIdArray: The metric property IDs required to calculate metric
-//   - propValueArray: The metric property values required to calculate metric. The values must be order to match the order of metric properties in propIdArray
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidMetricId]
-//   - [ErrInvalidOperation]
-//   - [ErrParameterSizeNotSufficient]: if the eventIdArray does not contain all the events needed for metric
-//   - [ErrInvalidEventValue]: if any of the event values required for the metric is CUPTI_EVENT_OVERFLOW
-//   - [ErrNotCompatible]: if the computed metric value cannot be represented in the metric's value type. For example, if the metric value type is unsigned and the computed metric value is negative
-//   - [ErrInvalidParameter]: if metricValue, eventIdArray or eventValueArray is NULL
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiMetricGetValue2.
+// MetricGetValue2 wraps cuptiMetricGetValue2.
 func MetricGetValue2(metric uint32, eventIdArray []uint32, eventValueArray []uint64, propIdArray []MetricPropertyID, propValueArray []uint64) ([1]uint64, error) {
 	if err := checkLibSym("cuptiMetricGetValue2"); err != nil {
-		return [1]uint64{}, err
+		var zero [1]uint64
+		return zero, err
 	}
-	out := slotMetricGetValue2.get()
-	defer slotMetricGetValue2.put(out)
+	var out [1]uint64
 	if len(eventIdArray) == 0 {
 		eventIdArray = nil
 	}
@@ -4055,13 +2150,12 @@ func MetricGetValue2(metric uint32, eventIdArray []uint32, eventValueArray []uin
 	if len(propValueArray) == 0 {
 		propValueArray = nil
 	}
-	if err := toError(fnMetricGetValue2(metric, uint(len(eventIdArray))*uint(unsafe.Sizeof(eventIdArray[0])), unsafe.SliceData(eventIdArray), uint(len(eventValueArray))*uint(unsafe.Sizeof(eventValueArray[0])), unsafe.SliceData(eventValueArray), uint(len(propIdArray))*uint(unsafe.Sizeof(propIdArray[0])), unsafe.SliceData(propIdArray), uint(len(propValueArray))*uint(unsafe.Sizeof(propValueArray[0])), unsafe.SliceData(propValueArray), out), "cuptiMetricGetValue2"); err != nil {
-		return [1]uint64{}, err
+	if err := toError(fnMetricGetValue2(metric, uint(len(eventIdArray))*uint(unsafe.Sizeof(eventIdArray[0])), unsafe.SliceData(eventIdArray), uint(len(eventValueArray))*uint(unsafe.Sizeof(eventValueArray[0])), unsafe.SliceData(eventValueArray), uint(len(propIdArray))*uint(unsafe.Sizeof(propIdArray[0])), unsafe.SliceData(propIdArray), uint(len(propValueArray))*uint(unsafe.Sizeof(propValueArray[0])), unsafe.SliceData(propValueArray), &out), "cuptiMetricGetValue2"); err != nil {
+		var zero [1]uint64
+		return zero, err
 	}
-	return *out, nil
+	return out, nil
 }
-
-var slotMetricGetValue2 outSlot[[1]uint64]
 
 // PCSamplingDisable disables PC sampling.
 //
@@ -4425,9 +2519,13 @@ func PmSamplingStop(pParams *PmSamplingStopParams) error {
 
 // ProfilerBeginPass replays API: used for multipass collection.
 //
-// These APIs are used if user chooses to replay by itself CUPTI_UserReplay or CUPTI_ApplicationReplay for multipass collection of the metrics configurations. It’s a no-op in case of CUPTI_KernelReplay.
+// These APIs are used if user chooses to replay by itself [UserReplay] or [ApplicationReplay]
+// for multipass collection of the metrics configurations.
+// It's a no-op in case of [KernelReplay].
 //
-// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+// **DEPRECATED** This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+//
+// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future.
 //
 // Wraps cuptiProfilerBeginPass.
 func ProfilerBeginPass(pParams *ProfilerBeginPassParams) error {
@@ -4439,9 +2537,12 @@ func ProfilerBeginPass(pParams *ProfilerBeginPassParams) error {
 
 // ProfilerBeginSession begins profiling session sets up the profiling on the device.
 //
-// Although, it doesn’t start the profiling but GPU resources needed for profiling are allocated. Outside of a session, the GPU will return to its normal operating state.
+// Although, it doesn't start the profiling but GPU resources needed for profiling are allocated.
+// Outside of a session, the GPU will return to its normal operating state.
 //
-// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+// **DEPRECATED** This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+//
+// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future.
 //
 // Wraps cuptiProfilerBeginSession.
 func ProfilerBeginSession(pParams *ProfilerBeginSessionParams) error {
@@ -4455,7 +2556,9 @@ func ProfilerBeginSession(pParams *ProfilerBeginSessionParams) error {
 //
 // Use these APIs to calculate the allocation size and initialize counterData image scratch buffer.
 //
-// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+// **DEPRECATED** This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+//
+// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future.
 //
 // Wraps cuptiProfilerCounterDataImageCalculateScratchBufferSize.
 func ProfilerCounterDataImageCalculateScratchBufferSize(pParams *ProfilerCounterDataImageCalculateScratchBufferSizeParams) error {
@@ -4467,9 +2570,13 @@ func ProfilerCounterDataImageCalculateScratchBufferSize(pParams *ProfilerCounter
 
 // ProfilerCounterDataImageCalculateSize A CounterData image allocates space for values for each counter for each range.
 //
-// User borne the resposibility of managing the counterDataImage allocations. CounterDataPrefix contains meta data about the metrics that will be stored in counterDataImage. Use these APIs to calculate the allocation size and initialize counterData image.
+// User borne the resposibility of managing the counterDataImage allocations.
+// CounterDataPrefix contains meta data about the metrics that will be stored in counterDataImage.
+// Use these APIs to calculate the allocation size and initialize counterData image.
 //
-// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+// **DEPRECATED** This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+//
+// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future.
 //
 // Wraps cuptiProfilerCounterDataImageCalculateSize.
 func ProfilerCounterDataImageCalculateSize(pParams *ProfilerCounterDataImageCalculateSizeParams) error {
@@ -4507,7 +2614,8 @@ func ProfilerDeInitialize(pParams *ProfilerDeInitializeParams) error {
 
 // ProfilerDeviceSupported queries device compatibility with Profiling API.
 //
-// Use this call to determine whether a compute device and configuration are compatible with the Profiling API. If the configuration does not support profiling, one of several flags will indicate why.
+// Use this call to determine whether a compute device and configuration are compatible with the Profiling API.
+// If the configuration does not support profiling, one of several flags will indicate why.
 //
 // Wraps cuptiProfilerDeviceSupported.
 func ProfilerDeviceSupported(pParams *ProfilerDeviceSupportedParams) error {
@@ -4519,9 +2627,12 @@ func ProfilerDeviceSupported(pParams *ProfilerDeviceSupportedParams) error {
 
 // ProfilerDisableProfiling disables Profiling.
 //
-// In CUPTI_AutoRange, these APIs are used to enable/disable profiling for the kernels to be executed in a profiling session.
+// In [AutoRange], these APIs are used to enable/disable profiling for the kernels to be executed in
+// a profiling session.
 //
-// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+// **DEPRECATED** This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+//
+// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future.
 //
 // Wraps cuptiProfilerDisableProfiling.
 func ProfilerDisableProfiling(pParams *ProfilerDisableProfilingParams) error {
@@ -4533,9 +2644,12 @@ func ProfilerDisableProfiling(pParams *ProfilerDisableProfilingParams) error {
 
 // ProfilerEnableProfiling enables Profiling.
 //
-// In CUPTI_AutoRange, these APIs are used to enable/disable profiling for the kernels to be executed in a profiling session.
+// In [AutoRange], these APIs are used to enable/disable profiling for the kernels to be executed in
+// a profiling session.
 //
-// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+// **DEPRECATED** This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+//
+// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future.
 //
 // Wraps cuptiProfilerEnableProfiling.
 func ProfilerEnableProfiling(pParams *ProfilerEnableProfilingParams) error {
@@ -4547,9 +2661,14 @@ func ProfilerEnableProfiling(pParams *ProfilerEnableProfilingParams) error {
 
 // ProfilerEndPass replays API: used for multipass collection.
 //
-// These APIs are used if user chooses to replay by itself CUPTI_UserReplay or CUPTI_ApplicationReplay for multipass collection of the metrics configurations. Its a no-op in case of CUPTI_KernelReplay. Returns information for next pass.
+// These APIs are used if user chooses to replay by itself [UserReplay] or [ApplicationReplay]
+// for multipass collection of the metrics configurations.
+// Its a no-op in case of [KernelReplay].
+// Returns information for next pass.
 //
-// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+// **DEPRECATED** This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+//
+// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future.
 //
 // Wraps cuptiProfilerEndPass.
 func ProfilerEndPass(pParams *ProfilerEndPassParams) error {
@@ -4561,9 +2680,12 @@ func ProfilerEndPass(pParams *ProfilerEndPassParams) error {
 
 // ProfilerEndSession ends profiling session.
 //
-// Frees up the GPU resources acquired for profiling. Outside of a session, the GPU will return to it’s normal operating state.
+// Frees up the GPU resources acquired for profiling.
+// Outside of a session, the GPU will return to it's normal operating state.
 //
-// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+// **DEPRECATED** This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+//
+// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future.
 //
 // Wraps cuptiProfilerEndSession.
 func ProfilerEndSession(pParams *ProfilerEndSessionParams) error {
@@ -4575,9 +2697,12 @@ func ProfilerEndSession(pParams *ProfilerEndSessionParams) error {
 
 // ProfilerFlushCounterData decodes all the submitted passes.
 //
-// Flush Counter data API to ensure every pass is decoded into the counterDataImage passed at beginSession. This will cause the CPU/GPU sync to collect all the undecoded pass.
+// Flush Counter data API to ensure every pass is decoded into the counterDataImage passed at beginSession.
+// This will cause the CPU/GPU sync to collect all the undecoded pass.
 //
-// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+// **DEPRECATED** This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+//
+// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future.
 //
 // Wraps cuptiProfilerFlushCounterData.
 func ProfilerFlushCounterData(pParams *ProfilerFlushCounterDataParams) error {
@@ -4589,7 +2714,9 @@ func ProfilerFlushCounterData(pParams *ProfilerFlushCounterDataParams) error {
 
 // ProfilerGetCounterAvailability queries counter availibility.
 //
-// Use this API to query counter availability information in a buffer which can be used to filter unavailable raw metrics on host. Note: This API may fail, if any profiling or sampling session is active on the specified context or its device.
+// Use this API to query counter availability information in a buffer which can be used to filter unavailable raw metrics on host.
+//
+// Note: This API may fail, if any profiling or sampling session is active on the specified context or its device.
 //
 // Wraps cuptiProfilerGetCounterAvailability.
 func ProfilerGetCounterAvailability(pParams *ProfilerGetCounterAvailabilityParams) error {
@@ -4877,7 +3004,8 @@ func ProfilerHostInitialize(pParams *ProfilerHostInitializeParams) error {
 
 // ProfilerInitialize initializes the profiler interface.
 //
-// Loads the required libraries in the process address space. Sets up the hooks with the CUDA driver.
+// Loads the required libraries in the process address space.
+// Sets up the hooks with the CUDA driver.
 //
 // Errors:
 //   - [ErrNotInitialized]: if CUPTI could not dynamically load the nvperf* libraries. Ensure libnvperf_host.so and libnvperf_target.so, shipped alongside libcupti.so, are discoverable by the dynamic linker.
@@ -4894,7 +3022,9 @@ func ProfilerInitialize(pParams *ProfilerInitializeParams) error {
 //
 // Asynchronous call to query if the submitted pass to GPU is collected.
 //
-// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+// **DEPRECATED** This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+//
+// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future.
 //
 // Wraps cuptiProfilerIsPassCollected.
 func ProfilerIsPassCollected(pParams *ProfilerIsPassCollectedParams) error {
@@ -4908,9 +3038,12 @@ func ProfilerIsPassCollected(pParams *ProfilerIsPassCollectedParams) error {
 //
 // Range API’s : Pop user range.
 //
-// Counter data is collected per unique range-stack. Identified by a string label passsed by the user. It’s an invalid operation in case of CUPTI_AutoRange.
+// Counter data is collected per unique range-stack. Identified by a string label passsed by the user.
+// It's an invalid operation in case of [AutoRange].
 //
-// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+// **DEPRECATED** This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+//
+// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future.
 //
 // Wraps cuptiProfilerPopRange.
 func ProfilerPopRange(pParams *ProfilerPopRangeParams) error {
@@ -4924,9 +3057,12 @@ func ProfilerPopRange(pParams *ProfilerPopRangeParams) error {
 //
 // Range API’s : Push user range.
 //
-// Counter data is collected per unique range-stack. Identified by a string label passsed by the user. It’s an invalid operation in case of CUPTI_AutoRange.
+// Counter data is collected per unique range-stack. Identified by a string label passsed by the user.
+// It's an invalid operation in case of [AutoRange].
 //
-// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+// **DEPRECATED** This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+//
+// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future.
 //
 // Wraps cuptiProfilerPushRange.
 func ProfilerPushRange(pParams *ProfilerPushRangeParams) error {
@@ -4938,9 +3074,12 @@ func ProfilerPushRange(pParams *ProfilerPushRangeParams) error {
 
 // ProfilerSetConfig sets metrics configuration to be profiled.
 //
-// Use these APIs to set the config to profile in a session. It can be used for advanced cases such as where multiple configurations are collected into a single CounterData Image on the need basis, without restarting the session.
+// Use these APIs to set the config to profile in a session. It can be used for advanced cases such as where multiple
+// configurations are collected into a single CounterData Image on the need basis, without restarting the session.
 //
-// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+// **DEPRECATED** This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+//
+// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future.
 //
 // Wraps cuptiProfilerSetConfig.
 func ProfilerSetConfig(pParams *ProfilerSetConfigParams) error {
@@ -5172,7 +3311,8 @@ func RangeProfilerStop(pParams *RangeProfilerStopParams) error {
 
 // RegisterComputeCrcCallback registers callback function with CUPTI to use your own algorithm to compute cubin crc.
 //
-// This function registers a callback function and it gets called from CUPTI when a CUDA module is loaded.
+// This function registers a callback function and it gets called
+// from CUPTI when a CUDA module is loaded.
 //
 //   - funcComputeCubinCrc: callback is invoked when a CUDA module is loaded (see [ComputeCrcCallbackFunc])
 //
@@ -5353,25 +3493,7 @@ func SassMetricsUnsetConfig(pParams *SassMetricsUnsetConfigParams) error {
 	return toError(fnSassMetricsUnsetConfig(pParams), "cuptiSassMetricsUnsetConfig")
 }
 
-// SetEventCollectionMode sets the event collection mode.
-//
-// Set the event collection mode for a context. The mode
-// controls the event collection behavior of all events in event
-// groups created in the context. This API is invalid in kernel
-// replay mode.
-//
-//   - context: The context
-//   - mode: The event collection mode
-//
-// Errors:
-//   - [ErrNotInitialized]
-//   - [ErrInvalidContext]
-//   - [ErrInvalidOperation]: if called when replay mode is enabled
-//   - [ErrNotSupported]: if mode is not supported on the device
-//
-// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
-//
-// Wraps cuptiSetEventCollectionMode.
+// SetEventCollectionMode wraps cuptiSetEventCollectionMode.
 func SetEventCollectionMode(context driver.Context, mode EventCollectionMode) error {
 	if err := checkLibSym("cuptiSetEventCollectionMode"); err != nil {
 		return err
@@ -5386,7 +3508,7 @@ func SetEventCollectionMode(context driver.Context, mode EventCollectionMode) er
 // Errors:
 //   - [ErrNotSupported]: if type is not supported on the platform
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrThreadIdType], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2].
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrThreadIdType], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
 //
 // Wraps cuptiSetThreadIdType.
 func SetThreadIdType(type_ ActivityThreadIdType) error {
@@ -5406,6 +3528,7 @@ func SetThreadIdType(type_ ActivityThreadIdType) error {
 //
 // Note: Thread-safety: this function is thread safe.
 //
+//   - subscriber: Returns handle to initialize subscriber
 //   - callback: The callback function (see [CallbackFunc])
 //   - userdata: A pointer to user data. This data will be passed to the callback function via the userdata parameter
 //
@@ -5414,7 +3537,7 @@ func SetThreadIdType(type_ ActivityThreadIdType) error {
 //   - [ErrMultipleSubscribersNotSupported]: if there is already a CUPTI subscriber, or if the application is launched with NVIDIA tools like Nsight Systems, Nsight Compute, cuda-gdb and cuda-memcheck.
 //   - [ErrNotInitialized]: if unable to initialize CUPTI
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [SubscribeV2].
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [SubscribeV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
 //
 // Wraps cuptiSubscribe.
 func Subscribe(callback uintptr, userdata uintptr) (Subscriber, error) {
@@ -5422,16 +3545,13 @@ func Subscribe(callback uintptr, userdata uintptr) (Subscriber, error) {
 		var zero Subscriber
 		return zero, err
 	}
-	out := slotSubscribe.get()
-	defer slotSubscribe.put(out)
-	if err := toError(fnSubscribe(out, callback, userdata), "cuptiSubscribe"); err != nil {
+	var out Subscriber
+	if err := toError(fnSubscribe(&out, callback, userdata), "cuptiSubscribe"); err != nil {
 		var zero Subscriber
 		return zero, err
 	}
-	return *out, nil
+	return out, nil
 }
-
-var slotSubscribe outSlot[Subscriber]
 
 // SubscribeV2 initializes a callback subscriber with a callback function and user data.
 //
@@ -5443,6 +3563,7 @@ var slotSubscribe outSlot[Subscriber]
 //
 // Note: Thread-safety: this function is thread safe.
 //
+//   - subscriber: Returns handle to initialize subscriber
 //   - callback: The callback function (see [CallbackFunc])
 //   - userdata: A pointer to user data. This data will be passed to the callback function via the userdata parameter
 //   - pParams: A pointer to [SubscriberParams]. Can be NULL
@@ -5458,22 +3579,22 @@ func SubscribeV2(callback uintptr, userdata uintptr, pParams *SubscriberParams) 
 		var zero Subscriber
 		return zero, err
 	}
-	out := slotSubscribeV2.get()
-	defer slotSubscribeV2.put(out)
-	if err := toError(fnSubscribeV2(out, callback, userdata, pParams), "cuptiSubscribe_v2"); err != nil {
+	var out Subscriber
+	if err := toError(fnSubscribeV2(&out, callback, userdata, pParams), "cuptiSubscribe_v2"); err != nil {
 		var zero Subscriber
 		return zero, err
 	}
-	return *out, nil
+	return out, nil
 }
-
-var slotSubscribeV2 outSlot[Subscriber]
 
 // SupportedDomains gets the available callback domains.
 //
 // Returns in *domainTable an array of size *domainCount of all the available callback domains.
 //
 // Note: Thread-safety: this function is thread safe.
+//
+//   - domainCount: Returns number of callback domains
+//   - domainTable: Returns pointer to array of available callback domains
 //
 // Errors:
 //   - [ErrInvalidParameter]: if domainCount or domainTable are NULL
@@ -5482,20 +3603,15 @@ var slotSubscribeV2 outSlot[Subscriber]
 // Wraps cuptiSupportedDomains.
 func SupportedDomains() (domainCount uint, domainTable uintptr, err error) {
 	if err := checkLibSym("cuptiSupportedDomains"); err != nil {
-		return 0, 0, err
+		return 0, *new(uintptr), err
 	}
-	outs := slotSupportedDomains.get()
-	defer slotSupportedDomains.put(outs)
-	if err := toError(fnSupportedDomains(&outs.out0, &outs.out1), "cuptiSupportedDomains"); err != nil {
-		return 0, 0, err
+	var out0 uint
+	var out1 uintptr
+	if err := toError(fnSupportedDomains(&out0, &out1), "cuptiSupportedDomains"); err != nil {
+		return 0, *new(uintptr), err
 	}
-	return outs.out0, outs.out1, nil
+	return out0, out1, nil
 }
-
-var slotSupportedDomains outSlot[struct {
-	out0 uint
-	out1 uintptr
-}]
 
 // unsubscribe unregisters a callback subscriber.
 //

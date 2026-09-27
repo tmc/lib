@@ -7,7 +7,7 @@ import (
 	"unsafe"
 )
 
-// ProfilerHostGetMetricPropertiesParamsSizeFor reports the measured prefix size for a CUPTI runtime version.
+// ProfilerHostGetMetricPropertiesParamsSizeFor reports the measured prefix size for a runtime version.
 func ProfilerHostGetMetricPropertiesParamsSizeFor(version uint32) (uint, bool) {
 	var p ProfilerHostGetMetricPropertiesParams
 	switch version {
@@ -20,7 +20,6 @@ func ProfilerHostGetMetricPropertiesParamsSizeFor(version uint32) (uint, bool) {
 	}
 }
 
-// SetStructSize selects the measured prefix for version.
 func (p *ProfilerHostGetMetricPropertiesParams) SetStructSize(version uint32) error {
 	size, ok := ProfilerHostGetMetricPropertiesParamsSizeFor(version)
 	if !ok {
@@ -30,7 +29,7 @@ func (p *ProfilerHostGetMetricPropertiesParams) SetStructSize(version uint32) er
 	return nil
 }
 
-// ProfilerHostInitializeParamsSizeFor reports the measured prefix size for a CUPTI runtime version.
+// ProfilerHostInitializeParamsSizeFor reports the measured prefix size for a runtime version.
 func ProfilerHostInitializeParamsSizeFor(version uint32) (uint, bool) {
 	var p ProfilerHostInitializeParams
 	switch version {
@@ -43,7 +42,6 @@ func ProfilerHostInitializeParamsSizeFor(version uint32) (uint, bool) {
 	}
 }
 
-// SetStructSize selects the measured prefix for version.
 func (p *ProfilerHostInitializeParams) SetStructSize(version uint32) error {
 	size, ok := ProfilerHostInitializeParamsSizeFor(version)
 	if !ok {

@@ -1,18 +1,21 @@
 {
   "schema_version": 1,
-  "generator": "github.com/tmc/libgen/cmd/gen-nvidia",
-  "upstream_version": "unrecorded",
-  "version_source": "unrecorded",
+  "generator": "github.com/tmc/libgen/cmd/cupti-survey",
+  "upstream_version": "13.2.0",
+  "version_source": "explicit generator flag; not independently verified",
   "cwd": ".",
   "argv": [
-    "gen-nvidia",
-    "-api",
-    "cupti",
+    "cupti-survey",
+    "-header",
+    "cupti.h",
     "-headers-dir",
     "cuda-headers",
-    "-clang=false",
+    "-docs-dir",
+    "docs",
+    "-upstream-version",
+    "13.2.0",
     "-output",
-    "cupti"
+    "${OUTPUT_DIR}"
   ],
   "inputs": [
     {
@@ -20,8 +23,36 @@
       "sha256": "2b0a3268524bf80c13ffb173b7271295ee81161d220ea28951d748d5af26bd0e"
     },
     {
+      "path": "cupti_activity.h",
+      "sha256": "a0c33d2f92e73d221406d5996f3fbf9b232e02a6522a44996aa6c210e640ad4d"
+    },
+    {
+      "path": "cupti_activity_deprecated.h",
+      "sha256": "592835010b1b2b5fb8544572cf1efe1539e0ad45b0e939561a5cc2a7b74aacab"
+    },
+    {
+      "path": "cupti_callbacks.h",
+      "sha256": "467dc10e2c8dd54eadbd06460d6c4ae338878247b5945efd4d8767a030c906ff"
+    },
+    {
       "path": "cupti_checkpoint.h",
       "sha256": "ad3cfc2685b1a844815f26565216491a6e31798731e0e24eb49ecb775dd3fdbd"
+    },
+    {
+      "path": "cupti_driver_cbid.h",
+      "sha256": "a466a41d811a5848a30f34d60b8286b461fa679550190c2f20192ca5b12bdb25"
+    },
+    {
+      "path": "cupti_events.h",
+      "sha256": "8de8e51ce0a6e6f60764e1fb76ca0a12cdbae3eb53d8ac62c637d3e68bf926af"
+    },
+    {
+      "path": "cupti_metrics.h",
+      "sha256": "9190a8697f5ffbec3614fd2b0b7e8e379a54393a962c604b57f8b2ddc8a069d4"
+    },
+    {
+      "path": "cupti_nvtx_cbid.h",
+      "sha256": "633a2107c2f2f1a82f10d8af8b4f487d87ff7ecc6ede938dc411dfdb6a7a4e9a"
     },
     {
       "path": "cupti_pcsampling.h",
@@ -44,15 +75,27 @@
       "sha256": "b9ee5b500fb7c42c00b501b20dee4ed5de6b02645b55b72b5ca7c84dde313352"
     },
     {
+      "path": "cupti_result.h",
+      "sha256": "b20dded3b2734bbc91a503ae2400e33274eda09b7b1ea25c71f87e153848b8be"
+    },
+    {
+      "path": "cupti_runtime_cbid.h",
+      "sha256": "9ace1de8e0a4192da7b5848994106e91dbdbd49bb5b56395de7e9480bc9c397b"
+    },
+    {
       "path": "cupti_sass_metrics.h",
       "sha256": "dd15bdb2726e15074e86b127df00c93abbb4e6ad15ff3b2c5aba83eedbd524ac"
     },
     {
       "path": "cupti_target.h",
       "sha256": "c78573d54a5bea6f62c6656998668a425743598408dce67ea1c1171b334ad041"
+    },
+    {
+      "path": "cupti_version.h",
+      "sha256": "bf9475286bc81085097d4f493154aa6040ea0b1db62ff690791d3a1a81f0c85a"
     }
   ],
-  "source_hash": "16aced0f6fe28d43b8e953a9c0549d09733d6fdbe5b151802c97672cb22eb932",
+  "source_hash": "48ec1a63ef9cdcf065a23af5e08362e78fd10501b57687816ff913343f5cef58",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records portable argument names; host-specific paths are intentionally redacted.",

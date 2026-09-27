@@ -2591,23 +2591,26 @@
     "cupti": {
       "binding_policy": "cupti_pcsampling_util.h is deliberately outside the surface: it declares CuptiUtil* entry points from the separate static libcupti_pcsampling_util, not from libcupti.",
       "documentation": {
-        "note": "Generator merges all selected files, not only CUPTI documentation; upstream document dates/versions are not fully recorded.",
+        "note": "cupti-survey loads the 12 retained cupti-*docs.json files from this checkout; source identities beyond those JSON bytes are not recorded.",
         "path": "docs",
         "repository": "codegen",
-        "selected_files": 85,
-        "selection": "*-docs.json",
-        "tree": "aeade4477b2d665ca705f1d660c14e71c56e5398"
+        "selected_files": 12,
+        "selection": "cupti-*docs.json",
+        "tree": "dd76c51d9ca52fb2847df7b8b889197490e530b3"
       },
       "generation": {
         "argv": [
           "go",
           "run",
-          "./cmd/gen-nvidia",
-          "-api",
-          "cupti",
+          "./cmd/cupti-survey",
+          "-header",
+          "${HEADERS_REPO}/cupti/cupti.h",
           "-headers-dir",
           "${HEADERS_REPO}",
-          "-clang=false",
+          "-docs-dir",
+          "${CODEGEN_REPO}/docs",
+          "-upstream-version",
+          "13.2.0",
           "-output",
           "${OUTPUT_DIR}"
         ],
@@ -2616,29 +2619,35 @@
           "GOWORK": "off",
           "TMPDIR": "${SCRATCH_DIR}"
         },
-        "note": "The lazy loader was refined in the generator after this generation was recorded, and the package was regenerated to pick it up: init.gen.go changed and provenance.gen.go is new. The pinned codegen commit predates that work, so it no longer reproduces those two files. Their recorded digests are the integrated files. Tier 0 cleanup regenerated with raw/10000 CUPTI version admission and reordered existing candidates; the source and invocation receipt is retained outside this repository on the generating host, under work/tier0, and is not reproducible from this file.",
+        "note": "Reproduced twice with GOTOOLCHAIN=go1.27.0 from the pinned CUDA 13.2 CUPTI header family. gen.Apply reported no API removals; apidiff reported zero incompatible changes on linux/amd64, linux/arm64 and darwin/arm64. The generated ActivityDeviceAttribute compatibility type preserves the prior exported fields and C layout. nvidia-reproduce hashes only the primary header; all 19 declared header digests were independently verified against the headers checkout.",
         "outputs": [
+          {
+            "path": "nvidia/cupti/activity_device_attribute.gen.go",
+            "sha256": "724e21554845df669ab0d4e9b1f3094c68e52139f275f4fd558774ed7a38841a"
+          },
+          {
+            "path": "nvidia/cupti/activity_device_attribute.gen_test.go",
+            "sha256": "a0a8eb903f9fc76da8e01e570fe4d323c7dd202a9d5643b0b13507f6885c6245"
+          },
           {
             "path": "nvidia/cupti/callbacks.gen.go",
             "sha256": "f1e3c69bce606c78a1e3b2630ed0ef6e553466c3760040ec2048afa5ba245068"
           },
           {
-            "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/cupti/doc.gen.go",
-            "sha256": "720b07b800f465b5923be04f7fe910eefeea78a30c773ccf56c0fc4a265faa17"
+            "sha256": "c8968a8311260d6463845d8db09f4ae06bed220c4942581204219ea0248e0272"
           },
           {
             "path": "nvidia/cupti/enums.gen.go",
-            "sha256": "fa1b63992b9ae1af4d1a80049fb08eeeb19aaa738a536f1eb48d57b7e0d82ab5"
+            "sha256": "97baf4538dbbb2034679565e76d3b1f5b4a2eb741f9f58c993fb3386adc5b965"
           },
           {
             "path": "nvidia/cupti/event_group.gen.go",
-            "sha256": "47f1a7d66b900f2d602bf5f6c12b00c310b6ba636780f611c01dd3e86f8eda7b"
+            "sha256": "8ff42ad70527fba6a9e0766c67524023c7823ea59c0ea40e31181af29bb863ee"
           },
           {
-            "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/cupti/funcs.gen.go",
-            "sha256": "7514b838dfeac94faa7253ea10e04bd505099b69813c63ab04759a0ee10cb9b7"
+            "sha256": "64f822967befc20d28b235d64458f38cd35fc64c4a18e84265cae1ef8fb334f5"
           },
           {
             "path": "nvidia/cupti/handles.gen.go",
@@ -2646,11 +2655,11 @@
           },
           {
             "path": "nvidia/cupti/init.gen.go",
-            "sha256": "f4d5f3cea88cd9aaf2fe96bf99fbfb5d3423bfbdfa520e3ef5029ffb7b1b09f6"
+            "sha256": "f0eda06bb597ff0ae59d1257f512c6c3eb08777b53488e04c38e0f0fc49ed82e"
           },
           {
             "path": "nvidia/cupti/layout.gen_test.go",
-            "sha256": "8c2887a0bda09ef6e446c68ca208c7f517369a8ae3527aaae9982672cfc344d1"
+            "sha256": "4309da7ea35121bf2e76982d4b2ef16bb7d00c47ec791525c0201459d070b58f"
           },
           {
             "path": "nvidia/cupti/loader.gen_test.go",
@@ -2666,23 +2675,27 @@
           },
           {
             "path": "nvidia/cupti/param_layout.gen.go",
-            "sha256": "49ae5be36f071df0462fb58471fee64cf412d218d16b9dbee76befa0c12a398b"
+            "sha256": "233eef75a27a23e5a01e6d44ca1cf695c243b6a7c8dc5c4bb6e05baad7617578"
           },
           {
             "path": "nvidia/cupti/provenance.gen.go",
-            "sha256": "94807549dece6517c176e033971a24c9f24d9ebbf3af838c1f693fd5e3747f16"
+            "sha256": "7552ac08f91ee6b6899bd2c74d716b6b124793d1a49a918591ebe63d3ef90c75"
+          },
+          {
+            "path": "nvidia/cupti/provenance.json",
+            "sha256": "4aa741408919b89121a659cddd8772420a7fbe6bbf73049c729842a9acb597b0"
           },
           {
             "path": "nvidia/cupti/result.gen.go",
-            "sha256": "6cf40c71646990625a2c2f311b4ad49054fd396ccbd2dce8cf00fca27e690947"
+            "sha256": "cd99a6fedaad7eee37f9719181704706d1a318876593108b3060cd5dce9dffc4"
           },
           {
             "path": "nvidia/cupti/structs.gen.go",
-            "sha256": "aa71ac589fb126b46d7f97b10557f04c4dc753ed15a3a14499fe4f62af80f2a2"
+            "sha256": "33a9f7ba81c2dd47fbb3c396a0453fb645c5cad6602ccca369edad20514fd0b6"
           },
           {
             "path": "nvidia/cupti/subscriber.gen.go",
-            "sha256": "ff6dea65e3a7a0bacad1241e94300b94d4ccf1a12d5d2ac8ea9391349bae8f95"
+            "sha256": "a2e8d8fefe9d8a8650f6947e136b01f9cac11f18875d0888c93c4c632f90ea67"
           },
           {
             "path": "nvidia/cupti/types.gen.go",
@@ -2800,28 +2813,28 @@
         "example_test.go",
         "physical_test.go"
       ],
-      "note": "All 15 generated outputs reproduced from the recorded generator and pinned headers using -clang=false and the tracked documentation inputs. Empty HandWrittenTypes mappings for four CUDA V1 placeholder records are excluded from generated layout assertions; real measured records and handwritten types retain checks. Full output was compared against the prior package: public declarations, values, signatures and function behavior are preserved, with documentation updates and equivalent enum switch ordering. The presence predicates were later renamed from Has\u003clower\u003e to Has\u003cUpper\u003e and the recorded digests are the renamed files. Host package tests and vet passed; this is generation evidence, not native runtime qualification. Local generator commit is not published.",
+      "note": "CUPTI now generates from cupti-survey. The generated API matches the pre-migration package on linux/amd64, linux/arm64 and darwin/arm64; CUPTI tests pass. The ActivityDeviceAttribute Go fields retain their prior layout. Vet still reports the five existing unsafe.Pointer diagnostics in pcsampling_test.go. No native GPU runtime qualification is claimed.",
       "package": "github.com/tmc/lib/nvidia/cupti",
       "repositories": {
         "codegen": {
-          "commit": "b3dc359c9db53dea61a497ef6f5c4a305f945132",
-          "tree": "f54815ecdd777ae664e200e000db35f1e948469d",
+          "commit": "9a0d37545b201dcfed4fd7f0d04ea3da5f85a23c",
+          "tree": "ddd8e454992bcf3cc55b277b6dbf5c5275243a51",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 4d9ccca: launch extents grouped into Dim3. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen b3dc359c"
+          "note": "Private local generator commit used for this reproduction; not published."
         },
         "headers": {
-          "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
-          "tree": "91eadfc9e1d548a1c0688375bbb431f8e8847cc0",
+          "commit": "0187274c798507606df855dfe4ec17f99d8ffe97",
+          "tree": "a0f908326987d7f60dcb9ab05d5c0566927d159b",
           "url": "https://github.com/tmc/cuda-headers.git"
         },
         "lib": {
-          "commit": "80d9d15abf9d00c94466965ff572654201900aed",
-          "tree": "47717d0664600f8bc1a8c131ec349fdc104492e9",
+          "commit": "35bbb73751118ce2318228f73de81d04d105fce7",
+          "tree": "e860d338c96acf1441347b2003866c16eee33cb2",
           "url": "https://github.com/tmc/lib.git"
         }
       },
       "runtime_support": "Not established by this manifest; no public minimum/newest runtime or native ABI/platform promotion is claimed.",
-      "status": "generation-partially-reproduced",
+      "status": "generation-reproduced",
       "unresolved_inputs": [
         "transitive clang system stdlib.h and SDK header contents",
         "Go and clang executable bytes",

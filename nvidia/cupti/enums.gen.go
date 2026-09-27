@@ -4,18 +4,815 @@ package cupti
 
 import "fmt"
 
+// ApiCallbackSite specifies the point in an API call that a callback is issued.
+//
+// Specifies the point in an API call that a callback is issued. This value is communicated to the callback function via [CallbackData].callbackSite.
+type ApiCallbackSite int32
+
+const (
+	ApiEnter          ApiCallbackSite = 0 // The callback is at the entry of the API call.
+	ApiExit           ApiCallbackSite = 1 // The callback is at the exit of the API call.
+	ApiCbsiteForceInt ApiCallbackSite = 0x7fffffff
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e ApiCallbackSite) String() string {
+	switch e {
+	case ApiEnter:
+		return "ApiEnter"
+	case ApiExit:
+		return "ApiExit"
+	case ApiCbsiteForceInt:
+		return "ApiCbsiteForceInt"
+	}
+	return fmt.Sprintf("ApiCallbackSite(%d)", e)
+}
+
+// CallbackDomain represents callback domains.
+//
+// Callback domains. Each domain represents callback points for a group of related API functions or CUDA driver activity.
+type CallbackDomain int32
+
+const (
+	CbDomainInvalid CallbackDomain = 0 // Invalid domain.
+	// CbDomainDriverApi: Domain containing callback points for all driver API functions.
+	CbDomainDriverApi CallbackDomain = 1
+	// CbDomainRuntimeApi: Domain containing callback points for all runtime API functions.
+	CbDomainRuntimeApi CallbackDomain = 2
+	// CbDomainResource: Domain containing callback points for CUDA resource tracking.
+	CbDomainResource    CallbackDomain = 3
+	CbDomainSynchronize CallbackDomain = 4 // Domain containing callback points for CUDA synchronization.
+	CbDomainNvtx        CallbackDomain = 5 // Domain containing callback points for NVTX API functions.
+	CbDomainState       CallbackDomain = 6 // Domain containing callback points for various states.
+	CbDomainSize        CallbackDomain = 7
+	CbDomainForceInt    CallbackDomain = 0x7fffffff
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e CallbackDomain) String() string {
+	switch e {
+	case CbDomainInvalid:
+		return "CbDomainInvalid"
+	case CbDomainDriverApi:
+		return "CbDomainDriverApi"
+	case CbDomainRuntimeApi:
+		return "CbDomainRuntimeApi"
+	case CbDomainResource:
+		return "CbDomainResource"
+	case CbDomainSynchronize:
+		return "CbDomainSynchronize"
+	case CbDomainNvtx:
+		return "CbDomainNvtx"
+	case CbDomainState:
+		return "CbDomainState"
+	case CbDomainSize:
+		return "CbDomainSize"
+	case CbDomainForceInt:
+		return "CbDomainForceInt"
+	}
+	return fmt.Sprintf("CallbackDomain(%d)", e)
+}
+
+// CallbackIdResource represents callback IDs for resource domain.
+//
+// Callback IDs for resource domain, [CbDomainResource]. This value is communicated to the callback function via the cbid parameter.
+type CallbackIdResource int32
+
+const (
+	CbidResourceInvalid                            CallbackIdResource = 0  // Invalid resource callback ID.
+	CbidResourceContextCreated                     CallbackIdResource = 1  // A new context has been created.
+	CbidResourceContextDestroyStarting             CallbackIdResource = 2  // A context is about to be destroyed.
+	CbidResourceStreamCreated                      CallbackIdResource = 3  // A new stream has been created.
+	CbidResourceStreamDestroyStarting              CallbackIdResource = 4  // A stream is about to be destroyed.
+	CbidResourceCuInitFinished                     CallbackIdResource = 5  // The driver has finished initializing.
+	CbidResourceModuleLoaded                       CallbackIdResource = 6  // A module has been loaded.
+	CbidResourceModuleUnloadStarting               CallbackIdResource = 7  // A module is about to be unloaded.
+	CbidResourceModuleProfiled                     CallbackIdResource = 8  // The current module which is being profiled.
+	CbidResourceGraphCreated                       CallbackIdResource = 9  // CUDA graph has been created.
+	CbidResourceGraphDestroyStarting               CallbackIdResource = 10 // CUDA graph is about to be destroyed.
+	CbidResourceGraphCloned                        CallbackIdResource = 11 // CUDA graph is cloned.
+	CbidResourceGraphnodeCreateStarting            CallbackIdResource = 12 // CUDA graph node is about to be created.
+	CbidResourceGraphnodeCreated                   CallbackIdResource = 13 // CUDA graph node is created.
+	CbidResourceGraphnodeDestroyStarting           CallbackIdResource = 14 // CUDA graph node is about to be destroyed.
+	CbidResourceGraphnodeDependencyCreated         CallbackIdResource = 15 // Dependency on a CUDA graph node is created.
+	CbidResourceGraphnodeDependencyDestroyStarting CallbackIdResource = 16 // Dependency on a CUDA graph node is destroyed.
+	CbidResourceGraphexecCreateStarting            CallbackIdResource = 17 // An executable CUDA graph is about to be created.
+	CbidResourceGraphexecCreated                   CallbackIdResource = 18 // An executable CUDA graph is created.
+	CbidResourceGraphexecDestroyStarting           CallbackIdResource = 19 // An executable CUDA graph is about to be destroyed.
+	CbidResourceGraphnodeCloned                    CallbackIdResource = 20 // CUDA graph node is cloned.
+	CbidResourceStreamAttributeChanged             CallbackIdResource = 21 // CUDA stream attribute is changed.
+	CbidResourceGraphNodeUpdated                   CallbackIdResource = 22 // CUDA graph node is updated.
+	// CbidResourceGraphNodeSetParams: Params are set for the CUDA graph node in the executable graph.
+	CbidResourceGraphNodeSetParams CallbackIdResource = 23
+	CbidResourceSize               CallbackIdResource = 24
+	CbidResourceForceInt           CallbackIdResource = 0x7fffffff
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e CallbackIdResource) String() string {
+	switch e {
+	case CbidResourceInvalid:
+		return "CbidResourceInvalid"
+	case CbidResourceContextCreated:
+		return "CbidResourceContextCreated"
+	case CbidResourceContextDestroyStarting:
+		return "CbidResourceContextDestroyStarting"
+	case CbidResourceStreamCreated:
+		return "CbidResourceStreamCreated"
+	case CbidResourceStreamDestroyStarting:
+		return "CbidResourceStreamDestroyStarting"
+	case CbidResourceCuInitFinished:
+		return "CbidResourceCuInitFinished"
+	case CbidResourceModuleLoaded:
+		return "CbidResourceModuleLoaded"
+	case CbidResourceModuleUnloadStarting:
+		return "CbidResourceModuleUnloadStarting"
+	case CbidResourceModuleProfiled:
+		return "CbidResourceModuleProfiled"
+	case CbidResourceGraphCreated:
+		return "CbidResourceGraphCreated"
+	case CbidResourceGraphDestroyStarting:
+		return "CbidResourceGraphDestroyStarting"
+	case CbidResourceGraphCloned:
+		return "CbidResourceGraphCloned"
+	case CbidResourceGraphnodeCreateStarting:
+		return "CbidResourceGraphnodeCreateStarting"
+	case CbidResourceGraphnodeCreated:
+		return "CbidResourceGraphnodeCreated"
+	case CbidResourceGraphnodeDestroyStarting:
+		return "CbidResourceGraphnodeDestroyStarting"
+	case CbidResourceGraphnodeDependencyCreated:
+		return "CbidResourceGraphnodeDependencyCreated"
+	case CbidResourceGraphnodeDependencyDestroyStarting:
+		return "CbidResourceGraphnodeDependencyDestroyStarting"
+	case CbidResourceGraphexecCreateStarting:
+		return "CbidResourceGraphexecCreateStarting"
+	case CbidResourceGraphexecCreated:
+		return "CbidResourceGraphexecCreated"
+	case CbidResourceGraphexecDestroyStarting:
+		return "CbidResourceGraphexecDestroyStarting"
+	case CbidResourceGraphnodeCloned:
+		return "CbidResourceGraphnodeCloned"
+	case CbidResourceStreamAttributeChanged:
+		return "CbidResourceStreamAttributeChanged"
+	case CbidResourceGraphNodeUpdated:
+		return "CbidResourceGraphNodeUpdated"
+	case CbidResourceGraphNodeSetParams:
+		return "CbidResourceGraphNodeSetParams"
+	case CbidResourceSize:
+		return "CbidResourceSize"
+	case CbidResourceForceInt:
+		return "CbidResourceForceInt"
+	}
+	return fmt.Sprintf("CallbackIdResource(%d)", e)
+}
+
+// CallbackIdSync represents callback IDs for synchronization domain.
+//
+// Callback IDs for synchronization domain, [CbDomainSynchronize]. This value is communicated to the callback function via the cbid parameter.
+type CallbackIdSync int32
+
+const (
+	CbidSynchronizeInvalid             CallbackIdSync = 0 // Invalid synchronize callback ID.
+	CbidSynchronizeStreamSynchronized  CallbackIdSync = 1 // Stream synchronization has completed for the stream.
+	CbidSynchronizeContextSynchronized CallbackIdSync = 2 // Context synchronization has completed for the context.
+	CbidSynchronizeSize                CallbackIdSync = 3
+	CbidSynchronizeForceInt            CallbackIdSync = 0x7fffffff
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e CallbackIdSync) String() string {
+	switch e {
+	case CbidSynchronizeInvalid:
+		return "CbidSynchronizeInvalid"
+	case CbidSynchronizeStreamSynchronized:
+		return "CbidSynchronizeStreamSynchronized"
+	case CbidSynchronizeContextSynchronized:
+		return "CbidSynchronizeContextSynchronized"
+	case CbidSynchronizeSize:
+		return "CbidSynchronizeSize"
+	case CbidSynchronizeForceInt:
+		return "CbidSynchronizeForceInt"
+	}
+	return fmt.Sprintf("CallbackIdSync(%d)", e)
+}
+
+// CallbackIdState represents callback IDs for state domain.
+//
+// Callback IDs for state domain, [CbDomainState]. This value is communicated to the callback function via the cbid parameter.
+type CallbackIdState int32
+
+const (
+	CbidStateInvalid CallbackIdState = 0 // Invalid state callback ID.
+	// CbidStateFatalError: Notification of fatal errors - high impact, non-recoverable When encountered, CUPTI automatically invokes [Finalize] User can control behavior of the application in future from receiving this callback - such as continuing without profiling, or terminating the whole application.
+	CbidStateFatalError CallbackIdState = 1
+	// CbidStateError: Notification of non fatal errors - high impact, but recoverable.
+	CbidStateError    CallbackIdState = 2
+	CbidStateWarning  CallbackIdState = 3 // Notification of warnings - low impact, recoverable.
+	CbidStateSize     CallbackIdState = 4
+	CbidStateForceInt CallbackIdState = 0x7fffffff
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e CallbackIdState) String() string {
+	switch e {
+	case CbidStateInvalid:
+		return "CbidStateInvalid"
+	case CbidStateFatalError:
+		return "CbidStateFatalError"
+	case CbidStateError:
+		return "CbidStateError"
+	case CbidStateWarning:
+		return "CbidStateWarning"
+	case CbidStateSize:
+		return "CbidStateSize"
+	case CbidStateForceInt:
+		return "CbidStateForceInt"
+	}
+	return fmt.Sprintf("CallbackIdState(%d)", e)
+}
+
+// DeviceAttributeDeviceClass specifies the device attribute device class (CUpti_DeviceAttributeDeviceClass).
+type DeviceAttributeDeviceClass int32
+
+const (
+	DeviceAttrDeviceClassTesla   DeviceAttributeDeviceClass = 0
+	DeviceAttrDeviceClassQuadro  DeviceAttributeDeviceClass = 1
+	DeviceAttrDeviceClassGeforce DeviceAttributeDeviceClass = 2
+	DeviceAttrDeviceClassTegra   DeviceAttributeDeviceClass = 3
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e DeviceAttributeDeviceClass) String() string {
+	switch e {
+	case DeviceAttrDeviceClassTesla:
+		return "DeviceAttrDeviceClassTesla"
+	case DeviceAttrDeviceClassQuadro:
+		return "DeviceAttrDeviceClassQuadro"
+	case DeviceAttrDeviceClassGeforce:
+		return "DeviceAttrDeviceClassGeforce"
+	case DeviceAttrDeviceClassTegra:
+		return "DeviceAttrDeviceClassTegra"
+	}
+	return fmt.Sprintf("DeviceAttributeDeviceClass(%d)", e)
+}
+
+// DeviceAttribute specifies the device attribute (CUpti_DeviceAttribute).
+type DeviceAttribute int32
+
+const (
+	DeviceAttrMaxEventId                             DeviceAttribute = 1
+	DeviceAttrMaxEventDomainId                       DeviceAttribute = 2
+	DeviceAttrGlobalMemoryBandwidth                  DeviceAttribute = 3
+	DeviceAttrInstructionPerCycle                    DeviceAttribute = 4
+	DeviceAttrInstructionThroughputSinglePrecision   DeviceAttribute = 5
+	DeviceAttrMaxFrameBuffers                        DeviceAttribute = 6
+	DeviceAttrPcieLinkRate                           DeviceAttribute = 7
+	DeviceAttrPcieLinkWidth                          DeviceAttribute = 8
+	DeviceAttrPcieGen                                DeviceAttribute = 9
+	DeviceAttrDeviceClass                            DeviceAttribute = 10
+	DeviceAttrFlopSpPerCycle                         DeviceAttribute = 11
+	DeviceAttrFlopDpPerCycle                         DeviceAttribute = 12
+	DeviceAttrMaxL2Units                             DeviceAttribute = 13
+	DeviceAttrMaxSharedMemoryCacheConfigPreferShared DeviceAttribute = 14
+	DeviceAttrMaxSharedMemoryCacheConfigPreferL1     DeviceAttribute = 15
+	DeviceAttrMaxSharedMemoryCacheConfigPreferEqual  DeviceAttribute = 16
+	DeviceAttrFlopHpPerCycle                         DeviceAttribute = 17
+	DeviceAttrNvlinkPresent                          DeviceAttribute = 18
+	DeviceAttrGpuCpuNvlinkBw                         DeviceAttribute = 19
+	DeviceAttrNvswitchPresent                        DeviceAttribute = 20
+	DeviceAttrForceInt                               DeviceAttribute = 0x7fffffff
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e DeviceAttribute) String() string {
+	switch e {
+	case DeviceAttrMaxEventId:
+		return "DeviceAttrMaxEventId"
+	case DeviceAttrMaxEventDomainId:
+		return "DeviceAttrMaxEventDomainId"
+	case DeviceAttrGlobalMemoryBandwidth:
+		return "DeviceAttrGlobalMemoryBandwidth"
+	case DeviceAttrInstructionPerCycle:
+		return "DeviceAttrInstructionPerCycle"
+	case DeviceAttrInstructionThroughputSinglePrecision:
+		return "DeviceAttrInstructionThroughputSinglePrecision"
+	case DeviceAttrMaxFrameBuffers:
+		return "DeviceAttrMaxFrameBuffers"
+	case DeviceAttrPcieLinkRate:
+		return "DeviceAttrPcieLinkRate"
+	case DeviceAttrPcieLinkWidth:
+		return "DeviceAttrPcieLinkWidth"
+	case DeviceAttrPcieGen:
+		return "DeviceAttrPcieGen"
+	case DeviceAttrDeviceClass:
+		return "DeviceAttrDeviceClass"
+	case DeviceAttrFlopSpPerCycle:
+		return "DeviceAttrFlopSpPerCycle"
+	case DeviceAttrFlopDpPerCycle:
+		return "DeviceAttrFlopDpPerCycle"
+	case DeviceAttrMaxL2Units:
+		return "DeviceAttrMaxL2Units"
+	case DeviceAttrMaxSharedMemoryCacheConfigPreferShared:
+		return "DeviceAttrMaxSharedMemoryCacheConfigPreferShared"
+	case DeviceAttrMaxSharedMemoryCacheConfigPreferL1:
+		return "DeviceAttrMaxSharedMemoryCacheConfigPreferL1"
+	case DeviceAttrMaxSharedMemoryCacheConfigPreferEqual:
+		return "DeviceAttrMaxSharedMemoryCacheConfigPreferEqual"
+	case DeviceAttrFlopHpPerCycle:
+		return "DeviceAttrFlopHpPerCycle"
+	case DeviceAttrNvlinkPresent:
+		return "DeviceAttrNvlinkPresent"
+	case DeviceAttrGpuCpuNvlinkBw:
+		return "DeviceAttrGpuCpuNvlinkBw"
+	case DeviceAttrNvswitchPresent:
+		return "DeviceAttrNvswitchPresent"
+	case DeviceAttrForceInt:
+		return "DeviceAttrForceInt"
+	}
+	return fmt.Sprintf("DeviceAttribute(%d)", e)
+}
+
+// EventDomainAttribute specifies the event domain attribute (CUpti_EventDomainAttribute).
+type EventDomainAttribute int32
+
+const (
+	EventDomainAttrName               EventDomainAttribute = 0
+	EventDomainAttrInstanceCount      EventDomainAttribute = 1
+	EventDomainAttrTotalInstanceCount EventDomainAttribute = 3
+	EventDomainAttrCollectionMethod   EventDomainAttribute = 4
+	EventDomainAttrForceInt           EventDomainAttribute = 0x7fffffff
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e EventDomainAttribute) String() string {
+	switch e {
+	case EventDomainAttrName:
+		return "EventDomainAttrName"
+	case EventDomainAttrInstanceCount:
+		return "EventDomainAttrInstanceCount"
+	case EventDomainAttrTotalInstanceCount:
+		return "EventDomainAttrTotalInstanceCount"
+	case EventDomainAttrCollectionMethod:
+		return "EventDomainAttrCollectionMethod"
+	case EventDomainAttrForceInt:
+		return "EventDomainAttrForceInt"
+	}
+	return fmt.Sprintf("EventDomainAttribute(%d)", e)
+}
+
+// EventCollectionMethod specifies the event collection method (CUpti_EventCollectionMethod).
+type EventCollectionMethod int32
+
+const (
+	EventCollectionMethodPm           EventCollectionMethod = 0
+	EventCollectionMethodSm           EventCollectionMethod = 1
+	EventCollectionMethodInstrumented EventCollectionMethod = 2
+	EventCollectionMethodNvlinkTc     EventCollectionMethod = 3
+	EventCollectionMethodForceInt     EventCollectionMethod = 0x7fffffff
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e EventCollectionMethod) String() string {
+	switch e {
+	case EventCollectionMethodPm:
+		return "EventCollectionMethodPm"
+	case EventCollectionMethodSm:
+		return "EventCollectionMethodSm"
+	case EventCollectionMethodInstrumented:
+		return "EventCollectionMethodInstrumented"
+	case EventCollectionMethodNvlinkTc:
+		return "EventCollectionMethodNvlinkTc"
+	case EventCollectionMethodForceInt:
+		return "EventCollectionMethodForceInt"
+	}
+	return fmt.Sprintf("EventCollectionMethod(%d)", e)
+}
+
+// EventGroupAttribute specifies the event group attribute (CUpti_EventGroupAttribute).
+type EventGroupAttribute int32
+
+const (
+	EventGroupAttrEventDomainId             EventGroupAttribute = 0
+	EventGroupAttrProfileAllDomainInstances EventGroupAttribute = 1
+	EventGroupAttrUserData                  EventGroupAttribute = 2
+	EventGroupAttrNumEvents                 EventGroupAttribute = 3
+	EventGroupAttrEvents                    EventGroupAttribute = 4
+	EventGroupAttrInstanceCount             EventGroupAttribute = 5
+	EventGroupAttrProfilingScope            EventGroupAttribute = 6
+	EventGroupAttrForceInt                  EventGroupAttribute = 0x7fffffff
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e EventGroupAttribute) String() string {
+	switch e {
+	case EventGroupAttrEventDomainId:
+		return "EventGroupAttrEventDomainId"
+	case EventGroupAttrProfileAllDomainInstances:
+		return "EventGroupAttrProfileAllDomainInstances"
+	case EventGroupAttrUserData:
+		return "EventGroupAttrUserData"
+	case EventGroupAttrNumEvents:
+		return "EventGroupAttrNumEvents"
+	case EventGroupAttrEvents:
+		return "EventGroupAttrEvents"
+	case EventGroupAttrInstanceCount:
+		return "EventGroupAttrInstanceCount"
+	case EventGroupAttrProfilingScope:
+		return "EventGroupAttrProfilingScope"
+	case EventGroupAttrForceInt:
+		return "EventGroupAttrForceInt"
+	}
+	return fmt.Sprintf("EventGroupAttribute(%d)", e)
+}
+
+// EventProfilingScope specifies the event profiling scope (CUpti_EventProfilingScope).
+type EventProfilingScope int32
+
+const (
+	EventProfilingScopeContext  EventProfilingScope = 0
+	EventProfilingScopeDevice   EventProfilingScope = 1
+	EventProfilingScopeBoth     EventProfilingScope = 2
+	EventProfilingScopeForceInt EventProfilingScope = 0x7fffffff
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e EventProfilingScope) String() string {
+	switch e {
+	case EventProfilingScopeContext:
+		return "EventProfilingScopeContext"
+	case EventProfilingScopeDevice:
+		return "EventProfilingScopeDevice"
+	case EventProfilingScopeBoth:
+		return "EventProfilingScopeBoth"
+	case EventProfilingScopeForceInt:
+		return "EventProfilingScopeForceInt"
+	}
+	return fmt.Sprintf("EventProfilingScope(%d)", e)
+}
+
+// EventAttribute specifies the event attribute (CUpti_EventAttribute).
+type EventAttribute int32
+
+const (
+	EventAttrName             EventAttribute = 0
+	EventAttrShortDescription EventAttribute = 1
+	EventAttrLongDescription  EventAttribute = 2
+	EventAttrCategory         EventAttribute = 3
+	EventAttrProfilingScope   EventAttribute = 5
+	EventAttrForceInt         EventAttribute = 0x7fffffff
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e EventAttribute) String() string {
+	switch e {
+	case EventAttrName:
+		return "EventAttrName"
+	case EventAttrShortDescription:
+		return "EventAttrShortDescription"
+	case EventAttrLongDescription:
+		return "EventAttrLongDescription"
+	case EventAttrCategory:
+		return "EventAttrCategory"
+	case EventAttrProfilingScope:
+		return "EventAttrProfilingScope"
+	case EventAttrForceInt:
+		return "EventAttrForceInt"
+	}
+	return fmt.Sprintf("EventAttribute(%d)", e)
+}
+
+// EventCollectionMode specifies the event collection mode (CUpti_EventCollectionMode).
+type EventCollectionMode int32
+
+const (
+	EventCollectionModeContinuous EventCollectionMode = 0
+	EventCollectionModeKernel     EventCollectionMode = 1
+	EventCollectionModeForceInt   EventCollectionMode = 0x7fffffff
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e EventCollectionMode) String() string {
+	switch e {
+	case EventCollectionModeContinuous:
+		return "EventCollectionModeContinuous"
+	case EventCollectionModeKernel:
+		return "EventCollectionModeKernel"
+	case EventCollectionModeForceInt:
+		return "EventCollectionModeForceInt"
+	}
+	return fmt.Sprintf("EventCollectionMode(%d)", e)
+}
+
+// EventCategory specifies the event category (CUpti_EventCategory).
+type EventCategory int32
+
+const (
+	EventCategoryInstruction    EventCategory = 0
+	EventCategoryMemory         EventCategory = 1
+	EventCategoryCache          EventCategory = 2
+	EventCategoryProfileTrigger EventCategory = 3
+	EventCategorySystem         EventCategory = 4
+	EventCategoryForceInt       EventCategory = 0x7fffffff
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e EventCategory) String() string {
+	switch e {
+	case EventCategoryInstruction:
+		return "EventCategoryInstruction"
+	case EventCategoryMemory:
+		return "EventCategoryMemory"
+	case EventCategoryCache:
+		return "EventCategoryCache"
+	case EventCategoryProfileTrigger:
+		return "EventCategoryProfileTrigger"
+	case EventCategorySystem:
+		return "EventCategorySystem"
+	case EventCategoryForceInt:
+		return "EventCategoryForceInt"
+	}
+	return fmt.Sprintf("EventCategory(%d)", e)
+}
+
+// ReadEventFlags specifies the read event flags (CUpti_ReadEventFlags).
+type ReadEventFlags int32
+
+const (
+	EventReadFlagNone     ReadEventFlags = 0
+	EventReadFlagForceInt ReadEventFlags = 0x7fffffff
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e ReadEventFlags) String() string {
+	switch e {
+	case EventReadFlagNone:
+		return "EventReadFlagNone"
+	case EventReadFlagForceInt:
+		return "EventReadFlagForceInt"
+	}
+	return fmt.Sprintf("ReadEventFlags(%d)", e)
+}
+
+// MetricCategory specifies the metric category (CUpti_MetricCategory).
+type MetricCategory int32
+
+const (
+	MetricCategoryMemory         MetricCategory = 0
+	MetricCategoryInstruction    MetricCategory = 1
+	MetricCategoryMultiprocessor MetricCategory = 2
+	MetricCategoryCache          MetricCategory = 3
+	MetricCategoryTexture        MetricCategory = 4
+	MetricCategoryNvlink         MetricCategory = 5
+	MetricCategoryPcie           MetricCategory = 6
+	MetricCategoryForceInt       MetricCategory = 0x7fffffff
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e MetricCategory) String() string {
+	switch e {
+	case MetricCategoryMemory:
+		return "MetricCategoryMemory"
+	case MetricCategoryInstruction:
+		return "MetricCategoryInstruction"
+	case MetricCategoryMultiprocessor:
+		return "MetricCategoryMultiprocessor"
+	case MetricCategoryCache:
+		return "MetricCategoryCache"
+	case MetricCategoryTexture:
+		return "MetricCategoryTexture"
+	case MetricCategoryNvlink:
+		return "MetricCategoryNvlink"
+	case MetricCategoryPcie:
+		return "MetricCategoryPcie"
+	case MetricCategoryForceInt:
+		return "MetricCategoryForceInt"
+	}
+	return fmt.Sprintf("MetricCategory(%d)", e)
+}
+
+// MetricEvaluationMode specifies the metric evaluation mode (CUpti_MetricEvaluationMode).
+type MetricEvaluationMode int32
+
+const (
+	MetricEvaluationModePerInstance MetricEvaluationMode = 1
+	MetricEvaluationModeAggregate   MetricEvaluationMode = 1 << 1
+	MetricEvaluationModeForceInt    MetricEvaluationMode = 0x7fffffff
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e MetricEvaluationMode) String() string {
+	switch e {
+	case MetricEvaluationModePerInstance:
+		return "MetricEvaluationModePerInstance"
+	case MetricEvaluationModeAggregate:
+		return "MetricEvaluationModeAggregate"
+	case MetricEvaluationModeForceInt:
+		return "MetricEvaluationModeForceInt"
+	}
+	return fmt.Sprintf("MetricEvaluationMode(%d)", e)
+}
+
+// MetricValueKind specifies the metric value kind (CUpti_MetricValueKind).
+type MetricValueKind int32
+
+const (
+	MetricValueKindDouble              MetricValueKind = 0
+	MetricValueKindUint64              MetricValueKind = 1
+	MetricValueKindPercent             MetricValueKind = 2
+	MetricValueKindThroughput          MetricValueKind = 3
+	MetricValueKindInt64               MetricValueKind = 4
+	MetricValueKindUtilizationLevel    MetricValueKind = 5
+	MetricValueKindNvtxExtendedPayload MetricValueKind = 6
+	MetricValueKindForceInt            MetricValueKind = 0x7fffffff
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e MetricValueKind) String() string {
+	switch e {
+	case MetricValueKindDouble:
+		return "MetricValueKindDouble"
+	case MetricValueKindUint64:
+		return "MetricValueKindUint64"
+	case MetricValueKindPercent:
+		return "MetricValueKindPercent"
+	case MetricValueKindThroughput:
+		return "MetricValueKindThroughput"
+	case MetricValueKindInt64:
+		return "MetricValueKindInt64"
+	case MetricValueKindUtilizationLevel:
+		return "MetricValueKindUtilizationLevel"
+	case MetricValueKindNvtxExtendedPayload:
+		return "MetricValueKindNvtxExtendedPayload"
+	case MetricValueKindForceInt:
+		return "MetricValueKindForceInt"
+	}
+	return fmt.Sprintf("MetricValueKind(%d)", e)
+}
+
+// MetricValueUtilizationLevel specifies the metric value utilization level (CUpti_MetricValueUtilizationLevel).
+type MetricValueUtilizationLevel int32
+
+const (
+	MetricValueUtilizationIdle     MetricValueUtilizationLevel = 0
+	MetricValueUtilizationLow      MetricValueUtilizationLevel = 2
+	MetricValueUtilizationMid      MetricValueUtilizationLevel = 5
+	MetricValueUtilizationHigh     MetricValueUtilizationLevel = 8
+	MetricValueUtilizationMax      MetricValueUtilizationLevel = 10
+	MetricValueUtilizationForceInt MetricValueUtilizationLevel = 0x7fffffff
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e MetricValueUtilizationLevel) String() string {
+	switch e {
+	case MetricValueUtilizationIdle:
+		return "MetricValueUtilizationIdle"
+	case MetricValueUtilizationLow:
+		return "MetricValueUtilizationLow"
+	case MetricValueUtilizationMid:
+		return "MetricValueUtilizationMid"
+	case MetricValueUtilizationHigh:
+		return "MetricValueUtilizationHigh"
+	case MetricValueUtilizationMax:
+		return "MetricValueUtilizationMax"
+	case MetricValueUtilizationForceInt:
+		return "MetricValueUtilizationForceInt"
+	}
+	return fmt.Sprintf("MetricValueUtilizationLevel(%d)", e)
+}
+
+// MetricAttribute specifies the metric attribute (CUpti_MetricAttribute).
+type MetricAttribute int32
+
+const (
+	MetricAttrName             MetricAttribute = 0
+	MetricAttrShortDescription MetricAttribute = 1
+	MetricAttrLongDescription  MetricAttribute = 2
+	MetricAttrCategory         MetricAttribute = 3
+	MetricAttrValueKind        MetricAttribute = 4
+	MetricAttrEvaluationMode   MetricAttribute = 5
+	MetricAttrForceInt         MetricAttribute = 0x7fffffff
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e MetricAttribute) String() string {
+	switch e {
+	case MetricAttrName:
+		return "MetricAttrName"
+	case MetricAttrShortDescription:
+		return "MetricAttrShortDescription"
+	case MetricAttrLongDescription:
+		return "MetricAttrLongDescription"
+	case MetricAttrCategory:
+		return "MetricAttrCategory"
+	case MetricAttrValueKind:
+		return "MetricAttrValueKind"
+	case MetricAttrEvaluationMode:
+		return "MetricAttrEvaluationMode"
+	case MetricAttrForceInt:
+		return "MetricAttrForceInt"
+	}
+	return fmt.Sprintf("MetricAttribute(%d)", e)
+}
+
+// MetricPropertyDeviceClass specifies the metric property device class (CUpti_MetricPropertyDeviceClass).
+type MetricPropertyDeviceClass int32
+
+const (
+	MetricPropertyDeviceClassTesla   MetricPropertyDeviceClass = 0
+	MetricPropertyDeviceClassQuadro  MetricPropertyDeviceClass = 1
+	MetricPropertyDeviceClassGeforce MetricPropertyDeviceClass = 2
+	MetricPropertyDeviceClassTegra   MetricPropertyDeviceClass = 3
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e MetricPropertyDeviceClass) String() string {
+	switch e {
+	case MetricPropertyDeviceClassTesla:
+		return "MetricPropertyDeviceClassTesla"
+	case MetricPropertyDeviceClassQuadro:
+		return "MetricPropertyDeviceClassQuadro"
+	case MetricPropertyDeviceClassGeforce:
+		return "MetricPropertyDeviceClassGeforce"
+	case MetricPropertyDeviceClassTegra:
+		return "MetricPropertyDeviceClassTegra"
+	}
+	return fmt.Sprintf("MetricPropertyDeviceClass(%d)", e)
+}
+
+// MetricPropertyID specifies the metric property id (CUpti_MetricPropertyID).
+type MetricPropertyID int32
+
+const (
+	MetricPropertyMultiprocessorCount         MetricPropertyID = 0
+	MetricPropertyWarpsPerMultiprocessor      MetricPropertyID = 1
+	MetricPropertyKernelGpuTime               MetricPropertyID = 2
+	MetricPropertyClockRate                   MetricPropertyID = 3
+	MetricPropertyFrameBufferCount            MetricPropertyID = 4
+	MetricPropertyGlobalMemoryBandwidth       MetricPropertyID = 5
+	MetricPropertyPcieLinkRate                MetricPropertyID = 6
+	MetricPropertyPcieLinkWidth               MetricPropertyID = 7
+	MetricPropertyPcieGen                     MetricPropertyID = 8
+	MetricPropertyIDMetricPropertyDeviceClass MetricPropertyID = 9
+	MetricPropertyFlopSpPerCycle              MetricPropertyID = 10
+	MetricPropertyFlopDpPerCycle              MetricPropertyID = 11
+	MetricPropertyL2Units                     MetricPropertyID = 12
+	MetricPropertyEccEnabled                  MetricPropertyID = 13
+	MetricPropertyFlopHpPerCycle              MetricPropertyID = 14
+	MetricPropertyGpuCpuNvlinkBandwidth       MetricPropertyID = 15
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e MetricPropertyID) String() string {
+	switch e {
+	case MetricPropertyMultiprocessorCount:
+		return "MetricPropertyMultiprocessorCount"
+	case MetricPropertyWarpsPerMultiprocessor:
+		return "MetricPropertyWarpsPerMultiprocessor"
+	case MetricPropertyKernelGpuTime:
+		return "MetricPropertyKernelGpuTime"
+	case MetricPropertyClockRate:
+		return "MetricPropertyClockRate"
+	case MetricPropertyFrameBufferCount:
+		return "MetricPropertyFrameBufferCount"
+	case MetricPropertyGlobalMemoryBandwidth:
+		return "MetricPropertyGlobalMemoryBandwidth"
+	case MetricPropertyPcieLinkRate:
+		return "MetricPropertyPcieLinkRate"
+	case MetricPropertyPcieLinkWidth:
+		return "MetricPropertyPcieLinkWidth"
+	case MetricPropertyPcieGen:
+		return "MetricPropertyPcieGen"
+	case MetricPropertyIDMetricPropertyDeviceClass:
+		return "MetricPropertyIDMetricPropertyDeviceClass"
+	case MetricPropertyFlopSpPerCycle:
+		return "MetricPropertyFlopSpPerCycle"
+	case MetricPropertyFlopDpPerCycle:
+		return "MetricPropertyFlopDpPerCycle"
+	case MetricPropertyL2Units:
+		return "MetricPropertyL2Units"
+	case MetricPropertyEccEnabled:
+		return "MetricPropertyEccEnabled"
+	case MetricPropertyFlopHpPerCycle:
+		return "MetricPropertyFlopHpPerCycle"
+	case MetricPropertyGpuCpuNvlinkBandwidth:
+		return "MetricPropertyGpuCpuNvlinkBandwidth"
+	}
+	return fmt.Sprintf("MetricPropertyID(%d)", e)
+}
+
 // ActivityKind represents the kinds of activity records.
 //
-// Each activity record kind represents information about a GPU or an activity occurring on a CPU or GPU. Each kind is associated with a activity record structure that holds the information associated with the kind. See also [Activity] See also [ActivityAPI] See also [ActivityContext] See also [ActivityContext2] See also [ActivityContext3] See also [ActivityContext4] See also [ActivityDevice] See also [ActivityDevice2] See also [ActivityDevice3] See also [ActivityDevice4] See also [ActivityDevice5] See also [ActivityDevice6] See also [ActivityDeviceAttribute] See also [ActivityEvent] See also [ActivityEventInstance] See also [ActivityKernel] See also [ActivityKernel2] See also [ActivityKernel3] See also [ActivityKernel4] See also [ActivityKernel5] See also [ActivityKernel6] See also [ActivityKernel7] See also [ActivityKernel8] See also [ActivityKernel9] See also [ActivityKernel10] See also [ActivityKernel11] See also CUpti_ActivityKernel12 See also CUpti_ActivityKernel13 See also [ActivityCdpKernel] See also [ActivityPreemption] See also [ActivityMemcpy] See also [ActivityMemcpy3] See also [ActivityMemcpy4] See also [ActivityMemcpy5] See also [ActivityMemcpy6] See also CUpti_ActivityMemcpy7 See also [ActivityMemcpyPtoP] See also [ActivityMemcpyPtoP2] See also [ActivityMemcpyPtoP3] See also [ActivityMemcpyPtoP4] See also [ActivityMemset] See also [ActivityMemset2] See also [ActivityMemset3] See also [ActivityMemset4] See also CUpti_ActivityMemset5 See also [ActivityMemory] See also [ActivityMemory2] See also [ActivityMemory3] See also [ActivityMemory4] See also [ActivityMemoryPool] See also [ActivityMemoryPool2] See also [ActivityMemoryPool3] See also [ActivityMetric] See also [ActivityMetricInstance] See also [ActivityName] See also [ActivityMarker] See also [ActivityMarker2] See also [ActivityMarkerData] See also [ActivitySourceLocator] See also [ActivityGlobalAccess] See also [ActivityGlobalAccess2] See also [ActivityGlobalAccess3] See also [ActivityBranch] See also [ActivityBranch2] See also [ActivityOverhead3] See also [ActivityEnvironment] See also [ActivityInstructionExecution] See also [ActivityUnifiedMemoryCounter] See also [ActivityFunction] See also [ActivityModule] See also [ActivitySharedAccess] See also [ActivityPCSampling] See also [ActivityPCSampling2] See also [ActivityPCSampling3] See also [ActivityPCSamplingRecordInfo] See also [ActivityCudaEvent2] See also [ActivityStream] See also [ActivitySynchronization2] See also [ActivityInstructionCorrelation] See also [ActivityExternalCorrelation] See also [ActivityUnifiedMemoryCounter3] See also [ActivityOpenAccData] See also [ActivityOpenAccLaunch] See also [ActivityOpenAccOther] See also [ActivityOpenMp] See also [ActivityNvLink] See also [ActivityNvLink2] See also [ActivityNvLink3] See also [ActivityNvLink4] See also [ActivityNvLink5] See also [ActivityPcie] See also [ActivityConfidentialComputeRotation] See also [ActivityComputeEngineCtxSwitch].
+// Each activity record kind represents information about a GPU or an activity occurring on a CPU or GPU. Each kind is associated with a activity record structure that holds the information associated with the kind. See also [Activity] See also [ActivityAPI] See also [ActivityContext] See also [ActivityContext2] See also [ActivityContext3] See also [ActivityContext4] See also [ActivityDevice] See also [ActivityDevice2] See also [ActivityDevice3] See also [ActivityDevice4] See also [ActivityDevice5] See also [ActivityDevice6] See also CUpti_ActivityDeviceAttribute See also [ActivityEvent] See also [ActivityEventInstance] See also [ActivityKernel] See also [ActivityKernel2] See also [ActivityKernel3] See also [ActivityKernel4] See also [ActivityKernel5] See also [ActivityKernel6] See also [ActivityKernel7] See also [ActivityKernel8] See also [ActivityKernel9] See also [ActivityKernel10] See also [ActivityKernel11] See also CUpti_ActivityKernel12 See also CUpti_ActivityKernel13 See also [ActivityCdpKernel] See also [ActivityPreemption] See also [ActivityMemcpy] See also [ActivityMemcpy3] See also [ActivityMemcpy4] See also [ActivityMemcpy5] See also [ActivityMemcpy6] See also CUpti_ActivityMemcpy7 See also [ActivityMemcpy2] See also [ActivityMemcpyPtoP2] See also [ActivityMemcpyPtoP3] See also [ActivityMemcpyPtoP4] See also [ActivityMemset] See also [ActivityMemset2] See also [ActivityMemset3] See also [ActivityMemset4] See also CUpti_ActivityMemset5 See also [ActivityMemory] See also [ActivityMemory2] See also [ActivityMemory3] See also [ActivityMemory4] See also [ActivityMemoryPool] See also [ActivityMemoryPool2] See also [ActivityMemoryPool3] See also [ActivityMetric] See also [ActivityMetricInstance] See also [ActivityName] See also [ActivityMarker] See also [ActivityMarker2] See also [ActivityMarkerData] See also [ActivitySourceLocator] See also [ActivityGlobalAccess] See also [ActivityGlobalAccess2] See also [ActivityGlobalAccess3] See also [ActivityBranch] See also [ActivityBranch2] See also [ActivityOverhead3] See also [ActivityEnvironment] See also [ActivityInstructionExecution] See also [ActivityUnifiedMemoryCounter] See also [ActivityFunction] See also [ActivityModule] See also [ActivitySharedAccess] See also [ActivityPCSampling] See also [ActivityPCSampling2] See also [ActivityPCSampling3] See also [ActivityPCSamplingRecordInfo] See also [ActivityCudaEvent2] See also [ActivityStream] See also [ActivitySynchronization2] See also [ActivityInstructionCorrelation] See also [ActivityExternalCorrelation] See also [ActivityUnifiedMemoryCounter3] See also [ActivityOpenAccData] See also [ActivityOpenAccLaunch] See also [ActivityOpenAccOther] See also [ActivityOpenMp] See also [ActivityNvLink] See also [ActivityNvLink2] See also [ActivityNvLink3] See also [ActivityNvLink4] See also [ActivityNvLink5] See also [ActivityPcie] See also [ActivityConfidentialComputeRotation] See also [ActivityComputeEngineCtxSwitch]
 type ActivityKind int32
 
 const (
 	ActivityKindInvalid ActivityKind = 0 // The activity record is invalid.
-	// ActivityKindMemcpy: A host<->host, host<->device, or device<->device memory copy. For peer to peer memory copy, use the kind [ActivityKindMemcpy2]. The corresponding activity record structure is [ActivityMemcpy6].
+	// ActivityKindMemcpy: A host<->host, host<->device, or device<->device memory copy. For peer to peer memory copy, use the kind [ActivityKindMemcpy2]. The corresponding activity record structure is CUpti_ActivityMemcpy7.
 	ActivityKindMemcpy ActivityKind = 1
-	// ActivityKindMemset: A memory set executing on the GPU. The corresponding activity record structure is [ActivityMemset4].
+	// ActivityKindMemset: A memory set executing on the GPU. The corresponding activity record structure is CUpti_ActivityMemset5.
 	ActivityKindMemset ActivityKind = 2
-	// ActivityKindKernel: A kernel executing on the GPU. This activity kind may significantly change the overall performance characteristics of the application because all kernel executions are serialized on the GPU. Other activity kind for kernel [ActivityKindConcurrentKernel] doesn't break kernel concurrency. The corresponding activity record structure is [ActivityKernel11].
+	// ActivityKindKernel: A kernel executing on the GPU. This activity kind may significantly change the overall performance characteristics of the application because all kernel executions are serialized on the GPU. Other activity kind for kernel [ActivityKindConcurrentKernel] doesn’t break kernel concurrency. The corresponding activity record structure is CUpti_ActivityKernel13
 	ActivityKindKernel ActivityKind = 3
 	// ActivityKindDriver: A CUDA driver API function execution. The corresponding activity record structure is [ActivityAPI].
 	ActivityKindDriver ActivityKind = 4
@@ -29,7 +826,7 @@ const (
 	ActivityKindDevice ActivityKind = 8
 	// ActivityKindContext: Information about a CUDA context. The corresponding activity record structure is [ActivityContext4].
 	ActivityKindContext ActivityKind = 9
-	// ActivityKindConcurrentKernel: A kernel executing on the GPU. This activity kind doesn't break kernel concurrency. The corresponding activity record structure is [ActivityKernel11].
+	// ActivityKindConcurrentKernel: A kernel executing on the GPU. This activity kind doesn’t break kernel concurrency. The corresponding activity record structure is CUpti_ActivityKernel13.
 	ActivityKindConcurrentKernel ActivityKind = 10
 	// ActivityKindName: Resource naming done via NVTX APIs for thread, device, context, etc. The corresponding activity record structure is [ActivityName].
 	ActivityKindName ActivityKind = 11
@@ -65,7 +862,7 @@ const (
 	ActivityKindFunction ActivityKind = 26
 	// ActivityKindModule: CUDA Module record. The corresponding activity record structure is [ActivityModule]. This activity cannot be directly enabled or disabled. Information collected using the module callback can be be stored in the corresponding activity record.
 	ActivityKindModule ActivityKind = 27
-	// ActivityKindDeviceAttribute: A device attribute value. The corresponding activity record structure is [ActivityDeviceAttribute]. This activity cannot be directly enabled or disabled. Information collected using attributes [DeviceAttribute] or CUdevice_attribute can be stored in the corresponding activity record.
+	// ActivityKindDeviceAttribute: A device attribute value. The corresponding activity record structure is CUpti_ActivityDeviceAttribute. This activity cannot be directly enabled or disabled. Information collected using attributes [DeviceAttribute] or CUdevice_attribute can be stored in the corresponding activity record.
 	ActivityKindDeviceAttribute ActivityKind = 28
 	// ActivityKindSharedAccess: Results for source-level shared access. The corresponding activity record structure is [ActivitySharedAccess]. Starting with the CUDA 13.0 release, this enum is unsupported and should no longer be used. Enabling it will return the error code [ErrLegacyProfilerNotSupported]. Instead, use the SASS Metric APIs from the cupti_sass_metrics.h header.
 	ActivityKindSharedAccess ActivityKind = 29
@@ -115,7 +912,7 @@ const (
 	ActivityKindGraphTrace ActivityKind = 51
 	// ActivityKindJit: JIT (Just-in-time) operation tracking. The corresponding activity record structure is [ActivityJit2].
 	ActivityKindJit ActivityKind = 52
-	// ActivityKindDeviceGraphTrace: This activity can not be directly enabled or disabled. It is enabled when [ActivityKindGraphTrace] is enabled and device graph trace is enabled through API [ActivityEnableDeviceGraph]. The corresponding activity record structure is [ActivityDeviceGraphTrace].
+	// ActivityKindDeviceGraphTrace: This activity can not be directly enabled or disabled when using predefined records. It is enabled when [ActivityKindGraphTrace] is enabled and device graph trace is enabled through API [ActivityEnableDeviceGraph]. For user defined activity records, this activity kind must be explicitly enabled through API [Subscriber.ActivityEnableV2] The corresponding activity record structure is [ActivityDeviceGraphTrace].
 	ActivityKindDeviceGraphTrace ActivityKind = 53
 	// ActivityKindMemDecompress: Tracing batches of copies that are to be decompressed. The corresponding activity record structure is [ActivityMemDecompress].
 	ActivityKindMemDecompress ActivityKind = 54
@@ -127,7 +924,7 @@ const (
 	ActivityKindComputeEngineCtxSwitch ActivityKind = 57
 	// ActivityKindHostLaunch: An activity kind denoting the launch of a host function through cu(da)LaunchHostFunc API. The corresponding activity record structure is [ActivityHostLaunch].
 	ActivityKindHostLaunch ActivityKind = 58
-	// ActivityKindGreenContext: An activity kind denoting the allocation of a green context. The corresponding activity record structure is [ActivityGreenContext].
+	// ActivityKindGreenContext: An activity kind denoting the allocation of a green context. The corresponding activity record structure is CUpti_ActivityGreenContext3.
 	ActivityKindGreenContext ActivityKind = 59
 	ActivityKindCount        ActivityKind = 60 // Count of supported activity kinds.
 	ActivityKindForceInt     ActivityKind = 0x7fffffff
@@ -266,7 +1063,7 @@ func (e ActivityKind) String() string {
 
 // ActivityObjectKind represents the kinds of activity objects.
 //
-// See also [ActivityObjectKindId].
+// See also [ActivityObjectKindId]
 type ActivityObjectKind int32
 
 const (
@@ -412,13 +1209,13 @@ const (
 	ActivityFlagGlobalAccessKindCached ActivityFlag = 1 << 9
 	// ActivityFlagMetricOverflowed: If this bit in flag is set, the metric value overflowed. Valid for [ActivityMetric] and [ActivityMetricInstance].
 	ActivityFlagMetricOverflowed ActivityFlag = 1 << 0
-	// ActivityFlagMetricValueInvalid: If this bit in flag is set, the metric value couldn't be calculated. This occurs when a value(s) required to calculate the metric is missing. Valid for [ActivityMetric] and [ActivityMetricInstance].
+	// ActivityFlagMetricValueInvalid: If this bit in flag is set, the metric value couldn’t be calculated. This occurs when a value(s) required to calculate the metric is missing. Valid for [ActivityMetric] and [ActivityMetricInstance].
 	ActivityFlagMetricValueInvalid ActivityFlag = 1 << 1
-	// ActivityFlagInstructionValueInvalid: If this bit in flag is set, the source level metric value couldn't be calculated. This occurs when a value(s) required to calculate the source level metric cannot be evaluated. Valid for [ActivityInstructionExecution].
+	// ActivityFlagInstructionValueInvalid: If this bit in flag is set, the source level metric value couldn’t be calculated. This occurs when a value(s) required to calculate the source level metric cannot be evaluated. Valid for [ActivityInstructionExecution].
 	ActivityFlagInstructionValueInvalid ActivityFlag = 1 << 0
-	// ActivityFlagInstructionClassMask: The mask for the instruction class, [ActivityInstructionClass] Valid for [ActivityInstructionExecution] and [ActivityInstructionCorrelation]
+	// ActivityFlagInstructionClassMask: The mask for the instruction class, [ActivityInstructionClass] Valid for [ActivityInstructionExecution] and [ActivityInstructionCorrelation].
 	ActivityFlagInstructionClassMask ActivityFlag = 0xFF << 1
-	// ActivityFlagFlushForced: When calling [ActivityFlushAll], this flag can be set to force CUPTI to flush all records in the buffer, whether finished or not
+	// ActivityFlagFlushForced: When calling [ActivityFlushAll], this flag can be set to force CUPTI to flush all records in the buffer, whether finished or not.
 	ActivityFlagFlushForced ActivityFlag = 1 << 0
 	// ActivityFlagSharedAccessKindSizeMask: The number of bytes requested by each thread Valid for [ActivitySharedAccess].
 	ActivityFlagSharedAccessKindSizeMask ActivityFlag = 0xFF << 0
@@ -471,24 +1268,24 @@ type ActivityPCSamplingStallReason int32
 
 const (
 	ActivityPcSamplingStallInvalid ActivityPCSamplingStallReason = 0 // Invalid reason.
-	ActivityPcSamplingStallNone    ActivityPCSamplingStallReason = 1 // No stall, instruction is selected for issue
-	// ActivityPcSamplingStallInstFetch: Warp is blocked because next instruction is not yet available, because of instruction cache miss, or because of branching effects
+	ActivityPcSamplingStallNone    ActivityPCSamplingStallReason = 1 // No stall, instruction is selected for issue.
+	// ActivityPcSamplingStallInstFetch: Warp is blocked because next instruction is not yet available, because of instruction cache miss, or because of branching effects.
 	ActivityPcSamplingStallInstFetch      ActivityPCSamplingStallReason = 2
-	ActivityPcSamplingStallExecDependency ActivityPCSamplingStallReason = 3 // Instruction is waiting on an arithmetic dependency
+	ActivityPcSamplingStallExecDependency ActivityPCSamplingStallReason = 3 // Instruction is waiting on an arithmetic dependency.
 	// ActivityPcSamplingStallMemoryDependency: Warp is blocked because it is waiting for a memory access to complete.
 	ActivityPcSamplingStallMemoryDependency ActivityPCSamplingStallReason = 4
 	// ActivityPcSamplingStallTexture: Texture sub-system is fully utilized or has too many outstanding requests.
 	ActivityPcSamplingStallTexture ActivityPCSamplingStallReason = 5
 	// ActivityPcSamplingStallSync: Warp is blocked as it is waiting at __syncthreads() or at memory barrier.
 	ActivityPcSamplingStallSync ActivityPCSamplingStallReason = 6
-	// ActivityPcSamplingStallConstantMemoryDependency: Warp is blocked waiting for __constant__ memory and immediate memory access to complete.
+	// ActivityPcSamplingStallConstantMemoryDependency: Warp is blocked waiting for constant memory and immediate memory access to complete.
 	ActivityPcSamplingStallConstantMemoryDependency ActivityPCSamplingStallReason = 7
 	// ActivityPcSamplingStallPipeBusy: Compute operation cannot be performed due to the required resources not being available.
 	ActivityPcSamplingStallPipeBusy ActivityPCSamplingStallReason = 8
 	// ActivityPcSamplingStallMemoryThrottle: Warp is blocked because there are too many pending memory operations.
 	ActivityPcSamplingStallMemoryThrottle ActivityPCSamplingStallReason = 9
 	ActivityPcSamplingStallNotSelected    ActivityPCSamplingStallReason = 10 // Warp was ready to issue, but some other warp issued instead.
-	ActivityPcSamplingStallOther          ActivityPCSamplingStallReason = 11 // Miscellaneous reasons
+	ActivityPcSamplingStallOther          ActivityPCSamplingStallReason = 11 // Miscellaneous reasons.
 	ActivityPcSamplingStallSleeping       ActivityPCSamplingStallReason = 12 // Sleeping.
 	ActivityPcSamplingStallForceInt       ActivityPCSamplingStallReason = 0x7fffffff
 )
@@ -530,7 +1327,7 @@ func (e ActivityPCSamplingStallReason) String() string {
 
 // ActivityPCSamplingPeriod represents sampling period for PC sampling method.
 //
-// Sampling period can be set using [ActivityConfigurePCSampling].
+// Sampling period can be set using [ActivityConfigurePCSampling]
 type ActivityPCSamplingPeriod int32
 
 const (
@@ -626,9 +1423,9 @@ const (
 	ActivityMemoryKindPinned        ActivityMemoryKind = 2 // The memory is pinned.
 	ActivityMemoryKindDevice        ActivityMemoryKind = 3 // The memory is on the device.
 	ActivityMemoryKindArray         ActivityMemoryKind = 4 // The memory is an array.
-	ActivityMemoryKindManaged       ActivityMemoryKind = 5 // The memory is managed
-	ActivityMemoryKindDeviceStatic  ActivityMemoryKind = 6 // The memory is device static
-	ActivityMemoryKindManagedStatic ActivityMemoryKind = 7 // The memory is managed static
+	ActivityMemoryKindManaged       ActivityMemoryKind = 5 // The memory is managed.
+	ActivityMemoryKindDeviceStatic  ActivityMemoryKind = 6 // The memory is device static.
+	ActivityMemoryKindManagedStatic ActivityMemoryKind = 7 // The memory is managed static.
 	ActivityMemoryKindForceInt      ActivityMemoryKind = 0x7fffffff
 )
 
@@ -767,9 +1564,9 @@ type ActivityUnifiedMemoryCounterScope int32
 
 const (
 	ActivityUnifiedMemoryCounterScopeUnknown ActivityUnifiedMemoryCounterScope = 0 // The unified memory counter scope is not known.
-	// ActivityUnifiedMemoryCounterScopeProcessSingleDevice: Collect unified memory counter for single process on one device
+	// ActivityUnifiedMemoryCounterScopeProcessSingleDevice: Collect unified memory counter for single process on one device.
 	ActivityUnifiedMemoryCounterScopeProcessSingleDevice ActivityUnifiedMemoryCounterScope = 1
-	// ActivityUnifiedMemoryCounterScopeProcessAllDevices: Collect unified memory counter for single process across all devices
+	// ActivityUnifiedMemoryCounterScopeProcessAllDevices: Collect unified memory counter for single process across all devices.
 	ActivityUnifiedMemoryCounterScopeProcessAllDevices ActivityUnifiedMemoryCounterScope = 2
 	ActivityUnifiedMemoryCounterScopeCount             ActivityUnifiedMemoryCounterScope = 3
 	ActivityUnifiedMemoryCounterScopeForceInt          ActivityUnifiedMemoryCounterScope = 0x7fffffff
@@ -799,15 +1596,15 @@ type ActivityUnifiedMemoryCounterKind int32
 
 const (
 	ActivityUnifiedMemoryCounterKindUnknown           ActivityUnifiedMemoryCounterKind = 0 // The unified memory counter kind is not known.
-	ActivityUnifiedMemoryCounterKindBytesTransferHtod ActivityUnifiedMemoryCounterKind = 1 // Number of bytes transferred from host to device
-	ActivityUnifiedMemoryCounterKindBytesTransferDtoh ActivityUnifiedMemoryCounterKind = 2 // Number of bytes transferred from device to host
-	// ActivityUnifiedMemoryCounterKindCpuPageFaultCount: Number of CPU page faults, this is only supported on 64 bit Linux and Mac platforms
+	ActivityUnifiedMemoryCounterKindBytesTransferHtod ActivityUnifiedMemoryCounterKind = 1 // Number of bytes transferred from host to device.
+	ActivityUnifiedMemoryCounterKindBytesTransferDtoh ActivityUnifiedMemoryCounterKind = 2 // Number of bytes transferred from device to host.
+	// ActivityUnifiedMemoryCounterKindCpuPageFaultCount: Number of CPU page faults, this is only supported on 64 bit Linux and Mac platforms.
 	ActivityUnifiedMemoryCounterKindCpuPageFaultCount ActivityUnifiedMemoryCounterKind = 3
-	// ActivityUnifiedMemoryCounterKindGpuPageFault: Number of GPU page faults, this is only supported on devices with compute capability 6.0 and higher and 64 bit Linux platforms
+	// ActivityUnifiedMemoryCounterKindGpuPageFault: Number of GPU page faults, this is only supported on devices with compute capability 6.0 and higher and 64 bit Linux platforms.
 	ActivityUnifiedMemoryCounterKindGpuPageFault ActivityUnifiedMemoryCounterKind = 4
 	// ActivityUnifiedMemoryCounterKindThrashing: Thrashing occurs when data is frequently accessed by multiple processors and has to be constantly migrated around to achieve data locality. In this case the overhead of migration may exceed the benefits of locality. This is only supported on 64 bit Linux platforms.
 	ActivityUnifiedMemoryCounterKindThrashing ActivityUnifiedMemoryCounterKind = 5
-	// ActivityUnifiedMemoryCounterKindThrottling: Throttling is a prevention technique used by the driver to avoid further thrashing. Here, the driver doesn't service the fault for one of the contending processors for a specific period of time, so that the other processor can run at full-speed. This is only supported on 64 bit Linux platforms.
+	// ActivityUnifiedMemoryCounterKindThrottling: Throttling is a prevention technique used by the driver to avoid further thrashing. Here, the driver doesn’t service the fault for one of the contending processors for a specific period of time, so that the other processor can run at full-speed. This is only supported on 64 bit Linux platforms.
 	ActivityUnifiedMemoryCounterKindThrottling ActivityUnifiedMemoryCounterKind = 6
 	// ActivityUnifiedMemoryCounterKindRemoteMap: In case throttling does not help, the driver tries to pin the memory to a processor for a specific period of time. One of the contending processors will have slow access to the memory, while the other will have fast access. This is only supported on 64 bit Linux platforms.
 	ActivityUnifiedMemoryCounterKindRemoteMap ActivityUnifiedMemoryCounterKind = 7
@@ -848,14 +1645,14 @@ func (e ActivityUnifiedMemoryCounterKind) String() string {
 
 // ActivityUnifiedMemoryAccessType represents memory access type for unified memory page faults.
 //
-// This is valid for [ActivityUnifiedMemoryCounterKindGpuPageFault] and [ActivityUnifiedMemoryCounterKindCpuPageFaultCount].
+// This is valid for [ActivityUnifiedMemoryCounterKindGpuPageFault] and [ActivityUnifiedMemoryCounterKindCpuPageFaultCount]
 type ActivityUnifiedMemoryAccessType int32
 
 const (
-	ActivityUnifiedMemoryAccessTypeUnknown  ActivityUnifiedMemoryAccessType = 0 // The unified memory access type is not known
-	ActivityUnifiedMemoryAccessTypeRead     ActivityUnifiedMemoryAccessType = 1 // The page fault was triggered by read memory instruction
-	ActivityUnifiedMemoryAccessTypeWrite    ActivityUnifiedMemoryAccessType = 2 // The page fault was triggered by write memory instruction
-	ActivityUnifiedMemoryAccessTypeAtomic   ActivityUnifiedMemoryAccessType = 3 // The page fault was triggered by atomic memory instruction
+	ActivityUnifiedMemoryAccessTypeUnknown  ActivityUnifiedMemoryAccessType = 0 // The unified memory access type is not known.
+	ActivityUnifiedMemoryAccessTypeRead     ActivityUnifiedMemoryAccessType = 1 // The page fault was triggered by read memory instruction.
+	ActivityUnifiedMemoryAccessTypeWrite    ActivityUnifiedMemoryAccessType = 2 // The page fault was triggered by write memory instruction.
+	ActivityUnifiedMemoryAccessTypeAtomic   ActivityUnifiedMemoryAccessType = 3 // The page fault was triggered by atomic memory instruction.
 	ActivityUnifiedMemoryAccessTypePrefetch ActivityUnifiedMemoryAccessType = 4 // The page fault was triggered by memory prefetch operation.
 )
 
@@ -878,18 +1675,18 @@ func (e ActivityUnifiedMemoryAccessType) String() string {
 
 // ActivityUnifiedMemoryMigrationCause represents migration cause of the Unified Memory counter.
 //
-// This is valid for [ActivityUnifiedMemoryCounterKindBytesTransferHtod] and [ActivityUnifiedMemoryCounterKindBytesTransferDtoh] and [ActivityUnifiedMemoryCounterKindBytesTransferDtod].
+// This is valid for [ActivityUnifiedMemoryCounterKindBytesTransferHtod] and [ActivityUnifiedMemoryCounterKindBytesTransferDtoh] and [ActivityUnifiedMemoryCounterKindBytesTransferDtod]
 type ActivityUnifiedMemoryMigrationCause int32
 
 const (
-	ActivityUnifiedMemoryMigrationCauseUnknown ActivityUnifiedMemoryMigrationCause = 0 // The unified memory migration cause is not known
+	ActivityUnifiedMemoryMigrationCauseUnknown ActivityUnifiedMemoryMigrationCause = 0 // The unified memory migration cause is not known.
 	// ActivityUnifiedMemoryMigrationCauseUser: The unified memory migrated due to an explicit call from the user e.g. cudaMemPrefetchAsync
 	ActivityUnifiedMemoryMigrationCauseUser ActivityUnifiedMemoryMigrationCause = 1
 	// ActivityUnifiedMemoryMigrationCauseCoherence: The unified memory migrated to guarantee data coherence e.g. CPU/GPU faults on Pascal+ and kernel launch on pre-Pascal GPUs
 	ActivityUnifiedMemoryMigrationCauseCoherence ActivityUnifiedMemoryMigrationCause = 2
-	// ActivityUnifiedMemoryMigrationCausePrefetch: The unified memory was speculatively migrated by the UVM driver before being accessed by the destination processor to improve performance
+	// ActivityUnifiedMemoryMigrationCausePrefetch: The unified memory was speculatively migrated by the UVM driver before being accessed by the destination processor to improve performance.
 	ActivityUnifiedMemoryMigrationCausePrefetch ActivityUnifiedMemoryMigrationCause = 3
-	// ActivityUnifiedMemoryMigrationCauseEviction: The unified memory migrated to the CPU because it was evicted to make room for another block of memory on the GPU
+	// ActivityUnifiedMemoryMigrationCauseEviction: The unified memory migrated to the CPU because it was evicted to make room for another block of memory on the GPU.
 	ActivityUnifiedMemoryMigrationCauseEviction ActivityUnifiedMemoryMigrationCause = 4
 	// ActivityUnifiedMemoryMigrationCauseAccessCounters: The unified memory migrated to another processor because of access counter notifications. Only frequently accessed pages are migrated between CPU and GPU, or between peer GPUs.
 	ActivityUnifiedMemoryMigrationCauseAccessCounters ActivityUnifiedMemoryMigrationCause = 5
@@ -916,20 +1713,20 @@ func (e ActivityUnifiedMemoryMigrationCause) String() string {
 
 // ActivityUnifiedMemoryRemoteMapCause represents remote memory map cause of the Unified Memory counter.
 //
-// This is valid for [ActivityUnifiedMemoryCounterKindRemoteMap].
+// This is valid for [ActivityUnifiedMemoryCounterKindRemoteMap]
 type ActivityUnifiedMemoryRemoteMapCause int32
 
 const (
-	ActivityUnifiedMemoryRemoteMapCauseUnknown ActivityUnifiedMemoryRemoteMapCause = 0 // The cause of mapping to remote memory was unknown
+	ActivityUnifiedMemoryRemoteMapCauseUnknown ActivityUnifiedMemoryRemoteMapCause = 0 // The cause of mapping to remote memory was unknown.
 	// ActivityUnifiedMemoryRemoteMapCauseCoherence: Mapping to remote memory was added to maintain data coherence.
 	ActivityUnifiedMemoryRemoteMapCauseCoherence ActivityUnifiedMemoryRemoteMapCause = 1
-	// ActivityUnifiedMemoryRemoteMapCauseThrashing: Mapping to remote memory was added to prevent further thrashing
+	// ActivityUnifiedMemoryRemoteMapCauseThrashing: Mapping to remote memory was added to prevent further thrashing.
 	ActivityUnifiedMemoryRemoteMapCauseThrashing ActivityUnifiedMemoryRemoteMapCause = 2
-	// ActivityUnifiedMemoryRemoteMapCausePolicy: Mapping to remote memory was added to enforce the hints specified by the programmer or by performance heuristics of the UVM driver
+	// ActivityUnifiedMemoryRemoteMapCausePolicy: Mapping to remote memory was added to enforce the hints specified by the programmer or by performance heuristics of the UVM driver.
 	ActivityUnifiedMemoryRemoteMapCausePolicy ActivityUnifiedMemoryRemoteMapCause = 3
-	// ActivityUnifiedMemoryRemoteMapCauseOutOfMemory: Mapping to remote memory was added because there is no more memory available on the processor and eviction was not possible
+	// ActivityUnifiedMemoryRemoteMapCauseOutOfMemory: Mapping to remote memory was added because there is no more memory available on the processor and eviction was not possible.
 	ActivityUnifiedMemoryRemoteMapCauseOutOfMemory ActivityUnifiedMemoryRemoteMapCause = 4
-	// ActivityUnifiedMemoryRemoteMapCauseEviction: Mapping to remote memory was added after the memory was evicted to make room for another block of memory on the GPU
+	// ActivityUnifiedMemoryRemoteMapCauseEviction: Mapping to remote memory was added after the memory was evicted to make room for another block of memory on the GPU.
 	ActivityUnifiedMemoryRemoteMapCauseEviction ActivityUnifiedMemoryRemoteMapCause = 5
 )
 
@@ -1095,7 +1892,7 @@ func (e ActivitySynchronizationType) String() string {
 	return fmt.Sprintf("ActivitySynchronizationType(%d)", e)
 }
 
-// ActivityStreamFlag stream type.
+// ActivityStreamFlag represents stream type.
 //
 // The types of stream to be used with [ActivityStream].
 type ActivityStreamFlag int32
@@ -1250,7 +2047,7 @@ type ChannelType int32
 
 const (
 	ChannelTypeInvalid ChannelType = 0
-	ChannelTypeCompute ChannelType = 1 // Channel is used for standard work launch and tracking
+	ChannelTypeCompute ChannelType = 1 // Channel is used for standard work launch and tracking.
 	// ChannelTypeAsyncMemcpy: Channel is used by an asynchronous copy engine For confidential compute configurations, work launch and completion are done using the copy engines.
 	ChannelTypeAsyncMemcpy ChannelType = 2
 	ChannelTypeDecomp      ChannelType = 3 // Channel is used for memory decompression operations.
@@ -1280,7 +2077,7 @@ func (e ChannelType) String() string {
 type ContextCigMode int32
 
 const (
-	ContextCigModeNone        ContextCigMode = 0 // Regular (non-CIG) mode
+	ContextCigModeNone        ContextCigMode = 0 // Regular (non-CIG) mode.
 	ContextCigModeCig         ContextCigMode = 1 // CIG mode.
 	ContextCigModeCigFallback ContextCigMode = 2 // CIG fallback mode.
 	ContextCigModeForceInt    ContextCigMode = 0x7fffffff
@@ -1735,12 +2532,12 @@ func (e ActivityMemoryPoolFieldIds) String() string {
 type ActivityLaunchType int32
 
 const (
-	ActivityLaunchTypeRegular ActivityLaunchType = 0 // The kernel was launched via a regular kernel call
+	ActivityLaunchTypeRegular ActivityLaunchType = 0 // The kernel was launched via a regular kernel call.
 	// ActivityLaunchTypeCooperativeSingleDevice: The kernel was launched via API cudaLaunchCooperativeKernel() or cuLaunchCooperativeKernel()
 	ActivityLaunchTypeCooperativeSingleDevice ActivityLaunchType = 1
 	// ActivityLaunchTypeCooperativeMultiDevice: The kernel was launched via API cudaLaunchCooperativeKernelMultiDevice() or cuLaunchCooperativeKernelMultiDevice()
 	ActivityLaunchTypeCooperativeMultiDevice ActivityLaunchType = 2
-	ActivityLaunchTypeCblCommandlist         ActivityLaunchType = 3 // The kernel was launched as a CBL commandlist
+	ActivityLaunchTypeCblCommandlist         ActivityLaunchType = 3 // The kernel was launched as a CBL commandlist.
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -2082,7 +2879,7 @@ const (
 	DeviceFieldComputeCapabilityMinor ActivityDeviceFieldIds = 25
 	DeviceFieldId                     ActivityDeviceFieldIds = 26 // uint32_t id; Device ID.
 	DeviceFieldEccEnabled             ActivityDeviceFieldIds = 27 // uint32_t eccEnabled; ECC enabled flag for device.
-	DeviceFieldUuid                   ActivityDeviceFieldIds = 28 // CUuuid uuid; Device UUID.
+	DeviceFieldUuid                   ActivityDeviceFieldIds = 28 // [16]byte uuid; Device UUID.
 	DeviceFieldName                   ActivityDeviceFieldIds = 29 // const char *name; Device name.
 	// DeviceFieldIsCudaVisible: uint8_t isCudaVisible; Flag to indicate whether the device is visible to CUDA.
 	DeviceFieldIsCudaVisible ActivityDeviceFieldIds = 30
@@ -2091,7 +2888,7 @@ const (
 	DeviceFieldGpuInstanceId ActivityDeviceFieldIds = 32
 	// DeviceFieldComputeInstanceId: uint32_t computeInstanceId; Compute instance ID for MIG enabled devices.
 	DeviceFieldComputeInstanceId ActivityDeviceFieldIds = 33
-	DeviceFieldMigUuid           ActivityDeviceFieldIds = 34 // CUuuid migUuid; MIG UUID.
+	DeviceFieldMigUuid           ActivityDeviceFieldIds = 34 // [16]byte migUuid; MIG UUID.
 	DeviceFieldIsNumaNode        ActivityDeviceFieldIds = 35 // uint32_t isNumaNode; NUMA node flag for device.
 	DeviceFieldNumaId            ActivityDeviceFieldIds = 36 // uint32_t numaId; NUMA node ID of the GPU memory.
 	DeviceFieldNumTpcs           ActivityDeviceFieldIds = 37 // uint32_t numTpcs; Number of TPCs on the device.
@@ -2319,7 +3116,7 @@ const (
 	MarkerDataFieldId    ActivityMarkerDataFieldIds = 2 // uint32_t id; Marker ID.
 	// MarkerDataFieldPayloadKind: [MetricValueKind] payloadKind; Defines the payload format for the value associated with the marker.
 	MarkerDataFieldPayloadKind ActivityMarkerDataFieldIds = 3
-	MarkerDataFieldPayload     ActivityMarkerDataFieldIds = 4 // [MetricValue] payload; The payload value.
+	MarkerDataFieldPayload     ActivityMarkerDataFieldIds = 4 // CUpti_MetricValue payload; The payload value.
 	MarkerDataFieldColor       ActivityMarkerDataFieldIds = 5 // uint32_t color; The color for the marker.
 	MarkerDataFieldCategory    ActivityMarkerDataFieldIds = 6 // uint32_t category; The category for the marker.
 	// MarkerDataFieldCuptiDomainId: uint32_t cuptiDomainId; CUPTI maintained domain id required for NVTX extended payloads.
@@ -2766,16 +3563,16 @@ func (e OpenMpEventKind) String() string {
 
 // ExternalCorrelationKind represents the kind of external APIs supported for correlation.
 //
-// Custom correlation kinds are reserved for usage in external tools. See also [ActivityExternalCorrelation].
+// Custom correlation kinds are reserved for usage in external tools. See also [ActivityExternalCorrelation]
 type ExternalCorrelationKind int32
 
 const (
 	ExternalCorrelationKindInvalid  ExternalCorrelationKind = 0
-	ExternalCorrelationKindUnknown  ExternalCorrelationKind = 1 // The external API is unknown to CUPTI
-	ExternalCorrelationKindOpenacc  ExternalCorrelationKind = 2 // The external API is OpenACC
-	ExternalCorrelationKindCustom0  ExternalCorrelationKind = 3 // The external API is custom0
-	ExternalCorrelationKindCustom1  ExternalCorrelationKind = 4 // The external API is custom1
-	ExternalCorrelationKindCustom2  ExternalCorrelationKind = 5 // The external API is custom2
+	ExternalCorrelationKindUnknown  ExternalCorrelationKind = 1 // The external API is unknown to CUPTI.
+	ExternalCorrelationKindOpenacc  ExternalCorrelationKind = 2 // The external API is OpenACC.
+	ExternalCorrelationKindCustom0  ExternalCorrelationKind = 3 // The external API is custom0.
+	ExternalCorrelationKindCustom1  ExternalCorrelationKind = 4 // The external API is custom1.
+	ExternalCorrelationKindCustom2  ExternalCorrelationKind = 5 // The external API is custom2.
 	ExternalCorrelationKindSize     ExternalCorrelationKind = 6 // Add new kinds before this line.
 	ExternalCorrelationKindForceInt ExternalCorrelationKind = 0x7fffffff
 )
@@ -3502,21 +4299,21 @@ func (e ActivityGreenContextFieldIds) String() string {
 type ActivityAttribute int32
 
 const (
-	// ActivityAttrDeviceBufferSize: The device memory size (in bytes) reserved for storing profiling data for concurrent kernels (activity kind [ActivityKindConcurrentKernel]), memcopies and memsets for each buffer on a context. The value is a size_t. There is a limit on how many device buffers can be allocated per context. User can query and set this limit using the attribute [ActivityAttrDeviceBufferPoolLimit]. CUPTI doesn't pre-allocate all the buffers, it pre-allocates only those many buffers as set by the attribute [ActivityAttrDeviceBufferPreAllocateValue]. When all of the data in a buffer is consumed, it is added in the reuse pool, and CUPTI picks a buffer from this pool when a new buffer is needed. Thus memory footprint does not scale with the kernel count. Applications with the high density of kernels, memcopies and memsets might result in having CUPTI to allocate more device buffers. CUPTI allocates another buffer only when it runs out of the buffers in the reuse pool. Since buffer allocation happens in the main application thread, this might result in stalls in the critical path. CUPTI pre-allocates 3 buffers of the same size to mitigate this issue. User can query and set the pre-allocation limit using the attribute [ActivityAttrDeviceBufferPreAllocateValue]. Having larger buffer size leaves less device memory for the application. Having smaller buffer size increases the risk of dropping timestamps for records if too many kernels or memcopies or memsets are launched at one time. This value only applies to new buffer allocations. Set this value before initializing CUDA or before creating a context to ensure it is considered for the following allocations. The default value is 3200000 (~3MB) which can accommodate profiling data up to 100,000 kernels, memcopies and memsets combined. Note: Starting with the CUDA 12.0 Update 1 release, CUPTI allocates the profiling buffer in the device memory by default, which may improve the performance of the tracing run. To change the preferred location to page-locked host memory, refer to the attribute [ActivityAttrMemAllocationTypeHostPinned]. The size of the memory and maximum number of pools are still controlled by the attributes [ActivityAttrDeviceBufferSize] and [ActivityAttrDeviceBufferPoolLimit]. Note: The actual amount of device memory per buffer reserved by CUPTI might be larger.
+	// ActivityAttrDeviceBufferSize: The device memory size (in bytes) reserved for storing profiling data for concurrent kernels (activity kind [ActivityKindConcurrentKernel]), memcopies and memsets for each buffer on a context. The value is a size_t. There is a limit on how many device buffers can be allocated per context. User can query and set this limit using the attribute [ActivityAttrDeviceBufferPoolLimit]. CUPTI doesn’t pre-allocate all the buffers, it pre-allocates only those many buffers as set by the attribute [ActivityAttrDeviceBufferPreAllocateValue]. When all of the data in a buffer is consumed, it is added in the reuse pool, and CUPTI picks a buffer from this pool when a new buffer is needed. Thus memory footprint does not scale with the kernel count. Applications with the high density of kernels, memcopies and memsets might result in having CUPTI to allocate more device buffers. CUPTI allocates another buffer only when it runs out of the buffers in the reuse pool. Since buffer allocation happens in the main application thread, this might result in stalls in the critical path. CUPTI pre-allocates 3 buffers of the same size to mitigate this issue. User can query and set the pre-allocation limit using the attribute [ActivityAttrDeviceBufferPreAllocateValue]. Having larger buffer size leaves less device memory for the application. Having smaller buffer size increases the risk of dropping timestamps for records if too many kernels or memcopies or memsets are launched at one time. This value only applies to new buffer allocations. Set this value before initializing CUDA or before creating a context to ensure it is considered for the following allocations. The default value is 3200000 (~3MB) which can accommodate profiling data up to 100,000 kernels, memcopies and memsets combined. Note: Starting with the CUDA 12.0 Update 1 release, CUPTI allocates the profiling buffer in the device memory by default, which may improve the performance of the tracing run. To change the preferred location to page-locked host memory, refer to the attribute [ActivityAttrMemAllocationTypeHostPinned]. The size of the memory and maximum number of pools are still controlled by the attributes [ActivityAttrDeviceBufferSize] and [ActivityAttrDeviceBufferPoolLimit]. Note: The actual amount of device memory per buffer reserved by CUPTI might be larger.
 	ActivityAttrDeviceBufferSize ActivityAttribute = 0
 	// ActivityAttrDeviceBufferSizeCdp: The device memory size (in bytes) reserved for storing profiling data for CDP operations for each buffer on a context. The value is a size_t. Having larger buffer size means less flush operations but consumes more device memory. This value only applies to new allocations. Set this value before initializing CUDA or before creating a context to ensure it is considered for the following allocations. The default value is 8388608 (8MB). Note: The actual amount of device memory per context reserved by CUPTI might be larger.
 	ActivityAttrDeviceBufferSizeCdp ActivityAttribute = 1
 	// ActivityAttrDeviceBufferPoolLimit: The maximum number of device memory buffers per context. The value is a size_t. For an application with high rate of kernel launches, memcopies and memsets having a bigger pool limit helps in timestamp collection for all these activities at the expense of a larger memory footprint. Refer to the description of the attribute [ActivityAttrDeviceBufferSize] for more details. Setting this value will not modify the number of memory buffers currently stored. Set this value before initializing CUDA to ensure the limit is not exceeded. The default value is 250.
 	ActivityAttrDeviceBufferPoolLimit ActivityAttribute = 2
-	// ActivityAttrProfilingSemaphorePoolSize: This attribute is not supported starting with CUDA 12.3 CUPTI no longer uses profiling semaphore pool to store profiling data. There is a limit on how many semaphore pools can be allocated per context. User can query and set this limit using the attribute [ActivityAttrProfilingSemaphorePoolLimit]. CUPTI doesn't pre-allocate all the semaphore pools, it pre-allocates only those many semaphore pools as set by the attribute [ActivityAttrProfilingSemaphorePreAllocateValue]. When all of the data in a semaphore pool is consumed, it is added in the reuse pool, and CUPTI picks a semaphore pool from the reuse pool when a new semaphore pool is needed. Thus memory footprint does not scale with the kernel count. Applications with the high density of kernels might result in having CUPTI to allocate more semaphore pools. CUPTI allocates another semaphore pool only when it runs out of the semaphore pools in the reuse pool. Since semaphore pool allocation happens in the main application thread, this might result in stalls in the critical path. CUPTI pre-allocates 3 semaphore pools of the same size to mitigate this issue. User can query and set the pre-allocation limit using the attribute [ActivityAttrProfilingSemaphorePreAllocateValue]. Having larger semaphore pool size leaves less device memory for the application. Having smaller semaphore pool size increases the risk of dropping timestamps for kernel records if too many kernels are issued/launched at one time. This value only applies to new semaphore pool allocations. Set this value before initializing CUDA or before creating a context to ensure it is considered for the following allocations. The default value is 25000 which can accommodate profiling data for upto 25,000 kernels.
+	// ActivityAttrProfilingSemaphorePoolSize: This attribute is not supported starting with CUDA 12.3 CUPTI no longer uses profiling semaphore pool to store profiling data. There is a limit on how many semaphore pools can be allocated per context. User can query and set this limit using the attribute [ActivityAttrProfilingSemaphorePoolLimit]. CUPTI doesn’t pre-allocate all the semaphore pools, it pre-allocates only those many semaphore pools as set by the attribute [ActivityAttrProfilingSemaphorePreAllocateValue]. When all of the data in a semaphore pool is consumed, it is added in the reuse pool, and CUPTI picks a semaphore pool from the reuse pool when a new semaphore pool is needed. Thus memory footprint does not scale with the kernel count. Applications with the high density of kernels might result in having CUPTI to allocate more semaphore pools. CUPTI allocates another semaphore pool only when it runs out of the semaphore pools in the reuse pool. Since semaphore pool allocation happens in the main application thread, this might result in stalls in the critical path. CUPTI pre-allocates 3 semaphore pools of the same size to mitigate this issue. User can query and set the pre-allocation limit using the attribute [ActivityAttrProfilingSemaphorePreAllocateValue]. Having larger semaphore pool size leaves less device memory for the application. Having smaller semaphore pool size increases the risk of dropping timestamps for kernel records if too many kernels are issued/launched at one time. This value only applies to new semaphore pool allocations. Set this value before initializing CUDA or before creating a context to ensure it is considered for the following allocations. The default value is 25000 which can accommodate profiling data for upto 25,000 kernels.
 	ActivityAttrProfilingSemaphorePoolSize ActivityAttribute = 3
 	// ActivityAttrProfilingSemaphorePoolLimit: This attribute is not supported starting with CUDA 12.3 CUPTI no longer uses profiling semaphore pool to store profiling data. The maximum number of profiling semaphore pools per context. The value is a size_t. Refer to the description of the attribute [ActivityAttrProfilingSemaphorePoolSize] for more details. Set this value before initializing CUDA to ensure the limit is not exceeded. The default value is 250.
 	ActivityAttrProfilingSemaphorePoolLimit ActivityAttribute = 4
-	// ActivityAttrZeroedOutActivityBuffer: The flag to indicate whether user should provide activity buffer of zero value. The value is a uint8_t. If the value of this attribute is non-zero, user should provide a zero value buffer in the [BuffersCallbackRequestFunc]. If the user does not provide a zero value buffer after setting this to non-zero, the activity buffer may contain some uninitialized values when CUPTI returns it in [BuffersCallbackCompleteFunc]. If the value of this attribute is zero, CUPTI will initialize the user buffer received in the [BuffersCallbackRequestFunc] to zero before filling it. If the user sets this to zero, a few stalls may appear in critical path because CUPTI will zero out the buffer in the main thread. Set this value before returning from [BuffersCallbackRequestFunc] to ensure it is considered for all the subsequent user buffers. The default value is 0.
+	// ActivityAttrZeroedOutActivityBuffer: The flag to indicate whether user should provide activity buffer of zero value. The value is a uint8_t. If the value of this attribute is non-zero, user should provide a zero value buffer in the [BuffersCallbackRequestFunc]. If the user does not provide a zero value buffer after setting this to non-zero, the activity buffer may contain some uninitialized values when CUPTI returns it in [BuffersCallbackCompleteFunc] If the value of this attribute is zero, CUPTI will initialize the user buffer received in the [BuffersCallbackRequestFunc] to zero before filling it. If the user sets this to zero, a few stalls may appear in critical path because CUPTI will zero out the buffer in the main thread. Set this value before returning from [BuffersCallbackRequestFunc] to ensure it is considered for all the subsequent user buffers. The default value is 0.
 	ActivityAttrZeroedOutActivityBuffer ActivityAttribute = 5
-	// ActivityAttrDeviceBufferPreAllocateValue: Number of device buffers to pre-allocate for a context during the initialization phase. The value is a size_t. Refer to the description of the attribute [ActivityAttrDeviceBufferSize] for details. This value must be less than the maximum number of device buffers set using the attribute [ActivityAttrDeviceBufferPoolLimit]. Set this value before initializing CUDA or before creating a context to ensure it is considered by the CUPTI. The default value is set to 3 to ping pong between these buffers (if possible).
+	// ActivityAttrDeviceBufferPreAllocateValue: Number of device buffers to pre-allocate for a context during the initialization phase. The value is a size_t. Refer to the description of the attribute [ActivityAttrDeviceBufferSize] for details. This value must be less than the maximum number of device buffers set using the attribute [ActivityAttrDeviceBufferPoolLimit] Set this value before initializing CUDA or before creating a context to ensure it is considered by the CUPTI. The default value is set to 3 to ping pong between these buffers (if possible).
 	ActivityAttrDeviceBufferPreAllocateValue ActivityAttribute = 6
-	// ActivityAttrProfilingSemaphorePreAllocateValue: This attribute is not supported starting with CUDA 12.3 CUPTI no longer uses profiling semaphore pool to store profiling data. Number of profiling semaphore pools to pre-allocate for a context during the initialization phase. The value is a size_t. Refer to the description of the attribute [ActivityAttrProfilingSemaphorePoolSize] for details. This value must be less than the maximum number of profiling semaphore pools set using the attribute [ActivityAttrProfilingSemaphorePoolLimit]. Set this value before initializing CUDA or before creating a context to ensure it is considered by the CUPTI. The default value is set to 3 to ping pong between these pools (if possible).
+	// ActivityAttrProfilingSemaphorePreAllocateValue: This attribute is not supported starting with CUDA 12.3 CUPTI no longer uses profiling semaphore pool to store profiling data. Number of profiling semaphore pools to pre-allocate for a context during the initialization phase. The value is a size_t. Refer to the description of the attribute [ActivityAttrProfilingSemaphorePoolSize] for details. This value must be less than the maximum number of profiling semaphore pools set using the attribute [ActivityAttrProfilingSemaphorePoolLimit] Set this value before initializing CUDA or before creating a context to ensure it is considered by the CUPTI. The default value is set to 3 to ping pong between these pools (if possible).
 	ActivityAttrProfilingSemaphorePreAllocateValue ActivityAttribute = 7
 	// ActivityAttrMemAllocationTypeHostPinned: Allocate page-locked (pinned) host memory for storing profiling data for concurrent kernels, memcopies and memsets for each buffer on a context. The value is a uint8_t. From CUDA 11.2 through CUDA 12.0 GA releases, CUPTI allocated the profiling buffer in pinned host memory by default. Allocating excessive amounts of pinned memory may degrade system performance, as it reduces the amount of memory available to the system for paging. For this reason user might want to change the location from pinned host memory to device memory by setting value of this attribute to 0. Using page-locked (pinned) host memory buffers is not supported on confidential computing devices. If this attribute is set to 1, CUPTI will return error [ErrNotSupported]. The default value is 0.
 	ActivityAttrMemAllocationTypeHostPinned ActivityAttribute = 8
@@ -3641,7 +4438,7 @@ func (e ActivityThreadIdType) String() string {
 type VirtualizationMode int32
 
 const (
-	// DeviceVirtualizationModeNone: No virtualization mode is associated with the device i.e. it's a baremetal GPU
+	// DeviceVirtualizationModeNone: No virtualization mode is associated with the device i.e. it’s a baremetal GPU
 	DeviceVirtualizationModeNone VirtualizationMode = 0
 	// DeviceVirtualizationModePassThrough: The device is associated with the pass-through GPU. In this mode, an entire physical GPU is directly assigned to one virtual machine (VM).
 	DeviceVirtualizationModePassThrough VirtualizationMode = 1
@@ -3663,1281 +4460,6 @@ func (e VirtualizationMode) String() string {
 		return "DeviceVirtualizationModeForceInt"
 	}
 	return fmt.Sprintf("VirtualizationMode(%d)", e)
-}
-
-// ApiCallbackSite specifies the point in an API call that a callback is issued.
-//
-// Specifies the point in an API call that a callback is issued. This value is communicated to the callback function via [CallbackData].callbackSite.
-type ApiCallbackSite int32
-
-const (
-	ApiEnter          ApiCallbackSite = 0 // The callback is at the entry of the API call.
-	ApiExit           ApiCallbackSite = 1 // The callback is at the exit of the API call.
-	ApiCbsiteForceInt ApiCallbackSite = 0x7fffffff
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e ApiCallbackSite) String() string {
-	switch e {
-	case ApiEnter:
-		return "ApiEnter"
-	case ApiExit:
-		return "ApiExit"
-	case ApiCbsiteForceInt:
-		return "ApiCbsiteForceInt"
-	}
-	return fmt.Sprintf("ApiCallbackSite(%d)", e)
-}
-
-// CallbackDomain represents callback domains.
-//
-// Callback domains. Each domain represents callback points for a group of related API functions or CUDA driver activity.
-type CallbackDomain int32
-
-const (
-	CbDomainInvalid CallbackDomain = 0 // Invalid domain.
-	// CbDomainDriverApi: Domain containing callback points for all driver API functions.
-	CbDomainDriverApi CallbackDomain = 1
-	// CbDomainRuntimeApi: Domain containing callback points for all runtime API functions.
-	CbDomainRuntimeApi CallbackDomain = 2
-	// CbDomainResource: Domain containing callback points for CUDA resource tracking.
-	CbDomainResource    CallbackDomain = 3
-	CbDomainSynchronize CallbackDomain = 4 // Domain containing callback points for CUDA synchronization.
-	CbDomainNvtx        CallbackDomain = 5 // Domain containing callback points for NVTX API functions.
-	CbDomainState       CallbackDomain = 6 // Domain containing callback points for various states.
-	CbDomainSize        CallbackDomain = 7
-	CbDomainForceInt    CallbackDomain = 0x7fffffff
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e CallbackDomain) String() string {
-	switch e {
-	case CbDomainInvalid:
-		return "CbDomainInvalid"
-	case CbDomainDriverApi:
-		return "CbDomainDriverApi"
-	case CbDomainRuntimeApi:
-		return "CbDomainRuntimeApi"
-	case CbDomainResource:
-		return "CbDomainResource"
-	case CbDomainSynchronize:
-		return "CbDomainSynchronize"
-	case CbDomainNvtx:
-		return "CbDomainNvtx"
-	case CbDomainState:
-		return "CbDomainState"
-	case CbDomainSize:
-		return "CbDomainSize"
-	case CbDomainForceInt:
-		return "CbDomainForceInt"
-	}
-	return fmt.Sprintf("CallbackDomain(%d)", e)
-}
-
-// CallbackIdResource represents callback IDs for resource domain.
-//
-// Callback IDs for resource domain, [CbDomainResource]. This value is communicated to the callback function via the cbid parameter.
-type CallbackIdResource int32
-
-const (
-	CbidResourceInvalid                            CallbackIdResource = 0  // Invalid resource callback ID.
-	CbidResourceContextCreated                     CallbackIdResource = 1  // A new context has been created.
-	CbidResourceContextDestroyStarting             CallbackIdResource = 2  // A context is about to be destroyed.
-	CbidResourceStreamCreated                      CallbackIdResource = 3  // A new stream has been created.
-	CbidResourceStreamDestroyStarting              CallbackIdResource = 4  // A stream is about to be destroyed.
-	CbidResourceCuInitFinished                     CallbackIdResource = 5  // The driver has finished initializing.
-	CbidResourceModuleLoaded                       CallbackIdResource = 6  // A module has been loaded.
-	CbidResourceModuleUnloadStarting               CallbackIdResource = 7  // A module is about to be unloaded.
-	CbidResourceModuleProfiled                     CallbackIdResource = 8  // The current module which is being profiled.
-	CbidResourceGraphCreated                       CallbackIdResource = 9  // CUDA graph has been created.
-	CbidResourceGraphDestroyStarting               CallbackIdResource = 10 // CUDA graph is about to be destroyed.
-	CbidResourceGraphCloned                        CallbackIdResource = 11 // CUDA graph is cloned.
-	CbidResourceGraphnodeCreateStarting            CallbackIdResource = 12 // CUDA graph node is about to be created
-	CbidResourceGraphnodeCreated                   CallbackIdResource = 13 // CUDA graph node is created.
-	CbidResourceGraphnodeDestroyStarting           CallbackIdResource = 14 // CUDA graph node is about to be destroyed.
-	CbidResourceGraphnodeDependencyCreated         CallbackIdResource = 15 // Dependency on a CUDA graph node is created.
-	CbidResourceGraphnodeDependencyDestroyStarting CallbackIdResource = 16 // Dependency on a CUDA graph node is destroyed.
-	CbidResourceGraphexecCreateStarting            CallbackIdResource = 17 // An executable CUDA graph is about to be created.
-	CbidResourceGraphexecCreated                   CallbackIdResource = 18 // An executable CUDA graph is created.
-	CbidResourceGraphexecDestroyStarting           CallbackIdResource = 19 // An executable CUDA graph is about to be destroyed.
-	CbidResourceGraphnodeCloned                    CallbackIdResource = 20 // CUDA graph node is cloned.
-	CbidResourceStreamAttributeChanged             CallbackIdResource = 21 // CUDA stream attribute is changed.
-	CbidResourceGraphNodeUpdated                   CallbackIdResource = 22 // CUDA graph node is updated.
-	// CbidResourceGraphNodeSetParams: Params are set for the CUDA graph node in the executable graph.
-	CbidResourceGraphNodeSetParams CallbackIdResource = 23
-	CbidResourceSize               CallbackIdResource = 24
-	CbidResourceForceInt           CallbackIdResource = 0x7fffffff
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e CallbackIdResource) String() string {
-	switch e {
-	case CbidResourceInvalid:
-		return "CbidResourceInvalid"
-	case CbidResourceContextCreated:
-		return "CbidResourceContextCreated"
-	case CbidResourceContextDestroyStarting:
-		return "CbidResourceContextDestroyStarting"
-	case CbidResourceStreamCreated:
-		return "CbidResourceStreamCreated"
-	case CbidResourceStreamDestroyStarting:
-		return "CbidResourceStreamDestroyStarting"
-	case CbidResourceCuInitFinished:
-		return "CbidResourceCuInitFinished"
-	case CbidResourceModuleLoaded:
-		return "CbidResourceModuleLoaded"
-	case CbidResourceModuleUnloadStarting:
-		return "CbidResourceModuleUnloadStarting"
-	case CbidResourceModuleProfiled:
-		return "CbidResourceModuleProfiled"
-	case CbidResourceGraphCreated:
-		return "CbidResourceGraphCreated"
-	case CbidResourceGraphDestroyStarting:
-		return "CbidResourceGraphDestroyStarting"
-	case CbidResourceGraphCloned:
-		return "CbidResourceGraphCloned"
-	case CbidResourceGraphnodeCreateStarting:
-		return "CbidResourceGraphnodeCreateStarting"
-	case CbidResourceGraphnodeCreated:
-		return "CbidResourceGraphnodeCreated"
-	case CbidResourceGraphnodeDestroyStarting:
-		return "CbidResourceGraphnodeDestroyStarting"
-	case CbidResourceGraphnodeDependencyCreated:
-		return "CbidResourceGraphnodeDependencyCreated"
-	case CbidResourceGraphnodeDependencyDestroyStarting:
-		return "CbidResourceGraphnodeDependencyDestroyStarting"
-	case CbidResourceGraphexecCreateStarting:
-		return "CbidResourceGraphexecCreateStarting"
-	case CbidResourceGraphexecCreated:
-		return "CbidResourceGraphexecCreated"
-	case CbidResourceGraphexecDestroyStarting:
-		return "CbidResourceGraphexecDestroyStarting"
-	case CbidResourceGraphnodeCloned:
-		return "CbidResourceGraphnodeCloned"
-	case CbidResourceStreamAttributeChanged:
-		return "CbidResourceStreamAttributeChanged"
-	case CbidResourceGraphNodeUpdated:
-		return "CbidResourceGraphNodeUpdated"
-	case CbidResourceGraphNodeSetParams:
-		return "CbidResourceGraphNodeSetParams"
-	case CbidResourceSize:
-		return "CbidResourceSize"
-	case CbidResourceForceInt:
-		return "CbidResourceForceInt"
-	}
-	return fmt.Sprintf("CallbackIdResource(%d)", e)
-}
-
-// CallbackIdSync represents callback IDs for synchronization domain.
-//
-// Callback IDs for synchronization domain, [CbDomainSynchronize]. This value is communicated to the callback function via the cbid parameter.
-type CallbackIdSync int32
-
-const (
-	CbidSynchronizeInvalid             CallbackIdSync = 0 // Invalid synchronize callback ID.
-	CbidSynchronizeStreamSynchronized  CallbackIdSync = 1 // Stream synchronization has completed for the stream.
-	CbidSynchronizeContextSynchronized CallbackIdSync = 2 // Context synchronization has completed for the context.
-	CbidSynchronizeSize                CallbackIdSync = 3
-	CbidSynchronizeForceInt            CallbackIdSync = 0x7fffffff
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e CallbackIdSync) String() string {
-	switch e {
-	case CbidSynchronizeInvalid:
-		return "CbidSynchronizeInvalid"
-	case CbidSynchronizeStreamSynchronized:
-		return "CbidSynchronizeStreamSynchronized"
-	case CbidSynchronizeContextSynchronized:
-		return "CbidSynchronizeContextSynchronized"
-	case CbidSynchronizeSize:
-		return "CbidSynchronizeSize"
-	case CbidSynchronizeForceInt:
-		return "CbidSynchronizeForceInt"
-	}
-	return fmt.Sprintf("CallbackIdSync(%d)", e)
-}
-
-// CallbackIdState represents callback IDs for state domain.
-//
-// Callback IDs for state domain, [CbDomainState]. This value is communicated to the callback function via the cbid parameter.
-type CallbackIdState int32
-
-const (
-	CbidStateInvalid CallbackIdState = 0 // Invalid state callback ID.
-	// CbidStateFatalError: Notification of fatal errors - high impact, non-recoverable When encountered, CUPTI automatically invokes [Finalize] User can control behavior of the application in future from receiving this callback - such as continuing without profiling, or terminating the whole application.
-	CbidStateFatalError CallbackIdState = 1
-	// CbidStateError: Notification of non fatal errors - high impact, but recoverable This notification is not issued in the current release.
-	CbidStateError    CallbackIdState = 2
-	CbidStateWarning  CallbackIdState = 3 // Notification of warnings - low impact, recoverable.
-	CbidStateSize     CallbackIdState = 4
-	CbidStateForceInt CallbackIdState = 0x7fffffff
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e CallbackIdState) String() string {
-	switch e {
-	case CbidStateInvalid:
-		return "CbidStateInvalid"
-	case CbidStateFatalError:
-		return "CbidStateFatalError"
-	case CbidStateError:
-		return "CbidStateError"
-	case CbidStateWarning:
-		return "CbidStateWarning"
-	case CbidStateSize:
-		return "CbidStateSize"
-	case CbidStateForceInt:
-		return "CbidStateForceInt"
-	}
-	return fmt.Sprintf("CallbackIdState(%d)", e)
-}
-
-// DeviceAttributeDeviceClass represents device class.
-//
-// Enumeration of device classes for device attribute [DeviceAttrDeviceClass].
-type DeviceAttributeDeviceClass int32
-
-const (
-	DeviceAttrDeviceClassTesla   DeviceAttributeDeviceClass = 0
-	DeviceAttrDeviceClassQuadro  DeviceAttributeDeviceClass = 1
-	DeviceAttrDeviceClassGeforce DeviceAttributeDeviceClass = 2
-	DeviceAttrDeviceClassTegra   DeviceAttributeDeviceClass = 3
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e DeviceAttributeDeviceClass) String() string {
-	switch e {
-	case DeviceAttrDeviceClassTesla:
-		return "DeviceAttrDeviceClassTesla"
-	case DeviceAttrDeviceClassQuadro:
-		return "DeviceAttrDeviceClassQuadro"
-	case DeviceAttrDeviceClassGeforce:
-		return "DeviceAttrDeviceClassGeforce"
-	case DeviceAttrDeviceClassTegra:
-		return "DeviceAttrDeviceClassTegra"
-	}
-	return fmt.Sprintf("DeviceAttributeDeviceClass(%d)", e)
-}
-
-// DeviceAttribute represents device attributes.
-//
-// CUPTI device attributes. These attributes can be read using [DeviceGetAttribute].
-type DeviceAttribute int32
-
-const (
-	DeviceAttrMaxEventId DeviceAttribute = 1 // Number of event IDs for a device. Value is a uint32_t.
-	// DeviceAttrMaxEventDomainId: Number of event domain IDs for a device. Value is a uint32_t.
-	DeviceAttrMaxEventDomainId DeviceAttribute = 2
-	// DeviceAttrGlobalMemoryBandwidth: Get global memory bandwidth in Kbytes/sec. Value is a uint64_t.
-	DeviceAttrGlobalMemoryBandwidth DeviceAttribute = 3
-	// DeviceAttrInstructionPerCycle: Get theoretical maximum number of instructions per cycle. Value is a uint32_t.
-	DeviceAttrInstructionPerCycle DeviceAttribute = 4
-	// DeviceAttrInstructionThroughputSinglePrecision: Get theoretical maximum number of single precision instructions that can be executed per second. Value is a uint64_t.
-	DeviceAttrInstructionThroughputSinglePrecision DeviceAttribute = 5
-	DeviceAttrMaxFrameBuffers                      DeviceAttribute = 6 // Get number of frame buffers for device. Value is a uint64_t.
-	// DeviceAttrPcieLinkRate: Get PCIE link rate in Mega bits/sec for device. Return 0 if bus-type is non-PCIE. Value is a uint64_t.
-	DeviceAttrPcieLinkRate DeviceAttribute = 7
-	// DeviceAttrPcieLinkWidth: Get PCIE link width for device. Return 0 if bus-type is non-PCIE. Value is a uint64_t.
-	DeviceAttrPcieLinkWidth DeviceAttribute = 8
-	// DeviceAttrPcieGen: Get PCIE generation for device. Return 0 if bus-type is non-PCIE. Value is a uint64_t.
-	DeviceAttrPcieGen DeviceAttribute = 9
-	// DeviceAttrDeviceClass: Get the class for the device. Value is a [DeviceAttributeDeviceClass].
-	DeviceAttrDeviceClass DeviceAttribute = 10
-	// DeviceAttrFlopSpPerCycle: Get the peak single precision flop per cycle. Value is a uint64_t.
-	DeviceAttrFlopSpPerCycle DeviceAttribute = 11
-	// DeviceAttrFlopDpPerCycle: Get the peak double precision flop per cycle. Value is a uint64_t.
-	DeviceAttrFlopDpPerCycle DeviceAttribute = 12
-	DeviceAttrMaxL2Units     DeviceAttribute = 13 // Get number of L2 units. Value is a uint64_t.
-	// DeviceAttrMaxSharedMemoryCacheConfigPreferShared: Get the maximum shared memory for the CU_FUNC_CACHE_PREFER_SHARED preference. Value is a uint64_t.
-	DeviceAttrMaxSharedMemoryCacheConfigPreferShared DeviceAttribute = 14
-	// DeviceAttrMaxSharedMemoryCacheConfigPreferL1: Get the maximum shared memory for the CU_FUNC_CACHE_PREFER_L1 preference. Value is a uint64_t.
-	DeviceAttrMaxSharedMemoryCacheConfigPreferL1 DeviceAttribute = 15
-	// DeviceAttrMaxSharedMemoryCacheConfigPreferEqual: Get the maximum shared memory for the CU_FUNC_CACHE_PREFER_EQUAL preference. Value is a uint64_t.
-	DeviceAttrMaxSharedMemoryCacheConfigPreferEqual DeviceAttribute = 16
-	// DeviceAttrFlopHpPerCycle: Get the peak half precision flop per cycle. Value is a uint64_t.
-	DeviceAttrFlopHpPerCycle DeviceAttribute = 17
-	// DeviceAttrNvlinkPresent: Check if Nvlink is connected to device. Returns 1, if at least one Nvlink is connected to the device, returns 0 otherwise. Value is a uint32_t.
-	DeviceAttrNvlinkPresent DeviceAttribute = 18
-	// DeviceAttrGpuCpuNvlinkBw: Check if Nvlink is present between GPU and CPU. Returns Bandwidth, in Bytes/sec, if Nvlink is present, returns 0 otherwise. Value is a uint64_t.
-	DeviceAttrGpuCpuNvlinkBw DeviceAttribute = 19
-	// DeviceAttrNvswitchPresent: Check if NVSwitch is present in the underlying topology. Returns 1, if present, returns 0 otherwise. Value is a uint32_t.
-	DeviceAttrNvswitchPresent DeviceAttribute = 20
-	DeviceAttrForceInt        DeviceAttribute = 0x7fffffff
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e DeviceAttribute) String() string {
-	switch e {
-	case DeviceAttrMaxEventId:
-		return "DeviceAttrMaxEventId"
-	case DeviceAttrMaxEventDomainId:
-		return "DeviceAttrMaxEventDomainId"
-	case DeviceAttrGlobalMemoryBandwidth:
-		return "DeviceAttrGlobalMemoryBandwidth"
-	case DeviceAttrInstructionPerCycle:
-		return "DeviceAttrInstructionPerCycle"
-	case DeviceAttrInstructionThroughputSinglePrecision:
-		return "DeviceAttrInstructionThroughputSinglePrecision"
-	case DeviceAttrMaxFrameBuffers:
-		return "DeviceAttrMaxFrameBuffers"
-	case DeviceAttrPcieLinkRate:
-		return "DeviceAttrPcieLinkRate"
-	case DeviceAttrPcieLinkWidth:
-		return "DeviceAttrPcieLinkWidth"
-	case DeviceAttrPcieGen:
-		return "DeviceAttrPcieGen"
-	case DeviceAttrDeviceClass:
-		return "DeviceAttrDeviceClass"
-	case DeviceAttrFlopSpPerCycle:
-		return "DeviceAttrFlopSpPerCycle"
-	case DeviceAttrFlopDpPerCycle:
-		return "DeviceAttrFlopDpPerCycle"
-	case DeviceAttrMaxL2Units:
-		return "DeviceAttrMaxL2Units"
-	case DeviceAttrMaxSharedMemoryCacheConfigPreferShared:
-		return "DeviceAttrMaxSharedMemoryCacheConfigPreferShared"
-	case DeviceAttrMaxSharedMemoryCacheConfigPreferL1:
-		return "DeviceAttrMaxSharedMemoryCacheConfigPreferL1"
-	case DeviceAttrMaxSharedMemoryCacheConfigPreferEqual:
-		return "DeviceAttrMaxSharedMemoryCacheConfigPreferEqual"
-	case DeviceAttrFlopHpPerCycle:
-		return "DeviceAttrFlopHpPerCycle"
-	case DeviceAttrNvlinkPresent:
-		return "DeviceAttrNvlinkPresent"
-	case DeviceAttrGpuCpuNvlinkBw:
-		return "DeviceAttrGpuCpuNvlinkBw"
-	case DeviceAttrNvswitchPresent:
-		return "DeviceAttrNvswitchPresent"
-	case DeviceAttrForceInt:
-		return "DeviceAttrForceInt"
-	}
-	return fmt.Sprintf("DeviceAttribute(%d)", e)
-}
-
-// EventDomainAttribute represents event domain attributes.
-//
-// Event domain attributes. Except where noted, all the attributes can be read using either [DeviceGetEventDomainAttribute] or [EventDomainGetAttribute].
-type EventDomainAttribute int32
-
-const (
-	// EventDomainAttrName: Event domain name. Value is a null terminated const c-string.
-	EventDomainAttrName EventDomainAttribute = 0
-	// EventDomainAttrInstanceCount: Number of instances of the domain for which event counts will be collected. The domain may have additional instances that cannot be profiled (see [EventDomainAttrTotalInstanceCount]). Can be read only with [DeviceGetEventDomainAttribute]. Value is a uint32_t.
-	EventDomainAttrInstanceCount EventDomainAttribute = 1
-	// EventDomainAttrTotalInstanceCount: Total number of instances of the domain, including instances that cannot be profiled. Use [EventDomainAttrInstanceCount] to get the number of instances that can be profiled. Can be read only with [DeviceGetEventDomainAttribute]. Value is a uint32_t.
-	EventDomainAttrTotalInstanceCount EventDomainAttribute = 3
-	// EventDomainAttrCollectionMethod: Collection method used for events contained in the event domain. Value is a [EventCollectionMethod].
-	EventDomainAttrCollectionMethod EventDomainAttribute = 4
-	EventDomainAttrForceInt         EventDomainAttribute = 0x7fffffff
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e EventDomainAttribute) String() string {
-	switch e {
-	case EventDomainAttrName:
-		return "EventDomainAttrName"
-	case EventDomainAttrInstanceCount:
-		return "EventDomainAttrInstanceCount"
-	case EventDomainAttrTotalInstanceCount:
-		return "EventDomainAttrTotalInstanceCount"
-	case EventDomainAttrCollectionMethod:
-		return "EventDomainAttrCollectionMethod"
-	case EventDomainAttrForceInt:
-		return "EventDomainAttrForceInt"
-	}
-	return fmt.Sprintf("EventDomainAttribute(%d)", e)
-}
-
-// EventCollectionMethod represents the collection method used for an event.
-//
-// The collection method indicates how an event is collected.
-type EventCollectionMethod int32
-
-const (
-	// EventCollectionMethodPm: Event is collected using a hardware global performance monitor.
-	EventCollectionMethodPm           EventCollectionMethod = 0
-	EventCollectionMethodSm           EventCollectionMethod = 1 // Event is collected using a hardware SM performance monitor.
-	EventCollectionMethodInstrumented EventCollectionMethod = 2 // Event is collected using software instrumentation.
-	EventCollectionMethodNvlinkTc     EventCollectionMethod = 3 // Event is collected using NvLink throughput counter method.
-	EventCollectionMethodForceInt     EventCollectionMethod = 0x7fffffff
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e EventCollectionMethod) String() string {
-	switch e {
-	case EventCollectionMethodPm:
-		return "EventCollectionMethodPm"
-	case EventCollectionMethodSm:
-		return "EventCollectionMethodSm"
-	case EventCollectionMethodInstrumented:
-		return "EventCollectionMethodInstrumented"
-	case EventCollectionMethodNvlinkTc:
-		return "EventCollectionMethodNvlinkTc"
-	case EventCollectionMethodForceInt:
-		return "EventCollectionMethodForceInt"
-	}
-	return fmt.Sprintf("EventCollectionMethod(%d)", e)
-}
-
-// EventGroupAttribute represents event group attributes.
-//
-// Event group attributes. These attributes can be read using [EventGroup.Attribute]. Attributes marked rw can also be written using [EventGroup.SetAttribute].
-type EventGroupAttribute int32
-
-const (
-	// EventGroupAttrEventDomainId: The domain to which the event group is bound. This attribute is set when the first event is added to the group. Value is a CUpti_EventDomainID.
-	EventGroupAttrEventDomainId EventGroupAttribute = 0
-	// EventGroupAttrProfileAllDomainInstances: rw Profile all the instances of the domain for this eventgroup. This feature can be used to get load balancing across all instances of a domain. Value is an integer.
-	EventGroupAttrProfileAllDomainInstances EventGroupAttribute = 1
-	EventGroupAttrUserData                  EventGroupAttribute = 2 // rw Reserved for user data.
-	EventGroupAttrNumEvents                 EventGroupAttribute = 3 // Number of events in the group. Value is a uint32_t.
-	// EventGroupAttrEvents: Enumerates events in the group. Value is a pointer to buffer of size sizeof(CUpti_EventID) * num_of_events in the eventgroup. num_of_events can be queried using [EventGroupAttrNumEvents].
-	EventGroupAttrEvents EventGroupAttribute = 4
-	// EventGroupAttrInstanceCount: Number of instances of the domain bound to this event group that will be counted. Value is a uint32_t.
-	EventGroupAttrInstanceCount EventGroupAttribute = 5
-	// EventGroupAttrProfilingScope: Event group scope can be set to [EventProfilingScopeDevice] or [EventProfilingScopeContext] for an eventGroup, before adding any event. Sets the scope of eventgroup as [EventProfilingScopeDevice] or [EventProfilingScopeContext] when the scope of the events that will be added is [EventProfilingScopeBoth]. If profiling scope of event is either [EventProfilingScopeDevice] or [EventProfilingScopeContext] then setting this attribute will not affect the default scope. It is not allowed to add events of different scope to same eventgroup. Value is a uint32_t.
-	EventGroupAttrProfilingScope EventGroupAttribute = 6
-	EventGroupAttrForceInt       EventGroupAttribute = 0x7fffffff
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e EventGroupAttribute) String() string {
-	switch e {
-	case EventGroupAttrEventDomainId:
-		return "EventGroupAttrEventDomainId"
-	case EventGroupAttrProfileAllDomainInstances:
-		return "EventGroupAttrProfileAllDomainInstances"
-	case EventGroupAttrUserData:
-		return "EventGroupAttrUserData"
-	case EventGroupAttrNumEvents:
-		return "EventGroupAttrNumEvents"
-	case EventGroupAttrEvents:
-		return "EventGroupAttrEvents"
-	case EventGroupAttrInstanceCount:
-		return "EventGroupAttrInstanceCount"
-	case EventGroupAttrProfilingScope:
-		return "EventGroupAttrProfilingScope"
-	case EventGroupAttrForceInt:
-		return "EventGroupAttrForceInt"
-	}
-	return fmt.Sprintf("EventGroupAttribute(%d)", e)
-}
-
-// EventProfilingScope represents profiling scope for event.
-//
-// Profiling scope of event indicates if the event can be collected at context scope or device scope or both i.e. it can be collected at any of context or device scope.
-type EventProfilingScope int32
-
-const (
-	EventProfilingScopeContext EventProfilingScope = 0 // Event is collected at context scope.
-	EventProfilingScopeDevice  EventProfilingScope = 1 // Event is collected at device scope.
-	// EventProfilingScopeBoth: Event can be collected at device or context scope. The scope can be set using [EventGroup.SetAttribute] API.
-	EventProfilingScopeBoth     EventProfilingScope = 2
-	EventProfilingScopeForceInt EventProfilingScope = 0x7fffffff
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e EventProfilingScope) String() string {
-	switch e {
-	case EventProfilingScopeContext:
-		return "EventProfilingScopeContext"
-	case EventProfilingScopeDevice:
-		return "EventProfilingScopeDevice"
-	case EventProfilingScopeBoth:
-		return "EventProfilingScopeBoth"
-	case EventProfilingScopeForceInt:
-		return "EventProfilingScopeForceInt"
-	}
-	return fmt.Sprintf("EventProfilingScope(%d)", e)
-}
-
-// EventAttribute represents event attributes.
-//
-// Event attributes. These attributes can be read using [EventGetAttribute].
-type EventAttribute int32
-
-const (
-	EventAttrName EventAttribute = 0 // Event name. Value is a null terminated const c-string.
-	// EventAttrShortDescription: Short description of event. Value is a null terminated const c-string.
-	EventAttrShortDescription EventAttribute = 1
-	// EventAttrLongDescription: Long description of event. Value is a null terminated const c-string.
-	EventAttrLongDescription EventAttribute = 2
-	EventAttrCategory        EventAttribute = 3 // Category of event. Value is [EventCategory].
-	// EventAttrProfilingScope: Profiling scope of the events. It can be either device or context or both. Value is a [EventProfilingScope].
-	EventAttrProfilingScope EventAttribute = 5
-	EventAttrForceInt       EventAttribute = 0x7fffffff
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e EventAttribute) String() string {
-	switch e {
-	case EventAttrName:
-		return "EventAttrName"
-	case EventAttrShortDescription:
-		return "EventAttrShortDescription"
-	case EventAttrLongDescription:
-		return "EventAttrLongDescription"
-	case EventAttrCategory:
-		return "EventAttrCategory"
-	case EventAttrProfilingScope:
-		return "EventAttrProfilingScope"
-	case EventAttrForceInt:
-		return "EventAttrForceInt"
-	}
-	return fmt.Sprintf("EventAttribute(%d)", e)
-}
-
-// EventCollectionMode represents event collection modes.
-//
-// The event collection mode determines the period over which the events within the enabled event groups will be collected.
-type EventCollectionMode int32
-
-const (
-	// EventCollectionModeContinuous: Events are collected for the entire duration between the [EventGroup.Enable] and [EventGroup.Disable] calls. Event values are reset when the events are read. For CUDA toolkit v6.0 and older this was the default mode.
-	EventCollectionModeContinuous EventCollectionMode = 0
-	// EventCollectionModeKernel: Events are collected only for the durations of kernel executions that occur between the [EventGroup.Enable] and [EventGroup.Disable] calls. Event collection begins when a kernel execution begins, and stops when kernel execution completes. Event values are reset to zero when each kernel execution begins. If multiple kernel executions occur between the [EventGroup.Enable] and [EventGroup.Disable] calls then the event values must be read after each kernel launch if those events need to be associated with the specific kernel launch. Note that collection in this mode may significantly change the overall performance characteristics of the application because kernel executions that occur between the [EventGroup.Enable] and [EventGroup.Disable] calls are serialized on the GPU. This is the default mode from CUDA toolkit v6.5
-	EventCollectionModeKernel   EventCollectionMode = 1
-	EventCollectionModeForceInt EventCollectionMode = 0x7fffffff
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e EventCollectionMode) String() string {
-	switch e {
-	case EventCollectionModeContinuous:
-		return "EventCollectionModeContinuous"
-	case EventCollectionModeKernel:
-		return "EventCollectionModeKernel"
-	case EventCollectionModeForceInt:
-		return "EventCollectionModeForceInt"
-	}
-	return fmt.Sprintf("EventCollectionMode(%d)", e)
-}
-
-// EventCategory represents an event category.
-//
-// Each event is assigned to a category that represents the general type of the event. A event's category is accessed using [EventGetAttribute] and the [EventAttrCategory] attribute.
-type EventCategory int32
-
-const (
-	EventCategoryInstruction    EventCategory = 0 // An instruction related event.
-	EventCategoryMemory         EventCategory = 1 // A memory related event.
-	EventCategoryCache          EventCategory = 2 // A cache related event.
-	EventCategoryProfileTrigger EventCategory = 3 // A profile-trigger event.
-	EventCategorySystem         EventCategory = 4 // A system event.
-	EventCategoryForceInt       EventCategory = 0x7fffffff
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e EventCategory) String() string {
-	switch e {
-	case EventCategoryInstruction:
-		return "EventCategoryInstruction"
-	case EventCategoryMemory:
-		return "EventCategoryMemory"
-	case EventCategoryCache:
-		return "EventCategoryCache"
-	case EventCategoryProfileTrigger:
-		return "EventCategoryProfileTrigger"
-	case EventCategorySystem:
-		return "EventCategorySystem"
-	case EventCategoryForceInt:
-		return "EventCategoryForceInt"
-	}
-	return fmt.Sprintf("EventCategory(%d)", e)
-}
-
-// ReadEventFlags represents flags for [EventGroup.ReadEvent] an [EventGroup.ReadAllEvents].
-//
-// Flags for [EventGroup.ReadEvent] an [EventGroup.ReadAllEvents].
-type ReadEventFlags int32
-
-const (
-	EventReadFlagNone     ReadEventFlags = 0 // No flags.
-	EventReadFlagForceInt ReadEventFlags = 0x7fffffff
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e ReadEventFlags) String() string {
-	switch e {
-	case EventReadFlagNone:
-		return "EventReadFlagNone"
-	case EventReadFlagForceInt:
-		return "EventReadFlagForceInt"
-	}
-	return fmt.Sprintf("ReadEventFlags(%d)", e)
-}
-
-// MetricCategory represents a metric category.
-//
-// Each metric is assigned to a category that represents the general type of the metric. A metric's category is accessed using [MetricGetAttribute] and the [MetricAttrCategory] attribute.
-type MetricCategory int32
-
-const (
-	MetricCategoryMemory         MetricCategory = 0 // A memory related metric.
-	MetricCategoryInstruction    MetricCategory = 1 // An instruction related metric.
-	MetricCategoryMultiprocessor MetricCategory = 2 // A multiprocessor related metric.
-	MetricCategoryCache          MetricCategory = 3 // A cache related metric.
-	MetricCategoryTexture        MetricCategory = 4 // A texture related metric.
-	MetricCategoryNvlink         MetricCategory = 5 // A Nvlink related metric.
-	MetricCategoryPcie           MetricCategory = 6 // A PCIe related metric.
-	MetricCategoryForceInt       MetricCategory = 0x7fffffff
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e MetricCategory) String() string {
-	switch e {
-	case MetricCategoryMemory:
-		return "MetricCategoryMemory"
-	case MetricCategoryInstruction:
-		return "MetricCategoryInstruction"
-	case MetricCategoryMultiprocessor:
-		return "MetricCategoryMultiprocessor"
-	case MetricCategoryCache:
-		return "MetricCategoryCache"
-	case MetricCategoryTexture:
-		return "MetricCategoryTexture"
-	case MetricCategoryNvlink:
-		return "MetricCategoryNvlink"
-	case MetricCategoryPcie:
-		return "MetricCategoryPcie"
-	case MetricCategoryForceInt:
-		return "MetricCategoryForceInt"
-	}
-	return fmt.Sprintf("MetricCategory(%d)", e)
-}
-
-// MetricEvaluationMode represents a metric evaluation mode.
-//
-// A metric can be evaluated per hardware instance to know the load balancing across instances of a domain or the metric can be evaluated in aggregate mode when the events involved in metric evaluation are from different event domains. It might be possible to evaluate some metrics in both modes for convenience. A metric's evaluation mode is accessed using [MetricEvaluationMode] and the [MetricAttrEvaluationMode] attribute.
-type MetricEvaluationMode int32
-
-const (
-	// MetricEvaluationModePerInstance: If this bit is set, the metric can be profiled for each instance of the domain. The event values passed to [MetricGetValue] can contain values for one instance of the domain. And [MetricGetValue] can be called for each instance.
-	MetricEvaluationModePerInstance MetricEvaluationMode = 1
-	// MetricEvaluationModeAggregate: If this bit is set, the metric can be profiled over all instances. The event values passed to [MetricGetValue] can be aggregated values of events for all instances of the domain.
-	MetricEvaluationModeAggregate MetricEvaluationMode = 1 << 1
-	MetricEvaluationModeForceInt  MetricEvaluationMode = 0x7fffffff
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e MetricEvaluationMode) String() string {
-	switch e {
-	case MetricEvaluationModePerInstance:
-		return "MetricEvaluationModePerInstance"
-	case MetricEvaluationModeAggregate:
-		return "MetricEvaluationModeAggregate"
-	case MetricEvaluationModeForceInt:
-		return "MetricEvaluationModeForceInt"
-	}
-	return fmt.Sprintf("MetricEvaluationMode(%d)", e)
-}
-
-// MetricValueKind represents kinds of metric values.
-//
-// Metric values can be one of several different kinds. Corresponding to each kind is a member of the [MetricValue] union. The metric value returned by [MetricGetValue] should be accessed using the appropriate member of that union based on its value kind.
-type MetricValueKind int32
-
-const (
-	MetricValueKindDouble MetricValueKind = 0 // The metric value is a 64-bit double.
-	MetricValueKindUint64 MetricValueKind = 1 // The metric value is a 64-bit unsigned integer.
-	// MetricValueKindPercent: The metric value is a percentage represented by a 64-bit double. For example, 57.5% is represented by the value 57.5.
-	MetricValueKindPercent MetricValueKind = 2
-	// MetricValueKindThroughput: The metric value is a throughput represented by a 64-bit integer. The unit for throughput values is bytes/second.
-	MetricValueKindThroughput MetricValueKind = 3
-	MetricValueKindInt64      MetricValueKind = 4 // The metric value is a 64-bit signed integer.
-	// MetricValueKindUtilizationLevel: The metric value is a utilization level, as represented by [MetricValueUtilizationLevel].
-	MetricValueKindUtilizationLevel MetricValueKind = 5
-	// MetricValueKindNvtxExtendedPayload: The metric value is a pointer to a NVTX extended payload. nvtxPayloadData_t is the structure that contains the payload data.
-	MetricValueKindNvtxExtendedPayload MetricValueKind = 6
-	MetricValueKindForceInt            MetricValueKind = 0x7fffffff
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e MetricValueKind) String() string {
-	switch e {
-	case MetricValueKindDouble:
-		return "MetricValueKindDouble"
-	case MetricValueKindUint64:
-		return "MetricValueKindUint64"
-	case MetricValueKindPercent:
-		return "MetricValueKindPercent"
-	case MetricValueKindThroughput:
-		return "MetricValueKindThroughput"
-	case MetricValueKindInt64:
-		return "MetricValueKindInt64"
-	case MetricValueKindUtilizationLevel:
-		return "MetricValueKindUtilizationLevel"
-	case MetricValueKindNvtxExtendedPayload:
-		return "MetricValueKindNvtxExtendedPayload"
-	case MetricValueKindForceInt:
-		return "MetricValueKindForceInt"
-	}
-	return fmt.Sprintf("MetricValueKind(%d)", e)
-}
-
-// MetricValueUtilizationLevel is an enumeration of utilization levels for metrics values of kind [MetricValueKindUtilizationLevel].
-//
-// Utilization values can vary from IDLE (0) to MAX (10) but the enumeration only provides specific names for a few values.
-type MetricValueUtilizationLevel int32
-
-const (
-	MetricValueUtilizationIdle     MetricValueUtilizationLevel = 0
-	MetricValueUtilizationLow      MetricValueUtilizationLevel = 2
-	MetricValueUtilizationMid      MetricValueUtilizationLevel = 5
-	MetricValueUtilizationHigh     MetricValueUtilizationLevel = 8
-	MetricValueUtilizationMax      MetricValueUtilizationLevel = 10
-	MetricValueUtilizationForceInt MetricValueUtilizationLevel = 0x7fffffff
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e MetricValueUtilizationLevel) String() string {
-	switch e {
-	case MetricValueUtilizationIdle:
-		return "MetricValueUtilizationIdle"
-	case MetricValueUtilizationLow:
-		return "MetricValueUtilizationLow"
-	case MetricValueUtilizationMid:
-		return "MetricValueUtilizationMid"
-	case MetricValueUtilizationHigh:
-		return "MetricValueUtilizationHigh"
-	case MetricValueUtilizationMax:
-		return "MetricValueUtilizationMax"
-	case MetricValueUtilizationForceInt:
-		return "MetricValueUtilizationForceInt"
-	}
-	return fmt.Sprintf("MetricValueUtilizationLevel(%d)", e)
-}
-
-// MetricAttribute represents metric attributes.
-//
-// Metric attributes describe properties of a metric. These attributes can be read using [MetricGetAttribute].
-type MetricAttribute int32
-
-const (
-	MetricAttrName MetricAttribute = 0 // Metric name. Value is a null terminated const c-string.
-	// MetricAttrShortDescription: Short description of metric. Value is a null terminated const c-string.
-	MetricAttrShortDescription MetricAttribute = 1
-	// MetricAttrLongDescription: Long description of metric. Value is a null terminated const c-string.
-	MetricAttrLongDescription MetricAttribute = 2
-	MetricAttrCategory        MetricAttribute = 3 // Category of the metric. Value is of type [MetricCategory].
-	// MetricAttrValueKind: Value type of the metric. Value is of type [MetricValueKind].
-	MetricAttrValueKind MetricAttribute = 4
-	// MetricAttrEvaluationMode: Metric evaluation mode. Value is of type [MetricEvaluationMode].
-	MetricAttrEvaluationMode MetricAttribute = 5
-	MetricAttrForceInt       MetricAttribute = 0x7fffffff
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e MetricAttribute) String() string {
-	switch e {
-	case MetricAttrName:
-		return "MetricAttrName"
-	case MetricAttrShortDescription:
-		return "MetricAttrShortDescription"
-	case MetricAttrLongDescription:
-		return "MetricAttrLongDescription"
-	case MetricAttrCategory:
-		return "MetricAttrCategory"
-	case MetricAttrValueKind:
-		return "MetricAttrValueKind"
-	case MetricAttrEvaluationMode:
-		return "MetricAttrEvaluationMode"
-	case MetricAttrForceInt:
-		return "MetricAttrForceInt"
-	}
-	return fmt.Sprintf("MetricAttribute(%d)", e)
-}
-
-// MetricPropertyDeviceClass represents device class.
-//
-// Enumeration of device classes for metric property [MetricPropertyIDMetricPropertyDeviceClass].
-type MetricPropertyDeviceClass int32
-
-const (
-	MetricPropertyDeviceClassTesla   MetricPropertyDeviceClass = 0
-	MetricPropertyDeviceClassQuadro  MetricPropertyDeviceClass = 1
-	MetricPropertyDeviceClassGeforce MetricPropertyDeviceClass = 2
-	MetricPropertyDeviceClassTegra   MetricPropertyDeviceClass = 3
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e MetricPropertyDeviceClass) String() string {
-	switch e {
-	case MetricPropertyDeviceClassTesla:
-		return "MetricPropertyDeviceClassTesla"
-	case MetricPropertyDeviceClassQuadro:
-		return "MetricPropertyDeviceClassQuadro"
-	case MetricPropertyDeviceClassGeforce:
-		return "MetricPropertyDeviceClassGeforce"
-	case MetricPropertyDeviceClassTegra:
-		return "MetricPropertyDeviceClassTegra"
-	}
-	return fmt.Sprintf("MetricPropertyDeviceClass(%d)", e)
-}
-
-// MetricPropertyID represents metric device properties.
-//
-// Metric device properties describe device properties which are needed for a metric. Some of these properties can be collected using cuDeviceGetAttribute.
-type MetricPropertyID int32
-
-const (
-	MetricPropertyMultiprocessorCount         MetricPropertyID = 0
-	MetricPropertyWarpsPerMultiprocessor      MetricPropertyID = 1
-	MetricPropertyKernelGpuTime               MetricPropertyID = 2
-	MetricPropertyClockRate                   MetricPropertyID = 3
-	MetricPropertyFrameBufferCount            MetricPropertyID = 4
-	MetricPropertyGlobalMemoryBandwidth       MetricPropertyID = 5
-	MetricPropertyPcieLinkRate                MetricPropertyID = 6
-	MetricPropertyPcieLinkWidth               MetricPropertyID = 7
-	MetricPropertyPcieGen                     MetricPropertyID = 8
-	MetricPropertyIDMetricPropertyDeviceClass MetricPropertyID = 9
-	MetricPropertyFlopSpPerCycle              MetricPropertyID = 10
-	MetricPropertyFlopDpPerCycle              MetricPropertyID = 11
-	MetricPropertyL2Units                     MetricPropertyID = 12
-	MetricPropertyEccEnabled                  MetricPropertyID = 13
-	MetricPropertyFlopHpPerCycle              MetricPropertyID = 14
-	MetricPropertyGpuCpuNvlinkBandwidth       MetricPropertyID = 15
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e MetricPropertyID) String() string {
-	switch e {
-	case MetricPropertyMultiprocessorCount:
-		return "MetricPropertyMultiprocessorCount"
-	case MetricPropertyWarpsPerMultiprocessor:
-		return "MetricPropertyWarpsPerMultiprocessor"
-	case MetricPropertyKernelGpuTime:
-		return "MetricPropertyKernelGpuTime"
-	case MetricPropertyClockRate:
-		return "MetricPropertyClockRate"
-	case MetricPropertyFrameBufferCount:
-		return "MetricPropertyFrameBufferCount"
-	case MetricPropertyGlobalMemoryBandwidth:
-		return "MetricPropertyGlobalMemoryBandwidth"
-	case MetricPropertyPcieLinkRate:
-		return "MetricPropertyPcieLinkRate"
-	case MetricPropertyPcieLinkWidth:
-		return "MetricPropertyPcieLinkWidth"
-	case MetricPropertyPcieGen:
-		return "MetricPropertyPcieGen"
-	case MetricPropertyIDMetricPropertyDeviceClass:
-		return "MetricPropertyIDMetricPropertyDeviceClass"
-	case MetricPropertyFlopSpPerCycle:
-		return "MetricPropertyFlopSpPerCycle"
-	case MetricPropertyFlopDpPerCycle:
-		return "MetricPropertyFlopDpPerCycle"
-	case MetricPropertyL2Units:
-		return "MetricPropertyL2Units"
-	case MetricPropertyEccEnabled:
-		return "MetricPropertyEccEnabled"
-	case MetricPropertyFlopHpPerCycle:
-		return "MetricPropertyFlopHpPerCycle"
-	case MetricPropertyGpuCpuNvlinkBandwidth:
-		return "MetricPropertyGpuCpuNvlinkBandwidth"
-	}
-	return fmt.Sprintf("MetricPropertyID(%d)", e)
-}
-
-// ProfilerRange represents profiler range attribute.
-//
-// A metric enabled in the session’s configuration is collected separately per unique range-stack in the pass. This is an attribute to collect metrics around each kernel in a profiling session or in an user defined range.
-type ProfilerRange int32
-
-const (
-	RangeInvalid ProfilerRange = 0 // Invalid value.
-	// AutoRange: Ranges are auto defined around each kernel in a profiling session.
-	AutoRange ProfilerRange = 1
-	// UserRange: A range in which metric data to be collected is defined by the user.
-	UserRange  ProfilerRange = 2
-	RangeCount ProfilerRange = 3 // Range count.
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e ProfilerRange) String() string {
-	switch e {
-	case RangeInvalid:
-		return "RangeInvalid"
-	case AutoRange:
-		return "AutoRange"
-	case UserRange:
-		return "UserRange"
-	case RangeCount:
-		return "RangeCount"
-	}
-	return fmt.Sprintf("ProfilerRange(%d)", e)
-}
-
-// ProfilerReplayMode represents profiler replay attribute.
-//
-// For metrics which require multipass collection, a replay of the GPU kernel(s) is required. This is an attribute which specify how the replay of the kernel(s) to be measured is done.
-type ProfilerReplayMode int32
-
-const (
-	ReplayInvalid     ProfilerReplayMode = 0 // Invalid Value.
-	ApplicationReplay ProfilerReplayMode = 1 // Replay is done by CUPTI user around the process.
-	KernelReplay      ProfilerReplayMode = 2 // Replay is done around kernel implicitly by CUPTI.
-	UserReplay        ProfilerReplayMode = 3 // Replay is done by CUPTI user within a process.
-	ReplayCount       ProfilerReplayMode = 4 // Replay count.
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e ProfilerReplayMode) String() string {
-	switch e {
-	case ReplayInvalid:
-		return "ReplayInvalid"
-	case ApplicationReplay:
-		return "ApplicationReplay"
-	case KernelReplay:
-		return "KernelReplay"
-	case UserReplay:
-		return "UserReplay"
-	case ReplayCount:
-		return "ReplayCount"
-	}
-	return fmt.Sprintf("ProfilerReplayMode(%d)", e)
-}
-
-// ProfilerSupportLevel represents generic support level enum for CUPTI.
-type ProfilerSupportLevel int32
-
-const (
-	// ProfilerConfigurationUnknown: Configuration support level unknown - either detection code errored out before setting this value, or unable to determine it
-	ProfilerConfigurationUnknown ProfilerSupportLevel = 0
-	// ProfilerConfigurationUnsupported: Profiling is unavailable. For specific feature fields, this means that the current configuration of this feature does not work with profiling. For instance, SLI-enabled devices do not support profiling, and this value would be returned for SLI on an SLI-enabled device.
-	ProfilerConfigurationUnsupported ProfilerSupportLevel = 1
-	// ProfilerConfigurationDisabled: Profiling would be available for this configuration, but was disabled by the system
-	ProfilerConfigurationDisabled ProfilerSupportLevel = 2
-	// ProfilerConfigurationSupported: Profiling is supported. For specific feature fields, this means that the current configuration of this feature works with profiling. For instance, SLI-enabled devices do not support profiling, and this value would only be returned for devices which are not SLI-enabled.
-	ProfilerConfigurationSupported ProfilerSupportLevel = 3
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e ProfilerSupportLevel) String() string {
-	switch e {
-	case ProfilerConfigurationUnknown:
-		return "ProfilerConfigurationUnknown"
-	case ProfilerConfigurationUnsupported:
-		return "ProfilerConfigurationUnsupported"
-	case ProfilerConfigurationDisabled:
-		return "ProfilerConfigurationDisabled"
-	case ProfilerConfigurationSupported:
-		return "ProfilerConfigurationSupported"
-	}
-	return fmt.Sprintf("ProfilerSupportLevel(%d)", e)
-}
-
-// ProfilerApi represents profiler API types.
-type ProfilerApi int32
-
-const (
-	ProfilerRangeProfiling ProfilerApi = 0 // CUPTI APIs for range based profiling (cuptiProfiler*)
-	ProfilerPcSampling     ProfilerApi = 1 // CUPTI APIs collecting pc sampling data (cuptiPcSampling*)
-	ProfilerSassMetrics    ProfilerApi = 2 // CUPTI APIs collecting SASS metrics data (cuptiSassMetrics*)
-	ProfilerPmSampling     ProfilerApi = 3 // CUPTI APIs collecting PM Sampling data (cuptiPmSampling*)
-	ProfilerUnknown        ProfilerApi = 4
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e ProfilerApi) String() string {
-	switch e {
-	case ProfilerRangeProfiling:
-		return "ProfilerRangeProfiling"
-	case ProfilerPcSampling:
-		return "ProfilerPcSampling"
-	case ProfilerSassMetrics:
-		return "ProfilerSassMetrics"
-	case ProfilerPmSampling:
-		return "ProfilerPmSampling"
-	case ProfilerUnknown:
-		return "ProfilerUnknown"
-	}
-	return fmt.Sprintf("ProfilerApi(%d)", e)
-}
-
-// MetricType specifies the metric type (CUpti_MetricType).
-type MetricType int32
-
-const (
-	MetricTypeCounter    MetricType = 0
-	MetricTypeRatio      MetricType = 1
-	MetricTypeThroughput MetricType = 2
-	MetricTypeCount      MetricType = 3
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e MetricType) String() string {
-	switch e {
-	case MetricTypeCounter:
-		return "MetricTypeCounter"
-	case MetricTypeRatio:
-		return "MetricTypeRatio"
-	case MetricTypeThroughput:
-		return "MetricTypeThroughput"
-	case MetricTypeCount:
-		return "MetricTypeCount"
-	}
-	return fmt.Sprintf("MetricType(%d)", e)
-}
-
-// MetricCollectionScope specifies the metric collection scope (CUpti_MetricCollectionScope).
-type MetricCollectionScope int32
-
-const (
-	MetricCollectionScopeContext MetricCollectionScope = 0
-	MetricCollectionScopeDevice  MetricCollectionScope = 1
-	MetricCollectionScopeInvalid MetricCollectionScope = 2
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e MetricCollectionScope) String() string {
-	switch e {
-	case MetricCollectionScopeContext:
-		return "MetricCollectionScopeContext"
-	case MetricCollectionScopeDevice:
-		return "MetricCollectionScopeDevice"
-	case MetricCollectionScopeInvalid:
-		return "MetricCollectionScopeInvalid"
-	}
-	return fmt.Sprintf("MetricCollectionScope(%d)", e)
-}
-
-// ProfilerType specifies the profiler type (CUpti_ProfilerType).
-type ProfilerType int32
-
-const (
-	ProfilerTypeRangeProfiler   ProfilerType = 0
-	ProfilerTypePmSampling      ProfilerType = 1
-	ProfilerTypeProfilerInvalid ProfilerType = 2
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e ProfilerType) String() string {
-	switch e {
-	case ProfilerTypeRangeProfiler:
-		return "ProfilerTypeRangeProfiler"
-	case ProfilerTypePmSampling:
-		return "ProfilerTypePmSampling"
-	case ProfilerTypeProfilerInvalid:
-		return "ProfilerTypeProfilerInvalid"
-	}
-	return fmt.Sprintf("ProfilerType(%d)", e)
-}
-
-// PCSamplingCollectionMode represents PC Sampling collection mode.
-type PCSamplingCollectionMode int32
-
-const (
-	PcSamplingCollectionModeInvalid          PCSamplingCollectionMode = 0 // INVALID Value.
-	PcSamplingCollectionModeContinuous       PCSamplingCollectionMode = 1 // Continuous mode. Kernels are not serialized in this mode.
-	PcSamplingCollectionModeKernelSerialized PCSamplingCollectionMode = 2 // Serialized mode. Kernels are serialized in this mode.
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e PCSamplingCollectionMode) String() string {
-	switch e {
-	case PcSamplingCollectionModeInvalid:
-		return "PcSamplingCollectionModeInvalid"
-	case PcSamplingCollectionModeContinuous:
-		return "PcSamplingCollectionModeContinuous"
-	case PcSamplingCollectionModeKernelSerialized:
-		return "PcSamplingCollectionModeKernelSerialized"
-	}
-	return fmt.Sprintf("PCSamplingCollectionMode(%d)", e)
-}
-
-// PCSamplingOutputDataFormat represents PC Sampling output data format.
-type PCSamplingOutputDataFormat int32
-
-const (
-	PcSamplingOutputDataFormatInvalid PCSamplingOutputDataFormat = 0
-	PcSamplingOutputDataFormatParsed  PCSamplingOutputDataFormat = 1 // HW buffer data will be parsed during collection of data
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e PCSamplingOutputDataFormat) String() string {
-	switch e {
-	case PcSamplingOutputDataFormatInvalid:
-		return "PcSamplingOutputDataFormatInvalid"
-	case PcSamplingOutputDataFormatParsed:
-		return "PcSamplingOutputDataFormatParsed"
-	}
-	return fmt.Sprintf("PCSamplingOutputDataFormat(%d)", e)
-}
-
-// PCSamplingConfigurationAttributeType represents PC Sampling configuration attributes.
-//
-// PC Sampling configuration attribute types. These attributes can be read using [PCSamplingGetConfigurationAttribute] and can be written using [PCSamplingSetConfigurationAttribute]. Attributes marked r can only be read using [PCSamplingGetConfigurationAttribute] w can only be written using [PCSamplingSetConfigurationAttribute] rw can be read using [PCSamplingGetConfigurationAttribute] and written using [PCSamplingSetConfigurationAttribute].
-type PCSamplingConfigurationAttributeType int32
-
-const (
-	PcSamplingConfigurationAttrTypeInvalid PCSamplingConfigurationAttributeType = 0
-	// PcSamplingConfigurationAttrTypeSamplingPeriod: rw Sampling period for PC Sampling. DEFAULT - CUPTI defined value based on number of SMs Valid values for the sampling periods are between 5 to 31 both inclusive. This will set the sampling period to (2^samplingPeriod) cycles. For e.g. for sampling period = 5 to 31, cycles = 32, 64, 128,..., 2^31 Value is a uint32_t
-	PcSamplingConfigurationAttrTypeSamplingPeriod PCSamplingConfigurationAttributeType = 1
-	// PcSamplingConfigurationAttrTypeStallReason: w Number of stall reasons to collect. DEFAULT - All stall reasons will be collected Value is a size_t w Stall reasons to collect DEFAULT - All stall reasons will be collected Input value should be a pointer pointing to array of stall reason indexes containing all the stall reason indexes to collect.
-	PcSamplingConfigurationAttrTypeStallReason PCSamplingConfigurationAttributeType = 2
-	// PcSamplingConfigurationAttrTypeScratchBufferSize: rw Size of SW buffer for raw PC counter data downloaded from HW buffer DEFAULT - 1 MB, which can accommodate approximately 5500 PCs with all stall reasons Approximately it takes 16 Bytes (and some fixed size memory) to accommodate one PC with one stall reason For e.g. 1 PC with 1 stall reason = 32 Bytes 1 PC with 2 stall reason = 48 Bytes 1 PC with 4 stall reason = 96 Bytes Value is a size_t
-	PcSamplingConfigurationAttrTypeScratchBufferSize PCSamplingConfigurationAttributeType = 3
-	// PcSamplingConfigurationAttrTypeHardwareBufferSize: rw Size of HW buffer in bytes DEFAULT - 512 MB If sampling period is too less, HW buffer can overflow and drop PC data Value is a size_t
-	PcSamplingConfigurationAttrTypeHardwareBufferSize PCSamplingConfigurationAttributeType = 4
-	// PcSamplingConfigurationAttrTypeCollectionMode: rw PC Sampling collection mode DEFAULT - [PcSamplingCollectionModeContinuous] Input value should be of type [PCSamplingCollectionMode].
-	PcSamplingConfigurationAttrTypeCollectionMode PCSamplingConfigurationAttributeType = 5
-	// PcSamplingConfigurationAttrTypeEnableStartStopControl: rw Control over PC Sampling data collection range Default - 0 1 - Allows user to start and stop PC Sampling using APIs - [PCSamplingStart]() - Start PC Sampling [PCSamplingStop]() - Stop PC Sampling Value is a uint32_t
-	PcSamplingConfigurationAttrTypeEnableStartStopControl PCSamplingConfigurationAttributeType = 6
-	// PcSamplingConfigurationAttrTypeOutputDataFormat: w Value for output data format Default - [PcSamplingOutputDataFormatParsed] Input value should be of type [PCSamplingOutputDataFormat].
-	PcSamplingConfigurationAttrTypeOutputDataFormat PCSamplingConfigurationAttributeType = 7
-	// PcSamplingConfigurationAttrTypeSamplingDataBuffer: w Data buffer to hold collected PC Sampling data PARSED_DATA Default - none. Buffer type is void * which can point to PARSED_DATA Refer [PCSamplingData] for buffer format for PARSED_DATA
-	PcSamplingConfigurationAttrTypeSamplingDataBuffer PCSamplingConfigurationAttributeType = 8
-	// PcSamplingConfigurationAttrTypeWorkerThreadPeriodicSleepSpan: rw Control sleep time of the worker threads created by CUPTI for various PC sampling operations. CUPTI creates multiple worker threads to offload certain operations to these threads. This includes decoding of HW data to the CUPTI PC sampling data and correlating PC data to SASS instructions. CUPTI wakes up these threads periodically. Default - 100 milliseconds. Value is a uint32_t
-	PcSamplingConfigurationAttrTypeWorkerThreadPeriodicSleepSpan PCSamplingConfigurationAttributeType = 9
-	PcSamplingConfigurationAttrTypeForceInt                      PCSamplingConfigurationAttributeType = 0x7fffffff
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e PCSamplingConfigurationAttributeType) String() string {
-	switch e {
-	case PcSamplingConfigurationAttrTypeInvalid:
-		return "PcSamplingConfigurationAttrTypeInvalid"
-	case PcSamplingConfigurationAttrTypeSamplingPeriod:
-		return "PcSamplingConfigurationAttrTypeSamplingPeriod"
-	case PcSamplingConfigurationAttrTypeStallReason:
-		return "PcSamplingConfigurationAttrTypeStallReason"
-	case PcSamplingConfigurationAttrTypeScratchBufferSize:
-		return "PcSamplingConfigurationAttrTypeScratchBufferSize"
-	case PcSamplingConfigurationAttrTypeHardwareBufferSize:
-		return "PcSamplingConfigurationAttrTypeHardwareBufferSize"
-	case PcSamplingConfigurationAttrTypeCollectionMode:
-		return "PcSamplingConfigurationAttrTypeCollectionMode"
-	case PcSamplingConfigurationAttrTypeEnableStartStopControl:
-		return "PcSamplingConfigurationAttrTypeEnableStartStopControl"
-	case PcSamplingConfigurationAttrTypeOutputDataFormat:
-		return "PcSamplingConfigurationAttrTypeOutputDataFormat"
-	case PcSamplingConfigurationAttrTypeSamplingDataBuffer:
-		return "PcSamplingConfigurationAttrTypeSamplingDataBuffer"
-	case PcSamplingConfigurationAttrTypeWorkerThreadPeriodicSleepSpan:
-		return "PcSamplingConfigurationAttrTypeWorkerThreadPeriodicSleepSpan"
-	case PcSamplingConfigurationAttrTypeForceInt:
-		return "PcSamplingConfigurationAttrTypeForceInt"
-	}
-	return fmt.Sprintf("PCSamplingConfigurationAttributeType(%d)", e)
-}
-
-// PmSamplingTriggerMode specifies the pm sampling trigger mode (CUpti_PmSampling_TriggerMode).
-type PmSamplingTriggerMode int32
-
-const (
-	// PmSamplingTriggerModeGpuSysclkInterval: The trigger is based off of the SYSCLK frequency, note SYS frequency by default is variable. the sample interval (set in the struct [PmSamplingSetConfigParams]) is in terms of clocks.
-	PmSamplingTriggerModeGpuSysclkInterval PmSamplingTriggerMode = 0
-	// PmSamplingTriggerModeGpuTimeInterval: The trigger is based off of a fixed frequency source. The sample interval (set in the struct [PmSamplingSetConfigParams]) is in terms of nanoseconds. Note: This trigger mode is not supported on Turing GPU architecture and GA100 GPU. It is supported on Ampere GA10x and later GPU architectures.
-	PmSamplingTriggerModeGpuTimeInterval PmSamplingTriggerMode = 1
-	PmSamplingTriggerModeCount           PmSamplingTriggerMode = 2
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e PmSamplingTriggerMode) String() string {
-	switch e {
-	case PmSamplingTriggerModeGpuSysclkInterval:
-		return "PmSamplingTriggerModeGpuSysclkInterval"
-	case PmSamplingTriggerModeGpuTimeInterval:
-		return "PmSamplingTriggerModeGpuTimeInterval"
-	case PmSamplingTriggerModeCount:
-		return "PmSamplingTriggerModeCount"
-	}
-	return fmt.Sprintf("PmSamplingTriggerMode(%d)", e)
-}
-
-// PmSamplingDecodeStopReason specifies the pm sampling decode stop reason (CUpti_PmSampling_DecodeStopReason).
-type PmSamplingDecodeStopReason int32
-
-const (
-	PmSamplingDecodeStopReasonOther           PmSamplingDecodeStopReason = 0
-	PmSamplingDecodeStopReasonCounterDataFull PmSamplingDecodeStopReason = 1 // Counter data image is full.
-	PmSamplingDecodeStopReasonEndOfRecords    PmSamplingDecodeStopReason = 2 // All the records in the hardware buffer is decoded.
-	PmSamplingDecodeStopReasonCount           PmSamplingDecodeStopReason = 3
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e PmSamplingDecodeStopReason) String() string {
-	switch e {
-	case PmSamplingDecodeStopReasonOther:
-		return "PmSamplingDecodeStopReasonOther"
-	case PmSamplingDecodeStopReasonCounterDataFull:
-		return "PmSamplingDecodeStopReasonCounterDataFull"
-	case PmSamplingDecodeStopReasonEndOfRecords:
-		return "PmSamplingDecodeStopReasonEndOfRecords"
-	case PmSamplingDecodeStopReasonCount:
-		return "PmSamplingDecodeStopReasonCount"
-	}
-	return fmt.Sprintf("PmSamplingDecodeStopReason(%d)", e)
-}
-
-// PmSamplingHardwareBufferAppendMode specifies the pm sampling hardware buffer append mode (CUpti_PmSampling_HardwareBuffer_AppendMode).
-type PmSamplingHardwareBufferAppendMode int32
-
-const (
-	// PmSamplingHardwareBufferAppendModeKeepOldest: Keep the oldest records in the hardware buffer. CUPTI will report error for overflow in case hardware buffer is getting filled up.
-	PmSamplingHardwareBufferAppendModeKeepOldest PmSamplingHardwareBufferAppendMode = 0
-	// PmSamplingHardwareBufferAppendModeKeepLatest: Keep the latest records in the hardware buffer. Note: This mode is not supported on Turing GPU architecture. It is supported on Ampere and later GPU architectures.
-	PmSamplingHardwareBufferAppendModeKeepLatest PmSamplingHardwareBufferAppendMode = 1
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e PmSamplingHardwareBufferAppendMode) String() string {
-	switch e {
-	case PmSamplingHardwareBufferAppendModeKeepOldest:
-		return "PmSamplingHardwareBufferAppendModeKeepOldest"
-	case PmSamplingHardwareBufferAppendModeKeepLatest:
-		return "PmSamplingHardwareBufferAppendModeKeepLatest"
-	}
-	return fmt.Sprintf("PmSamplingHardwareBufferAppendMode(%d)", e)
-}
-
-// SassMetricsOutputGranularity specifies the sass metrics output granularity (CUpti_SassMetrics_OutputGranularity).
-type SassMetricsOutputGranularity int32
-
-const (
-	// SassMetricsOutputGranularityGpu: SASS metric data will be collected at GPU level. In [SassMetricsGetDataPropertiesParams] struct the numOfInstances will be equal to 1.
-	SassMetricsOutputGranularityGpu SassMetricsOutputGranularity = 0
-	// SassMetricsOutputGranularitySm: SASS metric data will be collected at SM level In [SassMetricsGetDataPropertiesParams] struct the numOfInstances will be equal to number of SMs in the GPU.
-	SassMetricsOutputGranularitySm SassMetricsOutputGranularity = 1
-	// SassMetricsOutputGranularitySmsp: SASS metric data will be collected at SM sub-partition level In [SassMetricsGetDataPropertiesParams] struct the numOfInstances will be equal to number of SM sub-partitions in the GPU.
-	SassMetricsOutputGranularitySmsp    SassMetricsOutputGranularity = 2
-	SassMetricsOutputGranularityInvalid SassMetricsOutputGranularity = 3
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e SassMetricsOutputGranularity) String() string {
-	switch e {
-	case SassMetricsOutputGranularityGpu:
-		return "SassMetricsOutputGranularityGpu"
-	case SassMetricsOutputGranularitySm:
-		return "SassMetricsOutputGranularitySm"
-	case SassMetricsOutputGranularitySmsp:
-		return "SassMetricsOutputGranularitySmsp"
-	case SassMetricsOutputGranularityInvalid:
-		return "SassMetricsOutputGranularityInvalid"
-	}
-	return fmt.Sprintf("SassMetricsOutputGranularity(%d)", e)
-}
-
-// CheckpointOptimizations specifies optimization options for a checkpoint, may be OR'd together to specify multiple options.
-type CheckpointOptimizations int32
-
-const (
-	CheckpointOptNone CheckpointOptimizations = 0 // Default behavior
-	// CheckpointOptTransfer: Determine which mem blocks have changed, and only restore those. This optimization is cached, which means [CheckpointRestore] must always be called at the same point in the application when this option is enabled, or the result may be incorrect.
-	CheckpointOptTransfer CheckpointOptimizations = 1
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e CheckpointOptimizations) String() string {
-	switch e {
-	case CheckpointOptNone:
-		return "CheckpointOptNone"
-	case CheckpointOptTransfer:
-		return "CheckpointOptTransfer"
-	}
-	return fmt.Sprintf("CheckpointOptimizations(%d)", e)
 }
 
 // DriverTraceCBID specifies the driver trace cbid (CUpti_driver_api_trace_cbid).
@@ -9360,6 +8882,407 @@ func (e NvtxTraceCBID) String() string {
 		return "NvtxCBIDForceInt"
 	}
 	return fmt.Sprintf("NvtxTraceCBID(%d)", e)
+}
+
+// ProfilerRange represents profiler range attribute.
+//
+// A metric enabled in the session’s configuration is collected separately per unique range-stack in the pass. This is an attribute to collect metrics around each kernel in a profiling session or in an user defined range.
+type ProfilerRange int32
+
+const (
+	RangeInvalid ProfilerRange = 0 // Invalid value.
+	// AutoRange: Ranges are auto defined around each kernel in a profiling session.
+	AutoRange ProfilerRange = 1
+	// UserRange: A range in which metric data to be collected is defined by the user.
+	UserRange  ProfilerRange = 2
+	RangeCount ProfilerRange = 3 // Range count.
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e ProfilerRange) String() string {
+	switch e {
+	case RangeInvalid:
+		return "RangeInvalid"
+	case AutoRange:
+		return "AutoRange"
+	case UserRange:
+		return "UserRange"
+	case RangeCount:
+		return "RangeCount"
+	}
+	return fmt.Sprintf("ProfilerRange(%d)", e)
+}
+
+// ProfilerReplayMode represents profiler replay attribute.
+//
+// For metrics which require multipass collection, a replay of the GPU kernel(s) is required. This is an attribute which specify how the replay of the kernel(s) to be measured is done.
+type ProfilerReplayMode int32
+
+const (
+	ReplayInvalid     ProfilerReplayMode = 0 // Invalid Value.
+	ApplicationReplay ProfilerReplayMode = 1 // Replay is done by CUPTI user around the process.
+	KernelReplay      ProfilerReplayMode = 2 // Replay is done around kernel implicitly by CUPTI.
+	UserReplay        ProfilerReplayMode = 3 // Replay is done by CUPTI user within a process.
+	ReplayCount       ProfilerReplayMode = 4 // Replay count.
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e ProfilerReplayMode) String() string {
+	switch e {
+	case ReplayInvalid:
+		return "ReplayInvalid"
+	case ApplicationReplay:
+		return "ApplicationReplay"
+	case KernelReplay:
+		return "KernelReplay"
+	case UserReplay:
+		return "UserReplay"
+	case ReplayCount:
+		return "ReplayCount"
+	}
+	return fmt.Sprintf("ProfilerReplayMode(%d)", e)
+}
+
+// ProfilerSupportLevel represents generic support level enum for CUPTI.
+type ProfilerSupportLevel int32
+
+const (
+	// ProfilerConfigurationUnknown: Configuration support level unknown - either detection code errored out before setting this value, or unable to determine it
+	ProfilerConfigurationUnknown ProfilerSupportLevel = 0
+	// ProfilerConfigurationUnsupported: Profiling is unavailable. For specific feature fields, this means that the current configuration of this feature does not work with profiling. For instance, SLI-enabled devices do not support profiling, and this value would be returned for SLI on an SLI-enabled device.
+	ProfilerConfigurationUnsupported ProfilerSupportLevel = 1
+	// ProfilerConfigurationDisabled: Profiling would be available for this configuration, but was disabled by the system
+	ProfilerConfigurationDisabled ProfilerSupportLevel = 2
+	// ProfilerConfigurationSupported: Profiling is supported. For specific feature fields, this means that the current configuration of this feature works with profiling. For instance, SLI-enabled devices do not support profiling, and this value would only be returned for devices which are not SLI-enabled.
+	ProfilerConfigurationSupported ProfilerSupportLevel = 3
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e ProfilerSupportLevel) String() string {
+	switch e {
+	case ProfilerConfigurationUnknown:
+		return "ProfilerConfigurationUnknown"
+	case ProfilerConfigurationUnsupported:
+		return "ProfilerConfigurationUnsupported"
+	case ProfilerConfigurationDisabled:
+		return "ProfilerConfigurationDisabled"
+	case ProfilerConfigurationSupported:
+		return "ProfilerConfigurationSupported"
+	}
+	return fmt.Sprintf("ProfilerSupportLevel(%d)", e)
+}
+
+// ProfilerApi represents profiler API types.
+type ProfilerApi int32
+
+const (
+	ProfilerRangeProfiling ProfilerApi = 0 // CUPTI APIs for range based profiling (cuptiProfiler*)
+	ProfilerPcSampling     ProfilerApi = 1 // CUPTI APIs collecting pc sampling data (cuptiPcSampling*)
+	ProfilerSassMetrics    ProfilerApi = 2 // CUPTI APIs collecting SASS metrics data (cuptiSassMetrics*)
+	ProfilerPmSampling     ProfilerApi = 3 // CUPTI APIs collecting PM Sampling data (cuptiPmSampling*)
+	ProfilerUnknown        ProfilerApi = 4
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e ProfilerApi) String() string {
+	switch e {
+	case ProfilerRangeProfiling:
+		return "ProfilerRangeProfiling"
+	case ProfilerPcSampling:
+		return "ProfilerPcSampling"
+	case ProfilerSassMetrics:
+		return "ProfilerSassMetrics"
+	case ProfilerPmSampling:
+		return "ProfilerPmSampling"
+	case ProfilerUnknown:
+		return "ProfilerUnknown"
+	}
+	return fmt.Sprintf("ProfilerApi(%d)", e)
+}
+
+// MetricType specifies the metric type (CUpti_MetricType).
+type MetricType int32
+
+const (
+	MetricTypeCounter    MetricType = 0
+	MetricTypeRatio      MetricType = 1
+	MetricTypeThroughput MetricType = 2
+	MetricTypeCount      MetricType = 3
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e MetricType) String() string {
+	switch e {
+	case MetricTypeCounter:
+		return "MetricTypeCounter"
+	case MetricTypeRatio:
+		return "MetricTypeRatio"
+	case MetricTypeThroughput:
+		return "MetricTypeThroughput"
+	case MetricTypeCount:
+		return "MetricTypeCount"
+	}
+	return fmt.Sprintf("MetricType(%d)", e)
+}
+
+// MetricCollectionScope specifies the metric collection scope (CUpti_MetricCollectionScope).
+type MetricCollectionScope int32
+
+const (
+	MetricCollectionScopeContext MetricCollectionScope = 0
+	MetricCollectionScopeDevice  MetricCollectionScope = 1
+	MetricCollectionScopeInvalid MetricCollectionScope = 2
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e MetricCollectionScope) String() string {
+	switch e {
+	case MetricCollectionScopeContext:
+		return "MetricCollectionScopeContext"
+	case MetricCollectionScopeDevice:
+		return "MetricCollectionScopeDevice"
+	case MetricCollectionScopeInvalid:
+		return "MetricCollectionScopeInvalid"
+	}
+	return fmt.Sprintf("MetricCollectionScope(%d)", e)
+}
+
+// ProfilerType specifies the profiler type (CUpti_ProfilerType).
+type ProfilerType int32
+
+const (
+	ProfilerTypeRangeProfiler   ProfilerType = 0
+	ProfilerTypePmSampling      ProfilerType = 1
+	ProfilerTypeProfilerInvalid ProfilerType = 2
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e ProfilerType) String() string {
+	switch e {
+	case ProfilerTypeRangeProfiler:
+		return "ProfilerTypeRangeProfiler"
+	case ProfilerTypePmSampling:
+		return "ProfilerTypePmSampling"
+	case ProfilerTypeProfilerInvalid:
+		return "ProfilerTypeProfilerInvalid"
+	}
+	return fmt.Sprintf("ProfilerType(%d)", e)
+}
+
+// PCSamplingCollectionMode represents PC Sampling collection mode.
+type PCSamplingCollectionMode int32
+
+const (
+	PcSamplingCollectionModeInvalid          PCSamplingCollectionMode = 0 // INVALID Value.
+	PcSamplingCollectionModeContinuous       PCSamplingCollectionMode = 1 // Continuous mode. Kernels are not serialized in this mode.
+	PcSamplingCollectionModeKernelSerialized PCSamplingCollectionMode = 2 // Serialized mode. Kernels are serialized in this mode.
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e PCSamplingCollectionMode) String() string {
+	switch e {
+	case PcSamplingCollectionModeInvalid:
+		return "PcSamplingCollectionModeInvalid"
+	case PcSamplingCollectionModeContinuous:
+		return "PcSamplingCollectionModeContinuous"
+	case PcSamplingCollectionModeKernelSerialized:
+		return "PcSamplingCollectionModeKernelSerialized"
+	}
+	return fmt.Sprintf("PCSamplingCollectionMode(%d)", e)
+}
+
+// PCSamplingOutputDataFormat represents PC Sampling output data format.
+type PCSamplingOutputDataFormat int32
+
+const (
+	PcSamplingOutputDataFormatInvalid PCSamplingOutputDataFormat = 0
+	PcSamplingOutputDataFormatParsed  PCSamplingOutputDataFormat = 1 // HW buffer data will be parsed during collection of data
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e PCSamplingOutputDataFormat) String() string {
+	switch e {
+	case PcSamplingOutputDataFormatInvalid:
+		return "PcSamplingOutputDataFormatInvalid"
+	case PcSamplingOutputDataFormatParsed:
+		return "PcSamplingOutputDataFormatParsed"
+	}
+	return fmt.Sprintf("PCSamplingOutputDataFormat(%d)", e)
+}
+
+// PCSamplingConfigurationAttributeType represents PC Sampling configuration attributes.
+//
+// PC Sampling configuration attribute types. These attributes can be read using [PCSamplingGetConfigurationAttribute] and can be written using [PCSamplingSetConfigurationAttribute]. Attributes marked [r] can only be read using [PCSamplingGetConfigurationAttribute] [w] can only be written using [PCSamplingSetConfigurationAttribute] [rw] can be read using [PCSamplingGetConfigurationAttribute] and written using [PCSamplingSetConfigurationAttribute]
+type PCSamplingConfigurationAttributeType int32
+
+const (
+	PcSamplingConfigurationAttrTypeInvalid PCSamplingConfigurationAttributeType = 0
+	// PcSamplingConfigurationAttrTypeSamplingPeriod: [rw] Sampling period for PC Sampling. DEFAULT - CUPTI defined value based on number of SMs Valid values for the sampling periods are between 5 to 31 both inclusive. This will set the sampling period to (2^samplingPeriod) cycles. For e.g. for sampling period = 5 to 31, cycles = 32, 64, 128,..., 2^31 Value is a uint32_t
+	PcSamplingConfigurationAttrTypeSamplingPeriod PCSamplingConfigurationAttributeType = 1
+	// PcSamplingConfigurationAttrTypeStallReason: [w] Number of stall reasons to collect. DEFAULT - All stall reasons will be collected Value is a size_t [w] Stall reasons to collect DEFAULT - All stall reasons will be collected Input value should be a pointer pointing to array of stall reason indexes containing all the stall reason indexes to collect.
+	PcSamplingConfigurationAttrTypeStallReason PCSamplingConfigurationAttributeType = 2
+	// PcSamplingConfigurationAttrTypeScratchBufferSize: [rw] Size of SW buffer for raw PC counter data downloaded from HW buffer DEFAULT - 1 MB, which can accommodate approximately 5500 PCs with all stall reasons Approximately it takes 16 Bytes (and some fixed size memory) to accommodate one PC with one stall reason For e.g. 1 PC with 1 stall reason = 32 Bytes 1 PC with 2 stall reason = 48 Bytes 1 PC with 4 stall reason = 96 Bytes Value is a size_t
+	PcSamplingConfigurationAttrTypeScratchBufferSize PCSamplingConfigurationAttributeType = 3
+	// PcSamplingConfigurationAttrTypeHardwareBufferSize: [rw] Size of HW buffer in bytes DEFAULT - 512 MB If sampling period is too less, HW buffer can overflow and drop PC data Value is a size_t
+	PcSamplingConfigurationAttrTypeHardwareBufferSize PCSamplingConfigurationAttributeType = 4
+	// PcSamplingConfigurationAttrTypeCollectionMode: [rw] PC Sampling collection mode DEFAULT - [PcSamplingCollectionModeContinuous] Input value should be of type [PCSamplingCollectionMode].
+	PcSamplingConfigurationAttrTypeCollectionMode PCSamplingConfigurationAttributeType = 5
+	// PcSamplingConfigurationAttrTypeEnableStartStopControl: [rw] Control over PC Sampling data collection range Default - 0 1 - Allows user to start and stop PC Sampling using APIs - [PCSamplingStart] - Start PC Sampling [PCSamplingStop] - Stop PC Sampling Value is a uint32_t
+	PcSamplingConfigurationAttrTypeEnableStartStopControl PCSamplingConfigurationAttributeType = 6
+	// PcSamplingConfigurationAttrTypeOutputDataFormat: [w] Value for output data format Default - [PcSamplingOutputDataFormatParsed] Input value should be of type [PCSamplingOutputDataFormat].
+	PcSamplingConfigurationAttrTypeOutputDataFormat PCSamplingConfigurationAttributeType = 7
+	// PcSamplingConfigurationAttrTypeSamplingDataBuffer: [w] Data buffer to hold collected PC Sampling data PARSED_DATA Default - none. Buffer type is void * which can point to PARSED_DATA Refer [PCSamplingData] for buffer format for PARSED_DATA
+	PcSamplingConfigurationAttrTypeSamplingDataBuffer PCSamplingConfigurationAttributeType = 8
+	// PcSamplingConfigurationAttrTypeWorkerThreadPeriodicSleepSpan: [rw] Control sleep time of the worker threads created by CUPTI for various PC sampling operations. CUPTI creates multiple worker threads to offload certain operations to these threads. This includes decoding of HW data to the CUPTI PC sampling data and correlating PC data to SASS instructions. CUPTI wakes up these threads periodically. Default - 100 milliseconds. Value is a uint32_t
+	PcSamplingConfigurationAttrTypeWorkerThreadPeriodicSleepSpan PCSamplingConfigurationAttributeType = 9
+	PcSamplingConfigurationAttrTypeForceInt                      PCSamplingConfigurationAttributeType = 0x7fffffff
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e PCSamplingConfigurationAttributeType) String() string {
+	switch e {
+	case PcSamplingConfigurationAttrTypeInvalid:
+		return "PcSamplingConfigurationAttrTypeInvalid"
+	case PcSamplingConfigurationAttrTypeSamplingPeriod:
+		return "PcSamplingConfigurationAttrTypeSamplingPeriod"
+	case PcSamplingConfigurationAttrTypeStallReason:
+		return "PcSamplingConfigurationAttrTypeStallReason"
+	case PcSamplingConfigurationAttrTypeScratchBufferSize:
+		return "PcSamplingConfigurationAttrTypeScratchBufferSize"
+	case PcSamplingConfigurationAttrTypeHardwareBufferSize:
+		return "PcSamplingConfigurationAttrTypeHardwareBufferSize"
+	case PcSamplingConfigurationAttrTypeCollectionMode:
+		return "PcSamplingConfigurationAttrTypeCollectionMode"
+	case PcSamplingConfigurationAttrTypeEnableStartStopControl:
+		return "PcSamplingConfigurationAttrTypeEnableStartStopControl"
+	case PcSamplingConfigurationAttrTypeOutputDataFormat:
+		return "PcSamplingConfigurationAttrTypeOutputDataFormat"
+	case PcSamplingConfigurationAttrTypeSamplingDataBuffer:
+		return "PcSamplingConfigurationAttrTypeSamplingDataBuffer"
+	case PcSamplingConfigurationAttrTypeWorkerThreadPeriodicSleepSpan:
+		return "PcSamplingConfigurationAttrTypeWorkerThreadPeriodicSleepSpan"
+	case PcSamplingConfigurationAttrTypeForceInt:
+		return "PcSamplingConfigurationAttrTypeForceInt"
+	}
+	return fmt.Sprintf("PCSamplingConfigurationAttributeType(%d)", e)
+}
+
+// PmSamplingTriggerMode specifies the pm sampling trigger mode (CUpti_PmSampling_TriggerMode).
+type PmSamplingTriggerMode int32
+
+const (
+	// PmSamplingTriggerModeGpuSysclkInterval: The trigger is based off of the SYSCLK frequency, note SYS frequency by default is variable. the sample interval (set in the struct [PmSamplingSetConfigParams]) is in terms of clocks.
+	PmSamplingTriggerModeGpuSysclkInterval PmSamplingTriggerMode = 0
+	// PmSamplingTriggerModeGpuTimeInterval: The trigger is based off of a fixed frequency source. The sample interval (set in the struct [PmSamplingSetConfigParams]) is in terms of nanoseconds. Note: This trigger mode is not supported on Turing GPU architecture and GA100 GPU. It is supported on Ampere GA10x and later GPU architectures.
+	PmSamplingTriggerModeGpuTimeInterval PmSamplingTriggerMode = 1
+	PmSamplingTriggerModeCount           PmSamplingTriggerMode = 2
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e PmSamplingTriggerMode) String() string {
+	switch e {
+	case PmSamplingTriggerModeGpuSysclkInterval:
+		return "PmSamplingTriggerModeGpuSysclkInterval"
+	case PmSamplingTriggerModeGpuTimeInterval:
+		return "PmSamplingTriggerModeGpuTimeInterval"
+	case PmSamplingTriggerModeCount:
+		return "PmSamplingTriggerModeCount"
+	}
+	return fmt.Sprintf("PmSamplingTriggerMode(%d)", e)
+}
+
+// PmSamplingDecodeStopReason specifies the pm sampling decode stop reason (CUpti_PmSampling_DecodeStopReason).
+type PmSamplingDecodeStopReason int32
+
+const (
+	PmSamplingDecodeStopReasonOther           PmSamplingDecodeStopReason = 0
+	PmSamplingDecodeStopReasonCounterDataFull PmSamplingDecodeStopReason = 1 // Counter data image is full.
+	PmSamplingDecodeStopReasonEndOfRecords    PmSamplingDecodeStopReason = 2 // All the records in the hardware buffer is decoded.
+	PmSamplingDecodeStopReasonCount           PmSamplingDecodeStopReason = 3
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e PmSamplingDecodeStopReason) String() string {
+	switch e {
+	case PmSamplingDecodeStopReasonOther:
+		return "PmSamplingDecodeStopReasonOther"
+	case PmSamplingDecodeStopReasonCounterDataFull:
+		return "PmSamplingDecodeStopReasonCounterDataFull"
+	case PmSamplingDecodeStopReasonEndOfRecords:
+		return "PmSamplingDecodeStopReasonEndOfRecords"
+	case PmSamplingDecodeStopReasonCount:
+		return "PmSamplingDecodeStopReasonCount"
+	}
+	return fmt.Sprintf("PmSamplingDecodeStopReason(%d)", e)
+}
+
+// PmSamplingHardwareBufferAppendMode specifies the pm sampling hardware buffer append mode (CUpti_PmSampling_HardwareBuffer_AppendMode).
+type PmSamplingHardwareBufferAppendMode int32
+
+const (
+	// PmSamplingHardwareBufferAppendModeKeepOldest: Keep the oldest records in the hardware buffer. CUPTI will report error for overflow in case hardware buffer is getting filled up.
+	PmSamplingHardwareBufferAppendModeKeepOldest PmSamplingHardwareBufferAppendMode = 0
+	// PmSamplingHardwareBufferAppendModeKeepLatest: Keep the latest records in the hardware buffer. Note: This mode is not supported on Turing GPU architecture. It is supported on Ampere and later GPU architectures.
+	PmSamplingHardwareBufferAppendModeKeepLatest PmSamplingHardwareBufferAppendMode = 1
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e PmSamplingHardwareBufferAppendMode) String() string {
+	switch e {
+	case PmSamplingHardwareBufferAppendModeKeepOldest:
+		return "PmSamplingHardwareBufferAppendModeKeepOldest"
+	case PmSamplingHardwareBufferAppendModeKeepLatest:
+		return "PmSamplingHardwareBufferAppendModeKeepLatest"
+	}
+	return fmt.Sprintf("PmSamplingHardwareBufferAppendMode(%d)", e)
+}
+
+// SassMetricsOutputGranularity specifies the sass metrics output granularity (CUpti_SassMetrics_OutputGranularity).
+type SassMetricsOutputGranularity int32
+
+const (
+	// SassMetricsOutputGranularityGpu: SASS metric data will be collected at GPU level. In [SassMetricsGetDataPropertiesParams] struct the numOfInstances will be equal to 1.
+	SassMetricsOutputGranularityGpu SassMetricsOutputGranularity = 0
+	// SassMetricsOutputGranularitySm: SASS metric data will be collected at SM level In [SassMetricsGetDataPropertiesParams] struct the numOfInstances will be equal to number of SMs in the GPU.
+	SassMetricsOutputGranularitySm SassMetricsOutputGranularity = 1
+	// SassMetricsOutputGranularitySmsp: SASS metric data will be collected at SM sub-partition level In [SassMetricsGetDataPropertiesParams] struct the numOfInstances will be equal to number of SM sub-partitions in the GPU.
+	SassMetricsOutputGranularitySmsp    SassMetricsOutputGranularity = 2
+	SassMetricsOutputGranularityInvalid SassMetricsOutputGranularity = 3
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e SassMetricsOutputGranularity) String() string {
+	switch e {
+	case SassMetricsOutputGranularityGpu:
+		return "SassMetricsOutputGranularityGpu"
+	case SassMetricsOutputGranularitySm:
+		return "SassMetricsOutputGranularitySm"
+	case SassMetricsOutputGranularitySmsp:
+		return "SassMetricsOutputGranularitySmsp"
+	case SassMetricsOutputGranularityInvalid:
+		return "SassMetricsOutputGranularityInvalid"
+	}
+	return fmt.Sprintf("SassMetricsOutputGranularity(%d)", e)
+}
+
+// CheckpointOptimizations specifies optimization options for a checkpoint, may be OR'd together to specify multiple options.
+type CheckpointOptimizations int32
+
+const (
+	CheckpointOptNone CheckpointOptimizations = 0 // Default behavior
+	// CheckpointOptTransfer: Determine which mem blocks have changed, and only restore those. This optimization is cached, which means [CheckpointRestore] must always be called at the same point in the application when this option is enabled, or the result may be incorrect.
+	CheckpointOptTransfer CheckpointOptimizations = 1
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e CheckpointOptimizations) String() string {
+	switch e {
+	case CheckpointOptNone:
+		return "CheckpointOptNone"
+	case CheckpointOptTransfer:
+		return "CheckpointOptTransfer"
+	}
+	return fmt.Sprintf("CheckpointOptimizations(%d)", e)
 }
 
 // Sentinel values and limits from the CUPTI headers.
