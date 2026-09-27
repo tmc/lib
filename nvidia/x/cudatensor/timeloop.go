@@ -47,19 +47,38 @@ func ExportTimeloopWorkload(g *CanonicalGraph, w io.Writer) error {
 		if err != nil {
 			return fmt.Errorf("cudatensor: canonical node %q: %w", n.ID, err)
 		}
+		if len(inputs) != len(n.Inputs) {
+			return fmt.Errorf("cudatensor: canonical node %q has %d operands for %d inputs", n.ID, len(inputs), len(n.Inputs))
+		}
 		item := einsum{Name: n.ID}
 		for i, pred := range n.Inputs {
+			name := pred
+			if i < len(n.InputTensors) && n.InputTensors[i].Name != "" {
+				name = n.InputTensors[i].Name
+			}
+			if name == "" {
+				return fmt.Errorf("cudatensor: canonical node %q input %d has no tensor name", n.ID, i)
+			}
 			projection := make([]string, len(inputs[i]))
 			for j, token := range inputs[i] {
 				projection[j] = string(token)
 			}
-			item.TensorAccesses = append(item.TensorAccesses, access{Name: pred, Projection: projection})
+			item.TensorAccesses = append(item.TensorAccesses, access{Name: name, Projection: projection})
 		}
 		projection := make([]string, len(output))
 		for j, token := range output {
 			projection[j] = string(token)
 		}
-		item.TensorAccesses = append(item.TensorAccesses, access{Name: n.ID, Projection: projection, Output: true})
+		if len(n.OutputTensors) == 0 {
+			item.TensorAccesses = append(item.TensorAccesses, access{Name: n.ID, Projection: projection, Output: true})
+		} else {
+			for _, tensor := range n.OutputTensors {
+				if tensor.Name == "" {
+					return fmt.Errorf("cudatensor: canonical node %q has unnamed output", n.ID)
+				}
+				item.TensorAccesses = append(item.TensorAccesses, access{Name: tensor.Name, Projection: projection, Output: true})
+			}
+		}
 		workload.Workload.Einsums = append(workload.Workload.Einsums, item)
 	}
 	enc := json.NewEncoder(w)
