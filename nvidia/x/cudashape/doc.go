@@ -14,6 +14,7 @@
 // holds concrete bindings and constraints ([EqualSymbols], [EqualConst], [DivisibleBy],
 // [RangeBound]). Bounded symbolic binding via [SymbolicShape.Bind] returns explicit
 // errors on unbound symbols, contradictory bindings, or constraint violations.
+// [ParseDimTokens] parses the dimension labels used in einsum equations.
 //
 // # Layouts and Strides
 //
