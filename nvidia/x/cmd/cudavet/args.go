@@ -122,16 +122,19 @@ var firstElemAnalyzer = &analysis.Analyzer{
 
 Passing &s[0] panics when s is empty, and a count passed beside it must count
 s. firstelem reports &s[0] passed to an nvidia binding when the function
-neither fixes the length of s nor tests it, and a count parameter directly
+neither fixes the length of s nor tests it, directly or by passing s to a
+function of the package that tests it, and a count parameter directly
 before the pointer that is the length of a different slice. A count after
 its own pointer, as in &ids[0], len(ids), &vals[0], and a slice made with
-the counted length are not mismatches. Test files are checked only for
-mismatches.`,
+the counted length, directly or by a function of the package that returns
+make(_, len(p)) of its parameter p, are not mismatches. Test files are
+checked only for mismatches.`,
 	Run: runFirstElem,
 }
 
 func runFirstElem(pass *analysis.Pass) (any, error) {
 	info := pass.TypesInfo
+	decls := funcDecls(pass)
 	// Closures see the variables of the function around them, and the tests
 	// on them, so look at whole outer functions.
 	eachOuterFunc(pass, func(body *ast.BlockStmt) {
@@ -157,14 +160,14 @@ func runFirstElem(pass *analysis.Pass) (any, error) {
 				if i > 0 {
 					l := lenOf(info, call.Args[i-1])
 					countAfter := i > 1 && firstElemOf(info, call.Args[i-2]) == l
-					if l != nil && l != s && !countAfter && madeWithLen(info, defs, s) != l {
+					if l != nil && l != s && !countAfter && madeWithLen(info, decls, defs, s) != l {
 						pass.Reportf(call.Args[i-1].Pos(), "count is len(%s), but the buffer after it is %s", l.Name(), s.Name())
 					}
 				}
 				if inTest {
 					continue
 				}
-				if !nonEmpty(info, body, defs, s, call.Pos()) {
+				if !nonEmpty(info, decls, body, defs, s, call.Pos()) {
 					pass.Reportf(arg.Pos(), "&%s[0] panics if %s is empty; test len(%s) first", s.Name(), s.Name(), s.Name())
 				}
 			}
@@ -208,12 +211,12 @@ func lenOf(info *types.Info, e ast.Expr) *types.Var {
 	return objOf(info, call.Args[0])
 }
 
-// lenTested reports whether body mentions len(s) in a condition before pos.
+// lenTested reports whether body compares len(s) before pos.
 func lenTested(info *types.Info, body *ast.BlockStmt, s *types.Var, pos token.Pos) bool {
 	found := false
 	ast.Inspect(body, func(n ast.Node) bool {
 		b, ok := n.(*ast.BinaryExpr)
-		if ok && b.Pos() < pos && (lenOf(info, b.X) == s || lenOf(info, b.Y) == s) {
+		if ok && b.Pos() < pos && b.Op.Precedence() == token.EQL.Precedence() && (lenOf(info, b.X) == s || lenOf(info, b.Y) == s) {
 			found = true
 		}
 		return !found
@@ -223,14 +226,16 @@ func lenTested(info *types.Info, body *ast.BlockStmt, s *types.Var, pos token.Po
 
 // nonEmpty reports whether s is known to be non-empty at pos: it has a
 // positive static length, its length is tested or an element read before pos,
-// it comes from the same call as a slice whose length is tested, or it is
-// made with a length that was tested, or the length of a non-empty slice.
-func nonEmpty(info *types.Info, body *ast.BlockStmt, defs map[*types.Var][]ast.Expr, s *types.Var, pos token.Pos) bool {
+// here or in a function of the package it is passed to, it comes from the
+// same call as a slice whose length is tested, or it is made with a length
+// that was tested, the length of a non-empty slice, or a product of the
+// lengths of slices that were tested.
+func nonEmpty(info *types.Info, decls map[*types.Func]*ast.FuncDecl, body *ast.BlockStmt, defs map[*types.Var][]ast.Expr, s *types.Var, pos token.Pos) bool {
 	for range 4 { // follow make(_, len(l)) a few steps
 		if n, ok := varLen(info, defs, s); ok && n > 0 || grown(info, defs, s) {
 			return true
 		}
-		if lenTested(info, body, s, pos) || indexed(info, body, s, pos) {
+		if lenTested(info, body, s, pos) || indexed(info, body, s, pos) || lenTestedBy(info, decls, body, s, pos) {
 			return true
 		}
 		for _, t := range companions(info, body, s) {
@@ -241,11 +246,131 @@ func nonEmpty(info *types.Info, body *ast.BlockStmt, defs map[*types.Var][]ast.E
 		if n := madeWithVar(info, defs, s); n != nil && tested(info, body, n, pos) {
 			return true
 		}
-		if s = madeWithLen(info, defs, s); s == nil {
+		if ls := madeWithLens(info, defs, s); len(ls) > 1 && !slices.ContainsFunc(ls, func(l *types.Var) bool {
+			return !lenTested(info, body, l, pos) && !indexed(info, body, l, pos)
+		}) {
+			return true
+		}
+		if s = madeWithLen(info, decls, defs, s); s == nil {
 			return false
 		}
 	}
 	return false
+}
+
+// funcDecls maps each function declared in the package to its declaration.
+func funcDecls(pass *analysis.Pass) map[*types.Func]*ast.FuncDecl {
+	decls := make(map[*types.Func]*ast.FuncDecl)
+	for _, file := range srcFiles(pass) {
+		for _, d := range file.Decls {
+			if fd, ok := d.(*ast.FuncDecl); ok && fd.Body != nil {
+				if fn, ok := pass.TypesInfo.Defs[fd.Name].(*types.Func); ok {
+					decls[fn] = fd
+				}
+			}
+		}
+	}
+	return decls
+}
+
+// params returns the parameters of fd in order, not counting the receiver.
+func params(info *types.Info, fd *ast.FuncDecl) []*types.Var {
+	var out []*types.Var
+	for _, f := range fd.Type.Params.List {
+		for _, name := range f.Names {
+			v, _ := info.Defs[name].(*types.Var)
+			out = append(out, v)
+		}
+		if len(f.Names) == 0 {
+			out = append(out, nil)
+		}
+	}
+	return out
+}
+
+// lenTestedBy reports whether s is passed, before pos, to a function of the
+// package that tests the length of the parameter it arrives in, as a helper
+// that validates its arguments does.
+func lenTestedBy(info *types.Info, decls map[*types.Func]*ast.FuncDecl, body *ast.BlockStmt, s *types.Var, pos token.Pos) bool {
+	found := false
+	ast.Inspect(body, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+		if found || !ok || call.Pos() >= pos {
+			return !found
+		}
+		fd := decls[callee(info, call)]
+		if fd == nil {
+			return true
+		}
+		ps := params(info, fd)
+		for i, arg := range call.Args {
+			if i < len(ps) && ps[i] != nil && objOf(info, arg) == s && lenTested(info, fd.Body, ps[i], fd.Body.End()) {
+				found = true
+			}
+		}
+		return !found
+	})
+	return found
+}
+
+// sameLen returns the parameter of fd whose length is the length of every
+// slice fd returns first, each made with make(_, len(p)), or nil.
+func sameLen(info *types.Info, fd *ast.FuncDecl) *types.Var {
+	defs := assignments(info, fd.Body)
+	var p *types.Var
+	ok := true
+	inspectShallow(fd.Body, func(n ast.Node) bool {
+		ret, isRet := n.(*ast.ReturnStmt)
+		if !isRet || !ok {
+			return ok
+		}
+		var l *types.Var
+		if len(ret.Results) > 0 {
+			e := ast.Unparen(ret.Results[0])
+			if v := objOf(info, e); v != nil {
+				l = madeWithLen(info, nil, defs, v)
+			} else if call, isCall := e.(*ast.CallExpr); isCall && isBuiltin(info, call, "make") && len(call.Args) >= 2 {
+				l = lenOf(info, call.Args[1])
+			}
+		}
+		if l == nil || p != nil && l != p {
+			ok = false
+		}
+		p = l
+		return ok
+	})
+	if !ok || p == nil || !slices.Contains(params(info, fd), p) {
+		return nil
+	}
+	return p
+}
+
+// madeWithLens returns the slices l1, l2, ... when s is assigned once, from
+// make(_, len(l1)*len(l2)*...), and nil otherwise.
+func madeWithLens(info *types.Info, defs map[*types.Var][]ast.Expr, s *types.Var) []*types.Var {
+	d := defs[s]
+	if len(d) != 1 {
+		return nil
+	}
+	call, ok := d[0].(*ast.CallExpr)
+	if !ok || !isBuiltin(info, call, "make") || len(call.Args) < 2 {
+		return nil
+	}
+	var out []*types.Var
+	var factors func(e ast.Expr) bool
+	factors = func(e ast.Expr) bool {
+		e = unconvert(info, e)
+		if b, ok := e.(*ast.BinaryExpr); ok && b.Op == token.MUL {
+			return factors(b.X) && factors(b.Y)
+		}
+		l := lenOf(info, e)
+		out = append(out, l)
+		return l != nil
+	}
+	if !factors(call.Args[1]) {
+		return nil
+	}
+	return out
 }
 
 // companions returns the other slices assigned with s from one call, as in
@@ -329,18 +454,25 @@ func isBuiltin(info *types.Info, call *ast.CallExpr, name string) bool {
 }
 
 // madeWithLen returns l when every value assigned to s is make(_, len(l)),
-// and nil otherwise.
-func madeWithLen(info *types.Info, defs map[*types.Var][]ast.Expr, s *types.Var) *types.Var {
+// or a call of a function in decls that makes its result that way from a
+// parameter given l, and nil otherwise.
+func madeWithLen(info *types.Info, decls map[*types.Func]*ast.FuncDecl, defs map[*types.Var][]ast.Expr, s *types.Var) *types.Var {
 	var l *types.Var
 	for _, e := range defs[s] {
 		call, ok := e.(*ast.CallExpr)
-		if !ok || len(call.Args) < 2 {
+		if !ok {
 			return nil
 		}
-		if !isBuiltin(info, call, "make") {
-			return nil
+		var v *types.Var
+		if fd := decls[callee(info, call)]; fd != nil {
+			if p := sameLen(info, fd); p != nil {
+				if i := slices.Index(params(info, fd), p); i < len(call.Args) {
+					v = objOf(info, call.Args[i])
+				}
+			}
+		} else if isBuiltin(info, call, "make") && len(call.Args) >= 2 {
+			v = lenOf(info, call.Args[1])
 		}
-		v := lenOf(info, call.Args[1])
 		if v == nil || l != nil && v != l {
 			return nil
 		}

@@ -99,3 +99,59 @@ func paired() (driver.LinkState, error) {
 	}
 	return 0, nil
 }
+
+func widen(ids []int32) []int32 {
+	out := make([]int32, len(ids))
+	copy(out, ids)
+	return out
+}
+
+// helperMade makes ids by a helper that keeps the length of what it is
+// given, which was tested.
+func helperMade(in []int32) error {
+	if len(in) == 0 {
+		return errors.New("no ids")
+	}
+	ids := widen(in)
+	values := make([]float64, len(in))
+	return driver.Batch(&ids[0], uint32(len(ids)), &values[0])
+}
+
+func helperUntested(in []int32) error {
+	ids := widen(in)
+	values := make([]float64, len(in))
+	return driver.Batch(&ids[0], uint32(len(ids)), &values[0]) // want `&ids\[0\] panics if ids is empty; test len\(ids\) first` `&values\[0\] panics if values is empty; test len\(values\) first`
+}
+
+// product makes values with the product of two tested lengths.
+func product(ids []int32, rows []uintptr) error {
+	if len(ids) == 0 || len(rows) == 0 {
+		return errors.New("empty")
+	}
+	values := make([]float64, len(ids)*len(rows))
+	return driver.Batch(&ids[0], uint32(len(ids)), &values[0])
+}
+
+func productUntested(ids []int32, rows []uintptr) error {
+	if len(ids) == 0 {
+		return errors.New("empty")
+	}
+	values := make([]float64, len(ids)*len(rows))
+	return driver.Batch(&ids[0], uint32(len(ids)), &values[0]) // want `&values\[0\] panics if values is empty; test len\(values\) first`
+}
+
+func check(ids []int32, want int) error {
+	if len(ids) != want {
+		return errors.New("wrong count")
+	}
+	return nil
+}
+
+// validated tests the length of ids in a helper before using it.
+func validated(ids []int32, want int) error {
+	if err := check(ids, want); err != nil {
+		return err
+	}
+	values := make([]float64, len(ids))
+	return driver.Batch(&ids[0], uint32(len(ids)), &values[0])
+}
