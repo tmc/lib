@@ -336,10 +336,10 @@ func Parse(r io.Reader) (*Disassembly, error) {
 
 			if curFn == nil {
 				curFn = &Function{
-					Name: secName,
+					Name: "default",
 				}
 				d.Functions = append(d.Functions, curFn)
-				d.funcMap[secName] = curFn
+				d.funcMap["default"] = curFn
 			}
 			if len(curFn.Instructions) == 0 {
 				curFn.BaseAddress = inst.Address

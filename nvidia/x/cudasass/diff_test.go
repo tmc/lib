@@ -107,6 +107,21 @@ func TestNormalizeLine(t *testing.T) {
 			line: "/*0050*/   BRA `0x180` ;",
 			want: "BRA <target>",
 		},
+		{
+			name: "unclosed comment prefix only",
+			line: "/*/",
+			want: "/*/",
+		},
+		{
+			name: "unclosed comment with trailing text",
+			line: "/*/ NOP",
+			want: "/*/ NOP",
+		},
+		{
+			name: "normal address comment and instruction",
+			line: "/*0010*/ NOP ;",
+			want: "NOP",
+		},
 	}
 
 	for _, tt := range tests {

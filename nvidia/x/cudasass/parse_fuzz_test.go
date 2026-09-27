@@ -98,12 +98,13 @@ func sectionAddressesStrictlyIncreasing(d *Disassembly) error {
 	return nil
 }
 
-// instructionAddressesAligned checks that all parsed instruction addresses are aligned to instruction boundaries.
+// instructionAddressesAligned checks that all parsed instruction addresses satisfy
+// the weakest hardware alignment rule (8-byte on sm < 70, 16-byte on sm >= 70).
 func instructionAddressesAligned(d *Disassembly) error {
 	for _, fn := range d.Functions {
 		for _, inst := range fn.Instructions {
-			if inst.Address%16 != 0 && inst.Address%8 != 0 {
-				return fmt.Errorf("function %s: unaligned instruction address 0x%04x", fn.Name, inst.Address)
+			if inst.Address%8 != 0 {
+				return fmt.Errorf("function %s: unaligned instruction address 0x%04x (must be a multiple of at least 8)", fn.Name, inst.Address)
 			}
 		}
 	}

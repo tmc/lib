@@ -65,6 +65,13 @@
 // An instruction appearing before any kernel header, or after the trailing SYMBOLS
 // banner, is outside any section and is rejected with an error.
 //
+// # Control codes and dependency barriers
+//
+// [EncodeControl] encodes control fields into instruction encodings. Control codes
+// are currently calibrated for sm_121a only; attempting to encode control codes for
+// an uncalibrated architecture returns an error that wraps [github.com/tmc/lib/nvidia/x/cudaerrors.ErrUnsupported],
+// allowing callers to test it with [errors.Is].
+//
 // # Cubin formats
 //
 // A cubin carries its producing toolkit's version in the ELF header: nvcc
