@@ -345,11 +345,11 @@ func runSweepContext(ctx context.Context, c Case, o Options, omit bool, sizes []
 			if c.DataType.integer() {
 				poisonIntegers(c, l, len(states), rank, poison)
 			}
-			if err := (s.recv + driver.DevicePtr(offsetBytes)).CopyFromHostPtr(unsafe.Pointer(&poison[0]), uint(len(poison))); err != nil {
+			if err := (s.recv + driver.DevicePtr(offsetBytes)).CopyFromHost(poison); err != nil {
 				return err
 			}
 			inputData := inputBuffer(c, len(states), rank, l.SendCount)
-			if err := s.sendArg.CopyFromHostPtr(unsafe.Pointer(&inputData[0]), uint(len(inputData))); err != nil {
+			if err := s.sendArg.CopyFromHost(inputData); err != nil {
 				return err
 			}
 		}
@@ -424,7 +424,7 @@ func runSweepContext(ctx context.Context, c Case, o Options, omit bool, sizes []
 					return result, err
 				}
 				got := make([]byte, l.RecvCount*size)
-				if err = s.recvArg.CopyToHostPtr(unsafe.Pointer(&got[0]), uint(len(got))); err != nil {
+				if err = s.recvArg.CopyToHost(got); err != nil {
 					return result, err
 				}
 				count, wrong, e := CheckBytes(c, len(states), rank, got)
