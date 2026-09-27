@@ -35,10 +35,10 @@ func (h *Handle) Close() error {
 // See NVIDIA/CUDALibrarySamples for a concrete example.
 //
 //   - plan: Opaque handle holding the contraction execution plan (created by [Handle.CreateContraction] followed by [Handle.CreatePlan])
-//   - alpha: Scaling for A*B. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - alpha: Scaling for A*B. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
 //   - a: Pointer to the data corresponding to A. Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
 //   - b: Pointer to the data corresponding to B. Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
-//   - beta: Scaling for C. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - beta: Scaling for C. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
 //   - c: Pointer to the data corresponding to C. Pointer to the GPU-accessible memory
 //   - d: Pointer to the data corresponding to D. Pointer to the GPU-accessible memory
 //   - workspace: Optional parameter that may be NULL. This pointer provides additional workspace, in device memory, to the library for additional optimizations; the workspace must be aligned to 256 bytes (i.e., the default alignment of cudaMalloc)
@@ -66,11 +66,11 @@ func (h Handle) Contract(plan Plan, alpha Scalar, a driver.DevicePtr, b driver.D
 // See NVIDIA/CUDALibrarySamples for a concrete example.
 //
 //   - plan: Opaque handle holding the contraction execution plan (created by [Handle.CreateContractionTrinary] followed by [Handle.CreatePlan])
-//   - alpha: Scaling for A*B*C. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - alpha: Scaling for A*B*C. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
 //   - a: Pointer to the data corresponding to A. Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to E
 //   - b: Pointer to the data corresponding to B. Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to E
 //   - c: Pointer to the data corresponding to C. Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to E
-//   - beta: Scaling for D. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - beta: Scaling for D. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
 //   - d: Pointer to the data corresponding to D. Pointer to the GPU-accessible memory
 //   - e: Pointer to the data corresponding to E. Pointer to the GPU-accessible memory
 //   - workspace: Optional parameter that may be NULL. This pointer provides additional workspace, in device memory, to the library for additional optimizations; the workspace must be aligned to 256 bytes (i.e., the default alignment of cudaMalloc)
@@ -584,9 +584,9 @@ func (h Handle) ReadPlanCacheFromFile(filename *byte) (uint32, error) {
 // Reduce performs the tensor reduction that is encoded by plan (see [Handle.CreateReduction]).
 //
 //   - plan: Opaque handle holding the reduction execution plan (created by [Handle.CreateReduction] followed by [Handle.CreatePlan])
-//   - alpha: Scaling for A. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - alpha: Scaling for A. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
 //   - a: Pointer to the data corresponding to A in device memory. Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
-//   - beta: Scaling for C. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - beta: Scaling for C. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
 //   - c: Pointer to the data corresponding to C in device memory. Pointer to the GPU-accessible memory
 //   - d: Pointer to the data corresponding to C in device memory. Pointer to the GPU-accessible memory
 //   - workspace: Scratchpad (device) memory of size —at least— workspaceSize bytes; the workspace must be aligned to 256 bytes (i.e., the default alignment of cudaMalloc)

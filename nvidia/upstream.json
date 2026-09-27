@@ -5200,11 +5200,11 @@
           },
           {
             "path": "nvidia/cutensor/funcs.gen.go",
-            "sha256": "4b343792f987f07ebb2b0cba3315bd0abea81d9dd807f86bc252cf91cc69b955"
+            "sha256": "19f47dcd8cc49de6ef4e93233472cf6578b771e88de4faf11ef1ffdd63934d38"
           },
           {
             "path": "nvidia/cutensor/handle.gen.go",
-            "sha256": "6b85709356a05fd69f82f55c9b8c0a8c514a4aa797969823fe37938d0581a49e"
+            "sha256": "96f410c61e09d529fe9b722e0168520908632277cc0ab0f71ad3c51c67be2c76"
           },
           {
             "path": "nvidia/cutensor/handles.gen.go",
@@ -5264,10 +5264,10 @@
       "package": "github.com/tmc/lib/nvidia/cutensor",
       "repositories": {
         "codegen": {
-          "commit": "b3dc359c9db53dea61a497ef6f5c4a305f945132",
-          "note": "Unpublished at the time of recording; it is the commit this generation was taken from. The later commit a96f510 fixes the cublas and cublaslt surveys and does not affect this package. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c",
+          "commit": "f3b353d8a96b8ed1bd7891a404598de9405d0602",
+          "note": "Unpublished at the time of recording; it is the commit this generation was taken from. The later commit a96f510 fixes the cublas and cublaslt surveys and does not affect this package. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c; regenerate at libgen f3b353d8, dropping the header's claim that descCompute sets the alpha and beta type",
           "url": "https://github.com/tmc/libgen.git",
-          "tree": "f54815ecdd777ae664e200e000db35f1e948469d"
+          "tree": "4280ab00c95b6a9b98b65792dc47aa73e98d1ebe"
         },
         "headers": {
           "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",
