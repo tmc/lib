@@ -1,24 +1,19 @@
 {
   "schema_version": 1,
-  "generator": "github.com/tmc/libgen/cmd/gen-nvidia",
+  "generator": "github.com/tmc/libgen/cmd/nvfatbin-survey",
   "upstream_version": "unrecorded",
   "version_source": "unrecorded",
   "cwd": ".",
   "argv": [
-    "gen-nvidia",
-    "-api",
-    "nvfatbin",
-    "-headers-dir",
-    "cuda-headers",
+    "nvfatbin-survey",
     "-header",
     "nvFatbin.h",
-    "-output",
-    "nvfatbin",
-    "-package",
-    "nvfatbin",
-    "-deprecated=true",
+    "-headers-dir",
+    "cuda-headers",
     "-docs-dir",
-    "docs"
+    "docs",
+    "-output",
+    "nvfatbin"
   ],
   "inputs": [
     {
