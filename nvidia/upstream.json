@@ -2619,7 +2619,7 @@
           "GOWORK": "off",
           "TMPDIR": "${SCRATCH_DIR}"
         },
-        "note": "Reproduced twice with GOTOOLCHAIN=go1.27.0 from the pinned CUDA 13.2 CUPTI header family. gen.Apply reported no API removals; apidiff reported zero incompatible changes on linux/amd64, linux/arm64 and darwin/arm64. The generated ActivityDeviceAttribute compatibility type preserves the prior exported fields and C layout. nvidia-reproduce hashes only the primary header; all 19 declared header digests were independently verified against the headers checkout.",
+        "note": "The prior CUPTI migration was reproduced twice with GOTOOLCHAIN=go1.27.0 from the pinned CUDA 13.2 CUPTI header family. This bridge correction was regenerated once with GOTOOLCHAIN=go1.27.0. The explicit ffi bridge was restored in libgen commit 2ee197be; regeneration restores all 173 ffiCall sites and pooled output slots. The package test passes and apidiff reports no exported API changes. gen.Apply reported no API removals; apidiff reported zero incompatible changes on linux/amd64, linux/arm64 and darwin/arm64. The generated ActivityDeviceAttribute compatibility type preserves the prior exported fields and C layout. nvidia-reproduce hashes only the primary header; all 19 declared header digests were independently verified against the headers checkout.",
         "outputs": [
           {
             "path": "nvidia/cupti/activity_device_attribute.gen.go",
@@ -2647,7 +2647,7 @@
           },
           {
             "path": "nvidia/cupti/funcs.gen.go",
-            "sha256": "64f822967befc20d28b235d64458f38cd35fc64c4a18e84265cae1ef8fb334f5"
+            "sha256": "585f5a817d509ba7924294f86ccaa42243faeb23ba4060b54aebe62c2a4670ab"
           },
           {
             "path": "nvidia/cupti/handles.gen.go",
@@ -2655,7 +2655,7 @@
           },
           {
             "path": "nvidia/cupti/init.gen.go",
-            "sha256": "f0eda06bb597ff0ae59d1257f512c6c3eb08777b53488e04c38e0f0fc49ed82e"
+            "sha256": "050bd98ada7ba9111a4e1fef660b839d0439daf4d4cac1dc958a772d3b44ed4c"
           },
           {
             "path": "nvidia/cupti/layout.gen_test.go",
