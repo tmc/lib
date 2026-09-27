@@ -44,9 +44,12 @@
 // # Tile Partitioning
 //
 // A [Partition] (and mutable [PartitionMut]) pairs a tensor layout with an
-// explicit tile shape. Kernels using partitions must mask partial tiles.
+// explicit tile shape. Kernels using partitions must mask each coordinate
+// against its corresponding tensor extent before accessing memory.
 // [Partition.ValidateDisjoint] verifies that strides guarantee non-overlapping
 // physical offsets across CUDA launch grid blocks. A partial physical inner
 // axis must have enough stride padding before the next outer axis to contain
-// the full tile grid envelope; otherwise masked lanes could overlap that axis.
+// the full tile grid envelope. This check is conservative when kernels mask
+// each coordinate: out-of-range inner coordinates cannot access memory, but
+// their unmasked physical offsets could extend into the next outer coordinate.
 package cudalayout

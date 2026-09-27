@@ -152,6 +152,33 @@ func TestShape_InferGrid_NonPositiveOrOverflow(t *testing.T) {
 			t.Fatalf("expected ErrShapeOverflow, got %v", err)
 		}
 	})
+	t.Run("CUDA Z limit", func(t *testing.T) {
+		_, err := cudashape.InferGrid(mustShape(t, 1, 1, 100000), mustShape(t, 1, 1, 1))
+		if !errors.Is(err, cudashape.ErrShapeOverflow) {
+			t.Fatalf("expected ErrShapeOverflow, got %v", err)
+		}
+	})
+	t.Run("CUDA Y limit boundary", func(t *testing.T) {
+		got, err := cudashape.InferGrid(mustShape(t, 1, 65535), mustShape(t, 1, 1))
+		if err != nil {
+			t.Fatalf("InferGrid at Y limit: %v", err)
+		}
+		if got.Y != 65535 {
+			t.Fatalf("InferGrid at Y limit = %v, want Y=65535", got)
+		}
+		if _, err := cudashape.InferGrid(mustShape(t, 1, 65536), mustShape(t, 1, 1)); !errors.Is(err, cudashape.ErrShapeOverflow) {
+			t.Fatalf("InferGrid above Y limit error = %v, want ErrShapeOverflow", err)
+		}
+	})
+	t.Run("CUDA X upper boundary", func(t *testing.T) {
+		got, err := cudashape.InferGrid(mustShape(t, 1<<31-1), mustShape(t, 1))
+		if err != nil {
+			t.Fatalf("InferGrid at X upper boundary: %v", err)
+		}
+		if got.X != 1<<31-1 {
+			t.Fatalf("InferGrid at X upper boundary = %v, want X=%d", got, 1<<31-1)
+		}
+	})
 	t.Run("CUDA X limit", func(t *testing.T) {
 		_, err := cudashape.InferGrid(mustShape(t, 1<<31), mustShape(t, 1))
 		if !errors.Is(err, cudashape.ErrShapeOverflow) {

@@ -1,6 +1,7 @@
 package cudalaunch_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -55,11 +56,11 @@ func TestResolveArgsAndConfigZero(t *testing.T) {
 	if d.SharedMem != 4096 {
 		t.Fatalf("shared memory = %d, want 4096", d.SharedMem)
 	}
-	if _, err := cudalaunch.Kernel(123).Grid(1, 1, 1).ResolveArgs(p); err == nil {
-		t.Fatal("expected explicit grid mismatch")
+	if _, err := cudalaunch.Kernel(123).Grid(1, 1, 1).ResolveArgs(p); !errors.Is(err, cudalaunch.ErrGridMismatch) {
+		t.Fatalf("ResolveArgs grid error = %v, want ErrGridMismatch", err)
 	}
-	if _, err := cudalaunch.Kernel(123).WithClusterDim(driver.Dims(3, 1, 1)).ResolveArgs(p); err == nil {
-		t.Fatal("expected cluster divisibility error")
+	if _, err := cudalaunch.Kernel(123).WithClusterDim(driver.Dims(3, 1, 1)).ResolveArgs(p); !errors.Is(err, cudalaunch.ErrClusterGridMismatch) {
+		t.Fatalf("ResolveArgs cluster error = %v, want ErrClusterGridMismatch", err)
 	}
 }
 

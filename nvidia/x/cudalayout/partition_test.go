@@ -75,6 +75,13 @@ func TestPartition_ValidateDisjoint(t *testing.T) {
 			t.Fatalf("want wrapping error, got %v", err)
 		}
 	})
+	t.Run("3D axis 2 partial tail wraps", func(t *testing.T) {
+		p := mustPartition(t, 1, mustShape(t, 16, 1024, 1000), mustShape(t, 2, 64, 64), 4,
+			cudalayout.WithPartitionStrides([]int{1024 * 1000, 1000, 1}))
+		if err := p.ValidateDisjoint(); !errors.Is(err, cudalayout.ErrWrappingPartition) {
+			t.Fatalf("want ErrWrappingPartition, got %v", err)
+		}
+	})
 	t.Run("3D overlapping middle stride", func(t *testing.T) {
 		p := mustPartition(t, 1, mustShape(t, 16, 16, 16), mustShape(t, 2, 4, 4), 4,
 			cudalayout.WithPartitionStrides([]int{256, 8, 1}))
@@ -139,6 +146,30 @@ func TestPartition_ValidateDisjoint(t *testing.T) {
 			t.Fatalf("expected ErrWrappingPartition for non-divisible packed partition, got %v", err)
 		}
 	})
+	t.Run("wrapping boundary on padded stride", func(t *testing.T) {
+		tShape := mustShape(t, 1000, 1000)
+		pShape := mustShape(t, 64, 64)
+		for _, tt := range []struct {
+			name      string
+			outer     int
+			wantError bool
+		}{
+			{name: "one below grid envelope", outer: 1023, wantError: true},
+			{name: "at grid envelope", outer: 1024},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				p := mustPartition(t, 1, tShape, pShape, 4,
+					cudalayout.WithPartitionStrides([]int{tt.outer, 1}))
+				err := p.ValidateDisjoint()
+				if tt.wantError && !errors.Is(err, cudalayout.ErrWrappingPartition) {
+					t.Fatalf("ValidateDisjoint() = %v, want ErrWrappingPartition", err)
+				}
+				if !tt.wantError && err != nil {
+					t.Fatalf("ValidateDisjoint() = %v, want nil", err)
+				}
+			})
+		}
+	})
 
 	t.Run("invalid tile column span exceeding stride", func(t *testing.T) {
 		tShape := mustShape(t, 100, 100)
@@ -161,6 +192,30 @@ func TestPartition_ValidateDisjoint(t *testing.T) {
 		err := p.ValidateDisjoint()
 		if !errors.Is(err, cudalayout.ErrOverlappingPartition) {
 			t.Fatalf("expected ErrOverlappingPartition for stride < width, got %v", err)
+		}
+	})
+	t.Run("overlap boundary at tensor width", func(t *testing.T) {
+		tShape := mustShape(t, 100, 100)
+		pShape := mustShape(t, 10, 10)
+		for _, tt := range []struct {
+			name      string
+			outer     int
+			wantError bool
+		}{
+			{name: "one below width", outer: 99, wantError: true},
+			{name: "at width", outer: 100},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				p := mustPartition(t, 1, tShape, pShape, 4,
+					cudalayout.WithPartitionStrides([]int{tt.outer, 1}))
+				err := p.ValidateDisjoint()
+				if tt.wantError && !errors.Is(err, cudalayout.ErrOverlappingPartition) {
+					t.Fatalf("ValidateDisjoint() = %v, want ErrOverlappingPartition", err)
+				}
+				if !tt.wantError && err != nil {
+					t.Fatalf("ValidateDisjoint() = %v, want nil", err)
+				}
+			})
 		}
 	})
 
@@ -213,4 +268,31 @@ func TestPartition_ValidateDisjoint(t *testing.T) {
 			t.Fatalf("pMut.ValidateDisjoint failed: %v", err)
 		}
 	})
+}
+
+func TestPartition_TileStride32(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		stride    int
+		want      int32
+		wantError bool
+	}{
+		{name: "fits", stride: 64, want: 64},
+		{name: "overflows", stride: 1 << 32, wantError: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			p := mustPartition(t, 1, mustShape(t, 2), mustShape(t, 1), 4,
+				cudalayout.WithPartitionStrides([]int{tt.stride}))
+			got, err := p.TileStride32()
+			if tt.wantError {
+				if err == nil {
+					t.Fatal("TileStride32() returned nil error for overflowing stride")
+				}
+				return
+			}
+			if err != nil || got != tt.want {
+				t.Fatalf("TileStride32() = (%d, %v), want (%d, nil)", got, err, tt.want)
+			}
+		})
+	}
 }

@@ -13,6 +13,8 @@ import (
 var (
 	// ErrGridMismatch is returned when inferred partition grids or explicit grids do not match.
 	ErrGridMismatch = errors.New("cudalaunch: grid dimension mismatch")
+	// ErrClusterGridMismatch is returned when the inferred grid is not divisible by the cluster dimension.
+	ErrClusterGridMismatch = errors.New("cudalaunch: grid is not divisible by cluster dimension")
 )
 
 // Config defines execution configuration for a kernel launch, including

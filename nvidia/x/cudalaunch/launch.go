@@ -490,7 +490,7 @@ func (l *Launcher) ResolveArgs(args ...any) ([]any, error) {
 		cluster := [3]uint32{binary.LittleEndian.Uint32(b[0:4]), binary.LittleEndian.Uint32(b[4:8]), binary.LittleEndian.Uint32(b[8:12])}
 		for i, extent := range inferred.Dims() {
 			if cluster[i] == 0 || extent%cluster[i] != 0 {
-				return nil, fmt.Errorf("cudalaunch: inferred grid %v is not divisible by cluster dimension %v", inferred, cluster)
+				return nil, fmt.Errorf("%w: inferred grid %v is not divisible by cluster dimension %v", ErrClusterGridMismatch, inferred, cluster)
 			}
 		}
 	}

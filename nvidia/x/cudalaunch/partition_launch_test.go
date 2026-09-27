@@ -2,6 +2,7 @@ package cudalaunch_test
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -174,6 +175,25 @@ func TestLaunch_InferGrid_MultiPartitionMismatch_Error(t *testing.T) {
 	}
 }
 
+func TestLaunch_RejectsOverlappingPartitions(t *testing.T) {
+	tShape := mustShape(t, 100, 100)
+	pShape := mustShape(t, 10, 10)
+	strides := cudalayout.WithPartitionStrides([]int{50, 1})
+	part := mustPartition(t, 1, tShape, pShape, 4, strides)
+	partMut := mustPartitionMut(t, 2, tShape, pShape, 4, strides)
+
+	t.Run("InferLaunchGrid immutable partition", func(t *testing.T) {
+		if _, err := cudalaunch.InferLaunchGrid(cudashape.Grid3D{}, []cudalayout.Partition{part}); !errors.Is(err, cudalayout.ErrOverlappingPartition) {
+			t.Fatalf("InferLaunchGrid error = %v, want ErrOverlappingPartition", err)
+		}
+	})
+	t.Run("ResolveArgs mutable partition", func(t *testing.T) {
+		if _, err := cudalaunch.Kernel(1).ResolveArgs(partMut); !errors.Is(err, cudalayout.ErrOverlappingPartition) {
+			t.Fatalf("ResolveArgs error = %v, want ErrOverlappingPartition", err)
+		}
+	})
+}
+
 func TestLaunch_BindPartitionArguments(t *testing.T) {
 	tShape := mustShape(t, 64, 64)
 	pShape := mustShape(t, 16, 16)
@@ -255,6 +275,32 @@ func TestLaunch_BindPartitionArguments(t *testing.T) {
 			t.Errorf("param 8 scalar = %v, want 42", gotScalar)
 		}
 	})
+
+	t.Run("column-major binding omits physical inner stride", func(t *testing.T) {
+		columnMajor := mustPartition(t, ptrA, mustShape(t, 16, 8), mustShape(t, 4, 4), 4,
+			cudalayout.WithPartitionStrides([]int{1, 16}))
+		want := []any{ptrA, 16, 4, 4}
+		if got := cudalaunch.BindPartitionArgs(columnMajor); !reflect.DeepEqual(got, want) {
+			t.Fatalf("BindPartitionArgs() = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("mutable bind helpers match immutable helpers", func(t *testing.T) {
+		if got, want := cudalaunch.BindPartitionMutArgs(partOut), cudalaunch.BindPartitionArgs(partOut.Partition); !reflect.DeepEqual(got, want) {
+			t.Fatalf("BindPartitionMutArgs() = %v, want %v", got, want)
+		}
+		got, err := cudalaunch.BindPartitionMutArgs32(partOut)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want, err := cudalaunch.BindPartitionArgs32(partOut.Partition)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("BindPartitionMutArgs32() = %v, want %v", got, want)
+		}
+	})
 }
 
 func TestLaunch_BindRank3PartitionAndRejectInt32Overflow(t *testing.T) {
@@ -275,12 +321,55 @@ func TestLaunch_BindRank3PartitionAndRejectInt32Overflow(t *testing.T) {
 		cudalayout.WithPartitionStrides([]int{1 << 32, 1}))); err == nil {
 		t.Fatal("expected int32 overflow error")
 	}
+	if _, err := cudalaunch.BindPartitionArgs32(mustPartition(t, 1, mustShape(t, 1<<31), mustShape(t, 1<<31), 4)); err == nil {
+		t.Fatal("expected int32 extent overflow error")
+	}
+}
+
+func TestLaunch_NewPartitionFromTileAndMutableBinders(t *testing.T) {
+	tile, err := cudalayout.NewTile(8, 8, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := cudalayout.NewPartitionFromTile(1, tile, 4, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := p.Strides(), []int{tile.StrideElements(), 1}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("Strides() = %v, want %v", got, want)
+	}
+	grid, err := p.Grid()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := (cudashape.Grid3D{X: 2, Y: 2, Z: 1}); !grid.Equal(want) {
+		t.Fatalf("Grid() = %v, want %v", grid, want)
+	}
+	mut, err := cudalayout.NewPartitionMut(1, p.TensorShape(), p.PartitionShape(), p.ElementBytes(),
+		cudalayout.WithPartitionStrides(p.Strides()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := cudalaunch.BindPartitionMutArgs(mut), cudalaunch.BindPartitionArgs(p); !reflect.DeepEqual(got, want) {
+		t.Fatalf("BindPartitionMutArgs() = %v, want %v", got, want)
+	}
+	got, err := cudalaunch.BindPartitionMutArgs32(mut)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := cudalaunch.BindPartitionArgs32(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("BindPartitionMutArgs32() = %v, want %v", got, want)
+	}
 }
 
 func TestLaunch_PhysicalHardwareExecution_PendingOrPass(t *testing.T) {
 	dev := cudatest.Require(t)
 	if dev == nil {
-		t.Fatal("RequireDevice returned nil without skipping")
+		t.Fatal("cudatest.Require returned nil without skipping")
 	}
 	defer dev.Close()
 

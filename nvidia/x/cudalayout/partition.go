@@ -211,9 +211,11 @@ func (m PartitionMut) AsReadOnly() Partition {
 }
 
 // ValidateDisjoint verifies that strides guarantee non-overlapping tile
-// offsets. Kernels must mask partial tiles. For a partial physical inner axis,
-// the next outer stride must contain the padded grid-by-tile envelope so that
-// masked lanes cannot wrap into an adjacent outer coordinate.
+// offsets. Kernels must mask each coordinate against its tensor extent before
+// accessing memory. For a partial physical inner axis, the next outer stride
+// must contain the padded grid-by-tile envelope. This is conservative with
+// per-coordinate masking: invalid inner coordinates do not access memory, but
+// their unmasked physical offsets could wrap into an adjacent outer coordinate.
 func (p Partition) ValidateDisjoint() error {
 	rank := p.tensorShape.Rank()
 	if rank < 1 || rank > 3 || rank != p.partitionShape.Rank() {
