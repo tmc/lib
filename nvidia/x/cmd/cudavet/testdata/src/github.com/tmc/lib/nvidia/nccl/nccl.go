@@ -11,25 +11,25 @@ type RedOp int32
 
 const Sum RedOp = 0
 
-type UniqueID [128]byte
+type UniqueId struct{ Internal [128]byte }
 
 type Comm uintptr
 
-func CommInitRank(nranks int32, id UniqueID, rank int32) (Comm, error) { return 0, nil }
-func (c Comm) Destroy() error                                          { return nil }
-func (c Comm) UserRank() (int32, error)                                { return 0, nil }
+func CommInitRank(nranks int32, commId UniqueId, rank int32) (Comm, error) { return 0, nil }
+func (c Comm) Destroy() error                                              { return nil }
+func (c Comm) UserRank() (int32, error)                                    { return 0, nil }
 
 func GroupStart() error { return nil }
 func GroupEnd() error   { return nil }
 
-func (c Comm) AllReduce(send, recv driver.DevicePtr, count uint, dt DataType, op RedOp, s driver.Stream) error {
+func (c Comm) AllReduce(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, op RedOp, stream driver.Stream) error {
 	return nil
 }
 
-func (c Comm) Send(send driver.DevicePtr, count uint, dt DataType, peer int32, s driver.Stream) error {
+func (c Comm) Send(sendbuff driver.DevicePtr, count uint, datatype DataType, peer int32, stream driver.Stream) error {
 	return nil
 }
 
-func (c Comm) Recv(recv driver.DevicePtr, count uint, dt DataType, peer int32, s driver.Stream) error {
+func (c Comm) Recv(recvbuff driver.DevicePtr, count uint, datatype DataType, peer int32, stream driver.Stream) error {
 	return nil
 }

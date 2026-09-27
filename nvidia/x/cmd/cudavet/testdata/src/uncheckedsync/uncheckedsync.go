@@ -1,10 +1,13 @@
 package uncheckedsync
 
 import (
+	"context"
+	"fmt"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/driver"
-	"github.com/tmc/lib/nvidia/x/cudaring"
+	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/cuptirange"
 )
 
 func dropped(s driver.Stream) {
@@ -45,9 +48,29 @@ func errorPath(s driver.Stream, d driver.DevicePtr, host []float32) error {
 	return s.Close()
 }
 
-// ring is not a binding handle, so its Close is not a release.
-func ring(r cudaring.Ring) {
-	r.Close()
+func wrapped(s *cuda.Stream) error {
+	s.Close() // want `the error of Close is discarded; it can report a failure of earlier asynchronous work`
+	return nil
+}
+
+// thenSync returns the result of more work, not an error it already had.
+func thenSync(e *cuda.Event, s *cuda.Stream) error {
+	e.Close() // want `the error of Close is discarded; it can report a failure of earlier asynchronous work`
+	return s.Synchronize(context.Background())
+}
+
+// failed returns an error it makes, so Close is on an error path.
+func failed(s *cuda.Stream, n int) error {
+	if n < 0 {
+		s.Close()
+		return fmt.Errorf("negative count %d", n)
+	}
+	return s.Close()
+}
+
+// catalog wraps no device handle, so its Close is not a release.
+func catalog(c *cuptirange.Catalog) {
+	c.Close()
 }
 
 // cleanup releases d when the test ends, the way defer d.Free() would.

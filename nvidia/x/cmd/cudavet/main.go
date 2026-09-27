@@ -29,7 +29,7 @@
 //	uncheckedsync      a discarded error of a Synchronize or release
 //	settererr          a discarded error of a setter, which keeps the old value
 //	devinfo            a cuSOLVER devInfo buffer never checked
-//	zeroversion        a GetVersion of 0 read as a version
+//	zeroversion        a version used after its error was discarded
 //	legacycupti        a CUPTI function that always fails since CUDA 13.0
 //
 //	modecount          cuTENSOR modes that disagree with the descriptor's extents

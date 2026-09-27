@@ -7,17 +7,12 @@ import (
 	"os"
 
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/x/cuda"
 )
-
-// device is shaped like cuda.Device, whose WithContext runs fn with the
-// device's context current.
-type device struct{}
-
-func (d *device) WithContext(fn func() error) error { return fn() }
 
 func work() error { return errors.New("failed") }
 
-func fatal(dev *device) {
+func fatal(dev *cuda.Device) {
 	defer dev.WithContext(driver.ProfilerStop)
 	if err := work(); err != nil {
 		log.Fatal(err) // want `log.Fatal skips the deferred driver.ProfilerStop and an attached profiler is never flushed; return instead, or call ProfilerStop first`
@@ -31,7 +26,7 @@ func literal() {
 	}
 }
 
-func stopFirst(dev *device) {
+func stopFirst(dev *cuda.Device) {
 	defer dev.WithContext(driver.ProfilerStop)
 	if err := work(); err != nil {
 		dev.WithContext(driver.ProfilerStop)
@@ -39,7 +34,7 @@ func stopFirst(dev *device) {
 	}
 }
 
-func exitBeforeDefer(dev *device, bad bool) {
+func exitBeforeDefer(dev *cuda.Device, bad bool) {
 	if bad {
 		os.Exit(2)
 	}
@@ -47,14 +42,14 @@ func exitBeforeDefer(dev *device, bad bool) {
 	work()
 }
 
-func panics(dev *device) {
+func panics(dev *cuda.Device) {
 	defer dev.WithContext(driver.ProfilerStop)
 	if err := work(); err != nil {
 		panic(err)
 	}
 }
 
-func run(dev *device) int {
+func run(dev *cuda.Device) int {
 	defer dev.WithContext(driver.ProfilerStop)
 	if err := work(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -64,11 +59,11 @@ func run(dev *device) int {
 }
 
 func exitsRun() {
-	os.Exit(run(new(device)))
+	os.Exit(run(new(cuda.Device)))
 }
 
 func main() {
-	dev := new(device)
+	dev := new(cuda.Device)
 	defer dev.WithContext(driver.ProfilerStop)
 	if err := work(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

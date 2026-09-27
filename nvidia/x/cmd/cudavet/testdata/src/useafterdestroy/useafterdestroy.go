@@ -1,11 +1,72 @@
 package useafterdestroy
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/x/cuda"
 )
+
+func wrapped(dev *cuda.Device) error {
+	s, err := dev.NewStream()
+	if err != nil {
+		return err
+	}
+	s.Close()
+	return s.Synchronize(context.Background()) // want `s is used after s.Close`
+}
+
+var errBusy = errors.New("busy")
+
+// closedRejects tests the wrapper's record of its release: a second Close,
+// a call expected to fail, and a stream that was never made.
+func closedRejects(dev *cuda.Device) {
+	s, err := dev.NewStream()
+	if err != nil {
+		panic(err)
+	}
+	if err := s.Close(); err != nil {
+		panic(err)
+	}
+	if err := s.Synchronize(context.Background()); err == nil {
+		panic("Synchronize succeeded after Close")
+	}
+	if err := s.Close(); err != nil {
+		panic(err)
+	}
+	busy, err := dev.NewStream()
+	if err != nil {
+		panic(err)
+	}
+	if err := busy.Close(); !errors.Is(err, errBusy) {
+		panic(err)
+	}
+	busy.Synchronize(context.Background())
+	var never *cuda.Stream
+	never.Close()
+	never.Synchronize(context.Background())
+}
+
+// doubleClose releases a driver handle twice, which the driver cannot detect.
+func doubleClose() error {
+	s, err := driver.NewStream(0)
+	if err != nil {
+		return err
+	}
+	s.Close()
+	return s.Close() // want `s is used after s.Close`
+}
+
+func wrappedClean(dev *cuda.Device) error {
+	s, err := dev.NewStream()
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+	return s.Synchronize(context.Background())
+}
 
 func streams() error {
 	s, err := driver.NewStream(0)

@@ -7,7 +7,7 @@ import (
 )
 
 func direct(d driver.DevicePtr) float32 {
-	p := (*float32)(unsafe.Pointer(d)) // want `unsafe.Pointer of a device address makes it a Go pointer; keep it a DevicePtr`
+	p := (*float32)(unsafe.Pointer(uintptr(d))) // want `unsafe.Pointer of a device address makes it a Go pointer; keep it a DevicePtr`
 	return *p
 }
 

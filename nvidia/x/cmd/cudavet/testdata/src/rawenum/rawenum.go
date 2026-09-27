@@ -23,7 +23,7 @@ func unnamed() cusolver.Operation {
 }
 
 // fft leaves cufft.Direction to fftdirection.
-func fft(p cufft.Plan, a driver.DevicePtr) error {
+func fft(p cufft.Handle, a driver.DevicePtr) error {
 	return p.ExecC2C(a, a, -1)
 }
 

@@ -17,8 +17,55 @@ var errCompareAnalyzer = &analysis.Analyzer{
 A binding that fails returns a *CallError wrapping the library's result code,
 so err == driver.ErrInvalidValue is never true. errcompare reports == and !=
 comparisons, and switch cases, of an error against a result constant of a
-package that declares CallError.`,
+package that declares CallError.
+
+A cuFile call that fails with -1 returns an *ErrnoError wrapping the errno,
+so err == syscall.ENOENT and err == fs.ErrNotExist are never true either. In
+a package that imports cufile, errcompare also reports comparisons of an error
+against a syscall.Errno or an io/fs sentinel.`,
 	Run: runErrCompare,
+}
+
+// isErrnoSentinel reports whether e is a syscall.Errno or one of the io/fs
+// sentinels an Errno matches through errors.Is, also spelled os.ErrNotExist
+// and the like.
+func isErrnoSentinel(info *types.Info, e ast.Expr) bool {
+	if t, ok := types.Unalias(info.TypeOf(e)).(*types.Named); ok && t.Obj().Pkg() != nil && t.Obj().Pkg().Path() == "syscall" && t.Obj().Name() == "Errno" {
+		return true
+	}
+	var id *ast.Ident
+	switch e := ast.Unparen(e).(type) {
+	case *ast.Ident:
+		id = e
+	case *ast.SelectorExpr:
+		id = e.Sel
+	default:
+		return false
+	}
+	v, ok := info.Uses[id].(*types.Var)
+	if !ok || v.Pkg() == nil {
+		return false
+	}
+	switch v.Pkg().Path() {
+	case "io/fs":
+		return strings.HasPrefix(v.Name(), "Err")
+	case "os":
+		switch v.Name() {
+		case "ErrInvalid", "ErrPermission", "ErrExist", "ErrNotExist", "ErrClosed":
+			return true
+		}
+	}
+	return false
+}
+
+// importsCufile reports whether pkg imports the cufile binding.
+func importsCufile(pkg *types.Package) bool {
+	for _, p := range pkg.Imports() {
+		if inPkg(p, "cufile") {
+			return true
+		}
+	}
+	return false
 }
 
 // isResultCode reports whether t is an error type of an nvidia package whose
@@ -40,6 +87,16 @@ func runErrCompare(pass *analysis.Pass) (any, error) {
 	report := func(e ast.Expr) {
 		pass.Reportf(e.Pos(), "a failed call returns a *CallError, which never equals %s; use errors.Is", types.ExprString(e))
 	}
+	cufile := importsCufile(pass.Pkg)
+	// check reports e, compared with an error, if it cannot equal one.
+	check := func(e ast.Expr) {
+		switch {
+		case isResultCode(info.TypeOf(e)):
+			report(e)
+		case cufile && isErrnoSentinel(info, e):
+			pass.Reportf(e.Pos(), "a failed cuFile call returns an *ErrnoError, which never equals %s; use errors.Is", types.ExprString(e))
+		}
+	}
 	for _, file := range srcFiles(pass) {
 		ast.Inspect(file, func(n ast.Node) bool {
 			switch n := n.(type) {
@@ -47,11 +104,11 @@ func runErrCompare(pass *analysis.Pass) (any, error) {
 				if n.Op != token.EQL && n.Op != token.NEQ {
 					return true
 				}
-				switch {
-				case isErrorIface(info.TypeOf(n.X)) && isResultCode(info.TypeOf(n.Y)):
-					report(n.Y)
-				case isErrorIface(info.TypeOf(n.Y)) && isResultCode(info.TypeOf(n.X)):
-					report(n.X)
+				if isErrorIface(info.TypeOf(n.X)) {
+					check(n.Y)
+				}
+				if isErrorIface(info.TypeOf(n.Y)) {
+					check(n.X)
 				}
 			case *ast.SwitchStmt:
 				if n.Tag == nil || !isErrorIface(info.TypeOf(n.Tag)) {
@@ -59,9 +116,7 @@ func runErrCompare(pass *analysis.Pass) (any, error) {
 				}
 				for _, s := range n.Body.List {
 					for _, e := range s.(*ast.CaseClause).List {
-						if isResultCode(info.TypeOf(e)) {
-							report(e)
-						}
+						check(e)
 					}
 				}
 			}
@@ -216,8 +271,15 @@ func onErrorPath(info *types.Info, stack []ast.Node) bool {
 				if len(ret.Results) == 0 {
 					return false
 				}
-				id, ok := ret.Results[len(ret.Results)-1].(*ast.Ident)
-				return !ok || id.Name != "nil"
+				switch last := ret.Results[len(ret.Results)-1].(type) {
+				case *ast.Ident:
+					return last.Name != "nil"
+				case *ast.CallExpr:
+					// return s.Synchronize() returns the result of
+					// more work, not an error already in hand.
+					return isPkgFunc(info, last, "errors", "New") || isPkgFunc(info, last, "fmt", "Errorf")
+				}
+				return true
 			}
 		}
 		// The block ran out. Carry on after an if statement around it;
@@ -298,81 +360,70 @@ func infoRead(info *types.Info, body *ast.BlockStmt, v *types.Var, after *ast.Ca
 
 var zeroVersionAnalyzer = &analysis.Analyzer{
 	Name: "zeroversion",
-	Doc: `check that a GetVersion with no error result is not trusted blindly
+	Doc: `check that a version is not used when its error is discarded
 
-A GetVersion that returns only a number returns 0 when the library is not
-loaded. zeroversion reports such a version compared or printed, where the 0
-reads as a version, before the function has compared it with 0. Bindings
-that return (version, error) are not reported.`,
+A GetVersion, ApiVersion or other version query returns (version, error), and
+the version is 0 or empty when the library is not loaded or the call fails.
+zeroversion reports a version query whose error is assigned to _ and whose
+version is then used, where the zero reads as a version.`,
 	Run: runZeroVersion,
 }
 
 func runZeroVersion(pass *analysis.Pass) (any, error) {
 	info := pass.TypesInfo
 	eachFunc(pass, func(body *ast.BlockStmt) {
-		versions := make(map[*types.Var]*types.Func)
-		checked := make(map[*types.Var]bool) // compared with 0 already
-		isVersion := func(e ast.Expr) *types.Func {
-			e = unconvert(info, e)
-			if call, ok := e.(*ast.CallExpr); ok {
-				if fn := callee(info, call); fn != nil && fn.Name() == "GetVersion" && inNvidia(fn.Pkg()) && fn.Type().(*types.Signature).Results().Len() == 1 {
-					return fn
-				}
-				return nil
+		inspectShallow(body, func(n ast.Node) bool {
+			assign, ok := n.(*ast.AssignStmt)
+			if !ok || len(assign.Lhs) != 2 || len(assign.Rhs) != 1 {
+				return true
 			}
-			if v := objOf(info, e); !checked[v] {
-				return versions[v]
+			call, ok := ast.Unparen(assign.Rhs[0]).(*ast.CallExpr)
+			if !ok {
+				return true
 			}
-			return nil
-		}
-		withStack(body, func(n ast.Node, stack []ast.Node) {
-			switch n := n.(type) {
-			case *ast.AssignStmt:
-				if len(n.Lhs) == len(n.Rhs) {
-					for i, r := range n.Rhs {
-						if fn := isVersion(r); fn != nil {
-							if v := objOf(info, n.Lhs[i]); v != nil {
-								versions[v] = fn
-							}
-						}
-					}
-				}
-			case *ast.BinaryExpr:
-				switch n.Op {
-				case token.EQL, token.NEQ, token.LSS, token.GTR, token.LEQ, token.GEQ:
-					for _, e := range []ast.Expr{n.X, n.Y} {
-						if fn := isVersion(e); fn != nil {
-							if z, ok := intConst(info, otherSide(n, e)); ok && z == 0 {
-								if v := objOf(info, e); v != nil {
-									checked[v] = true
-								}
-								continue // the not-loaded check itself
-							}
-							pass.Reportf(e.Pos(), "%s.GetVersion returns 0 when the library is not loaded; check for 0 before comparing it as a version", fn.Pkg().Name())
-						}
-					}
-				}
-			case *ast.CallExpr:
-				fn := callee(info, n)
-				if fn == nil || fn.Pkg() == nil || (fn.Pkg().Path() != "fmt" && fn.Pkg().Path() != "log") {
-					return
-				}
-				for _, a := range n.Args {
-					if v := isVersion(a); v != nil {
-						pass.Reportf(a.Pos(), "%s.GetVersion returns 0 when the library is not loaded; a printed 0 is not a version", v.Pkg().Name())
-					}
-				}
+			fn := callee(info, call)
+			if fn == nil || !inNvidia(fn.Pkg()) || !isVersionQuery(fn) {
+				return true
 			}
+			if blank, ok := assign.Lhs[1].(*ast.Ident); !ok || blank.Name != "_" {
+				return true
+			}
+			id, ok := assign.Lhs[0].(*ast.Ident)
+			if !ok {
+				return true
+			}
+			v := objOf(info, id)
+			if v == nil {
+				return true
+			}
+			var use *ast.Ident
+			ast.Inspect(body, func(n ast.Node) bool {
+				if x, ok := n.(*ast.Ident); ok && use == nil && x.Pos() > assign.End() && info.Uses[x] == v {
+					use = x
+				}
+				return use == nil
+			})
+			if use != nil {
+				pass.Reportf(assign.Lhs[1].Pos(), "the error of %s is discarded, but %s is used; when the call fails it is the zero value, not a version", fn.Name(), id.Name)
+			}
+			return true
 		})
 	})
 	return nil, nil
 }
 
-func otherSide(b *ast.BinaryExpr, e ast.Expr) ast.Expr {
-	if b.X == e {
-		return b.Y
+// isVersionQuery reports whether fn is named for a version and returns a
+// basic-typed version and an error.
+func isVersionQuery(fn *types.Func) bool {
+	if !strings.Contains(fn.Name(), "Version") {
+		return false
 	}
-	return b.X
+	res := fn.Type().(*types.Signature).Results()
+	if res.Len() != 2 || !isError(res.At(1).Type()) {
+		return false
+	}
+	_, ok := res.At(0).Type().Underlying().(*types.Basic)
+	return ok
 }
 
 // legacyFact records that a function always fails since CUDA 13.0, and what
@@ -404,7 +455,9 @@ func runLegacyCupti(pass *analysis.Pass) (any, error) {
 			if !ok || fd.Doc == nil {
 				continue
 			}
+			// Doc links such as [RangeProfilerEnable] read as plain names.
 			doc := strings.Join(strings.Fields(fd.Doc.Text()), " ")
+			doc = strings.NewReplacer("[", "", "]", "").Replace(doc)
 			if m := legacyDocRE.FindStringSubmatch(doc); m != nil {
 				if fn, ok := info.Defs[fd.Name].(*types.Func); ok {
 					pass.ExportObjectFact(fn, &legacyFact{Use: m[1]})

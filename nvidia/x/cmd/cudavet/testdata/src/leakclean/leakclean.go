@@ -2,7 +2,38 @@
 // produce no diagnostics.
 package leakclean
 
-import "github.com/tmc/lib/nvidia/driver"
+import (
+	"context"
+
+	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/cuptirange"
+)
+
+func wrapped(dev *cuda.Device) error {
+	s, err := dev.NewStream()
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+	return s.Synchronize(context.Background())
+}
+
+// borrowed is the device's own stream, which the device releases.
+func borrowed(dev *cuda.Device) error {
+	s := dev.DefaultStream()
+	return s.Synchronize(context.Background())
+}
+
+// catalog wraps no device handle, so its Close is not a release.
+func catalog(chip string, avail []byte) error {
+	c, err := cuptirange.NewCatalog(chip, avail)
+	if err != nil {
+		return err
+	}
+	_ = c
+	return nil
+}
 
 func work() error {
 	s, err := driver.NewStream(0)

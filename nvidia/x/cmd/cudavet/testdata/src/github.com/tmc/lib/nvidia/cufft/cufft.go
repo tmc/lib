@@ -14,9 +14,11 @@ type Type int32
 
 const C2C Type = 0x29
 
-type Plan uintptr
+type Handle int32
 
-func Plan1d(nx int32, typ Type, batch int32) (Plan, error) { return 0, nil }
-func (p Plan) Destroy() error                              { return nil }
+func Plan1d(nx int32, type_ Type, batch int32) (Handle, error) { return 0, nil }
+func (h Handle) Destroy() error                                { return nil }
 
-func (p Plan) ExecC2C(idata, odata driver.DevicePtr, direction Direction) error { return nil }
+func (h Handle) ExecC2C(idata driver.DevicePtr, odata driver.DevicePtr, direction Direction) error {
+	return nil
+}

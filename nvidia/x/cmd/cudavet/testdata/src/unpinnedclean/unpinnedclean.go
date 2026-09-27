@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudamem"
 )
 
@@ -36,6 +37,6 @@ func fromHostAlloc(d driver.DevicePtr, staging unsafe.Pointer, s driver.Stream) 
 
 // wrapped hands the slice to cudamem, which pins it until the stream
 // completes.
-func wrapped(buf cudamem.Slice[uint32], host []uint32, s driver.Stream) error {
+func wrapped(buf cudamem.Slice[uint32], host []uint32, s *cuda.Stream) error {
 	return buf.CopyFromHostAsync(host, s)
 }

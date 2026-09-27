@@ -58,6 +58,7 @@ func TestCleanPackageProducesNoDiagnostics(t *testing.T) {
 	analysistest.Run(t, analysistest.TestData(), cargalignAnalyzer, "cargalignclean")
 	analysistest.Run(t, analysistest.TestData(), unpinnedAnalyzer, "unpinnedclean")
 	analysistest.Run(t, analysistest.TestData(), leakAnalyzer, "leakclean")
+	analysistest.Run(t, analysistest.TestData(), errCompareAnalyzer, "errcompareclean")
 }
 
 // TestUnsupportedLayoutsReported checks the -unsupported flag names layouts

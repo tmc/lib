@@ -21,11 +21,13 @@ stored in a struct or passed on has an owner elsewhere and is left alone.
 
 The pairs are not listed by hand. A handle type is any type of an nvidia
 package with a destructor method, one that takes nothing and returns only an
-error and is named Destroy, Free or Unload, or begins with Destroy, or, in a
-generated binding, is named Close. That is the method set the generator
-emits, so a new binding is covered when it is generated. A constructor is a function or method returning such a type whose
-name says it makes one: New, Create, MemAlloc, ModuleLoad, Plan, Clone,
-Instantiate or CommInit.`,
+error and is named Destroy, Free or Unload, or begins with Destroy, or is
+named Close in a generated binding or on an x/ type that wraps a binding
+handle, as x/cuda's Stream does with Raw() driver.Stream. That is the method
+set the generator emits, so a new binding is covered when it is generated. A
+constructor is a function or method returning such a type, or a pointer to
+one, whose name says it makes one: New, Create, MemAlloc, ModuleLoad, Plan,
+Clone, Instantiate or CommInit.`,
 	Run: runLeak,
 }
 
@@ -85,6 +87,9 @@ func createsHandle(pass *analysis.Pass, call *ast.CallExpr) string {
 // destructor returns the name of the method that releases a handle of type
 // t, or "" if t is not a handle type of an nvidia package.
 func destructor(t types.Type) string {
+	if p, ok := types.Unalias(t).(*types.Pointer); ok {
+		t = p.Elem()
+	}
 	named, ok := types.Unalias(t).(*types.Named)
 	if !ok || !inNvidia(named.Obj().Pkg()) {
 		return ""
@@ -96,9 +101,9 @@ func destructor(t types.Type) string {
 		if !m.Exported() || !isDestructorName(m.Name()) {
 			continue
 		}
-		// Close releases a handle only in a generated binding; under x/
-		// it is an ordinary io.Closer, often of nothing on the device.
-		if m.Name() == "Close" && !isBinding(named.Obj().Pkg()) {
+		// Under x/, Close is often an ordinary io.Closer of nothing on the
+		// device. It releases a handle when the type wraps one.
+		if m.Name() == "Close" && !isBinding(named.Obj().Pkg()) && !wrapsHandle(named) {
 			continue
 		}
 		sig := m.Type().(*types.Signature)
@@ -110,6 +115,27 @@ func destructor(t types.Type) string {
 		}
 	}
 	return best
+}
+
+// wrapsHandle reports whether named exposes a handle of a generated binding
+// through an accessor, as the x/cuda Stream does with Raw() driver.Stream.
+// A handle is a named type of a binding whose underlying type is basic.
+func wrapsHandle(named *types.Named) bool {
+	for i := range named.NumMethods() {
+		m := named.Method(i)
+		sig := m.Type().(*types.Signature)
+		if !m.Exported() || sig.Params().Len() != 0 || sig.Results().Len() != 1 {
+			continue
+		}
+		r, ok := types.Unalias(sig.Results().At(0).Type()).(*types.Named)
+		if !ok || !isBinding(r.Obj().Pkg()) {
+			continue
+		}
+		if _, ok := r.Underlying().(*types.Basic); ok {
+			return true
+		}
+	}
+	return false
 }
 
 func isDestructorName(name string) bool {

@@ -323,7 +323,9 @@ func runUseAfterDestroy(pass *analysis.Pass) (any, error) {
 					return use == nil
 				})
 				if use != nil {
-					pass.Reportf(use.Pos(), "%s is used after %s.%s", v.Name(), v.Name(), name)
+					if !deliberateUse(info, list[:i], next, v, use) {
+						pass.Reportf(use.Pos(), "%s is used after %s.%s", v.Name(), v.Name(), name)
+					}
 					break
 				}
 				if _, ok := next.(*ast.ReturnStmt); ok {
@@ -431,34 +433,124 @@ func isConst(info *types.Info, e ast.Expr) bool {
 
 // releaseFailed reports whether the code after s, an if statement whose init
 // releases a handle into err, runs only when the release failed: the body
-// always leaves, and the condition is err == nil or !errors.Is(err, target).
+// always leaves, and the condition expects the release to fail.
 func releaseFailed(info *types.Info, s *ast.IfStmt) bool {
-	init, ok := s.Init.(*ast.AssignStmt)
-	if !ok || len(init.Lhs) != 1 || len(s.Body.List) == 0 {
-		return false
-	}
-	errVar := objOf(info, init.Lhs[0])
-	if errVar == nil {
+	if len(s.Body.List) == 0 || !expectsFailure(info, s) {
 		return false
 	}
 	switch last := s.Body.List[len(s.Body.List)-1].(type) {
 	case *ast.ReturnStmt:
+		return true
 	case *ast.ExprStmt:
-		if c, ok := last.X.(*ast.CallExpr); !ok || !noReturn(info, c) {
-			return false
-		}
-	default:
-		return false
-	}
-	switch c := ast.Unparen(s.Cond).(type) {
-	case *ast.BinaryExpr: // err == nil
-		return c.Op == token.EQL && (objOf(info, c.X) == errVar && isNil(info, c.Y) || objOf(info, c.Y) == errVar && isNil(info, c.X))
-	case *ast.UnaryExpr: // !errors.Is(err, target)
-		call, ok := ast.Unparen(c.X).(*ast.CallExpr)
-		return c.Op == token.NOT && ok && isPkgFunc(info, call, "errors", "Is") &&
-			len(call.Args) == 2 && objOf(info, call.Args[0]) == errVar && !isNil(info, call.Args[1])
+		c, ok := last.X.(*ast.CallExpr)
+		return ok && noReturn(info, c)
 	}
 	return false
+}
+
+// expectsFailure reports whether the init of s assigns an error and one
+// alternative of its condition holds when that error is not the expected
+// failure: err == nil, err != target or !errors.Is(err, target), with target
+// not nil.
+func expectsFailure(info *types.Info, s *ast.IfStmt) bool {
+	init, ok := s.Init.(*ast.AssignStmt)
+	if !ok || len(init.Lhs) == 0 {
+		return false
+	}
+	err := objOf(info, init.Lhs[len(init.Lhs)-1])
+	if err == nil || !isError(err.Type()) {
+		return false
+	}
+	var alts []ast.Expr
+	var split func(e ast.Expr)
+	split = func(e ast.Expr) {
+		if b, ok := ast.Unparen(e).(*ast.BinaryExpr); ok && b.Op == token.LOR {
+			split(b.X)
+			split(b.Y)
+			return
+		}
+		alts = append(alts, ast.Unparen(e))
+	}
+	split(s.Cond)
+	for _, e := range alts {
+		switch e := e.(type) {
+		case *ast.BinaryExpr:
+			other := e.Y
+			if objOf(info, e.Y) == err {
+				other = e.X
+			} else if objOf(info, e.X) != err {
+				continue
+			}
+			if e.Op == token.EQL && isNil(info, other) || e.Op == token.NEQ && !isNil(info, other) {
+				return true
+			}
+		case *ast.UnaryExpr:
+			c, ok := ast.Unparen(e.X).(*ast.CallExpr)
+			if e.Op == token.NOT && ok && isPkgFunc(info, c, "errors", "Is") &&
+				len(c.Args) == 2 && objOf(info, c.Args[0]) == err && !isNil(info, c.Args[1]) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// deliberateUse reports whether use, in stmt, of a released handle v is a
+// test of the release rather than a mistake. It applies only to a handle held
+// by pointer, a Go value that records its release and rejects later calls: a
+// second release, a call whose error an if expects to be a failure, or a
+// handle never set at all, declared nil in before.
+func deliberateUse(info *types.Info, before []ast.Stmt, stmt ast.Stmt, v *types.Var, use *ast.Ident) bool {
+	if _, ok := v.Type().Underlying().(*types.Pointer); !ok {
+		return false
+	}
+	if declaredNil(info, before, v) {
+		return true
+	}
+	found := false
+	ast.Inspect(stmt, func(n ast.Node) bool {
+		s, ok := n.(ast.Stmt)
+		if !ok || found || use.Pos() < s.Pos() || use.Pos() >= s.End() {
+			return !found
+		}
+		if w, _ := releaseStmt(info, s); w == v {
+			found = true
+		}
+		if is, ok := s.(*ast.IfStmt); ok && is.Init != nil && use.Pos() < is.Init.End() && expectsFailure(info, is) {
+			found = true
+		}
+		return !found
+	})
+	return found
+}
+
+// declaredNil reports whether stmts declare v with no value and never assign
+// it.
+func declaredNil(info *types.Info, stmts []ast.Stmt, v *types.Var) bool {
+	declared := false
+	for _, s := range stmts {
+		if assigns(info, s, v) {
+			return false
+		}
+		d, ok := s.(*ast.DeclStmt)
+		if !ok {
+			continue
+		}
+		g, ok := d.Decl.(*ast.GenDecl)
+		if !ok {
+			continue
+		}
+		for _, spec := range g.Specs {
+			if vs, ok := spec.(*ast.ValueSpec); ok && len(vs.Values) == 0 {
+				for _, name := range vs.Names {
+					if info.Defs[name] == v {
+						declared = true
+					}
+				}
+			}
+		}
+	}
+	return declared
 }
 
 // assigns reports whether stmt assigns v a new value.

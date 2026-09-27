@@ -5,15 +5,15 @@ import (
 	"github.com/tmc/lib/nvidia/driver"
 )
 
-func forward(p cufft.Plan, a, b driver.DevicePtr) error {
+func forward(p cufft.Handle, a, b driver.DevicePtr) error {
 	return p.ExecC2C(a, b, -1) // want `direction -1 written as a number; use cufft.Forward`
 }
 
-func inverse(p cufft.Plan, a, b driver.DevicePtr) error {
+func inverse(p cufft.Handle, a, b driver.DevicePtr) error {
 	return p.ExecC2C(a, b, cufft.Direction(1)) // want `direction 1 written as a number; use cufft.Inverse`
 }
 
-func named(p cufft.Plan, a, b driver.DevicePtr) error {
+func named(p cufft.Handle, a, b driver.DevicePtr) error {
 	if err := p.ExecC2C(a, b, cufft.Forward); err != nil {
 		return err
 	}

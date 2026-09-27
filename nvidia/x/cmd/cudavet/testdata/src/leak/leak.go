@@ -3,6 +3,7 @@ package leak
 import (
 	"github.com/tmc/lib/nvidia/cusolver"
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/x/cuda"
 )
 
 func work() error {
@@ -11,6 +12,20 @@ func work() error {
 		return err
 	}
 	e, err := driver.NewEvent(0) // want `e is created and never released; defer e.Close\(\)`
+	if err != nil {
+		return err
+	}
+	_ = s
+	_ = e
+	return nil
+}
+
+func wrapped(dev *cuda.Device) error {
+	s, err := dev.NewStream() // want `s is created and never released; defer s.Close\(\)`
+	if err != nil {
+		return err
+	}
+	e, err := dev.NewEvent() // want `e is created and never released; defer e.Close\(\)`
 	if err != nil {
 		return err
 	}

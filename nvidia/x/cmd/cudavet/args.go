@@ -499,79 +499,136 @@ func indexed(info *types.Info, body *ast.BlockStmt, s *types.Var, pos token.Pos)
 
 var scalarTypeAnalyzer = &analysis.Analyzer{
 	Name: "scalartype",
-	Doc: `check that host scaling factors have the operation's compute type
+	Doc: `check that host scaling factors have the kind the operation reads
 
-cuTENSOR and cuBLAS read alpha and beta through an untyped pointer, as values
-of the compute type. A float64 read as a float32 is silent garbage, not an
-error. scalartype follows a cuTENSOR plan back through CreatePlan and the
-operation descriptor to the compute descriptor, and a cuBLAS GemmEx to its
-compute type argument, and reports a scalar of a different type.`,
+A Scalar made by Float32Scalar, Float64Scalar and the like carries its kind,
+and the library reads alpha and beta as the type the operation computes in. A
+float64 read as a float32 is silent garbage, not an error. Where the type is
+in a descriptor the binding cannot check it, and where it is a parameter the
+binding checks only at run time. scalartype follows a cuTENSOR plan back
+through CreatePlan and the operation descriptor to the compute descriptor, a
+cuBLASLt Matmul to the scale type of its MatmulDesc, and reads the computeType
+argument of cuBLAS and cuSPARSE calls, and reports a Scalar made with a
+constructor of another kind.`,
 	Run: runScalarType,
 }
 
-// computeScalar gives the Go type of the host scalars for each compute
-// descriptor or compute type. Reduced-precision compute types take float
-// scalars.
-var computeScalar = map[string]string{
-	"ComputeDesc16F": "float32", "ComputeDesc16BF": "float32", "ComputeDescTF32": "float32",
-	"ComputeDesc3XTF32": "float32", "ComputeDesc32F": "float32", "ComputeDesc64F": "float64",
-	"Compute16F": "float32", "Compute32F": "float32", "Compute32FFastTF32": "float32",
-	"Compute32FFast16F": "float32", "Compute32FFast16BF": "float32", "Compute32FPedantic": "float32",
-	"Compute64F": "float64", "Compute64FPedantic": "float64",
+// Kinds of host Scalar, named by the Go type the constructor takes.
+var (
+	real32  = []string{"float32", "complex64"}
+	real64  = []string{"float64", "complex128"}
+	half    = []string{"float16"}
+	integer = []string{"int32"}
+)
+
+// cutensorScalar gives the Scalar kinds each cuTENSOR compute descriptor
+// reads. Reduced-precision descriptors take float scalars.
+var cutensorScalar = map[string][]string{
+	"ComputeDesc16F": real32, "ComputeDesc16BF": real32, "ComputeDescTF32": real32,
+	"ComputeDesc3XTF32": real32, "ComputeDesc32F": real32, "ComputeDesc64F": real64,
+}
+
+// cublasScalar gives the Scalar kinds each cuBLAS compute type reads, as the
+// table of cublasGemmEx lists them.
+var cublasScalar = map[string][]string{
+	"Compute16F": half, "Compute16FPedantic": half,
+	"Compute32F": real32, "Compute32FPedantic": real32, "Compute32FFast16F": real32,
+	"Compute32FFast16BF": real32, "Compute32FFastTF32": real32, "Compute32FEmulated16bfx9": real32,
+	"Compute64F": real64, "Compute64FPedantic": real64, "Compute64FEmulatedFixedpoint": real64,
+	"Compute32I": integer, "Compute32IPedantic": integer,
+}
+
+// dataTypeScalar gives the Scalar kind of a cudaDataType used as a compute
+// or scale type.
+var dataTypeScalar = map[string][]string{
+	"R16F": half, "R32F": {"float32"}, "R64F": {"float64"},
+	"C32F": {"complex64"}, "C64F": {"complex128"}, "R32I": integer,
+}
+
+// scalarKinds gives the kind of the Scalar each constructor makes.
+var scalarKinds = map[string]string{
+	"Float16BitsScalar": "float16",
+	"Float32Scalar":     "float32",
+	"Float64Scalar":     "float64",
+	"Complex64Scalar":   "complex64",
+	"Complex128Scalar":  "complex128",
+	"Int32Scalar":       "int32",
 }
 
 func runScalarType(pass *analysis.Pass) (any, error) {
 	info := pass.TypesInfo
 	eachFunc(pass, func(body *ast.BlockStmt) {
-		// source returns the call whose first result was assigned to e.
+		// source returns the call whose first result is assigned to e, when
+		// that is the only assignment to it.
 		source := func(e ast.Expr) *ast.CallExpr {
 			v := objOf(info, e)
+			if v == nil {
+				return nil
+			}
+			var c *ast.CallExpr
+			n := 0
 			for _, stmt := range assignStmts(body) {
-				if len(stmt.Rhs) == 1 && objOf(info, stmt.Lhs[0]) == v {
-					c, _ := stmt.Rhs[0].(*ast.CallExpr)
-					return c
+				for i, l := range stmt.Lhs {
+					if objOf(info, l) != v {
+						continue
+					}
+					n++
+					switch {
+					case len(stmt.Rhs) == len(stmt.Lhs):
+						c, _ = stmt.Rhs[i].(*ast.CallExpr)
+					case i == 0 && len(stmt.Rhs) == 1:
+						c, _ = stmt.Rhs[0].(*ast.CallExpr)
+					}
 				}
 			}
-			return nil
+			if n != 1 {
+				return nil
+			}
+			return c
 		}
 		for _, call := range calls(body) {
 			fn := callee(info, call)
-			if fn == nil {
+			if fn == nil || !inNvidia(fn.Pkg()) || len(call.Args) == 0 {
 				continue
 			}
 			var compute string
-			var scalars []ast.Expr
-			switch {
-			case inPkg(fn.Pkg(), "cutensor") && (fn.Name() == "Contract" || fn.Name() == "ContractTrinary" || strings.HasPrefix(fn.Name(), "Elementwise") || fn.Name() == "Reduce" || fn.Name() == "Permute"):
+			var want []string
+			switch pkg := fn.Pkg().Name(); {
+			case pkg == "cutensor" && (fn.Name() == "Contract" || fn.Name() == "ContractTrinary" || strings.HasPrefix(fn.Name(), "Elementwise") || fn.Name() == "Reduce" || fn.Name() == "Permute"):
 				compute = cutensorCompute(info, source, call.Args[0])
-				scalars = unsafePointerArgs(fn, call)
-			case inPkg(fn.Pkg(), "cublas") && strings.HasSuffix(fn.Name(), "Ex"):
+				want = cutensorScalar[compute]
+			case pkg == "cublaslt" && fn.Name() == "Matmul":
+				// NewMatmulDesc(computeType, scaleType)
+				if c := source(call.Args[0]); c != nil && calleeIn(info, c, "cublaslt") == "NewMatmulDesc" && len(c.Args) == 2 {
+					compute = constName(info, c.Args[1])
+					want = dataTypeScalar[compute]
+				}
+			case pkg == "cublas" || pkg == "cusparse":
 				sig := fn.Type().(*types.Signature)
-				for i := range sig.Params().Len() {
+				for i := range min(sig.Params().Len(), len(call.Args)) {
 					p := sig.Params().At(i)
-					if p.Name() == "computeType" && i < len(call.Args) {
-						if sel, ok := ast.Unparen(call.Args[i]).(*ast.SelectorExpr); ok {
-							compute = sel.Sel.Name
-						}
+					if p.Name() != "computeType" {
+						continue
 					}
-					if (p.Name() == "alpha" || p.Name() == "beta") && i < len(call.Args) {
-						scalars = append(scalars, call.Args[i])
+					compute = constName(info, call.Args[i])
+					if isNamed(p.Type(), pkg, "ComputeType") {
+						want = cublasScalar[compute]
+					} else {
+						want = dataTypeScalar[compute]
 					}
 				}
-			default:
+			}
+			if want == nil {
 				continue
 			}
-			want := computeScalar[compute]
-			if want == "" {
-				continue
-			}
-			for _, s := range scalars {
-				x := addressed(info, s)
-				if x == nil {
+			sig := fn.Type().(*types.Signature)
+			for i := range min(sig.Params().Len(), len(call.Args)) {
+				if !isNamed(sig.Params().At(i).Type(), fn.Pkg().Name(), "Scalar") {
 					continue
 				}
-				if got := types.TypeString(info.TypeOf(x), nil); got != want && isFloat(info.TypeOf(x)) {
-					pass.Reportf(s.Pos(), "%s is %s, but the operation computes in %s and reads it as %s", types.ExprString(x), got, compute, want)
+				arg := call.Args[i]
+				if kind := scalarKind(info, fn.Pkg(), arg, source); kind != "" && !slices.Contains(want, kind) {
+					pass.Reportf(arg.Pos(), "%s is a %s Scalar, but %s takes %s", render(pass.Fset, arg), kind, compute, strings.Join(want, " or "))
 				}
 			}
 		}
@@ -608,31 +665,39 @@ func cutensorCompute(info *types.Info, source func(ast.Expr) *ast.CallExpr, plan
 	return calleeIn(info, desc, "cutensor")
 }
 
-// unsafePointerArgs returns the arguments passed to unsafe.Pointer
-// parameters: the scaling factors of a cuTENSOR operation.
-func unsafePointerArgs(fn *types.Func, call *ast.CallExpr) []ast.Expr {
-	var out []ast.Expr
-	sig := fn.Type().(*types.Signature)
-	for i := range sig.Params().Len() {
-		if b, ok := sig.Params().At(i).Type().(*types.Basic); ok && b.Kind() == types.UnsafePointer && i < len(call.Args) {
-			out = append(out, call.Args[i])
-		}
+// scalarKind returns the kind of a host Scalar of package pkg made by a
+// constructor, directly or through a variable assigned once, or "" if the
+// kind is not known.
+func scalarKind(info *types.Info, pkg *types.Package, e ast.Expr, source func(ast.Expr) *ast.CallExpr) string {
+	c, ok := ast.Unparen(e).(*ast.CallExpr)
+	if !ok {
+		c = source(e)
 	}
-	return out
+	if c == nil {
+		return ""
+	}
+	fn := callee(info, c)
+	if fn == nil || fn.Pkg() != pkg {
+		return ""
+	}
+	return scalarKinds[fn.Name()]
 }
 
-// addressed returns x for an argument &x, possibly converted.
-func addressed(info *types.Info, e ast.Expr) ast.Expr {
-	u, ok := unconvert(info, e).(*ast.UnaryExpr)
-	if !ok || u.Op != token.AND {
-		return nil
+// constName returns the name of the constant e refers to, or "".
+func constName(info *types.Info, e ast.Expr) string {
+	var id *ast.Ident
+	switch e := ast.Unparen(e).(type) {
+	case *ast.Ident:
+		id = e
+	case *ast.SelectorExpr:
+		id = e.Sel
+	default:
+		return ""
 	}
-	return u.X
-}
-
-func isFloat(t types.Type) bool {
-	b, ok := t.Underlying().(*types.Basic)
-	return ok && b.Info()&types.IsFloat != 0
+	if c, ok := info.Uses[id].(*types.Const); ok {
+		return c.Name()
+	}
+	return ""
 }
 
 var rawEnumAnalyzer = &analysis.Analyzer{

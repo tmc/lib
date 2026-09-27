@@ -30,13 +30,13 @@ func tested(opts []driver.JITOption, vals []uintptr) (driver.LinkState, error) {
 	return driver.LinkCreate(uint32(len(opts)), &opts[0], &vals[0])
 }
 
-// countAfter passes len(ids) after &ids[0]; it counts ids, not values.
-func countAfter(ids []int32) error {
-	if len(ids) == 0 {
+// countAfter passes len(deps) after &deps[0]; it counts deps, not params.
+func countAfter(g driver.Graph, deps []driver.GraphNode, params []driver.KernelNodeParams) error {
+	if len(deps) == 0 || len(params) == 0 {
 		return nil
 	}
-	values := make([]float64, len(ids))
-	return driver.Batch(&ids[0], uint32(len(ids)), &values[0])
+	_, err := g.AddKernelNode(&deps[0], uint(len(deps)), &params[0])
+	return err
 }
 
 // made sizes opts by vals.
@@ -100,58 +100,63 @@ func paired() (driver.LinkState, error) {
 	return 0, nil
 }
 
-func widen(ids []int32) []int32 {
-	out := make([]int32, len(ids))
-	copy(out, ids)
+func widen(deps []driver.GraphNode) []driver.GraphNode {
+	out := make([]driver.GraphNode, len(deps))
+	copy(out, deps)
 	return out
 }
 
-// helperMade makes ids by a helper that keeps the length of what it is
+// helperMade makes deps by a helper that keeps the length of what it is
 // given, which was tested.
-func helperMade(in []int32) error {
+func helperMade(g driver.Graph, in []driver.GraphNode) error {
 	if len(in) == 0 {
-		return errors.New("no ids")
+		return errors.New("no dependencies")
 	}
-	ids := widen(in)
-	values := make([]float64, len(in))
-	return driver.Batch(&ids[0], uint32(len(ids)), &values[0])
+	deps := widen(in)
+	params := make([]driver.KernelNodeParams, len(in))
+	_, err := g.AddKernelNode(&deps[0], uint(len(deps)), &params[0])
+	return err
 }
 
-func helperUntested(in []int32) error {
-	ids := widen(in)
-	values := make([]float64, len(in))
-	return driver.Batch(&ids[0], uint32(len(ids)), &values[0]) // want `&ids\[0\] panics if ids is empty; test len\(ids\) first` `&values\[0\] panics if values is empty; test len\(values\) first`
+func helperUntested(g driver.Graph, in []driver.GraphNode) error {
+	deps := widen(in)
+	params := make([]driver.KernelNodeParams, len(in))
+	_, err := g.AddKernelNode(&deps[0], uint(len(deps)), &params[0]) // want `&deps\[0\] panics if deps is empty; test len\(deps\) first` `&params\[0\] panics if params is empty; test len\(params\) first`
+	return err
 }
 
-// product makes values with the product of two tested lengths.
-func product(ids []int32, rows []uintptr) error {
-	if len(ids) == 0 || len(rows) == 0 {
+// product makes params with the product of two tested lengths.
+func product(g driver.Graph, deps []driver.GraphNode, rows []uintptr) error {
+	if len(deps) == 0 || len(rows) == 0 {
 		return errors.New("empty")
 	}
-	values := make([]float64, len(ids)*len(rows))
-	return driver.Batch(&ids[0], uint32(len(ids)), &values[0])
+	params := make([]driver.KernelNodeParams, len(deps)*len(rows))
+	_, err := g.AddKernelNode(&deps[0], uint(len(deps)), &params[0])
+	return err
 }
 
-func productUntested(ids []int32, rows []uintptr) error {
-	if len(ids) == 0 {
+func productUntested(g driver.Graph, deps []driver.GraphNode, rows []uintptr) error {
+	if len(deps) == 0 {
 		return errors.New("empty")
 	}
-	values := make([]float64, len(ids)*len(rows))
-	return driver.Batch(&ids[0], uint32(len(ids)), &values[0]) // want `&values\[0\] panics if values is empty; test len\(values\) first`
+	params := make([]driver.KernelNodeParams, len(deps)*len(rows))
+	_, err := g.AddKernelNode(&deps[0], uint(len(deps)), &params[0]) // want `&params\[0\] panics if params is empty; test len\(params\) first`
+	return err
 }
 
-func check(ids []int32, want int) error {
-	if len(ids) != want {
+func check(deps []driver.GraphNode, want int) error {
+	if len(deps) != want {
 		return errors.New("wrong count")
 	}
 	return nil
 }
 
-// validated tests the length of ids in a helper before using it.
-func validated(ids []int32, want int) error {
-	if err := check(ids, want); err != nil {
+// validated tests the length of deps in a helper before using it.
+func validated(g driver.Graph, deps []driver.GraphNode, want int) error {
+	if err := check(deps, want); err != nil {
 		return err
 	}
-	values := make([]float64, len(ids))
-	return driver.Batch(&ids[0], uint32(len(ids)), &values[0])
+	params := make([]driver.KernelNodeParams, len(deps))
+	_, err := g.AddKernelNode(&deps[0], uint(len(deps)), &params[0])
+	return err
 }

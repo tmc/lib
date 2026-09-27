@@ -1,11 +1,14 @@
 package legacycupti
 
-import "github.com/tmc/lib/nvidia/cupti"
+import (
+	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
+)
 
-func legacy() error {
-	return cupti.EventGroupCreate() // want `EventGroupCreate always returns ErrLegacyProfilerNotSupported since CUDA 13.0; use the range profiler API, starting with RangeProfilerEnable`
+func legacy(ctx driver.Context) (cupti.EventGroup, error) {
+	return cupti.NewEventGroup(ctx, 0) // want `NewEventGroup always returns ErrLegacyProfilerNotSupported since CUDA 13.0; use the range profiler API, starting with RangeProfilerEnable`
 }
 
-func current() error {
-	return cupti.RangeProfilerEnable()
+func current(p *cupti.RangeProfilerEnableParams) error {
+	return cupti.RangeProfilerEnable(p)
 }

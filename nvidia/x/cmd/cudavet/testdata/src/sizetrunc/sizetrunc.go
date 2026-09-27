@@ -9,7 +9,7 @@ import (
 )
 
 func unchecked(h cutensor.Handle, op cutensor.OperationDescriptor, pref cutensor.PlanPreference) (driver.DevicePtr, error) {
-	ws, err := h.EstimateWorkspaceSize(op, pref)
+	ws, err := h.EstimateWorkspaceSize(op, pref, cutensor.WorkspaceDefault)
 	if err != nil {
 		return 0, err
 	}
@@ -17,7 +17,7 @@ func unchecked(h cutensor.Handle, op cutensor.OperationDescriptor, pref cutensor
 }
 
 func checked(h cutensor.Handle, op cutensor.OperationDescriptor, pref cutensor.PlanPreference) (driver.DevicePtr, error) {
-	ws, err := h.EstimateWorkspaceSize(op, pref)
+	ws, err := h.EstimateWorkspaceSize(op, pref, cutensor.WorkspaceDefault)
 	if err != nil {
 		return 0, err
 	}
@@ -28,7 +28,7 @@ func checked(h cutensor.Handle, op cutensor.OperationDescriptor, pref cutensor.P
 }
 
 func wide(h cutensor.Handle, op cutensor.OperationDescriptor, pref cutensor.PlanPreference) (driver.DevicePtr, error) {
-	ws, err := h.EstimateWorkspaceSize(op, pref)
+	ws, err := h.EstimateWorkspaceSize(op, pref, cutensor.WorkspaceDefault)
 	if err != nil {
 		return 0, err
 	}
