@@ -1,0 +1,19 @@
+{
+  "provenance": "synthetic: hand-written host record per Slice 5",
+  "expected_verdict": "OutputChanged",
+  "record": {
+    "exit_code": 0,
+    "exited": true,
+    "timed_out": false,
+    "stdout": "ordering: warp 1 finished first\n",
+    "stderr": "",
+    "compare_output": true,
+    "baseline": {
+      "exit_code": 0,
+      "exited": true,
+      "timed_out": false,
+      "stdout": "ordering: warp 0 finished first\n",
+      "stderr": ""
+    }
+  }
+}

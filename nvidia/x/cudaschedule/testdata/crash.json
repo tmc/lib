@@ -1,0 +1,12 @@
+{
+  "provenance": "synthetic: hand-written host record per Slice 5",
+  "expected_verdict": "Crash",
+  "record": {
+    "exit_code": 139,
+    "exited": true,
+    "timed_out": false,
+    "signal": "SIGSEGV",
+    "stdout": "",
+    "stderr": "CUDA illegal memory access detected\n"
+  }
+}

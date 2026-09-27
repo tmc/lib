@@ -75,6 +75,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudasample](cudasample/) | Package cudasample provides a CUDA greedy-argmax kernel and its CPU reference. |
 | [cudasanitizer](cudasanitizer/) | Package cudasanitizer runs a program under the NVIDIA compute-sanitizer command-line tool and classifies what happened. |
 | [cudasass](cudasass/) | Package cudasass parses and inspects NVIDIA Streaming Multiprocessor (SASS) machine assembly. |
+| [cudaschedule](cudaschedule/) | Package cudaschedule implements deterministic schedule-perturbation campaigns for PTX assembly. |
 | [cudasearch](cudasearch/) | Package cudasearch provides workload-bound search strategies (Beam and MCTS) over e-graph program rewrite transitions for CUDA execution plans. |
 | [cudashape](cudashape/) | Package cudashape provides checked multi-dimensional tensor shapes, overflow-checked byte size calculation, stride and layout analysis, and bounded symbolic dimension binding with equality and divisibility constraints. |
 | [cudashared](cudashared/) | Package cudashared plans checked per-block shared-memory storage. |

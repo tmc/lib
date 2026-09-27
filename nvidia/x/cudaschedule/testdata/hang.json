@@ -1,0 +1,18 @@
+{
+  "provenance": "synthetic: hand-written host record per Slice 5",
+  "expected_verdict": "Hang",
+  "record": {
+    "exit_code": 0,
+    "exited": false,
+    "timed_out": true,
+    "stdout": "",
+    "stderr": "watchdog timer expired after 30s\n",
+    "pristine": {
+      "exit_code": 0,
+      "exited": true,
+      "timed_out": false,
+      "stdout": "PASS: baseline execution completed\n",
+      "stderr": ""
+    }
+  }
+}
