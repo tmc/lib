@@ -3670,6 +3670,12 @@ func TestCrashTrace(t *testing.T) {
 	bin := controlBinary(t)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.raised == "1" && runtime.GOOS != "linux" {
+				// macOS reports a raised SIGSEGV with a fault's si_code
+				// (SEGV_ACCERR), so the handler takes it for a fault that
+				// will recur and does not raise it again.
+				t.Skip("raise is indistinguishable from a fault on " + runtime.GOOS)
+			}
 			transport := t.TempDir()
 			cmd := exec.Command(bin, "crash-trace", "5", tt.raised)
 			cmd.Env = append(os.Environ(), "CUDAPROF_TRANSPORT="+transport, "CUDAPROF_SESSION="+sessionHex)

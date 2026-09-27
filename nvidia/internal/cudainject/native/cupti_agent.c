@@ -14,7 +14,6 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <limits.h>
-#include <link.h>
 #include <pthread.h>
 #include <sched.h>
 #include <signal.h>
@@ -30,6 +29,7 @@
 #include <time.h>
 #include <unistd.h>
 #ifdef __linux__
+#include <link.h>
 #include <linux/audit.h>
 #include <linux/filter.h>
 #include <linux/seccomp.h>
@@ -1243,6 +1243,7 @@ struct gemm_scan {
 	char path[PATH_MAX];
 };
 
+#ifdef __linux__
 static int gemm_scan_object(struct dl_phdr_info *info, size_t size, void *arg) {
 	(void)size;
 	struct gemm_scan *s = arg;
@@ -1269,6 +1270,7 @@ static int gemm_scan_object(struct dl_phdr_info *info, size_t size, void *arg) {
 	strcpy(s->path, name);
 	return 1;
 }
+#endif
 
 static void gemm_log(int level, const char *function, const char *message);
 
@@ -1282,7 +1284,9 @@ static void gemm_probe(void) {
 	memset(&s, 0, sizeof(s));
 	s.adds = gemm_adds;
 	s.first = 1;
+#ifdef __linux__
 	(void)dl_iterate_phdr(gemm_scan_object, &s);
+#endif
 	gemm_adds = s.adds;
 	if (s.path[0] != '\0') {
 		/* The handle is kept: it holds the library, and with it the logger
@@ -1344,8 +1348,13 @@ static void gemm_log(int level, const char *function, const char *message) {
 	}
 	uint64_t id = atomic_fetch_add(&gemm_next_id, 1) + 1;
 	uint64_t ts = now_ns();
+#ifdef __linux__
+	long thread = (long)syscall(SYS_gettid);
+#else
+	long thread = (long)(uintptr_t)pthread_self();
+#endif
 	char payload[MAX_PAYLOAD];
-	int n = snprintf(payload, sizeof(payload), "{\"kind\":\"gemm\",\"id\":%" PRIu64 ",\"thread\":%ld,\"api\":\"", id, (long)syscall(SYS_gettid));
+	int n = snprintf(payload, sizeof(payload), "{\"kind\":\"gemm\",\"id\":%" PRIu64 ",\"thread\":%ld,\"api\":\"", id, thread);
 	n = gemm_append(payload, sizeof(payload), n, function);
 	if (n >= 0) {
 		int w = snprintf(payload + n, sizeof(payload) - (size_t)n, "\",\"log\":\"");
@@ -1370,6 +1379,7 @@ static void gemm_log(int level, const char *function, const char *message) {
 __attribute__((noinline)) static int gemm_in_library(void) {
 	if (gemm_stack_state == 0) {
 		gemm_stack_state = -1;
+#ifdef __linux__
 		pthread_attr_t attr;
 		if (pthread_getattr_np(pthread_self(), &attr) == 0) {
 			void *addr;
@@ -1381,6 +1391,7 @@ __attribute__((noinline)) static int gemm_in_library(void) {
 			}
 			pthread_attr_destroy(&attr);
 		}
+#endif
 	}
 	if (gemm_stack_state < 0) return 0;
 	const uintptr_t *fp = __builtin_frame_address(0);
