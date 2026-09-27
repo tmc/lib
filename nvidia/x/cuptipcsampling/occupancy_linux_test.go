@@ -396,7 +396,7 @@ func (h *occupancyHarness) counts(t *testing.T, kernel string) reasonCounts {
 type launchSpec struct {
 	kernel      string
 	grid, block uint32
-	args        func(dev *cuda.Device, threads int) (args []any, free func(), err error)
+	args        func(dev *cuda.Device, threads int) (args []any, free func() error, err error)
 }
 
 func captureAll() *occupancyHarness {
@@ -476,7 +476,7 @@ func (h *occupancyHarness) run() error {
 	}
 
 	ctx := context.Background()
-	floats := func(dev *cuda.Device, threads int) ([]any, func(), error) {
+	floats := func(dev *cuda.Device, threads int) ([]any, func() error, error) {
 		in, err := cudamem.Alloc[float32](dev, threads)
 		if err != nil {
 			return nil, nil, err
@@ -486,7 +486,7 @@ func (h *occupancyHarness) run() error {
 			in.Free()
 			return nil, nil, err
 		}
-		return []any{in, out, int32(sweepIters)}, func() { in.Free(); out.Free() }, nil
+		return []any{in, out, int32(sweepIters)}, func() error { return errors.Join(in.Free(), out.Free()) }, nil
 	}
 
 	specs := []launchSpec{
@@ -496,7 +496,7 @@ func (h *occupancyHarness) run() error {
 		{"wide_indep_b256", 1, 256, floats},
 		{"wide_indep_b512", 1, 512, floats},
 		{"wide_indep_b1024", 1, 1024, floats},
-		{"chain_dep", 1, 128, func(dev *cuda.Device, threads int) ([]any, func(), error) {
+		{"chain_dep", 1, 128, func(dev *cuda.Device, threads int) ([]any, func() error, error) {
 			in, err := cudamem.Alloc[float32](dev, threads)
 			if err != nil {
 				return nil, nil, err
@@ -506,9 +506,9 @@ func (h *occupancyHarness) run() error {
 				in.Free()
 				return nil, nil, err
 			}
-			return []any{in, out, int32(chainIters)}, func() { in.Free(); out.Free() }, nil
+			return []any{in, out, int32(chainIters)}, func() error { return errors.Join(in.Free(), out.Free()) }, nil
 		}},
-		{"chase", 1, 128, func(dev *cuda.Device, threads int) ([]any, func(), error) {
+		{"chase", 1, 128, func(dev *cuda.Device, threads int) ([]any, func() error, error) {
 			next, err := cudamem.Alloc[int32](dev, chaseElems)
 			if err != nil {
 				return nil, nil, err
@@ -522,9 +522,9 @@ func (h *occupancyHarness) run() error {
 				next.Free()
 				return nil, nil, err
 			}
-			return []any{next, out, int32(chaseSteps), int32(chaseElems)}, func() { next.Free(); out.Free() }, nil
+			return []any{next, out, int32(chaseSteps), int32(chaseElems)}, func() error { return errors.Join(next.Free(), out.Free()) }, nil
 		}},
-		{"load_flood", 72, 1024, func(dev *cuda.Device, threads int) ([]any, func(), error) {
+		{"load_flood", 72, 1024, func(dev *cuda.Device, threads int) ([]any, func() error, error) {
 			in, err := cudamem.Alloc[float32](dev, floodElems)
 			if err != nil {
 				return nil, nil, err
@@ -534,7 +534,7 @@ func (h *occupancyHarness) run() error {
 				in.Free()
 				return nil, nil, err
 			}
-			return []any{in, out, int32(floodIters), int32(floodElems - 1)}, func() { in.Free(); out.Free() }, nil
+			return []any{in, out, int32(floodIters), int32(floodElems - 1)}, func() error { return errors.Join(in.Free(), out.Free()) }, nil
 		}},
 	}
 
@@ -554,7 +554,7 @@ func (h *occupancyHarness) run() error {
 		if err == nil {
 			err = stream.Synchronize(ctx)
 		}
-		free()
+		err = errors.Join(err, free())
 		if err != nil {
 			workErr = errors.Join(workErr, fmt.Errorf("%s: %w", s.kernel, err))
 			break

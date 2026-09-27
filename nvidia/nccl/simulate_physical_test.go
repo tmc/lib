@@ -91,13 +91,19 @@ func TestPhysicalSimulateRanks(t *testing.T) {
 					}
 				}
 				if recv[i] != 0 {
-					recv[i].Free()
+					if err := recv[i].Free(); err != nil {
+						t.Errorf("cleanup receive %d: %v", i, err)
+					}
 				}
 				if send[i] != 0 {
-					send[i].Free()
+					if err := send[i].Free(); err != nil {
+						t.Errorf("cleanup send %d: %v", i, err)
+					}
 				}
 				if streams[i] != 0 {
-					streams[i].Close()
+					if err := streams[i].Close(); err != nil {
+						t.Errorf("cleanup stream %d: %v", i, err)
+					}
 				}
 				driver.Device(int(devices[i])).PrimaryCtxRelease()
 			}
