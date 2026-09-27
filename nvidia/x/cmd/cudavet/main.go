@@ -22,6 +22,7 @@
 //	launcherr          a launch whose first synchronizing call discards its error
 //	streammismatch     device memory written on one stream and used on another
 //	querydone          the done result of Query discarded
+//	profilerexit       a deferred ProfilerStop skipped by os.Exit or log.Fatal
 //
 //	errcompare         a binding error compared with == instead of errors.Is
 //	uncheckedsync      a discarded error of a Synchronize or release
@@ -86,6 +87,7 @@ var analyzers = []*analysis.Analyzer{
 	launchErrAnalyzer,
 	streamMismatchAnalyzer,
 	queryDoneAnalyzer,
+	profilerExitAnalyzer,
 
 	errCompareAnalyzer,
 	uncheckedSyncAnalyzer,

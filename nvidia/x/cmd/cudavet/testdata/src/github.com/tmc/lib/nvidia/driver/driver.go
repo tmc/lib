@@ -24,6 +24,8 @@ func (e *CallError) Unwrap() error { return e.Result }
 
 func Init(flags uint32) error { return nil }
 func CtxSynchronize() error   { return nil }
+func ProfilerStart() error    { return nil }
+func ProfilerStop() error     { return nil }
 
 type Device int32
 

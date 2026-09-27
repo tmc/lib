@@ -305,15 +305,33 @@ func noReturn(info *types.Info, call *ast.CallExpr) bool {
 	if id, ok := call.Fun.(*ast.Ident); ok && id.Name == "panic" {
 		return info.Uses[id] == types.Universe.Lookup("panic")
 	}
+	if exits(info, call) {
+		return true
+	}
 	fn := callee(info, call)
 	if fn == nil || fn.Pkg() == nil {
 		return false
 	}
 	switch fn.Pkg().Path() + "." + fn.Name() {
-	case "os.Exit", "log.Fatal", "log.Fatalf", "log.Fatalln", "log.Panic", "log.Panicf":
+	case "log.Panic", "log.Panicf":
 		return true
 	}
 	return fn.Pkg().Path() == "testing" && (fn.Name() == "Fatal" || fn.Name() == "Fatalf" || fn.Name() == "FailNow")
+}
+
+// exits reports whether call ends the process without running deferred
+// calls: os.Exit and log.Fatal and friends. A panic or a testing FailNow
+// unwinds the stack and runs them.
+func exits(info *types.Info, call *ast.CallExpr) bool {
+	fn := callee(info, call)
+	if fn == nil || fn.Pkg() == nil {
+		return false
+	}
+	switch fn.Pkg().Path() + "." + fn.Name() {
+	case "os.Exit", "log.Fatal", "log.Fatalf", "log.Fatalln":
+		return true
+	}
+	return false
 }
 
 func isNil(info *types.Info, e ast.Expr) bool {
