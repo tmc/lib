@@ -479,18 +479,34 @@ var queryDoneAnalyzer = &analysis.Analyzer{
 
 Query returns whether the work is done and an error. A nil error does not mean
 done: it means the query worked. querydone reports a Query whose done result is
-discarded.`,
+discarded. A Query of a handle the function closes, outside a defer, before
+the Query or while the Query runs in a goroutine, is left alone: it tests the
+closed handle, and only the error means anything there.`,
 	Run: runQueryDone,
 }
 
 func runQueryDone(pass *analysis.Pass) (any, error) {
-	eachFunc(pass, func(body *ast.BlockStmt) {
-		withStack(body, func(n ast.Node, stack []ast.Node) {
+	info := pass.TypesInfo
+	cleanup := cleanupBodies(pass)
+	eachOuterFunc(pass, func(body *ast.BlockStmt) {
+		closes := make(map[*types.Var][]token.Pos)
+		withStackAll(body, func(n ast.Node, stack []ast.Node) {
+			call, ok := n.(*ast.CallExpr)
+			if !ok || deferred(cleanup, stack) {
+				return
+			}
+			if sel, ok := call.Fun.(*ast.SelectorExpr); ok && isRelease(sel.Sel.Name) {
+				if v := objOf(info, sel.X); v != nil {
+					closes[v] = append(closes[v], call.Pos())
+				}
+			}
+		})
+		withStackAll(body, func(n ast.Node, stack []ast.Node) {
 			call, ok := n.(*ast.CallExpr)
 			if !ok || len(stack) == 0 {
 				return
 			}
-			fn := callee(pass.TypesInfo, call)
+			fn := callee(info, call)
 			if fn == nil || fn.Name() != "Query" || !inNvidia(fn.Pkg()) || recvNamed(fn) == nil {
 				return
 			}
@@ -507,10 +523,47 @@ func runQueryDone(pass *analysis.Pass) (any, error) {
 					discarded = true
 				}
 			}
-			if discarded {
-				pass.Reportf(call.Pos(), "the done result of %s.Query is discarded; a nil error does not mean the work is done", recvNamed(fn).Obj().Name())
+			if !discarded {
+				return
 			}
+			if sel, ok := call.Fun.(*ast.SelectorExpr); ok {
+				for _, pos := range closes[objOf(info, sel.X)] {
+					if pos < call.Pos() || inGoroutine(stack) {
+						return
+					}
+				}
+			}
+			pass.Reportf(call.Pos(), "the done result of %s.Query is discarded; a nil error does not mean the work is done", recvNamed(fn).Obj().Name())
 		})
 	})
 	return nil, nil
+}
+
+// deferred reports whether a node with ancestors stack runs as a cleanup: it
+// lies in a defer statement or in a cleanup body.
+func deferred(cleanup map[*ast.BlockStmt]bool, stack []ast.Node) bool {
+	for _, n := range stack {
+		switch n := n.(type) {
+		case *ast.DeferStmt:
+			return true
+		case *ast.BlockStmt:
+			if cleanup[n] {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// inGoroutine reports whether the stack of ancestors passes through a
+// function literal started by a go statement.
+func inGoroutine(stack []ast.Node) bool {
+	for i, n := range stack {
+		if _, ok := n.(*ast.GoStmt); ok && i+2 < len(stack) {
+			if _, ok := stack[i+2].(*ast.FuncLit); ok {
+				return true
+			}
+		}
+	}
+	return false
 }
