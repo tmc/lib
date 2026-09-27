@@ -1,24 +1,21 @@
 {
   "schema_version": 1,
-  "generator": "github.com/tmc/libgen/cmd/gen-nvidia",
-  "upstream_version": "unrecorded",
-  "version_source": "unrecorded",
+  "generator": "github.com/tmc/libgen/cmd/nvvm-survey",
+  "upstream_version": "13.3.33",
+  "version_source": "explicit generator flag; not independently verified",
   "cwd": ".",
   "argv": [
-    "gen-nvidia",
-    "-api",
-    "nvvm",
-    "-headers-dir",
-    "cuda-headers",
+    "nvvm-survey",
     "-header",
     "nvvm.h",
-    "-output",
-    "nvvm",
-    "-package",
-    "nvvm",
-    "-deprecated=true",
+    "-headers-dir",
+    "cuda-headers",
     "-docs-dir",
-    "docs"
+    "docs",
+    "-output",
+    "${OUTPUT_DIR}",
+    "-upstream-version",
+    "13.3.33"
   ],
   "inputs": [
     {

@@ -10042,49 +10042,54 @@
         "argv": [
           "go",
           "run",
-          "./cmd/gen-nvidia",
-          "-api",
-          "nvvm",
-          "-headers-dir",
-          "${HEADERS_REPO}",
+          "./cmd/nvvm-survey",
           "-header",
           "${HEADERS_REPO}/nvvm/nvvm.h",
+          "-headers-dir",
+          "${HEADERS_REPO}",
+          "-docs-dir",
+          "${CODEGEN_REPO}/docs",
           "-output",
           "${OUTPUT_DIR}",
-          "-package",
-          "nvvm",
-          "-deprecated=true",
-          "-docs-dir",
-          "${CODEGEN_REPO}/docs"
+          "-upstream-version",
+          "13.3.33"
         ],
-        "comparison": "All 10 outputs byte-identical to lib comparison commit; maintained package files are not generation outputs.",
+        "comparison": "The exported API is unchanged on linux/amd64, linux/arm64, and darwin/arm64. The package test and vet pass across linux/amd64, linux/arm64, darwin/arm64, and windows/amd64. The loader searches nvvm/lib64 and nvvm/lib under CUDA_HOME, CUDA_PATH, and /usr/local/cuda after bare sonames fail, and reports those locations in LibraryError.Hint.",
         "cwd": "${CODEGEN_REPO}",
         "environment": {
           "GOWORK": "off",
-          "TMPDIR": "${SCRATCH_DIR}"
+          "TMPDIR": "${SCRATCH_DIR}",
+          "GOTOOLCHAIN": "go1.27.0"
         },
         "maintained_files_excluded": [
           "README.md",
-          "example_cuda_test.go",
+          "example_test.go",
+          "flags.gen.go",
+          "flags_test.go",
+          "generate.go",
+          "physical_test.go",
           "pipeline_test.go",
-          "testdata/sin.ll"
+          "testdata/sin.ll",
+          "toolkitsearch_test.go"
         ],
-        "note": "The Windows library name in init.gen.go was corrected after this generation was recorded; the pinned codegen commit predates that fix, so it no longer reproduces init.gen.go byte for byte.",
+        "note": "The CUDA headers nvvm/README.md identifies the source archive as libNVVM 13.3.33. nvvmVersion reports the NVVM IR API version (major 2), while the shared-library soname major is 4, so it is not a valid library version gate.",
         "options": {
-          "api": "nvvm",
           "clang": true,
-          "deprecated": true,
           "docs_enabled": true,
-          "package": "nvvm"
+          "toolkit_lib_dirs": [
+            "nvvm/lib64",
+            "nvvm/lib"
+          ],
+          "upstream_version": "13.3.33"
         },
         "outputs": [
           {
             "path": "nvidia/nvvm/doc.gen.go",
-            "sha256": "6158026148068a36b29b3342bbad1e6f58b989fdee2ff3814ca1f46507dabc3f"
+            "sha256": "a293bfdf820a9044a33b6865172cf597396f6ff91617ed18601f812c4aaa25e2"
           },
           {
             "path": "nvidia/nvvm/enums.gen.go",
-            "sha256": "a322a1e8074f6de0d296902b783a8a434a2ec8d0c0a566d2dd047fe14fd7191e"
+            "sha256": "b041cb68a99f67606b148f24f8cb96e57550cb68020b81fd545917f58a969ea4"
           },
           {
             "path": "nvidia/nvvm/flags.gen.go",
@@ -10092,42 +10097,46 @@
           },
           {
             "path": "nvidia/nvvm/funcs.gen.go",
-            "sha256": "fa53365836cefb77065bdf835582cd6ea6f0db25e4028a971c2188e6bb6f971e"
+            "sha256": "06b8c835e38bcbe015fa7b505685060defb8b288b37d914100d522adaa8e54ac"
           },
           {
             "path": "nvidia/nvvm/handles.gen.go",
-            "sha256": "adcb2c269f2d44e54d7731746f4fcf3ce1b0cddc1a6e8b392d20772e670613b3"
+            "sha256": "904f977d34e3f0f560ee916cc287f78d01d6159dc8c7c2f172fc46948a787119"
           },
           {
             "path": "nvidia/nvvm/init.gen.go",
-            "sha256": "16360bb262fb890001cda704529d506c09a252761c61f57044605ca3864e54d6"
+            "sha256": "319fc5afd318ca613d122fe736f92170e64c5a85db2c2c72738a1cce92e798b7"
           },
           {
             "path": "nvidia/nvvm/loader.gen_test.go",
-            "sha256": "a6f4828ef30323958e208cb7894862315b9b3cbb4c5c7de17ff48bf98b092dc4"
+            "sha256": "a9f0251fad0941e61e7244d2978ff8e646cb945f9bfa9cd1eb9c6ce7da785526"
           },
           {
             "path": "nvidia/nvvm/loader_unix.gen.go",
-            "sha256": "f84218a0c663506da84caf2b936580ca084531612ac393fdf637ac551ebd50e2"
+            "sha256": "0583d9c1290ecf2a7bc451dbde96a2e4e2d54f737d5250a2a144bc398626a888"
           },
           {
             "path": "nvidia/nvvm/loader_windows.gen.go",
-            "sha256": "99c046d482c441500fabe25678a2bb2b11c50059d6c9697b75191238ede88a68"
+            "sha256": "81b47b95e47914951eb1343571816112829605dd7c8e53c4306bb3014ab36009"
           },
           {
             "path": "nvidia/nvvm/program.gen.go",
-            "sha256": "48108773aaca2c823767f7f3ff94d14664f80fb6129f0411cfbc0f5b514804f4"
+            "sha256": "12dc29bfdc92466f9368d1bf966dc7356cb8fddfad281e4c095a84421e6f87bf"
           },
           {
             "path": "nvidia/nvvm/provenance.gen.go",
-            "sha256": "66356d9b8adb653c22768efd3d9aa5996ed50f4d03a4fcbf4117c16db81ec860"
+            "sha256": "2ec6c402ec0a5bd8879bdb78adc139bdc92a0aa356cb0ac73daa4ae5571514cc"
+          },
+          {
+            "path": "nvidia/nvvm/provenance.json",
+            "sha256": "0436621e446851f9e8298a487ff7372555887da6530a4fd2e1004e21a6d1cd0b"
           },
           {
             "path": "nvidia/nvvm/result.gen.go",
-            "sha256": "c9b18215d3e24a64abbf9363747e6a60c06f6fec2b305f5650969a351f25a083"
+            "sha256": "cebaa763ebefd329a4d559684c4c63e1297a4a4b3ece1a6a0f4758cde317f39b"
           }
         ],
-        "source_state": "clean codegen checkout recorded after generation",
+        "source_state": "clean codegen checkout at the recorded generator commit",
         "supplemental_runs": [
           {
             "argv": [
@@ -10159,17 +10168,16 @@
           }
         ],
         "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+          "clang": "Apple clang version 21.0.1 (clang-2100.1.1.101)",
           "clang_target": "arm64-apple-darwin25.6.0",
-          "go": "go version go1.25.0 darwin/arm64",
+          "go": "go version go1.27.0 darwin/arm64",
           "go_environment": {
-            "CC": "clang",
             "CGO_ENABLED": "1",
             "GOARCH": "arm64",
             "GOFLAGS": "",
             "GOOS": "darwin",
-            "GOTOOLCHAIN": "auto",
-            "GOVERSION": "go1.25.0"
+            "GOTOOLCHAIN": "go1.27.0",
+            "GOVERSION": "go1.27.0"
           }
         }
       },
@@ -10182,10 +10190,10 @@
       "package": "github.com/tmc/lib/nvidia/nvvm",
       "repositories": {
         "codegen": {
-          "commit": "e987d3ac281785619a1cf126e695e3beb6e36175",
-          "tree": "a5e1ebff0fdbe1ecb0f08fb58be51df4b582c660",
+          "commit": "947df4f268ed65b53f5add0fb7e87a8d5d389d69",
+          "tree": "3e83b2d3c694652e63ff04b79b935e0b6e8623f7",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 50579d6 regenerate at libgen 0b6b362 regenerate at libgen e987d3a"
+          "note": "NVVM bindings generated from the recorded nvvm-survey recipe after toolkit library search support landed in ffigen."
         },
         "headers": {
           "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
