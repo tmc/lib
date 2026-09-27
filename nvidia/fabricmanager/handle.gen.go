@@ -37,6 +37,13 @@ func (h Handle) NvlinkFailedDevices(pFmNvlinkFailedDevices *NvlinkFailedDevices)
 	return getNvlinkFailedDevices(h, pFmNvlinkFailedDevices)
 }
 
+// SetActivatedFabricPartitions wraps fmSetActivatedFabricPartitions.
+//
+//   - pFmActivatedPartitionList: IN: List of currently activated fabric partition
+func (h Handle) SetActivatedFabricPartitions(pFmActivatedPartitionList *ActivatedFabricPartitionList) error {
+	return setActivatedFabricPartitions(h, pFmActivatedPartitionList)
+}
+
 // SupportedFabricPartitions wraps fmGetSupportedFabricPartitions.
 //
 //   - pFmFabricPartition: OUT: List of currently supported fabric partition information
@@ -49,11 +56,4 @@ func (h Handle) SupportedFabricPartitions(pFmFabricPartition *FabricPartitionLis
 //   - pFmUnupportedFabricPartition: OUT: List of unsupported fabric partitions on the system
 func (h Handle) UnsupportedFabricPartitions(pFmUnupportedFabricPartition *UnsupportedFabricPartitionList) error {
 	return getUnsupportedFabricPartitions(h, pFmUnupportedFabricPartition)
-}
-
-// SetActivatedFabricPartitions wraps fmSetActivatedFabricPartitions.
-//
-//   - pFmActivatedPartitionList: IN: List of currently activated fabric partition
-func (h Handle) SetActivatedFabricPartitions(pFmActivatedPartitionList *ActivatedFabricPartitionList) error {
-	return setActivatedFabricPartitions(h, pFmActivatedPartitionList)
 }

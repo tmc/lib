@@ -15,7 +15,6 @@ import (
 	"unsafe"
 
 	"github.com/ebitengine/purego"
-	"github.com/tmc/lib/nvidia/internal/ffi"
 )
 
 var (
@@ -298,8 +297,6 @@ func libraryNames() []string {
 	switch runtime.GOOS {
 	case "linux":
 		return []string{"libnvfm.so.1", "libnvfm.so"}
-	case "darwin":
-		return []string{"libnvfm.dylib"}
 	default:
 		return nil
 	}
@@ -322,6 +319,21 @@ func register(fn interface{}, symbol string) {
 		return
 	}
 	present[symbol] = true
+}
+
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := lookupLibrarySymbol(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
 }
 
 // errArgumentSlots is the reason a symbol the library exports could still
@@ -347,97 +359,6 @@ func bindSymbol(fn interface{}, sym uintptr) (ok bool) {
 	}()
 	purego.RegisterFunc(fn, sym)
 	return true
-}
-
-// registerSym resolves a symbol to its address and records whether it
-// resolved. A symbol absent from the loaded version stays at zero, so
-// calling it reports *SymbolError rather than jumping to address zero.
-func registerSym(symbol string) uintptr {
-	if lib == 0 {
-		return 0
-	}
-	sym, err := lookupLibrarySymbol(lib, symbol)
-	if err != nil || sym == 0 {
-		return 0
-	}
-	present[symbol] = true
-	return sym
-}
-
-// The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
-//
-// Bit i of floatMask marks argument word i as a floating-point bit
-// pattern, which the C ABI passes in a different register file from the
-// integer and pointer words. Bits 2i and 2i+1 of widths give the size of
-// argument word i as a ffi.Width code, which places a narrow argument
-// on the stack where the C ABI expects it. Each funnel returns the first
-// integer result register and the first floating-point one; a caller
-// reads whichever the C function sets.
-//
-// The //go:uintptrescapes directive is what makes a Go pointer safe to
-// pass: a pointer converted to uintptr in one of these argument lists is
-// moved to the heap and kept there until the call returns. A
-// runtime.KeepAlive after the call would prevent reclamation but not
-// movement, which is the failure this avoids.
-
-//go:uintptrescapes
-func ffiCall0(fn uintptr, floatMask uint32) (r1, rf uintptr) {
-	var args [ffi.MaxArgs]uintptr
-	return ffi.CallFloat(fn, 0, &args, floatMask)
-}
-
-//go:uintptrescapes
-func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
-	var args [ffi.MaxArgs]uintptr
-	args[0] = a0
-	return ffi.CallFloat(fn, 1, &args, floatMask)
-}
-
-//go:uintptrescapes
-func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
-	var args [ffi.MaxArgs]uintptr
-	args[0] = a0
-	args[1] = a1
-	return ffi.CallFloat(fn, 2, &args, floatMask)
-}
-
-//go:uintptrescapes
-func ffiCallWidths2(fn uintptr, floatMask uint32, widths uint64, a0, a1 uintptr) (r1, rf uintptr) {
-	var args [ffi.MaxArgs]uintptr
-	args[0] = a0
-	args[1] = a1
-	return ffi.CallFloatWidths(fn, 2, &args, floatMask, widths)
-}
-
-//go:uintptrescapes
-func ffiCallWidths4(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
-	var args [ffi.MaxArgs]uintptr
-	args[0] = a0
-	args[1] = a1
-	args[2] = a2
-	args[3] = a3
-	return ffi.CallFloatWidths(fn, 4, &args, floatMask, widths)
-}
-
-// An outSlot pools the heap cells a wrapper passes to C for its outputs.
-//
-// A pointer passed through a positional call is moved to the heap, so the
-// address of a local output variable would be one allocation per call. A
-// pooled cell is already on the heap, where it never moves, and is reused.
-// put clears the cell before returning it, so no output outlives its call.
-type outSlot[T any] struct{ pool sync.Pool }
-
-func (s *outSlot[T]) get() *T {
-	if p, ok := s.pool.Get().(*T); ok {
-		return p
-	}
-	return new(T)
-}
-
-func (s *outSlot[T]) put(p *T) {
-	var zero T
-	*p = zero
-	s.pool.Put(p)
 }
 
 // BindFailure names a symbol the loaded library exports but that could not
