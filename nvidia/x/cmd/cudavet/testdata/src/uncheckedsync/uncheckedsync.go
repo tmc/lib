@@ -1,6 +1,8 @@
 package uncheckedsync
 
 import (
+	"testing"
+
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cudaring"
 )
@@ -46,4 +48,43 @@ func errorPath(s driver.Stream, d driver.DevicePtr, host []float32) error {
 // ring is not a binding handle, so its Close is not a release.
 func ring(r cudaring.Ring) {
 	r.Close()
+}
+
+// cleanup releases d when the test ends, the way defer d.Free() would.
+func cleanup(t *testing.T, d driver.DevicePtr) {
+	t.Cleanup(func() { d.Free() })
+}
+
+func deferredLit(d driver.DevicePtr) {
+	defer func() { d.Free() }()
+}
+
+// loop releases d in a closure that runs now, not as a cleanup.
+func loop(d driver.DevicePtr) {
+	func() {
+		d.Free() // want `the error of Free is discarded; it can report a failure of earlier asynchronous work`
+	}()
+}
+
+// unexpected releases what a call that should have failed returned, then
+// fails the test.
+func unexpected(t *testing.T) {
+	s, err := driver.NewStream(0)
+	if err == nil {
+		if s != 0 {
+			s.Close()
+		}
+		t.Fatal("NewStream succeeded")
+	}
+}
+
+// loopBody releases s in a loop that goes around again; the t.Fatal after
+// the loop does not make it an error path.
+func loopBody(t *testing.T, streams []driver.Stream) {
+	for _, s := range streams {
+		if s != 0 {
+			s.Close() // want `the error of Close is discarded; it can report a failure of earlier asynchronous work`
+		}
+	}
+	t.Fatal("done")
 }

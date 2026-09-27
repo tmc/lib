@@ -79,17 +79,19 @@ A failure of an earlier kernel launch or asynchronous copy is reported by a
 later call, usually the next one that synchronizes; a release may report it
 too. uncheckedsync reports a Synchronize or CtxSynchronize called as a bare
 statement, dropping its error, and a release (Close, Destroy, Free, Unload)
-called the same way outside a defer. An explicit _ = x.Close() is taken as
-deliberate. A release on an error path, followed by a return of a non-nil
-error or a call such as t.Fatal, is left alone: the first error is the one
-to report.`,
+called the same way outside a defer. A function literal that is deferred or
+registered with testing's Cleanup counts as a defer. An explicit
+_ = x.Close() is taken as deliberate. A release on an error path, followed
+by a return of a non-nil error or a call such as t.Fatal, is left alone: the
+first error is the one to report.`,
 	Run: runUncheckedSync,
 }
 
 // eachBareCall calls f for every call of an nvidia function made as a bare
-// statement, with the stack of the call's ancestors. An assignment such as
-// _ = x.Close() discards the error on purpose and is not a bare call.
-func eachBareCall(pass *analysis.Pass, f func(call *ast.CallExpr, fn *types.Func, stack []ast.Node)) {
+// statement, with the body of the enclosing function and the stack of the
+// call's ancestors. An assignment such as _ = x.Close() discards the error on
+// purpose and is not a bare call.
+func eachBareCall(pass *analysis.Pass, f func(call *ast.CallExpr, fn *types.Func, body *ast.BlockStmt, stack []ast.Node)) {
 	info := pass.TypesInfo
 	eachFunc(pass, func(body *ast.BlockStmt) {
 		withStack(body, func(n ast.Node, stack []ast.Node) {
@@ -104,19 +106,20 @@ func eachBareCall(pass *analysis.Pass, f func(call *ast.CallExpr, fn *types.Func
 			if fn == nil || !inNvidia(fn.Pkg()) {
 				return
 			}
-			f(call, fn, stack)
+			f(call, fn, body, stack)
 		})
 	})
 }
 
 func runUncheckedSync(pass *analysis.Pass) (any, error) {
 	info := pass.TypesInfo
-	eachBareCall(pass, func(call *ast.CallExpr, fn *types.Func, stack []ast.Node) {
+	cleanup := cleanupBodies(pass)
+	eachBareCall(pass, func(call *ast.CallExpr, fn *types.Func, body *ast.BlockStmt, stack []ast.Node) {
 		switch {
 		case strings.HasPrefix(fn.Name(), "Synchronize") || fn.Name() == "CtxSynchronize":
 			pass.Reportf(call.Pos(), "the error of %s is discarded; it is where failures of earlier asynchronous work are reported", fn.Name())
 		case recvNamed(fn) != nil && isRelease(fn.Name()) && destructor(recvNamed(fn)) != "":
-			if !onErrorPath(info, stack) {
+			if !cleanup[body] && !onErrorPath(info, stack) {
 				pass.Reportf(call.Pos(), "the error of %s is discarded; it can report a failure of earlier asynchronous work", fn.Name())
 			}
 		}
@@ -143,7 +146,7 @@ deliberate.`,
 var setterRE = regexp.MustCompile(`Set[A-Z]`)
 
 func runSetterErr(pass *analysis.Pass) (any, error) {
-	eachBareCall(pass, func(call *ast.CallExpr, fn *types.Func, stack []ast.Node) {
+	eachBareCall(pass, func(call *ast.CallExpr, fn *types.Func, _ *ast.BlockStmt, _ []ast.Node) {
 		res := fn.Type().(*types.Signature).Results()
 		if !isBinding(fn.Pkg()) || !setterRE.MatchString(fn.Name()) || res.Len() == 0 || !isErrorIface(res.At(res.Len()-1).Type()) {
 			return
@@ -153,46 +156,79 @@ func runSetterErr(pass *analysis.Pass) (any, error) {
 	return nil, nil
 }
 
-// onErrorPath reports whether the statement at the top of stack is followed,
-// in its block, by a return of a non-nil error or a call that does not
-// return, such as t.Fatal.
-func onErrorPath(info *types.Info, stack []ast.Node) bool {
-	if len(stack) < 2 {
-		return false
-	}
-	stmt, ok := stack[len(stack)-1].(ast.Stmt)
-	if !ok {
-		return false
-	}
-	var list []ast.Stmt
-	switch b := stack[len(stack)-2].(type) {
-	case *ast.BlockStmt:
-		list = b.List
-	case *ast.CaseClause:
-		list = b.Body
-	default:
-		return false
-	}
-	for i, s := range list {
-		if s != stmt {
-			continue
-		}
-		for _, next := range list[i+1:] {
-			if es, ok := next.(*ast.ExprStmt); ok {
-				if c, ok := es.X.(*ast.CallExpr); ok && noReturn(info, c) {
-					return true
+// cleanupBodies returns the bodies of the function literals that run as
+// cleanups: deferred, or passed to the Cleanup method of a testing.T, B or F.
+func cleanupBodies(pass *analysis.Pass) map[*ast.BlockStmt]bool {
+	bodies := make(map[*ast.BlockStmt]bool)
+	for _, file := range srcFiles(pass) {
+		ast.Inspect(file, func(n ast.Node) bool {
+			switch n := n.(type) {
+			case *ast.DeferStmt:
+				if lit, ok := n.Call.Fun.(*ast.FuncLit); ok {
+					bodies[lit.Body] = true
+				}
+			case *ast.CallExpr:
+				if len(n.Args) == 1 && isPkgFunc(pass.TypesInfo, n, "testing", "Cleanup") {
+					if lit, ok := n.Args[0].(*ast.FuncLit); ok {
+						bodies[lit.Body] = true
+					}
 				}
 			}
-			ret, ok := next.(*ast.ReturnStmt)
-			if !ok {
+			return true
+		})
+	}
+	return bodies
+}
+
+// onErrorPath reports whether the statement at the top of stack is followed,
+// in its block, by a return of a non-nil error or a call that does not
+// return, such as t.Fatal. When the block is the body of an if statement and
+// ends first, the statements after the if statement are looked at in turn.
+func onErrorPath(info *types.Info, stack []ast.Node) bool {
+	for len(stack) >= 2 {
+		stmt, ok := stack[len(stack)-1].(ast.Stmt)
+		if !ok {
+			return false
+		}
+		var list []ast.Stmt
+		switch b := stack[len(stack)-2].(type) {
+		case *ast.BlockStmt:
+			list = b.List
+		case *ast.CaseClause:
+			list = b.Body
+		default:
+			return false
+		}
+		for i, s := range list {
+			if s != stmt {
 				continue
 			}
-			if len(ret.Results) == 0 {
-				return false
+			for _, next := range list[i+1:] {
+				if es, ok := next.(*ast.ExprStmt); ok {
+					if c, ok := es.X.(*ast.CallExpr); ok && noReturn(info, c) {
+						return true
+					}
+				}
+				ret, ok := next.(*ast.ReturnStmt)
+				if !ok {
+					continue
+				}
+				if len(ret.Results) == 0 {
+					return false
+				}
+				id, ok := ret.Results[len(ret.Results)-1].(*ast.Ident)
+				return !ok || id.Name != "nil"
 			}
-			id, ok := ret.Results[len(ret.Results)-1].(*ast.Ident)
-			return !ok || id.Name != "nil"
 		}
+		// The block ran out. Carry on after an if statement around it;
+		// anything else, such as a loop body, may go around again.
+		if len(stack) < 3 {
+			return false
+		}
+		if _, ok := stack[len(stack)-3].(*ast.IfStmt); !ok {
+			return false
+		}
+		stack = stack[:len(stack)-2]
 	}
 	return false
 }
