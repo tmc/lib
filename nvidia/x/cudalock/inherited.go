@@ -30,9 +30,9 @@ func Inherited(env func(string) string) (Owner, error) {
 		return Owner{}, fmt.Errorf("%w: GPU_LOCK_HELD is %q, want the holder's pid", ErrNotInherited, held)
 	}
 	dir := defaultDir(env)
-	owner, ok := ownerHeldBy(dir, pid)
-	if !ok {
-		return Owner{}, fmt.Errorf("%w: GPU_LOCK_HELD is %d but the owner record in %s does not name it", ErrNotInherited, pid, dir)
+	owner, err := ownerHeldBy(dir, pid)
+	if err != nil {
+		return Owner{}, fmt.Errorf("%w: %w", ErrNotInherited, err)
 	}
 	if !isAlive(pid) {
 		return Owner{}, fmt.Errorf("%w: holder %d is not alive", ErrNotInherited, pid)

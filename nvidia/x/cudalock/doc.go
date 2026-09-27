@@ -6,14 +6,17 @@
 //
 //	$HOME/ml-explore/.gpu-lock/lock
 //
-// Acquisition is performed via atomic directory creation (os.Mkdir). An owner
-// record (pid, host, label, epoch, at) is written inside the lock directory upon
-// acquisition.
+// Acquisition is performed by creating a staging directory with the owner
+// record inside and atomically renaming it into place, ensuring the lock never
+// exists without naming its holder. An owner record (pid, host, label, epoch,
+// at) identifies the holder process.
 //
 // Unlike naive time-based lock acquisition, cudalock performs process liveness
 // checks (signal 0) to distinguish active long-running jobs from genuinely dead
 // processes, refuses to reclaim locks owned by foreign hosts, and queries device
-// compute processes via nvidia-smi.
+// compute processes via nvidia-smi. Locks with missing, empty, or unparsable
+// owner files are treated as abandoned and reclaimed only after exceeding a
+// 15-second grace period measured from their modification time.
 //
 // Basic usage:
 //

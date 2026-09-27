@@ -103,8 +103,7 @@ func TestMutualExclusionAndContention(t *testing.T) {
 
 	// Clear in-process reentrancy tracking so this is treated as a separate process attempt
 	processMu.Lock()
-	processHoldCount = 0
-	processActiveDir = ""
+	processHolds = make(map[string]*dirHold)
 	processMu.Unlock()
 	_ = os.Unsetenv("GPU_LOCK_HELD")
 
@@ -507,4 +506,338 @@ func TestAncestorInheritedLivePIDDisagreesWithOwner(t *testing.T) {
 	if _, err := Acquire(ctx, WithPollInterval(20*time.Millisecond)); err == nil {
 		t.Fatal("Acquire granted against a live foreign holder because the environment named a different live PID")
 	}
+}
+
+// TestTruthReleaseOrderLeak tests Defect 1:
+// Releasing the root handle before a nested one must not leak the lock dir.
+func TestTruthReleaseOrderLeak(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "lock")
+	ctx := context.Background()
+	root, err := Acquire(ctx, WithDir(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	nested, err := Acquire(ctx, WithDir(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	root.Release()
+	nested.Release()
+	if _, err := os.Stat(dir); err == nil {
+		t.Errorf("lock dir %s still exists after both handles released", dir)
+	}
+}
+
+// TestTruthTwoDirsSelfDeadlock tests Defect 2:
+// Holding a second lock dir b must not overwrite the hold state of dir a.
+// Re-acquiring an already-held dir a must succeed immediately.
+func TestTruthTwoDirsSelfDeadlock(t *testing.T) {
+	a := filepath.Join(t.TempDir(), "a")
+	b := filepath.Join(t.TempDir(), "b")
+	ha, err := Acquire(context.Background(), WithDir(a))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ha.Release()
+	hb, err := Acquire(context.Background(), WithDir(b))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer hb.Release()
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+	h, err := Acquire(ctx, WithDir(a), WithPollInterval(10*time.Millisecond))
+	if errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("re-acquire of held dir a blocked on own lock: %v", err)
+	} else if err != nil {
+		t.Errorf("re-acquire of held dir a failed: %v", err)
+	} else if h != nil {
+		h.Release()
+	}
+}
+
+// TestTruthRunInheritedExportsWrongPID tests Defect 3:
+// Under an inherited lock, Run must export the holder's PID, not its own PID.
+func TestTruthRunInheritedExportsWrongPID(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "lock")
+	os.Mkdir(dir, 0755)
+	holder := os.Getppid()
+	os.WriteFile(filepath.Join(dir, "owner"), []byte(Owner{PID: holder, Host: shortHostname(), Label: "x", At: time.Now()}.String()), 0644)
+	t.Setenv("GPU_LOCKDIR", dir)
+	t.Setenv("GPU_LOCK_HELD", strconv.Itoa(holder))
+	out := filepath.Join(t.TempDir(), "out")
+	code, err := Run(context.Background(), []string{"sh", "-c", "echo $GPU_LOCK_HELD > " + out})
+	if err != nil || code != 0 {
+		t.Fatal(code, err)
+	}
+	b, _ := os.ReadFile(out)
+	if got := strings.TrimSpace(string(b)); got != strconv.Itoa(holder) {
+		t.Errorf("child GPU_LOCK_HELD=%s, owner record names %d: child's Inherited check fails", got, holder)
+	}
+}
+
+// TestReproEmptyOwnerNeverReclaimed tests Defect 5:
+// An empty or unparsable owner file older than 15s must be reclaimed.
+func TestReproEmptyOwnerNeverReclaimed(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "gpu.lock")
+	if err := os.Mkdir(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "owner"), nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	old := time.Now().Add(-time.Hour)
+	os.Chtimes(filepath.Join(dir, "owner"), old, old)
+	os.Chtimes(dir, old, old)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	h, err := Acquire(ctx, WithDir(dir), WithPollInterval(10*time.Millisecond))
+	if err != nil {
+		t.Fatalf("Acquire with hour-old empty owner file: %v (want reclaim)", err)
+	}
+	h.Release()
+}
+
+// TestFreshEmptyOwnerNotReclaimed tests that an empty owner file created recently
+// (within the 15s grace window) is NOT prematurely reclaimed.
+func TestFreshEmptyOwnerNotReclaimed(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "gpu.lock")
+	if err := os.Mkdir(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	ownerPath := filepath.Join(dir, "owner")
+	if err := os.WriteFile(ownerPath, nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	os.Chtimes(ownerPath, now, now)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	h, err := Acquire(ctx, WithDir(dir), WithPollInterval(10*time.Millisecond))
+	if err == nil {
+		h.Release()
+		t.Fatal("fresh empty owner file was prematurely reclaimed: expected timeout waiting for grace period")
+	}
+}
+
+// TestReclaimTOCTOURaceClosed tests Defect 6:
+// Reclaim must be atomic. If another process displaces or acquires a fresh lock
+// during reclaim, the fresh lock must be restored and not deleted.
+func TestReclaimTOCTOURaceClosed(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "gpu.lock")
+	if err := os.Mkdir(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	deadPID := 99999999
+	for isAlive(deadPID) {
+		deadPID++
+	}
+	deadOwner := Owner{
+		PID:   deadPID,
+		Host:  shortHostname(),
+		Label: "dead-initial",
+		Epoch: time.Now().Unix() - 100,
+		At:    time.Now().Add(-100 * time.Second),
+	}
+	deadOwnerBytes := []byte(deadOwner.String())
+	if err := os.WriteFile(filepath.Join(dir, "owner"), deadOwnerBytes, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	livePID := os.Getppid()
+	liveOwner := Owner{
+		PID:   livePID,
+		Host:  shortHostname(),
+		Label: "live-concurrent",
+		Epoch: time.Now().Unix(),
+		At:    time.Now(),
+	}
+
+	// Hook triggers inside reclaim() after dead owner read and before aside move.
+	// Hook simulates process A winning the race by removing dead lock and acquiring fresh lock.
+	reclaimHook = func() {
+		reclaimHook = nil // Run hook only once
+		_ = os.Remove(filepath.Join(dir, "owner"))
+		_ = os.Remove(dir)
+		_ = os.Mkdir(dir, 0755)
+		_ = os.WriteFile(filepath.Join(dir, "owner"), []byte(liveOwner.String()), 0644)
+	}
+	defer func() { reclaimHook = nil }()
+
+	// Reclaimer process B tries to reclaim based on deadOwnerBytes
+	reclaimed := reclaim(dir, deadOwnerBytes)
+	if reclaimed {
+		t.Fatal("live lock was destroyed by concurrent stale reclaim: expected reclaim to fail")
+	}
+
+	// Verify that live lock directory was restored intact
+	data, err := os.ReadFile(filepath.Join(dir, "owner"))
+	if err != nil {
+		t.Fatalf("live lock was lost: %v", err)
+	}
+	restored, err := ParseOwner(data)
+	if err != nil {
+		t.Fatalf("failed to parse restored owner: %v", err)
+	}
+	if restored.PID != livePID || restored.Label != "live-concurrent" {
+		t.Errorf("restored owner = %+v, want live PID %d", restored, livePID)
+	}
+}
+
+// TestInteropReferenceScript tests mutual exclusion and dead-lock reclaim
+// interoperability between cudalock and the reference gpu-lock bash script.
+func TestInteropReferenceScript(t *testing.T) {
+	scriptPath := os.Getenv("GPU_LOCK_SCRIPT")
+	if scriptPath == "" {
+		scriptPath = "/Users/tmc/tmp/lib-nvidia-implementation/65-cudalock-correctness-fixes/reference/gpu-lock.sh"
+	}
+	if _, err := os.Stat(scriptPath); err != nil {
+		if os.Getenv("CUDALOCK_INTEROP_STRICT") == "1" {
+			t.Fatalf("reference script missing at %s: %v", scriptPath, err)
+		}
+		t.Skipf("reference script not found at %s: skipping interop test", scriptPath)
+	}
+	bashPath, err := exec.LookPath("bash")
+	if err != nil {
+		if os.Getenv("CUDALOCK_INTEROP_STRICT") == "1" {
+			t.Fatalf("bash not found on PATH: %v", err)
+		}
+		t.Skipf("bash not found: skipping interop test")
+	}
+
+	tmp := t.TempDir()
+	lockDir := filepath.Join(tmp, "lock")
+
+	// Subtest 1: Reference script blocks when cudalock holds the lock
+	t.Run("ReferenceScriptBlocksOnCudalock", func(t *testing.T) {
+		h, err := Acquire(context.Background(), WithDir(lockDir), WithLabel("go-holder"))
+		if err != nil {
+			t.Fatalf("Acquire failed: %v", err)
+		}
+		defer h.Release()
+
+		// Run gpu-lock with MAXWAIT=1s
+		cmd := exec.Command(bashPath, scriptPath, "true")
+		cmd.Env = append(os.Environ(),
+			"GPU_LOCKDIR="+lockDir,
+			"GPU_LOCK_MAXWAIT=1",
+			"GPU_LOCK_POLL=1",
+		)
+		out, err := cmd.CombinedOutput()
+		if err == nil {
+			t.Fatalf("reference script acquired while cudalock held lock; output: %s", string(out))
+		}
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() != 75 {
+			t.Errorf("reference script exit code = %d, want 75 (timeout); output: %s", exitErr.ExitCode(), string(out))
+		}
+	})
+
+	// Subtest 2: cudalock blocks when reference script holds the lock
+	t.Run("CudalockBlocksOnReferenceScript", func(t *testing.T) {
+		scriptLockDir := filepath.Join(tmp, "script-lock")
+		cmd := exec.Command(bashPath, scriptPath, "sleep", "0.5")
+		cmd.Env = append(os.Environ(),
+			"GPU_LOCKDIR="+scriptLockDir,
+			"GPU_LOCK_POLL=1",
+		)
+		if err := cmd.Start(); err != nil {
+			t.Fatalf("failed to start reference script: %v", err)
+		}
+		defer cmd.Wait()
+
+		// Wait briefly for script to acquire
+		var scriptAcquired bool
+		for i := 0; i < 50; i++ {
+			if _, err := os.Stat(filepath.Join(scriptLockDir, "owner")); err == nil {
+				scriptAcquired = true
+				break
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		if !scriptAcquired {
+			t.Fatal("reference script did not acquire in time")
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+		_, err := Acquire(ctx, WithDir(scriptLockDir), WithPollInterval(20*time.Millisecond))
+		if err == nil {
+			t.Fatal("cudalock acquired while reference script was holding lock")
+		}
+		if !errors.Is(err, context.DeadlineExceeded) && !strings.Contains(err.Error(), "context deadline exceeded") {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		// Wait for script to finish
+		_ = cmd.Wait()
+
+		// Now cudalock should acquire cleanly
+		h, err := Acquire(context.Background(), WithDir(scriptLockDir), WithLabel("go-after-script"))
+		if err != nil {
+			t.Fatalf("cudalock failed to acquire after script release: %v", err)
+		}
+		_ = h.Release()
+	})
+
+	// Subtest 3: cudalock reclaims dead lock left by reference script
+	t.Run("CudalockReclaimsReferenceDeadLock", func(t *testing.T) {
+		deadDir := filepath.Join(tmp, "dead-script-lock")
+		if err := os.MkdirAll(deadDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		deadPID := 99999999
+		for isAlive(deadPID) {
+			deadPID++
+		}
+		deadScriptOwner := fmt.Sprintf("pid=%d host=%s label=dead-bash token=xyz epoch=%d at=%s lane=batch\n",
+			deadPID, shortHostname(), time.Now().Unix()-100, time.Now().Add(-100*time.Second).Format(time.RFC3339))
+		if err := os.WriteFile(filepath.Join(deadDir, "owner"), []byte(deadScriptOwner), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		h, err := Acquire(ctx, WithDir(deadDir), WithLabel("cudalock-reclaimer"))
+		if err != nil {
+			t.Fatalf("cudalock failed to reclaim reference script dead lock: %v", err)
+		}
+		_ = h.Release()
+	})
+
+	// Subtest 4: reference script reclaims dead lock left by cudalock
+	t.Run("ReferenceScriptReclaimsCudalockDeadLock", func(t *testing.T) {
+		deadDir := filepath.Join(tmp, "dead-cudalock-lock")
+		if err := os.MkdirAll(deadDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		deadPID := 99999999
+		for isAlive(deadPID) {
+			deadPID++
+		}
+		deadOwner := Owner{
+			PID:   deadPID,
+			Host:  shortHostname(),
+			Label: "dead-cudalock",
+			Epoch: time.Now().Unix() - 100,
+			At:    time.Now().Add(-100 * time.Second),
+		}
+		if err := os.WriteFile(filepath.Join(deadDir, "owner"), []byte(deadOwner.String()), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		cmd := exec.Command(bashPath, scriptPath, "true")
+		cmd.Env = append(os.Environ(),
+			"GPU_LOCKDIR="+deadDir,
+			"GPU_LOCK_MAXWAIT=3",
+			"GPU_LOCK_POLL=1",
+		)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("reference script failed to reclaim cudalock dead lock: %v; output: %s", err, string(out))
+		}
+	})
 }

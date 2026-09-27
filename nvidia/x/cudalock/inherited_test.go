@@ -108,3 +108,39 @@ func writeOwner(t *testing.T, dir string, pid int) {
 		t.Fatal(err)
 	}
 }
+
+// TestReview6_ForeignHostInheritedNotRefused verifies that Inherited refuses
+// a lock directory whose owner record names a foreign host, even when
+// GPU_LOCK_HELD matches a live local PID on the current host.
+func TestReview6_ForeignHostInheritedNotRefused(t *testing.T) {
+	tmp := t.TempDir()
+	lockDir := filepath.Join(tmp, "lock")
+	if err := os.Mkdir(lockDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	myPID := os.Getpid()
+	foreignOwner := Owner{
+		PID:   myPID,
+		Host:  "remote-node-99", // Different host
+		Label: "foreign-job",
+		Epoch: time.Now().Unix(),
+		At:    time.Now(),
+	}
+	if err := os.WriteFile(filepath.Join(lockDir, "owner"), []byte(foreignOwner.String()), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	env := mapEnv(map[string]string{
+		"GPU_LOCK_HELD": strconv.Itoa(myPID),
+		"GPU_LOCKDIR":   lockDir,
+	})
+
+	_, err := Inherited(env)
+	if err == nil {
+		t.Fatalf("Inherited accepted lock owned by foreign host %q as an ancestor lock; caller would run unlocked", foreignOwner.Host)
+	}
+	if !errors.Is(err, ErrNotInherited) {
+		t.Fatalf("Inherited error = %v, want %v", err, ErrNotInherited)
+	}
+}

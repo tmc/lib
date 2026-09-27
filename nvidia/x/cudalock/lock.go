@@ -1,6 +1,7 @@
 package cudalock
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -29,12 +30,18 @@ var (
 	ErrForeignOwner = errors.New("cudalock: lock is held by a foreign host")
 )
 
-// Process-wide reentrancy tracking.
+// Process-wide reentrancy tracking per directory.
+type dirHold struct {
+	count     int
+	holderPID int
+	inherited bool
+	owner     Owner
+}
+
 var (
-	processMu        sync.Mutex
-	processHoldCount int
-	processActiveDir string
-	processHolderPID int
+	processMu    sync.Mutex
+	processHolds = make(map[string]*dirHold)
+	reclaimHook  func() // testing hook for deterministic TOCTOU race simulation
 )
 
 // DefaultDir returns the default lock directory.
@@ -126,36 +133,40 @@ func (h *Handle) Release() error {
 		return nil
 	}
 
+	cleanDir := filepath.Clean(h.dir)
+
 	processMu.Lock()
 	defer processMu.Unlock()
 
-	if h.isNested {
-		processHoldCount--
-		if processHoldCount == 0 {
-			processActiveDir = ""
-			processHolderPID = 0
-		}
+	hold, ok := processHolds[cleanDir]
+	if !ok || hold.count <= 0 {
 		h.released = true
 		return nil
 	}
 
-	processHoldCount--
-	if processHoldCount > 0 {
-		h.released = true
+	hold.count--
+	h.released = true
+	if hold.count > 0 {
 		return nil
 	}
 
-	// Root release
+	inherited := hold.inherited
+	delete(processHolds, cleanDir)
+
+	if inherited {
+		return nil
+	}
+
+	// Root release for this directory: remove owner file and directory.
 	ownerFile := filepath.Join(h.dir, "owner")
 	_ = os.Remove(ownerFile)
 	if err := os.Remove(h.dir); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("cudalock: release failed: %w", err)
 	}
 
-	_ = os.Unsetenv("GPU_LOCK_HELD")
-	processActiveDir = ""
-	processHolderPID = 0
-	h.released = true
+	if cleanDir == filepath.Clean(DefaultDir()) {
+		_ = os.Unsetenv("GPU_LOCK_HELD")
+	}
 	return nil
 }
 
@@ -179,23 +190,22 @@ func Acquire(ctx context.Context, opts ...Option) (*Handle, error) {
 		cfg.pollInterval = DefaultPollInterval
 	}
 
+	cleanDir := filepath.Clean(cfg.dir)
+
 	// Check reentrancy within this process or inherited from parent gpu-lock.
 	processMu.Lock()
-	envHeld := os.Getenv("GPU_LOCK_HELD")
-	if processHoldCount > 0 && processActiveDir == cfg.dir {
-		processHoldCount++
+	if hold, ok := processHolds[cleanDir]; ok && hold.count > 0 {
+		hold.count++
 		processMu.Unlock()
 		return &Handle{
 			dir:      cfg.dir,
 			isNested: true,
-			owner: Owner{
-				PID:   processHolderPID,
-				Host:  shortHostname(),
-				Label: cfg.label,
-			},
+			owner:    hold.owner,
 		}, nil
 	}
-	if envHeld != "" && processActiveDir == "" && cfg.dir == DefaultDir() {
+
+	envHeld := os.Getenv("GPU_LOCK_HELD")
+	if envHeld != "" && cleanDir == filepath.Clean(DefaultDir()) {
 		if heldPID, err := strconv.Atoi(strings.TrimSpace(envHeld)); err == nil && heldPID > 0 {
 			// A live PID in the environment is not evidence that the lock is
 			// held. PID 1 is alive on every Unix, and the invocation
@@ -205,18 +215,21 @@ func Acquire(ctx context.Context, opts ...Option) (*Handle, error) {
 			// lock itself: every holder that exports this variable also wrote
 			// its own PID to the owner file (this file's acquire path below,
 			// Run, and the host's gpu-lock alike), so the two must agree. A
-			// missing directory or a disagreeing owner falls through to a
-			// normal acquire, which blocks on a real holder.
-			if owner, ok := ownerHeldBy(cfg.dir, heldPID); ok && isAlive(heldPID) {
+			// missing directory, a disagreeing owner, or a foreign host falls
+			// through to a normal acquire, which blocks on a real holder.
+			if owner, err := ownerHeldBy(cfg.dir, heldPID); err == nil && isAlive(heldPID) {
 				// Inherited from an ancestor process that ran us under gpu-lock
-				processHoldCount++
-				processActiveDir = cfg.dir
-				processHolderPID = heldPID
-				processMu.Unlock()
-
 				if owner.Label == "" {
 					owner.Label = cfg.label
 				}
+				processHolds[cleanDir] = &dirHold{
+					count:     1,
+					holderPID: heldPID,
+					inherited: true,
+					owner:     owner,
+				}
+				processMu.Unlock()
+
 				return &Handle{
 					dir:      cfg.dir,
 					isNested: true,
@@ -250,9 +263,9 @@ func Acquire(ctx context.Context, opts ...Option) (*Handle, error) {
 			return nil, fmt.Errorf("cudalock: %w", err)
 		}
 
-		// Attempt atomic acquisition
-		if err := os.Mkdir(cfg.dir, 0755); err == nil {
-			// Successfully created directory
+		// Attempt atomic acquisition via staging directory rename
+		staging, stagingErr := os.MkdirTemp(parent, ".gpu-lock-acquire.*")
+		if stagingErr == nil {
 			owner := Owner{
 				PID:   myPID,
 				Host:  myHost,
@@ -260,34 +273,39 @@ func Acquire(ctx context.Context, opts ...Option) (*Handle, error) {
 				Epoch: time.Now().Unix(),
 				At:    time.Now(),
 			}
-			ownerFile := filepath.Join(cfg.dir, "owner")
-			if writeErr := os.WriteFile(ownerFile, []byte(owner.String()), 0644); writeErr != nil {
-				// Revert on write failure
-				_ = os.Remove(cfg.dir)
-				return nil, fmt.Errorf("cudalock: failed writing owner: %w", writeErr)
+			ownerFile := filepath.Join(staging, "owner")
+			if writeErr := os.WriteFile(ownerFile, []byte(owner.String()), 0644); writeErr == nil {
+				if renameErr := os.Rename(staging, cfg.dir); renameErr == nil {
+					// Successfully acquired directory mutex
+					if cleanDir == filepath.Clean(DefaultDir()) {
+						_ = os.Setenv("GPU_LOCK_HELD", strconv.Itoa(myPID))
+					}
+					processMu.Lock()
+					processHolds[cleanDir] = &dirHold{
+						count:     1,
+						holderPID: myPID,
+						inherited: false,
+						owner:     owner,
+					}
+					processMu.Unlock()
+
+					return &Handle{
+						dir:   cfg.dir,
+						owner: owner,
+					}, nil
+				}
 			}
-
-			_ = os.Setenv("GPU_LOCK_HELD", strconv.Itoa(myPID))
-			processMu.Lock()
-			processHoldCount = 1
-			processActiveDir = cfg.dir
-			processHolderPID = myPID
-			processMu.Unlock()
-
-			return &Handle{
-				dir:   cfg.dir,
-				owner: owner,
-			}, nil
+			_ = os.RemoveAll(staging)
 		}
 
-		// Mutex directory already exists: check owner record for dead process
+		// Mutex directory already exists: check owner record
 		ownerFile := filepath.Join(cfg.dir, "owner")
 		data, readErr := os.ReadFile(ownerFile)
 		if readErr == nil {
-			if existingOwner, parseErr := ParseOwner(data); parseErr == nil {
+			existingOwner, parseErr := ParseOwner(data)
+			if parseErr == nil {
 				// Safety check 1: Foreign host locks are NEVER reclaimed.
 				if existingOwner.Host != "" && existingOwner.Host != myHost {
-					// Owned by another host; must wait for that host to release.
 					goto wait
 				}
 
@@ -298,21 +316,32 @@ func Acquire(ctx context.Context, opts ...Option) (*Handle, error) {
 				}
 
 				// Safety check 3: Process is confirmed dead on our host.
-				// Reclaim the abandoned lock directory.
-				_ = os.Remove(ownerFile)
-				if removeErr := os.Remove(cfg.dir); removeErr == nil {
-					// Reclaimed cleanly; loop immediately to acquire
+				// Reclaim the abandoned lock directory atomically.
+				if reclaim(cfg.dir, data) {
 					continue
+				}
+			} else {
+				// Owner file exists but is empty or unparsable.
+				// Treat an empty or unparsable owner file like a missing one:
+				// reclaim it once it has been older than the 15s grace period,
+				// measured from the owner file's mtime.
+				if fi, statErr := os.Stat(ownerFile); statErr == nil {
+					if time.Since(fi.ModTime()) > 15*time.Second {
+						if reclaim(cfg.dir, data) {
+							continue
+						}
+					}
 				}
 			}
 		} else if errors.Is(readErr, os.ErrNotExist) {
 			// Lock directory exists but has no owner file.
-			// Could be mid-acquire or left by a crashed creator.
+			// Could be left by a crashed older creator.
 			if fi, statErr := os.Stat(cfg.dir); statErr == nil {
 				if time.Since(fi.ModTime()) > 15*time.Second {
 					// Directory abandoned for > 15s with no owner file: reclaim.
-					_ = os.Remove(cfg.dir)
-					continue
+					if reclaim(cfg.dir, nil) {
+						continue
+					}
 				}
 			}
 		}
@@ -326,6 +355,52 @@ func Acquire(ctx context.Context, opts ...Option) (*Handle, error) {
 	}
 }
 
+// reclaim atomically moves staleDir aside, verifies that its owner file still
+// matches expectedData, and removes it. If the owner changed or another reclaimer
+// intervened, the displaced directory is moved back intact.
+func reclaim(dir string, expectedData []byte) bool {
+	if reclaimHook != nil {
+		reclaimHook()
+	}
+	parent := filepath.Dir(dir)
+	aside, err := os.MkdirTemp(parent, ".gpu-lock-stale.*")
+	if err != nil {
+		return false
+	}
+	_ = os.Remove(aside)
+
+	// Atomically move dir aside
+	if err := os.Rename(dir, aside); err != nil {
+		return false
+	}
+
+	ownerFile := filepath.Join(aside, "owner")
+	newData, readErr := os.ReadFile(ownerFile)
+
+	matches := false
+	if expectedData == nil {
+		if errors.Is(readErr, os.ErrNotExist) {
+			matches = true
+		}
+	} else {
+		if readErr == nil && bytes.Equal(newData, expectedData) {
+			matches = true
+		}
+	}
+
+	if matches {
+		_ = os.RemoveAll(aside)
+		return true
+	}
+
+	// Not the lock we diagnosed: a concurrent reclaimer or new holder won.
+	// Put it back exactly as we found it.
+	if err := os.Rename(aside, dir); err != nil {
+		fmt.Fprintf(os.Stderr, "cudalock: could not restore live lock displaced during reclaim: %s\n", aside)
+	}
+	return false
+}
+
 // WithLock runs fn while holding exclusive GPU access.
 func WithLock(ctx context.Context, fn func() error, opts ...Option) error {
 	handle, err := Acquire(ctx, opts...)
@@ -337,18 +412,23 @@ func WithLock(ctx context.Context, fn func() error, opts ...Option) error {
 }
 
 // ownerHeldBy reports whether dir is a lock directory whose owner file names
-// pid. It is the corroboration for an inherited GPU_LOCK_HELD: the environment
-// says who holds the lock, and this says whether the lock agrees.
-func ownerHeldBy(dir string, pid int) (Owner, bool) {
+// pid and belongs to the current host.
+func ownerHeldBy(dir string, pid int) (Owner, error) {
 	data, err := os.ReadFile(filepath.Join(dir, "owner"))
 	if err != nil {
-		return Owner{}, false
+		return Owner{}, fmt.Errorf("reading owner in %s: %w", dir, err)
 	}
 	owner, err := ParseOwner(data)
-	if err != nil || owner.PID != pid {
-		return Owner{}, false
+	if err != nil {
+		return Owner{}, fmt.Errorf("parsing owner in %s: %w", dir, err)
 	}
-	return owner, true
+	if owner.PID != pid {
+		return Owner{}, fmt.Errorf("owner record in %s names pid %d, want %d", dir, owner.PID, pid)
+	}
+	if owner.Host != "" && owner.Host != shortHostname() {
+		return Owner{}, fmt.Errorf("owner host %q differs from current host %q", owner.Host, shortHostname())
+	}
+	return owner, nil
 }
 
 // Run executes command args under the GPU lock, exporting GPU_LOCK_HELD.
@@ -367,7 +447,7 @@ func Run(ctx context.Context, args []string, opts ...Option) (int, error) {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.Env = append(os.Environ(), fmt.Sprintf("GPU_LOCK_HELD=%d", os.Getpid()))
+	cmd.Env = append(os.Environ(), fmt.Sprintf("GPU_LOCK_HELD=%d", handle.Owner().PID))
 	if handle.dir != DefaultDir() {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("GPU_LOCKDIR=%s", handle.dir))
 	}
