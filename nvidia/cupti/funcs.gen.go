@@ -3,204 +3,1410 @@
 package cupti
 
 import (
-	"github.com/tmc/lib/nvidia/driver"
+	"sync"
 	"unsafe"
+
+	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/internal/ffi"
 )
 
 // Generated function pointer variables.
 var (
-	fnActivityConfigurePCSampling                        func(driver.Context, *ActivityPCSamplingConfig) Result
-	fnActivityConfigureUnifiedMemoryCounter              func(*ActivityUnifiedMemoryCounterConfig, uint32) Result
-	fnActivityDisable                                    func(ActivityKind) Result
-	fnActivityDisableContext                             func(driver.Context, ActivityKind) Result
-	fnactivityDisableV2                                  func(Subscriber, ActivityKind, *ActivityConfig) Result
-	fnActivityEnable                                     func(ActivityKind) Result
-	fnActivityEnableAllSyncRecords                       func(uint8) Result
-	fnActivityEnableAllocationSource                     func(uint8) Result
-	fnActivityEnableAndDump                              func(ActivityKind) Result
-	fnactivityEnableAndDumpV2                            func(Subscriber, ActivityKind, *ActivityConfig) Result
-	fnActivityEnableContext                              func(driver.Context, ActivityKind) Result
-	fnActivityEnableCudaEventDeviceTimestamps            func(uint8) Result
-	fnActivityEnableDeviceGraph                          func(uint8) Result
-	fnActivityEnableDriverApi                            func(uint32, uint8) Result
-	fnActivityEnableHWTrace                              func(uint8) Result
-	fnActivityEnableLatencyTimestamps                    func(uint8) Result
-	fnActivityEnableLaunchAttributes                     func(uint8) Result
-	fnActivityEnableRuntimeApi                           func(uint32, uint8) Result
-	fnactivityEnableV2                                   func(Subscriber, ActivityKind, *ActivityConfig) Result
-	fnActivityFlush                                      func(driver.Context, uint32, uint32) Result
-	fnActivityFlushAll                                   func(uint32) Result
-	fnActivityFlushPeriod                                func(uint32) Result
-	fnActivityGetAttribute                               func(ActivityAttribute, *uint, unsafe.Pointer) Result
-	fnactivityGetAttributeV2                             func(Subscriber, ActivityAttribute, *uint, unsafe.Pointer) Result
-	fnactivityGetEnabledKinds                            func(Subscriber, *ActivityKind, *uint32, *uint32) Result
-	fnActivityGetNextRecord                              func(*uint8, uint, **Activity) Result
-	fnActivityGetNumDroppedRecords                       func(driver.Context, uint32, *uint) Result
-	fnActivityGetStructSize                              func(ActivityKind, uint32, *uint) Result
-	fnActivityPopExternalCorrelationId                   func(ExternalCorrelationKind, *uint64) Result
-	fnActivityPushExternalCorrelationId                  func(ExternalCorrelationKind, uint64) Result
-	fnActivityRegisterCallbacks                          func(uintptr, uintptr) Result
-	fnactivityRegisterCallbacksV2                        func(Subscriber, uintptr, uintptr) Result
-	fnActivityRegisterTimestampCallback                  func(uintptr) Result
-	fnActivitySetAttribute                               func(ActivityAttribute, *uint, unsafe.Pointer) Result
-	fnactivitySetAttributeV2                             func(Subscriber, ActivityAttribute, *uint, unsafe.Pointer) Result
-	fnCheckpointFree                                     func(*Checkpoint) Result
-	fnCheckpointRestore                                  func(*Checkpoint) Result
-	fnCheckpointSave                                     func(*Checkpoint) Result
-	fnComputeCapabilitySupported                         func(int32, int32, *int32) Result
-	fnDeviceEnumEventDomains                             func(Device, *uint, *uint32) Result
-	fnDeviceEnumMetrics                                  func(Device, *uint, *uint32) Result
-	fnDeviceGetAttribute                                 func(Device, DeviceAttribute, *uint, unsafe.Pointer) Result
-	fnDeviceGetChipName                                  func(*DeviceGetChipNameParams) Result
-	fnDeviceGetEventDomainAttribute                      func(Device, uint32, EventDomainAttribute, *uint, unsafe.Pointer) Result
-	fnDeviceGetNumEventDomains                           func(Device, *uint32) Result
-	fnDeviceGetNumMetrics                                func(Device, *uint32) Result
-	fnDeviceSupported                                    func(Device, *int32) Result
-	fnDeviceVirtualizationMode                           func(Device, *VirtualizationMode) Result
-	fnDisableKernelReplayMode                            func(driver.Context) Result
-	fnenableAllDomains                                   func(uint32, Subscriber) Result
-	fnenableCallback                                     func(uint32, Subscriber, CallbackDomain, uint32) Result
-	fnenableDomain                                       func(uint32, Subscriber, CallbackDomain) Result
-	fnEnableKernelReplayMode                             func(driver.Context) Result
-	fnEnumEventDomains                                   func(*uint, *uint32) Result
-	fnEnumMetrics                                        func(*uint, *uint32) Result
-	fnEventDomainEnumEvents                              func(uint32, *uint, *uint32) Result
-	fnEventDomainGetAttribute                            func(uint32, EventDomainAttribute, *uint, unsafe.Pointer) Result
-	fnEventDomainGetNumEvents                            func(uint32, *uint32) Result
-	fnEventGetAttribute                                  func(uint32, EventAttribute, *uint, unsafe.Pointer) Result
-	fnEventGetIdFromName                                 func(Device, *byte, *uint32) Result
-	fneventGroupAddEvent                                 func(EventGroup, uint32) Result
-	fneventGroupCreate                                   func(driver.Context, *EventGroup, uint32) Result
-	fneventGroupDestroy                                  func(EventGroup) Result
-	fneventGroupDisable                                  func(EventGroup) Result
-	fneventGroupEnable                                   func(EventGroup) Result
-	fneventGroupGetAttribute                             func(EventGroup, EventGroupAttribute, *uint, unsafe.Pointer) Result
-	fneventGroupReadAllEvents                            func(EventGroup, ReadEventFlags, *uint, *uint64, *uint, *uint32, *uint) Result
-	fneventGroupReadEvent                                func(EventGroup, ReadEventFlags, uint32, *uint, *uint64) Result
-	fneventGroupRemoveAllEvents                          func(EventGroup) Result
-	fneventGroupRemoveEvent                              func(EventGroup, uint32) Result
-	fneventGroupResetAllEvents                           func(EventGroup) Result
-	fneventGroupSetAttribute                             func(EventGroup, EventGroupAttribute, uint, unsafe.Pointer) Result
-	fnEventGroupSetDisable                               func(*EventGroupSet) Result
-	fnEventGroupSetEnable                                func(*EventGroupSet) Result
-	fnEventGroupSetsCreate                               func(driver.Context, uint, *uint32, **EventGroupSets) Result
-	fnEventGroupSetsDestroy                              func(*EventGroupSets) Result
-	fnFinalize                                           func() Result
-	fnGetAutoBoostState                                  func(driver.Context, *ActivityAutoBoostState) Result
-	fnGetCallbackName                                    func(CallbackDomain, uint32, **byte) Result
-	fngetCallbackState                                   func(*uint32, Subscriber, CallbackDomain, uint32) Result
-	fnGetContextId                                       func(driver.Context, *uint32) Result
-	fnGetCubinCrc                                        func(*GetCubinCrcParams) Result
-	fnGetDeviceId                                        func(driver.Context, *uint32) Result
-	fngetEnabledCallbacks                                func(Subscriber, CallbackDomain, *uint32, *uint32, *uint32) Result
-	fnGetGraphExecId                                     func(GraphExec, *uint32) Result
-	fnGetGraphId                                         func(Graph, *uint32) Result
-	fnGetGraphNodeId                                     func(GraphNode, *uint64) Result
-	fnGetLastError                                       func() Result
-	fnGetNumEventDomains                                 func(*uint32) Result
-	fnGetNumMetrics                                      func(*uint32) Result
-	fnGetSassToSourceCorrelation                         func(*GetSassToSourceCorrelationParams) Result
-	fnGetStreamId                                        func(driver.Context, driver.Stream, *uint32) Result
-	fnGetStreamIdEx                                      func(driver.Context, driver.Stream, uint8, *uint32) Result
-	fnGetThreadIdType                                    func(*ActivityThreadIdType) Result
-	fnGetTimestamp                                       func(*uint64) Result
-	fnGetVersion                                         func(*uint32) Result
-	fnIsTracingSessionRunning                            func(*uint8) Result
-	fnKernelReplaySubscribeUpdate                        func(uintptr, uintptr) Result
-	fnMetricCreateEventGroupSets                         func(driver.Context, uint, *uint32, **EventGroupSets) Result
-	fnMetricEnumEvents                                   func(uint32, *uint, *uint32) Result
-	fnMetricEnumProperties                               func(uint32, *uint, *MetricPropertyID) Result
-	fnMetricGetAttribute                                 func(uint32, MetricAttribute, *uint, unsafe.Pointer) Result
-	fnMetricGetIdFromName                                func(Device, *byte, *uint32) Result
-	fnMetricGetNumEvents                                 func(uint32, *uint32) Result
-	fnMetricGetNumProperties                             func(uint32, *uint32) Result
-	fnMetricGetRequiredEventGroupSets                    func(driver.Context, uint32, **EventGroupSets) Result
-	fnMetricGetValue                                     func(Device, uint32, uint, *uint32, uint, *uint64, uint64, *[1]uint64) Result
-	fnMetricGetValue2                                    func(uint32, uint, *uint32, uint, *uint64, uint, *MetricPropertyID, uint, *uint64, *[1]uint64) Result
-	fnPCSamplingDisable                                  func(*PCSamplingDisableParams) Result
-	fnPCSamplingEnable                                   func(*PCSamplingEnableParams) Result
-	fnPCSamplingGetConfigurationAttribute                func(*PCSamplingConfigurationInfoParams) Result
-	fnPCSamplingGetData                                  func(*PCSamplingGetDataParams) Result
-	fnPCSamplingGetNumStallReasons                       func(*PCSamplingGetNumStallReasonsParams) Result
-	fnPCSamplingGetStallReasons                          func(*PCSamplingGetStallReasonsParams) Result
-	fnPCSamplingSetConfigurationAttribute                func(*PCSamplingConfigurationInfoParams) Result
-	fnPCSamplingStart                                    func(*PCSamplingStartParams) Result
-	fnPCSamplingStop                                     func(*PCSamplingStopParams) Result
-	fnPmSamplingCounterDataGetSampleInfo                 func(*PmSamplingCounterDataGetSampleInfoParams) Result
-	fnPmSamplingCounterDataImageInitialize               func(*PmSamplingCounterDataImageInitializeParams) Result
-	fnPmSamplingDecodeData                               func(*PmSamplingDecodeDataParams) Result
-	fnPmSamplingDisable                                  func(*PmSamplingDisableParams) Result
-	fnPmSamplingEnable                                   func(*PmSamplingEnableParams) Result
-	fnPmSamplingGetCounterAvailability                   func(*PmSamplingGetCounterAvailabilityParams) Result
-	fnPmSamplingGetCounterDataInfo                       func(*PmSamplingGetCounterDataInfoParams) Result
-	fnPmSamplingGetCounterDataSize                       func(*PmSamplingGetCounterDataSizeParams) Result
-	fnPmSamplingSetConfig                                func(*PmSamplingSetConfigParams) Result
-	fnPmSamplingStart                                    func(*PmSamplingStartParams) Result
-	fnPmSamplingStop                                     func(*PmSamplingStopParams) Result
-	fnProfilerBeginPass                                  func(*ProfilerBeginPassParams) Result
-	fnProfilerBeginSession                               func(*ProfilerBeginSessionParams) Result
-	fnProfilerCounterDataImageCalculateScratchBufferSize func(*ProfilerCounterDataImageCalculateScratchBufferSizeParams) Result
-	fnProfilerCounterDataImageCalculateSize              func(*ProfilerCounterDataImageCalculateSizeParams) Result
-	fnProfilerCounterDataImageInitialize                 func(*ProfilerCounterDataImageInitializeParams) Result
-	fnProfilerCounterDataImageInitializeScratchBuffer    func(*ProfilerCounterDataImageInitializeScratchBufferParams) Result
-	fnProfilerDeInitialize                               func(*ProfilerDeInitializeParams) Result
-	fnProfilerDeviceSupported                            func(*ProfilerDeviceSupportedParams) Result
-	fnProfilerDisableProfiling                           func(*ProfilerDisableProfilingParams) Result
-	fnProfilerEnableProfiling                            func(*ProfilerEnableProfilingParams) Result
-	fnProfilerEndPass                                    func(*ProfilerEndPassParams) Result
-	fnProfilerEndSession                                 func(*ProfilerEndSessionParams) Result
-	fnProfilerFlushCounterData                           func(*ProfilerFlushCounterDataParams) Result
-	fnProfilerGetCounterAvailability                     func(*ProfilerGetCounterAvailabilityParams) Result
-	fnProfilerHostConfigAddMetrics                       func(*ProfilerHostConfigAddMetricsParams) Result
-	fnProfilerHostDeinitialize                           func(*ProfilerHostDeinitializeParams) Result
-	fnProfilerHostEvaluateToGpuValues                    func(*ProfilerHostEvaluateToGpuValuesParams) Result
-	fnProfilerHostGetBaseMetrics                         func(*ProfilerHostGetBaseMetricsParams) Result
-	fnProfilerHostGetConfigImage                         func(*ProfilerHostGetConfigImageParams) Result
-	fnProfilerHostGetConfigImageSize                     func(*ProfilerHostGetConfigImageSizeParams) Result
-	fnProfilerHostGetMaxNumHardwareMetricsPerPass        func(*ProfilerHostGetMaxNumHardwareMetricsPerPassParams) Result
-	fnProfilerHostGetMetricProperties                    func(*ProfilerHostGetMetricPropertiesParams) Result
-	fnProfilerHostGetMetricsInSinglePassSet              func(*ProfilerHostGetMetricsInSinglePassSetParams) Result
-	fnProfilerHostGetNumOfPasses                         func(*ProfilerHostGetNumOfPassesParams) Result
-	fnProfilerHostGetRangeName                           func(*ProfilerHostGetRangeNameParams) Result
-	fnProfilerHostGetSinglePassSets                      func(*ProfilerHostGetSinglePassSetsParams) Result
-	fnProfilerHostGetSubMetrics                          func(*ProfilerHostGetSubMetricsParams) Result
-	fnProfilerHostGetSupportedChips                      func(*ProfilerHostGetSupportedChipsParams) Result
-	fnProfilerHostInitialize                             func(*ProfilerHostInitializeParams) Result
-	fnProfilerInitialize                                 func(*ProfilerInitializeParams) Result
-	fnProfilerIsPassCollected                            func(*ProfilerIsPassCollectedParams) Result
-	fnProfilerPopRange                                   func(*ProfilerPopRangeParams) Result
-	fnProfilerPushRange                                  func(*ProfilerPushRangeParams) Result
-	fnProfilerSetConfig                                  func(*ProfilerSetConfigParams) Result
-	fnProfilerUnsetConfig                                func(*ProfilerUnsetConfigParams) Result
-	fnRangeProfilerCounterDataGetRangeInfo               func(*RangeProfilerCounterDataGetRangeInfoParams) Result
-	fnRangeProfilerCounterDataImageInitialize            func(*RangeProfilerCounterDataImageInitializeParams) Result
-	fnRangeProfilerDecodeData                            func(*RangeProfilerDecodeDataParams) Result
-	fnRangeProfilerDisable                               func(*RangeProfilerDisableParams) Result
-	fnRangeProfilerEnable                                func(*RangeProfilerEnableParams) Result
-	fnRangeProfilerGetCounterDataInfo                    func(*RangeProfilerGetCounterDataInfoParams) Result
-	fnRangeProfilerGetCounterDataSize                    func(*RangeProfilerGetCounterDataSizeParams) Result
-	fnRangeProfilerPopRange                              func(*RangeProfilerPopRangeParams) Result
-	fnRangeProfilerPushRange                             func(*RangeProfilerPushRangeParams) Result
-	fnRangeProfilerSetConfig                             func(*RangeProfilerSetConfigParams) Result
-	fnRangeProfilerStart                                 func(*RangeProfilerStartParams) Result
-	fnRangeProfilerStop                                  func(*RangeProfilerStopParams) Result
-	fnRegisterComputeCrcCallback                         func(uintptr) Result
-	fnSassMetricsDisable                                 func(*SassMetricsDisableParams) Result
-	fnSassMetricsEnable                                  func(*SassMetricsEnableParams) Result
-	fnSassMetricsFlushData                               func(*SassMetricsFlushDataParams) Result
-	fnSassMetricsGetDataProperties                       func(*SassMetricsGetDataPropertiesParams) Result
-	fnSassMetricsGetMetrics                              func(*SassMetricsGetMetricsParams) Result
-	fnSassMetricsGetNumOfMetrics                         func(*SassMetricsGetNumOfMetricsParams) Result
-	fnSassMetricsGetProperties                           func(*SassMetricsGetPropertiesParams) Result
-	fnSassMetricsSetConfig                               func(*SassMetricsSetConfigParams) Result
-	fnSassMetricsUnsetConfig                             func(*SassMetricsUnsetConfigParams) Result
-	fnSetEventCollectionMode                             func(driver.Context, EventCollectionMode) Result
-	fnSetThreadIdType                                    func(ActivityThreadIdType) Result
-	fnSubscribe                                          func(*Subscriber, uintptr, uintptr) Result
-	fnSubscribeV2                                        func(*Subscriber, uintptr, uintptr, *SubscriberParams) Result
-	fnSupportedDomains                                   func(*uint, *uintptr) Result
-	fnunsubscribe                                        func(Subscriber) Result
+	fnActivityConfigurePCSampling                         func(driver.Context, *ActivityPCSamplingConfig) Result
+	symActivityConfigureUnifiedMemoryCounter              uintptr
+	symActivityDisable                                    uintptr
+	fnActivityDisableContext                              func(driver.Context, ActivityKind) Result
+	symactivityDisableV2                                  uintptr
+	symActivityEnable                                     uintptr
+	symActivityEnableAllSyncRecords                       uintptr
+	symActivityEnableAllocationSource                     uintptr
+	symActivityEnableAndDump                              uintptr
+	symactivityEnableAndDumpV2                            uintptr
+	fnActivityEnableContext                               func(driver.Context, ActivityKind) Result
+	symActivityEnableCudaEventDeviceTimestamps            uintptr
+	symActivityEnableDeviceGraph                          uintptr
+	symActivityEnableDriverApi                            uintptr
+	symActivityEnableHWTrace                              uintptr
+	symActivityEnableLatencyTimestamps                    uintptr
+	symActivityEnableLaunchAttributes                     uintptr
+	symActivityEnableRuntimeApi                           uintptr
+	symactivityEnableV2                                   uintptr
+	fnActivityFlush                                       func(driver.Context, uint32, uint32) Result
+	symActivityFlushAll                                   uintptr
+	symActivityFlushPeriod                                uintptr
+	symActivityGetAttribute                               uintptr
+	symactivityGetAttributeV2                             uintptr
+	symactivityGetEnabledKinds                            uintptr
+	symActivityGetNextRecord                              uintptr
+	fnActivityGetNumDroppedRecords                        func(driver.Context, uint32, *uint) Result
+	symActivityGetStructSize                              uintptr
+	symActivityPopExternalCorrelationId                   uintptr
+	symActivityPushExternalCorrelationId                  uintptr
+	symActivityRegisterCallbacks                          uintptr
+	symactivityRegisterCallbacksV2                        uintptr
+	symActivityRegisterTimestampCallback                  uintptr
+	symActivitySetAttribute                               uintptr
+	symactivitySetAttributeV2                             uintptr
+	symCheckpointFree                                     uintptr
+	symCheckpointRestore                                  uintptr
+	symCheckpointSave                                     uintptr
+	symComputeCapabilitySupported                         uintptr
+	symDeviceEnumEventDomains                             uintptr
+	symDeviceEnumMetrics                                  uintptr
+	symDeviceGetAttribute                                 uintptr
+	symDeviceGetChipName                                  uintptr
+	symDeviceGetEventDomainAttribute                      uintptr
+	symDeviceGetNumEventDomains                           uintptr
+	symDeviceGetNumMetrics                                uintptr
+	symDeviceSupported                                    uintptr
+	symDeviceVirtualizationMode                           uintptr
+	fnDisableKernelReplayMode                             func(driver.Context) Result
+	symenableAllDomains                                   uintptr
+	symenableCallback                                     uintptr
+	symenableDomain                                       uintptr
+	fnEnableKernelReplayMode                              func(driver.Context) Result
+	symEnumEventDomains                                   uintptr
+	symEnumMetrics                                        uintptr
+	symEventDomainEnumEvents                              uintptr
+	symEventDomainGetAttribute                            uintptr
+	symEventDomainGetNumEvents                            uintptr
+	symEventGetAttribute                                  uintptr
+	symEventGetIdFromName                                 uintptr
+	symeventGroupAddEvent                                 uintptr
+	fneventGroupCreate                                    func(driver.Context, *EventGroup, uint32) Result
+	symeventGroupDestroy                                  uintptr
+	symeventGroupDisable                                  uintptr
+	symeventGroupEnable                                   uintptr
+	symeventGroupGetAttribute                             uintptr
+	symeventGroupReadAllEvents                            uintptr
+	symeventGroupReadEvent                                uintptr
+	symeventGroupRemoveAllEvents                          uintptr
+	symeventGroupRemoveEvent                              uintptr
+	symeventGroupResetAllEvents                           uintptr
+	symeventGroupSetAttribute                             uintptr
+	symEventGroupSetDisable                               uintptr
+	symEventGroupSetEnable                                uintptr
+	fnEventGroupSetsCreate                                func(driver.Context, uint, *uint32, **EventGroupSets) Result
+	symEventGroupSetsDestroy                              uintptr
+	symFinalize                                           uintptr
+	fnGetAutoBoostState                                   func(driver.Context, *ActivityAutoBoostState) Result
+	symGetCallbackName                                    uintptr
+	symgetCallbackState                                   uintptr
+	fnGetContextId                                        func(driver.Context, *uint32) Result
+	symGetCubinCrc                                        uintptr
+	fnGetDeviceId                                         func(driver.Context, *uint32) Result
+	symgetEnabledCallbacks                                uintptr
+	symGetGraphExecId                                     uintptr
+	symGetGraphId                                         uintptr
+	symGetGraphNodeId                                     uintptr
+	symGetLastError                                       uintptr
+	symGetNumEventDomains                                 uintptr
+	symGetNumMetrics                                      uintptr
+	symGetSassToSourceCorrelation                         uintptr
+	fnGetStreamId                                         func(driver.Context, driver.Stream, *uint32) Result
+	fnGetStreamIdEx                                       func(driver.Context, driver.Stream, uint8, *uint32) Result
+	symGetThreadIdType                                    uintptr
+	symGetTimestamp                                       uintptr
+	fnGetVersion                                          func(*uint32) Result
+	symIsTracingSessionRunning                            uintptr
+	symKernelReplaySubscribeUpdate                        uintptr
+	fnMetricCreateEventGroupSets                          func(driver.Context, uint, *uint32, **EventGroupSets) Result
+	symMetricEnumEvents                                   uintptr
+	symMetricEnumProperties                               uintptr
+	symMetricGetAttribute                                 uintptr
+	symMetricGetIdFromName                                uintptr
+	symMetricGetNumEvents                                 uintptr
+	symMetricGetNumProperties                             uintptr
+	fnMetricGetRequiredEventGroupSets                     func(driver.Context, uint32, **EventGroupSets) Result
+	symMetricGetValue                                     uintptr
+	symMetricGetValue2                                    uintptr
+	symPCSamplingDisable                                  uintptr
+	symPCSamplingEnable                                   uintptr
+	symPCSamplingGetConfigurationAttribute                uintptr
+	symPCSamplingGetData                                  uintptr
+	symPCSamplingGetNumStallReasons                       uintptr
+	symPCSamplingGetStallReasons                          uintptr
+	symPCSamplingSetConfigurationAttribute                uintptr
+	symPCSamplingStart                                    uintptr
+	symPCSamplingStop                                     uintptr
+	symPmSamplingCounterDataGetSampleInfo                 uintptr
+	symPmSamplingCounterDataImageInitialize               uintptr
+	symPmSamplingDecodeData                               uintptr
+	symPmSamplingDisable                                  uintptr
+	symPmSamplingEnable                                   uintptr
+	symPmSamplingGetCounterAvailability                   uintptr
+	symPmSamplingGetCounterDataInfo                       uintptr
+	symPmSamplingGetCounterDataSize                       uintptr
+	symPmSamplingSetConfig                                uintptr
+	symPmSamplingStart                                    uintptr
+	symPmSamplingStop                                     uintptr
+	symProfilerBeginPass                                  uintptr
+	symProfilerBeginSession                               uintptr
+	symProfilerCounterDataImageCalculateScratchBufferSize uintptr
+	symProfilerCounterDataImageCalculateSize              uintptr
+	symProfilerCounterDataImageInitialize                 uintptr
+	symProfilerCounterDataImageInitializeScratchBuffer    uintptr
+	symProfilerDeInitialize                               uintptr
+	symProfilerDeviceSupported                            uintptr
+	symProfilerDisableProfiling                           uintptr
+	symProfilerEnableProfiling                            uintptr
+	symProfilerEndPass                                    uintptr
+	symProfilerEndSession                                 uintptr
+	symProfilerFlushCounterData                           uintptr
+	symProfilerGetCounterAvailability                     uintptr
+	symProfilerHostConfigAddMetrics                       uintptr
+	symProfilerHostDeinitialize                           uintptr
+	symProfilerHostEvaluateToGpuValues                    uintptr
+	symProfilerHostGetBaseMetrics                         uintptr
+	symProfilerHostGetConfigImage                         uintptr
+	symProfilerHostGetConfigImageSize                     uintptr
+	symProfilerHostGetMaxNumHardwareMetricsPerPass        uintptr
+	symProfilerHostGetMetricProperties                    uintptr
+	symProfilerHostGetMetricsInSinglePassSet              uintptr
+	symProfilerHostGetNumOfPasses                         uintptr
+	symProfilerHostGetRangeName                           uintptr
+	symProfilerHostGetSinglePassSets                      uintptr
+	symProfilerHostGetSubMetrics                          uintptr
+	symProfilerHostGetSupportedChips                      uintptr
+	symProfilerHostInitialize                             uintptr
+	symProfilerInitialize                                 uintptr
+	symProfilerIsPassCollected                            uintptr
+	symProfilerPopRange                                   uintptr
+	symProfilerPushRange                                  uintptr
+	symProfilerSetConfig                                  uintptr
+	symProfilerUnsetConfig                                uintptr
+	symRangeProfilerCounterDataGetRangeInfo               uintptr
+	symRangeProfilerCounterDataImageInitialize            uintptr
+	symRangeProfilerDecodeData                            uintptr
+	symRangeProfilerDisable                               uintptr
+	symRangeProfilerEnable                                uintptr
+	symRangeProfilerGetCounterDataInfo                    uintptr
+	symRangeProfilerGetCounterDataSize                    uintptr
+	symRangeProfilerPopRange                              uintptr
+	symRangeProfilerPushRange                             uintptr
+	symRangeProfilerSetConfig                             uintptr
+	symRangeProfilerStart                                 uintptr
+	symRangeProfilerStop                                  uintptr
+	symRegisterComputeCrcCallback                         uintptr
+	symSassMetricsDisable                                 uintptr
+	symSassMetricsEnable                                  uintptr
+	symSassMetricsFlushData                               uintptr
+	symSassMetricsGetDataProperties                       uintptr
+	symSassMetricsGetMetrics                              uintptr
+	symSassMetricsGetNumOfMetrics                         uintptr
+	symSassMetricsGetProperties                           uintptr
+	symSassMetricsSetConfig                               uintptr
+	symSassMetricsUnsetConfig                             uintptr
+	fnSetEventCollectionMode                              func(driver.Context, EventCollectionMode) Result
+	symSetThreadIdType                                    uintptr
+	symSubscribe                                          uintptr
+	symSubscribeV2                                        uintptr
+	symSupportedDomains                                   uintptr
+	symunsubscribe                                        uintptr
 )
+
+// The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Bits 2i and 2i+1 of widths give the size of
+// argument word i as a ffi.Width code, which places a narrow argument
+// on the stack where the C ABI expects it. Each funnel returns the first
+// integer result register and the first floating-point one; a caller
+// reads whichever the C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall0(fn uintptr, floatMask uint32) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	return ffi.CallFloat(fn, 0, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloat(fn, 3, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloat(fn, 4, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCallWidths1(fn uintptr, floatMask uint32, widths uint64, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloatWidths(fn, 1, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths2(fn uintptr, floatMask uint32, widths uint64, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloatWidths(fn, 2, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths3(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloatWidths(fn, 3, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths4(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloatWidths(fn, 4, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths5(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloatWidths(fn, 5, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths7(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	return ffi.CallFloatWidths(fn, 7, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths8(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	return ffi.CallFloatWidths(fn, 8, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths10(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	return ffi.CallFloatWidths(fn, 10, &args, floatMask, widths)
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
+// fnActivityConfigureUnifiedMemoryCounter calls cuptiActivityConfigureUnifiedMemoryCounter.
+func fnActivityConfigureUnifiedMemoryCounter(a0 *ActivityUnifiedMemoryCounterConfig, a1 uint32) Result {
+	r1, _ := ffiCallWidths2(symActivityConfigureUnifiedMemoryCounter, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnActivityDisable calls cuptiActivityDisable.
+func fnActivityDisable(a0 ActivityKind) Result {
+	r1, _ := ffiCallWidths1(symActivityDisable, 0, 0x3, uintptr(a0))
+	return Result(r1)
+}
+
+// fnactivityDisableV2 calls cuptiActivityDisable_v2.
+func fnactivityDisableV2(a0 Subscriber, a1 ActivityKind, a2 *ActivityConfig) Result {
+	r1, _ := ffiCallWidths3(symactivityDisableV2, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnActivityEnable calls cuptiActivityEnable.
+func fnActivityEnable(a0 ActivityKind) Result {
+	r1, _ := ffiCallWidths1(symActivityEnable, 0, 0x3, uintptr(a0))
+	return Result(r1)
+}
+
+// fnActivityEnableAllSyncRecords calls cuptiActivityEnableAllSyncRecords.
+func fnActivityEnableAllSyncRecords(a0 uint8) Result {
+	r1, _ := ffiCallWidths1(symActivityEnableAllSyncRecords, 0, 0x1, uintptr(a0))
+	return Result(r1)
+}
+
+// fnActivityEnableAllocationSource calls cuptiActivityEnableAllocationSource.
+func fnActivityEnableAllocationSource(a0 uint8) Result {
+	r1, _ := ffiCallWidths1(symActivityEnableAllocationSource, 0, 0x1, uintptr(a0))
+	return Result(r1)
+}
+
+// fnActivityEnableAndDump calls cuptiActivityEnableAndDump.
+func fnActivityEnableAndDump(a0 ActivityKind) Result {
+	r1, _ := ffiCallWidths1(symActivityEnableAndDump, 0, 0x3, uintptr(a0))
+	return Result(r1)
+}
+
+// fnactivityEnableAndDumpV2 calls cuptiActivityEnableAndDump_v2.
+func fnactivityEnableAndDumpV2(a0 Subscriber, a1 ActivityKind, a2 *ActivityConfig) Result {
+	r1, _ := ffiCallWidths3(symactivityEnableAndDumpV2, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnActivityEnableCudaEventDeviceTimestamps calls cuptiActivityEnableCudaEventDeviceTimestamps.
+func fnActivityEnableCudaEventDeviceTimestamps(a0 uint8) Result {
+	r1, _ := ffiCallWidths1(symActivityEnableCudaEventDeviceTimestamps, 0, 0x1, uintptr(a0))
+	return Result(r1)
+}
+
+// fnActivityEnableDeviceGraph calls cuptiActivityEnableDeviceGraph.
+func fnActivityEnableDeviceGraph(a0 uint8) Result {
+	r1, _ := ffiCallWidths1(symActivityEnableDeviceGraph, 0, 0x1, uintptr(a0))
+	return Result(r1)
+}
+
+// fnActivityEnableDriverApi calls cuptiActivityEnableDriverApi.
+func fnActivityEnableDriverApi(a0 uint32, a1 uint8) Result {
+	r1, _ := ffiCallWidths2(symActivityEnableDriverApi, 0, 0x7, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnActivityEnableHWTrace calls cuptiActivityEnableHWTrace.
+func fnActivityEnableHWTrace(a0 uint8) Result {
+	r1, _ := ffiCallWidths1(symActivityEnableHWTrace, 0, 0x1, uintptr(a0))
+	return Result(r1)
+}
+
+// fnActivityEnableLatencyTimestamps calls cuptiActivityEnableLatencyTimestamps.
+func fnActivityEnableLatencyTimestamps(a0 uint8) Result {
+	r1, _ := ffiCallWidths1(symActivityEnableLatencyTimestamps, 0, 0x1, uintptr(a0))
+	return Result(r1)
+}
+
+// fnActivityEnableLaunchAttributes calls cuptiActivityEnableLaunchAttributes.
+func fnActivityEnableLaunchAttributes(a0 uint8) Result {
+	r1, _ := ffiCallWidths1(symActivityEnableLaunchAttributes, 0, 0x1, uintptr(a0))
+	return Result(r1)
+}
+
+// fnActivityEnableRuntimeApi calls cuptiActivityEnableRuntimeApi.
+func fnActivityEnableRuntimeApi(a0 uint32, a1 uint8) Result {
+	r1, _ := ffiCallWidths2(symActivityEnableRuntimeApi, 0, 0x7, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnactivityEnableV2 calls cuptiActivityEnable_v2.
+func fnactivityEnableV2(a0 Subscriber, a1 ActivityKind, a2 *ActivityConfig) Result {
+	r1, _ := ffiCallWidths3(symactivityEnableV2, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnActivityFlushAll calls cuptiActivityFlushAll.
+func fnActivityFlushAll(a0 uint32) Result {
+	r1, _ := ffiCallWidths1(symActivityFlushAll, 0, 0x3, uintptr(a0))
+	return Result(r1)
+}
+
+// fnActivityFlushPeriod calls cuptiActivityFlushPeriod.
+func fnActivityFlushPeriod(a0 uint32) Result {
+	r1, _ := ffiCallWidths1(symActivityFlushPeriod, 0, 0x3, uintptr(a0))
+	return Result(r1)
+}
+
+// fnActivityGetAttribute calls cuptiActivityGetAttribute.
+func fnActivityGetAttribute(a0 ActivityAttribute, a1 *uint, a2 unsafe.Pointer) Result {
+	r1, _ := ffiCallWidths3(symActivityGetAttribute, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fnactivityGetAttributeV2 calls cuptiActivityGetAttribute_v2.
+func fnactivityGetAttributeV2(a0 Subscriber, a1 ActivityAttribute, a2 *uint, a3 unsafe.Pointer) Result {
+	r1, _ := ffiCallWidths4(symactivityGetAttributeV2, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
+	return Result(r1)
+}
+
+// fnactivityGetEnabledKinds calls cuptiActivityGetEnabledKinds.
+func fnactivityGetEnabledKinds(a0 Subscriber, a1 *ActivityKind, a2 *uint32, a3 *uint32) Result {
+	r1, _ := ffiCall4(symactivityGetEnabledKinds, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnActivityGetNextRecord calls cuptiActivityGetNextRecord.
+func fnActivityGetNextRecord(a0 *uint8, a1 uint, a2 **Activity) Result {
+	r1, _ := ffiCall3(symActivityGetNextRecord, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnActivityGetStructSize calls cuptiActivityGetStructSize.
+func fnActivityGetStructSize(a0 ActivityKind, a1 uint32, a2 *uint) Result {
+	r1, _ := ffiCallWidths3(symActivityGetStructSize, 0, 0xf, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnActivityPopExternalCorrelationId calls cuptiActivityPopExternalCorrelationId.
+func fnActivityPopExternalCorrelationId(a0 ExternalCorrelationKind, a1 *uint64) Result {
+	r1, _ := ffiCallWidths2(symActivityPopExternalCorrelationId, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnActivityPushExternalCorrelationId calls cuptiActivityPushExternalCorrelationId.
+func fnActivityPushExternalCorrelationId(a0 ExternalCorrelationKind, a1 uint64) Result {
+	r1, _ := ffiCallWidths2(symActivityPushExternalCorrelationId, 0, 0x3, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnActivityRegisterCallbacks calls cuptiActivityRegisterCallbacks.
+func fnActivityRegisterCallbacks(a0 uintptr, a1 uintptr) Result {
+	r1, _ := ffiCall2(symActivityRegisterCallbacks, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnactivityRegisterCallbacksV2 calls cuptiActivityRegisterCallbacks_v2.
+func fnactivityRegisterCallbacksV2(a0 Subscriber, a1 uintptr, a2 uintptr) Result {
+	r1, _ := ffiCall3(symactivityRegisterCallbacksV2, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnActivityRegisterTimestampCallback calls cuptiActivityRegisterTimestampCallback.
+func fnActivityRegisterTimestampCallback(a0 uintptr) Result {
+	r1, _ := ffiCall1(symActivityRegisterTimestampCallback, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnActivitySetAttribute calls cuptiActivitySetAttribute.
+func fnActivitySetAttribute(a0 ActivityAttribute, a1 *uint, a2 unsafe.Pointer) Result {
+	r1, _ := ffiCallWidths3(symActivitySetAttribute, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fnactivitySetAttributeV2 calls cuptiActivitySetAttribute_v2.
+func fnactivitySetAttributeV2(a0 Subscriber, a1 ActivityAttribute, a2 *uint, a3 unsafe.Pointer) Result {
+	r1, _ := ffiCallWidths4(symactivitySetAttributeV2, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
+	return Result(r1)
+}
+
+// fnCheckpointFree calls cuptiCheckpointFree.
+func fnCheckpointFree(a0 *Checkpoint) Result {
+	r1, _ := ffiCall1(symCheckpointFree, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnCheckpointRestore calls cuptiCheckpointRestore.
+func fnCheckpointRestore(a0 *Checkpoint) Result {
+	r1, _ := ffiCall1(symCheckpointRestore, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnCheckpointSave calls cuptiCheckpointSave.
+func fnCheckpointSave(a0 *Checkpoint) Result {
+	r1, _ := ffiCall1(symCheckpointSave, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnComputeCapabilitySupported calls cuptiComputeCapabilitySupported.
+func fnComputeCapabilitySupported(a0 int32, a1 int32, a2 *int32) Result {
+	r1, _ := ffiCallWidths3(symComputeCapabilitySupported, 0, 0xf, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnDeviceEnumEventDomains calls cuptiDeviceEnumEventDomains.
+func fnDeviceEnumEventDomains(a0 Device, a1 *uint, a2 *uint32) Result {
+	r1, _ := ffiCallWidths3(symDeviceEnumEventDomains, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnDeviceEnumMetrics calls cuptiDeviceEnumMetrics.
+func fnDeviceEnumMetrics(a0 Device, a1 *uint, a2 *uint32) Result {
+	r1, _ := ffiCallWidths3(symDeviceEnumMetrics, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnDeviceGetAttribute calls cuptiDeviceGetAttribute.
+func fnDeviceGetAttribute(a0 Device, a1 DeviceAttribute, a2 *uint, a3 unsafe.Pointer) Result {
+	r1, _ := ffiCallWidths4(symDeviceGetAttribute, 0, 0xf, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
+	return Result(r1)
+}
+
+// fnDeviceGetChipName calls cuptiDeviceGetChipName.
+func fnDeviceGetChipName(a0 *DeviceGetChipNameParams) Result {
+	r1, _ := ffiCall1(symDeviceGetChipName, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnDeviceGetEventDomainAttribute calls cuptiDeviceGetEventDomainAttribute.
+func fnDeviceGetEventDomainAttribute(a0 Device, a1 uint32, a2 EventDomainAttribute, a3 *uint, a4 unsafe.Pointer) Result {
+	r1, _ := ffiCallWidths5(symDeviceGetEventDomainAttribute, 0, 0x3f, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4))
+	return Result(r1)
+}
+
+// fnDeviceGetNumEventDomains calls cuptiDeviceGetNumEventDomains.
+func fnDeviceGetNumEventDomains(a0 Device, a1 *uint32) Result {
+	r1, _ := ffiCallWidths2(symDeviceGetNumEventDomains, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnDeviceGetNumMetrics calls cuptiDeviceGetNumMetrics.
+func fnDeviceGetNumMetrics(a0 Device, a1 *uint32) Result {
+	r1, _ := ffiCallWidths2(symDeviceGetNumMetrics, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnDeviceSupported calls cuptiDeviceSupported.
+func fnDeviceSupported(a0 Device, a1 *int32) Result {
+	r1, _ := ffiCallWidths2(symDeviceSupported, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnDeviceVirtualizationMode calls cuptiDeviceVirtualizationMode.
+func fnDeviceVirtualizationMode(a0 Device, a1 *VirtualizationMode) Result {
+	r1, _ := ffiCallWidths2(symDeviceVirtualizationMode, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnenableAllDomains calls cuptiEnableAllDomains.
+func fnenableAllDomains(a0 uint32, a1 Subscriber) Result {
+	r1, _ := ffiCallWidths2(symenableAllDomains, 0, 0x3, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnenableCallback calls cuptiEnableCallback.
+func fnenableCallback(a0 uint32, a1 Subscriber, a2 CallbackDomain, a3 uint32) Result {
+	r1, _ := ffiCallWidths4(symenableCallback, 0, 0xf3, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnenableDomain calls cuptiEnableDomain.
+func fnenableDomain(a0 uint32, a1 Subscriber, a2 CallbackDomain) Result {
+	r1, _ := ffiCallWidths3(symenableDomain, 0, 0x33, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnEnumEventDomains calls cuptiEnumEventDomains.
+func fnEnumEventDomains(a0 *uint, a1 *uint32) Result {
+	r1, _ := ffiCall2(symEnumEventDomains, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnEnumMetrics calls cuptiEnumMetrics.
+func fnEnumMetrics(a0 *uint, a1 *uint32) Result {
+	r1, _ := ffiCall2(symEnumMetrics, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnEventDomainEnumEvents calls cuptiEventDomainEnumEvents.
+func fnEventDomainEnumEvents(a0 uint32, a1 *uint, a2 *uint32) Result {
+	r1, _ := ffiCallWidths3(symEventDomainEnumEvents, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnEventDomainGetAttribute calls cuptiEventDomainGetAttribute.
+func fnEventDomainGetAttribute(a0 uint32, a1 EventDomainAttribute, a2 *uint, a3 unsafe.Pointer) Result {
+	r1, _ := ffiCallWidths4(symEventDomainGetAttribute, 0, 0xf, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
+	return Result(r1)
+}
+
+// fnEventDomainGetNumEvents calls cuptiEventDomainGetNumEvents.
+func fnEventDomainGetNumEvents(a0 uint32, a1 *uint32) Result {
+	r1, _ := ffiCallWidths2(symEventDomainGetNumEvents, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnEventGetAttribute calls cuptiEventGetAttribute.
+func fnEventGetAttribute(a0 uint32, a1 EventAttribute, a2 *uint, a3 unsafe.Pointer) Result {
+	r1, _ := ffiCallWidths4(symEventGetAttribute, 0, 0xf, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
+	return Result(r1)
+}
+
+// fnEventGetIdFromName calls cuptiEventGetIdFromName.
+func fnEventGetIdFromName(a0 Device, a1 *byte, a2 *uint32) Result {
+	r1, _ := ffiCallWidths3(symEventGetIdFromName, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fneventGroupAddEvent calls cuptiEventGroupAddEvent.
+func fneventGroupAddEvent(a0 EventGroup, a1 uint32) Result {
+	r1, _ := ffiCallWidths2(symeventGroupAddEvent, 0, 0xc, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fneventGroupDestroy calls cuptiEventGroupDestroy.
+func fneventGroupDestroy(a0 EventGroup) Result {
+	r1, _ := ffiCall1(symeventGroupDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fneventGroupDisable calls cuptiEventGroupDisable.
+func fneventGroupDisable(a0 EventGroup) Result {
+	r1, _ := ffiCall1(symeventGroupDisable, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fneventGroupEnable calls cuptiEventGroupEnable.
+func fneventGroupEnable(a0 EventGroup) Result {
+	r1, _ := ffiCall1(symeventGroupEnable, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fneventGroupGetAttribute calls cuptiEventGroupGetAttribute.
+func fneventGroupGetAttribute(a0 EventGroup, a1 EventGroupAttribute, a2 *uint, a3 unsafe.Pointer) Result {
+	r1, _ := ffiCallWidths4(symeventGroupGetAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
+	return Result(r1)
+}
+
+// fneventGroupReadAllEvents calls cuptiEventGroupReadAllEvents.
+func fneventGroupReadAllEvents(a0 EventGroup, a1 ReadEventFlags, a2 *uint, a3 *uint64, a4 *uint, a5 *uint32, a6 *uint) Result {
+	r1, _ := ffiCallWidths7(symeventGroupReadAllEvents, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fneventGroupReadEvent calls cuptiEventGroupReadEvent.
+func fneventGroupReadEvent(a0 EventGroup, a1 ReadEventFlags, a2 uint32, a3 *uint, a4 *uint64) Result {
+	r1, _ := ffiCallWidths5(symeventGroupReadEvent, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fneventGroupRemoveAllEvents calls cuptiEventGroupRemoveAllEvents.
+func fneventGroupRemoveAllEvents(a0 EventGroup) Result {
+	r1, _ := ffiCall1(symeventGroupRemoveAllEvents, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fneventGroupRemoveEvent calls cuptiEventGroupRemoveEvent.
+func fneventGroupRemoveEvent(a0 EventGroup, a1 uint32) Result {
+	r1, _ := ffiCallWidths2(symeventGroupRemoveEvent, 0, 0xc, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fneventGroupResetAllEvents calls cuptiEventGroupResetAllEvents.
+func fneventGroupResetAllEvents(a0 EventGroup) Result {
+	r1, _ := ffiCall1(symeventGroupResetAllEvents, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fneventGroupSetAttribute calls cuptiEventGroupSetAttribute.
+func fneventGroupSetAttribute(a0 EventGroup, a1 EventGroupAttribute, a2 uint, a3 unsafe.Pointer) Result {
+	r1, _ := ffiCallWidths4(symeventGroupSetAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnEventGroupSetDisable calls cuptiEventGroupSetDisable.
+func fnEventGroupSetDisable(a0 *EventGroupSet) Result {
+	r1, _ := ffiCall1(symEventGroupSetDisable, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnEventGroupSetEnable calls cuptiEventGroupSetEnable.
+func fnEventGroupSetEnable(a0 *EventGroupSet) Result {
+	r1, _ := ffiCall1(symEventGroupSetEnable, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnEventGroupSetsDestroy calls cuptiEventGroupSetsDestroy.
+func fnEventGroupSetsDestroy(a0 *EventGroupSets) Result {
+	r1, _ := ffiCall1(symEventGroupSetsDestroy, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnFinalize calls cuptiFinalize.
+func fnFinalize() Result {
+	r1, _ := ffiCall0(symFinalize, 0)
+	return Result(r1)
+}
+
+// fnGetCallbackName calls cuptiGetCallbackName.
+func fnGetCallbackName(a0 CallbackDomain, a1 uint32, a2 **byte) Result {
+	r1, _ := ffiCallWidths3(symGetCallbackName, 0, 0xf, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fngetCallbackState calls cuptiGetCallbackState.
+func fngetCallbackState(a0 *uint32, a1 Subscriber, a2 CallbackDomain, a3 uint32) Result {
+	r1, _ := ffiCallWidths4(symgetCallbackState, 0, 0xf0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnGetCubinCrc calls cuptiGetCubinCrc.
+func fnGetCubinCrc(a0 *GetCubinCrcParams) Result {
+	r1, _ := ffiCall1(symGetCubinCrc, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fngetEnabledCallbacks calls cuptiGetEnabledCallbacks.
+func fngetEnabledCallbacks(a0 Subscriber, a1 CallbackDomain, a2 *uint32, a3 *uint32, a4 *uint32) Result {
+	r1, _ := ffiCallWidths5(symgetEnabledCallbacks, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnGetGraphExecId calls cuptiGetGraphExecId.
+func fnGetGraphExecId(a0 GraphExec, a1 *uint32) Result {
+	r1, _ := ffiCall2(symGetGraphExecId, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGetGraphId calls cuptiGetGraphId.
+func fnGetGraphId(a0 Graph, a1 *uint32) Result {
+	r1, _ := ffiCall2(symGetGraphId, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGetGraphNodeId calls cuptiGetGraphNodeId.
+func fnGetGraphNodeId(a0 GraphNode, a1 *uint64) Result {
+	r1, _ := ffiCall2(symGetGraphNodeId, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGetLastError calls cuptiGetLastError.
+func fnGetLastError() Result {
+	r1, _ := ffiCall0(symGetLastError, 0)
+	return Result(r1)
+}
+
+// fnGetNumEventDomains calls cuptiGetNumEventDomains.
+func fnGetNumEventDomains(a0 *uint32) Result {
+	r1, _ := ffiCall1(symGetNumEventDomains, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnGetNumMetrics calls cuptiGetNumMetrics.
+func fnGetNumMetrics(a0 *uint32) Result {
+	r1, _ := ffiCall1(symGetNumMetrics, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnGetSassToSourceCorrelation calls cuptiGetSassToSourceCorrelation.
+func fnGetSassToSourceCorrelation(a0 *GetSassToSourceCorrelationParams) Result {
+	r1, _ := ffiCall1(symGetSassToSourceCorrelation, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnGetThreadIdType calls cuptiGetThreadIdType.
+func fnGetThreadIdType(a0 *ActivityThreadIdType) Result {
+	r1, _ := ffiCall1(symGetThreadIdType, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnGetTimestamp calls cuptiGetTimestamp.
+func fnGetTimestamp(a0 *uint64) Result {
+	r1, _ := ffiCall1(symGetTimestamp, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnIsTracingSessionRunning calls cuptiIsTracingSessionRunning.
+func fnIsTracingSessionRunning(a0 *uint8) Result {
+	r1, _ := ffiCall1(symIsTracingSessionRunning, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnKernelReplaySubscribeUpdate calls cuptiKernelReplaySubscribeUpdate.
+func fnKernelReplaySubscribeUpdate(a0 uintptr, a1 uintptr) Result {
+	r1, _ := ffiCall2(symKernelReplaySubscribeUpdate, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnMetricEnumEvents calls cuptiMetricEnumEvents.
+func fnMetricEnumEvents(a0 uint32, a1 *uint, a2 *uint32) Result {
+	r1, _ := ffiCallWidths3(symMetricEnumEvents, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnMetricEnumProperties calls cuptiMetricEnumProperties.
+func fnMetricEnumProperties(a0 uint32, a1 *uint, a2 *MetricPropertyID) Result {
+	r1, _ := ffiCallWidths3(symMetricEnumProperties, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnMetricGetAttribute calls cuptiMetricGetAttribute.
+func fnMetricGetAttribute(a0 uint32, a1 MetricAttribute, a2 *uint, a3 unsafe.Pointer) Result {
+	r1, _ := ffiCallWidths4(symMetricGetAttribute, 0, 0xf, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
+	return Result(r1)
+}
+
+// fnMetricGetIdFromName calls cuptiMetricGetIdFromName.
+func fnMetricGetIdFromName(a0 Device, a1 *byte, a2 *uint32) Result {
+	r1, _ := ffiCallWidths3(symMetricGetIdFromName, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnMetricGetNumEvents calls cuptiMetricGetNumEvents.
+func fnMetricGetNumEvents(a0 uint32, a1 *uint32) Result {
+	r1, _ := ffiCallWidths2(symMetricGetNumEvents, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnMetricGetNumProperties calls cuptiMetricGetNumProperties.
+func fnMetricGetNumProperties(a0 uint32, a1 *uint32) Result {
+	r1, _ := ffiCallWidths2(symMetricGetNumProperties, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnMetricGetValue calls cuptiMetricGetValue.
+func fnMetricGetValue(a0 Device, a1 uint32, a2 uint, a3 *uint32, a4 uint, a5 *uint64, a6 uint64, a7 *[1]uint64) Result {
+	r1, _ := ffiCallWidths8(symMetricGetValue, 0, 0xf, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fnMetricGetValue2 calls cuptiMetricGetValue2.
+func fnMetricGetValue2(a0 uint32, a1 uint, a2 *uint32, a3 uint, a4 *uint64, a5 uint, a6 *MetricPropertyID, a7 uint, a8 *uint64, a9 *[1]uint64) Result {
+	r1, _ := ffiCallWidths10(symMetricGetValue2, 0, 0x3, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)))
+	return Result(r1)
+}
+
+// fnPCSamplingDisable calls cuptiPCSamplingDisable.
+func fnPCSamplingDisable(a0 *PCSamplingDisableParams) Result {
+	r1, _ := ffiCall1(symPCSamplingDisable, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnPCSamplingEnable calls cuptiPCSamplingEnable.
+func fnPCSamplingEnable(a0 *PCSamplingEnableParams) Result {
+	r1, _ := ffiCall1(symPCSamplingEnable, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnPCSamplingGetConfigurationAttribute calls cuptiPCSamplingGetConfigurationAttribute.
+func fnPCSamplingGetConfigurationAttribute(a0 *PCSamplingConfigurationInfoParams) Result {
+	r1, _ := ffiCall1(symPCSamplingGetConfigurationAttribute, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnPCSamplingGetData calls cuptiPCSamplingGetData.
+func fnPCSamplingGetData(a0 *PCSamplingGetDataParams) Result {
+	r1, _ := ffiCall1(symPCSamplingGetData, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnPCSamplingGetNumStallReasons calls cuptiPCSamplingGetNumStallReasons.
+func fnPCSamplingGetNumStallReasons(a0 *PCSamplingGetNumStallReasonsParams) Result {
+	r1, _ := ffiCall1(symPCSamplingGetNumStallReasons, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnPCSamplingGetStallReasons calls cuptiPCSamplingGetStallReasons.
+func fnPCSamplingGetStallReasons(a0 *PCSamplingGetStallReasonsParams) Result {
+	r1, _ := ffiCall1(symPCSamplingGetStallReasons, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnPCSamplingSetConfigurationAttribute calls cuptiPCSamplingSetConfigurationAttribute.
+func fnPCSamplingSetConfigurationAttribute(a0 *PCSamplingConfigurationInfoParams) Result {
+	r1, _ := ffiCall1(symPCSamplingSetConfigurationAttribute, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnPCSamplingStart calls cuptiPCSamplingStart.
+func fnPCSamplingStart(a0 *PCSamplingStartParams) Result {
+	r1, _ := ffiCall1(symPCSamplingStart, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnPCSamplingStop calls cuptiPCSamplingStop.
+func fnPCSamplingStop(a0 *PCSamplingStopParams) Result {
+	r1, _ := ffiCall1(symPCSamplingStop, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnPmSamplingCounterDataGetSampleInfo calls cuptiPmSamplingCounterDataGetSampleInfo.
+func fnPmSamplingCounterDataGetSampleInfo(a0 *PmSamplingCounterDataGetSampleInfoParams) Result {
+	r1, _ := ffiCall1(symPmSamplingCounterDataGetSampleInfo, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnPmSamplingCounterDataImageInitialize calls cuptiPmSamplingCounterDataImageInitialize.
+func fnPmSamplingCounterDataImageInitialize(a0 *PmSamplingCounterDataImageInitializeParams) Result {
+	r1, _ := ffiCall1(symPmSamplingCounterDataImageInitialize, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnPmSamplingDecodeData calls cuptiPmSamplingDecodeData.
+func fnPmSamplingDecodeData(a0 *PmSamplingDecodeDataParams) Result {
+	r1, _ := ffiCall1(symPmSamplingDecodeData, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnPmSamplingDisable calls cuptiPmSamplingDisable.
+func fnPmSamplingDisable(a0 *PmSamplingDisableParams) Result {
+	r1, _ := ffiCall1(symPmSamplingDisable, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnPmSamplingEnable calls cuptiPmSamplingEnable.
+func fnPmSamplingEnable(a0 *PmSamplingEnableParams) Result {
+	r1, _ := ffiCall1(symPmSamplingEnable, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnPmSamplingGetCounterAvailability calls cuptiPmSamplingGetCounterAvailability.
+func fnPmSamplingGetCounterAvailability(a0 *PmSamplingGetCounterAvailabilityParams) Result {
+	r1, _ := ffiCall1(symPmSamplingGetCounterAvailability, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnPmSamplingGetCounterDataInfo calls cuptiPmSamplingGetCounterDataInfo.
+func fnPmSamplingGetCounterDataInfo(a0 *PmSamplingGetCounterDataInfoParams) Result {
+	r1, _ := ffiCall1(symPmSamplingGetCounterDataInfo, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnPmSamplingGetCounterDataSize calls cuptiPmSamplingGetCounterDataSize.
+func fnPmSamplingGetCounterDataSize(a0 *PmSamplingGetCounterDataSizeParams) Result {
+	r1, _ := ffiCall1(symPmSamplingGetCounterDataSize, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnPmSamplingSetConfig calls cuptiPmSamplingSetConfig.
+func fnPmSamplingSetConfig(a0 *PmSamplingSetConfigParams) Result {
+	r1, _ := ffiCall1(symPmSamplingSetConfig, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnPmSamplingStart calls cuptiPmSamplingStart.
+func fnPmSamplingStart(a0 *PmSamplingStartParams) Result {
+	r1, _ := ffiCall1(symPmSamplingStart, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnPmSamplingStop calls cuptiPmSamplingStop.
+func fnPmSamplingStop(a0 *PmSamplingStopParams) Result {
+	r1, _ := ffiCall1(symPmSamplingStop, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerBeginPass calls cuptiProfilerBeginPass.
+func fnProfilerBeginPass(a0 *ProfilerBeginPassParams) Result {
+	r1, _ := ffiCall1(symProfilerBeginPass, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerBeginSession calls cuptiProfilerBeginSession.
+func fnProfilerBeginSession(a0 *ProfilerBeginSessionParams) Result {
+	r1, _ := ffiCall1(symProfilerBeginSession, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerCounterDataImageCalculateScratchBufferSize calls cuptiProfilerCounterDataImageCalculateScratchBufferSize.
+func fnProfilerCounterDataImageCalculateScratchBufferSize(a0 *ProfilerCounterDataImageCalculateScratchBufferSizeParams) Result {
+	r1, _ := ffiCall1(symProfilerCounterDataImageCalculateScratchBufferSize, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerCounterDataImageCalculateSize calls cuptiProfilerCounterDataImageCalculateSize.
+func fnProfilerCounterDataImageCalculateSize(a0 *ProfilerCounterDataImageCalculateSizeParams) Result {
+	r1, _ := ffiCall1(symProfilerCounterDataImageCalculateSize, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerCounterDataImageInitialize calls cuptiProfilerCounterDataImageInitialize.
+func fnProfilerCounterDataImageInitialize(a0 *ProfilerCounterDataImageInitializeParams) Result {
+	r1, _ := ffiCall1(symProfilerCounterDataImageInitialize, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerCounterDataImageInitializeScratchBuffer calls cuptiProfilerCounterDataImageInitializeScratchBuffer.
+func fnProfilerCounterDataImageInitializeScratchBuffer(a0 *ProfilerCounterDataImageInitializeScratchBufferParams) Result {
+	r1, _ := ffiCall1(symProfilerCounterDataImageInitializeScratchBuffer, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerDeInitialize calls cuptiProfilerDeInitialize.
+func fnProfilerDeInitialize(a0 *ProfilerDeInitializeParams) Result {
+	r1, _ := ffiCall1(symProfilerDeInitialize, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerDeviceSupported calls cuptiProfilerDeviceSupported.
+func fnProfilerDeviceSupported(a0 *ProfilerDeviceSupportedParams) Result {
+	r1, _ := ffiCall1(symProfilerDeviceSupported, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerDisableProfiling calls cuptiProfilerDisableProfiling.
+func fnProfilerDisableProfiling(a0 *ProfilerDisableProfilingParams) Result {
+	r1, _ := ffiCall1(symProfilerDisableProfiling, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerEnableProfiling calls cuptiProfilerEnableProfiling.
+func fnProfilerEnableProfiling(a0 *ProfilerEnableProfilingParams) Result {
+	r1, _ := ffiCall1(symProfilerEnableProfiling, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerEndPass calls cuptiProfilerEndPass.
+func fnProfilerEndPass(a0 *ProfilerEndPassParams) Result {
+	r1, _ := ffiCall1(symProfilerEndPass, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerEndSession calls cuptiProfilerEndSession.
+func fnProfilerEndSession(a0 *ProfilerEndSessionParams) Result {
+	r1, _ := ffiCall1(symProfilerEndSession, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerFlushCounterData calls cuptiProfilerFlushCounterData.
+func fnProfilerFlushCounterData(a0 *ProfilerFlushCounterDataParams) Result {
+	r1, _ := ffiCall1(symProfilerFlushCounterData, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerGetCounterAvailability calls cuptiProfilerGetCounterAvailability.
+func fnProfilerGetCounterAvailability(a0 *ProfilerGetCounterAvailabilityParams) Result {
+	r1, _ := ffiCall1(symProfilerGetCounterAvailability, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerHostConfigAddMetrics calls cuptiProfilerHostConfigAddMetrics.
+func fnProfilerHostConfigAddMetrics(a0 *ProfilerHostConfigAddMetricsParams) Result {
+	r1, _ := ffiCall1(symProfilerHostConfigAddMetrics, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerHostDeinitialize calls cuptiProfilerHostDeinitialize.
+func fnProfilerHostDeinitialize(a0 *ProfilerHostDeinitializeParams) Result {
+	r1, _ := ffiCall1(symProfilerHostDeinitialize, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerHostEvaluateToGpuValues calls cuptiProfilerHostEvaluateToGpuValues.
+func fnProfilerHostEvaluateToGpuValues(a0 *ProfilerHostEvaluateToGpuValuesParams) Result {
+	r1, _ := ffiCall1(symProfilerHostEvaluateToGpuValues, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerHostGetBaseMetrics calls cuptiProfilerHostGetBaseMetrics.
+func fnProfilerHostGetBaseMetrics(a0 *ProfilerHostGetBaseMetricsParams) Result {
+	r1, _ := ffiCall1(symProfilerHostGetBaseMetrics, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerHostGetConfigImage calls cuptiProfilerHostGetConfigImage.
+func fnProfilerHostGetConfigImage(a0 *ProfilerHostGetConfigImageParams) Result {
+	r1, _ := ffiCall1(symProfilerHostGetConfigImage, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerHostGetConfigImageSize calls cuptiProfilerHostGetConfigImageSize.
+func fnProfilerHostGetConfigImageSize(a0 *ProfilerHostGetConfigImageSizeParams) Result {
+	r1, _ := ffiCall1(symProfilerHostGetConfigImageSize, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerHostGetMaxNumHardwareMetricsPerPass calls cuptiProfilerHostGetMaxNumHardwareMetricsPerPass.
+func fnProfilerHostGetMaxNumHardwareMetricsPerPass(a0 *ProfilerHostGetMaxNumHardwareMetricsPerPassParams) Result {
+	r1, _ := ffiCall1(symProfilerHostGetMaxNumHardwareMetricsPerPass, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerHostGetMetricProperties calls cuptiProfilerHostGetMetricProperties.
+func fnProfilerHostGetMetricProperties(a0 *ProfilerHostGetMetricPropertiesParams) Result {
+	r1, _ := ffiCall1(symProfilerHostGetMetricProperties, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerHostGetMetricsInSinglePassSet calls cuptiProfilerHostGetMetricsInSinglePassSet.
+func fnProfilerHostGetMetricsInSinglePassSet(a0 *ProfilerHostGetMetricsInSinglePassSetParams) Result {
+	r1, _ := ffiCall1(symProfilerHostGetMetricsInSinglePassSet, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerHostGetNumOfPasses calls cuptiProfilerHostGetNumOfPasses.
+func fnProfilerHostGetNumOfPasses(a0 *ProfilerHostGetNumOfPassesParams) Result {
+	r1, _ := ffiCall1(symProfilerHostGetNumOfPasses, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerHostGetRangeName calls cuptiProfilerHostGetRangeName.
+func fnProfilerHostGetRangeName(a0 *ProfilerHostGetRangeNameParams) Result {
+	r1, _ := ffiCall1(symProfilerHostGetRangeName, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerHostGetSinglePassSets calls cuptiProfilerHostGetSinglePassSets.
+func fnProfilerHostGetSinglePassSets(a0 *ProfilerHostGetSinglePassSetsParams) Result {
+	r1, _ := ffiCall1(symProfilerHostGetSinglePassSets, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerHostGetSubMetrics calls cuptiProfilerHostGetSubMetrics.
+func fnProfilerHostGetSubMetrics(a0 *ProfilerHostGetSubMetricsParams) Result {
+	r1, _ := ffiCall1(symProfilerHostGetSubMetrics, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerHostGetSupportedChips calls cuptiProfilerHostGetSupportedChips.
+func fnProfilerHostGetSupportedChips(a0 *ProfilerHostGetSupportedChipsParams) Result {
+	r1, _ := ffiCall1(symProfilerHostGetSupportedChips, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerHostInitialize calls cuptiProfilerHostInitialize.
+func fnProfilerHostInitialize(a0 *ProfilerHostInitializeParams) Result {
+	r1, _ := ffiCall1(symProfilerHostInitialize, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerInitialize calls cuptiProfilerInitialize.
+func fnProfilerInitialize(a0 *ProfilerInitializeParams) Result {
+	r1, _ := ffiCall1(symProfilerInitialize, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerIsPassCollected calls cuptiProfilerIsPassCollected.
+func fnProfilerIsPassCollected(a0 *ProfilerIsPassCollectedParams) Result {
+	r1, _ := ffiCall1(symProfilerIsPassCollected, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerPopRange calls cuptiProfilerPopRange.
+func fnProfilerPopRange(a0 *ProfilerPopRangeParams) Result {
+	r1, _ := ffiCall1(symProfilerPopRange, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerPushRange calls cuptiProfilerPushRange.
+func fnProfilerPushRange(a0 *ProfilerPushRangeParams) Result {
+	r1, _ := ffiCall1(symProfilerPushRange, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerSetConfig calls cuptiProfilerSetConfig.
+func fnProfilerSetConfig(a0 *ProfilerSetConfigParams) Result {
+	r1, _ := ffiCall1(symProfilerSetConfig, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnProfilerUnsetConfig calls cuptiProfilerUnsetConfig.
+func fnProfilerUnsetConfig(a0 *ProfilerUnsetConfigParams) Result {
+	r1, _ := ffiCall1(symProfilerUnsetConfig, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnRangeProfilerCounterDataGetRangeInfo calls cuptiRangeProfilerCounterDataGetRangeInfo.
+func fnRangeProfilerCounterDataGetRangeInfo(a0 *RangeProfilerCounterDataGetRangeInfoParams) Result {
+	r1, _ := ffiCall1(symRangeProfilerCounterDataGetRangeInfo, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnRangeProfilerCounterDataImageInitialize calls cuptiRangeProfilerCounterDataImageInitialize.
+func fnRangeProfilerCounterDataImageInitialize(a0 *RangeProfilerCounterDataImageInitializeParams) Result {
+	r1, _ := ffiCall1(symRangeProfilerCounterDataImageInitialize, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnRangeProfilerDecodeData calls cuptiRangeProfilerDecodeData.
+func fnRangeProfilerDecodeData(a0 *RangeProfilerDecodeDataParams) Result {
+	r1, _ := ffiCall1(symRangeProfilerDecodeData, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnRangeProfilerDisable calls cuptiRangeProfilerDisable.
+func fnRangeProfilerDisable(a0 *RangeProfilerDisableParams) Result {
+	r1, _ := ffiCall1(symRangeProfilerDisable, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnRangeProfilerEnable calls cuptiRangeProfilerEnable.
+func fnRangeProfilerEnable(a0 *RangeProfilerEnableParams) Result {
+	r1, _ := ffiCall1(symRangeProfilerEnable, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnRangeProfilerGetCounterDataInfo calls cuptiRangeProfilerGetCounterDataInfo.
+func fnRangeProfilerGetCounterDataInfo(a0 *RangeProfilerGetCounterDataInfoParams) Result {
+	r1, _ := ffiCall1(symRangeProfilerGetCounterDataInfo, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnRangeProfilerGetCounterDataSize calls cuptiRangeProfilerGetCounterDataSize.
+func fnRangeProfilerGetCounterDataSize(a0 *RangeProfilerGetCounterDataSizeParams) Result {
+	r1, _ := ffiCall1(symRangeProfilerGetCounterDataSize, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnRangeProfilerPopRange calls cuptiRangeProfilerPopRange.
+func fnRangeProfilerPopRange(a0 *RangeProfilerPopRangeParams) Result {
+	r1, _ := ffiCall1(symRangeProfilerPopRange, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnRangeProfilerPushRange calls cuptiRangeProfilerPushRange.
+func fnRangeProfilerPushRange(a0 *RangeProfilerPushRangeParams) Result {
+	r1, _ := ffiCall1(symRangeProfilerPushRange, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnRangeProfilerSetConfig calls cuptiRangeProfilerSetConfig.
+func fnRangeProfilerSetConfig(a0 *RangeProfilerSetConfigParams) Result {
+	r1, _ := ffiCall1(symRangeProfilerSetConfig, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnRangeProfilerStart calls cuptiRangeProfilerStart.
+func fnRangeProfilerStart(a0 *RangeProfilerStartParams) Result {
+	r1, _ := ffiCall1(symRangeProfilerStart, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnRangeProfilerStop calls cuptiRangeProfilerStop.
+func fnRangeProfilerStop(a0 *RangeProfilerStopParams) Result {
+	r1, _ := ffiCall1(symRangeProfilerStop, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnRegisterComputeCrcCallback calls cuptiRegisterComputeCrcCallback.
+func fnRegisterComputeCrcCallback(a0 uintptr) Result {
+	r1, _ := ffiCall1(symRegisterComputeCrcCallback, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnSassMetricsDisable calls cuptiSassMetricsDisable.
+func fnSassMetricsDisable(a0 *SassMetricsDisableParams) Result {
+	r1, _ := ffiCall1(symSassMetricsDisable, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnSassMetricsEnable calls cuptiSassMetricsEnable.
+func fnSassMetricsEnable(a0 *SassMetricsEnableParams) Result {
+	r1, _ := ffiCall1(symSassMetricsEnable, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnSassMetricsFlushData calls cuptiSassMetricsFlushData.
+func fnSassMetricsFlushData(a0 *SassMetricsFlushDataParams) Result {
+	r1, _ := ffiCall1(symSassMetricsFlushData, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnSassMetricsGetDataProperties calls cuptiSassMetricsGetDataProperties.
+func fnSassMetricsGetDataProperties(a0 *SassMetricsGetDataPropertiesParams) Result {
+	r1, _ := ffiCall1(symSassMetricsGetDataProperties, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnSassMetricsGetMetrics calls cuptiSassMetricsGetMetrics.
+func fnSassMetricsGetMetrics(a0 *SassMetricsGetMetricsParams) Result {
+	r1, _ := ffiCall1(symSassMetricsGetMetrics, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnSassMetricsGetNumOfMetrics calls cuptiSassMetricsGetNumOfMetrics.
+func fnSassMetricsGetNumOfMetrics(a0 *SassMetricsGetNumOfMetricsParams) Result {
+	r1, _ := ffiCall1(symSassMetricsGetNumOfMetrics, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnSassMetricsGetProperties calls cuptiSassMetricsGetProperties.
+func fnSassMetricsGetProperties(a0 *SassMetricsGetPropertiesParams) Result {
+	r1, _ := ffiCall1(symSassMetricsGetProperties, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnSassMetricsSetConfig calls cuptiSassMetricsSetConfig.
+func fnSassMetricsSetConfig(a0 *SassMetricsSetConfigParams) Result {
+	r1, _ := ffiCall1(symSassMetricsSetConfig, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnSassMetricsUnsetConfig calls cuptiSassMetricsUnsetConfig.
+func fnSassMetricsUnsetConfig(a0 *SassMetricsUnsetConfigParams) Result {
+	r1, _ := ffiCall1(symSassMetricsUnsetConfig, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnSetThreadIdType calls cuptiSetThreadIdType.
+func fnSetThreadIdType(a0 ActivityThreadIdType) Result {
+	r1, _ := ffiCallWidths1(symSetThreadIdType, 0, 0x3, uintptr(a0))
+	return Result(r1)
+}
+
+// fnSubscribe calls cuptiSubscribe.
+func fnSubscribe(a0 *Subscriber, a1 uintptr, a2 uintptr) Result {
+	r1, _ := ffiCall3(symSubscribe, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnSubscribeV2 calls cuptiSubscribe_v2.
+func fnSubscribeV2(a0 *Subscriber, a1 uintptr, a2 uintptr, a3 *SubscriberParams) Result {
+	r1, _ := ffiCall4(symSubscribeV2, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnSupportedDomains calls cuptiSupportedDomains.
+func fnSupportedDomains(a0 *uint, a1 *uintptr) Result {
+	r1, _ := ffiCall2(symSupportedDomains, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnunsubscribe calls cuptiUnsubscribe.
+func fnunsubscribe(a0 Subscriber) Result {
+	r1, _ := ffiCall1(symunsubscribe, 0, uintptr(a0))
+	return Result(r1)
+}
 
 // ActivityConfigurePCSampling sets PC sampling configuration.
 //
@@ -740,13 +1946,16 @@ func activityGetEnabledKinds(subscriber Subscriber, buffer *ActivityKind, buffer
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fnactivityGetEnabledKinds(subscriber, buffer, bufferSize, &out), "cuptiActivityGetEnabledKinds"); err != nil {
+	out := slotActivityGetEnabledKinds.get()
+	defer slotActivityGetEnabledKinds.put(out)
+	if err := toError(fnactivityGetEnabledKinds(subscriber, buffer, bufferSize, out), "cuptiActivityGetEnabledKinds"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotActivityGetEnabledKinds outSlot[uint32]
 
 // ActivityGetNextRecord iterates over the activity records in a buffer.
 //
@@ -837,13 +2046,16 @@ func ActivityGetStructSize(activityKind ActivityKind, version uint32) (uint, err
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnActivityGetStructSize(activityKind, version, &out), "cuptiActivityGetStructSize"); err != nil {
+	out := slotActivityGetStructSize.get()
+	defer slotActivityGetStructSize.put(out)
+	if err := toError(fnActivityGetStructSize(activityKind, version, out), "cuptiActivityGetStructSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotActivityGetStructSize outSlot[uint]
 
 // ActivityPopExternalCorrelationId pops an external correlation id for the calling thread.
 //
@@ -864,13 +2076,16 @@ func ActivityPopExternalCorrelationId(kind ExternalCorrelationKind) (uint64, err
 		var zero uint64
 		return zero, err
 	}
-	var out uint64
-	if err := toError(fnActivityPopExternalCorrelationId(kind, &out), "cuptiActivityPopExternalCorrelationId"); err != nil {
+	out := slotActivityPopExternalCorrelationId.get()
+	defer slotActivityPopExternalCorrelationId.put(out)
+	if err := toError(fnActivityPopExternalCorrelationId(kind, out), "cuptiActivityPopExternalCorrelationId"); err != nil {
 		var zero uint64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotActivityPopExternalCorrelationId outSlot[uint64]
 
 // ActivityPushExternalCorrelationId pushes an external correlation id for the calling thread.
 //
@@ -1087,13 +2302,16 @@ func ComputeCapabilitySupported(major int32, minor int32) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnComputeCapabilitySupported(major, minor, &out), "cuptiComputeCapabilitySupported"); err != nil {
+	out := slotComputeCapabilitySupported.get()
+	defer slotComputeCapabilitySupported.put(out)
+	if err := toError(fnComputeCapabilitySupported(major, minor, out), "cuptiComputeCapabilitySupported"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotComputeCapabilitySupported outSlot[int32]
 
 // DeviceEnumEventDomains wraps cuptiDeviceEnumEventDomains.
 func DeviceEnumEventDomains(device Device, arraySizeBytes *uint, domainArray *uint32) error {
@@ -1141,13 +2359,16 @@ func DeviceGetNumEventDomains(device Device) (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fnDeviceGetNumEventDomains(device, &out), "cuptiDeviceGetNumEventDomains"); err != nil {
+	out := slotDeviceGetNumEventDomains.get()
+	defer slotDeviceGetNumEventDomains.put(out)
+	if err := toError(fnDeviceGetNumEventDomains(device, out), "cuptiDeviceGetNumEventDomains"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDeviceGetNumEventDomains outSlot[uint32]
 
 // DeviceGetNumMetrics wraps cuptiDeviceGetNumMetrics.
 func DeviceGetNumMetrics(device Device) (uint32, error) {
@@ -1155,13 +2376,16 @@ func DeviceGetNumMetrics(device Device) (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fnDeviceGetNumMetrics(device, &out), "cuptiDeviceGetNumMetrics"); err != nil {
+	out := slotDeviceGetNumMetrics.get()
+	defer slotDeviceGetNumMetrics.put(out)
+	if err := toError(fnDeviceGetNumMetrics(device, out), "cuptiDeviceGetNumMetrics"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDeviceGetNumMetrics outSlot[uint32]
 
 // DeviceSupported checks support for a compute device.
 //
@@ -1182,13 +2406,16 @@ func DeviceSupported(dev Device) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnDeviceSupported(dev, &out), "cuptiDeviceSupported"); err != nil {
+	out := slotDeviceSupported.get()
+	defer slotDeviceSupported.put(out)
+	if err := toError(fnDeviceSupported(dev, out), "cuptiDeviceSupported"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDeviceSupported outSlot[int32]
 
 // DeviceVirtualizationMode queries the virtualization mode of the device.
 //
@@ -1331,13 +2558,16 @@ func EventDomainGetNumEvents(eventDomain uint32) (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fnEventDomainGetNumEvents(eventDomain, &out), "cuptiEventDomainGetNumEvents"); err != nil {
+	out := slotEventDomainGetNumEvents.get()
+	defer slotEventDomainGetNumEvents.put(out)
+	if err := toError(fnEventDomainGetNumEvents(eventDomain, out), "cuptiEventDomainGetNumEvents"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotEventDomainGetNumEvents outSlot[uint32]
 
 // EventGetAttribute wraps cuptiEventGetAttribute.
 func EventGetAttribute(event uint32, attrib EventAttribute, valueSize *uint, value unsafe.Pointer) error {
@@ -1354,13 +2584,16 @@ func EventGetIdFromName(device Device, eventName string) (uint32, error) {
 		return zero, err
 	}
 	eventName_cstr := append([]byte(eventName), 0)
-	var out uint32
-	if err := toError(fnEventGetIdFromName(device, &eventName_cstr[0], &out), "cuptiEventGetIdFromName"); err != nil {
+	out := slotEventGetIdFromName.get()
+	defer slotEventGetIdFromName.put(out)
+	if err := toError(fnEventGetIdFromName(device, &eventName_cstr[0], out), "cuptiEventGetIdFromName"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotEventGetIdFromName outSlot[uint32]
 
 // eventGroupAddEvent wraps cuptiEventGroupAddEvent.
 func eventGroupAddEvent(eventGroup EventGroup, event uint32) error {
@@ -1422,23 +2655,28 @@ func eventGroupReadAllEvents(eventGroup EventGroup, flags ReadEventFlags, eventV
 		var zero int
 		return zero, err
 	}
-	var out uint
-	var size2 uint
-	var size4 uint
+	outs := slotEventGroupReadAllEvents.get()
+	defer slotEventGroupReadAllEvents.put(outs)
 	if len(eventValueBuffer) == 0 {
 		eventValueBuffer = nil
 	}
-	size2 = uint(len(eventValueBuffer)) * uint(unsafe.Sizeof(eventValueBuffer[0]))
+	outs.size2 = uint(len(eventValueBuffer)) * uint(unsafe.Sizeof(eventValueBuffer[0]))
 	if len(eventIdArray) == 0 {
 		eventIdArray = nil
 	}
-	size4 = uint(len(eventIdArray)) * uint(unsafe.Sizeof(eventIdArray[0]))
-	if err := toError(fneventGroupReadAllEvents(eventGroup, flags, &size2, unsafe.SliceData(eventValueBuffer), &size4, unsafe.SliceData(eventIdArray), &out), "cuptiEventGroupReadAllEvents"); err != nil {
+	outs.size4 = uint(len(eventIdArray)) * uint(unsafe.Sizeof(eventIdArray[0]))
+	if err := toError(fneventGroupReadAllEvents(eventGroup, flags, &outs.size2, unsafe.SliceData(eventValueBuffer), &outs.size4, unsafe.SliceData(eventIdArray), &outs.out), "cuptiEventGroupReadAllEvents"); err != nil {
 		var zero int
 		return zero, err
 	}
-	return int(out), nil
+	return int(outs.out), nil
 }
+
+var slotEventGroupReadAllEvents outSlot[struct {
+	out   uint
+	size2 uint
+	size4 uint
+}]
 
 // eventGroupReadEvent wraps cuptiEventGroupReadEvent.
 func eventGroupReadEvent(eventGroup EventGroup, flags ReadEventFlags, event uint32, eventValueBufferSizeBytes *uint, eventValueBuffer *uint64) error {
@@ -1624,13 +2862,16 @@ func getCallbackState(subscriber Subscriber, domain CallbackDomain, cbid uint32)
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fngetCallbackState(&out, subscriber, domain, cbid), "cuptiGetCallbackState"); err != nil {
+	out := slotGetCallbackState.get()
+	defer slotGetCallbackState.put(out)
+	if err := toError(fngetCallbackState(out, subscriber, domain, cbid), "cuptiGetCallbackState"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetCallbackState outSlot[uint32]
 
 // GetContextId gets the ID of a context.
 //
@@ -1718,13 +2959,16 @@ func getEnabledCallbacks(subscriber Subscriber, domain CallbackDomain, buffer *u
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fngetEnabledCallbacks(subscriber, domain, buffer, bufferSize, &out), "cuptiGetEnabledCallbacks"); err != nil {
+	out := slotGetEnabledCallbacks.get()
+	defer slotGetEnabledCallbacks.put(out)
+	if err := toError(fngetEnabledCallbacks(subscriber, domain, buffer, bufferSize, out), "cuptiGetEnabledCallbacks"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetEnabledCallbacks outSlot[uint32]
 
 // GetGraphExecId gets the unique ID of executable graph.
 //
@@ -1743,13 +2987,16 @@ func GetGraphExecId(graphExec GraphExec) (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fnGetGraphExecId(graphExec, &out), "cuptiGetGraphExecId"); err != nil {
+	out := slotGetGraphExecId.get()
+	defer slotGetGraphExecId.put(out)
+	if err := toError(fnGetGraphExecId(graphExec, out), "cuptiGetGraphExecId"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetGraphExecId outSlot[uint32]
 
 // GetGraphId gets the unique ID of graph.
 //
@@ -1768,13 +3015,16 @@ func GetGraphId(graph Graph) (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fnGetGraphId(graph, &out), "cuptiGetGraphId"); err != nil {
+	out := slotGetGraphId.get()
+	defer slotGetGraphId.put(out)
+	if err := toError(fnGetGraphId(graph, out), "cuptiGetGraphId"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetGraphId outSlot[uint32]
 
 // GetGraphNodeId gets the unique ID of a graph node.
 //
@@ -1793,13 +3043,16 @@ func GetGraphNodeId(node GraphNode) (uint64, error) {
 		var zero uint64
 		return zero, err
 	}
-	var out uint64
-	if err := toError(fnGetGraphNodeId(node, &out), "cuptiGetGraphNodeId"); err != nil {
+	out := slotGetGraphNodeId.get()
+	defer slotGetGraphNodeId.put(out)
+	if err := toError(fnGetGraphNodeId(node, out), "cuptiGetGraphNodeId"); err != nil {
 		var zero uint64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetGraphNodeId outSlot[uint64]
 
 // GetLastError returns the last error from a cupti call or callback.
 //
@@ -1819,13 +3072,16 @@ func GetNumEventDomains() (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fnGetNumEventDomains(&out), "cuptiGetNumEventDomains"); err != nil {
+	out := slotGetNumEventDomains.get()
+	defer slotGetNumEventDomains.put(out)
+	if err := toError(fnGetNumEventDomains(out), "cuptiGetNumEventDomains"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetNumEventDomains outSlot[uint32]
 
 // GetNumMetrics wraps cuptiGetNumMetrics.
 func GetNumMetrics() (uint32, error) {
@@ -1833,13 +3089,16 @@ func GetNumMetrics() (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fnGetNumMetrics(&out), "cuptiGetNumMetrics"); err != nil {
+	out := slotGetNumMetrics.get()
+	defer slotGetNumMetrics.put(out)
+	if err := toError(fnGetNumMetrics(out), "cuptiGetNumMetrics"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetNumMetrics outSlot[uint32]
 
 // GetSassToSourceCorrelation SASS to Source correlation.
 //
@@ -1951,13 +3210,16 @@ func GetTimestamp() (uint64, error) {
 		var zero uint64
 		return zero, err
 	}
-	var out uint64
-	if err := toError(fnGetTimestamp(&out), "cuptiGetTimestamp"); err != nil {
+	out := slotGetTimestamp.get()
+	defer slotGetTimestamp.put(out)
+	if err := toError(fnGetTimestamp(out), "cuptiGetTimestamp"); err != nil {
 		var zero uint64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetTimestamp outSlot[uint64]
 
 // GetVersion gets the CUPTI API version.
 //
@@ -2000,13 +3262,16 @@ func IsTracingSessionRunning() (uint8, error) {
 		var zero uint8
 		return zero, err
 	}
-	var out uint8
-	if err := toError(fnIsTracingSessionRunning(&out), "cuptiIsTracingSessionRunning"); err != nil {
+	out := slotIsTracingSessionRunning.get()
+	defer slotIsTracingSessionRunning.put(out)
+	if err := toError(fnIsTracingSessionRunning(out), "cuptiIsTracingSessionRunning"); err != nil {
 		var zero uint8
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotIsTracingSessionRunning outSlot[uint8]
 
 // KernelReplaySubscribeUpdate wraps cuptiKernelReplaySubscribeUpdate.
 func KernelReplaySubscribeUpdate(updateFunc uintptr, customData uintptr) error {
@@ -2061,13 +3326,16 @@ func MetricGetIdFromName(device Device, metricName string) (uint32, error) {
 		return zero, err
 	}
 	metricName_cstr := append([]byte(metricName), 0)
-	var out uint32
-	if err := toError(fnMetricGetIdFromName(device, &metricName_cstr[0], &out), "cuptiMetricGetIdFromName"); err != nil {
+	out := slotMetricGetIdFromName.get()
+	defer slotMetricGetIdFromName.put(out)
+	if err := toError(fnMetricGetIdFromName(device, &metricName_cstr[0], out), "cuptiMetricGetIdFromName"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotMetricGetIdFromName outSlot[uint32]
 
 // MetricGetNumEvents wraps cuptiMetricGetNumEvents.
 func MetricGetNumEvents(metric uint32) (uint32, error) {
@@ -2075,13 +3343,16 @@ func MetricGetNumEvents(metric uint32) (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fnMetricGetNumEvents(metric, &out), "cuptiMetricGetNumEvents"); err != nil {
+	out := slotMetricGetNumEvents.get()
+	defer slotMetricGetNumEvents.put(out)
+	if err := toError(fnMetricGetNumEvents(metric, out), "cuptiMetricGetNumEvents"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotMetricGetNumEvents outSlot[uint32]
 
 // MetricGetNumProperties wraps cuptiMetricGetNumProperties.
 func MetricGetNumProperties(metric uint32) (uint32, error) {
@@ -2089,13 +3360,16 @@ func MetricGetNumProperties(metric uint32) (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fnMetricGetNumProperties(metric, &out), "cuptiMetricGetNumProperties"); err != nil {
+	out := slotMetricGetNumProperties.get()
+	defer slotMetricGetNumProperties.put(out)
+	if err := toError(fnMetricGetNumProperties(metric, out), "cuptiMetricGetNumProperties"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotMetricGetNumProperties outSlot[uint32]
 
 // MetricGetRequiredEventGroupSets returns the groups of events that must be collected in the same pass for the metric to be computed correctly.
 //
@@ -2117,19 +3391,22 @@ func MetricGetValue(device Device, metric uint32, eventIdArray []uint32, eventVa
 		var zero [1]uint64
 		return zero, err
 	}
-	var out [1]uint64
+	out := slotMetricGetValue.get()
+	defer slotMetricGetValue.put(out)
 	if len(eventIdArray) == 0 {
 		eventIdArray = nil
 	}
 	if len(eventValueArray) == 0 {
 		eventValueArray = nil
 	}
-	if err := toError(fnMetricGetValue(device, metric, uint(len(eventIdArray))*uint(unsafe.Sizeof(eventIdArray[0])), unsafe.SliceData(eventIdArray), uint(len(eventValueArray))*uint(unsafe.Sizeof(eventValueArray[0])), unsafe.SliceData(eventValueArray), timeDuration, &out), "cuptiMetricGetValue"); err != nil {
+	if err := toError(fnMetricGetValue(device, metric, uint(len(eventIdArray))*uint(unsafe.Sizeof(eventIdArray[0])), unsafe.SliceData(eventIdArray), uint(len(eventValueArray))*uint(unsafe.Sizeof(eventValueArray[0])), unsafe.SliceData(eventValueArray), timeDuration, out), "cuptiMetricGetValue"); err != nil {
 		var zero [1]uint64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotMetricGetValue outSlot[[1]uint64]
 
 // MetricGetValue2 wraps cuptiMetricGetValue2.
 func MetricGetValue2(metric uint32, eventIdArray []uint32, eventValueArray []uint64, propIdArray []MetricPropertyID, propValueArray []uint64) ([1]uint64, error) {
@@ -2137,7 +3414,8 @@ func MetricGetValue2(metric uint32, eventIdArray []uint32, eventValueArray []uin
 		var zero [1]uint64
 		return zero, err
 	}
-	var out [1]uint64
+	out := slotMetricGetValue2.get()
+	defer slotMetricGetValue2.put(out)
 	if len(eventIdArray) == 0 {
 		eventIdArray = nil
 	}
@@ -2150,12 +3428,14 @@ func MetricGetValue2(metric uint32, eventIdArray []uint32, eventValueArray []uin
 	if len(propValueArray) == 0 {
 		propValueArray = nil
 	}
-	if err := toError(fnMetricGetValue2(metric, uint(len(eventIdArray))*uint(unsafe.Sizeof(eventIdArray[0])), unsafe.SliceData(eventIdArray), uint(len(eventValueArray))*uint(unsafe.Sizeof(eventValueArray[0])), unsafe.SliceData(eventValueArray), uint(len(propIdArray))*uint(unsafe.Sizeof(propIdArray[0])), unsafe.SliceData(propIdArray), uint(len(propValueArray))*uint(unsafe.Sizeof(propValueArray[0])), unsafe.SliceData(propValueArray), &out), "cuptiMetricGetValue2"); err != nil {
+	if err := toError(fnMetricGetValue2(metric, uint(len(eventIdArray))*uint(unsafe.Sizeof(eventIdArray[0])), unsafe.SliceData(eventIdArray), uint(len(eventValueArray))*uint(unsafe.Sizeof(eventValueArray[0])), unsafe.SliceData(eventValueArray), uint(len(propIdArray))*uint(unsafe.Sizeof(propIdArray[0])), unsafe.SliceData(propIdArray), uint(len(propValueArray))*uint(unsafe.Sizeof(propValueArray[0])), unsafe.SliceData(propValueArray), out), "cuptiMetricGetValue2"); err != nil {
 		var zero [1]uint64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotMetricGetValue2 outSlot[[1]uint64]
 
 // PCSamplingDisable disables PC sampling.
 //
@@ -3545,13 +4825,16 @@ func Subscribe(callback uintptr, userdata uintptr) (Subscriber, error) {
 		var zero Subscriber
 		return zero, err
 	}
-	var out Subscriber
-	if err := toError(fnSubscribe(&out, callback, userdata), "cuptiSubscribe"); err != nil {
+	out := slotSubscribe.get()
+	defer slotSubscribe.put(out)
+	if err := toError(fnSubscribe(out, callback, userdata), "cuptiSubscribe"); err != nil {
 		var zero Subscriber
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotSubscribe outSlot[Subscriber]
 
 // SubscribeV2 initializes a callback subscriber with a callback function and user data.
 //
@@ -3579,13 +4862,16 @@ func SubscribeV2(callback uintptr, userdata uintptr, pParams *SubscriberParams) 
 		var zero Subscriber
 		return zero, err
 	}
-	var out Subscriber
-	if err := toError(fnSubscribeV2(&out, callback, userdata, pParams), "cuptiSubscribe_v2"); err != nil {
+	out := slotSubscribeV2.get()
+	defer slotSubscribeV2.put(out)
+	if err := toError(fnSubscribeV2(out, callback, userdata, pParams), "cuptiSubscribe_v2"); err != nil {
 		var zero Subscriber
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotSubscribeV2 outSlot[Subscriber]
 
 // SupportedDomains gets the available callback domains.
 //
@@ -3605,13 +4891,18 @@ func SupportedDomains() (domainCount uint, domainTable uintptr, err error) {
 	if err := checkLibSym("cuptiSupportedDomains"); err != nil {
 		return 0, *new(uintptr), err
 	}
-	var out0 uint
-	var out1 uintptr
-	if err := toError(fnSupportedDomains(&out0, &out1), "cuptiSupportedDomains"); err != nil {
+	outs := slotSupportedDomains.get()
+	defer slotSupportedDomains.put(outs)
+	if err := toError(fnSupportedDomains(&outs.out0, &outs.out1), "cuptiSupportedDomains"); err != nil {
 		return 0, *new(uintptr), err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
+
+var slotSupportedDomains outSlot[struct {
+	out0 uint
+	out1 uintptr
+}]
 
 // unsubscribe unregisters a callback subscriber.
 //
