@@ -23,9 +23,8 @@ type ClusterPtr struct {
 
 // Reg returns the PTX register holding the mapped address.
 //
-// It panics on the zero value rather than returning an empty operand, because
-// an empty operand assembles into a syntactically different instruction and the
-// failure would surface as an assembler error far from its cause.
+// On the zero value it returns ""; [ClusterPtr.Valid] reports whether p came
+// from a mapping call.
 func (p ClusterPtr) Reg() string {
 	if p.reg == "" {
 		return "" // unreachable for values from MapSharedRank; see Valid.

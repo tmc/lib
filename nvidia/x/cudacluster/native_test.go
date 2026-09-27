@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -189,4 +191,167 @@ func TestControl_NoSimulationWithoutHardware(t *testing.T) {
 	if err := CheckDSMEM(clusterTarget()); err == nil {
 		t.Fatal("CheckDSMEM reported DSMEM established with no instrument having probed it")
 	}
+}
+
+// TestCluster_RankGeometry verifies that BlockRank and ClusterSize agree with
+// launched cluster dimensions.
+func TestCluster_RankGeometry(t *testing.T) {
+	if os.Getenv("CUDA_CLUSTER_NATIVE") != "1" {
+		t.Skip("native qualification pending: CUDA_CLUSTER_NATIVE=1 required")
+	}
+	if os.Getenv("GPU_LOCK_HELD") == "" {
+		t.Fatal("native gate enabled but no GPU_LOCK_HELD: run under gpu-lock")
+	}
+	for _, size := range []int{2, 4} {
+		if err := runRankGeometry(t, size); err != nil {
+			t.Fatalf("cluster size %d: %v", size, err)
+		}
+	}
+}
+
+const rankGeometryTemplate = `#include <stdio.h>
+#include <cuda_runtime.h>
+#include <cooperative_groups.h>
+
+namespace cg = cooperative_groups;
+
+__device__ __forceinline__ unsigned ptx_block_rank() {
+    unsigned r;
+    asm("mov.u32 %0, %%cluster_ctarank;" : "=r"(r));
+    return r;
+}
+
+__device__ __forceinline__ unsigned ptx_cluster_size() {
+    unsigned s;
+    asm("mov.u32 %0, %%cluster_nctarank;" : "=r"(s));
+    return s;
+}
+
+__global__ void __cluster_dims__({{CLUSTER_SIZE}}, 1, 1) rank_geometry_kernel(unsigned *ranks, unsigned *err) {
+    if (threadIdx.x == 0) {
+        cg::cluster_group cluster = cg::this_cluster();
+        unsigned cg_rank = cluster.block_rank();
+        unsigned cg_size = cluster.num_blocks();
+        unsigned ptx_rank = ptx_block_rank();
+        unsigned ptx_size = ptx_cluster_size();
+
+        if (cg_size != {{CLUSTER_SIZE}} || ptx_size != {{CLUSTER_SIZE}}) {
+            atomicExch(err, 1);
+            return;
+        }
+        if (cg_rank != ptx_rank) {
+            atomicExch(err, 2);
+            return;
+        }
+        if (ptx_rank >= {{CLUSTER_SIZE}}) {
+            atomicExch(err, 3);
+            return;
+        }
+        atomicAdd(&ranks[ptx_rank], 1);
+    }
+}
+
+int main() {
+    const int cluster_size = {{CLUSTER_SIZE}};
+    unsigned *d_ranks = NULL;
+    unsigned *d_err = NULL;
+
+    if (cudaMalloc(&d_ranks, sizeof(unsigned) * cluster_size) != cudaSuccess) {
+        fprintf(stderr, "cudaMalloc d_ranks failed\n");
+        return 2;
+    }
+    if (cudaMalloc(&d_err, sizeof(unsigned)) != cudaSuccess) {
+        fprintf(stderr, "cudaMalloc d_err failed\n");
+        return 2;
+    }
+    if (cudaMemset(d_ranks, 0, sizeof(unsigned) * cluster_size) != cudaSuccess) {
+        fprintf(stderr, "cudaMemset d_ranks failed\n");
+        return 3;
+    }
+    if (cudaMemset(d_err, 0, sizeof(unsigned)) != cudaSuccess) {
+        fprintf(stderr, "cudaMemset d_err failed\n");
+        return 3;
+    }
+
+    rank_geometry_kernel<<<cluster_size, 32>>>(d_ranks, d_err);
+
+    if (cudaDeviceSynchronize() != cudaSuccess) {
+        fprintf(stderr, "cudaDeviceSynchronize failed\n");
+        return 4;
+    }
+
+    unsigned h_err = 0;
+    if (cudaMemcpy(&h_err, d_err, sizeof(unsigned), cudaMemcpyDeviceToHost) != cudaSuccess) {
+        fprintf(stderr, "cudaMemcpy d_err failed\n");
+        return 5;
+    }
+    if (h_err != 0) {
+        fprintf(stderr, "kernel reported geometry mismatch code %u\n", h_err);
+        return 6;
+    }
+
+    unsigned h_ranks[cluster_size];
+    if (cudaMemcpy(h_ranks, d_ranks, sizeof(h_ranks), cudaMemcpyDeviceToHost) != cudaSuccess) {
+        fprintf(stderr, "cudaMemcpy d_ranks failed\n");
+        return 5;
+    }
+    for (int i = 0; i < cluster_size; i++) {
+        if (h_ranks[i] != 1) {
+            fprintf(stderr, "rank %d observed %u times, want 1\n", i, h_ranks[i]);
+            return 7;
+        }
+    }
+
+    cudaFree(d_ranks);
+    cudaFree(d_err);
+    return 0;
+}
+`
+
+// runRankGeometry compiles and runs a fixture verifying that BlockRank and
+// ClusterSize agree with the launched cluster dimensions.
+func runRankGeometry(t *testing.T, clusterSize int) error {
+	t.Helper()
+	target := clusterTarget()
+	if err := Check(target); err != nil {
+		t.Fatalf("Check(%q): %v", target, err)
+	}
+	nvcc, _ := cudatest.NVCC(t)
+
+	src := strings.ReplaceAll(rankGeometryTemplate, "{{CLUSTER_SIZE}}", strconv.Itoa(clusterSize))
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir, err := os.MkdirTemp(filepath.Join(home, "tmp"), "cudacluster-native-geom-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	file := filepath.Join(dir, "geom.cu")
+	if err := os.WriteFile(file, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(dir, "geom")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	build := exec.CommandContext(ctx, nvcc, "-arch="+target, "-o", bin, file)
+	if out, err := build.CombinedOutput(); err != nil {
+		return fmt.Errorf("nvcc %s: %w: %s", target, err, out)
+	}
+
+	runCtx, runCancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer runCancel()
+	run := exec.CommandContext(runCtx, bin)
+	out, err := run.CombinedOutput()
+	if runCtx.Err() != nil {
+		return fmt.Errorf("fixture timed out: %s", out)
+	}
+	if err != nil {
+		return fmt.Errorf("rank geometry fixture failed: %w: %s", err, out)
+	}
+	return nil
 }

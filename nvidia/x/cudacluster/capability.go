@@ -58,7 +58,7 @@ func CapabilityOf(target string) (Capability, error) {
 	if !strings.HasPrefix(t, "sm_") {
 		return 0, fmt.Errorf("cudacluster: %q is not an sm_ target", target)
 	}
-	digits := strings.TrimLeft(t[len("sm_"):], "")
+	digits := t[len("sm_"):]
 	end := 0
 	for end < len(digits) && digits[end] >= '0' && digits[end] <= '9' {
 		end++
