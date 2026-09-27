@@ -1200,93 +1200,116 @@
         "argv": [
           "go",
           "run",
-          "./cmd/gen-nvidia",
-          "-api",
-          "cufft",
+          "./cmd/cufft-survey",
           "-headers-dir",
           "${HEADERS_REPO}",
+          "-header",
+          "${HEADERS_REPO}/cufft/cufft.h",
+          "-upstream-version",
+          "12.2.0",
           "-output",
-          "${OUTPUT_DIR}",
-          "-package",
-          "cufft"
+          "${OUTPUT_DIR}"
         ],
-        "comparison": "All 12 outputs regenerated into the committed package; gen.CheckAPIRemoval passed, so no exported declaration was dropped.",
+        "comparison": "All 14 generated outputs reproduced byte for byte at libgen 08aac43. apidiff reports zero incompatible changes on linux/amd64, linux/arm64 and darwin/arm64. Device pointers and streams retain their driver types; Direction and version declarations are preserved. Generated layout tests cover Complex and DoubleComplex.",
         "cwd": "${CODEGEN_REPO}",
         "environment": {
-          "GOWORK": "off"
+          "GOWORK": "off",
+          "TMPDIR": "${SCRATCH_DIR}"
         },
-        "note": "Vendor archive provenance is not recorded for this package: no retained libcufft archive or redistribution manifest identity was established.",
+        "note": "Loads the single tracked docs/cufft-docs.json file. Device-pointer parameters are passed as driver.DevicePtr; cufftSetStream uses driver.Stream.",
         "outputs": [
           {
-            "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/cufft/doc.gen.go",
-            "sha256": "4bc204b288836792e7c7ae6ddbd587aa51003f31203919f1965f8350c4f87e33"
+            "sha256": "477956f03c9994391c57533a76f6a7083597f99ba66d52c5b6bfe703516a713b"
           },
           {
             "path": "nvidia/cufft/enums.gen.go",
-            "sha256": "af46d314c29a3d700931e4d983b42ea24feedf30f52d288047130442db0c3c11"
+            "sha256": "926d57f78ef09bd5a074cdc95248be95e50307237550f7c49359f1355a8611cb"
           },
           {
             "path": "nvidia/cufft/funcs.gen.go",
-            "sha256": "ce84ac8642d721dbf9a02fc8be06d68c024a53f70ca3c98f3ad2ecdcc7144440"
+            "sha256": "45f617bb260f0c1c291768a1951b340a22dcbcf598be3409c2d8ec61e3bf919a"
           },
           {
             "path": "nvidia/cufft/handle.gen.go",
-            "sha256": "fa8e5f68d23fbe77d36584fc2e4db485f35fa6183ca9923360fbaeceabd2df2d"
+            "sha256": "e25c57e332a33cab0121bfa4b5f0a2c01d4c78d7c15f2e05281e41b0eaf2dd8d"
           },
           {
             "path": "nvidia/cufft/handles.gen.go",
-            "sha256": "f9dd35cb5fe9ce3190837c311c3cf64ba1ad8189d41079454ab879106f5ed4b1"
+            "sha256": "e80e87d1f622affa1f290c326048a0d164f0de44a2e83df2e731f7a4ca932b80"
           },
           {
             "path": "nvidia/cufft/init.gen.go",
-            "sha256": "88420fd41e79f896ffb1db84dde0d20b2010b66ef25e07cf3f3b7b42f17382e2"
+            "sha256": "31ead2078e9ddd6578769dc245d69f261407b76775d4892fa83496e43c5275ae"
           },
           {
             "path": "nvidia/cufft/layout.gen_test.go",
-            "sha256": "94ed0d053efe3459ec4f163d485ba1f3dc60934d47f2e9ef1c81cc04edea9c0e"
+            "sha256": "9cf3f1100620a6f511875ecd4ec3d3b462fb47dcec4faa32d6c53ba0c6e7827b"
           },
           {
             "path": "nvidia/cufft/loader.gen_test.go",
-            "sha256": "91f48b183f275e326900e29467de175ead184a6fa4394b43cf6fcddd66f788c6"
+            "sha256": "bd514c11b8531b404a413169678ac0a937143e5b447c09dbdc378efd4263888c"
           },
           {
             "path": "nvidia/cufft/loader_unix.gen.go",
-            "sha256": "aa7746fa14b5a17a3895d8bc41b697f34ed3c3091e5548973d5f38a1d41e9d3c"
+            "sha256": "45e9b9d6e40e21ee9428562abc203e390388a9d5e9bb8fcb5e2e859250183d6e"
           },
           {
             "path": "nvidia/cufft/loader_windows.gen.go",
-            "sha256": "a2783963af5412613992a593db58f2794a601441088b79f459f31430620d14e8"
+            "sha256": "2e2da2269a657bea352adf4c4da50f7c08dc43285a88888e86a0e586db36ca6c"
           },
           {
             "path": "nvidia/cufft/provenance.gen.go",
-            "sha256": "5e613212cfa78569ffdd68ff77a7be4094b9e70b37891ca795209e88dbe2e0a4"
+            "sha256": "2f330c9f8b9ad4e1d44ad172ee83aa4584b8058400074ea460ddb4a808fc23d8"
           },
           {
             "path": "nvidia/cufft/result.gen.go",
-            "sha256": "d5886e4d2252c83d87dd2c0cb86017a13edf698d47ede4bf7aa2845ecf3d6cd3"
+            "sha256": "96c74fc5886b0f984d2881fbb7c8f5c9eef08c86be263ba117ede7d05a79cd51"
           },
           {
             "path": "nvidia/cufft/types.gen.go",
-            "sha256": "5ae3cef22f51cdceefe5f733d315f26ace4cd698b7d5fe92b32da5d43f0141a2"
+            "sha256": "115c8f038e87b149b9c950b635117050f908e523eb370656347a6a39ae1d8b28"
+          },
+          {
+            "path": "nvidia/cufft/provenance.json",
+            "sha256": "c7f30c934423f145a126ab3f1a39b11c841fe7093076e49932c137d5e1badcd8"
           }
         ],
         "toolchain": {
-          "go": "go version go1.27.0 darwin/arm64"
-        }
+          "go": "go version go1.25.0 darwin/arm64",
+          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)"
+        },
+        "maintained_files_excluded": [
+          "double_physical_test.go",
+          "example_test.go",
+          "physical_test.go"
+        ],
+        "options": {
+          "api": "cufft",
+          "call_bridge": "github.com/tmc/lib/nvidia/internal/ffi",
+          "clang": true,
+          "docs_enabled": true,
+          "external_docs": "docs/cufft-docs.json",
+          "device_pointer_type": "driver.DevicePtr",
+          "version_check": "cufftGetVersion (combined)",
+          "direction_underlying": "int32",
+          "api_removal_guard": true,
+          "unclaimed_generated_file_guard": true
+        },
+        "source_state": "Recipe source is committed at libgen 08aac43; generated from a clean checkout."
       },
       "header": {
         "path": "cufft/cufft.h",
         "repository": "headers",
         "sha256": "7172df0d7581ff27d44f3d546c285f8804cd111537ee916b768d2e5f566ea272"
       },
-      "note": "cufft previously carried a hand-ported LibraryError loader that no generator commit could produce, which made it unregenerable. contrib/cuda now emits it behind APIConfig.LibraryError, and this entry records the first generation that reproduces the package. Regenerated to add the post-load version gate: the loader calls this library's own version entry point once after binding symbols and refuses the load if the major does not match the declared soname major.",
+      "note": "Regenerated with cufft-survey at libgen 08aac43. Zero incompatible apidiff changes on linux/amd64, linux/arm64 and darwin/arm64; package tests and vet passed on the recorded targets. No native CUDA runtime qualification is implied.",
       "package": "github.com/tmc/lib/nvidia/cufft",
       "repositories": {
         "codegen": {
-          "commit": "b3dc359c9db53dea61a497ef6f5c4a305f945132",
-          "note": "Unpublished at the time of recording: the commit adds APIConfig.LibraryError, without which this generation does not reproduce. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants. Regenerated at libgen 80aa768: methods drop the receiver words they repeat and parameters are camel case. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen b3dc359c",
-          "tree": "f54815ecdd777ae664e200e000db35f1e948469d",
+          "commit": "08aac43b8e96f0a0a246b494c7a1fce6911c5005",
+          "note": "Unpublished at the time of recording: the commit adds APIConfig.LibraryError, without which this generation does not reproduce. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants. Regenerated at libgen 80aa768: methods drop the receiver words they repeat and parameters are camel case. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen b3dc359c; cufft-survey migration at libgen 08aac43",
+          "tree": "2abd1acf862b8a35da11d84d60a801c60e313d14",
           "url": "https://github.com/tmc/libgen.git"
         },
         "headers": {
@@ -1295,7 +1318,43 @@
           "url": "https://github.com/tmc/cuda-headers.git"
         }
       },
-      "status": "generation-reproduced"
+      "status": "generation-reproduced",
+      "documentation": {
+        "note": "Loads one tracked external documentation index.",
+        "path": "docs/cufft-docs.json",
+        "repository": "codegen",
+        "selected_files": 1,
+        "selection": "cufft-docs.json",
+        "sha256": "537ff7ac8c2567ead3652058e46c4a7cc22895f8cf4ed64d4a2d9fe492ea365a",
+        "tree": "2abd1acf862b8a35da11d84d60a801c60e313d14"
+      },
+      "header_dependencies": [
+        {
+          "path": "cuda_cudart/cuComplex.h",
+          "repository": "headers",
+          "sha256": "5a9720a5a88f854fe8f6c4cf31c353119bb25c321cf31deccf8754592ced2f68"
+        },
+        {
+          "path": "cuda_cudart/vector_types.h",
+          "repository": "headers",
+          "sha256": "ded087a2c3ca89fd3a5150589175aca0aa4714357016209ea3e7a51f94845e75"
+        },
+        {
+          "path": "cuda_crt/crt/host_defines.h",
+          "repository": "headers",
+          "sha256": "dbabf0f8e8461362addf1bd4a04b6878923aa9be997352baf0bab7af7b9e47e1"
+        },
+        {
+          "path": "cuda_cudart/driver_types.h",
+          "repository": "headers",
+          "sha256": "b37eb334124c5e43cfa2baa087aa128b44ddd8913da476ca0e92358d5d1be9c4"
+        },
+        {
+          "path": "cuda_cudart/library_types.h",
+          "repository": "headers",
+          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
+        }
+      ]
     },
     "cufile": {
       "documentation": {

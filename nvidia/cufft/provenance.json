@@ -1,27 +1,51 @@
 {
   "schema_version": 1,
-  "generator": "github.com/tmc/libgen/cmd/gen-nvidia",
-  "upstream_version": "unrecorded",
-  "version_source": "unrecorded",
+  "generator": "github.com/tmc/libgen/cmd/cufft-survey",
+  "upstream_version": "12.2.0",
+  "version_source": "explicit generator flag; not independently verified",
   "cwd": ".",
   "argv": [
-    "gen-nvidia",
-    "-api",
-    "cufft",
+    "cufft-survey",
     "-headers-dir",
     "cuda-headers",
+    "-header",
+    "cufft.h",
+    "-upstream-version",
+    "12.2.0",
     "-output",
-    "cufft",
-    "-package",
-    "cufft"
+    "${OUTPUT_DIR}"
   ],
   "inputs": [
     {
-      "path": "cufft.h",
+      "path": "cuda_cudart/cuComplex.h",
+      "sha256": "5a9720a5a88f854fe8f6c4cf31c353119bb25c321cf31deccf8754592ced2f68"
+    },
+    {
+      "path": "cuda_cudart/driver_types.h",
+      "sha256": "b37eb334124c5e43cfa2baa087aa128b44ddd8913da476ca0e92358d5d1be9c4"
+    },
+    {
+      "path": "cuda_cudart/library_types.h",
+      "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
+    },
+    {
+      "path": "cufft/cufft.h",
       "sha256": "7172df0d7581ff27d44f3d546c285f8804cd111537ee916b768d2e5f566ea272"
+    },
+    {
+      "path": "math/cuComplex.h",
+      "sha256": "5a9720a5a88f854fe8f6c4cf31c353119bb25c321cf31deccf8754592ced2f68"
+    },
+    {
+      "path": "runtime/driver_types.h",
+      "sha256": "915f0a66b668944cf34f6e2c1f88b4507789ffdc7905c98ec792e7c184cd12f2"
+    },
+    {
+      "path": "types/library_types.h",
+      "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
     }
   ],
-  "source_hash": "95372ac6f85ae6fef68fafed1a43a3ffaa8a76a9c97562a47400c2385661714e",
+  "source_hash": "1a246f75d3e066fb3fd37ff2695fa552e244a24b15355771ad24c7d2ecfecee8",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records portable argument names; host-specific paths are intentionally redacted.",
