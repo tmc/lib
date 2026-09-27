@@ -1,0 +1,3 @@
+commit 2a0c0be3 2026-09-26: cherry-pick of 67fed360 (dgx ~/tmp/ds4-decode2-tree b36/q-rope-inplace) onto codex/ds4-min-parity 083db9d8; fast-forwarded here.
+claude-code 2.1.280, model claude-opus-5-5[1m], tty not a tty, pid 35887, ITERM_SESSION_ID w8t0p18:B3615878-F59D-4A1A-824F-447AFAC37AED, session=bfe6715b-f650-43af-907b-d14c5112f748
+Verified on this base (CUDA_CACHE_DISABLE=1): TestCUDAHeadRMSRoPEBatch PASS, fmaf(b, c, a*s) mutant FAIL; digests unchanged 6d2ad5c9/77d04501. Log dgx ~/tmp/ds4-b36-prep/par.log.
