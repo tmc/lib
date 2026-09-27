@@ -668,7 +668,10 @@ func TestReclaimTOCTOURaceClosed(t *testing.T) {
 	defer func() { reclaimHook = nil }()
 
 	// Reclaimer process B tries to reclaim based on deadOwnerBytes
-	reclaimed := reclaim(dir, deadOwnerBytes)
+	reclaimed, recErr := reclaim(dir, deadOwnerBytes)
+	if recErr != nil {
+		t.Fatalf("reclaim returned error: %v", recErr)
+	}
 	if reclaimed {
 		t.Fatal("live lock was destroyed by concurrent stale reclaim: expected reclaim to fail")
 	}
@@ -687,12 +690,237 @@ func TestReclaimTOCTOURaceClosed(t *testing.T) {
 	}
 }
 
+// TestTwoDirsIndependentLocks tests Item 1:
+// Holding dir a does not cause Acquire(b) to return a nested handle without creating b.
+func TestTwoDirsIndependentLocks(t *testing.T) {
+	a := filepath.Join(t.TempDir(), "a")
+	b := filepath.Join(t.TempDir(), "b")
+	ctx := context.Background()
+
+	ha, err := Acquire(ctx, WithDir(a))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ha.Release()
+
+	hb, err := Acquire(ctx, WithDir(b))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer hb.Release()
+
+	if hb.IsNested() {
+		t.Errorf("expected Acquire(b) to be non-nested root handle, got nested")
+	}
+
+	data, err := os.ReadFile(filepath.Join(b, "owner"))
+	if err != nil {
+		t.Fatalf("b/owner unreadable: %v", err)
+	}
+	ownerB, err := ParseOwner(data)
+	if err != nil {
+		t.Fatalf("b/owner invalid: %v", err)
+	}
+	if ownerB.PID != os.Getpid() {
+		t.Errorf("b/owner PID = %d, want %d", ownerB.PID, os.Getpid())
+	}
+
+	if err := hb.Release(); err != nil {
+		t.Fatalf("hb.Release failed: %v", err)
+	}
+
+	if _, err := os.Stat(b); !os.IsNotExist(err) {
+		t.Errorf("b still exists after releasing hb")
+	}
+	if _, err := os.Stat(a); err != nil {
+		t.Errorf("a missing after releasing hb: %v", err)
+	}
+}
+
+// TestAcquireAtomicVisibility tests Item 2:
+// The lock directory is never visible without a parsable owner file.
+func TestAcquireAtomicVisibility(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "atomic-lock")
+	ctx := context.Background()
+
+	stop := make(chan struct{})
+	errCh := make(chan error, 1)
+
+	go func() {
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+				if fi, err := os.Stat(dir); err == nil && fi.IsDir() {
+					ownerPath := filepath.Join(dir, "owner")
+					data, err := os.ReadFile(ownerPath)
+					if err != nil {
+						if _, statErr := os.Stat(dir); os.IsNotExist(statErr) {
+							// dir was removed concurrently (e.g. by Release) between Stat and ReadFile.
+							continue
+						}
+						select {
+						case errCh <- fmt.Errorf("lock dir visible without owner file: %w", err):
+						default:
+						}
+						return
+					}
+					if _, err := ParseOwner(data); err != nil {
+						select {
+						case errCh <- fmt.Errorf("lock dir visible with unparsable owner: %w", err):
+						default:
+						}
+						return
+					}
+				}
+			}
+		}
+	}()
+
+	for i := 0; i < 30; i++ {
+		h, err := Acquire(ctx, WithDir(dir))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := h.Release(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	close(stop)
+
+	select {
+	case err := <-errCh:
+		t.Fatalf("atomic acquire/release visibility violation: %v", err)
+	default:
+	}
+}
+
+// TestReleaseRefusesDisplacedOwner tests Item 3:
+// Release deletes the lock only if the owner still names this holder.
+func TestReleaseRefusesDisplacedOwner(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "lock")
+	ctx := context.Background()
+
+	h, err := Acquire(ctx, WithDir(dir), WithLabel("original-holder"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Tamper with owner file while held
+	displacedOwner := Owner{
+		PID:   os.Getpid() + 1000,
+		Host:  shortHostname(),
+		Label: "foreign-or-displaced",
+		Epoch: time.Now().Unix(),
+		At:    time.Now(),
+	}
+	ownerPath := filepath.Join(dir, "owner")
+	if err := os.WriteFile(ownerPath, []byte(displacedOwner.String()), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Release must return an error because owner changed
+	relErr := h.Release()
+	if relErr == nil {
+		t.Fatal("Release succeeded despite displaced owner; want error")
+	}
+
+	// Verify that displaced owner and directory remain untouched
+	data, err := os.ReadFile(ownerPath)
+	if err != nil {
+		t.Fatalf("owner file missing after rejected Release: %v", err)
+	}
+	parsed, err := ParseOwner(data)
+	if err != nil {
+		t.Fatalf("owner file unparsable: %v", err)
+	}
+	if parsed.PID != displacedOwner.PID || parsed.Label != displacedOwner.Label {
+		t.Errorf("displaced owner modified: got %+v, want %+v", parsed, displacedOwner)
+	}
+	_ = os.Remove(ownerPath)
+	_ = os.Remove(dir)
+}
+
+// TestReclaimRestoreFailureAbortsAcquire tests Item 4:
+// If moving a displaced live lock back during reclaim fails, Acquire aborts
+// and returns an error naming the aside path.
+func TestReclaimRestoreFailureAbortsAcquire(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "gpu.lock")
+	if err := os.Mkdir(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	deadPID := 99999999
+	for isAlive(deadPID) {
+		deadPID++
+	}
+	deadOwner := Owner{
+		PID:   deadPID,
+		Host:  shortHostname(),
+		Label: "dead-to-reclaim",
+		Epoch: time.Now().Unix() - 100,
+		At:    time.Now().Add(-100 * time.Second),
+	}
+	if err := os.WriteFile(filepath.Join(dir, "owner"), []byte(deadOwner.String()), 0644); err != nil {
+		t.Fatal(err)
+	}
+	livePID := os.Getppid()
+	liveOwner := Owner{
+		PID:   livePID,
+		Host:  shortHostname(),
+		Label: "live-concurrent",
+		Epoch: time.Now().Unix(),
+		At:    time.Now(),
+	}
+
+	reclaimHook = func() {
+		reclaimHook = nil
+		// Before aside move: replace owner with liveOwner so matches == false
+		_ = os.WriteFile(filepath.Join(dir, "owner"), []byte(liveOwner.String()), 0644)
+	}
+	restoreHook = func(aside string) {
+		restoreHook = nil
+		// Before restore: occupy dir so os.Rename(aside, dir) fails
+		_ = os.Mkdir(dir, 0755)
+		_ = os.WriteFile(filepath.Join(dir, "occupier"), []byte("blocker"), 0644)
+	}
+	defer func() {
+		reclaimHook = nil
+		restoreHook = nil
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	_, err := Acquire(ctx, WithDir(dir), WithPollInterval(10*time.Millisecond))
+	if err == nil {
+		t.Fatal("Acquire succeeded despite failed lock restore; want error")
+	}
+	if !strings.Contains(err.Error(), "could not restore live lock displaced during reclaim") ||
+		!strings.Contains(err.Error(), ".gpu-lock-stale.") {
+		t.Fatalf("Acquire error = %v, want error naming displaced aside path (.gpu-lock-stale.)", err)
+	}
+}
+
 // TestInteropReferenceScript tests mutual exclusion and dead-lock reclaim
 // interoperability between cudalock and the reference gpu-lock bash script.
+//
+// The reference script is resolved from the GPU_LOCK_SCRIPT environment variable,
+// or by searching for "gpu-lock" on PATH. If neither is found, the test skips
+// unless CUDALOCK_INTEROP_STRICT=1 is set, in which case it fails.
 func TestInteropReferenceScript(t *testing.T) {
 	scriptPath := os.Getenv("GPU_LOCK_SCRIPT")
 	if scriptPath == "" {
-		scriptPath = "/Users/tmc/tmp/lib-nvidia-implementation/65-cudalock-correctness-fixes/reference/gpu-lock.sh"
+		if p, err := exec.LookPath("gpu-lock"); err == nil {
+			scriptPath = p
+		}
+	}
+	if scriptPath == "" {
+		if os.Getenv("CUDALOCK_INTEROP_STRICT") == "1" {
+			t.Fatal("gpu-lock script not found (GPU_LOCK_SCRIPT unset, gpu-lock not on PATH)")
+		}
+		t.Skip("gpu-lock script not found (GPU_LOCK_SCRIPT unset, gpu-lock not on PATH)")
 	}
 	if _, err := os.Stat(scriptPath); err != nil {
 		if os.Getenv("CUDALOCK_INTEROP_STRICT") == "1" {

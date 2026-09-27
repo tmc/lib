@@ -19,6 +19,9 @@ const (
 	DefaultMaxHold = 3600 * time.Second
 	// DefaultPollInterval is the delay between acquisition attempts.
 	DefaultPollInterval = 250 * time.Millisecond
+
+	// emptyOwnerGrace is the threshold before reclaiming empty or unparsable owner files.
+	emptyOwnerGrace = 15 * time.Second
 )
 
 var (
@@ -26,8 +29,6 @@ var (
 	ErrTimeout = errors.New("cudalock: timed out waiting for lock")
 	// ErrParentUnwritable is returned when the parent directory of the lock is missing or unwritable.
 	ErrParentUnwritable = errors.New("cudalock: lock parent directory missing or unwritable")
-	// ErrForeignOwner is returned when attempting to reclaim a lock owned by a different host.
-	ErrForeignOwner = errors.New("cudalock: lock is held by a foreign host")
 )
 
 // Process-wide reentrancy tracking per directory.
@@ -41,7 +42,8 @@ type dirHold struct {
 var (
 	processMu    sync.Mutex
 	processHolds = make(map[string]*dirHold)
-	reclaimHook  func() // testing hook for deterministic TOCTOU race simulation
+	reclaimHook  func()             // testing hook for deterministic TOCTOU race simulation
+	restoreHook  func(aside string) // testing hook for deterministic restore failure simulation
 )
 
 // DefaultDir returns the default lock directory.
@@ -157,12 +159,29 @@ func (h *Handle) Release() error {
 		return nil
 	}
 
-	// Root release for this directory: remove owner file and directory.
+	// Root release for this directory.
+	// The reference script's release() deletes the lock only if the owner still
+	// matches our own identity. If another process reclaimed, moved, or displaced
+	// our lock, we must not delete whatever is currently in place.
 	ownerFile := filepath.Join(h.dir, "owner")
-	_ = os.Remove(ownerFile)
-	if err := os.Remove(h.dir); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("cudalock: release failed: %w", err)
+	data, err := os.ReadFile(ownerFile)
+	if err != nil {
+		return fmt.Errorf("cudalock: release aborted: owner file missing or unreadable: %w", err)
 	}
+	if string(data) != h.owner.String() {
+		return fmt.Errorf("cudalock: release aborted: lock owner displaced (found %q, expected %q)", strings.TrimSpace(string(data)), strings.TrimSpace(h.owner.String()))
+	}
+
+	// Rename aside to avoid races with concurrent re-acquirers while deleting contents
+	parent := filepath.Dir(h.dir)
+	aside := filepath.Join(parent, fmt.Sprintf(".gpu-lock-released.%d.%d", os.Getpid(), time.Now().UnixNano()))
+	if err := os.Rename(h.dir, aside); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("cudalock: release failed to move lock aside: %w", err)
+	}
+	_ = os.RemoveAll(aside)
 
 	if cleanDir == filepath.Clean(DefaultDir()) {
 		_ = os.Unsetenv("GPU_LOCK_HELD")
@@ -317,17 +336,25 @@ func Acquire(ctx context.Context, opts ...Option) (*Handle, error) {
 
 				// Safety check 3: Process is confirmed dead on our host.
 				// Reclaim the abandoned lock directory atomically.
-				if reclaim(cfg.dir, data) {
+				reclaimed, reclaimErr := reclaim(cfg.dir, data)
+				if reclaimErr != nil {
+					return nil, reclaimErr
+				}
+				if reclaimed {
 					continue
 				}
 			} else {
 				// Owner file exists but is empty or unparsable.
 				// Treat an empty or unparsable owner file like a missing one:
-				// reclaim it once it has been older than the 15s grace period,
+				// reclaim it once it has been older than the grace period,
 				// measured from the owner file's mtime.
 				if fi, statErr := os.Stat(ownerFile); statErr == nil {
-					if time.Since(fi.ModTime()) > 15*time.Second {
-						if reclaim(cfg.dir, data) {
+					if time.Since(fi.ModTime()) > emptyOwnerGrace {
+						reclaimed, reclaimErr := reclaim(cfg.dir, data)
+						if reclaimErr != nil {
+							return nil, reclaimErr
+						}
+						if reclaimed {
 							continue
 						}
 					}
@@ -337,9 +364,13 @@ func Acquire(ctx context.Context, opts ...Option) (*Handle, error) {
 			// Lock directory exists but has no owner file.
 			// Could be left by a crashed older creator.
 			if fi, statErr := os.Stat(cfg.dir); statErr == nil {
-				if time.Since(fi.ModTime()) > 15*time.Second {
-					// Directory abandoned for > 15s with no owner file: reclaim.
-					if reclaim(cfg.dir, nil) {
+				if time.Since(fi.ModTime()) > emptyOwnerGrace {
+					// Directory abandoned for > grace period with no owner file: reclaim.
+					reclaimed, reclaimErr := reclaim(cfg.dir, nil)
+					if reclaimErr != nil {
+						return nil, reclaimErr
+					}
+					if reclaimed {
 						continue
 					}
 				}
@@ -358,20 +389,20 @@ func Acquire(ctx context.Context, opts ...Option) (*Handle, error) {
 // reclaim atomically moves staleDir aside, verifies that its owner file still
 // matches expectedData, and removes it. If the owner changed or another reclaimer
 // intervened, the displaced directory is moved back intact.
-func reclaim(dir string, expectedData []byte) bool {
+func reclaim(dir string, expectedData []byte) (bool, error) {
 	if reclaimHook != nil {
 		reclaimHook()
 	}
 	parent := filepath.Dir(dir)
 	aside, err := os.MkdirTemp(parent, ".gpu-lock-stale.*")
 	if err != nil {
-		return false
+		return false, nil
 	}
 	_ = os.Remove(aside)
 
 	// Atomically move dir aside
 	if err := os.Rename(dir, aside); err != nil {
-		return false
+		return false, nil
 	}
 
 	ownerFile := filepath.Join(aside, "owner")
@@ -390,15 +421,18 @@ func reclaim(dir string, expectedData []byte) bool {
 
 	if matches {
 		_ = os.RemoveAll(aside)
-		return true
+		return true, nil
 	}
 
 	// Not the lock we diagnosed: a concurrent reclaimer or new holder won.
 	// Put it back exactly as we found it.
-	if err := os.Rename(aside, dir); err != nil {
-		fmt.Fprintf(os.Stderr, "cudalock: could not restore live lock displaced during reclaim: %s\n", aside)
+	if restoreHook != nil {
+		restoreHook(aside)
 	}
-	return false
+	if err := os.Rename(aside, dir); err != nil {
+		return false, fmt.Errorf("cudalock: could not restore live lock displaced during reclaim: %s: %w", aside, err)
+	}
+	return false, nil
 }
 
 // WithLock runs fn while holding exclusive GPU access.
