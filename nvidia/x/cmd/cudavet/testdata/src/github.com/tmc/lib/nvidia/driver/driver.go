@@ -22,10 +22,11 @@ type CallError struct {
 func (e *CallError) Error() string { return "" }
 func (e *CallError) Unwrap() error { return e.Result }
 
-func Init(flags uint32) error { return nil }
-func CtxSynchronize() error   { return nil }
-func ProfilerStart() error    { return nil }
-func ProfilerStop() error     { return nil }
+func Init(flags uint32) error     { return nil }
+func CtxSynchronize() error       { return nil }
+func MemFreeHost(p uintptr) error { return nil }
+func ProfilerStart() error        { return nil }
+func ProfilerStop() error         { return nil }
 
 type Device int32
 
@@ -49,6 +50,7 @@ func NewContext(dev Device, flags CtxFlags) (Context, error) { return 0, nil }
 func (c Context) SetCurrent() error                          { return nil }
 func (c Context) PushCurrent() error                         { return nil }
 func (c *Context) Close() error                              { return nil }
+func (c Context) SynchronizeV2() error                       { return nil }
 
 type DevicePtr uint64
 
@@ -74,6 +76,11 @@ func (d DevicePtr) CopyToHostAsyncPtr(dstHost unsafe.Pointer, byteCount uint, hS
 	return nil
 }
 func (d DevicePtr) MemsetD8Async(uc uint8, n uint, hStream Stream) error { return nil }
+func (d DevicePtr) MemsetD8(uc uint8, n uint) error                      { return nil }
+func (d DevicePtr) Memcpy(src DevicePtr, byteCount uint) error           { return nil }
+func (d DevicePtr) MemcpyAsync(src DevicePtr, byteCount uint, hStream Stream) error {
+	return nil
+}
 
 type Array uintptr
 
@@ -96,6 +103,16 @@ func (s Stream) Synchronize() error                                 { return nil
 func (s Stream) Query() error                                       { return nil }
 func (s Stream) WaitEvent(hEvent Event, flags EventWaitFlags) error { return nil }
 func (s Stream) MemAllocAsync[T any](n int) (DevicePtr, error)      { return 0, nil }
+func (s Stream) BeginCapture(mode StreamCaptureMode) error          { return nil }
+func (s Stream) EndCapture() (Graph, error)                         { return 0, nil }
+
+type StreamCaptureMode int32
+
+const (
+	StreamCaptureModeGlobal      StreamCaptureMode = 0
+	StreamCaptureModeThreadLocal StreamCaptureMode = 1
+	StreamCaptureModeRelaxed     StreamCaptureMode = 2
+)
 
 type Event uintptr
 
@@ -204,6 +221,6 @@ type TensorMapL2promotion int32
 
 type TensorMapFloatOOBfill int32
 
-func TensorMapEncodeTiled(tensorMap *TensorMap, tensorDataType TensorMapDataType, tensorRank uint32, globalAddress uintptr, globalDim *uint64, globalStrides *uint64, boxDim *uint32, elementStrides *uint32, interleave TensorMapInterleave, swizzle TensorMapSwizzle, l2Promotion TensorMapL2promotion, oobFill TensorMapFloatOOBfill) error {
+func TensorMapEncodeTiled(tensorMap *TensorMap, tensorDataType TensorMapDataType, tensorRank uint32, globalAddress DevicePtr, globalDim *uint64, globalStrides *uint64, boxDim *uint32, elementStrides *uint32, interleave TensorMapInterleave, swizzle TensorMapSwizzle, l2Promotion TensorMapL2promotion, oobFill TensorMapFloatOOBfill) error {
 	return nil
 }

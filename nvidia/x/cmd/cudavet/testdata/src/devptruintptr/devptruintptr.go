@@ -7,7 +7,11 @@ import (
 )
 
 func encode(m *driver.TensorMap, d driver.DevicePtr) error {
-	return driver.TensorMapEncodeTiled(m, driver.TensorMapDataTypeFloat32, 2, uintptr(d), nil, nil, nil, nil, 0, 0, 0, 0) // want `device pointer passed to driver.TensorMapEncodeTiled as uintptr; the binding does not type globalAddress as device memory`
+	return driver.TensorMapEncodeTiled(m, driver.TensorMapDataTypeFloat32, 2, d, nil, nil, nil, nil, 0, 0, 0, 0)
+}
+
+func freeHost(d driver.DevicePtr) error {
+	return driver.MemFreeHost(uintptr(d)) // want `device pointer passed to driver.MemFreeHost as uintptr; the binding does not type p as device memory`
 }
 
 func norm(h cublas.Handle, x driver.DevicePtr) (float32, error) {

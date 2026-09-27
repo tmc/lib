@@ -1,7 +1,11 @@
 // Package cublas is a declaration-only stand-in for the real cublas package.
 package cublas
 
-import "github.com/tmc/lib/nvidia/driver"
+import (
+	"unsafe"
+
+	"github.com/tmc/lib/nvidia/driver"
+)
 
 type CallError struct {
 	Func   string
@@ -69,6 +73,16 @@ func (h Handle) Saxpy(n int32, alpha *float32, x driver.DevicePtr, incx int32, y
 }
 
 func (h Handle) Snrm2(n int32, x driver.DevicePtr, incx int32) (float32, error) { return 0, nil }
+func (h Handle) Isamax(n int32, x driver.DevicePtr, incx int32) (int32, error)  { return 0, nil }
+func (h Handle) Srotg(a *float32, b *float32, c *float32, s *float32) error     { return nil }
+
+func (h Handle) Sdot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32) (float32, error) {
+	return 0, nil
+}
+
+func (h Handle) DotEx(n int32, x driver.DevicePtr, xType DataType, incx int32, y driver.DevicePtr, yType DataType, incy int32, result unsafe.Pointer, resultType DataType, executionType DataType) error {
+	return nil
+}
 
 func (h Handle) GemmEx(transa Operation, transb Operation, m int32, n int32, k int32, alpha Scalar, a driver.DevicePtr, atype DataType, lda int32, b driver.DevicePtr, btype DataType, ldb int32, beta Scalar, c driver.DevicePtr, ctype DataType, ldc int32, computeType ComputeType, algo GemmAlgo) error {
 	return nil

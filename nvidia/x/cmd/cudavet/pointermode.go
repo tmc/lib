@@ -66,47 +66,9 @@ func runPointerMode(pass *analysis.Pass) (any, error) {
 	eachFunc(pass, func(body *ast.BlockStmt) {
 		source := soleSource(info, body)
 		all := calls(body)
-
-		// Find the holders created here and each change to their mode.
-		events := make(map[*types.Var][]modeEvent)
-		for _, call := range all {
-			fn := callee(info, call)
-			if fn == nil || !isBinding(fn.Pkg()) {
-				continue
-			}
-			ctors, ok := modeHolders[fn.Pkg().Name()]
-			if !ok || recvNamed(fn) != nil || !slices.Contains(ctors, fn.Name()) {
-				continue
-			}
-			id := assignedIdent(body, call)
-			if id == nil || source(id) != call {
-				continue
-			}
-			v := objOf(info, id)
-			if v == nil || !declaredIn(v, body) || addressedOrCaptured(info, body, v) {
-				continue
-			}
-			events[v] = []modeEvent{{call.Pos(), modeHost}}
-		}
+		events := modeEvents(info, body, all, source)
 		if len(events) == 0 {
 			return
-		}
-		for _, call := range all {
-			fn := callee(info, call)
-			if recv := receiverVar(info, call); recv != nil && events[recv] != nil && fn != nil && isBinding(fn.Pkg()) {
-				if m, ok := modeSet(info, fn, call); ok {
-					events[recv] = append(events[recv], modeEvent{call.Pos(), m})
-				}
-			}
-			if fn != nil && isBinding(fn.Pkg()) {
-				continue
-			}
-			// Any other function may change the mode of a holder it is given.
-			for _, arg := range call.Args {
-				if v := objOf(info, arg); v != nil && events[v] != nil {
-					events[v] = append(events[v], modeEvent{call.Pos(), modeUnknown})
-				}
-			}
 		}
 
 		blocks, loops := blocksAndLoops(body)
@@ -134,6 +96,53 @@ func runPointerMode(pass *analysis.Pass) (any, error) {
 		}
 	})
 	return nil, nil
+}
+
+// modeEvents returns the points where the pointer mode of each holder
+// created in body changes, given all, the calls of body outside nested
+// literals. A holder that comes from elsewhere has no events.
+func modeEvents(info *types.Info, body *ast.BlockStmt, all []*ast.CallExpr, source func(ast.Expr) *ast.CallExpr) map[*types.Var][]modeEvent {
+	events := make(map[*types.Var][]modeEvent)
+	for _, call := range all {
+		fn := callee(info, call)
+		if fn == nil || !isBinding(fn.Pkg()) {
+			continue
+		}
+		ctors, ok := modeHolders[fn.Pkg().Name()]
+		if !ok || recvNamed(fn) != nil || !slices.Contains(ctors, fn.Name()) {
+			continue
+		}
+		id := assignedIdent(body, call)
+		if id == nil || source(id) != call {
+			continue
+		}
+		v := objOf(info, id)
+		if v == nil || !declaredIn(v, body) || addressedOrCaptured(info, body, v) {
+			continue
+		}
+		events[v] = []modeEvent{{call.Pos(), modeHost}}
+	}
+	if len(events) == 0 {
+		return nil
+	}
+	for _, call := range all {
+		fn := callee(info, call)
+		if recv := receiverVar(info, call); recv != nil && events[recv] != nil && fn != nil && isBinding(fn.Pkg()) {
+			if m, ok := modeSet(info, fn, call); ok {
+				events[recv] = append(events[recv], modeEvent{call.Pos(), m})
+			}
+		}
+		if fn != nil && isBinding(fn.Pkg()) {
+			continue
+		}
+		// Any other function may change the mode of a holder it is given.
+		for _, arg := range call.Args {
+			if v := objOf(info, arg); v != nil && events[v] != nil {
+				events[v] = append(events[v], modeEvent{call.Pos(), modeUnknown})
+			}
+		}
+	}
+	return events
 }
 
 // assignedIdent returns the variable the first result of call is assigned

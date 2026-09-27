@@ -33,3 +33,7 @@ func (e *Event) Record(s *Stream) error                { return nil }
 func (e *Event) Query() (bool, error)                  { return false, nil }
 func (e *Event) Synchronize(ctx context.Context) error { return nil }
 func (e *Event) Close() error                          { return nil }
+
+type Context struct{}
+
+func (c *Context) Synchronize() error { return nil }
