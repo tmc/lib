@@ -3,6 +3,7 @@ package cudashape
 import (
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -13,6 +14,8 @@ func TestParseDimTokens_DocstringExamples(t *testing.T) {
 	}{
 		{"ABC", []DimToken{"A", "B", "C"}},
 		{"A1B1C1", []DimToken{"A1", "B1", "C1"}},
+		{"A1B2C3", []DimToken{"A1", "B2", "C3"}},
+		{"ABCA1B1", []DimToken{"A", "B", "C", "A1", "B1"}},
 		{"A12B34", []DimToken{"A12", "B34"}},
 		{"BC(P+R)(Q+S)", []DimToken{"B", "C", "(P+R)", "(Q+S)"}},
 	}
@@ -31,6 +34,12 @@ func TestParseDimTokens_ParenthesesAndValidation(t *testing.T) {
 	}
 	if _, err := ParseDimTokens("AA", true); !errors.Is(err, ErrRepeatedRank) {
 		t.Fatalf("repeated rank error = %v", err)
+	}
+	if _, err := ParseDimTokens("A0A0", true); !errors.Is(err, ErrRepeatedRank) || !strings.Contains(err.Error(), "A0") {
+		t.Fatalf("repeated-rank error must name token A0: %v", err)
+	}
+	if err := DimToken("AB0").Validate(); !errors.Is(err, ErrMultiLetterPrefix) {
+		t.Fatalf("multi-letter token error = %v", err)
 	}
 	got, err = ParseDimTokens("AA", false)
 	if err != nil || !reflect.DeepEqual(got, []DimToken{"A", "A"}) {

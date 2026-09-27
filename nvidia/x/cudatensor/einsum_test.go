@@ -36,14 +36,14 @@ func TestCanonicalizeRanks_DefersUntilPredecessorsReady(t *testing.T) {
 	g := &Graph{Nodes: []EinsumNode{
 		{ID: "short", OutputRank: 1},
 		{ID: "long", OutputRank: 1},
-		{ID: "middle", Equation: "A->A", Inputs: []string{"long"}},
-		{ID: "join", Equation: "A,A->A", Inputs: []string{"short", "middle"}},
+		{ID: "middle", Equation: "C->C", Inputs: []string{"long"}},
+		{ID: "join", Equation: "X,Y->X", Inputs: []string{"short", "middle"}},
 	}}
 	got, err := CanonicalizeRanks(g)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Nodes[3].Equation != "A,A->A" {
+	if got.Nodes[3].Equation != "A,B->A" {
 		t.Fatalf("join equation = %q", got.Nodes[3].Equation)
 	}
 }
