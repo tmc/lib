@@ -7,4 +7,8 @@
 //
 // This package is outside the compatibility promise of
 // github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
+//
+// The package supports deferred lazy evaluation ([LazyArray]), deferring kernel
+// materialization and intermediate memory allocations until reduction, compaction, or
+// host-transfer boundaries are reached.
 package cudafuse

@@ -8,6 +8,8 @@
 // by extraction of the optimal expression according to a cost model.
 //
 // Rewrite rule suites:
+//   - [LazyFusionRewriteRules]: discovers contiguous fusible elementwise subgraphs bounded by
+//     reductions or compactions and groups them for mega-kernel extraction.
 //   - [TransformerTileRules]: fuses composite transformer layer subgraphs (RMSNorm -> QKV, Matmul -> SwiGLU / GeLU)
 //     into unified declarative Tile IR operations (__tile_global__).
 //   - [TMALayoutRules]: introduces hardware layout hints satisfying Tensor Memory Accelerator (TMA)
