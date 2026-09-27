@@ -379,6 +379,29 @@ func TestLazyArray_NilOperandErrors(t *testing.T) {
 	}
 }
 
+func TestLazyArray_ReshapeRejectsChangedElementCount(t *testing.T) {
+	x := cudafuse.NewLazyArray(cudafuse.NewLazyContext(), []int{4}, cudair.Float32)
+	reshaped := x.Reshape([]int{3})
+	if reshaped.Node.Err == nil {
+		t.Fatal("Reshape([3]) recorded no error for a four-element input")
+	}
+	if _, err := reshaped.Materialize(); err == nil {
+		t.Fatal("Materialize accepted reshape from four elements to three")
+	}
+}
+
+func TestLazyFusionBoundary_RegionCompileErrorPropagates(t *testing.T) {
+	ctx := cudafuse.NewLazyContext()
+	x := cudafuse.NewLazyArray(ctx, []int{4}, cudair.Float16)
+	plan, err := x.Add(x).Materialize()
+	if err == nil {
+		t.Fatal("Materialize accepted a region cudafuse cannot lower")
+	}
+	if plan != nil {
+		t.Fatalf("Materialize returned a partial plan with a region compilation error: %#v", plan)
+	}
+}
+
 func TestLazyFusionBoundary_OutputBytes(t *testing.T) {
 	for _, tt := range []struct {
 		name  string

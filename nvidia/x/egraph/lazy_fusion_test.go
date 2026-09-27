@@ -1,9 +1,15 @@
 package egraph_test
 
 import (
+	"context"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/tmc/lib/nvidia/x/egraph"
 )
@@ -89,6 +95,80 @@ func TestEGraphFusionRegion_KernelComputesRegionOps(t *testing.T) {
 	src := region.Kernel.Source
 	if !strings.Contains(src, "> 0.0f") || !strings.Contains(src, " + ") || strings.Contains(src, "in_leaf_") {
 		t.Fatalf("kernel source does not compute region ops or has dropped subtree inputs:\n%s", src)
+	}
+}
+
+func TestEGraphFusionRegion_KernelPreservesDistinctOperands(t *testing.T) {
+	x := &egraph.Expr{Op: "x"}
+	y := &egraph.Expr{Op: "y"}
+	z := &egraph.Expr{Op: "z"}
+	relu := &egraph.Expr{Op: "relu", Children: []*egraph.Expr{x}}
+	add := &egraph.Expr{Op: "add", Children: []*egraph.Expr{relu, y}}
+	sub := &egraph.Expr{Op: "sub", Children: []*egraph.Expr{add, z}}
+	plan, err := egraph.ExtractFusionRegions(&egraph.Expr{Op: "sum", Children: []*egraph.Expr{sub}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Regions) != 1 || plan.Regions[0].Kernel == nil {
+		t.Fatalf("regions = %#v, want one compiled region", plan.Regions)
+	}
+	region := plan.Regions[0]
+	if !reflect.DeepEqual(region.OpNames, []string{"relu", "add", "sub"}) {
+		t.Fatalf("OpNames = %v", region.OpNames)
+	}
+	if len(region.Kernel.Inputs) != 3 || len(region.Kernel.Outputs) != 1 {
+		t.Fatalf("kernel inputs/outputs = %v/%v, want three inputs and one output", region.Kernel.Inputs, region.Kernel.Outputs)
+	}
+	compiler, err := exec.LookPath("clang++")
+	if err != nil {
+		t.Skip("host emitted-kernel value check requires clang++")
+	}
+	inputNames := []string{"x", "y", "z"}
+	args := make([]string, 0, len(region.Kernel.Inputs)+len(region.Kernel.Outputs)+1)
+	for i := range region.Kernel.Inputs {
+		args = append(args, inputNames[i])
+	}
+	args = append(args, "out", "4")
+	main := fmt.Sprintf(`
+dim blockDim, blockIdx, threadIdx, gridDim;
+int main() {
+  float x[4] = {-2, 1, 2, -1};
+  float y[4] = {4, 6, -1, 3};
+  float z[4] = {3, 2, 5, 4};
+  float out[4] = {};
+  blockDim.x = 4; blockDim.y = 1; blockDim.z = 1;
+  gridDim.x = 1; gridDim.y = 1; gridDim.z = 1;
+  blockIdx.x = 0; blockIdx.y = 0; blockIdx.z = 0;
+  threadIdx.y = 0; threadIdx.z = 0;
+  for (threadIdx.x = 0; threadIdx.x < 4; ++threadIdx.x)
+    %s(%s);
+  const float want[4] = {1, 5, -4, -1};
+  for (int i = 0; i < 4; ++i) printf("%%g ", out[i]);
+  for (int i = 0; i < 4; ++i) if (out[i] != want[i]) return i + 1;
+  return 0;
+}
+`, region.Kernel.Name, strings.Join(args, ", "))
+	dir := t.TempDir()
+	header := `#define __global__
+struct dim { unsigned int x=1,y=1,z=1; };
+extern dim blockDim, blockIdx, threadIdx, gridDim;
+`
+	if err := os.WriteFile(filepath.Join(dir, "cuda_runtime.h"), []byte(header), 0600); err != nil {
+		t.Fatal(err)
+	}
+	source := "#include <stdio.h>\n" + region.Kernel.Source + "\n" + main
+	sourcePath := filepath.Join(dir, "region.cc")
+	if err := os.WriteFile(sourcePath, []byte(source), 0600); err != nil {
+		t.Fatal(err)
+	}
+	binary := filepath.Join(dir, "region")
+	if out, err := exec.Command(compiler, "-std=c++17", "-O1", "-I", dir, sourcePath, "-o", binary).CombinedOutput(); err != nil {
+		t.Fatalf("compile emitted region: %v\n%s", err, out)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if out, err := exec.CommandContext(ctx, binary).CombinedOutput(); err != nil {
+		t.Fatalf("emitted region produced wrong values: %v\n%s\ninputs=%v outputs=%v\n%s", err, out, region.Kernel.Inputs, region.Kernel.Outputs, source)
 	}
 }
 
