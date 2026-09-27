@@ -53,7 +53,7 @@ func GenerateCUDA(expr *Expr, opts CodegenOptions) (string, error) {
 	}
 
 	switch opts.Precision {
-	case "float", "float32", "half", "float16", "q8_0", "u2", "q2_k", "iq2_xxs":
+	case "float", "float32", "half", "float16", "q8_0", "q8_1", "u2", "q2_k", "iq2_xxs":
 		// supported precisions
 	default:
 		return "", fmt.Errorf("egraph: unsupported precision %q: supported precisions are \"float\", \"half\", \"q8_0\", \"u2\", \"q2_k\", \"iq2_xxs\"", opts.Precision)
@@ -109,6 +109,24 @@ struct block_q8_0 {
     uint16_t d;        // float16 scale
     int8_t qs[32];     // 32 int8 quantized values
 };
+
+// block_q8_1 is the activation ABI used by ds4's decode matvecs.  d and sum
+// are fp16 bit patterns; qs contains 32 signed quantized values.
+struct block_q8_1 {
+    uint16_t d;
+    uint16_t sum;
+    int8_t qs[32];
+};
+static_assert(sizeof(block_q8_1) == 36, "Q8_1 activation layout");
+
+__device__ __forceinline__ float q8_1_at(const block_q8_1* x, int index) {
+    const block_q8_1* b = x + index / 32;
+    return half_to_float(b->d) * (float)b->qs[index % 32];
+}
+
+__device__ __forceinline__ float float_at(const float* x, int index) {
+    return x[index];
+}
 
 // Q2_K block: 256 2-bit quantized values with super-block scaling.
 // Laid out as block_q2_K (lm/quant/kquant.go:34).
@@ -184,11 +202,17 @@ __device__ __forceinline__ void cudaTriggerProgrammaticLaunchCompletion(void) {
 		sb.WriteString(generateSwiGLUKernel(opts))
 	case "fused_swiglu_q8_0":
 		sb.WriteString(generateSwiGLUQ8_0Kernel(opts))
+	case "fused_swiglu_q8_1":
+		sb.WriteString(generateSwiGLUQ8_0Kernel(opts))
+	case "rms_quant_q8_1":
+		sb.WriteString(generateRMSNormGEMVKernel(opts))
 	case "fused_rmsnorm_gemv", "tile_rmsnorm_qkv", "tile_rmsnorm_proj":
 		sb.WriteString(generateRMSNormGEMVKernel(opts))
 	case "fused_gemv_pipeline":
 		sb.WriteString(generateFusedGEMVPipelineKernel(opts))
 	case "q8_0_matvec":
+		sb.WriteString(generateQ8_0MatvecKernel(opts))
+	case "q8_0_matvec_q8_1":
 		sb.WriteString(generateQ8_0MatvecKernel(opts))
 	case "u2_simd":
 		sb.WriteString(generateU2SIMDKernel(opts))
@@ -196,7 +220,11 @@ __device__ __forceinline__ void cudaTriggerProgrammaticLaunchCompletion(void) {
 		sb.WriteString(generateU2ScalarKernel(opts))
 	case "q2_k_matvec":
 		sb.WriteString(generateQ2KMatvecKernel(opts))
+	case "q2_k_matvec_q8_1", "q2_k_selected_matvec_q8_1":
+		sb.WriteString(generateQ2KMatvecKernel(opts))
 	case "iq2_xxs_matvec":
+		sb.WriteString(generateIQ2XXSMatvecKernel(opts))
+	case "iq2_xxs_matvec_q8_1", "iq2_xxs_selected_matvec_q8_1":
 		sb.WriteString(generateIQ2XXSMatvecKernel(opts))
 	case "fused_rope_store_kv":
 		sb.WriteString(generateFusedRoPEStoreKVKernel(opts))
@@ -220,6 +248,20 @@ func scalarTypeFor(precision string) string {
 		return "uint16_t"
 	}
 	return "float"
+}
+
+func activationType(precision string) string {
+	if precision == "q8_1" {
+		return "const block_q8_1*"
+	}
+	return "const float*"
+}
+
+func activationLoad(precision string) string {
+	if precision == "q8_1" {
+		return "q8_1_at"
+	}
+	return "float_at"
 }
 
 // applyScalarConv rewrites the EG_TO_F32 and EG_FROM_F32 markers in a generated
@@ -396,7 +438,7 @@ func generateRMSNormGEMVKernel(opts CodegenOptions) string {
 func generateQ8_0MatvecKernel(opts CodegenOptions) string {
 	src := `extern "C" __global__ void KERNEL_NAME(
     const block_q8_0* __restrict__ W,
-    const float* __restrict__ x,
+    ACT_TYPE __restrict__ x,
     float* __restrict__ y,
     int rows,
     int cols
@@ -413,7 +455,7 @@ func generateQ8_0MatvecKernel(opts CodegenOptions) string {
         const block_q8_0* blk = &W[row * blocks_per_row + b];
         float scale = half_to_float(blk->d);
         float q = (float)blk->qs[lane];
-        float xv = x[b * 32 + lane];
+        float xv = ACT_LOAD(x, b * 32 + lane);
         float prod = q * xv;
 
         for (int offset = 16; offset > 0; offset /= 2) {
@@ -428,6 +470,8 @@ func generateQ8_0MatvecKernel(opts CodegenOptions) string {
     }
 }
 `
+	src = strings.ReplaceAll(src, "ACT_TYPE", activationType(opts.Precision))
+	src = strings.ReplaceAll(src, "ACT_LOAD", activationLoad(opts.Precision))
 	return strings.ReplaceAll(src, "KERNEL_NAME", opts.KernelName)
 }
 
@@ -497,7 +541,7 @@ func generateQ2KMatvecKernel(opts CodegenOptions) string {
 // - blockDim.x must be a multiple of 32 (WARP_SIZE), with each warp processing one row.
 extern "C" __global__ void KERNEL_NAME(
     const block_q2_k* __restrict__ W,
-    const float* __restrict__ x,
+    ACT_TYPE __restrict__ x,
     float* __restrict__ y,
     int rows,
     int cols
@@ -531,7 +575,7 @@ extern "C" __global__ void KERNEL_NAME(
             uint8_t q_val = (blk->qs[base + l] >> shift) & 0x03;
             uint8_t sc = blk->scales[group];
             float val = d * (float)(sc & 0x0f) * (float)q_val - dmin * (float)(sc >> 4);
-            acc += val * x[b * 256 + elem];
+            acc += val * ACT_LOAD(x, b * 256 + elem);
         }
 
         for (int offset = 16; offset > 0; offset /= 2) {
@@ -546,6 +590,8 @@ extern "C" __global__ void KERNEL_NAME(
     }
 }
 `
+	src = strings.ReplaceAll(src, "ACT_TYPE", activationType(opts.Precision))
+	src = strings.ReplaceAll(src, "ACT_LOAD", activationLoad(opts.Precision))
 	return strings.ReplaceAll(src, "KERNEL_NAME", opts.KernelName)
 }
 
@@ -558,7 +604,7 @@ func generateIQ2XXSMatvecKernel(opts CodegenOptions) string {
 // - blockDim.x must be a multiple of 32 (WARP_SIZE), with each warp processing one row.
 extern "C" __global__ void KERNEL_NAME(
     const block_iq2_xxs* __restrict__ W,
-    const float* __restrict__ x,
+    ACT_TYPE __restrict__ x,
     float* __restrict__ y,
     int rows,
     int cols
@@ -603,7 +649,7 @@ extern "C" __global__ void KERNEL_NAME(
             float grid_val = (float)((uint8_t)(grid_entry >> (8 * i)));
             float sign = (signs & kmask_iq2xs[i]) ? -1.0f : 1.0f;
             float w = db * grid_val * sign;
-            acc += w * x[b * 256 + lane * 8 + i];
+            acc += w * ACT_LOAD(x, b * 256 + lane * 8 + i);
         }
 
         for (int offset = 16; offset > 0; offset /= 2) {
@@ -618,6 +664,8 @@ extern "C" __global__ void KERNEL_NAME(
     }
 }
 `
+	src = strings.ReplaceAll(src, "ACT_TYPE", activationType(opts.Precision))
+	src = strings.ReplaceAll(src, "ACT_LOAD", activationLoad(opts.Precision))
 	return strings.ReplaceAll(src, "KERNEL_NAME", opts.KernelName)
 }
 
@@ -747,13 +795,14 @@ func IsLowerableCUDAOp(op string) bool {
 	switch op {
 	case "fused_swiglu_gemv", "tile_swiglu",
 		"fused_swiglu_q8_0",
+		"fused_swiglu_q8_1", "rms_quant_q8_1",
 		"fused_rmsnorm_gemv", "tile_rmsnorm_qkv", "tile_rmsnorm_proj",
 		"fused_gemv_pipeline",
-		"q8_0_matvec",
+		"q8_0_matvec", "q8_0_matvec_q8_1",
 		"u2_simd",
 		"u2_scalar",
-		"q2_k_matvec",
-		"iq2_xxs_matvec",
+		"q2_k_matvec", "q2_k_matvec_q8_1", "q2_k_selected_matvec_q8_1",
+		"iq2_xxs_matvec", "iq2_xxs_matvec_q8_1", "iq2_xxs_selected_matvec_q8_1",
 		"fused_rope_store_kv",
 		"add":
 		return true
