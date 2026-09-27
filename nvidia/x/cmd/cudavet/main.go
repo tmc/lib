@@ -14,6 +14,7 @@
 //	devptruintptr      a DevicePtr passed as uintptr to a binding that types device memory
 //	memallocptr        a Go pointer type stored in device memory
 //	useafterdestroy    a handle used after it is released
+//	closecopy          a handle released through one copy and used through another
 //	sizeunits          a legacy BufferSize in elements allocated as bytes
 //	sizetrunc          a size_t result narrowed without a bounds check
 //	uintptrlive        the address of Go memory stored as a uintptr and not kept alive
@@ -84,6 +85,7 @@ var analyzers = []*analysis.Analyzer{
 	devptrUintptrAnalyzer,
 	memallocPtrAnalyzer,
 	useAfterDestroyAnalyzer,
+	closeCopyAnalyzer,
 	sizeUnitsAnalyzer,
 	sizeTruncAnalyzer,
 	uintptrLiveAnalyzer,
