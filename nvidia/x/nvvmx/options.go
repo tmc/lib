@@ -11,7 +11,8 @@ import (
 type Option func(*compileOptions) error
 
 type compileOptions struct {
-	flags []string
+	flags          []string
+	inferAddrSpace bool
 }
 
 // CompileWithOptions compiles inputs using validated NVVM options.
@@ -26,7 +27,28 @@ func CompileWithOptions(inputs []Input, opts ...Option) (*Result, error) {
 			return nil, err
 		}
 	}
+	if o.inferAddrSpace {
+		processed := make([]Input, len(inputs))
+		for i, inp := range inputs {
+			processed[i] = inp
+			if !inp.Lazy && len(inp.Data) > 0 {
+				rewritten, _, err := InferAddressSpaces(inp.Data)
+				if err == nil {
+					processed[i].Data = rewritten
+				}
+			}
+		}
+		inputs = processed
+	}
 	return Compile(inputs, o.flags...)
+}
+
+// WithAddressSpaceInference enables the address-space inference pass on input IR.
+func WithAddressSpaceInference() Option {
+	return func(o *compileOptions) error {
+		o.inferAddrSpace = true
+		return nil
+	}
 }
 
 // WithFlag adds a documented NVVM compiler option after validating it.

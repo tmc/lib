@@ -31,3 +31,24 @@ func ExampleResult_Close() {
 	fmt.Println(result.Close())
 	// Output: <nil>
 }
+
+func ExampleInferAddressSpaces() {
+	ir := `
+@smem = internal addrspace(3) global [16 x float] undef, align 4
+
+define void @example() {
+entry:
+  %slot = alloca ptr, align 8
+  store ptr addrspace(3) @smem, ptr %slot, align 8
+  ret void
+}
+`
+	_, report, err := nvvmx.InferAddressSpaces([]byte(ir))
+	if err != nil {
+		fmt.Println("error:", err)
+		return
+	}
+	info := report.Slots["%slot"]
+	fmt.Printf("%s: state=%s effective=addrspace(%d)\n", info.Name, info.State, info.Effective)
+	// Output: %slot: state=shared effective=addrspace(3)
+}

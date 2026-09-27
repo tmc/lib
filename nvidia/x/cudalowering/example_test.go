@@ -66,3 +66,22 @@ func ExampleReport_Err() {
 	// Output:
 	// cudalowering: _Z7spillerPfPKfi: spill: 5 STL, no st.local
 }
+
+func ExampleVerifyNoSharedConversions() {
+	m, d := parse("testdata/lowering.sm90.ptx", "testdata/lowering.sm90.sass")
+
+	r, err := cudalowering.VerifyNoSharedConversions(m, d)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// The lowering.sm90 kernels do not contain shared conversion divergences.
+	hasSharedConv := false
+	for _, div := range r.Divergences {
+		if div.Kind == cudalowering.SharedConversion {
+			hasSharedConv = true
+		}
+	}
+	fmt.Println("shared conversions found:", hasSharedConv)
+	// Output:
+	// shared conversions found: false
+}

@@ -31,6 +31,9 @@ const (
 	MissingPTX
 	// WidthCollapse is a vector operation lowered to equivalent scalar traffic.
 	WidthCollapse
+	// SharedConversion is a shared-space address conversion present in a kernel
+	// or slot that was expected to have direct shared access.
+	SharedConversion
 )
 
 func (k Kind) String() string {
@@ -49,6 +52,8 @@ func (k Kind) String() string {
 		return "missing ptx"
 	case WidthCollapse:
 		return "width collapse"
+	case SharedConversion:
+		return "shared conversion"
 	}
 	return fmt.Sprintf("kind(%d)", int(k))
 }
@@ -80,6 +85,14 @@ func (d Divergence) String() string {
 		b.WriteString("function is in the disassembly and not in the ptx")
 	case WidthCollapse:
 		fmt.Fprintf(&b, "%d %s, %d %s in the kernel", d.PTXCount, d.PTXOpcode, d.SASSCount, d.SASSOpcode)
+	case SharedConversion:
+		if d.PTXCount > 0 && d.SASSCount > 0 {
+			fmt.Fprintf(&b, "%d %s in PTX, %d %s in SASS", d.PTXCount, d.PTXOpcode, d.SASSCount, d.SASSOpcode)
+		} else if d.PTXCount > 0 {
+			fmt.Fprintf(&b, "%d %s in PTX", d.PTXCount, d.PTXOpcode)
+		} else {
+			fmt.Fprintf(&b, "%d %s in SASS", d.SASSCount, d.SASSOpcode)
+		}
 	}
 	if d.Detail != "" {
 		fmt.Fprintf(&b, " (%s)", d.Detail)
@@ -107,6 +120,14 @@ type Options struct {
 	// [Padding] is reported. Zero means [DefaultMaxNOPFraction]; a negative
 	// value disables the check.
 	MaxNOPFraction float64
+
+	// InferredSharedSlots lists slot or kernel names whose SASS must not contain
+	// shared-space address conversions.
+	InferredSharedSlots []string
+
+	// CheckSharedConversions, when true, verifies that no shared-space address
+	// conversions (cvta.shared in PTX, or conversion instructions in SASS) exist.
+	CheckSharedConversions bool
 }
 
 // DefaultMaxNOPFraction is the interior NOP fraction [Compare] reports above.
@@ -241,6 +262,26 @@ func Compare(m *cudaptx.Module, d *cudasass.Disassembly, opts *Options) (*Report
 			}
 		}
 
+		if opts.CheckSharedConversions || len(opts.InferredSharedSlots) > 0 {
+			cvtaCount := ptx.Count("cvta.shared") + ptx.Count("cvta.to.shared")
+			sassConvCount := countSharedConversions(p.SASS)
+			if cvtaCount > 0 || sassConvCount > 0 {
+				detail := ""
+				if len(opts.InferredSharedSlots) > 0 {
+					detail = fmt.Sprintf("inferred slots: %s", strings.Join(opts.InferredSharedSlots, ", "))
+				}
+				r.Divergences = append(r.Divergences, Divergence{
+					Kind:       SharedConversion,
+					Kernel:     p.PTX.Name,
+					PTXOpcode:  "cvta.shared",
+					SASSOpcode: "conversion",
+					PTXCount:   cvtaCount,
+					SASSCount:  sassConvCount,
+					Detail:     detail,
+				})
+			}
+		}
+
 		if maxNOP > 0 && sass.Total > 0 && float64(interior)/float64(sass.Total) > maxNOP {
 			r.Divergences = append(r.Divergences, Divergence{
 				Kind:       Padding,
@@ -259,6 +300,40 @@ func Compare(m *cudaptx.Module, d *cudasass.Disassembly, opts *Options) (*Report
 		r.Divergences = append(r.Divergences, Divergence{Kind: MissingPTX, Kernel: fn.Name})
 	}
 	return r, nil
+}
+
+// VerifyNoSharedConversions verifies that neither the PTX module nor the SASS disassembly
+// contains shared-space address conversions for the given kernel slots.
+// If any shared conversion instructions or cvta.shared opcodes are found, they are reported
+// as [SharedConversion] divergences in the returned report.
+func VerifyNoSharedConversions(m *cudaptx.Module, d *cudasass.Disassembly, slots ...string) (*Report, error) {
+	opts := &Options{
+		CheckSharedConversions: true,
+		InferredSharedSlots:    slots,
+	}
+	return Compare(m, d, opts)
+}
+
+func countSharedConversions(fn *cudasass.Function) int {
+	if fn == nil {
+		return 0
+	}
+	count := 0
+	for _, inst := range fn.Instructions {
+		op := strings.ToUpper(inst.Opcode)
+		if strings.HasPrefix(op, "CVTA") {
+			count++
+			continue
+		}
+		if op == "LD" || strings.HasPrefix(op, "LD.") || op == "ST" || strings.HasPrefix(op, "ST.") {
+			if !strings.HasPrefix(op, "LDG") && !strings.HasPrefix(op, "LDS") && !strings.HasPrefix(op, "LDL") &&
+				!strings.HasPrefix(op, "LDC") && !strings.HasPrefix(op, "STG") && !strings.HasPrefix(op, "STS") &&
+				!strings.HasPrefix(op, "STL") {
+				count++
+			}
+		}
+	}
+	return count
 }
 
 // countNOPs returns the number of NOP instructions in fn and the number of them

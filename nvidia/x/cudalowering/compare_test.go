@@ -226,6 +226,8 @@ func TestKindString(t *testing.T) {
 		{Padding, "padding"},
 		{MissingSASS, "missing sass"},
 		{MissingPTX, "missing ptx"},
+		{WidthCollapse, "width collapse"},
+		{SharedConversion, "shared conversion"},
 		{Kind(0), "kind(0)"},
 	} {
 		if got := tt.kind.String(); got != tt.want {
