@@ -36,6 +36,13 @@ const (
 	Compute64F ComputeType = 70
 )
 
+type PointerMode int32
+
+const (
+	PointerModeHost   PointerMode = 0
+	PointerModeDevice PointerMode = 1
+)
+
 type GemmAlgo int32
 
 const GemmDefault GemmAlgo = -1
@@ -55,6 +62,7 @@ type Handle uintptr
 func Create() (Handle, error)                           { return 0, nil }
 func (h *Handle) Close() error                          { return nil }
 func (h Handle) SetStream(streamId driver.Stream) error { return nil }
+func (h Handle) SetPointerMode(mode PointerMode) error  { return nil }
 
 func (h Handle) Saxpy(n int32, alpha *float32, x driver.DevicePtr, incx int32, y driver.DevicePtr, incy int32) error {
 	return nil

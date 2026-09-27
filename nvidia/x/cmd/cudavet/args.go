@@ -558,34 +558,7 @@ var scalarKinds = map[string]string{
 func runScalarType(pass *analysis.Pass) (any, error) {
 	info := pass.TypesInfo
 	eachFunc(pass, func(body *ast.BlockStmt) {
-		// source returns the call whose first result is assigned to e, when
-		// that is the only assignment to it.
-		source := func(e ast.Expr) *ast.CallExpr {
-			v := objOf(info, e)
-			if v == nil {
-				return nil
-			}
-			var c *ast.CallExpr
-			n := 0
-			for _, stmt := range assignStmts(body) {
-				for i, l := range stmt.Lhs {
-					if objOf(info, l) != v {
-						continue
-					}
-					n++
-					switch {
-					case len(stmt.Rhs) == len(stmt.Lhs):
-						c, _ = stmt.Rhs[i].(*ast.CallExpr)
-					case i == 0 && len(stmt.Rhs) == 1:
-						c, _ = stmt.Rhs[0].(*ast.CallExpr)
-					}
-				}
-			}
-			if n != 1 {
-				return nil
-			}
-			return c
-		}
+		source := soleSource(info, body)
 		for _, call := range calls(body) {
 			fn := callee(info, call)
 			if fn == nil || !inNvidia(fn.Pkg()) || len(call.Args) == 0 {
@@ -634,6 +607,38 @@ func runScalarType(pass *analysis.Pass) (any, error) {
 		}
 	})
 	return nil, nil
+}
+
+// soleSource returns a function that gives the call whose first result is
+// assigned to e, when e is a variable assigned only there in body.
+func soleSource(info *types.Info, body *ast.BlockStmt) func(e ast.Expr) *ast.CallExpr {
+	stmts := assignStmts(body)
+	return func(e ast.Expr) *ast.CallExpr {
+		v := objOf(info, e)
+		if v == nil {
+			return nil
+		}
+		var c *ast.CallExpr
+		n := 0
+		for _, stmt := range stmts {
+			for i, l := range stmt.Lhs {
+				if objOf(info, l) != v {
+					continue
+				}
+				n++
+				switch {
+				case len(stmt.Rhs) == len(stmt.Lhs):
+					c, _ = stmt.Rhs[i].(*ast.CallExpr)
+				case i == 0 && len(stmt.Rhs) == 1:
+					c, _ = stmt.Rhs[0].(*ast.CallExpr)
+				}
+			}
+		}
+		if n != 1 {
+			return nil
+		}
+		return c
+	}
 }
 
 func assignStmts(body *ast.BlockStmt) []*ast.AssignStmt {

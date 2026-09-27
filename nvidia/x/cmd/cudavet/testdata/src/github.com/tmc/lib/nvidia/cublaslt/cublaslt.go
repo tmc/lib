@@ -31,12 +31,24 @@ const (
 
 type Scalar struct{}
 
-func Float16BitsScalar(b uint16) Scalar    { return Scalar{} }
-func Float32Scalar(x float32) Scalar       { return Scalar{} }
-func Float64Scalar(x float64) Scalar       { return Scalar{} }
-func Complex64Scalar(x complex64) Scalar   { return Scalar{} }
-func Complex128Scalar(x complex128) Scalar { return Scalar{} }
-func Int32Scalar(x int32) Scalar           { return Scalar{} }
+func Float16BitsScalar(b uint16) Scalar      { return Scalar{} }
+func Float32Scalar(x float32) Scalar         { return Scalar{} }
+func Float64Scalar(x float64) Scalar         { return Scalar{} }
+func Complex64Scalar(x complex64) Scalar     { return Scalar{} }
+func Complex128Scalar(x complex128) Scalar   { return Scalar{} }
+func Int32Scalar(x int32) Scalar             { return Scalar{} }
+func DeviceScalar(p driver.DevicePtr) Scalar { return Scalar{} }
+
+type MatmulDescAttributes int32
+
+const (
+	MatmulDescScaleType   MatmulDescAttributes = 1
+	MatmulDescPointerMode MatmulDescAttributes = 2
+)
+
+func (m MatmulDesc) SetAttribute(attr MatmulDescAttributes, buf uintptr, sizeInBytes uint) error {
+	return nil
+}
 
 func NewMatmulDesc(computeType ComputeType, scaleType DataType) (MatmulDesc, error) {
 	return 0, nil

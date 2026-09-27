@@ -11,6 +11,13 @@ type ConstDnVecDescr uintptr
 
 type DnVecDescr uintptr
 
+type PointerMode int32
+
+const (
+	PointerModeHost   PointerMode = 0
+	PointerModeDevice PointerMode = 1
+)
+
 type Operation int32
 
 const OperationNonTranspose Operation = 0
@@ -29,11 +36,16 @@ const (
 
 type Scalar struct{}
 
-func Float32Scalar(x float32) Scalar       { return Scalar{} }
-func Float64Scalar(x float64) Scalar       { return Scalar{} }
-func Complex64Scalar(x complex64) Scalar   { return Scalar{} }
-func Complex128Scalar(x complex128) Scalar { return Scalar{} }
-func Int32Scalar(x int32) Scalar           { return Scalar{} }
+func Float32Scalar(x float32) Scalar         { return Scalar{} }
+func Float64Scalar(x float64) Scalar         { return Scalar{} }
+func Complex64Scalar(x complex64) Scalar     { return Scalar{} }
+func Complex128Scalar(x complex128) Scalar   { return Scalar{} }
+func Int32Scalar(x int32) Scalar             { return Scalar{} }
+func DeviceScalar(p driver.DevicePtr) Scalar { return Scalar{} }
+
+func Create() (Handle, error)                          { return 0, nil }
+func (h *Handle) Close() error                         { return nil }
+func (h Handle) SetPointerMode(mode PointerMode) error { return nil }
 
 func (h Handle) SpMV(opA Operation, alpha Scalar, matA ConstSpMatDescr, vecX ConstDnVecDescr, beta Scalar, vecY DnVecDescr, computeType DataType, alg SpMVAlg, externalBuffer driver.DevicePtr) error {
 	return nil
