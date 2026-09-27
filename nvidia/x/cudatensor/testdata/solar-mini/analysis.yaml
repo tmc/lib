@@ -1,0 +1,163 @@
+{
+  "layers": {
+    "matmul": {
+      "type": "matmul",
+      "einsum_equation": "MK,KN->MN",
+      "is_real_einsum": true,
+      "macs": 10000,
+      "other_ops": 0,
+      "flops": 20000,
+      "unfused_elements": 2100,
+      "orojenesis_elements": null,
+      "fused_elements": 1100,
+      "tensor_shapes": {
+        "inputs": [
+          [
+            10,
+            10
+          ],
+          [
+            10,
+            100
+          ]
+        ],
+        "outputs": [
+          [
+            10,
+            100
+          ]
+        ]
+      },
+      "tensor_sizes": {
+        "inputs": [
+          100,
+          1000
+        ],
+        "outputs": [
+          1000
+        ]
+      },
+      "memory_elements": {
+        "inputs": [
+          100,
+          1000
+        ],
+        "outputs": [
+          1000
+        ]
+      },
+      "tensor_types": {
+        "inputs": [
+          "activation",
+          "weight"
+        ],
+        "outputs": [
+          "activation"
+        ]
+      },
+      "input_elements": 1100,
+      "output_elements": 1000,
+      "intermediate_elements": 1000,
+      "model_io_elements": 1100,
+      "input_is_intermediate": false,
+      "output_is_intermediate": true,
+      "connections": {
+        "inputs": [
+          "input_x",
+          "weight_w"
+        ],
+        "outputs": [
+          "add"
+        ]
+      }
+    },
+    "add": {
+      "type": "add",
+      "einsum_equation": "MN,MN->MN",
+      "is_real_einsum": false,
+      "macs": 0,
+      "other_ops": 1000,
+      "flops": 0,
+      "unfused_elements": 3000,
+      "orojenesis_elements": null,
+      "fused_elements": 2000,
+      "tensor_shapes": {
+        "inputs": [
+          [
+            10,
+            100
+          ],
+          [
+            10,
+            100
+          ]
+        ],
+        "outputs": [
+          [
+            10,
+            100
+          ]
+        ]
+      },
+      "tensor_sizes": {
+        "inputs": [
+          1000,
+          1000
+        ],
+        "outputs": [
+          1000
+        ]
+      },
+      "memory_elements": {
+        "inputs": [
+          1000,
+          1000
+        ],
+        "outputs": [
+          1000
+        ]
+      },
+      "tensor_types": {
+        "inputs": [
+          "activation",
+          "activation"
+        ],
+        "outputs": [
+          "activation"
+        ]
+      },
+      "input_elements": 2000,
+      "output_elements": 1000,
+      "intermediate_elements": 1000,
+      "model_io_elements": 2000,
+      "input_is_intermediate": true,
+      "output_is_intermediate": false,
+      "connections": {
+        "inputs": [
+          "input_x2",
+          "matmul"
+        ],
+        "outputs": []
+      }
+    }
+  },
+  "total": {
+    "num_layers": 2,
+    "num_start_nodes_filtered": 3,
+    "macs": 10000,
+    "other_ops": 1000,
+    "flops": 20000,
+    "unfused_elements": 5100,
+    "orojenesis_elements": null,
+    "fused_elements": 3100,
+    "fused_prefetched_elements": 3100,
+    "model_io_elements": 3100,
+    "intermediate_elements": 2000,
+    "num_intermediate_tensors": 1
+  },
+  "metadata": {
+    "precision": "fp16",
+    "bytes_per_element": 2,
+    "source_graph": "/Users/tmc/tmp/lib-nvidia-implementation/48-einsum-rank-unification-and-sol-bounds/solar-fixture-work/einsum_graph.yaml"
+  }
+}

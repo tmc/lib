@@ -1,0 +1,184 @@
+{
+  "layers": {
+    "input_x": {
+      "type": "start",
+      "tensor_names": {
+        "outputs": [
+          "x"
+        ]
+      },
+      "tensor_shapes": {
+        "outputs": [
+          [
+            10,
+            10
+          ]
+        ]
+      },
+      "tensor_dtypes": {
+        "outputs": [
+          "torch.float16"
+        ]
+      },
+      "connections": {
+        "inputs": [],
+        "outputs": []
+      }
+    },
+    "weight_w": {
+      "type": "start",
+      "tensor_names": {
+        "outputs": [
+          "w"
+        ]
+      },
+      "tensor_shapes": {
+        "outputs": [
+          [
+            10,
+            100
+          ]
+        ]
+      },
+      "tensor_dtypes": {
+        "outputs": [
+          "torch.float16"
+        ]
+      },
+      "connections": {
+        "inputs": [],
+        "outputs": []
+      }
+    },
+    "input_x2": {
+      "type": "start",
+      "tensor_names": {
+        "outputs": [
+          "x2"
+        ]
+      },
+      "tensor_shapes": {
+        "outputs": [
+          [
+            10,
+            100
+          ]
+        ]
+      },
+      "tensor_dtypes": {
+        "outputs": [
+          "torch.float16"
+        ]
+      },
+      "connections": {
+        "inputs": [],
+        "outputs": []
+      }
+    },
+    "matmul": {
+      "type": "matmul",
+      "einsum_equation": "MK,KN->MN",
+      "is_real_einsum": true,
+      "connections": {
+        "inputs": [
+          "input_x",
+          "weight_w"
+        ],
+        "outputs": [
+          "add"
+        ]
+      },
+      "tensor_names": {
+        "inputs": [
+          "x",
+          "w"
+        ],
+        "outputs": [
+          "y"
+        ]
+      },
+      "tensor_shapes": {
+        "inputs": [
+          [
+            10,
+            10
+          ],
+          [
+            10,
+            100
+          ]
+        ],
+        "outputs": [
+          [
+            10,
+            100
+          ]
+        ]
+      },
+      "tensor_types": {
+        "inputs": [
+          "activation",
+          "weight"
+        ],
+        "outputs": [
+          "activation"
+        ]
+      }
+    },
+    "add": {
+      "type": "add",
+      "einsum_equation": "MN,MN->MN",
+      "is_real_einsum": false,
+      "connections": {
+        "inputs": [
+          "input_x2",
+          "matmul"
+        ],
+        "outputs": []
+      },
+      "tensor_names": {
+        "inputs": [
+          "x2",
+          "y"
+        ],
+        "outputs": [
+          "z"
+        ]
+      },
+      "tensor_shapes": {
+        "inputs": [
+          [
+            10,
+            100
+          ],
+          [
+            10,
+            100
+          ]
+        ],
+        "outputs": [
+          [
+            10,
+            100
+          ]
+        ]
+      },
+      "tensor_types": {
+        "inputs": [
+          "activation",
+          "activation"
+        ],
+        "outputs": [
+          "activation"
+        ]
+      }
+    }
+  },
+  "layer_order": [
+    "input_x",
+    "weight_w",
+    "input_x2",
+    "matmul",
+    "add"
+  ]
+}

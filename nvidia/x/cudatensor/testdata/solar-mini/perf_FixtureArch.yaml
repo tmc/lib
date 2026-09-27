@@ -1,0 +1,73 @@
+{
+  "arch": {
+    "name": "FixtureArch",
+    "freq_GHz": 1.0,
+    "DRAM_byte_per_cycle": 220.0,
+    "mac_per_cycle_key": "MAC_per_cycle_fp16_tc",
+    "MAC_per_cycle": 100.0,
+    "MAC_per_cycle_fp32_sm": 25.0,
+    "ridge_point": 0.45454545454545453
+  },
+  "workload": {
+    "total_macs": 10000,
+    "total_other_ops": 1000,
+    "total_flops": 20000,
+    "bytes_per_element": 2
+  },
+  "unfused": {
+    "description": "Each op in isolation, all tensors from DRAM",
+    "memory_elements": 5100,
+    "memory_bytes": 10200,
+    "compute_tc_cycles": 100,
+    "compute_sm_cycles": 40,
+    "compute_cycles": 100,
+    "memory_cycles": 46,
+    "total_cycles": 100,
+    "runtime_ms": 0.0001,
+    "arithmetic_intensity": 0.9803921568627451,
+    "bottleneck": "compute"
+  },
+  "fused": {
+    "description": "Per-op roofline, intermediate tensors excluded",
+    "memory_elements": 3100,
+    "memory_bytes": 6200,
+    "compute_tc_cycles": 100,
+    "compute_sm_cycles": 40,
+    "compute_cycles": 100,
+    "memory_cycles": 28,
+    "total_cycles": 100,
+    "runtime_ms": 0.0001,
+    "arithmetic_intensity": 1.6129032258064515,
+    "bottleneck": "compute"
+  },
+  "fused_prefetched": {
+    "description": "Single roofline for entire graph, perfect overlap",
+    "memory_elements": 3100,
+    "memory_bytes": 6200,
+    "compute_tc_cycles": 100,
+    "compute_sm_cycles": 40,
+    "compute_cycles": 100,
+    "memory_cycles": 28,
+    "total_cycles": 100,
+    "runtime_ms": 0.0001,
+    "arithmetic_intensity": 1.6129032258064515,
+    "bottleneck": "compute"
+  },
+  "memory_breakdown": {
+    "weight_elements": 0,
+    "weight_bytes": 0,
+    "model_io_elements": 3100,
+    "model_io_bytes": 6200,
+    "intermediate_elements": 2000,
+    "intermediate_bytes": 4000
+  },
+  "speedup": {
+    "fused_vs_unfused": 1.0,
+    "fused_prefetched_vs_unfused": 1.0,
+    "fused_prefetched_vs_fused": 1.0
+  },
+  "memory_reduction": {
+    "fused_vs_unfused": 0.3921568627450981,
+    "fused_prefetched_vs_unfused": 0.3921568627450981
+  }
+}

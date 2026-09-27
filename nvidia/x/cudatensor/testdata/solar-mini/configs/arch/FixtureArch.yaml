@@ -1,0 +1,7 @@
+{
+  "name": "FixtureArch",
+  "freq_GHz": 1.0,
+  "DRAM_byte_per_cycle": 220.0,
+  "MAC_per_cycle_fp16_tc": 100.0,
+  "MAC_per_cycle_fp32_sm": 25.0
+}

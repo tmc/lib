@@ -12,7 +12,7 @@ import (
 var (
 	// ErrCyclicGraph reports a rank graph that cannot be traversed from its inputs.
 	ErrCyclicGraph = errors.New("cudatensor: cyclic einsum graph")
-	// ErrNotCanonicalized reports an export attempted before rank canonicalization.
+	// ErrNotCanonicalized reports analysis or export before rank canonicalization.
 	ErrNotCanonicalized = errors.New("cudatensor: einsum graph is not canonicalized")
 )
 
@@ -20,10 +20,21 @@ var (
 // node IDs in operand order. Start nodes describe external tensors and have no
 // equation; their output rank count is OutputRank.
 type EinsumNode struct {
-	ID         string
-	Equation   string
-	Inputs     []string
-	OutputRank int
+	ID            string
+	Equation      string
+	Inputs        []string
+	OutputRank    int
+	MACs          uint64
+	OtherOps      uint64 // retained from analysis; SOLAR does not include it in compute cycles
+	InputTensors  []TensorInfo
+	OutputTensors []TensorInfo
+}
+
+// TensorInfo contains tensor-size and weight metadata used by SOL analysis.
+type TensorInfo struct {
+	Name     string
+	Elements uint64
+	Weight   bool
 }
 
 // Graph is an ordered einsum graph. Node order is significant and supplies the
@@ -36,11 +47,15 @@ type Graph struct {
 
 // CanonicalNode is the rank-renamed representation of one graph node.
 type CanonicalNode struct {
-	ID       string
-	Equation string
-	Inputs   []string
-	Start    bool
-	Output   []cudashape.DimToken
+	ID            string
+	Equation      string
+	Inputs        []string
+	Start         bool
+	Output        []cudashape.DimToken
+	MACs          uint64
+	OtherOps      uint64
+	InputTensors  []TensorInfo
+	OutputTensors []TensorInfo
 }
 
 // CanonicalGraph is an einsum graph whose ranks have stable generated names.
@@ -70,6 +85,9 @@ func CanonicalizeRanks(g *Graph) (*CanonicalGraph, error) {
 	successors := make([][]int, len(g.Nodes))
 	for i, n := range g.Nodes {
 		for _, id := range n.Inputs {
+			if id == "" {
+				continue
+			}
 			p, ok := byID[id]
 			if !ok {
 				return nil, fmt.Errorf("cudatensor: node %q has unknown input %q", n.ID, id)
@@ -97,6 +115,9 @@ func CanonicalizeRanks(g *Graph) (*CanonicalGraph, error) {
 		}
 		ready := true
 		for _, id := range g.Nodes[i].Inputs {
+			if id == "" {
+				continue
+			}
 			if !processed[byID[id]] {
 				ready = false
 				break
@@ -112,7 +133,12 @@ func CanonicalizeRanks(g *Graph) (*CanonicalGraph, error) {
 		}
 		stalled = 0
 		n := g.Nodes[i]
-		cn := CanonicalNode{ID: n.ID, Inputs: append([]string(nil), n.Inputs...), Start: len(n.Inputs) == 0}
+		cn := CanonicalNode{
+			ID: n.ID, Inputs: append([]string(nil), n.Inputs...), Start: len(n.Inputs) == 0,
+			MACs: n.MACs, OtherOps: n.OtherOps,
+			InputTensors:  append([]TensorInfo(nil), n.InputTensors...),
+			OutputTensors: append([]TensorInfo(nil), n.OutputTensors...),
+		}
 		if cn.Start {
 			if n.Equation != "" {
 				return nil, fmt.Errorf("cudatensor: start node %q must not have an equation", n.ID)
@@ -137,6 +163,16 @@ func CanonicalizeRanks(g *Graph) (*CanonicalGraph, error) {
 			mapping := make(map[cudashape.DimToken]cudashape.DimToken)
 			used := make(map[cudashape.DimToken]bool)
 			for oi, operand := range inputs {
+				if n.Inputs[oi] == "" {
+					for _, token := range operand {
+						if _, ok := mapping[token]; !ok {
+							mapping[token] = labelToken(nextLabel)
+							nextLabel++
+							used[mapping[token]] = true
+						}
+					}
+					continue
+				}
 				pred := outputs[n.Inputs[oi]]
 				if len(operand) != len(pred) {
 					return nil, fmt.Errorf("cudatensor: node %q input %q rank mismatch", n.ID, n.Inputs[oi])
@@ -197,7 +233,7 @@ func CanonicalizeRanks(g *Graph) (*CanonicalGraph, error) {
 func CanonicalKey(g *Graph) string {
 	c, err := CanonicalizeRanks(g)
 	if err != nil {
-		return ""
+		return "\x00invalid:" + err.Error()
 	}
 	var b strings.Builder
 	for _, n := range c.Nodes {
@@ -208,6 +244,14 @@ func CanonicalKey(g *Graph) string {
 		b.WriteByte('|')
 		for _, in := range n.Inputs {
 			fmt.Fprintf(&b, "%q,", in)
+		}
+		fmt.Fprintf(&b, "|%d|%d|", n.MACs, n.OtherOps)
+		for _, tensor := range n.InputTensors {
+			fmt.Fprintf(&b, "%q:%d:%t,", tensor.Name, tensor.Elements, tensor.Weight)
+		}
+		b.WriteByte('|')
+		for _, tensor := range n.OutputTensors {
+			fmt.Fprintf(&b, "%q:%d,", tensor.Name, tensor.Elements)
 		}
 		b.WriteByte('\n')
 	}
