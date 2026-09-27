@@ -13,4 +13,11 @@
 // memory access, recursion, barrier, allocation or helper call is admitted.
 // Exit returns register A. Verification establishes only these host-side
 // properties, not compilation, injection safety or GPU behavior.
+//
+// PTX injection is opt-in through an exact kernel identity allowlist. Stub
+// calls may be selected through InjectionPolicy.StubFunctions only when the
+// listed device function is defined, has no parameters or returns, and has an
+// empty body. Bodiless declarations and functions with other bodies are
+// rejected. Prepared PTX is parseable by cudaptx; this does not establish that
+// a native assembler accepts it or that it behaves correctly on a GPU.
 package cudabpfdev

@@ -99,8 +99,8 @@ func TestPrepareInjectionPreservesOriginal(t *testing.T) {
 			t.Fatalf("missing isolated register namespace %s", name)
 		}
 	}
-	if strings.Count(string(a.Raw), "vote.sync.ballot.b32") != 3 || strings.Contains(string(a.Raw), "activemask") {
-		t.Fatal("missing synchronized site membership")
+	if strings.Count(string(a.Raw), "vote.sync.ballot.b32") != 3 || strings.Count(string(a.Raw), "activemask.b32") != 3 {
+		t.Fatal("missing active-lane synchronized site membership")
 	}
 	original, err := i.Original()
 	if err != nil {

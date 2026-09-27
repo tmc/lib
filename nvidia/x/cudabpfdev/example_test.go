@@ -162,6 +162,50 @@ func ExamplePrepareInjection() {
 	// Output: true injection disabled true <nil>
 }
 
+func ExamplePrepareInjection_stub() {
+	ptx := []byte(`.version 9.0
+.target sm_121a
+.address_size 64
+.func trace_stub
+{
+    ret;
+}
+.visible .entry kernel()
+{
+    call.uni trace_stub;
+    ret;
+}
+`)
+	a, err := cudakernel.NewArtifact(cudakernel.KindPTX, ptx, "kernel", cudakernel.Schema{}, "sm_121a")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	s, err := cudabpfdev.NewArtifactSource(a, cudabpfdev.Geometry{Grid: [3]uint32{1, 1, 1}, Block: [3]uint32{32, 1, 1}})
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	p := cudabpfdev.Program{Version: 1, Registers: 1, Slots: 1, Code: []cudabpfdev.Instruction{
+		{Op: cudabpfdev.Const, Dst: 0, Imm: 1},
+		{Op: cudabpfdev.MapAdd, B: 0},
+		{Op: cudabpfdev.Exit},
+	}}
+	b := cudabpfdev.Budget{MaxInstructions: 3, MaxSteps: 3, MaxRegisters: 128, MaxSlots: 1}
+	policy := cudabpfdev.InjectionPolicy{
+		Enabled: true, Allowlist: []cudabpfdev.KernelIdentity{{Digest: a.Digest, EntryPoint: a.EntryPoint, Target: a.Target}},
+		StubFunctions: []string{"trace_stub"},
+	}
+	i, err := cudabpfdev.PrepareInjection(s, p, b, policy)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	candidate, reason := i.Candidate()
+	fmt.Println(candidate != nil, reason)
+	// Output: true
+}
+
 func ExampleInjection_Load() {
 	// Loading always requires an explicit device, even on the original path.
 	var injection cudabpfdev.Injection

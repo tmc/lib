@@ -20,6 +20,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudair"
 	"github.com/tmc/lib/nvidia/x/cudakernel"
 	"github.com/tmc/lib/nvidia/x/cudalock"
+	"github.com/tmc/lib/nvidia/x/cudaptx"
 	"github.com/tmc/lib/nvidia/x/internal/cudatool"
 	"github.com/tmc/lib/nvidia/x/nvjitlinkx"
 )
@@ -71,6 +72,23 @@ func nativeInjectionFixture(target string, block uint32) (*ArtifactSource, Progr
 	return s, p, b, policy, err
 }
 
+func nativeStubInjectionFixture(target string, block uint32) (*ArtifactSource, Program, Budget, InjectionPolicy, error) {
+	ptx := strings.Replace(nativeNegatePTX, "    ret;\n}", "    call.uni trace_stub;\n    ret;\n}\n\n.func trace_stub\n{\n    ret;\n}", 1)
+	schema, err := cudakernel.NewSchema(cudakernel.Param{Name: "input", Type: "u64", IsPointer: true}, cudakernel.Param{Name: "output", Type: "u64", IsPointer: true})
+	if err != nil {
+		return nil, Program{}, Budget{}, InjectionPolicy{}, err
+	}
+	a, err := cudakernel.NewArtifact(cudakernel.KindPTX, []byte(strings.ReplaceAll(ptx, "TARGET", target)), "negate", schema, target)
+	if err != nil {
+		return nil, Program{}, Budget{}, InjectionPolicy{}, err
+	}
+	s, err := NewArtifactSource(a, Geometry{Grid: [3]uint32{2, 1, 1}, Block: [3]uint32{block, 1, 1}})
+	p := Program{Version: 1, Registers: 1, Slots: 1, Code: []Instruction{{Op: Const, Dst: 0, Imm: 1}, {Op: MapAdd, B: 0}, {Op: Exit}}}
+	b := Budget{MaxInstructions: 8, MaxSteps: 8, MaxRegisters: 128, MaxSlots: 1}
+	policy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{a.Digest, a.EntryPoint, a.Target}}, StubFunctions: []string{"trace_stub"}}
+	return s, p, b, policy, err
+}
+
 // This host check ensures the gated workload actually exercises candidate
 // admission; a silently falling-back workload is not a native injection test.
 func TestNativeInjectionFixture(t *testing.T) {
@@ -87,6 +105,23 @@ func TestNativeInjectionFixture(t *testing.T) {
 			if a, reason := i.Candidate(); a == nil {
 				t.Fatal(reason)
 			}
+		}
+	}
+	for _, block := range []uint32{17, 32} {
+		s, p, b, policy, err := nativeStubInjectionFixture("sm_121a", block)
+		if err != nil {
+			t.Fatal(err)
+		}
+		i, err := PrepareInjection(s, p, b, policy)
+		if err != nil {
+			t.Fatal(err)
+		}
+		a, reason := i.Candidate()
+		if a == nil {
+			t.Fatal(reason)
+		}
+		if _, err := cudaptx.ParseBytes(a.Raw); err != nil {
+			t.Fatalf("stub candidate is not parseable by cudaptx: %v", err)
 		}
 	}
 }
@@ -389,6 +424,56 @@ func TestNativeInjection(t *testing.T) {
 				}
 			}
 			if err := CompareOutputs(graph, map[string][]float32{"x": input}, map[string][]float32{y.Name: outputs[0]}, map[string][]float32{y.Name: outputs[1]}, NumericalPolicy{Mode: "exact"}); err != nil {
+				t.Fatal(err)
+			}
+			stubSource, stubProgram, stubBudget, stubPolicy, err := nativeStubInjectionFixture(target, block)
+			if err != nil {
+				t.Fatal(err)
+			}
+			stubInjection, err := PrepareInjection(stubSource, stubProgram, stubBudget, stubPolicy)
+			if err != nil {
+				t.Fatal(err)
+			}
+			stubOwner, err := stubInjection.load(nativeInjectionLoadOps(dev))
+			if stubOwner != nil {
+				loaded = append(loaded, stubOwner)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			stubSelection, err := stubOwner.Selection()
+			if err != nil || !stubSelection.Candidate {
+				t.Fatalf("stub candidate was not selected: %+v %v", stubSelection, err)
+			}
+			if err := stubOwner.Launch(ctx, in, candidateOut); err != nil {
+				t.Fatal(err)
+			}
+			stubSnapshot, ok := stubOwner.Snapshot()
+			if !ok {
+				t.Fatal("stub candidate snapshot unavailable")
+			}
+			active := uint32(0xffffffff)
+			if block < 32 {
+				active = (uint32(1) << block) - 1
+			}
+			perWarp, err := Evaluate(ctx, stubProgram, stubBudget, active)
+			if err != nil {
+				t.Fatal(err)
+			}
+			warpCount := uint32(2 * ((block + 31) / 32))
+			wantCount := perWarp.Map[0] * warpCount
+			wantMisses := perWarp.Misses * uint64(warpCount)
+			if len(stubSnapshot.Values) != 1 || stubSnapshot.Values[0] != wantCount || stubSnapshot.Misses != wantMisses {
+				t.Fatalf("stub map differs from Evaluate per warp: got %+v want count=%d misses=%d", stubSnapshot, wantCount, wantMisses)
+			}
+			stubOutput := make([]float32, n)
+			if err := nativeFloatTransfer(dev, candidateOut, stubOutput, true); err != nil {
+				t.Fatal(err)
+			}
+			if err := CompareOutputs(graph, map[string][]float32{"x": input}, map[string][]float32{y.Name: outputs[0]}, map[string][]float32{y.Name: stubOutput}, NumericalPolicy{Mode: "exact"}); err != nil {
+				t.Fatalf("stub candidate changed kernel output: %v", err)
+			}
+			if err := stubOwner.Close(); err != nil {
 				t.Fatal(err)
 			}
 			// A physical-output corruption must fail the same qualification gate.

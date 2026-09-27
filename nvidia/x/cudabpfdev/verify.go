@@ -174,8 +174,15 @@ func Verify(p Program, b Budget) (Analysis, error) {
 		if in.Op == JumpNonzero && state[pc]&(uint32(1)<<in.A) != 0 {
 			return fail(pc, "lane-varying branch condition")
 		}
-		if in.Op == MapAdd && state[pc]&((uint32(1)<<in.A)|(uint32(1)<<in.B)) != 0 {
-			return fail(pc, "lane-varying map key or value")
+		if in.Op == MapAdd {
+			keyVary := state[pc]&(uint32(1)<<in.A) != 0
+			valVary := state[pc]&(uint32(1)<<in.B) != 0
+			if keyVary {
+				return fail(pc, "warp-uniformity violation: lane-varying map key")
+			}
+			if valVary {
+				return fail(pc, "warp-uniformity violation: lane-varying map value")
+			}
 		}
 	}
 	return result, nil
