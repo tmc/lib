@@ -164,22 +164,14 @@ func TestCallstackJoinedByExternalID(t *testing.T) {
 		cudaprof.ResetExternalStacks()
 	})
 
-	var pushedExternalID uint64
-	cudaprof.Do(context.Background(), cudaprof.Labels("phase", "test_join"), func(ctx context.Context) {
-		// External ID was pushed; find the recorded external ID
-		for id := uint64(1); id < 100; id++ {
-			if _, ok := cudaprof.ExternalStack(id); ok {
-				pushedExternalID = id
-				break
-			}
-		}
-	})
+	pushedExternalID := cudaprof.Do(context.Background(), cudaprof.Labels("phase", "test_join"), func(context.Context) {})
 
 	if pushedExternalID == 0 {
-		t.Fatal("expected Do to capture external callstack when Correlate is enabled")
+		t.Skip("CUPTI external correlation push is unavailable on this host")
 	}
 
-	stack, ok := cudaprof.ExternalStack(pushedExternalID)
+	kind := cupti.ExternalCorrelationKindCustom0
+	stack, ok := cudaprof.ExternalStack(kind, pushedExternalID)
 	if !ok || len(stack) == 0 {
 		t.Fatalf("ExternalStack(%d) = %v, ok=%v", pushedExternalID, stack, ok)
 	}
@@ -200,7 +192,7 @@ func TestCallstackJoinedByExternalID(t *testing.T) {
 
 	// 1. Exact ID join: agent external_correlation -> CUDA correlation ID -> kernel activity
 	cudaCorrID := uint64(101)
-	if err := tracker.RecordExternalStack(pushedExternalID, stack); err != nil {
+	if err := tracker.RecordExternalStack(uint32(kind), pushedExternalID, stack); err != nil {
 		t.Fatal(err)
 	}
 	// Agent records external_correlation record (external_id -> cudaCorrID)
@@ -256,9 +248,9 @@ func TestCallstackJoinedByExternalID(t *testing.T) {
 	// Register conflicting stacks for external ID 999
 	tracker2 := cudacapture.NewCorrelationTracker()
 	scrambledExtID := uint64(999)
-	_ = tracker2.RecordExternalStack(scrambledExtID, []string{"pkg.FuncA"})
-	_ = tracker2.RecordExternalStack(scrambledExtID, []string{"pkg.FuncB"}) // Conflicting stack
-	_ = tracker2.RecordExternalCorrelation(scrambledExtID, 202)
+	_ = tracker2.RecordExternalStack(0, scrambledExtID, []string{"pkg.FuncA"})
+	_ = tracker2.RecordExternalStack(0, scrambledExtID, []string{"pkg.FuncB"}) // Conflicting stack
+	_ = tracker2.RecordExternalCorrelation(0, scrambledExtID, 202)
 	_ = tracker2.RecordRuntime(cudacapture.RuntimeLaunch{CorrelationID: 202, KernelName: "scrambled_kernel"})
 	_ = tracker2.RecordActivity(cudacapture.ActivityRecord{Correlation: 202, Name: "scrambled_kernel", Start: 3000, End: 4000})
 
@@ -316,11 +308,11 @@ func TestCallstackNotJoinedByTimestamp(t *testing.T) {
 	// Simulate a Do region running on host from t = 10_000 to t = 50_000 with external ID 77
 	extID := uint64(77)
 	doStack := []string{"main.Workflow", "cudaprof.Do"}
-	if err := tracker.RecordExternalStack(extID, doStack); err != nil {
+	if err := tracker.RecordExternalStack(0, extID, doStack); err != nil {
 		t.Fatal(err)
 	}
 	// External ID 77 was associated with a DIFFERENT CUDA correlation ID 999
-	if err := tracker.RecordExternalCorrelation(extID, 999); err != nil {
+	if err := tracker.RecordExternalCorrelation(0, extID, 999); err != nil {
 		t.Fatal(err)
 	}
 
@@ -426,5 +418,216 @@ func TestFoldedStackExport(t *testing.T) {
 	// Verify line 3: stream_kernel interval union = 1500 (not 2000)
 	if lines[2] != "main.main;main.runStream;[GPU]stream_kernel 1500" {
 		t.Errorf("line 2 = %q, want %q", lines[2], "main.main;main.runStream;[GPU]stream_kernel 1500")
+	}
+}
+
+func TestCallstackEndToEnd(t *testing.T) {
+	cudaprof.ResetExternalStacks()
+	t.Cleanup(cudaprof.ResetExternalStacks)
+	const kind = cupti.ExternalCorrelationKindCustom0
+	const correlationID = uint64(701)
+	cudaprof.Correlate(kind)
+	externalID := cudaprof.Do(context.Background(), cudaprof.Labels("phase", "end-to-end"), func(context.Context) {})
+	cudaprof.Correlate(cupti.ExternalCorrelationKindInvalid)
+	stack := []string{"main.run", "main.call"}
+	if externalID == 0 {
+		// Host-only test double: model the sidecar produced after a successful
+		// CUPTI push, while the cudaprof package test exercises that push path.
+		externalID = 71
+		if !cudaprof.RecordExternalStack(kind, externalID, stack) {
+			t.Fatal("RecordExternalStack did not retain test stack")
+		}
+	} else {
+		var ok bool
+		stack, ok = cudaprof.ExternalStack(kind, externalID)
+		if !ok {
+			t.Fatalf("Do returned external ID %d without stack", externalID)
+		}
+	}
+	capture := &cudacapture.Capture{}
+	if err := capture.AttachExternalStackTable(); err != nil {
+		t.Fatal(err)
+	}
+	tracker := cudacapture.NewCorrelationTracker()
+	if err := tracker.ReadCaptureExternalStackTable(capture); err != nil {
+		t.Fatal(err)
+	}
+	if err := tracker.RecordActivity(cudacapture.ActivityRecord{
+		Subtype: "external_correlation", ExternalKind: uint32(kind), ExternalID: externalID,
+		Correlation: uint32(correlationID),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := tracker.RecordRuntime(cudacapture.RuntimeLaunch{CorrelationID: correlationID, KernelName: "kernel"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := tracker.RecordActivity(cudacapture.ActivityRecord{Correlation: uint32(correlationID), Name: "kernel", Start: 1, End: 501}); err != nil {
+		t.Fatal(err)
+	}
+	matched, ambiguous, _, _ := tracker.Join()
+	if len(ambiguous) != 0 || len(matched) != 1 || strings.Join(matched[0].Callstack, ";") != strings.Join(stack, ";") {
+		t.Fatalf("joined=%+v ambiguous=%+v", matched, ambiguous)
+	}
+	withLosses := &cudacapture.Capture{Files: map[string][]byte{cudacapture.ExternalStacksName: []byte(`{"version":1,"losses":3,"stacks":[]}`)}}
+	if err := tracker.ReadCaptureExternalStackTable(withLosses); err != nil || tracker.ExternalStackLosses() != 3 {
+		t.Fatalf("read losses: err=%v losses=%d", err, tracker.ExternalStackLosses())
+	}
+}
+
+func TestCallstackKindIsolated(t *testing.T) {
+	tracker := cudacapture.NewCorrelationTracker()
+	_ = tracker.RecordExternalStack(uint32(cupti.ExternalCorrelationKindCustom0), 5, []string{"wrong"})
+	_ = tracker.RecordActivity(cudacapture.ActivityRecord{Subtype: "external_correlation", ExternalKind: uint32(cupti.ExternalCorrelationKindCustom1), ExternalID: 5, Correlation: 10})
+	_ = tracker.RecordRuntime(cudacapture.RuntimeLaunch{CorrelationID: 10, KernelName: "K"})
+	_ = tracker.RecordActivity(cudacapture.ActivityRecord{Correlation: 10, Name: "K", Start: 1, End: 2})
+	matched, ambiguous, _, _ := tracker.Join()
+	if len(ambiguous) != 0 || len(matched) != 1 || matched[0].Callstack != nil {
+		t.Fatalf("wrong namespace stack attached: matched=%+v ambiguous=%+v", matched, ambiguous)
+	}
+}
+
+func TestCallstackNestedFrameworkKinds(t *testing.T) {
+	tracker := cudacapture.NewCorrelationTracker()
+	_ = tracker.RecordExternalStack(uint32(cupti.ExternalCorrelationKindCustom0), 1, []string{"custom0"})
+	_ = tracker.RecordActivity(cudacapture.ActivityRecord{Subtype: "external_correlation", ExternalKind: uint32(cupti.ExternalCorrelationKindCustom0), ExternalID: 1, Correlation: 10})
+	_ = tracker.RecordActivity(cudacapture.ActivityRecord{Subtype: "external_correlation", ExternalKind: uint32(cupti.ExternalCorrelationKindCustom1), ExternalID: 99, Correlation: 10})
+	_ = tracker.RecordRuntime(cudacapture.RuntimeLaunch{CorrelationID: 10, KernelName: "K"})
+	_ = tracker.RecordActivity(cudacapture.ActivityRecord{Correlation: 10, Name: "K", Start: 1, End: 2})
+	matched, ambiguous, _, _ := tracker.Join()
+	if len(ambiguous) != 0 || len(matched) != 1 || strings.Join(matched[0].Callstack, ";") != "custom0" {
+		t.Fatalf("matched=%+v ambiguous=%+v", matched, ambiguous)
+	}
+}
+
+func TestJoinCallstackIsCopy(t *testing.T) {
+	tracker := cudacapture.NewCorrelationTracker()
+	_ = tracker.RecordExternalStack(0, 1, []string{"original"})
+	_ = tracker.RecordExternalCorrelation(0, 1, 10)
+	_ = tracker.RecordRuntime(cudacapture.RuntimeLaunch{CorrelationID: 10, KernelName: "K"})
+	_ = tracker.RecordActivity(cudacapture.ActivityRecord{Correlation: 10, Name: "K", Start: 1, End: 2})
+	first, _, _, _ := tracker.Join()
+	first[0].Callstack[0] = "mutated"
+	second, _, _, _ := tracker.Join()
+	if second[0].Callstack[0] != "original" {
+		t.Fatalf("second Join stack = %v, want original", second[0].Callstack)
+	}
+}
+
+func TestRuntimeCallstackRuleIsLocal(t *testing.T) {
+	tracker := cudacapture.NewCorrelationTracker()
+	_ = tracker.RecordExternalStack(0, 1, []string{"external"})
+	_ = tracker.RecordExternalCorrelation(0, 1, 10)
+	_ = tracker.RecordRuntime(cudacapture.RuntimeLaunch{CorrelationID: 10, KernelName: "external-kernel"})
+	_ = tracker.RecordActivity(cudacapture.ActivityRecord{Correlation: 10, Name: "external-kernel", Start: 1, End: 2})
+	_ = tracker.RecordRuntime(cudacapture.RuntimeLaunch{CorrelationID: 20, KernelName: "runtime-kernel", Callstack: []string{"runtime"}})
+	_ = tracker.RecordActivity(cudacapture.ActivityRecord{Correlation: 20, Name: "runtime-kernel", Start: 3, End: 4})
+	matched, _, _, _ := tracker.Join()
+	if len(matched) != 2 || strings.Join(matched[0].Callstack, ";") != "external" || strings.Join(matched[1].Callstack, ";") != "runtime" {
+		t.Fatalf("unexpected local stack handling: %+v", matched)
+	}
+}
+
+func TestCallstackMissingForExternalID(t *testing.T) {
+	tracker := cudacapture.NewCorrelationTracker()
+	_ = tracker.RecordExternalCorrelation(0, 9, 10)
+	_ = tracker.RecordRuntime(cudacapture.RuntimeLaunch{CorrelationID: 10, KernelName: "K"})
+	_ = tracker.RecordActivity(cudacapture.ActivityRecord{Correlation: 10, Name: "K", Start: 1, End: 2})
+	matched, _, _, _ := tracker.Join()
+	if len(matched) != 1 || !matched[0].HasExternalID || matched[0].ExternalID != 9 || !matched[0].CallstackMissing || matched[0].Callstack != nil {
+		t.Fatalf("missing stack not distinguished: %+v", matched)
+	}
+}
+
+func TestAmbiguousExternalIDs(t *testing.T) {
+	tracker := cudacapture.NewCorrelationTracker()
+	_ = tracker.RecordExternalCorrelation(0, 9, 10)
+	_ = tracker.RecordExternalCorrelation(0, 11, 10)
+	_ = tracker.RecordRuntime(cudacapture.RuntimeLaunch{CorrelationID: 10, KernelName: "K"})
+	_ = tracker.RecordActivity(cudacapture.ActivityRecord{Correlation: 10, Name: "K", Start: 1, End: 2})
+	matched, ambiguous, _, _ := tracker.Join()
+	if len(matched) != 0 || len(ambiguous) != 1 {
+		t.Fatalf("matched=%+v ambiguous=%+v", matched, ambiguous)
+	}
+}
+
+func TestSameStackTwiceNotAmbiguous(t *testing.T) {
+	tracker := cudacapture.NewCorrelationTracker()
+	_ = tracker.RecordExternalStack(0, 9, []string{"same"})
+	_ = tracker.RecordExternalStack(0, 9, []string{"same"})
+	_ = tracker.RecordExternalCorrelation(0, 9, 10)
+	_ = tracker.RecordRuntime(cudacapture.RuntimeLaunch{CorrelationID: 10, KernelName: "K"})
+	_ = tracker.RecordActivity(cudacapture.ActivityRecord{Correlation: 10, Name: "K", Start: 1, End: 2})
+	matched, ambiguous, _, _ := tracker.Join()
+	if len(matched) != 1 || len(ambiguous) != 0 {
+		t.Fatalf("matched=%+v ambiguous=%+v", matched, ambiguous)
+	}
+}
+
+func TestScrambledExternalIDsMoveStacks(t *testing.T) {
+	tracker := cudacapture.NewCorrelationTracker()
+	for id, stack := range map[uint64]string{1: "SA", 2: "SB"} {
+		_ = tracker.RecordExternalStack(0, id, []string{stack})
+	}
+	_ = tracker.RecordExternalCorrelation(0, 2, 10)
+	_ = tracker.RecordExternalCorrelation(0, 1, 20)
+	_ = tracker.RecordExternalCorrelation(0, 99, 30)
+	for id, name := range map[uint64]string{10: "A", 20: "B", 30: "C"} {
+		_ = tracker.RecordRuntime(cudacapture.RuntimeLaunch{CorrelationID: id, KernelName: name})
+		_ = tracker.RecordActivity(cudacapture.ActivityRecord{Correlation: uint32(id), Name: name, Start: id, End: id + 1})
+	}
+	matched, _, _, _ := tracker.Join()
+	got := map[string]string{}
+	for _, join := range matched {
+		if len(join.Callstack) != 0 {
+			got[join.KernelName] = join.Callstack[0]
+		}
+	}
+	if got["A"] != "SB" || got["B"] != "SA" || got["C"] != "" {
+		t.Fatalf("kernel stacks = %v, want A=SB B=SA C=<none>", got)
+	}
+}
+
+func TestFoldedWeightIsDeviceBusyNotSpan(t *testing.T) {
+	var out bytes.Buffer
+	joins := []cudacapture.CorrelationJoin{
+		{KernelName: "K", Callstack: []string{"site"}, DeviceStart: 1, DeviceEnd: 501},
+		{KernelName: "K", Callstack: []string{"site"}, DeviceStart: 10_000_001, DeviceEnd: 10_000_501},
+	}
+	if err := cudacapture.ExportFoldedStacks(&out, joins); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(strings.TrimPrefix(out.String(), "site;[GPU]K ")); got != "1000" {
+		t.Fatalf("folded weight = %q, want 1000", got)
+	}
+}
+
+func TestFoldedRejectsUnavailableTiming(t *testing.T) {
+	for _, exec := range []cudaprof.KernelExecution{{KernelName: "K"}, {KernelName: "K", StartNs: 4, EndNs: 3}} {
+		var out bytes.Buffer
+		if err := cudaprof.ExportFoldedStacks(&out, []cudaprof.KernelExecution{exec}); err == nil {
+			t.Fatalf("ExportFoldedStacks(%+v) succeeded", exec)
+		}
+	}
+}
+
+func TestFoldedEscapesNames(t *testing.T) {
+	var out bytes.Buffer
+	err := cudaprof.ExportFoldedStacks(&out, []cudaprof.KernelExecution{{KernelName: "bad\nname", StartNs: 1, EndNs: 2}})
+	if err == nil || strings.Count(out.String(), "\n") != 0 {
+		t.Fatalf("invalid name error=%v output=%q", err, out.String())
+	}
+}
+
+func TestFoldedTwoDevices(t *testing.T) {
+	var out bytes.Buffer
+	execs := []cudaprof.KernelExecution{
+		{KernelName: "K", Callstack: []string{"site"}, StartNs: 1, EndNs: 101, Device: 0},
+		{KernelName: "K", Callstack: []string{"site"}, StartNs: 1, EndNs: 101, Device: 1},
+	}
+	if err := cudaprof.ExportFoldedStacks(&out, execs); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(strings.TrimPrefix(out.String(), "site;[GPU]K ")); got != "200" {
+		t.Fatalf("folded weight = %q, want 200", got)
 	}
 }

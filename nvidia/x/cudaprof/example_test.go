@@ -85,3 +85,15 @@ func ExampleExportFoldedStacks() {
 	// Output:
 	// main;runInference;[GPU]fused_attention 1500
 }
+
+func ExampleWriteExternalStackTable() {
+	cudaprof.ResetExternalStacks()
+	defer cudaprof.ResetExternalStacks()
+	cudaprof.RecordExternalStack(3, 7, []string{"main", "run"})
+	var buf bytes.Buffer
+	_ = cudaprof.WriteExternalStackTable(&buf)
+	fmt.Print(buf.String())
+
+	// Output:
+	// {"version":1,"losses":0,"stacks":[{"external_kind":3,"external_id":7,"frames":["main","run"]}]}
+}

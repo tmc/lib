@@ -2,9 +2,13 @@ package cudaprof
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"io"
 	"os"
 	"runtime"
 	"runtime/pprof"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -117,13 +121,18 @@ func init() {
 // goroutine with [runtime.LockOSThread] for the duration of f whenever it has
 // pushed something thread-local, in the same way [x/cuda.Context.Run] does. A
 // Do with neither bracket active does not pin and costs nothing beyond
-// [pprof.Do].
-func Do(ctx context.Context, labels pprof.LabelSet, f func(ctx context.Context)) {
+// [pprof.Do]. Do returns the external ID when the CUPTI push succeeds, or zero
+// when correlation is off or the push fails.
+func Do(ctx context.Context, labels pprof.LabelSet, f func(ctx context.Context)) uint64 {
 	leave := enterStack("scope_entry", 3)
 	defer leave()
+	var externalID uint64
 	pprof.Do(ctx, labels, func(labeledCtx context.Context) {
 		corrID := atomic.AddUint64(&nextCorrID, 1)
 		entered := pushCorrelation(labeledCtx, corrID)
+		if entered.cupti {
+			externalID = corrID
+		}
 		if entered.pinned {
 			defer runtime.UnlockOSThread()
 		}
@@ -131,6 +140,7 @@ func Do(ctx context.Context, labels pprof.LabelSet, f func(ctx context.Context))
 
 		f(labeledCtx)
 	})
+	return externalID
 }
 
 // Labels returns a pprof.LabelSet for the given key/value pairs.
@@ -146,20 +156,29 @@ func Label(ctx context.Context, key, value string) context.Context {
 const maxCallstackFrames = 64
 
 var (
-	externalStacksMu sync.RWMutex
-	externalStacks   = make(map[uint64][]string)
+	externalStacksMu    sync.RWMutex
+	externalStacks      = make(map[externalStackKey][][]string)
+	externalStackBudget = 4096
+	externalStackCount  int
+	externalStackLosses uint64
 )
 
-// ExternalStack returns the captured Go call stack for the given external correlation ID,
+type externalStackKey struct {
+	kind cupti.ExternalCorrelationKind
+	id   uint64
+}
+
+// ExternalStack returns the captured Go call stack for the given external kind and ID,
 // or false if no stack was recorded.
 // Granularity: the stack is the stack of the Do call site (not per-launch).
-func ExternalStack(id uint64) ([]string, bool) {
+func ExternalStack(kind cupti.ExternalCorrelationKind, id uint64) ([]string, bool) {
 	externalStacksMu.RLock()
 	defer externalStacksMu.RUnlock()
-	stack, ok := externalStacks[id]
-	if !ok {
+	stacks := externalStacks[externalStackKey{kind: kind, id: id}]
+	if len(stacks) == 0 {
 		return nil, false
 	}
+	stack := stacks[0]
 	res := make([]string, len(stack))
 	copy(res, stack)
 	return res, true
@@ -167,26 +186,116 @@ func ExternalStack(id uint64) ([]string, bool) {
 
 // RecordExternalStack records a call stack for the given external correlation ID.
 // Granularity: the stack is the stack of the Do call site (not per-launch).
-func RecordExternalStack(id uint64, stack []string) {
+func RecordExternalStack(kind cupti.ExternalCorrelationKind, id uint64, stack []string) bool {
+	if id == 0 || stack == nil {
+		return false
+	}
 	externalStacksMu.Lock()
 	defer externalStacksMu.Unlock()
-	if stack == nil {
-		delete(externalStacks, id)
-		return
+	if len(stack) == 0 || len(stack) > maxCallstackFrames+1 {
+		externalStackLosses++
+		return false
+	}
+	key := externalStackKey{kind: kind, id: id}
+	for _, existing := range externalStacks[key] {
+		if equalCallstack(existing, stack) {
+			return true
+		}
+	}
+	if externalStackBudget <= 0 || externalStackCount >= externalStackBudget {
+		externalStackLosses++
+		return false
 	}
 	s := make([]string, len(stack))
 	copy(s, stack)
-	externalStacks[id] = s
+	externalStacks[key] = append(externalStacks[key], s)
+	externalStackCount++
+	return true
 }
 
 // ResetExternalStacks clears all captured external call stacks.
 func ResetExternalStacks() {
 	externalStacksMu.Lock()
 	defer externalStacksMu.Unlock()
-	externalStacks = make(map[uint64][]string)
+	externalStacks = make(map[externalStackKey][][]string)
+	externalStackCount = 0
+	externalStackLosses = 0
 }
 
-func captureCallerStack(id uint64) {
+// ExternalStackLosses reports stacks that were not retained after the budget filled.
+func ExternalStackLosses() uint64 {
+	externalStacksMu.RLock()
+	defer externalStacksMu.RUnlock()
+	return externalStackLosses
+}
+
+// ExternalStackRecord associates a Do call-site stack with one CUPTI external
+// correlation namespace and ID.
+type ExternalStackRecord struct {
+	ExternalKind uint32   `json:"external_kind"`
+	ExternalID   uint64   `json:"external_id"`
+	Frames       []string `json:"frames"`
+}
+
+// ExternalStackTable is the bounded, portable sidecar written next to a capture journal.
+type ExternalStackTable struct {
+	Version int                   `json:"version"`
+	Losses  uint64                `json:"losses"`
+	Stacks  []ExternalStackRecord `json:"stacks"`
+}
+
+// WriteExternalStackTable writes the retained stacks in deterministic JSON.
+// A capture can attach the table next to its CUPTI journal.
+func WriteExternalStackTable(w io.Writer) error {
+	if w == nil {
+		return fmt.Errorf("cudaprof: nil external stack table writer")
+	}
+	externalStacksMu.RLock()
+	table := ExternalStackTable{Version: 1, Losses: externalStackLosses, Stacks: make([]ExternalStackRecord, 0, externalStackCount)}
+	for key, stacks := range externalStacks {
+		for _, frames := range stacks {
+			copied := append([]string(nil), frames...)
+			table.Stacks = append(table.Stacks, ExternalStackRecord{ExternalKind: uint32(key.kind), ExternalID: key.id, Frames: copied})
+		}
+	}
+	externalStacksMu.RUnlock()
+	sort.Slice(table.Stacks, func(i, j int) bool {
+		if table.Stacks[i].ExternalKind == table.Stacks[j].ExternalKind {
+			if table.Stacks[i].ExternalID != table.Stacks[j].ExternalID {
+				return table.Stacks[i].ExternalID < table.Stacks[j].ExternalID
+			}
+			return compareCallstacks(table.Stacks[i].Frames, table.Stacks[j].Frames) < 0
+		}
+		return table.Stacks[i].ExternalKind < table.Stacks[j].ExternalKind
+	})
+	if err := json.NewEncoder(w).Encode(table); err != nil {
+		return fmt.Errorf("cudaprof: write external stack table: %w", err)
+	}
+	return nil
+}
+
+func equalCallstack(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func compareCallstacks(a, b []string) int {
+	for i := 0; i < len(a) && i < len(b); i++ {
+		if cmp := strings.Compare(a[i], b[i]); cmp != 0 {
+			return cmp
+		}
+	}
+	return len(a) - len(b)
+}
+
+func captureCallerStack(kind cupti.ExternalCorrelationKind, id uint64) {
 	var rpc [maxCallstackFrames]uintptr
 	n := runtime.Callers(2, rpc[:])
 	if n == 0 {
@@ -204,16 +313,12 @@ func captureCallerStack(id uint64) {
 		}
 	}
 	var filtered []string
-	skipping := true
 	for _, fn := range leafToRoot {
-		if skipping {
-			if strings.HasPrefix(fn, "github.com/tmc/lib/nvidia/x/cudaprof.Do") ||
-				strings.HasPrefix(fn, "github.com/tmc/lib/nvidia/x/cudaprof.pushCorrelation") ||
-				strings.HasPrefix(fn, "github.com/tmc/lib/nvidia/x/cudaprof.captureCallerStack") ||
-				strings.HasPrefix(fn, "runtime/pprof.Do") {
-				continue
-			}
-			skipping = false
+		if strings.HasPrefix(fn, "github.com/tmc/lib/nvidia/x/cudaprof.Do") ||
+			strings.HasPrefix(fn, "github.com/tmc/lib/nvidia/x/cudaprof.pushCorrelation") ||
+			strings.HasPrefix(fn, "github.com/tmc/lib/nvidia/x/cudaprof.captureCallerStack") ||
+			strings.HasPrefix(fn, "runtime/pprof.Do") {
+			continue
 		}
 		filtered = append(filtered, fn)
 	}
@@ -225,7 +330,10 @@ func captureCallerStack(id uint64) {
 	for i, fn := range filtered {
 		rootToLeaf[len(filtered)-1-i] = fn
 	}
-	RecordExternalStack(id, rootToLeaf)
+	if n == len(rpc) && len(rootToLeaf) != 0 {
+		rootToLeaf = append([]string{"[truncated]"}, rootToLeaf...)
+	}
+	RecordExternalStack(kind, id, rootToLeaf)
 }
 
 // regionBrackets records what a region actually entered, so its exit unwinds
@@ -263,9 +371,6 @@ func pushCorrelation(ctx context.Context, id uint64) (entered regionBrackets) {
 		entered.nvtx = true
 	}
 	if wantCUPTI {
-		// Capture caller's Go stack once, keyed by the external correlation ID.
-		captureCallerStack(id)
-
 		// A push that fails is recorded rather than retried: the symbol is
 		// either callable in this process or it is not, and a region that
 		// silently skipped its push would be indistinguishable from one whose
@@ -279,6 +384,7 @@ func pushCorrelation(ctx context.Context, id uint64) (entered regionBrackets) {
 		} else {
 			entered.cupti = true
 			entered.kind = kind
+			captureCallerStack(kind, id)
 		}
 	}
 	return entered

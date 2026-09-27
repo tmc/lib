@@ -6,6 +6,7 @@ import (
 	"io"
 	"sort"
 	"strings"
+	"unicode"
 )
 
 // KernelExecution represents a device kernel execution attributed to a host call stack.
@@ -16,6 +17,7 @@ type KernelExecution struct {
 	Callstack  []string
 	StartNs    uint64
 	EndNs      uint64
+	Device     uint32
 }
 
 // ExportFoldedStacks writes folded stacks to w in flamegraph.pl format:
@@ -26,6 +28,9 @@ type KernelExecution struct {
 // intervals, ensuring that concurrent/overlapping executions on the device do not
 // double-count duration, and host-side duration (such as sleeping in a Do region)
 // does not inflate device execution weight.
+// The union is computed separately for each device and then summed. Timing intervals
+// with both endpoints missing or with EndNs before StartNs are rejected. Frame and
+// kernel names containing folded-format separators or control characters are rejected.
 //
 // If a kernel execution has no host call stack (Callstack is nil or empty),
 // it is formatted as "[GPU]kernel count".
@@ -38,15 +43,29 @@ func ExportFoldedStacks(w io.Writer, executions []KernelExecution) error {
 		return nil
 	}
 
-	byStack := make(map[string][]timeInterval)
+	byStack := make(map[string]map[uint32][]timeInterval)
 	for _, e := range executions {
+		if e.StartNs == 0 && e.EndNs == 0 || e.EndNs < e.StartNs {
+			return fmt.Errorf("cudaprof: unavailable or inverted timing for kernel %q", e.KernelName)
+		}
+		if hasFoldedControl(e.KernelName) {
+			return fmt.Errorf("cudaprof: invalid folded kernel name %q", e.KernelName)
+		}
+		for _, frame := range e.Callstack {
+			if hasFoldedControl(frame) {
+				return fmt.Errorf("cudaprof: invalid folded stack frame %q", frame)
+			}
+		}
 		var stackKey string
 		if len(e.Callstack) > 0 {
 			stackKey = strings.Join(e.Callstack, ";") + ";[GPU]" + e.KernelName
 		} else {
 			stackKey = "[GPU]" + e.KernelName
 		}
-		byStack[stackKey] = append(byStack[stackKey], timeInterval{start: e.StartNs, end: e.EndNs})
+		if byStack[stackKey] == nil {
+			byStack[stackKey] = make(map[uint32][]timeInterval)
+		}
+		byStack[stackKey][e.Device] = append(byStack[stackKey][e.Device], timeInterval{start: e.StartNs, end: e.EndNs})
 	}
 
 	keys := make([]string, 0, len(byStack))
@@ -56,13 +75,27 @@ func ExportFoldedStacks(w io.Writer, executions []KernelExecution) error {
 	sort.Strings(keys)
 
 	for _, k := range keys {
-		intervals := byStack[k]
-		dur := computeUnionDuration(intervals)
+		var dur uint64
+		for _, intervals := range byStack[k] {
+			dur += computeUnionDuration(intervals)
+		}
 		if _, err := fmt.Fprintf(w, "%s %d\n", k, dur); err != nil {
 			return fmt.Errorf("cudaprof: export folded stacks: %w", err)
 		}
 	}
 	return nil
+}
+
+func hasFoldedControl(s string) bool {
+	if strings.ContainsRune(s, ';') {
+		return true
+	}
+	for _, r := range s {
+		if unicode.IsControl(r) {
+			return true
+		}
+	}
+	return false
 }
 
 type timeInterval struct {

@@ -112,3 +112,17 @@ func ExampleExportFoldedStacks() {
 	// Output:
 	// main;runForward;[GPU]fused_gemm 2000
 }
+
+func ExampleCorrelationTracker_ReadCaptureExternalStackTable() {
+	cap := &cudacapture.Capture{}
+	if err := cap.AttachExternalStackTable(); err != nil {
+		fmt.Println("attach failed")
+		return
+	}
+	tracker := cudacapture.NewCorrelationTracker()
+	err := tracker.ReadCaptureExternalStackTable(cap)
+	fmt.Println("read:", err == nil, "losses:", tracker.ExternalStackLosses())
+
+	// Output:
+	// read: true losses: 0
+}

@@ -1,9 +1,13 @@
 package cudaprof
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"runtime"
 	"runtime/pprof"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -24,6 +28,129 @@ func resetCorrelation(t *testing.T) {
 		correlationDisposition.Store(disp)
 	})
 	Correlate(cupti.ExternalCorrelationKindInvalid)
+}
+
+func withFakeCorrelation(t *testing.T, push func(cupti.ExternalCorrelationKind, uint64) error) {
+	t.Helper()
+	oldPush, oldPop := pushExternalID, popExternalID
+	var lastID uint64
+	pushExternalID = func(kind cupti.ExternalCorrelationKind, id uint64) error {
+		err := push(kind, id)
+		if err == nil {
+			lastID = id
+		}
+		return err
+	}
+	popExternalID = func(cupti.ExternalCorrelationKind) (uint64, error) { return lastID, nil }
+	Correlate(cupti.ExternalCorrelationKindCustom0)
+	ResetExternalStacks()
+	t.Cleanup(func() {
+		pushExternalID, popExternalID = oldPush, oldPop
+		ResetExternalStacks()
+		Correlate(cupti.ExternalCorrelationKindInvalid)
+	})
+}
+
+func TestExternalStackBudget(t *testing.T) {
+	withFakeCorrelation(t, func(cupti.ExternalCorrelationKind, uint64) error { return nil })
+	externalStackBudget = 2
+	t.Cleanup(func() { externalStackBudget = 4096 })
+	for id := uint64(1); id <= 5; id++ {
+		Do(context.Background(), Labels(), func(context.Context) {})
+	}
+	var buf bytes.Buffer
+	if err := WriteExternalStackTable(&buf); err != nil {
+		t.Fatal(err)
+	}
+	var table ExternalStackTable
+	if err := json.Unmarshal(buf.Bytes(), &table); err != nil {
+		t.Fatal(err)
+	}
+	if len(table.Stacks) != 2 || table.Losses != 3 {
+		t.Fatalf("table has %d stacks and %d losses, want 2 and 3", len(table.Stacks), table.Losses)
+	}
+}
+
+func TestExternalStackVariantsAreRetained(t *testing.T) {
+	ResetExternalStacks()
+	t.Cleanup(ResetExternalStacks)
+	kind := cupti.ExternalCorrelationKindCustom0
+	RecordExternalStack(kind, 7, []string{"b"})
+	RecordExternalStack(kind, 7, []string{"a"})
+	RecordExternalStack(kind, 7, []string{"a"})
+	var buf bytes.Buffer
+	if err := WriteExternalStackTable(&buf); err != nil {
+		t.Fatal(err)
+	}
+	var table ExternalStackTable
+	if err := json.Unmarshal(buf.Bytes(), &table); err != nil {
+		t.Fatal(err)
+	}
+	if len(table.Stacks) != 2 || table.Stacks[0].Frames[0] != "a" || table.Stacks[1].Frames[0] != "b" {
+		t.Fatalf("stack variants = %+v, want deterministic a then b", table.Stacks)
+	}
+}
+
+func TestNoStackWhenPushFails(t *testing.T) {
+	withFakeCorrelation(t, func(cupti.ExternalCorrelationKind, uint64) error { return errors.New("push failed") })
+	if id := Do(context.Background(), Labels(), func(context.Context) {}); id != 0 {
+		t.Fatalf("Do ID = %d after failed push, want 0", id)
+	}
+	if got := ExternalStackLosses(); got != 0 {
+		t.Fatalf("losses = %d, want 0", got)
+	}
+	var buf bytes.Buffer
+	if err := WriteExternalStackTable(&buf); err != nil {
+		t.Fatal(err)
+	}
+	var table ExternalStackTable
+	if err := json.Unmarshal(buf.Bytes(), &table); err != nil {
+		t.Fatal(err)
+	}
+	if len(table.Stacks) != 0 {
+		t.Fatalf("failed push recorded %d stacks", len(table.Stacks))
+	}
+}
+
+func TestDoStackRootFirst(t *testing.T) {
+	withFakeCorrelation(t, func(cupti.ExternalCorrelationKind, uint64) error { return nil })
+	id := callstackTestCaller()
+	stack, ok := ExternalStack(cupti.ExternalCorrelationKindCustom0, id)
+	if !ok || len(stack) < 2 {
+		t.Fatalf("ExternalStack = %v, ok=%v", stack, ok)
+	}
+	if !strings.Contains(stack[len(stack)-1], "callstackTestCaller") {
+		t.Fatalf("leaf = %q, want callstackTestCaller", stack[len(stack)-1])
+	}
+	if !strings.Contains(stack[len(stack)-2], "TestDoStackRootFirst") {
+		t.Fatalf("caller frame = %q, want TestDoStackRootFirst", stack[len(stack)-2])
+	}
+	for _, frame := range stack {
+		if strings.Contains(frame, "cudaprof.Do") || strings.Contains(frame, "runtime/pprof.Do") {
+			t.Fatalf("internal frame remains in stack: %q", frame)
+		}
+	}
+}
+
+//go:noinline
+func callstackTestCaller() uint64 {
+	return Do(context.Background(), Labels(), func(context.Context) {})
+}
+
+func TestDoStackTruncationMarked(t *testing.T) {
+	withFakeCorrelation(t, func(cupti.ExternalCorrelationKind, uint64) error { return nil })
+	var descend func(int) uint64
+	descend = func(n int) uint64 {
+		if n == 0 {
+			return Do(context.Background(), Labels(), func(context.Context) {})
+		}
+		return descend(n - 1)
+	}
+	id := descend(100)
+	stack, ok := ExternalStack(cupti.ExternalCorrelationKindCustom0, id)
+	if !ok || len(stack) == 0 || stack[0] != "[truncated]" {
+		t.Fatalf("stack root = %v, ok=%v; want truncation marker", stack, ok)
+	}
 }
 
 // TestDoPushesNothingUntilCorrelateIsCalled is the reason correlation is

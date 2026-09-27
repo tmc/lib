@@ -1,6 +1,8 @@
 package cudacapture
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,8 +16,8 @@ import (
 var ErrAmbiguousCorrelation = errors.New("cudacapture: ambiguous correlation join")
 
 // RuntimeLaunch records host-side kernel launch invocation context.
-// Callstack holds the host Go call stack at the Do call site granularity (not per-launch).
-// If the launch has no external correlation ID, Callstack is nil (no stack).
+// Callstack is supplied host attribution. Join replaces it when an external
+// correlation ID is present, and otherwise preserves it for this launch.
 type RuntimeLaunch struct {
 	CorrelationID uint64
 	KernelName    string
@@ -25,10 +27,16 @@ type RuntimeLaunch struct {
 
 // CorrelationJoin represents an unambiguous native correlation between a host runtime launch
 // and device kernel execution activity.
-// Callstack holds the host Go call stack of the Do call site (not per-launch).
-// If the kernel has no external correlation ID, Callstack is nil (no stack).
+// Callstack is the launch's host attribution after Join. CallstackMissing is
+// true when an external ID was joined but its stack was not retained.
 type CorrelationJoin struct {
-	CorrelationID    uint64
+	CorrelationID uint64
+	// ExternalID is set when CUPTI linked this kernel to a framework ID.
+	ExternalID uint64
+	// HasExternalID distinguishes an absent link from a zero-valued field.
+	HasExternalID bool
+	// CallstackMissing reports an external ID without a retained stack.
+	CallstackMissing bool
 	KernelName       string
 	HostThreadID     uint64
 	Callstack        []string
@@ -37,6 +45,11 @@ type CorrelationJoin struct {
 	DeviceDurationNs uint64
 	Stream           uint32
 	Device           uint32
+}
+
+type externalStackKey struct {
+	kind uint32
+	id   uint64
 }
 
 // AmbiguousCorrelation records an ambiguous join where a correlation ID maps to multiple
@@ -55,12 +68,34 @@ type AmbiguousCorrelation struct {
 // correlation IDs and GPU device activities by exact ID match, never by timestamp.
 // Host call stacks are attached at the Do call site granularity (not per-launch).
 type CorrelationTracker struct {
-	mu             sync.Mutex
-	runtimes       map[uint64][]RuntimeLaunch
-	activities     map[uint64][]ActivityRecord
-	externalStacks map[uint64][][]string // externalID -> distinct stacks recorded
-	cudaToExternal map[uint64][]uint64   // cudaCorrID -> list of externalIDs
-	externalToCUDA map[uint64][]uint64   // externalID -> list of cudaCorrIDs
+	mu                  sync.Mutex
+	runtimes            map[uint64][]RuntimeLaunch
+	activities          map[uint64][]ActivityRecord
+	externalStacks      map[externalStackKey][][]string // (kind, externalID) -> distinct stacks
+	cudaToExternal      map[uint64][]externalStackKey   // cudaCorrID -> external IDs
+	externalStackLosses uint64
+}
+
+// ExternalStacksName is the capture member containing the cudaprof stack sidecar.
+const ExternalStacksName = "external-stacks.json"
+
+// AttachExternalStackTable adds the bounded cudaprof stack table to the capture.
+func (c *Capture) AttachExternalStackTable() error {
+	if c == nil {
+		return errors.New("cudacapture: nil capture")
+	}
+	if c.Files == nil {
+		c.Files = make(map[string][]byte)
+	}
+	if _, exists := c.Files[ExternalStacksName]; exists {
+		return fmt.Errorf("cudacapture: capture already has %q", ExternalStacksName)
+	}
+	var buf bytes.Buffer
+	if err := cudaprof.WriteExternalStackTable(&buf); err != nil {
+		return err
+	}
+	c.Files[ExternalStacksName] = buf.Bytes()
+	return nil
 }
 
 // NewCorrelationTracker creates a new correlation tracker.
@@ -68,9 +103,8 @@ func NewCorrelationTracker() *CorrelationTracker {
 	return &CorrelationTracker{
 		runtimes:       make(map[uint64][]RuntimeLaunch),
 		activities:     make(map[uint64][]ActivityRecord),
-		externalStacks: make(map[uint64][][]string),
-		cudaToExternal: make(map[uint64][]uint64),
-		externalToCUDA: make(map[uint64][]uint64),
+		externalStacks: make(map[externalStackKey][][]string),
+		cudaToExternal: make(map[uint64][]externalStackKey),
 	}
 }
 
@@ -87,7 +121,7 @@ func (ct *CorrelationTracker) RecordRuntime(launch RuntimeLaunch) error {
 
 // RecordExternalCorrelation records an association between an external correlation ID
 // (pushed by Do or Correlate) and a CUDA runtime/driver correlation ID.
-func (ct *CorrelationTracker) RecordExternalCorrelation(externalID uint64, correlationID uint64) error {
+func (ct *CorrelationTracker) RecordExternalCorrelation(kind uint32, externalID uint64, correlationID uint64) error {
 	if externalID == 0 {
 		return errors.New("cudacapture: invalid zero external correlation ID")
 	}
@@ -97,28 +131,26 @@ func (ct *CorrelationTracker) RecordExternalCorrelation(externalID uint64, corre
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
 	if ct.cudaToExternal == nil {
-		ct.cudaToExternal = make(map[uint64][]uint64)
+		ct.cudaToExternal = make(map[uint64][]externalStackKey)
 	}
-	if ct.externalToCUDA == nil {
-		ct.externalToCUDA = make(map[uint64][]uint64)
-	}
-	ct.cudaToExternal[correlationID] = appendUniqueUint64(ct.cudaToExternal[correlationID], externalID)
-	ct.externalToCUDA[externalID] = appendUniqueUint64(ct.externalToCUDA[externalID], correlationID)
+	key := externalStackKey{kind: kind, id: externalID}
+	ct.cudaToExternal[correlationID] = appendUniqueExternal(ct.cudaToExternal[correlationID], key)
 	return nil
 }
 
 // RecordExternalStack records a host call stack associated with an external correlation ID.
 // Granularity: the stack is the stack of the Do call site (not per-launch).
-func (ct *CorrelationTracker) RecordExternalStack(externalID uint64, stack []string) error {
+func (ct *CorrelationTracker) RecordExternalStack(kind uint32, externalID uint64, stack []string) error {
 	if externalID == 0 {
 		return errors.New("cudacapture: invalid zero external correlation ID")
 	}
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
 	if ct.externalStacks == nil {
-		ct.externalStacks = make(map[uint64][][]string)
+		ct.externalStacks = make(map[externalStackKey][][]string)
 	}
-	existing := ct.externalStacks[externalID]
+	key := externalStackKey{kind: kind, id: externalID}
+	existing := ct.externalStacks[key]
 	for _, s := range existing {
 		if stringSlicesEqual(s, stack) {
 			return nil
@@ -126,7 +158,7 @@ func (ct *CorrelationTracker) RecordExternalStack(externalID uint64, stack []str
 	}
 	st := make([]string, len(stack))
 	copy(st, stack)
-	ct.externalStacks[externalID] = append(ct.externalStacks[externalID], st)
+	ct.externalStacks[key] = append(ct.externalStacks[key], st)
 	return nil
 }
 
@@ -145,7 +177,7 @@ func (ct *CorrelationTracker) RecordActivity(rec ActivityRecord) error {
 		if rec.ExternalID == 0 {
 			return errors.New("cudacapture: external correlation has zero external ID")
 		}
-		return ct.RecordExternalCorrelation(rec.ExternalID, corrID)
+		return ct.RecordExternalCorrelation(rec.ExternalKind, rec.ExternalID, corrID)
 	}
 
 	corrID := uint64(rec.Correlation)
@@ -161,14 +193,57 @@ func (ct *CorrelationTracker) RecordActivity(rec ActivityRecord) error {
 	return nil
 }
 
+// ReadExternalStackTable imports the sidecar written by cudaprof into this tracker.
+func (ct *CorrelationTracker) ReadExternalStackTable(r io.Reader) error {
+	if r == nil {
+		return errors.New("cudacapture: nil external stack table reader")
+	}
+	var table cudaprof.ExternalStackTable
+	if err := json.NewDecoder(r).Decode(&table); err != nil {
+		return fmt.Errorf("cudacapture: decode external stack table: %w", err)
+	}
+	if table.Version != 1 {
+		return fmt.Errorf("cudacapture: unsupported external stack table version %d", table.Version)
+	}
+	ct.mu.Lock()
+	ct.externalStackLosses = table.Losses
+	ct.mu.Unlock()
+	for _, record := range table.Stacks {
+		if err := ct.RecordExternalStack(record.ExternalKind, record.ExternalID, record.Frames); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ReadCaptureExternalStackTable imports the stack sidecar attached to c.
+func (ct *CorrelationTracker) ReadCaptureExternalStackTable(c *Capture) error {
+	if c == nil {
+		return errors.New("cudacapture: nil capture")
+	}
+	data, ok := c.Files[ExternalStacksName]
+	if !ok {
+		return fmt.Errorf("cudacapture: capture has no %q member", ExternalStacksName)
+	}
+	return ct.ReadExternalStackTable(bytes.NewReader(data))
+}
+
+// ExternalStackLosses reports stack records omitted by the producer's budget.
+func (ct *CorrelationTracker) ExternalStackLosses() uint64 {
+	ct.mu.Lock()
+	defer ct.mu.Unlock()
+	return ct.externalStackLosses
+}
+
 // Join correlates runtime launches with device activities by exact ID matching.
 // It partitions results into unambiguous matches, ambiguous joins, unmapped runtime launches,
 // and unmapped device activities.
 //
 // Host call stacks are attached by exact external correlation ID match:
 // agent external_correlation record -> CUDA correlation ID -> kernel activity.
-// Timestamps are never used to infer correlation. A kernel with no external correlation
-// ID has no stack (reported as nil, not an empty slice).
+// Timestamps are never used to infer correlation. External stacks replace
+// RuntimeLaunch.Callstack only for the kernel with the matching external ID;
+// otherwise a caller-supplied stack is preserved.
 func (ct *CorrelationTracker) Join() (matched []CorrelationJoin, ambiguous []AmbiguousCorrelation, unmappedRuntime []uint64, unmappedActivity []uint64) {
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
@@ -186,6 +261,8 @@ func (ct *CorrelationTracker) Join() (matched []CorrelationJoin, ambiguous []Amb
 		sortedIDs = append(sortedIDs, id)
 	}
 	sort.Slice(sortedIDs, func(i, j int) bool { return sortedIDs[i] < sortedIDs[j] })
+	runtimeExternal := make(map[uint64]uint64)
+	runtimeMissingStack := make(map[uint64]bool)
 
 	for _, id := range sortedIDs {
 		rList := ct.runtimes[id]
@@ -196,9 +273,18 @@ func (ct *CorrelationTracker) Join() (matched []CorrelationJoin, ambiguous []Amb
 			r := rList[0]
 			a := aList[0]
 
-			// Check external correlation ambiguity
+			// CUPTI can report more than one framework namespace for a
+			// correlation. Use the lowest kind, matching MatchExternal.
 			extIDs := ct.cudaToExternal[id]
-			if len(extIDs) > 1 {
+			var selected []externalStackKey
+			for _, key := range extIDs {
+				if len(selected) == 0 || key.kind < selected[0].kind {
+					selected = []externalStackKey{key}
+				} else if key.kind == selected[0].kind {
+					selected = appendUniqueExternal(selected, key)
+				}
+			}
+			if len(selected) > 1 {
 				name := r.KernelName
 				if name == "" {
 					name = a.Name
@@ -212,14 +298,15 @@ func (ct *CorrelationTracker) Join() (matched []CorrelationJoin, ambiguous []Amb
 					RuntimeCount:  len(rList),
 					ActivityCount: len(aList),
 					KernelNames:   names,
-					Reason:        fmt.Sprintf("correlation ID %d maps to multiple external correlation IDs: %v", id, extIDs),
+					Reason:        fmt.Sprintf("correlation ID %d maps to multiple external IDs of kind %d", id, selected[0].kind),
 				})
 				continue
 			}
 
-			if len(extIDs) == 1 {
-				extID := extIDs[0]
-				stacks := ct.externalStacks[extID]
+			if len(selected) == 1 {
+				ext := selected[0]
+				extID := ext.id
+				stacks := ct.externalStacks[ext]
 				if len(stacks) > 1 {
 					name := r.KernelName
 					if name == "" {
@@ -234,26 +321,23 @@ func (ct *CorrelationTracker) Join() (matched []CorrelationJoin, ambiguous []Amb
 						RuntimeCount:  len(rList),
 						ActivityCount: len(aList),
 						KernelNames:   names,
-						Reason:        fmt.Sprintf("external correlation ID %d maps to multiple conflicting callstacks", extID),
+						Reason:        fmt.Sprintf("external correlation ID %d of kind %d maps to multiple conflicting callstacks", extID, ext.kind),
 					})
 					continue
 				}
 				if len(stacks) == 1 {
-					// Unambiguous exact ID match: put the stack in RuntimeLaunch.Callstack
-					// through the existing CorrelationTracker.
-					r.Callstack = stacks[0]
-					ct.runtimes[id][0].Callstack = stacks[0]
+					r.Callstack = append([]string(nil), stacks[0]...)
+					ct.runtimes[id][0].Callstack = append([]string(nil), stacks[0]...)
 				} else {
-					// External ID exists but no stack was recorded.
 					r.Callstack = nil
 					ct.runtimes[id][0].Callstack = nil
+					runtimeMissingStack[id] = true
 				}
-			} else {
-				// No external ID: kernel with no external ID has no stack (reported as nil, not empty stack).
-				if len(ct.cudaToExternal) > 0 || len(ct.externalStacks) > 0 {
-					r.Callstack = nil
-					ct.runtimes[id][0].Callstack = nil
-				}
+				runtimeExternal[id] = extID
+			} else if len(extIDs) != 0 {
+				r.Callstack = nil
+				ct.runtimes[id][0].Callstack = nil
+				runtimeMissingStack[id] = true
 			}
 
 			var dur uint64
@@ -262,9 +346,12 @@ func (ct *CorrelationTracker) Join() (matched []CorrelationJoin, ambiguous []Amb
 			}
 			matched = append(matched, CorrelationJoin{
 				CorrelationID:    id,
+				ExternalID:       runtimeExternal[id],
+				HasExternalID:    runtimeExternal[id] != 0,
+				CallstackMissing: runtimeMissingStack[id],
 				KernelName:       r.KernelName,
 				HostThreadID:     r.HostThreadID,
-				Callstack:        r.Callstack,
+				Callstack:        append([]string(nil), r.Callstack...),
 				DeviceStart:      a.Start,
 				DeviceEnd:        a.End,
 				DeviceDurationNs: dur,
@@ -326,12 +413,13 @@ func ExportFoldedStacks(w io.Writer, joins []CorrelationJoin) error {
 			Callstack:  j.Callstack,
 			StartNs:    j.DeviceStart,
 			EndNs:      j.DeviceEnd,
+			Device:     j.Device,
 		}
 	}
 	return cudaprof.ExportFoldedStacks(w, executions)
 }
 
-func appendUniqueUint64(slice []uint64, val uint64) []uint64 {
+func appendUniqueExternal(slice []externalStackKey, val externalStackKey) []externalStackKey {
 	for _, v := range slice {
 		if v == val {
 			return slice
