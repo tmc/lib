@@ -284,7 +284,16 @@ var useAfterDestroyAnalyzer = &analysis.Analyzer{
 
 A handle released with Close, Destroy, Free or Unload names nothing afterwards; in C,
 using it is a use after free. useafterdestroy reports a use of a handle that
-follows its release in the same block, before the variable is assigned again.`,
+follows its release in the same block, before the variable is assigned again.
+Comparing the handle with a constant, as in h != 0 after a Destroy that zeroes
+it, is not a use. A release whose error is tested so that the code goes on
+only when it failed, as in
+
+	if err := h.Free(); !errors.Is(err, ErrInUse) {
+		t.Fatal(err)
+	}
+
+leaves the handle live.`,
 	Run: runUseAfterDestroy,
 }
 
@@ -296,12 +305,18 @@ func runUseAfterDestroy(pass *analysis.Pass) (any, error) {
 			if v == nil {
 				continue
 			}
+			if s, ok := stmt.(*ast.IfStmt); ok && releaseFailed(info, s) {
+				continue
+			}
 			for _, next := range list[i+1:] {
 				if assigns(info, next, v) {
 					break
 				}
 				var use *ast.Ident
 				inspectShallow(next, func(n ast.Node) bool {
+					if valueOnly(info, n, v) {
+						return false
+					}
 					if id, ok := n.(*ast.Ident); ok && use == nil && info.Uses[id] == v {
 						use = id
 					}
@@ -367,6 +382,83 @@ func releaseStmt(info *types.Info, stmt ast.Stmt) (*types.Var, string) {
 		return nil, ""
 	}
 	return v, sel.Sel.Name
+}
+
+// valueOnly reports whether n reads the Go value of the handle v without
+// handing it to anything that could use it: a comparison with a constant, as
+// in h != 0, or a call that only formats its arguments, as in
+// t.Errorf("%#x", uintptr(h)). Those read the variable, not the handle.
+func valueOnly(info *types.Info, n ast.Node, v *types.Var) bool {
+	switch n := n.(type) {
+	case *ast.BinaryExpr:
+		return (n.Op == token.EQL || n.Op == token.NEQ) &&
+			(objOf(info, unconvert(info, n.X)) == v && isConst(info, n.Y) || objOf(info, unconvert(info, n.Y)) == v && isConst(info, n.X))
+	case *ast.CallExpr:
+		fn := callee(info, n)
+		if fn == nil || fn.Pkg() == nil || !formats(fn) {
+			return false
+		}
+		for _, arg := range n.Args {
+			if !isConst(info, arg) && objOf(info, unconvert(info, arg)) != v && uses(info, arg, v) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+// formats reports whether fn is a print or format function of fmt, log or
+// testing, which read their arguments only to print them.
+func formats(fn *types.Func) bool {
+	switch fn.Pkg().Path() {
+	case "fmt", "log", "testing":
+	default:
+		return false
+	}
+	switch strings.TrimSuffix(strings.TrimSuffix(fn.Name(), "f"), "ln") {
+	case "Print", "Sprint", "Fprint", "Error", "Log", "Fatal", "Skip", "Panic", "Append":
+		return true
+	}
+	return false
+}
+
+// isConst reports whether e is a constant or nil.
+func isConst(info *types.Info, e ast.Expr) bool {
+	tv, ok := info.Types[e]
+	return ok && (tv.Value != nil || tv.IsNil())
+}
+
+// releaseFailed reports whether the code after s, an if statement whose init
+// releases a handle into err, runs only when the release failed: the body
+// always leaves, and the condition is err == nil or !errors.Is(err, target).
+func releaseFailed(info *types.Info, s *ast.IfStmt) bool {
+	init, ok := s.Init.(*ast.AssignStmt)
+	if !ok || len(init.Lhs) != 1 || len(s.Body.List) == 0 {
+		return false
+	}
+	errVar := objOf(info, init.Lhs[0])
+	if errVar == nil {
+		return false
+	}
+	switch last := s.Body.List[len(s.Body.List)-1].(type) {
+	case *ast.ReturnStmt:
+	case *ast.ExprStmt:
+		if c, ok := last.X.(*ast.CallExpr); !ok || !noReturn(info, c) {
+			return false
+		}
+	default:
+		return false
+	}
+	switch c := ast.Unparen(s.Cond).(type) {
+	case *ast.BinaryExpr: // err == nil
+		return c.Op == token.EQL && (objOf(info, c.X) == errVar && isNil(info, c.Y) || objOf(info, c.Y) == errVar && isNil(info, c.X))
+	case *ast.UnaryExpr: // !errors.Is(err, target)
+		call, ok := ast.Unparen(c.X).(*ast.CallExpr)
+		return c.Op == token.NOT && ok && isPkgFunc(info, call, "errors", "Is") &&
+			len(call.Args) == 2 && objOf(info, call.Args[0]) == errVar && !isNil(info, call.Args[1])
+	}
+	return false
 }
 
 // assigns reports whether stmt assigns v a new value.
