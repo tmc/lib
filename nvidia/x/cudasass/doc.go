@@ -47,6 +47,24 @@
 // that handles only this spelling has not been exercised against real tool
 // output.
 //
+// # Instruction layout and alignment
+//
+// SASS instruction addresses must be aligned to hardware instruction boundaries.
+// On modern architectures (sm_70 and later, covering Volta, Turing, Ampere, Ada,
+// Hopper, and Blackwell), instructions are 16 bytes, requiring addr%16 == 0.
+// On older architectures (sm_30 through sm_62), instructions are 8 bytes, requiring
+// addr%8 == 0. When no .target directive is present in the listing, the parser
+// defaults to sm_70+ (16-byte alignment). Misaligned instruction addresses return
+// an error.
+//
+// Instruction addresses within each section must be strictly increasing.
+// Decreasing or duplicate addresses within a section return an error naming the
+// section and the offending addresses.
+//
+// Every instruction in a disassembly listing must belong to a kernel section.
+// An instruction appearing before any kernel header, or after the trailing SYMBOLS
+// banner, is outside any section and is rejected with an error.
+//
 // # Cubin formats
 //
 // A cubin carries its producing toolkit's version in the ELF header: nvcc

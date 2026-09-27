@@ -5,6 +5,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/tmc/lib/nvidia/x/cudaerrors"
 )
 
 // This file implements the SASS dependency and control-code model for one
@@ -171,7 +173,7 @@ func DecodeControl(e Encoding, arch Arch) (ControlCode, bool) {
 // truncating it into the field.
 func EncodeControl(e Encoding, c ControlCode, arch Arch) (Encoding, error) {
 	if arch != SM121a {
-		return Encoding{}, fmt.Errorf("control codes are calibrated for %s only, not %s", SM121a, arch)
+		return Encoding{}, fmt.Errorf("%w: control codes are calibrated for %s only, not %s", cudaerrors.ErrUnsupported, SM121a, arch)
 	}
 	if err := c.Valid(); err != nil {
 		return Encoding{}, err

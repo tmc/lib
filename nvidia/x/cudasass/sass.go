@@ -138,6 +138,42 @@ func (d *Disassembly) Function(name string) *Function {
 var sourceLocationPattern = regexp.MustCompile(`^//##\s+File\s+"([^"]+)",\s+line\s+([0-9]+)`)
 var inlineLocationPattern = regexp.MustCompile(`\s+inlined\s+at\s+"([^"]+)",\s+line\s+([0-9]+)`)
 
+// findAddressCommentEnd finds the index of the closing "*/" for a leading
+// "/*" comment in trimmed. It searches in trimmed[2:] to avoid matching
+// overlapping characters (such as in "/*/"). It returns -1 if trimmed does
+// not begin with "/*" or if no closing "*/" follows.
+func findAddressCommentEnd(trimmed string) int {
+	if !strings.HasPrefix(trimmed, "/*") {
+		return -1
+	}
+	idx := strings.Index(trimmed[2:], "*/")
+	if idx == -1 {
+		return -1
+	}
+	return idx + 2
+}
+
+// targetAlignment returns the instruction alignment in bytes for target.
+// Architectures prior to sm_70 (sm_30 through sm_62) have 8-byte instructions.
+// Modern architectures (sm_70 and later) have 16-byte instructions.
+// If target is unparseable or unknown, it defaults to 16 bytes.
+func targetAlignment(target string) uint64 {
+	target = strings.TrimPrefix(target, "sm_")
+	target = strings.TrimPrefix(target, "SM")
+	var num int
+	for _, r := range target {
+		if r >= '0' && r <= '9' {
+			num = num*10 + int(r-'0')
+		} else {
+			break
+		}
+	}
+	if num > 0 && num < 70 {
+		return 8
+	}
+	return 16
+}
+
 // Parse reads SASS disassembly text from r and returns a Disassembly.
 func Parse(r io.Reader) (*Disassembly, error) {
 	scanner := bufio.NewScanner(r)
@@ -166,16 +202,27 @@ func Parse(r io.Reader) (*Disassembly, error) {
 	// pointer into it would then write to a stale copy.
 	curSection := -1
 	pendingBanner := ""
+	archAlign := uint64(16)
+	curSecHasAddr := false
+	curSecLastAddr := uint64(0)
 
 	for scanner.Scan() {
 		line := scanner.Text()
 		trimmed := strings.TrimSpace(line)
+
+		if strings.HasPrefix(trimmed, ".target") {
+			fields := strings.Fields(trimmed)
+			if len(fields) >= 2 {
+				archAlign = targetAlignment(fields[1])
+			}
+		}
 
 		// Section accounting runs before the blank-line skip below so that a
 		// section's Text is the listing region byte for byte, blank lines and
 		// all, rather than a filtered rendering of it.
 		if bannerName, isBanner := sectionBanner(trimmed); isBanner {
 			curSection, pendingBanner = -1, ""
+			curSecHasAddr, curSecLastAddr = false, 0
 			if bannerName != "" {
 				pendingBanner = line
 			}
@@ -188,6 +235,7 @@ func Parse(r io.Reader) (*Disassembly, error) {
 			// kernel's header lines, with none of its instructions.
 			d.sections = append(d.sections, Section{Name: name})
 			curSection = len(d.sections) - 1
+			curSecHasAddr, curSecLastAddr = false, 0
 			if pendingBanner != "" {
 				d.sections[curSection].Text = append(d.sections[curSection].Text, pendingBanner...)
 				d.sections[curSection].Text = append(d.sections[curSection].Text, '\n')
@@ -267,6 +315,19 @@ func Parse(r io.Reader) (*Disassembly, error) {
 
 		// Parse instruction line
 		if inst, sawEncoding, ok := parseInstructionLine(line); ok {
+			if curSection < 0 {
+				return nil, fmt.Errorf("cudasass: instruction at 0x%04x outside section", inst.Address)
+			}
+			secName := d.sections[curSection].Name
+			if inst.Address%archAlign != 0 {
+				return nil, fmt.Errorf("cudasass: section %s: misaligned instruction address 0x%04x (must be a multiple of %d)", secName, inst.Address, archAlign)
+			}
+			if curSecHasAddr && inst.Address <= curSecLastAddr {
+				return nil, fmt.Errorf("cudasass: section %s: decreasing address 0x%04x after 0x%04x", secName, inst.Address, curSecLastAddr)
+			}
+			curSecHasAddr = true
+			curSecLastAddr = inst.Address
+
 			inst.SourceFile = curSourceFile
 			inst.SourceLine = curSourceLine
 			inst.InlinedFile = curInlinedFile
@@ -275,10 +336,10 @@ func Parse(r io.Reader) (*Disassembly, error) {
 
 			if curFn == nil {
 				curFn = &Function{
-					Name: "default",
+					Name: secName,
 				}
 				d.Functions = append(d.Functions, curFn)
-				d.funcMap["default"] = curFn
+				d.funcMap[secName] = curFn
 			}
 			if len(curFn.Instructions) == 0 {
 				curFn.BaseAddress = inst.Address
@@ -402,11 +463,7 @@ func ParseInstructionLine(line string) (Instruction, bool) {
 // that carried no encoding at all.
 func parseInstructionLine(line string) (Instruction, bool, bool) {
 	trimmed := strings.TrimSpace(line)
-	if !strings.HasPrefix(trimmed, "/*") {
-		return Instruction{}, false, false
-	}
-
-	closeIdx := strings.Index(trimmed, "*/")
+	closeIdx := findAddressCommentEnd(trimmed)
 	if closeIdx == -1 {
 		return Instruction{}, false, false
 	}

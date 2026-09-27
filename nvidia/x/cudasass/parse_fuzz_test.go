@@ -28,7 +28,11 @@ var sassDecoder = cudatest.Decoder[*Disassembly]{
 	Equal: func(a, b *Disassembly) bool {
 		return reflect.DeepEqual(a.Functions, b.Functions) && reflect.DeepEqual(a.Sections(), b.Sections())
 	},
-	Invariants: []func(*Disassembly) error{sectionsReparse},
+	Invariants: []func(*Disassembly) error{
+		sectionsReparse,
+		sectionAddressesStrictlyIncreasing,
+		instructionAddressesAligned,
+	},
 }
 
 // sectionsReparse checks that each Section's Text parses back to that one
@@ -73,6 +77,37 @@ func containsRun(all, run []Instruction) bool {
 		}
 	}
 	return false
+}
+
+// sectionAddressesStrictlyIncreasing checks that instruction addresses are strictly increasing within each section.
+func sectionAddressesStrictlyIncreasing(d *Disassembly) error {
+	for i, s := range d.Sections() {
+		r, err := Parse(bytes.NewReader(s.Text))
+		if err != nil {
+			return fmt.Errorf("section %d (%s): re-parse: %w", i, s.Name, err)
+		}
+		for _, fn := range r.Functions {
+			for j := 1; j < len(fn.Instructions); j++ {
+				if fn.Instructions[j].Address <= fn.Instructions[j-1].Address {
+					return fmt.Errorf("section %d (%s): non-increasing address: 0x%04x after 0x%04x",
+						i, s.Name, fn.Instructions[j].Address, fn.Instructions[j-1].Address)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// instructionAddressesAligned checks that all parsed instruction addresses are aligned to instruction boundaries.
+func instructionAddressesAligned(d *Disassembly) error {
+	for _, fn := range d.Functions {
+		for _, inst := range fn.Instructions {
+			if inst.Address%16 != 0 && inst.Address%8 != 0 {
+				return fmt.Errorf("function %s: unaligned instruction address 0x%04x", fn.Name, inst.Address)
+			}
+		}
+	}
+	return nil
 }
 
 func FuzzSASSParseNeverPanics(f *testing.F) {
@@ -140,9 +175,8 @@ func TestSASSParseMutantControls(t *testing.T) {
 }
 
 // FuzzSASSParseLifeRangeCountNeverPanics checks ParseLifeRangeCount on
-// arbitrary text. Its one invariant a caller can rely on is a non-nil map on
-// a nil error; a negative pressure cell is accepted today (see the lane
-// handoff), so no sign invariant is asserted.
+// arbitrary text. Invariants: on nil error, returns a non-nil map with
+// non-negative register pressure counts.
 func FuzzSASSParseLifeRangeCountNeverPanics(f *testing.F) {
 	f.Add([]byte(sampleLifeRangeText))
 	seeds := cudatest.ReadSeeds(f, sassSeeds...)
@@ -151,8 +185,18 @@ func FuzzSASSParseLifeRangeCountNeverPanics(f *testing.F) {
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
 		m, err := ParseLifeRangeCount(bytes.NewReader(data))
-		if err == nil && m == nil {
+		if err != nil {
+			return
+		}
+		if m == nil {
 			t.Errorf("parse %q: nil error with a nil map", data)
+		}
+		for kernel, addrs := range m {
+			for addr, p := range addrs {
+				if p.GPR < 0 || p.Pred < 0 || p.UGPR < 0 || p.UPred < 0 {
+					t.Errorf("kernel %s addr 0x%x: negative pressure %+v", kernel, addr, p)
+				}
+			}
 		}
 	})
 }

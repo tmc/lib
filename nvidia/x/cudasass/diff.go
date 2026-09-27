@@ -320,7 +320,7 @@ func NormalizeLine(line string) string {
 		return NormalizeInstruction(inst)
 	}
 	trimmed := strings.TrimSpace(line)
-	if closeIdx := strings.Index(trimmed, "*/"); strings.HasPrefix(trimmed, "/*") && closeIdx != -1 {
+	if closeIdx := findAddressCommentEnd(trimmed); closeIdx != -1 {
 		trimmed = strings.TrimSpace(trimmed[closeIdx+2:])
 	}
 	if commentIdx := strings.Index(trimmed, "//"); commentIdx != -1 {

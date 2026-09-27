@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte(".text.k:\n /*0001*/ NOP ;\n")

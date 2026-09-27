@@ -47,10 +47,7 @@ func ParseLifeRangeCount(r io.Reader) (map[string]map[uint64]RegisterPressure, e
 		}
 
 		// Look for instruction offset /*hhhh*/ or /* 0xhhhh */
-		if !strings.HasPrefix(trimmed, "/*") {
-			continue
-		}
-		closeIdx := strings.Index(trimmed, "*/")
+		closeIdx := findAddressCommentEnd(trimmed)
 		if closeIdx == -1 {
 			continue
 		}
@@ -77,16 +74,24 @@ func ParseLifeRangeCount(r io.Reader) (map[string]map[uint64]RegisterPressure, e
 		// col 1: GPR, col 2: PRED, col 3: UGPR, col 4: UPRED.
 		var press RegisterPressure
 		if len(cols) > 1 {
-			press.GPR = parseCountCell(cols[1])
+			if press.GPR, err = parseCountCell(cols[1]); err != nil {
+				return nil, fmt.Errorf("cudasass: address 0x%04x: %w", addr, err)
+			}
 		}
 		if len(cols) > 2 {
-			press.Pred = parseCountCell(cols[2])
+			if press.Pred, err = parseCountCell(cols[2]); err != nil {
+				return nil, fmt.Errorf("cudasass: address 0x%04x: %w", addr, err)
+			}
 		}
 		if len(cols) > 3 {
-			press.UGPR = parseCountCell(cols[3])
+			if press.UGPR, err = parseCountCell(cols[3]); err != nil {
+				return nil, fmt.Errorf("cudasass: address 0x%04x: %w", addr, err)
+			}
 		}
 		if len(cols) > 4 {
-			press.UPred = parseCountCell(cols[4])
+			if press.UPred, err = parseCountCell(cols[4]); err != nil {
+				return nil, fmt.Errorf("cudasass: address 0x%04x: %w", addr, err)
+			}
 		}
 
 		kernelKey := curKernel
@@ -105,16 +110,19 @@ func ParseLifeRangeCount(r io.Reader) (map[string]map[uint64]RegisterPressure, e
 	return res, nil
 }
 
-func parseCountCell(s string) int {
+func parseCountCell(s string) (int, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
-		return 0
+		return 0, nil
 	}
 	v, err := strconv.Atoi(s)
 	if err != nil {
-		return 0
+		return 0, nil
 	}
-	return v
+	if v < 0 {
+		return 0, fmt.Errorf("negative register pressure: %d", v)
+	}
+	return v, nil
 }
 
 // JoinPressure performs a total join between a parsed Disassembly (Pass 1) and
