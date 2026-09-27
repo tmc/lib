@@ -19,8 +19,16 @@ func CommInitRank(nranks int32, commId UniqueId, rank int32) (Comm, error) { ret
 func (c Comm) Destroy() error                                              { return nil }
 func (c Comm) UserRank() (int32, error)                                    { return 0, nil }
 
-func GroupStart() error { return nil }
-func GroupEnd() error   { return nil }
+type SimInfo struct {
+	Size          uint
+	Magic         uint32
+	Version       uint32
+	EstimatedTime float32
+}
+
+func GroupStart() error                       { return nil }
+func GroupEnd() error                         { return nil }
+func GroupSimulateEnd(simInfo *SimInfo) error { return nil }
 
 func (c Comm) AllReduce(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, op RedOp, stream driver.Stream) error {
 	return nil

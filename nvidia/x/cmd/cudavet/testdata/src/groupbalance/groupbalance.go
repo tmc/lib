@@ -55,3 +55,16 @@ func optional(grouped bool, c nccl.Comm, buf driver.DevicePtr, s driver.Stream) 
 	}
 	return err
 }
+
+// simulated ends the group in simulation mode, which closes it as GroupEnd
+// does.
+func simulated(c nccl.Comm, buf driver.DevicePtr, s driver.Stream, info *nccl.SimInfo) error {
+	if err := nccl.GroupStart(); err != nil {
+		return err
+	}
+	if err := c.AllReduce(buf, buf, 4, nccl.Float32, nccl.Sum, s); err != nil {
+		nccl.GroupEnd()
+		return err
+	}
+	return nccl.GroupSimulateEnd(info)
+}

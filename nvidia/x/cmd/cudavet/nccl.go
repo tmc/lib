@@ -17,7 +17,8 @@ var groupBalanceAnalyzer = &analysis.Analyzer{
 Operations between GroupStart and GroupEnd are only queued; a group left open
 on some path, such as an error return, holds them back and hangs the next
 collective. groupbalance reports a GroupStart from which some path leaves the
-function without calling GroupEnd.`,
+function without calling GroupEnd or GroupSimulateEnd, which also ends the
+group.`,
 	Run: runGroupBalance,
 }
 
@@ -107,10 +108,10 @@ type groupPath struct {
 }
 
 // open reports whether some path from node i of block b reaches the end of
-// the function without a GroupEnd.
+// the function without a GroupEnd or GroupSimulateEnd.
 func (p *groupPath) open(b *cfg.Block, i int) bool {
 	for _, n := range b.Nodes[i:] {
-		if p.isGroup(n, "GroupEnd") {
+		if p.isGroup(n, "GroupEnd") || p.isGroup(n, "GroupSimulateEnd") {
 			return false
 		}
 	}
