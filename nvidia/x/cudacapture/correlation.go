@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strconv"
 	"sync"
 
 	"github.com/tmc/lib/nvidia/x/cudaprof"
@@ -14,6 +15,9 @@ import (
 
 // ErrAmbiguousCorrelation indicates that a correlation ID matched multiple runtime or activity records.
 var ErrAmbiguousCorrelation = errors.New("cudacapture: ambiguous correlation join")
+
+// ErrNoExternalStacks reports that a capture has no stack sidecar member.
+var ErrNoExternalStacks = errors.New("cudacapture: no external stacks")
 
 // RuntimeLaunch records host-side kernel launch invocation context.
 // Callstack is supplied host attribution. Join replaces it when an external
@@ -198,15 +202,19 @@ func (ct *CorrelationTracker) ReadExternalStackTable(r io.Reader) error {
 	if r == nil {
 		return errors.New("cudacapture: nil external stack table reader")
 	}
-	var table cudaprof.ExternalStackTable
-	if err := json.NewDecoder(r).Decode(&table); err != nil {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return fmt.Errorf("cudacapture: read external stack table: %w", err)
+	}
+	table, err := decodeExternalStackTable(data)
+	if err != nil {
 		return fmt.Errorf("cudacapture: decode external stack table: %w", err)
 	}
 	if table.Version != 1 {
 		return fmt.Errorf("cudacapture: unsupported external stack table version %d", table.Version)
 	}
 	ct.mu.Lock()
-	ct.externalStackLosses = table.Losses
+	ct.externalStackLosses += table.Losses
 	ct.mu.Unlock()
 	for _, record := range table.Stacks {
 		if err := ct.RecordExternalStack(record.ExternalKind, record.ExternalID, record.Frames); err != nil {
@@ -216,6 +224,64 @@ func (ct *CorrelationTracker) ReadExternalStackTable(r io.Reader) error {
 	return nil
 }
 
+func decodeExternalStackTable(data []byte) (cudaprof.ExternalStackTable, error) {
+	var table cudaprof.ExternalStackTable
+	if err := json.Unmarshal(data, &table); err == nil {
+		return table, nil
+	}
+	lines := bytes.Split(data, []byte{'\n'})
+	if len(lines) < 2 {
+		return table, errors.New("invalid sidecar records")
+	}
+	var header struct {
+		Version int             `json:"version"`
+		Kind    string          `json:"kind"`
+		Losses  json.RawMessage `json:"losses"`
+	}
+	if err := json.Unmarshal(lines[0], &header); err != nil {
+		return table, err
+	}
+	if header.Kind != "header" {
+		return table, errors.New("missing sidecar header")
+	}
+	table.Version = header.Version
+	if len(header.Losses) != 0 {
+		var text string
+		if header.Losses[0] == '"' {
+			if err := json.Unmarshal(header.Losses, &text); err != nil {
+				return table, err
+			}
+		} else {
+			text = string(header.Losses)
+		}
+		losses, err := strconv.ParseUint(text, 10, 64)
+		if err != nil {
+			return table, fmt.Errorf("invalid loss count: %w", err)
+		}
+		table.Losses = losses
+	}
+	for _, line := range lines[1:] {
+		if len(bytes.TrimSpace(line)) == 0 {
+			continue
+		}
+		var record struct {
+			Version      int      `json:"version"`
+			Kind         string   `json:"kind"`
+			ExternalKind uint32   `json:"external_kind"`
+			ExternalID   uint64   `json:"external_id"`
+			Frames       []string `json:"frames"`
+		}
+		if err := json.Unmarshal(line, &record); err != nil {
+			return table, err
+		}
+		if record.Kind != "stack" || record.Version != 1 {
+			return table, fmt.Errorf("invalid sidecar record kind/version %q/%d", record.Kind, record.Version)
+		}
+		table.Stacks = append(table.Stacks, cudaprof.ExternalStackRecord{ExternalKind: record.ExternalKind, ExternalID: record.ExternalID, Frames: record.Frames})
+	}
+	return table, nil
+}
+
 // ReadCaptureExternalStackTable imports the stack sidecar attached to c.
 func (ct *CorrelationTracker) ReadCaptureExternalStackTable(c *Capture) error {
 	if c == nil {
@@ -223,7 +289,7 @@ func (ct *CorrelationTracker) ReadCaptureExternalStackTable(c *Capture) error {
 	}
 	data, ok := c.Files[ExternalStacksName]
 	if !ok {
-		return fmt.Errorf("cudacapture: capture has no %q member", ExternalStacksName)
+		return fmt.Errorf("%w: capture has no %q member", ErrNoExternalStacks, ExternalStacksName)
 	}
 	return ct.ReadExternalStackTable(bytes.NewReader(data))
 }
@@ -334,10 +400,6 @@ func (ct *CorrelationTracker) Join() (matched []CorrelationJoin, ambiguous []Amb
 					runtimeMissingStack[id] = true
 				}
 				runtimeExternal[id] = extID
-			} else if len(extIDs) != 0 {
-				r.Callstack = nil
-				ct.runtimes[id][0].Callstack = nil
-				runtimeMissingStack[id] = true
 			}
 
 			var dur uint64

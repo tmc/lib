@@ -155,6 +155,10 @@ func Label(ctx context.Context, key, value string) context.Context {
 
 const maxCallstackFrames = 64
 
+// ExternalStacksEnv names the target-side file used to retain stacks outside
+// the target heap for controller ingestion.
+const ExternalStacksEnv = "CUDAPROF_EXTERNAL_STACKS"
+
 var (
 	externalStacksMu    sync.RWMutex
 	externalStacks      = make(map[externalStackKey][][]string)
@@ -194,6 +198,7 @@ func RecordExternalStack(kind cupti.ExternalCorrelationKind, id uint64, stack []
 	defer externalStacksMu.Unlock()
 	if len(stack) == 0 || len(stack) > maxCallstackFrames+1 {
 		externalStackLosses++
+		_ = appendExternalStackLoss(externalStackLosses)
 		return false
 	}
 	key := externalStackKey{kind: kind, id: id}
@@ -204,10 +209,17 @@ func RecordExternalStack(kind cupti.ExternalCorrelationKind, id uint64, stack []
 	}
 	if externalStackBudget <= 0 || externalStackCount >= externalStackBudget {
 		externalStackLosses++
+		_ = appendExternalStackLoss(externalStackLosses)
 		return false
 	}
 	s := make([]string, len(stack))
 	copy(s, stack)
+	record := ExternalStackRecord{ExternalKind: uint32(kind), ExternalID: id, Frames: s}
+	if err := appendExternalStackRecord(record, externalStackLosses); err != nil {
+		externalStackLosses++
+		_ = appendExternalStackLoss(externalStackLosses)
+		return false
+	}
 	externalStacks[key] = append(externalStacks[key], s)
 	externalStackCount++
 	return true
@@ -296,10 +308,18 @@ func compareCallstacks(a, b []string) int {
 }
 
 func captureCallerStack(kind cupti.ExternalCorrelationKind, id uint64) {
-	var rpc [maxCallstackFrames]uintptr
+	if !externalStackBudgetAvailable() {
+		recordExternalStackLoss()
+		return
+	}
+	var rpc [maxCallstackFrames + 1]uintptr
 	n := runtime.Callers(2, rpc[:])
 	if n == 0 {
 		return
+	}
+	truncated := n > maxCallstackFrames
+	if truncated {
+		n = maxCallstackFrames
 	}
 	frames := runtime.CallersFrames(rpc[:n])
 	var leafToRoot []string
@@ -330,10 +350,23 @@ func captureCallerStack(kind cupti.ExternalCorrelationKind, id uint64) {
 	for i, fn := range filtered {
 		rootToLeaf[len(filtered)-1-i] = fn
 	}
-	if n == len(rpc) && len(rootToLeaf) != 0 {
+	if truncated && len(rootToLeaf) != 0 {
 		rootToLeaf = append([]string{"[truncated]"}, rootToLeaf...)
 	}
 	RecordExternalStack(kind, id, rootToLeaf)
+}
+
+func externalStackBudgetAvailable() bool {
+	externalStacksMu.RLock()
+	defer externalStacksMu.RUnlock()
+	return externalStackBudget > 0 && externalStackCount < externalStackBudget
+}
+
+func recordExternalStackLoss() {
+	externalStacksMu.Lock()
+	defer externalStacksMu.Unlock()
+	externalStackLosses++
+	_ = appendExternalStackLoss(externalStackLosses)
 }
 
 // regionBrackets records what a region actually entered, so its exit unwinds

@@ -271,13 +271,6 @@ func TestRecipeReportSchemaV1(t *testing.T) {
 }
 
 func TestFoldedStackExport(t *testing.T) {
-	// Slice 7 controls:
-	// 1. Host time is not kernel time: region sleeping 10ms on host then launching short kernel
-	// has region weight = kernel device time in folded output.
-	hostSleepStart := time.Now()
-	time.Sleep(10 * time.Millisecond)
-	_ = time.Since(hostSleepStart)
-
 	executions := []cudaprof.KernelExecution{
 		{
 			KernelName: "short_kernel",

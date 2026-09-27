@@ -14,6 +14,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tmc/lib/nvidia/x/cudacapture"
 )
 
 func TestParseCaptureArgsPreservesTargetArgv(t *testing.T) {
@@ -256,6 +258,8 @@ func TestCaptureEnvironmentExportsCollectionPolicy(t *testing.T) {
 		{"CUDAPROF_CAPTURE_RANGE", "cudaProfilerApi"},
 		{"CUDAPROF_FINALIZE", "profiler-stop"},
 		{"CUDAPROF_FLUSH_INTERVAL_MS", "250"},
+		{"CUDAPROF_CORRELATE", "1"},
+		{"CUDAPROF_EXTERNAL_STACKS", filepath.Join("dir", cudacapture.ExternalStacksName)},
 	} {
 		if got := lookupEnv(env, tc.key); got != tc.want {
 			t.Errorf("%s = %q, want %q", tc.key, got, tc.want)

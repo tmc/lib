@@ -470,7 +470,7 @@ func scratchAttachments(dir string) []captureAttachment {
 		}
 		found = append(found, captureAttachment{name: name, path: path, size: info.Size()})
 	}
-	for _, name := range []string{"capture.journal", "handshake.json", "python-profile.json", "python-result.json"} {
+	for _, name := range []string{"capture.journal", "handshake.json", "python-profile.json", "python-result.json", cudacapture.ExternalStacksName} {
 		add(name, filepath.Join(dir, name))
 	}
 	if entries, err := os.ReadDir(filepath.Join(dir, "stacks")); err == nil {
@@ -602,7 +602,7 @@ func (c externalKindCounts) chosen() cupti.ExternalCorrelationKind {
 // not to join. The note separates "nothing was pushed there" from "we did not
 // join it". It is conditional for the same reason: a caveat printed on every
 // capture is read as boilerplate, and then it is not a warning.
-func (c externalKindCounts) note() string {
+func (c externalKindCounts) note(override ...cupti.ExternalCorrelationKind) string {
 	var present []cupti.ExternalCorrelationKind
 	for i, n := range c {
 		if n > 0 {
@@ -617,6 +617,9 @@ func (c externalKindCounts) note() string {
 		names[i] = externalKindName(k)
 	}
 	chosen := c.chosen()
+	if len(override) != 0 {
+		chosen = override[0]
+	}
 	var unjoined uint64
 	var dropped []string
 	for _, k := range present {
@@ -650,9 +653,9 @@ func externalKindName(k cupti.ExternalCorrelationKind) string {
 //
 // One namespace is labelled, because the profile holds one
 // cupti.external.kind per sample. A target that pushes into more than one --
-// PyTorch uses two -- gets the lowest-numbered one, and the namespaces left
-// unjoined are stated in the profile's comments rather than left to look like
-// work nothing was pushed for. See externalKindCounts.chosen and .note.
+// PyTorch uses two -- gets the lowest-numbered one unless a retained stack
+// sidecar contains another observed namespace, in which case that namespace
+// is preferred. The namespaces left unjoined are stated in profile comments.
 //
 // scoped identity: the capture session is both session and run, because one
 // capture is one run and the artifact retains no separate run ID. Process is
@@ -660,7 +663,7 @@ func externalKindName(k cupti.ExternalCorrelationKind) string {
 // would share a scope and could collide on a correlation ID; MatchExternal
 // reports such a collision as ambiguous rather than picking one, so the
 // weakness costs attribution, never a wrong attribution.
-func labelExternalCorrelation(p *profile.Profile, session string, targetPID uint64, activities []captureActivity, sampleRecords []int) (*profile.Profile, error) {
+func labelExternalCorrelation(p *profile.Profile, session string, targetPID uint64, activities []captureActivity, sampleRecords []int, stackKinds map[uint32]bool) (*profile.Profile, error) {
 	var counts externalKindCounts
 	for _, a := range activities {
 		if a.Subtype == "external_correlation" {
@@ -668,6 +671,15 @@ func labelExternalCorrelation(p *profile.Profile, session string, targetPID uint
 		}
 	}
 	kind := counts.chosen()
+	stackKind := cupti.ExternalCorrelationKindInvalid
+	for candidate := range counts {
+		if counts[candidate] != 0 && stackKinds[uint32(candidate)] && (stackKind == cupti.ExternalCorrelationKindInvalid || candidate < int(stackKind)) {
+			stackKind = cupti.ExternalCorrelationKind(candidate)
+		}
+	}
+	if stackKind != cupti.ExternalCorrelationKindInvalid {
+		kind = stackKind
+	}
 	if kind == cupti.ExternalCorrelationKindInvalid {
 		return p, nil
 	}
@@ -722,7 +734,7 @@ func labelExternalCorrelation(p *profile.Profile, session string, targetPID uint
 	// profile, where the labels it is missing from are. pprof shows comments
 	// alongside the profile, so the reader who asks why a kernel has no
 	// cupti.external.id has the answer in the same artifact.
-	if note := counts.note(); note != "" {
+	if note := counts.note(kind); note != "" {
 		out.Comments = append(out.Comments, "cupti: "+note)
 	}
 	return out, nil
@@ -839,10 +851,7 @@ func writeCapture(path string, result captureResult, budget captureArtifactBudge
 		TotalBytes: max(budget.TotalBytes, int64(len(metadata))+int64(len(provData))),
 	}
 	p, sampleRecords := cudacapture.BuildActivityProfileIndex(result.Session, uint64(result.TargetPID), result.Activities, result.APIRecords)
-	p, err := labelExternalCorrelation(p, result.Session, uint64(result.TargetPID), result.Activities, sampleRecords)
-	if err != nil {
-		return nil, err
-	}
+	var err error
 	c := &cudacapture.Capture{
 		Profile: p,
 		Files:   map[string][]byte{"capture-status.json": metadata},
@@ -855,6 +864,25 @@ func writeCapture(path string, result captureResult, budget captureArtifactBudge
 	}
 	if len(result.isolationRaw) != 0 {
 		c.Files[isolation.Attachment] = result.isolationRaw
+	}
+	if result.ScratchDir != "" {
+		stackData, err := attachExternalStackSidecar(c, filepath.Join(result.ScratchDir, cudacapture.ExternalStacksName))
+		if err != nil {
+			return nil, err
+		}
+		c.Profile, err = labelExternalCorrelation(c.Profile, result.Session, uint64(result.TargetPID), result.Activities, sampleRecords, externalStackKinds(stackData))
+		if err != nil {
+			return nil, err
+		}
+		c.Profile, err = labelExternalStacks(c.Profile, result.Activities, sampleRecords, stackData)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		c.Profile, err = labelExternalCorrelation(c.Profile, result.Session, uint64(result.TargetPID), result.Activities, sampleRecords, nil)
+		if err != nil {
+			return nil, err
+		}
 	}
 	// Modules are declared from what was actually embedded, not from what the
 	// agent reported writing. The journal census in capture-status.json says

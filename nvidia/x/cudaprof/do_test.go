@@ -1,10 +1,14 @@
 package cudaprof
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"runtime"
 	"runtime/pprof"
 	"strings"
@@ -15,6 +19,81 @@ import (
 	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/x/nvtx"
 )
+
+var sidecarTestPushedID uint64
+
+func TestMain(m *testing.M) {
+	if os.Getenv("CUDAPROF_TEST_STACK_CHILD") == "1" {
+		pushExternalID = func(_ cupti.ExternalCorrelationKind, id uint64) error { sidecarTestPushedID = id; return nil }
+		popExternalID = func(cupti.ExternalCorrelationKind) (uint64, error) { return sidecarTestPushedID, nil }
+	}
+	os.Exit(m.Run())
+}
+
+func TestExternalStackSidecarWrittenByTarget(t *testing.T) {
+	if os.Getenv("CUDAPROF_TEST_STACK_CHILD") == "1" {
+		if sidecarTargetCallSite() == 0 {
+			os.Exit(2)
+		}
+		os.Exit(0)
+	}
+	path := filepath.Join(t.TempDir(), "external-stacks.json")
+	cmd := exec.Command(os.Args[0], "-test.run=^TestExternalStackSidecarWrittenByTarget$")
+	cmd.Env = sidecarTestEnvironment(path)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("child: %v\n%s", err, output)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 1024), 1<<20)
+	if !scanner.Scan() {
+		t.Fatal("sidecar has no header")
+	}
+	var header struct {
+		Version int    `json:"version"`
+		Kind    string `json:"kind"`
+		Losses  string `json:"losses"`
+	}
+	if err := json.Unmarshal(scanner.Bytes(), &header); err != nil {
+		t.Fatal(err)
+	}
+	if header.Version != 1 || header.Kind != "header" {
+		t.Fatalf("header = %+v", header)
+	}
+	if !scanner.Scan() {
+		t.Fatal("sidecar has no stack record")
+	}
+	var record ExternalStackRecord
+	if err := json.Unmarshal(scanner.Bytes(), &record); err != nil {
+		t.Fatal(err)
+	}
+	for _, frame := range record.Frames {
+		if strings.Contains(frame, "sidecarTargetCallSite") {
+			return
+		}
+	}
+	t.Fatalf("sidecar stack has no target call site: %v", record.Frames)
+}
+
+func sidecarTestEnvironment(path string) []string {
+	var env []string
+	for _, item := range os.Environ() {
+		if strings.HasPrefix(item, "CUDAPROF_TEST_STACK_CHILD=") || strings.HasPrefix(item, "CUDAPROF_CORRELATE=") || strings.HasPrefix(item, ExternalStacksEnv+"=") {
+			continue
+		}
+		env = append(env, item)
+	}
+	return append(env, "CUDAPROF_TEST_STACK_CHILD=1", "CUDAPROF_CORRELATE=1", ExternalStacksEnv+"="+path)
+}
+
+//go:noinline
+func sidecarTargetCallSite() uint64 {
+	return Do(context.Background(), Labels(), func(context.Context) {})
+}
 
 // resetCorrelation restores the package default and undoes it after the test.
 // The disposition is sticky by design, so a test that leaves a failure in place

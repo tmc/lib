@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
@@ -244,25 +244,64 @@ func TestCallstackJoinedByExternalID(t *testing.T) {
 		t.Errorf("leaf frame = %q, want %q", join.Callstack[len(join.Callstack)-1], stack[len(stack)-1])
 	}
 
-	// 2. Mutant / negative control: Scrambled external IDs must not give kernel the wrong stack
-	// Register conflicting stacks for external ID 999
-	tracker2 := cudacapture.NewCorrelationTracker()
-	scrambledExtID := uint64(999)
-	_ = tracker2.RecordExternalStack(0, scrambledExtID, []string{"pkg.FuncA"})
-	_ = tracker2.RecordExternalStack(0, scrambledExtID, []string{"pkg.FuncB"}) // Conflicting stack
-	_ = tracker2.RecordExternalCorrelation(0, scrambledExtID, 202)
-	_ = tracker2.RecordRuntime(cudacapture.RuntimeLaunch{CorrelationID: 202, KernelName: "scrambled_kernel"})
-	_ = tracker2.RecordActivity(cudacapture.ActivityRecord{Correlation: 202, Name: "scrambled_kernel", Start: 3000, End: 4000})
+}
 
-	m2, amb2, _, _ := tracker2.Join()
-	if len(m2) != 0 {
-		t.Errorf("expected 0 matches for scrambled external ID with conflicting stacks, got %d", len(m2))
+func TestConflictingStacksAmbiguous(t *testing.T) {
+	const sidecar = "{\"version\":1,\"kind\":\"header\",\"losses\":\"00000000000000000000\"}\n" +
+		"{\"version\":1,\"kind\":\"stack\",\"external_kind\":0,\"external_id\":999,\"frames\":[\"pkg.FuncA\"]}\n" +
+		"{\"version\":1,\"kind\":\"stack\",\"external_kind\":0,\"external_id\":999,\"frames\":[\"pkg.FuncB\"]}\n"
+	for _, ingest := range []struct {
+		name    string
+		sidecar bool
+	}{{"tracker", false}, {"capture sidecar", true}} {
+		t.Run(ingest.name, func(t *testing.T) {
+			tracker := cudacapture.NewCorrelationTracker()
+			if ingest.sidecar {
+				capture := &cudacapture.Capture{Files: map[string][]byte{cudacapture.ExternalStacksName: []byte(sidecar)}}
+				if err := tracker.ReadCaptureExternalStackTable(capture); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				_ = tracker.RecordExternalStack(0, 999, []string{"pkg.FuncA"})
+				_ = tracker.RecordExternalStack(0, 999, []string{"pkg.FuncB"})
+			}
+			if err := tracker.RecordExternalCorrelation(0, 999, 202); err != nil {
+				t.Fatal(err)
+			}
+			if err := tracker.RecordRuntime(cudacapture.RuntimeLaunch{CorrelationID: 202, KernelName: "scrambled_kernel"}); err != nil {
+				t.Fatal(err)
+			}
+			if err := tracker.RecordActivity(cudacapture.ActivityRecord{Correlation: 202, Name: "scrambled_kernel", Start: 3000, End: 4000}); err != nil {
+				t.Fatal(err)
+			}
+			matched, ambiguous, _, _ := tracker.Join()
+			if len(matched) != 0 || len(ambiguous) != 1 || ambiguous[0].CorrelationID != 202 {
+				t.Fatalf("matched=%+v ambiguous=%+v", matched, ambiguous)
+			}
+		})
 	}
-	if len(amb2) != 1 {
-		t.Fatalf("expected 1 ambiguous record for scrambled external ID, got %d", len(amb2))
+}
+
+func TestReadExternalStackTableRejects(t *testing.T) {
+	tracker := cudacapture.NewCorrelationTracker()
+	if err := tracker.ReadExternalStackTable(strings.NewReader(`{"version":2,"losses":0,"stacks":[]}`)); err == nil || !strings.Contains(err.Error(), "unsupported external stack table version 2") {
+		t.Fatalf("version error = %v", err)
 	}
-	if amb2[0].CorrelationID != 202 {
-		t.Errorf("ambiguous CorrelationID = %d, want 202", amb2[0].CorrelationID)
+	if err := tracker.ReadCaptureExternalStackTable(&cudacapture.Capture{Files: map[string][]byte{}}); !errors.Is(err, cudacapture.ErrNoExternalStacks) {
+		t.Fatalf("missing member error = %v", err)
+	}
+}
+
+func TestExternalStackLossesAccumulate(t *testing.T) {
+	tracker := cudacapture.NewCorrelationTracker()
+	for _, losses := range []uint64{5, 2} {
+		table := fmt.Sprintf(`{"version":1,"losses":%d,"stacks":[]}`, losses)
+		if err := tracker.ReadExternalStackTable(strings.NewReader(table)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := tracker.ExternalStackLosses(); got != 7 {
+		t.Fatalf("losses = %d, want 7", got)
 	}
 }
 
@@ -349,13 +388,6 @@ func TestCallstackNotJoinedByTimestamp(t *testing.T) {
 }
 
 func TestFoldedStackExport(t *testing.T) {
-	// 1. Slice 7 control: Host time is not kernel time.
-	// Region sleeps for 10ms on host and launches a short 500ns kernel on device.
-	// Region weight in folded stack must be 500, not ~10_000_000.
-	hostSleepStart := time.Now()
-	time.Sleep(10 * time.Millisecond)
-	_ = time.Since(hostSleepStart)
-
 	joins := []cudacapture.CorrelationJoin{
 		{
 			CorrelationID:    1,

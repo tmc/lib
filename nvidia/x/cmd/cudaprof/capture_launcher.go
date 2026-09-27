@@ -23,6 +23,7 @@ import (
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudaprof/isolation"
+	"github.com/tmc/lib/nvidia/x/cudaprof"
 	"github.com/tmc/lib/nvidia/x/internal/capturefiles"
 )
 
@@ -1041,6 +1042,8 @@ func captureEnvironment(o captureOptions, session, dir string) []string {
 		env = setCaptureEnv(env, "CUDAPROF_GO_STACKS", "0")
 		env = setCaptureEnv(env, "CUDAPROF_PYTHON_STACKS", "0")
 	}
+	env = setCaptureEnv(env, cudaprof.ExternalStacksEnv, filepath.Join(dir, cudacapture.ExternalStacksName))
+	env = setCaptureEnv(env, "CUDAPROF_CORRELATE", "1")
 	// The collection policy is exported only when the caller asked for it, so
 	// an unset flag leaves whatever the caller's own environment said and the
 	// agent keeps its own default. "none" is exported like any other value: it
