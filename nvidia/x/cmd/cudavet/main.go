@@ -36,6 +36,7 @@
 //	firstelem          &s[0] of a slice that may be empty, or with a mismatched count
 //	scalartype         alpha and beta of a different type from the compute type
 //	pointermode        a device Scalar in host pointer mode, or a host Scalar in device mode
+//	halfbits           a float converted to uint16 and passed to Float16BitsScalar as bits
 //	rawenum            an integer literal where a named constant exists
 //	fftdirection       a cuFFT direction written as -1 or 1
 //	stringnul          a string argument with a NUL byte
@@ -103,6 +104,7 @@ var analyzers = []*analysis.Analyzer{
 	firstElemAnalyzer,
 	scalarTypeAnalyzer,
 	pointerModeAnalyzer,
+	halfBitsAnalyzer,
 	rawEnumAnalyzer,
 	fftDirectionAnalyzer,
 	stringNULAnalyzer,
