@@ -3,6 +3,9 @@
 package cutensornet
 
 // Destroy wraps cutensornetDestroyNetwork.
+//
+// It is not named Close because NetworkDescriptor has another release
+// method, DestroyDescriptor.
 func (n NetworkDescriptor) Destroy() error {
 	return destroyNetwork(n)
 }
@@ -10,6 +13,9 @@ func (n NetworkDescriptor) Destroy() error {
 // DestroyDescriptor wraps cutensornetDestroyNetworkDescriptor.
 //
 // Deprecated: This function is deprecated.
+//
+// It is not named Close because NetworkDescriptor has another release
+// method, Destroy.
 func (n NetworkDescriptor) DestroyDescriptor() error {
 	return destroyNetworkDescriptor(n)
 }

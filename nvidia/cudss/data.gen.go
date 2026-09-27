@@ -11,6 +11,8 @@ func NewData(handle Handle) (Data, error) {
 }
 
 // Destroy wraps cudssDataDestroy.
+//
+// It is not named Close because it takes more than the handle.
 func (d Data) Destroy(handle Handle) error {
 	return DataDestroy(handle, d)
 }

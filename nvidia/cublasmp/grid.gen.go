@@ -35,6 +35,9 @@ func NewGrid(nprow int64, npcol int64, layout GridLayout, comm nccl.Comm) (Grid,
 //
 //   - ptr: in Pointer to device memory buffer to deregister
 //
+// It is not named Close because Grid has other release methods, Destroy
+// and Free.
+//
 // Wraps cublasMpBufferDeregister.
 func (g Grid) Deregister(ptr uintptr) error {
 	return BufferDeregister(g, ptr)
@@ -44,6 +47,9 @@ func (g Grid) Deregister(ptr uintptr) error {
 //
 // This function destroys the given grid object. All ranks in the grid
 // communicator must enter this function collectively.
+//
+// It is not named Close because Grid has other release methods, Deregister
+// and Free.
 //
 // Wraps cublasMpGridDestroy.
 func (g Grid) Destroy() error {
@@ -60,6 +66,9 @@ func (g Grid) Destroy() error {
 // All ranks in the grid communicator must enter this function collectively.
 //
 //   - ptr: in Pointer to device memory buffer to free
+//
+// It is not named Close because Grid has other release methods, Deregister
+// and Destroy.
 //
 // Wraps cublasMpFree.
 func (g Grid) Free(ptr uintptr) error {

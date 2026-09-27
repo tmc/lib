@@ -130,6 +130,9 @@ func (d DevicePtr) MemAdvise(count uint, advice MemAdvise, location MemLocation)
 //   - [ErrInvalidValue]
 //   - [ErrNotInitialized]
 //
+// It is not named Close because DevicePtr has another release method,
+// FreeAsync.
+//
 // Wraps cuMemFree, bound as cuMemFree_v2.
 func (d DevicePtr) Free() error {
 	return memFree(d)
@@ -148,6 +151,9 @@ func (d DevicePtr) Free() error {
 //   - [ErrInvalidValue]
 //   - [ErrNotInitialized]
 //   - [ErrNotSupported]
+//
+// It is not named Close because DevicePtr has another release method,
+// Free.
 //
 // Wraps cuMemFreeAsync.
 func (d DevicePtr) FreeAsync(hStream Stream) error {

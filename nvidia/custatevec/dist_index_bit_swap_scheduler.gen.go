@@ -18,6 +18,8 @@ func NewDistIndexBitSwapScheduler(handle Handle, nGlobalIndexBits uint32, nLocal
 //
 //   - handle: in the handle to cuStateVec library
 //
+// It is not named Close because it takes more than the handle.
+//
 // Wraps custatevecDistIndexBitSwapSchedulerDestroy.
 func (d DistIndexBitSwapScheduler) Destroy(handle Handle) error {
 	return distIndexBitSwapSchedulerDestroy(handle, d)

@@ -344,7 +344,7 @@
           },
           {
             "path": "nvidia/cublasmp/grid.gen.go",
-            "sha256": "afa20a23d5f2b2ccd4687c7f2f41c61ed9b284114dd0c5ed571f629c1d17a40d"
+            "sha256": "6f5e55d01ce477a62a658c54fa83a9fae46370c394fd9cab91d3ed6b93abed76"
           },
           {
             "path": "nvidia/cublasmp/handle.gen.go",
@@ -412,10 +412,10 @@
       "package": "github.com/tmc/lib/nvidia/cublasmp",
       "repositories": {
         "codegen": {
-          "commit": "ebad1633a68b9e125ee3f3c1f6b8a235f12ecc61",
-          "tree": "78aefed89a83d8f0ad50fb51ead1b1d68bf31d9a",
+          "commit": "294fc37222c4aee69c245ae929801eb904d7a1f7",
+          "tree": "03cc38a0b479ee70c5bec50a4d427840353d7066",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633"
+          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen 294fc372"
         },
         "headers": {
           "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
@@ -1057,7 +1057,7 @@
           },
           {
             "path": "nvidia/cudss/data.gen.go",
-            "sha256": "3dbb9fd95bb53cd2d5ef6241ab5314d228ca66753d5160928ec727b47cd61e10"
+            "sha256": "efc583e31333911a88b538395dfa921af192e1ff4cb95715ad0ff0af6944a148"
           },
           {
             "path": "nvidia/cudss/doc.gen.go",
@@ -1167,10 +1167,10 @@
       "package": "github.com/tmc/lib/nvidia/cudss",
       "repositories": {
         "codegen": {
-          "commit": "ebad1633a68b9e125ee3f3c1f6b8a235f12ecc61",
-          "tree": "78aefed89a83d8f0ad50fb51ead1b1d68bf31d9a",
+          "commit": "294fc37222c4aee69c245ae929801eb904d7a1f7",
+          "tree": "03cc38a0b479ee70c5bec50a4d427840353d7066",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants. Regenerated at libgen f14ae40 to drop scraped page chrome. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633"
+          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants. Regenerated at libgen f14ae40 to drop scraped page chrome. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen 294fc372"
         },
         "headers": {
           "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
@@ -1872,7 +1872,7 @@
           },
           {
             "path": "nvidia/cufile/handle.gen.go",
-            "sha256": "9e3f39fcb003914ef3eb4d9cfd0b2a87577caf8d2ad8280a602056f04002c28b"
+            "sha256": "e3e479a54812fe0d11c29796bae2213002f24770fda1dd5fd8255d1a80199ad3"
           },
           {
             "path": "nvidia/cufile/handles.gen.go",
@@ -2268,11 +2268,11 @@
         },
         {
           "path": "internal/ffigen/closemethod.go",
-          "sha256": "795cd7874eea19e3ec23e929c22201ba0d4999e960f0a1d0477bd43dbde1285e"
+          "sha256": "49404c3976ac05b9cb46174dabbf2f0bb2a74cabe5ffa3ecf05c4c3558003ecd"
         },
         {
           "path": "internal/ffigen/closemethod_test.go",
-          "sha256": "76b4e0162cd9415bd51a160b90fa351bbef406f44924441697418e5d925d69a4"
+          "sha256": "f691f3dabd2a9bd5e1f9bf128090101779b5baad07dd2ad22c2c3b2cdfc08b55"
         },
         {
           "path": "internal/ffigen/dim3_test.go",
@@ -2328,7 +2328,7 @@
         },
         {
           "path": "internal/ffigen/generator.go",
-          "sha256": "19be8c78d7166b323efd8e45c0ad1d19872f623552ea9a3eece4d82d94ff54ba"
+          "sha256": "2f77fa1ace355c9bbda40108af7b1a068f530773ce3e762a5af795605103c081"
         },
         {
           "path": "internal/ffigen/generator_test.go",
@@ -2480,10 +2480,10 @@
       "package": "github.com/tmc/lib/nvidia/cufile",
       "repositories": {
         "codegen": {
-          "commit": "dcfe7f39e9d88b6a3d1791b2826525a35947a907",
-          "tree": "b226436760eb8f78faa231a210f73dad593009e8",
+          "commit": "294fc37222c4aee69c245ae929801eb904d7a1f7",
+          "tree": "03cc38a0b479ee70c5bec50a4d427840353d7066",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Restamped at libgen 80aa768, which changed a generator source; output unchanged. Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Regenerated at libgen bc4b7c9: constants.gen.go binds the cuFile flag, length and error-base macros. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39"
+          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Restamped at libgen 80aa768, which changed a generator source; output unchanged. Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Regenerated at libgen bc4b7c9: constants.gen.go binds the cuFile flag, length and error-base macros. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39 regenerate at libgen 294fc372"
         },
         "headers": {
           "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
@@ -3284,11 +3284,11 @@
         },
         {
           "path": "internal/ffigen/closemethod.go",
-          "sha256": "795cd7874eea19e3ec23e929c22201ba0d4999e960f0a1d0477bd43dbde1285e"
+          "sha256": "49404c3976ac05b9cb46174dabbf2f0bb2a74cabe5ffa3ecf05c4c3558003ecd"
         },
         {
           "path": "internal/ffigen/closemethod_test.go",
-          "sha256": "76b4e0162cd9415bd51a160b90fa351bbef406f44924441697418e5d925d69a4"
+          "sha256": "f691f3dabd2a9bd5e1f9bf128090101779b5baad07dd2ad22c2c3b2cdfc08b55"
         },
         {
           "path": "internal/ffigen/dim3_test.go",
@@ -3344,7 +3344,7 @@
         },
         {
           "path": "internal/ffigen/generator.go",
-          "sha256": "19be8c78d7166b323efd8e45c0ad1d19872f623552ea9a3eece4d82d94ff54ba"
+          "sha256": "2f77fa1ace355c9bbda40108af7b1a068f530773ce3e762a5af795605103c081"
         },
         {
           "path": "internal/ffigen/generator_test.go",
@@ -3571,10 +3571,10 @@
       "package": "github.com/tmc/lib/nvidia/curand",
       "repositories": {
         "codegen": {
-          "commit": "dcfe7f39e9d88b6a3d1791b2826525a35947a907",
-          "tree": "b226436760eb8f78faa231a210f73dad593009e8",
+          "commit": "294fc37222c4aee69c245ae929801eb904d7a1f7",
+          "tree": "03cc38a0b479ee70c5bec50a4d427840353d7066",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Regenerated at libgen 80aa768: methods drop the receiver words they repeat (SetOffset, SetOrdering). Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39"
+          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Regenerated at libgen 80aa768: methods drop the receiver words they repeat (SetOffset, SetOrdering). Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39 regenerate at libgen 294fc372"
         },
         "headers": {
           "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
@@ -4637,11 +4637,11 @@
         },
         {
           "path": "internal/ffigen/closemethod.go",
-          "sha256": "795cd7874eea19e3ec23e929c22201ba0d4999e960f0a1d0477bd43dbde1285e"
+          "sha256": "49404c3976ac05b9cb46174dabbf2f0bb2a74cabe5ffa3ecf05c4c3558003ecd"
         },
         {
           "path": "internal/ffigen/closemethod_test.go",
-          "sha256": "76b4e0162cd9415bd51a160b90fa351bbef406f44924441697418e5d925d69a4"
+          "sha256": "f691f3dabd2a9bd5e1f9bf128090101779b5baad07dd2ad22c2c3b2cdfc08b55"
         },
         {
           "path": "internal/ffigen/dim3_test.go",
@@ -4697,7 +4697,7 @@
         },
         {
           "path": "internal/ffigen/generator.go",
-          "sha256": "19be8c78d7166b323efd8e45c0ad1d19872f623552ea9a3eece4d82d94ff54ba"
+          "sha256": "2f77fa1ace355c9bbda40108af7b1a068f530773ce3e762a5af795605103c081"
         },
         {
           "path": "internal/ffigen/generator_test.go",
@@ -4904,10 +4904,10 @@
       "package": "github.com/tmc/lib/nvidia/cusparse",
       "repositories": {
         "codegen": {
-          "commit": "dcfe7f39e9d88b6a3d1791b2826525a35947a907",
-          "tree": "b226436760eb8f78faa231a210f73dad593009e8",
+          "commit": "294fc37222c4aee69c245ae929801eb904d7a1f7",
+          "tree": "03cc38a0b479ee70c5bec50a4d427840353d7066",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Restamped at libgen 80aa768, which changed a generator source; output unchanged. Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39"
+          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Restamped at libgen 80aa768, which changed a generator source; output unchanged. Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39 regenerate at libgen 294fc372"
         },
         "headers": {
           "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
@@ -4945,7 +4945,7 @@
         "outputs": [
           {
             "path": "nvidia/custatevec/communicator.gen.go",
-            "sha256": "b4e1cd6da3475030cfbd0bdd277e90dd1ac56255f813cc2a3d5e20b796f0256a"
+            "sha256": "055f731d5d728f6c4dd510926eafbaaee323e3d24ce1342d94b48c5c816bef29"
           },
           {
             "path": "nvidia/custatevec/complex.gen.go",
@@ -4953,7 +4953,7 @@
           },
           {
             "path": "nvidia/custatevec/dist_index_bit_swap_scheduler.gen.go",
-            "sha256": "3437747aa5d23b9204d72f5917ed192423a5f3e9eb6a8b0c7399ecd40d2977f9"
+            "sha256": "ce916de2b0eb321bd5d2324821df0f9ef9b25afb8a47cc0988dad0b799610c7d"
           },
           {
             "path": "nvidia/custatevec/doc.gen.go",
@@ -5009,7 +5009,7 @@
           },
           {
             "path": "nvidia/custatevec/sv_swap_worker.gen.go",
-            "sha256": "4c55bcc291ca9175b74a4adbcf750b058083ba7f6e46e86dee40a06f9729afd4"
+            "sha256": "f9869e16a84c8f9fa8f92502955e8b38cae7578b3b898a750dffe115e5dd26ed"
           },
           {
             "path": "nvidia/custatevec/types.gen.go",
@@ -5041,10 +5041,10 @@
       "package": "github.com/tmc/lib/nvidia/custatevec",
       "repositories": {
         "codegen": {
-          "commit": "ebad1633a68b9e125ee3f3c1f6b8a235f12ecc61",
-          "tree": "78aefed89a83d8f0ad50fb51ead1b1d68bf31d9a",
+          "commit": "294fc37222c4aee69c245ae929801eb904d7a1f7",
+          "tree": "03cc38a0b479ee70c5bec50a4d427840353d7066",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633"
+          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen 294fc372"
         },
         "headers": {
           "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
@@ -5265,7 +5265,7 @@
           },
           {
             "path": "nvidia/cutensornet/network_descriptor.gen.go",
-            "sha256": "edbc66752278a4a2290d1ccc54ca778f50b5212c3c777cb41b93f0156a8fc13f"
+            "sha256": "26ed9f909fc09a1b966197094db55b5740471814f3c70c60e3f88e0357bcd2f6"
           },
           {
             "path": "nvidia/cutensornet/provenance.gen.go",
@@ -5338,10 +5338,10 @@
       "package": "github.com/tmc/lib/nvidia/cutensornet",
       "repositories": {
         "codegen": {
-          "commit": "ebad1633a68b9e125ee3f3c1f6b8a235f12ecc61",
-          "tree": "78aefed89a83d8f0ad50fb51ead1b1d68bf31d9a",
+          "commit": "294fc37222c4aee69c245ae929801eb904d7a1f7",
+          "tree": "03cc38a0b479ee70c5bec50a4d427840353d7066",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 8d0f6db: doc prose naming a deprecated function now links it. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633"
+          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 8d0f6db: doc prose naming a deprecated function now links it. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen 294fc372"
         },
         "headers": {
           "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
@@ -5604,17 +5604,17 @@
           },
           {
             "path": "nvidia/driver/coredump_callback_handle.gen.go",
-            "sha256": "6726c94d1a1ffa0ce51e7bdd5896ae63077944f33b182726951502f869707535"
+            "sha256": "cdeff82b4993ad3cdb5b0e837b5f8d2a83ef712adfee33da238e89a3014b04b4"
           },
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/driver/device.gen.go",
-            "sha256": "a7edb401086c33b4af3916631df1bfae7212bc09f83b204ed224be8ace71639e"
+            "sha256": "2b49281c4beee2d28e28d3bc4f304988bf9df5aa0619b81492d8dc8ba80f2ddf"
           },
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/driver/device_ptr.gen.go",
-            "sha256": "34f1c75e2fc448f775466873b1214f7874fe99292abd47d917468fca3ab6ab77"
+            "sha256": "ecae848ba27fde1bebdc1dce6e784d665137a30b1a6e74d9248c4f917f8db9f3"
           },
           {
             "documentation_refresh": "documentation-generation.json",
@@ -5668,7 +5668,7 @@
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/driver/graph.gen.go",
-            "sha256": "ac025914b9b34251bfdcde4f893418fe68182cc02f3e94a119ee4a0f11c7a96d"
+            "sha256": "a1ca21b12e65d7169b960ece636a9f73f80c601500ea47f7ed4b33353eb5f501"
           },
           {
             "documentation_refresh": "documentation-generation.json",
@@ -5797,7 +5797,7 @@
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/driver/user_object.gen.go",
-            "sha256": "24ef83284937ebb7b49f49ff9afafca54e7c5bc3a07691e07c772e126cc34d8a"
+            "sha256": "d3224bc7c6c44bb2e63652cf89b7e613b81ef4703a6843f1dd9cc4e03dc0c348"
           }
         ],
         "toolchain": {
@@ -5813,10 +5813,10 @@
       "package": "github.com/tmc/lib/nvidia/driver",
       "repositories": {
         "codegen": {
-          "commit": "ebad1633a68b9e125ee3f3c1f6b8a235f12ecc61",
-          "note": "Unpublished at the time of recording. This is the commit the recovery was verified against, not the commit that produced the committed bytes, which is unknown. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 72ec663: Function methods use receiver f. Regenerated at libgen 8da282f: methods drop the receiver words they repeat (GraphExec.Launch, GraphNode.KernelNodeGetParams) and parameters and their doc mentions are camel case. Regenerated at libgen 3a98258: copy methods are named by direction, and host copies take a []T with the pointer form renamed Ptr. Regenerated at libgen 4d9ccca: launch extents grouped into Dim3. Regenerated at libgen de368ea: graph node kinds have their own types. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated driver to link the TensorMap note. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 50579d6 regenerate at libgen 9c31466 (docs refetch d0f7ef1) regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633",
+          "commit": "294fc37222c4aee69c245ae929801eb904d7a1f7",
+          "note": "Unpublished at the time of recording. This is the commit the recovery was verified against, not the commit that produced the committed bytes, which is unknown. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 72ec663: Function methods use receiver f. Regenerated at libgen 8da282f: methods drop the receiver words they repeat (GraphExec.Launch, GraphNode.KernelNodeGetParams) and parameters and their doc mentions are camel case. Regenerated at libgen 3a98258: copy methods are named by direction, and host copies take a []T with the pointer form renamed Ptr. Regenerated at libgen 4d9ccca: launch extents grouped into Dim3. Regenerated at libgen de368ea: graph node kinds have their own types. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated driver to link the TensorMap note. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 50579d6 regenerate at libgen 9c31466 (docs refetch d0f7ef1) regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen 294fc372",
           "url": "https://github.com/tmc/libgen.git",
-          "tree": "78aefed89a83d8f0ad50fb51ead1b1d68bf31d9a"
+          "tree": "03cc38a0b479ee70c5bec50a4d427840353d7066"
         },
         "headers": {
           "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",
@@ -7269,7 +7269,7 @@
         },
         {
           "path": "cmd/gen-nccl-extensions/testdata/probe.go",
-          "sha256": "c9a647ee8f29a72d75677bc418c17bffea88d237f19a9ad5bfeed0019a0e8bb7"
+          "sha256": "63dd2951958325bd4592bcae9320740e3cb5e0fcabc7907eea1952178d9d0992"
         },
         {
           "path": "go.mod",
@@ -7317,11 +7317,11 @@
         },
         {
           "path": "internal/ffigen/closemethod.go",
-          "sha256": "795cd7874eea19e3ec23e929c22201ba0d4999e960f0a1d0477bd43dbde1285e"
+          "sha256": "49404c3976ac05b9cb46174dabbf2f0bb2a74cabe5ffa3ecf05c4c3558003ecd"
         },
         {
           "path": "internal/ffigen/closemethod_test.go",
-          "sha256": "76b4e0162cd9415bd51a160b90fa351bbef406f44924441697418e5d925d69a4"
+          "sha256": "f691f3dabd2a9bd5e1f9bf128090101779b5baad07dd2ad22c2c3b2cdfc08b55"
         },
         {
           "path": "internal/ffigen/dim3_test.go",
@@ -7377,7 +7377,7 @@
         },
         {
           "path": "internal/ffigen/generator.go",
-          "sha256": "19be8c78d7166b323efd8e45c0ad1d19872f623552ea9a3eece4d82d94ff54ba"
+          "sha256": "2f77fa1ace355c9bbda40108af7b1a068f530773ce3e762a5af795605103c081"
         },
         {
           "path": "internal/ffigen/generator_test.go",
@@ -7495,10 +7495,10 @@
       "package": "github.com/tmc/lib/nvidia/ncclep",
       "repositories": {
         "codegen": {
-          "commit": "dcfe7f39e9d88b6a3d1791b2826525a35947a907",
-          "tree": "b226436760eb8f78faa231a210f73dad593009e8",
+          "commit": "294fc37222c4aee69c245ae929801eb904d7a1f7",
+          "tree": "03cc38a0b479ee70c5bec50a4d427840353d7066",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Regenerated at libgen 8da282f: doc comments name snake_case parameters by their Go names. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39"
+          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Regenerated at libgen 8da282f: doc comments name snake_case parameters by their Go names. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39 regenerate at libgen 294fc372"
         }
       },
       "status": "generation-reproduced"
@@ -7651,7 +7651,7 @@
         },
         {
           "path": "cmd/gen-nccl-extensions/testdata/probe.go",
-          "sha256": "c9a647ee8f29a72d75677bc418c17bffea88d237f19a9ad5bfeed0019a0e8bb7"
+          "sha256": "63dd2951958325bd4592bcae9320740e3cb5e0fcabc7907eea1952178d9d0992"
         },
         {
           "path": "go.mod",
@@ -7699,11 +7699,11 @@
         },
         {
           "path": "internal/ffigen/closemethod.go",
-          "sha256": "795cd7874eea19e3ec23e929c22201ba0d4999e960f0a1d0477bd43dbde1285e"
+          "sha256": "49404c3976ac05b9cb46174dabbf2f0bb2a74cabe5ffa3ecf05c4c3558003ecd"
         },
         {
           "path": "internal/ffigen/closemethod_test.go",
-          "sha256": "76b4e0162cd9415bd51a160b90fa351bbef406f44924441697418e5d925d69a4"
+          "sha256": "f691f3dabd2a9bd5e1f9bf128090101779b5baad07dd2ad22c2c3b2cdfc08b55"
         },
         {
           "path": "internal/ffigen/dim3_test.go",
@@ -7759,7 +7759,7 @@
         },
         {
           "path": "internal/ffigen/generator.go",
-          "sha256": "19be8c78d7166b323efd8e45c0ad1d19872f623552ea9a3eece4d82d94ff54ba"
+          "sha256": "2f77fa1ace355c9bbda40108af7b1a068f530773ce3e762a5af795605103c081"
         },
         {
           "path": "internal/ffigen/generator_test.go",
@@ -7872,10 +7872,10 @@
       "package": "github.com/tmc/lib/nvidia/ncclll",
       "repositories": {
         "codegen": {
-          "commit": "dcfe7f39e9d88b6a3d1791b2826525a35947a907",
-          "tree": "b226436760eb8f78faa231a210f73dad593009e8",
+          "commit": "294fc37222c4aee69c245ae929801eb904d7a1f7",
+          "tree": "03cc38a0b479ee70c5bec50a4d427840353d7066",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39"
+          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39 regenerate at libgen 294fc372"
         }
       },
       "status": "generation-reproduced"
@@ -8034,7 +8034,7 @@
         },
         {
           "path": "cmd/gen-nccl-extensions/testdata/probe.go",
-          "sha256": "c9a647ee8f29a72d75677bc418c17bffea88d237f19a9ad5bfeed0019a0e8bb7"
+          "sha256": "63dd2951958325bd4592bcae9320740e3cb5e0fcabc7907eea1952178d9d0992"
         },
         {
           "path": "go.mod",
@@ -8082,11 +8082,11 @@
         },
         {
           "path": "internal/ffigen/closemethod.go",
-          "sha256": "795cd7874eea19e3ec23e929c22201ba0d4999e960f0a1d0477bd43dbde1285e"
+          "sha256": "49404c3976ac05b9cb46174dabbf2f0bb2a74cabe5ffa3ecf05c4c3558003ecd"
         },
         {
           "path": "internal/ffigen/closemethod_test.go",
-          "sha256": "76b4e0162cd9415bd51a160b90fa351bbef406f44924441697418e5d925d69a4"
+          "sha256": "f691f3dabd2a9bd5e1f9bf128090101779b5baad07dd2ad22c2c3b2cdfc08b55"
         },
         {
           "path": "internal/ffigen/dim3_test.go",
@@ -8142,7 +8142,7 @@
         },
         {
           "path": "internal/ffigen/generator.go",
-          "sha256": "19be8c78d7166b323efd8e45c0ad1d19872f623552ea9a3eece4d82d94ff54ba"
+          "sha256": "2f77fa1ace355c9bbda40108af7b1a068f530773ce3e762a5af795605103c081"
         },
         {
           "path": "internal/ffigen/generator_test.go",
@@ -8255,10 +8255,10 @@
       "package": "github.com/tmc/lib/nvidia/ncclm2n",
       "repositories": {
         "codegen": {
-          "commit": "dcfe7f39e9d88b6a3d1791b2826525a35947a907",
-          "tree": "b226436760eb8f78faa231a210f73dad593009e8",
+          "commit": "294fc37222c4aee69c245ae929801eb904d7a1f7",
+          "tree": "03cc38a0b479ee70c5bec50a4d427840353d7066",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39"
+          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39 regenerate at libgen 294fc372"
         }
       },
       "status": "generation-reproduced"

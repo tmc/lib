@@ -593,6 +593,8 @@ func (d Device) TotalMem() (uint, error) {
 //   - [ErrNotSupported]
 //   - [ErrUnknown]
 //
+// It is not named Close because it takes more than the handle.
+//
 // Wraps cuDeviceUnregisterAsyncNotification.
 func (d Device) UnregisterAsyncNotification(callback AsyncCallbackHandle) error {
 	return deviceUnregisterAsyncNotification(d, callback)

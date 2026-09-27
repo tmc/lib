@@ -18,6 +18,8 @@ func NewCommunicator(handle Handle, communicatorType CommunicatorType, soname *b
 //
 //   - handle: in the handle to cuStateVec library
 //
+// It is not named Close because it takes more than the handle.
+//
 // Wraps custatevecCommunicatorDestroy.
 func (c Communicator) Destroy(handle Handle) error {
 	return communicatorDestroy(handle, c)

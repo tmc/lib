@@ -13,6 +13,9 @@ package driver
 // Errors:
 //   - [ErrInvalidValue]
 //
+// It is not named Close because CoredumpCallbackHandle has another release
+// method, DeregisterStartCallback.
+//
 // Wraps cuCoredumpDeregisterCompleteCallback.
 func (c CoredumpCallbackHandle) DeregisterCompleteCallback() error {
 	return coredumpDeregisterCompleteCallback(c)
@@ -28,6 +31,9 @@ func (c CoredumpCallbackHandle) DeregisterCompleteCallback() error {
 //
 // Errors:
 //   - [ErrInvalidValue]
+//
+// It is not named Close because CoredumpCallbackHandle has another release
+// method, DeregisterCompleteCallback.
 //
 // Wraps cuCoredumpDeregisterStartCallback.
 func (c CoredumpCallbackHandle) DeregisterStartCallback() error {

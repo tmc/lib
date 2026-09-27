@@ -52,6 +52,8 @@ func HandleRegister(descr *Descr) (Handle, error) {
 //   - [Handle.Write]
 //   - [HandleRegister]
 //
+// It is not named Close because it returns no status.
+//
 // Wraps cuFileHandleDeregister.
 func (h Handle) Deregister() error {
 	return handleDeregister(h)

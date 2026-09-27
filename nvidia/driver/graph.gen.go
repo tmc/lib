@@ -447,6 +447,9 @@ func (g Graph) DebugDotPrint(path string, flags GraphdebugdotFlags) error {
 //   - [ErrInvalidValue]
 //   - [ErrNotInitialized]
 //
+// It is not named Close because Graph has another release method,
+// ReleaseUserObject.
+//
 // Wraps cuGraphDestroy.
 func (g Graph) Destroy() error {
 	return graphDestroy(g)
@@ -608,6 +611,8 @@ func (g Graph) InstantiateWithParams(instantiateParams *GraphInstantiateParams) 
 //
 // Errors:
 //   - [ErrInvalidValue]
+//
+// It is not named Close because Graph has another release method, Destroy.
 //
 // Wraps cuGraphReleaseUserObject.
 func (g Graph) ReleaseUserObject(object UserObject, count uint32) error {

@@ -15,6 +15,8 @@ package driver
 // Errors:
 //   - [ErrInvalidValue]
 //
+// It is not named Close because it takes more than the handle.
+//
 // Wraps cuUserObjectRelease.
 func (u UserObject) Release(count uint32) error {
 	return userObjectRelease(u, count)

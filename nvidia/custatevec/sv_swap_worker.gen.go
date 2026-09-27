@@ -46,6 +46,8 @@ func NewSVSwapWorkerWithSemaphore(handle Handle, communicator Communicator, orgS
 //
 //   - handle: in the handle to cuStateVec library
 //
+// It is not named Close because it takes more than the handle.
+//
 // Wraps custatevecSVSwapWorkerDestroy.
 func (s SVSwapWorker) Destroy(handle Handle) error {
 	return sVSwapWorkerDestroy(handle, s)
