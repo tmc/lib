@@ -23,6 +23,7 @@
 //	launcherr          a launch whose first synchronizing call discards its error
 //	streammismatch     device memory written on one stream and used on another
 //	querydone          a Query result discarded, or a wait loop that spins on failure
+//	cufileshort        a cuFile Read or Write whose byte count is discarded (advisory)
 //	capturesync        a synchronizing call while a stream is being captured
 //	profilerexit       a deferred ProfilerStop skipped by os.Exit or log.Fatal
 //
@@ -92,6 +93,7 @@ var analyzers = []*analysis.Analyzer{
 	launchErrAnalyzer,
 	streamMismatchAnalyzer,
 	queryDoneAnalyzer,
+	cufileShortAnalyzer,
 	captureSyncAnalyzer,
 	profilerExitAnalyzer,
 
