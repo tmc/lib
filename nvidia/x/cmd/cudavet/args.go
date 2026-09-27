@@ -509,7 +509,13 @@ binding checks only at run time. scalartype follows a cuTENSOR plan back
 through CreatePlan and the operation descriptor to the compute descriptor, a
 cuBLASLt Matmul to the scale type of its MatmulDesc, and reads the computeType
 argument of cuBLAS and cuSPARSE calls, and reports a Scalar made with a
-constructor of another kind.`,
+constructor of another kind.
+
+A cuTENSOR contraction reads the scalar type its output tensor's data type
+selects, so ComputeDesc32F on float64 data reads float64. scalartype follows
+the output descriptor of CreateContraction and CreateContractionTrinary to the
+data type of CreateTensorDescriptor; when that is not a constant in the same
+function, it accepts every kind the compute descriptor allows.`,
 	Run: runScalarType,
 }
 
@@ -522,13 +528,36 @@ var (
 )
 
 // cutensorScalar gives the Scalar kinds each cuTENSOR compute descriptor
-// reads. Reduced-precision descriptors take float scalars. The emulation
-// descriptors take the typeScalar of the contraction tables in cutensor.h:
-// 9X16BF and 4X16F emulate float32, 8XINT8 emulates float64.
+// reads in an elementwise operation, a permutation or a reduction. cutensor.h
+// lists no scalar type for these; for a reduction it says the type "is
+// determined by 'descCompute'" (cutensor.h:992), and every data type its
+// tables pair with a descriptor is no wider than the descriptor.
 var cutensorScalar = map[string][]string{
 	"ComputeDesc16F": real32, "ComputeDesc16BF": real32, "ComputeDescTF32": real32,
 	"ComputeDesc3XTF32": real32, "ComputeDesc32F": real32, "ComputeDesc64F": real64,
 	"ComputeDesc9X16BF": real32, "ComputeDesc4X16F": real32, "ComputeDesc8XInt8": real64,
+}
+
+// contractionScalar gives the Scalar kinds of the typeScalar column of the
+// contraction tables in cutensor.h (lines 608-654 for
+// cutensorCreateContraction, 1027-1069 for cutensorCreateContractionTrinary)
+// for each compute descriptor. ComputeDesc32F also contracts R_64F and C_64F
+// data and then reads a double scalar (lines 627, 637, 1046, 1056).
+var contractionScalar = map[string][]string{
+	"ComputeDesc16F": {"float32"}, "ComputeDesc16BF": {"float32"},
+	"ComputeDescTF32": real32, "ComputeDesc3XTF32": real32,
+	"ComputeDesc32F":    {"float32", "complex64", "float64", "complex128"},
+	"ComputeDesc64F":    real64,
+	"ComputeDesc9X16BF": real32, "ComputeDesc4X16F": real32, "ComputeDesc8XInt8": real64,
+}
+
+// contractionDataScalar gives the Scalar kind a contraction reads for the
+// data type of its output tensor. In every row of both contraction tables
+// typeScalar is typeC (typeD in the trinary table), with half-precision data
+// scaled in R_32F.
+var contractionDataScalar = map[string]string{
+	"R16F": "float32", "R16BF": "float32", "R32F": "float32",
+	"R64F": "float64", "C32F": "complex64", "C64F": "complex128",
 }
 
 // cublasScalar gives the Scalar kinds each cuBLAS compute type reads, as the
@@ -571,8 +600,7 @@ func runScalarType(pass *analysis.Pass) (any, error) {
 			var want []string
 			switch pkg := fn.Pkg().Name(); {
 			case pkg == "cutensor" && (fn.Name() == "Contract" || fn.Name() == "ContractTrinary" || strings.HasPrefix(fn.Name(), "Elementwise") || fn.Name() == "Reduce" || fn.Name() == "Permute"):
-				compute = cutensorCompute(info, source, call.Args[0])
-				want = cutensorScalar[compute]
+				compute, want = cutensorWant(info, source, call.Args[0])
 			case pkg == "cublaslt" && fn.Name() == "Matmul":
 				// NewMatmulDesc(computeType, scaleType)
 				if c := source(call.Args[0]); c != nil && calleeIn(info, c, "cublaslt") == "NewMatmulDesc" && len(c.Args) == 2 {
@@ -655,22 +683,63 @@ func assignStmts(body *ast.BlockStmt) []*ast.AssignStmt {
 	return out
 }
 
-// cutensorCompute follows a plan back to the compute descriptor its
-// operation was created with, and returns the descriptor's constructor name.
-func cutensorCompute(info *types.Info, source func(ast.Expr) *ast.CallExpr, plan ast.Expr) string {
+// cutensorWant follows a plan back through CreatePlan to the call that
+// created its operation descriptor, and returns the compute descriptor's
+// constructor name, qualified by the output's data type where that decides,
+// and the Scalar kinds the operation reads.
+func cutensorWant(info *types.Info, source func(ast.Expr) *ast.CallExpr, plan ast.Expr) (string, []string) {
 	c := source(plan)
 	if c == nil || calleeIn(info, c, "cutensor") != "CreatePlan" || len(c.Args) == 0 {
-		return ""
+		return "", nil
 	}
 	op := source(c.Args[0])
-	if op == nil || !strings.HasPrefix(calleeIn(info, op, "cutensor"), "Create") || len(op.Args) == 0 {
-		return ""
+	if op == nil || len(op.Args) == 0 {
+		return "", nil
+	}
+	name := calleeIn(info, op, "cutensor")
+	if !strings.HasPrefix(name, "Create") {
+		return "", nil
 	}
 	desc := source(op.Args[len(op.Args)-1])
 	if desc == nil {
+		return "", nil
+	}
+	compute := calleeIn(info, desc, "cutensor")
+	if name != "CreateContraction" && name != "CreateContractionTrinary" {
+		return compute, cutensorScalar[compute]
+	}
+	want := contractionScalar[compute]
+	data := cutensorOutputType(info, source, op)
+	if k, ok := contractionDataScalar[data]; ok && slices.Contains(want, k) {
+		return compute + " with " + data + " data", []string{k}
+	}
+	return compute, want
+}
+
+// cutensorOutputType returns the name of the data type constant the output
+// tensor descriptor of the operation op was created with, or "". The output
+// is the last TensorDescriptor argument.
+func cutensorOutputType(info *types.Info, source func(ast.Expr) *ast.CallExpr, op *ast.CallExpr) string {
+	var out ast.Expr
+	for _, arg := range op.Args {
+		if isNamed(info.TypeOf(arg), "cutensor", "TensorDescriptor") {
+			out = arg
+		}
+	}
+	if out == nil {
 		return ""
 	}
-	return calleeIn(info, desc, "cutensor")
+	c := source(out)
+	if c == nil || calleeIn(info, c, "cutensor") != "CreateTensorDescriptor" {
+		return ""
+	}
+	sig := callee(info, c).Type().(*types.Signature)
+	for i := range min(sig.Params().Len(), len(c.Args)) {
+		if isNamed(sig.Params().At(i).Type(), "cutensor", "DataType") {
+			return constName(info, c.Args[i])
+		}
+	}
+	return ""
 }
 
 // scalarKind returns the kind of a host Scalar of package pkg made by a

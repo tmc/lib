@@ -8,8 +8,12 @@ import (
 	"github.com/tmc/lib/nvidia/driver"
 )
 
-func contract(h cutensor.Handle, dA, dB, dC cutensor.TensorDescriptor, a, b, c driver.DevicePtr, s driver.Stream) error {
+func contract(h cutensor.Handle, dA, dB cutensor.TensorDescriptor, a, b, c driver.DevicePtr, s driver.Stream) error {
 	compute, err := cutensor.ComputeDesc32F()
+	if err != nil {
+		return err
+	}
+	dC, err := h.CreateTensorDescriptor([]int64{2, 2}, nil, cutensor.R32F, 128)
 	if err != nil {
 		return err
 	}
@@ -24,7 +28,233 @@ func contract(h cutensor.Handle, dA, dB, dC cutensor.TensorDescriptor, a, b, c d
 	}
 	defer plan.Close()
 	beta := cutensor.Float64Scalar(0)
-	return h.Contract(plan, cutensor.Float64Scalar(1), a, b, beta, c, c, 0, 0, s) // want `cutensor.Float64Scalar\(1\) is a float64 Scalar, but ComputeDesc32F takes float32 or complex64` `beta is a float64 Scalar, but ComputeDesc32F takes float32 or complex64`
+	return h.Contract(plan, cutensor.Float64Scalar(1), a, b, beta, c, c, 0, 0, s) // want `cutensor.Float64Scalar\(1\) is a float64 Scalar, but ComputeDesc32F with R32F data takes float32` `beta is a float64 Scalar, but ComputeDesc32F with R32F data takes float32`
+}
+
+func contract32FOn64F(h cutensor.Handle, dA, dB cutensor.TensorDescriptor, a, b, c driver.DevicePtr, s driver.Stream) error {
+	compute, err := cutensor.ComputeDesc32F()
+	if err != nil {
+		return err
+	}
+	dC, err := h.CreateTensorDescriptor([]int64{2, 2}, nil, cutensor.R64F, 128)
+	if err != nil {
+		return err
+	}
+	op, err := h.CreateContraction(dA, []int32{'i', 'k'}, cutensor.OpIdentity, dB, []int32{'k', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, compute)
+	if err != nil {
+		return err
+	}
+	defer op.Close()
+	plan, err := h.CreatePlan(op, 0, 0)
+	if err != nil {
+		return err
+	}
+	defer plan.Close()
+	return h.Contract(plan, cutensor.Float64Scalar(1), a, b, cutensor.Float64Scalar(0), c, c, 0, 0, s)
+}
+
+func contract32FOn64FFloat32(h cutensor.Handle, dA, dB cutensor.TensorDescriptor, a, b, c driver.DevicePtr, s driver.Stream) error {
+	compute, err := cutensor.ComputeDesc32F()
+	if err != nil {
+		return err
+	}
+	dC, err := h.CreateTensorDescriptor([]int64{2, 2}, nil, cutensor.R64F, 128)
+	if err != nil {
+		return err
+	}
+	op, err := h.CreateContraction(dA, []int32{'i', 'k'}, cutensor.OpIdentity, dB, []int32{'k', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, compute)
+	if err != nil {
+		return err
+	}
+	defer op.Close()
+	plan, err := h.CreatePlan(op, 0, 0)
+	if err != nil {
+		return err
+	}
+	defer plan.Close()
+	return h.Contract(plan, cutensor.Float32Scalar(1), a, b, cutensor.Float32Scalar(0), c, c, 0, 0, s) // want `cutensor.Float32Scalar\(1\) is a float32 Scalar, but ComputeDesc32F with R64F data takes float64` `cutensor.Float32Scalar\(0\) is a float32 Scalar, but ComputeDesc32F with R64F data takes float64`
+}
+
+func contract32FOnC64F(h cutensor.Handle, dA, dB cutensor.TensorDescriptor, a, b, c driver.DevicePtr, s driver.Stream) error {
+	compute, err := cutensor.ComputeDesc32F()
+	if err != nil {
+		return err
+	}
+	dC, err := h.CreateTensorDescriptor([]int64{2, 2}, nil, cutensor.C64F, 128)
+	if err != nil {
+		return err
+	}
+	op, err := h.CreateContraction(dA, []int32{'i', 'k'}, cutensor.OpIdentity, dB, []int32{'k', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, compute)
+	if err != nil {
+		return err
+	}
+	defer op.Close()
+	plan, err := h.CreatePlan(op, 0, 0)
+	if err != nil {
+		return err
+	}
+	defer plan.Close()
+	return h.Contract(plan, cutensor.Complex128Scalar(1), a, b, cutensor.Complex128Scalar(0), c, c, 0, 0, s)
+}
+
+func contract32FOnC32FReal(h cutensor.Handle, dA, dB cutensor.TensorDescriptor, a, b, c driver.DevicePtr, s driver.Stream) error {
+	compute, err := cutensor.ComputeDesc32F()
+	if err != nil {
+		return err
+	}
+	dC, err := h.CreateTensorDescriptor([]int64{2, 2}, nil, cutensor.C32F, 128)
+	if err != nil {
+		return err
+	}
+	op, err := h.CreateContraction(dA, []int32{'i', 'k'}, cutensor.OpIdentity, dB, []int32{'k', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, compute)
+	if err != nil {
+		return err
+	}
+	defer op.Close()
+	plan, err := h.CreatePlan(op, 0, 0)
+	if err != nil {
+		return err
+	}
+	defer plan.Close()
+	return h.Contract(plan, cutensor.Float32Scalar(1), a, b, cutensor.Complex64Scalar(0), c, c, 0, 0, s) // want `cutensor.Float32Scalar\(1\) is a float32 Scalar, but ComputeDesc32F with C32F data takes complex64`
+}
+
+func contract64FOn32F(h cutensor.Handle, dA, dB cutensor.TensorDescriptor, a, b, c driver.DevicePtr, s driver.Stream) error {
+	compute, err := cutensor.ComputeDesc64F()
+	if err != nil {
+		return err
+	}
+	dC, err := h.CreateTensorDescriptor([]int64{2, 2}, nil, cutensor.R32F, 128)
+	if err != nil {
+		return err
+	}
+	op, err := h.CreateContraction(dA, []int32{'i', 'k'}, cutensor.OpIdentity, dB, []int32{'k', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, compute)
+	if err != nil {
+		return err
+	}
+	defer op.Close()
+	plan, err := h.CreatePlan(op, 0, 0)
+	if err != nil {
+		return err
+	}
+	defer plan.Close()
+	return h.Contract(plan, cutensor.Float64Scalar(1), a, b, cutensor.Float32Scalar(0), c, c, 0, 0, s) // want `cutensor.Float32Scalar\(0\) is a float32 Scalar, but ComputeDesc64F takes float64 or complex128`
+}
+
+func contract32FUnknownData(h cutensor.Handle, dA, dB, dC cutensor.TensorDescriptor, a, b, c driver.DevicePtr, s driver.Stream) error {
+	compute, err := cutensor.ComputeDesc32F()
+	if err != nil {
+		return err
+	}
+	op, err := h.CreateContraction(dA, []int32{'i', 'k'}, cutensor.OpIdentity, dB, []int32{'k', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, compute)
+	if err != nil {
+		return err
+	}
+	defer op.Close()
+	plan, err := h.CreatePlan(op, 0, 0)
+	if err != nil {
+		return err
+	}
+	defer plan.Close()
+	return h.Contract(plan, cutensor.Float64Scalar(1), a, b, cutensor.Float64Scalar(0), c, c, 0, 0, s)
+}
+
+func contract64FUnknownData(h cutensor.Handle, dA, dB, dC cutensor.TensorDescriptor, a, b, c driver.DevicePtr, s driver.Stream) error {
+	compute, err := cutensor.ComputeDesc64F()
+	if err != nil {
+		return err
+	}
+	op, err := h.CreateContraction(dA, []int32{'i', 'k'}, cutensor.OpIdentity, dB, []int32{'k', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, compute)
+	if err != nil {
+		return err
+	}
+	defer op.Close()
+	plan, err := h.CreatePlan(op, 0, 0)
+	if err != nil {
+		return err
+	}
+	defer plan.Close()
+	return h.Contract(plan, cutensor.Float32Scalar(1), a, b, cutensor.Complex128Scalar(0), c, c, 0, 0, s) // want `cutensor.Float32Scalar\(1\) is a float32 Scalar, but ComputeDesc64F takes float64 or complex128`
+}
+
+func contract16FUnknownData(h cutensor.Handle, dA, dB, dC cutensor.TensorDescriptor, a, b, c driver.DevicePtr, s driver.Stream) error {
+	compute, err := cutensor.ComputeDesc16F()
+	if err != nil {
+		return err
+	}
+	op, err := h.CreateContraction(dA, []int32{'i', 'k'}, cutensor.OpIdentity, dB, []int32{'k', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, compute)
+	if err != nil {
+		return err
+	}
+	defer op.Close()
+	plan, err := h.CreatePlan(op, 0, 0)
+	if err != nil {
+		return err
+	}
+	defer plan.Close()
+	return h.Contract(plan, cutensor.Complex64Scalar(1), a, b, cutensor.Float32Scalar(0), c, c, 0, 0, s) // want `cutensor.Complex64Scalar\(1\) is a complex64 Scalar, but ComputeDesc16F takes float32`
+}
+
+func contractTrinary32FOn64F(h cutensor.Handle, dA, dB cutensor.TensorDescriptor, a, b, c driver.DevicePtr, s driver.Stream) error {
+	compute, err := cutensor.ComputeDesc32F()
+	if err != nil {
+		return err
+	}
+	dC, err := h.CreateTensorDescriptor([]int64{2, 2}, nil, cutensor.R64F, 128)
+	if err != nil {
+		return err
+	}
+	op, err := h.CreateContractionTrinary(dA, []int32{'i', 'k'}, cutensor.OpIdentity, dB, []int32{'k', 'l'}, cutensor.OpIdentity, dB, []int32{'l', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, compute)
+	if err != nil {
+		return err
+	}
+	defer op.Close()
+	plan, err := h.CreatePlan(op, 0, 0)
+	if err != nil {
+		return err
+	}
+	defer plan.Close()
+	return h.ContractTrinary(plan, cutensor.Float64Scalar(1), a, b, b, cutensor.Float64Scalar(0), c, c, 0, 0, s)
+}
+
+func contractTrinary32FOn32F(h cutensor.Handle, dA, dB cutensor.TensorDescriptor, a, b, c driver.DevicePtr, s driver.Stream) error {
+	compute, err := cutensor.ComputeDesc32F()
+	if err != nil {
+		return err
+	}
+	dC, err := h.CreateTensorDescriptor([]int64{2, 2}, nil, cutensor.R32F, 128)
+	if err != nil {
+		return err
+	}
+	op, err := h.CreateContractionTrinary(dA, []int32{'i', 'k'}, cutensor.OpIdentity, dB, []int32{'k', 'l'}, cutensor.OpIdentity, dB, []int32{'l', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, compute)
+	if err != nil {
+		return err
+	}
+	defer op.Close()
+	plan, err := h.CreatePlan(op, 0, 0)
+	if err != nil {
+		return err
+	}
+	defer plan.Close()
+	return h.ContractTrinary(plan, cutensor.Float64Scalar(1), a, b, b, cutensor.Float64Scalar(0), c, c, 0, 0, s) // want `cutensor.Float64Scalar\(1\) is a float64 Scalar, but ComputeDesc32F with R32F data takes float32` `cutensor.Float64Scalar\(0\) is a float64 Scalar, but ComputeDesc32F with R32F data takes float32`
+}
+
+func contractTrinary32FUnknownData(h cutensor.Handle, dA, dB, dC cutensor.TensorDescriptor, a, b, c driver.DevicePtr, s driver.Stream) error {
+	compute, err := cutensor.ComputeDesc32F()
+	if err != nil {
+		return err
+	}
+	op, err := h.CreateContractionTrinary(dA, []int32{'i', 'k'}, cutensor.OpIdentity, dB, []int32{'k', 'l'}, cutensor.OpIdentity, dB, []int32{'l', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, cutensor.OpIdentity, dC, []int32{'i', 'j'}, compute)
+	if err != nil {
+		return err
+	}
+	defer op.Close()
+	plan, err := h.CreatePlan(op, 0, 0)
+	if err != nil {
+		return err
+	}
+	defer plan.Close()
+	return h.ContractTrinary(plan, cutensor.Float64Scalar(1), a, b, b, cutensor.Float64Scalar(0), c, c, 0, 0, s)
 }
 
 func contract32(h cutensor.Handle, dA, dB, dC cutensor.TensorDescriptor, a, b, c driver.DevicePtr, s driver.Stream) error {
