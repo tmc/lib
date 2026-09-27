@@ -10201,9 +10201,10 @@
           "url": "https://github.com/tmc/cuda-headers.git"
         },
         "lib": {
-          "commit": "0b1e116cdf757f0920a2ddf18255368a367fbdbf",
-          "tree": "cfe5a29063cb73835c97583f35bcde4ed711efc2",
-          "url": "https://github.com/tmc/lib.git"
+          "commit": "629d51edf46883fec5b87f4e760427e107eb160e",
+          "tree": "4bee3fb54413c79bf350d08169ce61091cc8a1eb",
+          "url": "https://github.com/tmc/lib.git",
+          "note": "Clean package baseline used for NVVM regeneration; output changes landed in lib commit 113f78195."
         }
       },
       "runtime_support": "Not established by this manifest; no public minimum/newest runtime or native ABI/platform promotion is claimed.",
