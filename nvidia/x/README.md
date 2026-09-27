@@ -73,7 +73,6 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudaroofline](cudaroofline/) | Package cudaroofline models kernel arithmetic intensity (FLOPs/byte) and evaluates a launch against device ceilings. |
 | [cudasafetensors](cudasafetensors/) | Package cudasafetensors copies tensors from safetensors files into CUDA device memory. |
 | [cudasample](cudasample/) | Package cudasample provides a CUDA greedy-argmax kernel and its CPU reference. |
-| [cudasafetensors](cudasafetensors/) | Package cudasafetensors copies tensors from safetensors files into CUDA device memory. |
 | [cudasanitizer](cudasanitizer/) | Package cudasanitizer runs a program under the NVIDIA compute-sanitizer command-line tool and classifies what happened. |
 | [cudasass](cudasass/) | Package cudasass parses and inspects NVIDIA Streaming Multiprocessor (SASS) machine assembly. |
 | [cudasearch](cudasearch/) | Package cudasearch provides workload-bound search strategies (Beam and MCTS) over e-graph program rewrite transitions for CUDA execution plans. |
