@@ -1,6 +1,7 @@
 package cupticallback
 
 import (
+	"runtime"
 	"testing"
 	"unsafe"
 
@@ -62,6 +63,11 @@ func TestDecodeEvent(t *testing.T) {
 	}
 
 	evt := decodeEvent(1, cupti.CbDomainDriverApi, 10, unsafe.Pointer(&rawApi), false)
+	runtime.KeepAlive(fnNameBytes)
+	runtime.KeepAlive(symNameBytes)
+	runtime.KeepAlive(params)
+	runtime.KeepAlive(returnValue)
+	runtime.KeepAlive(corrData)
 	if evt.Domain != cupti.CbDomainDriverApi {
 		t.Errorf("Domain = %v, want %v", evt.Domain, cupti.CbDomainDriverApi)
 	}
@@ -135,6 +141,7 @@ func TestDecodeEvent(t *testing.T) {
 		FunctionName: uintptr(unsafe.Pointer(&nvtxBytes[0])),
 	}
 	evtNvtx := decodeEvent(0, cupti.CbDomainNvtx, 40, unsafe.Pointer(&rawNvtx), false)
+	runtime.KeepAlive(nvtxBytes)
 	if evtNvtx.Nvtx == nil {
 		t.Fatal("evtNvtx.Nvtx is nil")
 	}

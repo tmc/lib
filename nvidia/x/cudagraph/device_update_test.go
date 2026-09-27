@@ -2,6 +2,7 @@ package cudagraph_test
 
 import (
 	"encoding/binary"
+	"runtime"
 	"strings"
 	"testing"
 	"unsafe"
@@ -486,6 +487,7 @@ func TestDeviceUpdatableNodeIntegration(t *testing.T) {
 			unsafe.Pointer(&count),
 			unsafe.Pointer(&offsetVal),
 		}
+		defer runtime.KeepAlive(kernelArgs)
 
 		kp := driver.KernelNodeParams{
 			Func:         fn,

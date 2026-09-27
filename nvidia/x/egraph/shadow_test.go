@@ -3,6 +3,7 @@ package egraph
 import (
 	"context"
 	"errors"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -848,6 +849,7 @@ extern "C" __global__ void vectorAdd(float *a, float *b, float *c, int n) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer runtime.KeepAlive(packed)
 
 	var kp driver.KernelNodeParams
 	kp.Func = fn

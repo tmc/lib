@@ -1,6 +1,7 @@
 package cuptisass
 
 import (
+	"runtime"
 	"testing"
 	"unsafe"
 
@@ -161,7 +162,9 @@ func TestReadCString(t *testing.T) {
 
 	buf := []byte("hello_sass\x00")
 	ptr := uintptr(unsafe.Pointer(&buf[0]))
-	if got, want := readCString(ptr), "hello_sass"; got != want {
+	got := readCString(ptr)
+	runtime.KeepAlive(buf)
+	if want := "hello_sass"; got != want {
 		t.Errorf("readCString = %q, want %q", got, want)
 	}
 }

@@ -2,6 +2,7 @@ package cudagraph_test
 
 import (
 	"fmt"
+	"runtime"
 	"testing"
 	"unsafe"
 
@@ -109,6 +110,7 @@ func TestNodeGraphConstruction(t *testing.T) {
 		unsafe.Pointer(&dptr),
 		unsafe.Pointer(&count),
 	}
+	defer runtime.KeepAlive(args)
 
 	err = dev.WithContext(func() error {
 		g, err := cudagraph.New()
