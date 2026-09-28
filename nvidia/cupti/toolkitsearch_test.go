@@ -132,6 +132,9 @@ func TestToolkitSearchDoesNotPreemptTheLinker(t *testing.T) {
 	stubLibrary(t, filepath.Join(root, "extras", "CUPTI", "lib64"), firstLibraryName(t))
 	t.Setenv("CUDA_HOME", root)
 	t.Setenv("CUDA_PATH", "")
+	// An explicit CUPTI_LIB_PATH wins over both the linker and the search,
+	// so clear it: the ordering under test is the one with no override.
+	t.Setenv("CUPTI_LIB_PATH", "")
 
 	_, path, err := openLibrary("")
 	if err != nil {
