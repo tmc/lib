@@ -1043,7 +1043,9 @@ func captureEnvironment(o captureOptions, session, dir string) []string {
 		env = setCaptureEnv(env, "CUDAPROF_PYTHON_STACKS", "0")
 	}
 	env = setCaptureEnv(env, cudaprof.ExternalStacksEnv, filepath.Join(dir, cudacapture.ExternalStacksName))
-	env = setCaptureEnv(env, "CUDAPROF_CORRELATE", "1")
+	if !hasCaptureEnv(env, "CUDAPROF_CORRELATE") {
+		env = setCaptureEnv(env, "CUDAPROF_CORRELATE", "1")
+	}
 	// The collection policy is exported only when the caller asked for it, so
 	// an unset flag leaves whatever the caller's own environment said and the
 	// agent keeps its own default. "none" is exported like any other value: it
@@ -1143,6 +1145,15 @@ func captureEnvironment(o captureOptions, session, dir string) []string {
 	}
 	env = setNVTXInjection(env)
 	return env
+}
+
+func hasCaptureEnv(env []string, name string) bool {
+	for _, item := range env {
+		if key, _, ok := strings.Cut(item, "="); ok && key == name {
+			return true
+		}
+	}
+	return false
 }
 
 // setNVTXInjection points NVTX_INJECTION64_PATH at a CUPTI library so that an

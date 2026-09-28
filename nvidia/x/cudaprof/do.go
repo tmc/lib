@@ -246,14 +246,18 @@ func ExternalStackLosses() uint64 {
 type ExternalStackRecord struct {
 	ExternalKind uint32   `json:"external_kind"`
 	ExternalID   uint64   `json:"external_id"`
+	Process      uint64   `json:"process,omitempty"`
 	Frames       []string `json:"frames"`
 }
 
 // ExternalStackTable is the bounded, portable sidecar written next to a capture journal.
 type ExternalStackTable struct {
-	Version int                   `json:"version"`
-	Losses  uint64                `json:"losses"`
-	Stacks  []ExternalStackRecord `json:"stacks"`
+	Version int    `json:"version"`
+	Losses  uint64 `json:"losses"`
+	// LossesLowerBound distinguishes checkpointed sidecar counts from the
+	// exact in-memory count returned by WriteExternalStackTable.
+	LossesLowerBound bool                  `json:"losses_lower_bound,omitempty"`
+	Stacks           []ExternalStackRecord `json:"stacks"`
 }
 
 // WriteExternalStackTable writes the retained stacks in deterministic JSON.
@@ -317,11 +321,15 @@ func captureCallerStack(kind cupti.ExternalCorrelationKind, id uint64) {
 	if n == 0 {
 		return
 	}
-	truncated := n > maxCallstackFrames
-	if truncated {
-		n = maxCallstackFrames
+	RecordExternalStack(kind, id, formatCallstack(rpc[:n]))
+}
+
+func formatCallstack(pcs []uintptr) []string {
+	truncated := len(pcs) >= maxCallstackFrames
+	if len(pcs) > maxCallstackFrames {
+		pcs = pcs[:maxCallstackFrames]
 	}
-	frames := runtime.CallersFrames(rpc[:n])
+	frames := runtime.CallersFrames(pcs)
 	var leafToRoot []string
 	for {
 		frame, more := frames.Next()
@@ -353,7 +361,7 @@ func captureCallerStack(kind cupti.ExternalCorrelationKind, id uint64) {
 	if truncated && len(rootToLeaf) != 0 {
 		rootToLeaf = append([]string{"[truncated]"}, rootToLeaf...)
 	}
-	RecordExternalStack(kind, id, rootToLeaf)
+	return rootToLeaf
 }
 
 func externalStackBudgetAvailable() bool {

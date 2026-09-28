@@ -470,7 +470,7 @@ func scratchAttachments(dir string) []captureAttachment {
 		}
 		found = append(found, captureAttachment{name: name, path: path, size: info.Size()})
 	}
-	for _, name := range []string{"capture.journal", "handshake.json", "python-profile.json", "python-result.json", cudacapture.ExternalStacksName} {
+	for _, name := range []string{"capture.journal", "handshake.json", "python-profile.json", "python-result.json"} {
 		add(name, filepath.Join(dir, name))
 	}
 	if entries, err := os.ReadDir(filepath.Join(dir, "stacks")); err == nil {
@@ -768,6 +768,7 @@ func writeCapture(path string, result captureResult, budget captureArtifactBudge
 	// dropped one at a time, largest first, until the whole artifact fits.
 	var kept []captureAttachment
 	var omitted []captureOmittedFile
+	var stackSidecar stackSidecarRead
 	if result.ScratchDir != "" {
 		for _, a := range scratchAttachments(result.ScratchDir) {
 			if cudacapture.IsJournalName(a.name) {
@@ -790,6 +791,20 @@ func writeCapture(path string, result captureResult, budget captureArtifactBudge
 				continue
 			}
 			kept = append(kept, a)
+		}
+		var sidecarErr error
+		stackPath := filepath.Join(result.ScratchDir, cudacapture.ExternalStacksName)
+		stackSidecar, sidecarErr = readExternalStackSidecar(stackPath, uint64(result.TargetPID))
+		if stackSidecar.exists {
+			attachment := captureAttachment{name: cudacapture.ExternalStacksName, path: stackPath, size: int64(len(stackSidecar.data)), data: stackSidecar.data, rawName: cudacapture.ExternalStacksName, rawSize: stackSidecar.rawSize}
+			switch {
+			case sidecarErr != nil:
+				omitted = append(omitted, omitAttachment(attachment, "external stack sidecar damaged: "+sidecarErr.Error()))
+			case stackSidecar.rawSize > budget.FileBytes:
+				omitted = append(omitted, omitAttachment(attachment, fmt.Sprintf("external stack sidecar exceeds capture file budget of %d bytes", budget.FileBytes)))
+			default:
+				kept = append(kept, attachment)
+			}
 		}
 	}
 	// Retained producer capability is the only provenance available here.
@@ -865,23 +880,37 @@ func writeCapture(path string, result captureResult, budget captureArtifactBudge
 	if len(result.isolationRaw) != 0 {
 		c.Files[isolation.Attachment] = result.isolationRaw
 	}
-	if result.ScratchDir != "" {
-		stackData, err := attachExternalStackSidecar(c, filepath.Join(result.ScratchDir, cudacapture.ExternalStacksName))
-		if err != nil {
-			return nil, err
-		}
+	stackData := attachments[cudacapture.ExternalStacksName]
+	if len(stackData) != 0 {
 		c.Profile, err = labelExternalCorrelation(c.Profile, result.Session, uint64(result.TargetPID), result.Activities, sampleRecords, externalStackKinds(stackData))
 		if err != nil {
 			return nil, err
 		}
-		c.Profile, err = labelExternalStacks(c.Profile, result.Activities, sampleRecords, stackData)
+		c.Profile, err = labelExternalStacks(c.Profile, result.Activities, sampleRecords, stackData, uint64(result.TargetPID))
 		if err != nil {
 			return nil, err
+		}
+		if stackSidecar.damaged {
+			c.Profile.Comments = append(c.Profile.Comments, "cudaprof: external stack sidecar damaged; "+stackSidecar.damageNote)
 		}
 	} else {
 		c.Profile, err = labelExternalCorrelation(c.Profile, result.Session, uint64(result.TargetPID), result.Activities, sampleRecords, nil)
 		if err != nil {
 			return nil, err
+		}
+		c.Profile, err = labelExternalStacks(c.Profile, result.Activities, sampleRecords, nil, uint64(result.TargetPID))
+		if err != nil {
+			return nil, err
+		}
+		if stackSidecar.exists {
+			why := "sidecar omitted by capture file budget or unreadable"
+			for _, item := range omitted {
+				if item.Name == cudacapture.ExternalStacksName {
+					why = item.Reason
+					break
+				}
+			}
+			c.Profile.Comments = append(c.Profile.Comments, "cudaprof: external stack sidecar omitted: "+why)
 		}
 	}
 	// Modules are declared from what was actually embedded, not from what the
@@ -1003,6 +1032,8 @@ Options:
                                 sets CUDA_INJECTION64_PATH, so the driver loads it during
                                 cuInit and only processes that use CUDA write a journal
   --no-inject                   run target uninstrumented without injection library
+                                CUDAPROF_CORRELATE defaults to 1; an inherited value
+                                such as 0 is preserved
   --json                        write JSON status summary to stdout
   --launch-manifest             attach an opt-in metadata-only launch manifest;
                                 unknown callback layouts remain UNREAD

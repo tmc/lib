@@ -267,6 +267,16 @@ func TestCaptureEnvironmentExportsCollectionPolicy(t *testing.T) {
 	}
 }
 
+func TestCaptureEnvironmentPreservesCorrelateOff(t *testing.T) {
+	env := captureEnvironment(captureOptions{Env: []string{"CUDAPROF_CORRELATE=0"}}, "session", "dir")
+	if got := lookupEnv(env, "CUDAPROF_CORRELATE"); got != "0" {
+		t.Fatalf("CUDAPROF_CORRELATE = %q, want caller value 0", got)
+	}
+	if !strings.Contains(captureHelp(), "CUDAPROF_CORRELATE defaults to 1") {
+		t.Fatal("capture help does not document the default correlation policy")
+	}
+}
+
 func TestParseCaptureArgsCrashTrace(t *testing.T) {
 	tests := []struct {
 		args    []string

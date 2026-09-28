@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -23,7 +24,7 @@ import (
 var sidecarTestPushedID uint64
 
 func TestMain(m *testing.M) {
-	if os.Getenv("CUDAPROF_TEST_STACK_CHILD") == "1" {
+	if os.Getenv("CUDAPROF_TEST_STACK_CHILD") != "" {
 		pushExternalID = func(_ cupti.ExternalCorrelationKind, id uint64) error { sidecarTestPushedID = id; return nil }
 		popExternalID = func(cupti.ExternalCorrelationKind) (uint64, error) { return sidecarTestPushedID, nil }
 	}
@@ -37,13 +38,22 @@ func TestExternalStackSidecarWrittenByTarget(t *testing.T) {
 		}
 		os.Exit(0)
 	}
+	if os.Getenv("CUDAPROF_TEST_STACK_CHILD") == "writer" {
+		externalStackBudget = 1
+		sidecarTargetCallSite()
+		externalStackBudget = 0
+		for i := 0; i < 128; i++ {
+			sidecarTargetCallSite()
+		}
+		os.Exit(0)
+	}
 	path := filepath.Join(t.TempDir(), "external-stacks.json")
 	cmd := exec.Command(os.Args[0], "-test.run=^TestExternalStackSidecarWrittenByTarget$")
-	cmd.Env = sidecarTestEnvironment(path)
+	cmd.Env = sidecarTestEnvironmentMode(path, "writer")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("child: %v\n%s", err, output)
 	}
-	f, err := os.Open(path)
+	f, err := os.Open(fmt.Sprintf("%s.%d", path, cmd.Process.Pid))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,12 +64,13 @@ func TestExternalStackSidecarWrittenByTarget(t *testing.T) {
 		t.Fatal("sidecar has no header")
 	}
 	var header struct {
-		Version int    `json:"version"`
-		Kind    string `json:"kind"`
-		Losses  string `json:"losses"`
+		Version    int    `json:"version"`
+		Kind       string `json:"kind"`
+		Losses     string `json:"losses"`
+		LowerBound bool   `json:"losses_lower_bound"`
 	}
 	if err := json.Unmarshal(scanner.Bytes(), &header); err != nil {
-		t.Fatal(err)
+		t.Fatalf("header line %q: %v", scanner.Bytes(), err)
 	}
 	if header.Version != 1 || header.Kind != "header" {
 		t.Fatalf("header = %+v", header)
@@ -69,17 +80,161 @@ func TestExternalStackSidecarWrittenByTarget(t *testing.T) {
 	}
 	var record ExternalStackRecord
 	if err := json.Unmarshal(scanner.Bytes(), &record); err != nil {
+		all, _ := os.ReadFile(fmt.Sprintf("%s.%d", path, cmd.Process.Pid))
+		t.Fatalf("stack line %q in %q: %v", scanner.Bytes(), all, err)
+	}
+	if record.Process != uint64(cmd.Process.Pid) {
+		t.Fatalf("record process = %d, want %d", record.Process, cmd.Process.Pid)
+	}
+	if len(record.Frames) == 0 || !strings.Contains(record.Frames[len(record.Frames)-1], "sidecarTargetCallSite") {
+		t.Fatalf("leaf frame = %v, want sidecarTargetCallSite", record.Frames)
+	}
+	if header.Losses != "00000000000000000065" || !header.LowerBound {
+		t.Fatalf("loss checkpoint = %q, want lower-bound checkpoint 65", header.Losses)
+	}
+}
+
+func TestDoCostAfterStackBudgetFull(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "external-stacks.json")
+	old, had := os.LookupEnv(ExternalStacksEnv)
+	if err := os.Setenv(ExternalStacksEnv, path); err != nil {
 		t.Fatal(err)
 	}
-	for _, frame := range record.Frames {
-		if strings.Contains(frame, "sidecarTargetCallSite") {
-			return
+	t.Cleanup(func() {
+		if had {
+			_ = os.Setenv(ExternalStacksEnv, old)
+		} else {
+			_ = os.Unsetenv(ExternalStacksEnv)
+		}
+	})
+	withFakeCorrelation(t, func(cupti.ExternalCorrelationKind, uint64) error { return nil })
+	externalStackBudget = 1
+	t.Cleanup(func() { externalStackBudget = 4096 })
+	sidecarTargetCallSite() // retained stack
+	sidecarTargetCallSite() // first loss checkpoints the header
+	before, err := os.ReadFile(fmt.Sprintf("%s.%d", path, os.Getpid()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 32; i++ {
+		sidecarTargetCallSite()
+	}
+	after, err := os.ReadFile(fmt.Sprintf("%s.%d", path, os.Getpid()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Fatalf("sidecar changed during full-budget calls: size %d -> %d", len(before), len(after))
+	}
+	var header struct {
+		Kind       string `json:"kind"`
+		Losses     string `json:"losses"`
+		LowerBound bool   `json:"losses_lower_bound"`
+	}
+	if err := json.Unmarshal(bytes.SplitN(after, []byte{'\n'}, 2)[0], &header); err != nil {
+		t.Fatal(err)
+	}
+	if header.Kind != "header" || header.Losses != "00000000000000000001" || !header.LowerBound {
+		t.Fatalf("loss checkpoint = %+v", header)
+	}
+}
+
+func BenchmarkDoCostAfterStackBudgetFull(b *testing.B) {
+	base := filepath.Join(b.TempDir(), "external-stacks.json")
+	oldPath, hadPath := os.LookupEnv(ExternalStacksEnv)
+	_ = os.Setenv(ExternalStacksEnv, base)
+	oldPush, oldPop := pushExternalCorrelationID, popExternalCorrelationID
+	oldBudget, oldKind := externalStackBudget, correlationKind.Load()
+	var last uint64
+	pushExternalCorrelationID = func(_ cupti.ExternalCorrelationKind, id uint64) error { last = id; return nil }
+	popExternalCorrelationID = func(cupti.ExternalCorrelationKind) (uint64, error) { return last, nil }
+	ResetExternalStacks()
+	externalStackBudget = 1
+	Correlate(cupti.ExternalCorrelationKindCustom0)
+	sidecarTargetCallSite()
+	sidecarTargetCallSite()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		sidecarTargetCallSite()
+	}
+	b.StopTimer()
+	pushExternalCorrelationID, popExternalCorrelationID = oldPush, oldPop
+	externalStackBudget = oldBudget
+	correlationKind.Store(oldKind)
+	ResetExternalStacks()
+	if hadPath {
+		_ = os.Setenv(ExternalStacksEnv, oldPath)
+	} else {
+		_ = os.Unsetenv(ExternalStacksEnv)
+	}
+}
+
+func TestExternalStackSidecarConcurrentChildren(t *testing.T) {
+	if os.Getenv("CUDAPROF_TEST_STACK_CHILD") == "concurrent" {
+		externalStackBudget = 4
+		for i := 0; i < 4; i++ {
+			RecordExternalStack(cupti.ExternalCorrelationKindCustom0, uint64(i+1), []string{"concurrent-child", fmt.Sprint(i)})
+		}
+		os.Exit(0)
+	}
+	base := filepath.Join(t.TempDir(), "external-stacks.json")
+	commands := make([]*exec.Cmd, 2)
+	for i := range commands {
+		commands[i] = exec.Command(os.Args[0], "-test.run=^TestExternalStackSidecarConcurrentChildren$")
+		commands[i].Env = sidecarTestEnvironmentMode(base, "concurrent")
+	}
+	var wg sync.WaitGroup
+	errs := make([]error, len(commands))
+	for i, cmd := range commands {
+		wg.Add(1)
+		go func(i int, cmd *exec.Cmd) { defer wg.Done(); _, errs[i] = cmd.CombinedOutput() }(i, cmd)
+	}
+	wg.Wait()
+	for i, err := range errs {
+		if err != nil {
+			t.Fatalf("child %d: %v", i, err)
 		}
 	}
-	t.Fatalf("sidecar stack has no target call site: %v", record.Frames)
+	for _, cmd := range commands {
+		data, err := os.ReadFile(fmt.Sprintf("%s.%d", base, cmd.Process.Pid))
+		if err != nil {
+			t.Fatal(err)
+		}
+		lines := bytes.Split(bytes.TrimSpace(data), []byte{'\n'})
+		if len(lines) != 5 {
+			t.Fatalf("process %d has %d complete lines, want header + 4 stacks", cmd.Process.Pid, len(lines))
+		}
+		seen := make(map[uint64]bool)
+		for n, line := range lines {
+			var row struct {
+				Kind       string `json:"kind"`
+				Process    uint64 `json:"process"`
+				ExternalID uint64 `json:"external_id"`
+			}
+			if err := json.Unmarshal(line, &row); err != nil {
+				t.Fatalf("process %d torn record: %v", cmd.Process.Pid, err)
+			}
+			if row.Process != uint64(cmd.Process.Pid) {
+				t.Fatalf("sidecar record process=%d, want %d", row.Process, cmd.Process.Pid)
+			}
+			if n > 0 {
+				if row.Kind != "stack" || row.ExternalID == 0 || seen[row.ExternalID] {
+					t.Fatalf("invalid or duplicate stack row: %+v", row)
+				}
+				seen[row.ExternalID] = true
+			}
+		}
+		if len(seen) != 4 {
+			t.Fatalf("process %d retained %d distinct records, want 4", cmd.Process.Pid, len(seen))
+		}
+	}
 }
 
 func sidecarTestEnvironment(path string) []string {
+	return sidecarTestEnvironmentMode(path, "1")
+}
+
+func sidecarTestEnvironmentMode(path, mode string) []string {
 	var env []string
 	for _, item := range os.Environ() {
 		if strings.HasPrefix(item, "CUDAPROF_TEST_STACK_CHILD=") || strings.HasPrefix(item, "CUDAPROF_CORRELATE=") || strings.HasPrefix(item, ExternalStacksEnv+"=") {
@@ -87,7 +242,7 @@ func sidecarTestEnvironment(path string) []string {
 		}
 		env = append(env, item)
 	}
-	return append(env, "CUDAPROF_TEST_STACK_CHILD=1", "CUDAPROF_CORRELATE=1", ExternalStacksEnv+"="+path)
+	return append(env, "CUDAPROF_TEST_STACK_CHILD="+mode, "CUDAPROF_CORRELATE=1", ExternalStacksEnv+"="+path)
 }
 
 //go:noinline
@@ -147,6 +302,61 @@ func TestExternalStackBudget(t *testing.T) {
 	}
 	if len(table.Stacks) != 2 || table.Losses != 3 {
 		t.Fatalf("table has %d stacks and %d losses, want 2 and 3", len(table.Stacks), table.Losses)
+	}
+}
+
+func TestExternalStackSidecarByteCap(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "external-stacks.json")
+	old, had := os.LookupEnv(ExternalStacksEnv)
+	_ = os.Setenv(ExternalStacksEnv, path)
+	ResetExternalStacks()
+	externalStackBudget = 10
+	t.Cleanup(func() {
+		ResetExternalStacks()
+		externalStackBudget = 4096
+		if had {
+			_ = os.Setenv(ExternalStacksEnv, old)
+		} else {
+			_ = os.Unsetenv(ExternalStacksEnv)
+		}
+	})
+	if RecordExternalStack(cupti.ExternalCorrelationKindCustom0, 1, []string{strings.Repeat("frame", maxExternalStackSidecarBytes/len("frame")+1)}) {
+		t.Fatal("oversized sidecar record was retained")
+	}
+	if _, ok := ExternalStack(cupti.ExternalCorrelationKindCustom0, 1); ok {
+		t.Fatal("failed sidecar write remained in memory")
+	}
+	if ExternalStackLosses() != 1 {
+		t.Fatalf("losses = %d, want 1", ExternalStackLosses())
+	}
+}
+
+func TestExternalStackFailedWriteIsLoss(t *testing.T) {
+	base := filepath.Join(t.TempDir(), "external-stacks.json")
+	if err := os.Mkdir(fmt.Sprintf("%s.%d", base, os.Getpid()), 0700); err != nil {
+		t.Fatal(err)
+	}
+	old, had := os.LookupEnv(ExternalStacksEnv)
+	_ = os.Setenv(ExternalStacksEnv, base)
+	ResetExternalStacks()
+	externalStackBudget = 10
+	t.Cleanup(func() {
+		ResetExternalStacks()
+		externalStackBudget = 4096
+		if had {
+			_ = os.Setenv(ExternalStacksEnv, old)
+		} else {
+			_ = os.Unsetenv(ExternalStacksEnv)
+		}
+	})
+	if RecordExternalStack(cupti.ExternalCorrelationKindCustom0, 2, []string{"failed write"}) {
+		t.Fatal("failed write was reported retained")
+	}
+	if _, ok := ExternalStack(cupti.ExternalCorrelationKindCustom0, 2); ok {
+		t.Fatal("failed write remained in memory")
+	}
+	if ExternalStackLosses() != 1 {
+		t.Fatalf("losses = %d, want 1", ExternalStackLosses())
 	}
 }
 
@@ -229,6 +439,21 @@ func TestDoStackTruncationMarked(t *testing.T) {
 	stack, ok := ExternalStack(cupti.ExternalCorrelationKindCustom0, id)
 	if !ok || len(stack) == 0 || stack[0] != "[truncated]" {
 		t.Fatalf("stack root = %v, ok=%v; want truncation marker", stack, ok)
+	}
+}
+
+func TestDoStackExactly64FramesMarked(t *testing.T) {
+	var pcs [maxCallstackFrames]uintptr
+	var caller [1]uintptr
+	if n := runtime.Callers(0, caller[:]); n != 1 {
+		t.Fatalf("runtime.Callers = %d, want 1", n)
+	}
+	for i := range pcs {
+		pcs[i] = caller[0]
+	}
+	stack := formatCallstack(pcs[:])
+	if len(stack) == 0 || stack[0] != "[truncated]" {
+		t.Fatalf("64-frame stack root = %v, want [truncated]", stack)
 	}
 }
 

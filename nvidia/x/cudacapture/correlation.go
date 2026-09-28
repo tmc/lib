@@ -234,9 +234,10 @@ func decodeExternalStackTable(data []byte) (cudaprof.ExternalStackTable, error) 
 		return table, errors.New("invalid sidecar records")
 	}
 	var header struct {
-		Version int             `json:"version"`
-		Kind    string          `json:"kind"`
-		Losses  json.RawMessage `json:"losses"`
+		Version    int             `json:"version"`
+		Kind       string          `json:"kind"`
+		Losses     json.RawMessage `json:"losses"`
+		LowerBound bool            `json:"losses_lower_bound"`
 	}
 	if err := json.Unmarshal(lines[0], &header); err != nil {
 		return table, err
@@ -245,6 +246,7 @@ func decodeExternalStackTable(data []byte) (cudaprof.ExternalStackTable, error) 
 		return table, errors.New("missing sidecar header")
 	}
 	table.Version = header.Version
+	table.LossesLowerBound = header.LowerBound
 	if len(header.Losses) != 0 {
 		var text string
 		if header.Losses[0] == '"' {
@@ -267,6 +269,7 @@ func decodeExternalStackTable(data []byte) (cudaprof.ExternalStackTable, error) 
 		var record struct {
 			Version      int      `json:"version"`
 			Kind         string   `json:"kind"`
+			Process      uint64   `json:"process"`
 			ExternalKind uint32   `json:"external_kind"`
 			ExternalID   uint64   `json:"external_id"`
 			Frames       []string `json:"frames"`
@@ -277,7 +280,7 @@ func decodeExternalStackTable(data []byte) (cudaprof.ExternalStackTable, error) 
 		if record.Kind != "stack" || record.Version != 1 {
 			return table, fmt.Errorf("invalid sidecar record kind/version %q/%d", record.Kind, record.Version)
 		}
-		table.Stacks = append(table.Stacks, cudaprof.ExternalStackRecord{ExternalKind: record.ExternalKind, ExternalID: record.ExternalID, Frames: record.Frames})
+		table.Stacks = append(table.Stacks, cudaprof.ExternalStackRecord{Process: record.Process, ExternalKind: record.ExternalKind, ExternalID: record.ExternalID, Frames: record.Frames})
 	}
 	return table, nil
 }
