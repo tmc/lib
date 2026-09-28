@@ -31,25 +31,9 @@
     {
       "path": "cuda_cudart/library_types.h",
       "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
-    },
-    {
-      "path": "libcublas/cublas_api.h",
-      "sha256": "7a9fec18f54db0ef918af506b709385b3ca5290832b4c71a4716edbd6f47ce82"
-    },
-    {
-      "path": "math/cuComplex.h",
-      "sha256": "5a9720a5a88f854fe8f6c4cf31c353119bb25c321cf31deccf8754592ced2f68"
-    },
-    {
-      "path": "runtime/driver_types.h",
-      "sha256": "915f0a66b668944cf34f6e2c1f88b4507789ffdc7905c98ec792e7c184cd12f2"
-    },
-    {
-      "path": "types/library_types.h",
-      "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
     }
   ],
-  "source_hash": "a208b9a034a0b0628d2516391c86dcbf8a9e9958e4cf95008b7fd8c48230ef59",
+  "source_hash": "8998a93c56ab37d3d1b881d121f20d492d94ab04214fe9aea767aba7b20fe5fb",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records portable argument names; host-specific paths are intentionally redacted.",

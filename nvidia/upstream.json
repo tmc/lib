@@ -110,11 +110,11 @@
           },
           {
             "path": "nvidia/cublas/provenance.gen.go",
-            "sha256": "bf16dab4563386ef232bd4140a6c6116a2be262ad48d26bdb736292a32c39097"
+            "sha256": "c7d660f94117d3b288eb795188afe05d2e7d196209204f6ff79ae6bfaf7ba025"
           },
           {
             "path": "nvidia/cublas/provenance.json",
-            "sha256": "b5979845497e72ae59b3984a2ac3493861b924b8525d75a43dc651ec8a8b3125"
+            "sha256": "2c3077f04dbcfcf8e8bcb7af247fff90d100028dcab8b2096850bd657dd0bfa6"
           },
           {
             "path": "nvidia/cublas/result.gen.go",
@@ -128,7 +128,7 @@
         "toolchain": {
           "go": "go version go1.27.0 darwin/arm64"
         },
-        "source_state": "clean tracked libgen sources at 3005ecfdb35134468c9a9d93532ee08f6c7c53cf"
+        "source_state": "clean tracked libgen sources at 02b33afaf4db9ec54bcfd5698ce4e36ac1960f73"
       },
       "header": {
         "path": "cublas/cublas_api.h",
@@ -139,10 +139,10 @@
       "package": "github.com/tmc/lib/nvidia/cublas",
       "repositories": {
         "codegen": {
-          "commit": "3005ecfdb35134468c9a9d93532ee08f6c7c53cf",
+          "commit": "02b33afaf4db9ec54bcfd5698ce4e36ac1960f73",
           "note": "Unpublished at the time of recording; it is the commit this generation was taken from. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 8da282f: doc comments name snake_case parameters by their Go names. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c",
           "url": "https://github.com/tmc/libgen.git",
-          "tree": "c4c5a286244f546c9503a20d3b38bb8c46acbdb2"
+          "tree": "fbda33cfb2fec3aec2a943385f1b8acb02477aa0"
         },
         "headers": {
           "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",
@@ -337,7 +337,7 @@
           },
           {
             "path": "nvidia/cublaslt/layout.gen_test.go",
-            "sha256": "541fcaecfeee63c69ad81cc45dbe76284176b4c344dd60e44838ab6417274988"
+            "sha256": "db224c929137779ff5cfffe48d824cefc55e77569dbf6a63b82b9dc9d930384f"
           },
           {
             "path": "nvidia/cublaslt/loader.gen_test.go",
@@ -369,11 +369,11 @@
           },
           {
             "path": "nvidia/cublaslt/provenance.gen.go",
-            "sha256": "8fcb3206b6e2b354ffbce76493a89238ccb878a9ee2d346085cfed4d81f2fd30"
+            "sha256": "bf6b800d20d2292d904f9574be19121af62b402c6f8bae367c443d217a276d05"
           },
           {
             "path": "nvidia/cublaslt/provenance.json",
-            "sha256": "06f320dd818a8530b8a6f0ef120be0c3ba37917ce12c613eaf252b75e257ae58"
+            "sha256": "33d895883d139587b178da60f9c639da957c21184053fd606640d70022743200"
           },
           {
             "path": "nvidia/cublaslt/result.gen.go",
@@ -391,7 +391,7 @@
         "toolchain": {
           "go": "go version go1.27.0 darwin/arm64"
         },
-        "source_state": "clean tracked libgen sources at 3005ecfdb35134468c9a9d93532ee08f6c7c53cf"
+        "source_state": "clean tracked libgen sources at 02b33afaf4db9ec54bcfd5698ce4e36ac1960f73"
       },
       "header": {
         "path": "cublas/cublasLt.h",
@@ -402,10 +402,10 @@
       "package": "github.com/tmc/lib/nvidia/cublaslt",
       "repositories": {
         "codegen": {
-          "commit": "3005ecfdb35134468c9a9d93532ee08f6c7c53cf",
+          "commit": "02b33afaf4db9ec54bcfd5698ce4e36ac1960f73",
           "note": "Unpublished at the time of recording; it is the commit this generation was taken from. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 8cdab9e: cublasLtNumericalImplFlags_t, spelled as macros above a uint64_t typedef, is now the NumericalImplFlags type with typed constants. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen fc6bb16 regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c",
           "url": "https://github.com/tmc/libgen.git",
-          "tree": "c4c5a286244f546c9503a20d3b38bb8c46acbdb2"
+          "tree": "fbda33cfb2fec3aec2a943385f1b8acb02477aa0"
         },
         "headers": {
           "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",
@@ -4725,6 +4725,10 @@
             "sha256": "a454f3b328d58cfe5fc62bc9a3af6e53d2064fbfe096bacf25eaea27ac9e057b"
           },
           {
+            "path": "nvidia/cusolver/layout.gen_test.go",
+            "sha256": "b666010efc22dd1b1f012ba0702bb7bc7cbb2a093e273ff439284c457a57a0db"
+          },
+          {
             "path": "nvidia/cusolver/loader.gen_test.go",
             "sha256": "d1f0204cfdc797da8ba5caa374a3c3c451708602ec104440061da159c68a4f20"
           },
@@ -4764,7 +4768,7 @@
         "toolchain": {
           "go": "go version go1.27.0 darwin/arm64"
         },
-        "source_state": "clean tracked libgen sources at 3005ecfdb35134468c9a9d93532ee08f6c7c53cf"
+        "source_state": "clean tracked libgen sources at 02b33afaf4db9ec54bcfd5698ce4e36ac1960f73"
       },
       "header": {
         "path": "cusolver/cusolverDn.h",
@@ -4775,9 +4779,9 @@
       "package": "github.com/tmc/lib/nvidia/cusolver",
       "repositories": {
         "codegen": {
-          "commit": "3005ecfdb35134468c9a9d93532ee08f6c7c53cf",
+          "commit": "02b33afaf4db9ec54bcfd5698ce4e36ac1960f73",
           "note": "Unpublished at the time of recording; it is the commit this generation was taken from. The later commit a96f510 fixes the cublas and cublaslt surveys and does not affect this package. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen a8270fa regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c",
-          "tree": "c4c5a286244f546c9503a20d3b38bb8c46acbdb2",
+          "tree": "fbda33cfb2fec3aec2a943385f1b8acb02477aa0",
           "url": "https://github.com/tmc/libgen.git"
         },
         "headers": {
