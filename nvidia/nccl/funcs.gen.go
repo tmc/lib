@@ -394,7 +394,7 @@ func fnParamDumpAll() {
 }
 
 // fnparamGet calls ncclParamGet.
-func fnparamGet(a0 ParamHandle, a1 uintptr, a2 int32, a3 *int32) Result {
+func fnparamGet(a0 ParamHandle, a1 unsafe.Pointer, a2 int32, a3 *int32) Result {
 	r1, _ := ffiCallWidths4(symparamGet, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
@@ -1197,7 +1197,7 @@ func ParamDumpAll() error {
 // maxLen is the size of out in bytes. The number of bytes actually written is returned in *len. If the parameter’s native representation is larger than maxLen, the function returns ncclInvalidArgument and *len is set to the required size.
 //
 // Wraps ncclParamGet.
-func paramGet(h ParamHandle, out uintptr, maxLen int32, len_ *int32) error {
+func paramGet(h ParamHandle, out unsafe.Pointer, maxLen int32, len_ *int32) error {
 	if err := checkLibSym("ncclParamGet"); err != nil {
 		return err
 	}

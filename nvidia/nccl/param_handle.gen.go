@@ -2,12 +2,16 @@
 
 package nccl
 
+import (
+	"unsafe"
+)
+
 // Get copies the raw binary representation of the parameter bound to h into the caller-allocated buffer out.
 //
 // maxLen is the size of out in bytes. The number of bytes actually written is returned in *len. If the parameter’s native representation is larger than maxLen, the function returns ncclInvalidArgument and *len is set to the required size.
 //
 // Wraps ncclParamGet.
-func (p ParamHandle) Get(out uintptr, maxLen int32, len_ *int32) error {
+func (p ParamHandle) Get(out unsafe.Pointer, maxLen int32, len_ *int32) error {
 	return paramGet(p, out, maxLen, len_)
 }
 
