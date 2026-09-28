@@ -81,10 +81,10 @@ func parsePCReferenceOutput(output string) (pcReferenceReport, error) {
 func TestParsePCReferenceOutputExactSampleFormat(t *testing.T) {
 	const output = `----- PC sampling data for range defined by cuptiPCSamplingStart() and cuptiPCSamplingStop() -----
 , pcOffset : 0x80, stallReasonCount: 3, functionName: _Z9VectorAddPKiS0_Pii, correlationID: 2, stallReason: reason_a, samples: 5, stallReason: reason_b, samples: 1, stallReason: reason_c, samples: 2
-, pcOffset : 0x90, stallReasonCount: 2, functionName: _Z13VectorSubtractPKiS0_Pii, correlationID: 3, stallReason: reason_d, samples: 4, stallReason: reason_e, samples: 1
+, pcOffset : 0x90, stallReasonCount: 2, functionName: _Z14VectorSubtractPKiS0_Pii, correlationID: 3, stallReason: reason_d, samples: 4, stallReason: reason_e, samples: 1
 Number of PCs remaining to be collected: 0, range id: 3, total samples: 9, dropped samples: 0, non user kernels total samples: 90
 ----- PC sampling data for range defined by cuptiPCSamplingStart() and cuptiPCSamplingStop() -----
-, pcOffset : 0x20, stallReasonCount: 1, functionName: _Z13VectorMultiplyPKiS0_Pii, correlationID: 4, stallReason: reason_f, samples: 2
+, pcOffset : 0x20, stallReasonCount: 1, functionName: _Z14VectorMultiplyPKiS0_Pii, correlationID: 4, stallReason: reason_f, samples: 2
 Number of PCs remaining to be collected: 0, range id: 4, total samples: 11, dropped samples: 1, non user kernels total samples: 110
 `
 	report, err := parsePCReferenceOutput(output)
@@ -94,7 +94,7 @@ Number of PCs remaining to be collected: 0, range id: 4, total samples: 11, drop
 	if report.Total != 20 || len(report.Counts) != 2 {
 		t.Fatalf("user totals = %d %v, want 20 from two ranges", report.Total, report.Counts)
 	}
-	if strings.Join(report.Kernels, ",") != "_Z13VectorMultiplyPKiS0_Pii,_Z13VectorSubtractPKiS0_Pii,_Z9VectorAddPKiS0_Pii" || strings.Join(report.Reasons, ",") != "reason_a,reason_b,reason_c,reason_d,reason_e,reason_f" {
+	if strings.Join(report.Kernels, ",") != "_Z14VectorMultiplyPKiS0_Pii,_Z14VectorSubtractPKiS0_Pii,_Z9VectorAddPKiS0_Pii" || strings.Join(report.Reasons, ",") != "reason_a,reason_b,reason_c,reason_d,reason_e,reason_f" {
 		t.Fatalf("inventory = kernels %v reasons %v", report.Kernels, report.Reasons)
 	}
 }

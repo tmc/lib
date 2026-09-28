@@ -159,10 +159,10 @@ __global__ void VectorMultiply(const int *a, const int *b, int *c, int n) {
 		if add, err = module.Function("_Z9VectorAddPKiS0_Pii"); err != nil {
 			return err
 		}
-		if sub, err = module.Function("_Z13VectorSubtractPKiS0_Pii"); err != nil {
+		if sub, err = module.Function("_Z14VectorSubtractPKiS0_Pii"); err != nil {
 			return err
 		}
-		mul, err = module.Function("_Z13VectorMultiplyPKiS0_Pii")
+		mul, err = module.Function("_Z14VectorMultiplyPKiS0_Pii")
 		return err
 	}); err != nil {
 		return 0, nil, nil, err
