@@ -2675,51 +2675,51 @@
           },
           {
             "path": "nvidia/cupti/callbacks.gen.go",
-            "sha256": "f1e3c69bce606c78a1e3b2630ed0ef6e553466c3760040ec2048afa5ba245068"
+            "sha256": "741b488245c19d9bf19a55881bcb1bccf458eab9c9b63816a0aedbc2c257dc47"
           },
           {
             "path": "nvidia/cupti/doc.gen.go",
-            "sha256": "c8968a8311260d6463845d8db09f4ae06bed220c4942581204219ea0248e0272"
+            "sha256": "f0b70766bb20cad070dc068ad00ffb7b200eca62003be2b8e596394d5ef23bcb"
           },
           {
             "path": "nvidia/cupti/enums.gen.go",
-            "sha256": "97baf4538dbbb2034679565e76d3b1f5b4a2eb741f9f58c993fb3386adc5b965"
+            "sha256": "0206aeafbec50960f1ca93b2a75619b630b271bdb30dd0b8fdc2773ed0a301d8"
           },
           {
             "path": "nvidia/cupti/event_group.gen.go",
-            "sha256": "8ff42ad70527fba6a9e0766c67524023c7823ea59c0ea40e31181af29bb863ee"
+            "sha256": "8314bf1091953b24ca3166963ead83f5de48a1f4273149f6928bce958c9c4a52"
           },
           {
             "path": "nvidia/cupti/funcs.gen.go",
-            "sha256": "585f5a817d509ba7924294f86ccaa42243faeb23ba4060b54aebe62c2a4670ab"
+            "sha256": "3a1fe9ade59fde79eee8361ff2002a55f84515fc7b38db09362a1afa0b66d5d4"
           },
           {
             "path": "nvidia/cupti/handles.gen.go",
-            "sha256": "3c6de10f06ff32ce69d532d42c8ed96ab2e1a2204e08627d5f67363e4b72d333"
+            "sha256": "8f5048c607c11c567977bfa77c7b7ed8d50734fb8bd07249ce0a86f5e16c1cc4"
           },
           {
             "path": "nvidia/cupti/init.gen.go",
-            "sha256": "050bd98ada7ba9111a4e1fef660b839d0439daf4d4cac1dc958a772d3b44ed4c"
+            "sha256": "fe2ea3e7a3db75586beba483f0f29bd6f61480254ea53f238d879e9db71b0bf0"
           },
           {
             "path": "nvidia/cupti/layout.gen_test.go",
-            "sha256": "4309da7ea35121bf2e76982d4b2ef16bb7d00c47ec791525c0201459d070b58f"
+            "sha256": "7f4a4ab2a5d81872224ae7bdc997f1639825fe66d886f11c543aa5eaf270bf63"
           },
           {
             "path": "nvidia/cupti/loader.gen_test.go",
-            "sha256": "f090fc4722ad70ed3527fa849b491bf4b8c6e920aaf435bf00f9394ede5b5692"
+            "sha256": "cdd0f816855da1d070a4b130e249ddfe22b9b3fdac499ac06bc1d2de638c1620"
           },
           {
             "path": "nvidia/cupti/loader_unix.gen.go",
-            "sha256": "aea1575606b0144f05a5d0087a9a710b75e7b9fa29285d9d3e2e720d025addfb"
+            "sha256": "d31f8fe648bc8c2d56bc1a1ace209aacdf752e639c649baa9cf429a89717cb45"
           },
           {
             "path": "nvidia/cupti/loader_windows.gen.go",
-            "sha256": "4fb1da0ba0e79b537a660433e2c7d28fda816d45a1bb0dee278bab61a4570fdd"
+            "sha256": "d85170f9f8edca88ec693495fd112719d2be07a4f4e3ffb0ba6cac9864a07f61"
           },
           {
             "path": "nvidia/cupti/param_layout.gen.go",
-            "sha256": "233eef75a27a23e5a01e6d44ca1cf695c243b6a7c8dc5c4bb6e05baad7617578"
+            "sha256": "2aad025799669e4b5403cb282a76462df2fc981b6b3c53339425dfa9b089dff7"
           },
           {
             "path": "nvidia/cupti/provenance.gen.go",
@@ -2731,19 +2731,19 @@
           },
           {
             "path": "nvidia/cupti/result.gen.go",
-            "sha256": "cd99a6fedaad7eee37f9719181704706d1a318876593108b3060cd5dce9dffc4"
+            "sha256": "a8c501c79798c4c66e3731fb7d8270fb6df0d9f097e3d377e2658f38c8ea9f12"
           },
           {
             "path": "nvidia/cupti/structs.gen.go",
-            "sha256": "33a9f7ba81c2dd47fbb3c396a0453fb645c5cad6602ccca369edad20514fd0b6"
+            "sha256": "19bbec7e94de567b8e4c598d01ee301336dc03ca2d4a922fcd178c4cc5cf603a"
           },
           {
             "path": "nvidia/cupti/subscriber.gen.go",
-            "sha256": "a2e8d8fefe9d8a8650f6947e136b01f9cac11f18875d0888c93c4c632f90ea67"
+            "sha256": "663023a8e85949c75f98d2a4fa770ae0e685f4075539d4b074b1645124ba26b2"
           },
           {
             "path": "nvidia/cupti/types.gen.go",
-            "sha256": "8b95913b3d9d557d1a687c231f816cbaa903afd0fa4ca1ade72b15aefb19dc27"
+            "sha256": "085caa05c41e28df512d586977cae373c307f849f110cd6e45ce1d68facb81e3"
           }
         ],
         "toolchain": {
@@ -6068,43 +6068,43 @@
         "outputs": [
           {
             "path": "nvidia/fabricmanager/doc.gen.go",
-            "sha256": "42db13a10d0f252e4147f3274e6578a53c20971c901fbf03851776f487a029db"
+            "sha256": "a182a034d4b6be31b183e1a894a8930c0f6b670180eeec2326a8b8085edf0685"
           },
           {
             "path": "nvidia/fabricmanager/enums.gen.go",
-            "sha256": "8c157d1db96a2077b7e9e827f12443d082521da18da8c2cc6d3cf0944db4c049"
+            "sha256": "0e46513e3d7f71bc53e0eb34a14a8ebe2f7df73eec545fe63a0585c8e3e94646"
           },
           {
             "path": "nvidia/fabricmanager/funcs.gen.go",
-            "sha256": "998b61682c0f0715d90d6a2c0a8366a87342c2c3b0adfb81e309fb333fed232b"
+            "sha256": "c70422f42fdbfb14e44e4cc7352e7269435de974f505ec7fe3dfb623dc3ae636"
           },
           {
             "path": "nvidia/fabricmanager/handle.gen.go",
-            "sha256": "0947c2700cdbf4eed0d82a95a3dafe4370177eeb93eaeb5bd6ee1c2f68fc721d"
+            "sha256": "df739cb5f4de8f1493bc33743737ee2f3a4abac56cb2638c23b0989ab061cf38"
           },
           {
             "path": "nvidia/fabricmanager/handles.gen.go",
-            "sha256": "afb708780831a30751a61fd2408cd7ce122ce5dd84eb1836d03cbdf5d5d77d71"
+            "sha256": "10c6ca583cb25caa60743a799cffe21b156d0afee1a29f0a38fc5a4eb46154b9"
           },
           {
             "path": "nvidia/fabricmanager/init.gen.go",
-            "sha256": "1f204c0e633103e885ed976583ab40bcd7a10478bd678aea89ba0c1f86aab5af"
+            "sha256": "a3ca583930bfc8d7ddcc7fa8324f37598ca9cfd73f6b4e120192abbb2a0365c8"
           },
           {
             "path": "nvidia/fabricmanager/layout.gen_test.go",
-            "sha256": "67439d58c631d804b0a1600d6308a9853fc5ad067d7f66c04ae8c5fd09c4dd1b"
+            "sha256": "210953356de2917cd61eaefa6c069d5d01b271a7fbd2f2792e635c970fffbc75"
           },
           {
             "path": "nvidia/fabricmanager/loader.gen_test.go",
-            "sha256": "53d1217f02f754b266cfbf3aaa6afec66025fa55d500eaa3219a06b85a52530f"
+            "sha256": "833652fd0689fe23eff00ad4f1a52556f5abda6c4fd3389a5e186d174a800c82"
           },
           {
             "path": "nvidia/fabricmanager/loader_unix.gen.go",
-            "sha256": "8241b0651aa6613e49e2ccf02b1a2e9423def5025953415d1ce86f68fe8170d7"
+            "sha256": "3e981cee20ba046929fd1d73f1a5b2566ab348f7cdc55ae3fdb1449bcb760819"
           },
           {
             "path": "nvidia/fabricmanager/loader_windows.gen.go",
-            "sha256": "aca8dd6b82fb7494ca6e9e5060e92b913e85ba3ae146b0ff0e8cff3bb0f19918"
+            "sha256": "6f0a2440576478c01b365cba10d96d89e18e760625315127ae71d24c89a97dff"
           },
           {
             "path": "nvidia/fabricmanager/provenance.gen.go",
@@ -6112,11 +6112,11 @@
           },
           {
             "path": "nvidia/fabricmanager/result.gen.go",
-            "sha256": "aebf4f5fb264f246001614790433755cb00bb5f3fe0edc6251a7fe17b298e2ae"
+            "sha256": "baddc76f54808ff80d61fce2ab143d93164adf783f9a447d97a6fe28a14abbcd"
           },
           {
             "path": "nvidia/fabricmanager/structs.gen.go",
-            "sha256": "cdcbfcdb7de2a50d108e51e3aa49e33262f88b02c042a5b3d21929e15b12cf2d"
+            "sha256": "35f93cc1da305a7178201621e412daae9e6cf4c01c29649c5d267d01dc673b09"
           }
         ],
         "source_state": "clean committed generator, output compared against committed lib",

@@ -11,7 +11,7 @@
     "-headers-dir",
     "cuda-headers",
     "-output",
-    "fabricmanager"
+    "${OUTPUT_DIR}"
   ],
   "inputs": [
     {
