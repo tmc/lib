@@ -90,6 +90,7 @@ type RunRecord struct {
 	Exited        bool       `json:"exited"`
 	TimedOut      bool       `json:"timed_out"`
 	Signal        string     `json:"signal,omitempty"`
+	PristineRun   bool       `json:"pristine_run,omitempty"`
 	Stdout        string     `json:"stdout"`
 	Stderr        string     `json:"stderr"`
 	HarnessErr    string     `json:"harness_error,omitempty"`
@@ -110,6 +111,9 @@ func Classify(run RunRecord) Verdict {
 	if run.TimedOut {
 		if run.Pristine != nil {
 			pristineVerdict := Classify(*run.Pristine)
+			if pristineVerdict == VerdictHarnessError {
+				return VerdictHarnessError
+			}
 			if pristineVerdict != VerdictPass {
 				return VerdictGpuWedged
 			}

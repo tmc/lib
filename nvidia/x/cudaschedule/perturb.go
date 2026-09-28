@@ -112,6 +112,13 @@ func Perturb(src string, opts Options) (Rewrite, error) {
 			beforeNs = drawDelay(rng, intensity, maxSleepNs)
 			afterNs = drawDelay(rng, intensity, maxSleepNs)
 		}
+		if selected && beforeNs == 0 && afterNs == 0 {
+			if site.Kind == SiteBackedge {
+				beforeNs = drawLong(rng, intensity, maxSleepNs)
+			} else {
+				afterNs = drawLong(rng, intensity, maxSleepNs)
+			}
+		}
 
 		if beforeNs > 0 {
 			indent := lineIndent(src, beforePoint)

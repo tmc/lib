@@ -122,3 +122,117 @@ func TestAnalyze_UnrecognizedOrderingOpcode(t *testing.T) {
 		t.Errorf("expected error about unrecognized ordering opcode, got: %v", err)
 	}
 }
+
+func TestAnalyze_BrxIndexBackedge(t *testing.T) {
+	const ptx = `.version 8.7
+.target sm_90
+.address_size 64
+.visible .entry brx_loop(){
+.branchtargets table, L_loop, L_exit;
+L_loop:
+    atom.global.add.u32 %r, [%rd], 1;
+    brx.idx %r, table;
+L_exit:
+    ret;
+}
+`
+	sites, err := cudaschedule.Analyze(ptx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sites) != 2 || sites[1].Kind != cudaschedule.SiteBackedge || sites[1].BlockIndex == nil {
+		t.Fatalf("brx.idx sites = %+v, want atom and backedge", sites)
+	}
+}
+
+func TestAnalyze_BrxUnknownTargetLabelFailsClosed(t *testing.T) {
+	const ptx = `.version 8.7
+.target sm_90
+.address_size 64
+.visible .entry brx_bad(){
+.branchtargets table, L_missing;
+    brx.idx %r, table;
+    ret;
+}
+`
+	if _, err := cudaschedule.Analyze(ptx); err == nil || !strings.Contains(err.Error(), `branch table "table" targets unknown label "L_missing"`) {
+		t.Fatalf("Analyze unknown branch-table label error = %v", err)
+	}
+}
+
+func TestAnalyze_LdRelaxedIsOrderedMemory(t *testing.T) {
+	const ptx = `.version 8.7
+.target sm_90
+.address_size 64
+.visible .entry relaxed(){
+    ld.relaxed.global.u32 %r, [%rd];
+    ret;
+}
+`
+	sites, err := cudaschedule.Analyze(ptx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sites) != 1 || sites[0].Kind != cudaschedule.SiteOrderedMemory {
+		t.Fatalf("ld.relaxed sites = %+v, want one OrderedMemory", sites)
+	}
+}
+
+func TestAnalyze_PredicatedAtomicPreservesPredicate(t *testing.T) {
+	const ptx = `.version 8.7
+.target sm_90
+.address_size 64
+.visible .entry predicated(){
+    @%p atom.global.add.u32 %r, [%rd], 1;
+    ret;
+}
+`
+	sites, err := cudaschedule.Analyze(ptx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sites) != 1 || sites[0].Kind != cudaschedule.SiteAtomic || sites[0].Predicate != "@%p" {
+		t.Fatalf("predicated atom site = %+v, want predicate @%%p", sites)
+	}
+}
+
+func TestAnalyze_OrderingOpcodeClassesAreClosed(t *testing.T) {
+	tests := []struct {
+		opcode  string
+		stmt    string
+		kind    cudaschedule.SiteKind
+		wantErr bool
+	}{
+		{"bar.cta.sync", "bar.cta.sync 0;", cudaschedule.SiteBarrier, false},
+		{"bar.cta.arrive", "bar.cta.arrive 0;", cudaschedule.SiteBarrier, false},
+		{"multimem.ld_reduce.global.add.u32", "multimem.ld_reduce.global.add.u32 %r, [%rd], %r;", 0, true},
+		{"st.async.shared::cta.b32", "st.async.shared::cta.b32 [%rd], %r;", cudaschedule.SiteAsyncProxy, false},
+		{"red.async.global.add.u32", "red.async.global.add.u32 [%rd], %r;", cudaschedule.SiteReduction, false},
+		{"tensormap.cp_fenceproxy.global.shared::cta", "tensormap.cp_fenceproxy.global.shared::cta;", cudaschedule.SiteAsyncProxy, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.opcode, func(t *testing.T) {
+			ptx := `.version 8.7
+.target sm_90
+.address_size 64
+.visible .entry opcode(){
+    ` + tt.stmt + `
+    ret;
+}
+`
+			sites, err := cudaschedule.Analyze(ptx)
+			if tt.wantErr {
+				if err == nil || !strings.Contains(err.Error(), "unrecognized ordering-sensitive opcode") {
+					t.Fatalf("Analyze error = %v, want fail-closed ordering error", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(sites) != 1 || sites[0].Kind != tt.kind {
+				t.Fatalf("sites = %+v, want one %v", sites, tt.kind)
+			}
+		})
+	}
+}

@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
+	"syscall"
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudaerrors"
@@ -35,7 +37,7 @@ type CampaignOptions struct {
 	// PTXSource is the baseline PTX source text.
 	PTXSource string
 
-	// Executable is the path to the executable to run or patch.
+	// Executable is the path to the executable that consumes the generated PTX.
 	Executable string
 
 	// Args contains additional command-line arguments for the executable.
@@ -75,20 +77,28 @@ type CampaignOptions struct {
 	// Defaults to checking driver device files.
 	DeviceProbe func() bool
 
+	// BuildVariant prepares a runnable artifact from a seed-specific PTX file.
+	// It returns the executable and arguments used for that run. The campaign
+	// appends ptxPath as the executable's final argument.
+	BuildVariant func(ctx context.Context, seed uint64, ptxPath string) (string, []string, error)
+
 	// RunVariant is an optional runner hook for testing or external perturbation layers.
 	RunVariant func(ctx context.Context, seed uint64, ptx string) (RunRecord, error)
 }
 
 // CampaignReport summarizes the results of a schedule perturbation campaign.
 type CampaignReport struct {
-	SeedStart   uint64       `json:"seed_start"`
-	SeedEnd     uint64       `json:"seed_end"`
-	Intensity   float64      `json:"intensity"`
-	MaxSleepNs  uint32       `json:"max_sleep_ns"`
-	Focus       string       `json:"focus,omitempty"`
-	ConfirmRuns int          `json:"confirm_runs"`
-	SitesTotal  int          `json:"sites_total"`
-	Seeds       []SeedResult `json:"seeds"`
+	SeedStart       uint64       `json:"seed_start"`
+	SeedEnd         uint64       `json:"seed_end"`
+	Intensity       float64      `json:"intensity"`
+	MaxSleepNs      uint32       `json:"max_sleep_ns"`
+	Focus           string       `json:"focus,omitempty"`
+	ConfirmRuns     int          `json:"confirm_runs"`
+	SitesTotal      int          `json:"sites_total"`
+	Baseline        RunRecord    `json:"baseline"`
+	BaselineVerdict Verdict      `json:"baseline_verdict"`
+	BaselineStatus  string       `json:"baseline_status"`
+	Seeds           []SeedResult `json:"seeds"`
 }
 
 // FindingCount returns the total number of seeds that produced a schedule finding.
@@ -121,11 +131,6 @@ func RunCampaign(ctx context.Context, opts CampaignOptions) (*CampaignReport, er
 		return nil, fmt.Errorf("cudaschedule: %w", cudaerrors.ErrHardwarePending)
 	}
 
-	analysis, err := Analyze(opts.PTXSource)
-	if err != nil {
-		return nil, fmt.Errorf("cudaschedule: baseline analysis: %w", err)
-	}
-
 	timeout := opts.Timeout
 	if timeout <= 0 {
 		timeout = 30 * time.Second
@@ -138,13 +143,41 @@ func RunCampaign(ctx context.Context, opts CampaignOptions) (*CampaignReport, er
 		MaxSleepNs:  opts.MaxSleepNs,
 		Focus:       opts.Focus,
 		ConfirmRuns: opts.ConfirmRuns,
-		SitesTotal:  len(analysis),
 	}
 
-	var baselineRun RunRecord
-	if opts.CompareOutput {
-		baselineRun = executeRun(ctx, opts, opts.PTXSource, timeout)
+	variantRoot := ""
+	var err error
+	if opts.RunVariant == nil {
+		variantRoot, err = campaignVariantRoot()
+		if err != nil {
+			return report, fmt.Errorf("cudaschedule: create variant directory: %w", err)
+		}
+		defer os.RemoveAll(variantRoot)
 	}
+
+	baselineRun, err := executeRun(ctx, opts, opts.SeedStart, opts.PTXSource, true, timeout, variantRoot)
+	if err != nil {
+		return report, err
+	}
+	report.Baseline = baselineRun
+	report.BaselineVerdict = Classify(baselineRun)
+	switch report.BaselineVerdict {
+	case VerdictPass:
+		report.BaselineStatus = "Pass"
+	case VerdictSkipped:
+		report.BaselineStatus = "Declined"
+	default:
+		report.BaselineStatus = "Broken"
+	}
+	if report.BaselineVerdict != VerdictPass {
+		return report, nil
+	}
+
+	analysis, err := Analyze(opts.PTXSource)
+	if err != nil {
+		return report, fmt.Errorf("cudaschedule: baseline analysis: %w", err)
+	}
+	report.SitesTotal = len(analysis)
 
 	for seed := opts.SeedStart; seed < opts.SeedEnd; seed++ {
 		if err := ctx.Err(); err != nil {
@@ -170,15 +203,27 @@ func RunCampaign(ctx context.Context, opts CampaignOptions) (*CampaignReport, er
 			})
 			continue
 		}
+		if rewrite.Report.SitesInjected == 0 {
+			report.Seeds = append(report.Seeds, SeedResult{
+				Seed: seed, Verdict: VerdictPass, Report: rewrite.Report,
+			})
+			continue
+		}
 
-		runRec := executeRun(ctx, opts, rewrite.PTX, timeout)
+		runRec, err := executeRun(ctx, opts, seed, rewrite.PTX, false, timeout, variantRoot)
+		if err != nil {
+			return report, err
+		}
 		if opts.CompareOutput {
 			runRec.CompareOutput = true
-			runRec.Baseline = &baselineRun
+			runRec.Baseline = &report.Baseline
 		}
 
 		if runRec.TimedOut {
-			pristineRec := executeRun(ctx, opts, opts.PTXSource, timeout)
+			pristineRec, err := executeRun(ctx, opts, seed, opts.PTXSource, true, timeout, variantRoot)
+			if err != nil {
+				return report, err
+			}
 			runRec.Pristine = &pristineRec
 		}
 
@@ -195,13 +240,19 @@ func RunCampaign(ctx context.Context, opts CampaignOptions) (*CampaignReport, er
 			outcomes := []Verdict{verdict}
 			findings := 1
 			for attempt := 2; attempt <= opts.ConfirmRuns; attempt++ {
-				confirmRec := executeRun(ctx, opts, rewrite.PTX, timeout)
+				confirmRec, err := executeRun(ctx, opts, seed, rewrite.PTX, false, timeout, variantRoot)
+				if err != nil {
+					return report, err
+				}
 				if opts.CompareOutput {
 					confirmRec.CompareOutput = true
-					confirmRec.Baseline = &baselineRun
+					confirmRec.Baseline = &report.Baseline
 				}
 				if confirmRec.TimedOut {
-					pristineRec := executeRun(ctx, opts, opts.PTXSource, timeout)
+					pristineRec, err := executeRun(ctx, opts, seed, opts.PTXSource, true, timeout, variantRoot)
+					if err != nil {
+						return report, err
+					}
 					confirmRec.Pristine = &pristineRec
 				}
 				confirmVerdict := Classify(confirmRec)
@@ -228,23 +279,55 @@ func RunCampaign(ctx context.Context, opts CampaignOptions) (*CampaignReport, er
 	return report, nil
 }
 
-func executeRun(ctx context.Context, opts CampaignOptions, ptx string, timeout time.Duration) RunRecord {
+func executeRun(ctx context.Context, opts CampaignOptions, seed uint64, ptx string, pristine bool, timeout time.Duration, variantRoot string) (RunRecord, error) {
 	if opts.RunVariant != nil {
-		rec, err := opts.RunVariant(ctx, 0, ptx)
+		runCtx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+		rec, err := opts.RunVariant(runCtx, seed, ptx)
+		if ctx.Err() != nil {
+			return RunRecord{}, ctx.Err()
+		}
 		if err != nil {
 			rec.HarnessErr = err.Error()
 		}
-		return rec
+		if errors.Is(runCtx.Err(), context.DeadlineExceeded) {
+			rec.TimedOut = true
+		}
+		rec.PristineRun = pristine
+		return rec, nil
 	}
 
-	if opts.Executable == "" {
-		return RunRecord{HarnessErr: "no executable specified"}
+	if variantRoot == "" {
+		return RunRecord{HarnessErr: "no variant directory specified", PristineRun: pristine}, nil
+	}
+	variantPath := filepath.Join(variantRoot, fmt.Sprintf("seed-%d", seed), "module.ptx")
+	if err := os.MkdirAll(filepath.Dir(variantPath), 0o755); err != nil {
+		return RunRecord{HarnessErr: err.Error(), PristineRun: pristine}, nil
+	}
+	if err := os.WriteFile(variantPath, []byte(ptx), 0o600); err != nil {
+		return RunRecord{HarnessErr: err.Error(), PristineRun: pristine}, nil
 	}
 
 	runCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(runCtx, opts.Executable, opts.Args...)
+	executable, args := opts.Executable, opts.Args
+	if opts.BuildVariant != nil {
+		var err error
+		executable, args, err = opts.BuildVariant(runCtx, seed, variantPath)
+		if ctx.Err() != nil {
+			return RunRecord{}, ctx.Err()
+		}
+		if err != nil {
+			return RunRecord{HarnessErr: err.Error(), PristineRun: pristine}, nil
+		}
+	}
+	if executable == "" {
+		return RunRecord{HarnessErr: "no executable specified", PristineRun: pristine}, nil
+	}
+	cmd := exec.CommandContext(runCtx, executable, args...)
+	cmd.Args = append(cmd.Args, variantPath)
+	cmd.WaitDelay = 250 * time.Millisecond
 	if opts.WorkDir != "" {
 		cmd.Dir = opts.WorkDir
 	}
@@ -257,38 +340,61 @@ func executeRun(ctx context.Context, opts CampaignOptions, ptx string, timeout t
 	stdout := stdoutBuf.String()
 	stderr := stderrBuf.String()
 
+	if ctx.Err() != nil {
+		return RunRecord{}, ctx.Err()
+	}
 	if errors.Is(runCtx.Err(), context.DeadlineExceeded) {
 		return RunRecord{
-			TimedOut: true,
-			Stdout:   stdout,
-			Stderr:   stderr,
-		}
+			TimedOut:    true,
+			PristineRun: pristine,
+			Stdout:      stdout,
+			Stderr:      stderr,
+		}, nil
 	}
 
 	if err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
-			return RunRecord{
-				Exited:   true,
-				ExitCode: exitErr.ExitCode(),
-				Stdout:   stdout,
-				Stderr:   stderr,
+			rec := RunRecord{
+				Exited:      true,
+				ExitCode:    exitErr.ExitCode(),
+				PristineRun: pristine,
+				Stdout:      stdout,
+				Stderr:      stderr,
 			}
+			if status, ok := exitErr.Sys().(syscall.WaitStatus); ok && status.Signaled() {
+				rec.Signal = status.Signal().String()
+			}
+			return rec, nil
 		}
 		return RunRecord{
-			Exited:     false,
-			HarnessErr: err.Error(),
-			Stdout:     stdout,
-			Stderr:     stderr,
-		}
+			Exited:      false,
+			HarnessErr:  err.Error(),
+			PristineRun: pristine,
+			Stdout:      stdout,
+			Stderr:      stderr,
+		}, nil
 	}
 
 	return RunRecord{
-		Exited:   true,
-		ExitCode: 0,
-		Stdout:   stdout,
-		Stderr:   stderr,
+		Exited:      true,
+		ExitCode:    0,
+		PristineRun: pristine,
+		Stdout:      stdout,
+		Stderr:      stderr,
+	}, nil
+}
+
+func campaignVariantRoot() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
 	}
+	tmp := filepath.Join(home, "tmp")
+	if err := os.MkdirAll(tmp, 0o700); err != nil {
+		return "", err
+	}
+	return os.MkdirTemp(tmp, "cudaschedule-")
 }
 
 func defaultDeviceProbe() bool {

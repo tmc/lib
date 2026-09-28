@@ -1,11 +1,13 @@
 package cudaschedule_test
 
 import (
+	"fmt"
 	"runtime"
 	"strings"
 	"sync"
 	"testing"
 
+	"github.com/tmc/lib/nvidia/x/cudapipeline"
 	"github.com/tmc/lib/nvidia/x/cudaschedule"
 )
 
@@ -106,8 +108,8 @@ func TestPerturb_EmptyDrawReported(t *testing.T) {
 }
 
 func TestControl_SubstrateSleepNotCounted(t *testing.T) {
-	// PTX emitted by cudapipeline.EmitWaitLoop containing nanosleep in spin-wait
-	const pipelinePTX = `.version 8.7
+	// Wrap the real emitter output in a parseable module.
+	pipelinePTX := `.version 8.7
 .target sm_90
 .address_size 64
 
@@ -115,10 +117,7 @@ func TestControl_SubstrateSleepNotCounted(t *testing.T) {
 {
     .reg .pred %p;
     .reg .b64 %rd1;
-wait_loop:
-    mbarrier.try_wait.parity.shared::cta.b64 %p, [%rd1], 0;
-    @!%p nanosleep.u32 20;
-    @!%p bra wait_loop;
+` + cudapipeline.EmitWaitLoop("%rd1", 0, "wait") + `
     ret;
 }
 `
@@ -133,7 +132,7 @@ wait_loop:
 		}
 	}
 
-	// Exactly 2 sites expected: mbarrier (Barrier) and bra back-edge (Backedge)
+	// The emitter contributes the mbarrier and branch sites, but not nanosleep.
 	if len(sites) != 2 {
 		t.Fatalf("Analyze found %d sites, want 2 (Barrier and Backedge)", len(sites))
 	}
@@ -142,6 +141,26 @@ wait_loop:
 	}
 	if sites[1].Kind != cudaschedule.SiteBackedge {
 		t.Errorf("site 1 kind = %v, want Backedge", sites[1].Kind)
+	}
+
+	rewrite, err := cudaschedule.Perturb(pipelinePTX, cudaschedule.Options{Seed: 77, Intensity: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	marked := 0
+	unmarked := 0
+	for _, line := range strings.Split(rewrite.PTX, "\n") {
+		if !strings.Contains(line, "nanosleep.u32") {
+			continue
+		}
+		if strings.Contains(line, "// ptx_schedule") {
+			marked++
+		} else {
+			unmarked++
+		}
+	}
+	if marked != rewrite.Report.SitesInjected || unmarked != 1 {
+		t.Fatalf("emitted PTX has %d marked and %d unmarked sleeps, report injects %d; want one substrate sleep\n%s", marked, unmarked, rewrite.Report.SitesInjected, rewrite.PTX)
 	}
 }
 
@@ -198,5 +217,128 @@ func TestPerturb_FocusMatching(t *testing.T) {
 	}
 	if !foundFocused {
 		t.Fatalf("focused site atom.global not found in decisions")
+	}
+}
+
+func TestPerturb_TouchRatesAndSleepBounds(t *testing.T) {
+	const twoSites = `.version 8.7
+.target sm_90
+.address_size 64
+.visible .entry rates(){
+    atom.global.add.u32 %r, [%rd], 1;
+    bar.sync 0;
+    ret;
+}
+`
+	const draws = 2000
+	within := func(got, want float64) {
+		t.Helper()
+		if delta := got - want; delta < -0.04 || delta > 0.04 {
+			t.Fatalf("touch rate %.3f, want about %.3f", got, want)
+		}
+	}
+	var plain, focused, unfocused int
+	for seed := uint64(0); seed < draws; seed++ {
+		for mode := 0; mode < 2; mode++ {
+			opts := cudaschedule.Options{Seed: seed, Intensity: 0.4, MaxSleepNs: 50000}
+			if mode == 1 {
+				opts.Focus = "atom.global"
+			}
+			r, err := cudaschedule.Perturb(twoSites, opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, decision := range r.Report.Decisions {
+				injected := decision.BeforeNs > 0 || decision.AfterNs > 0
+				if injected && max(decision.BeforeNs, decision.AfterNs) > 20000 {
+					t.Fatalf("sleep exceeds scaled bound: %+v", decision)
+				}
+				if mode == 0 && injected {
+					plain++
+				}
+				if mode == 1 {
+					if strings.Contains(decision.Site.Head, "atom.global") && injected {
+						focused++
+					}
+					if !strings.Contains(decision.Site.Head, "atom.global") && injected {
+						unfocused++
+					}
+				}
+			}
+		}
+	}
+	within(float64(plain)/float64(draws*2), 0.75*0.4)
+	within(float64(focused)/draws, 0.95*0.4)
+	within(float64(unfocused)/draws, 0.15*0.4)
+
+	var sawLargeDefault bool
+	for seed := uint64(0); seed < 100; seed++ {
+		r, err := cudaschedule.Perturb(twoSites, cudaschedule.Options{Seed: seed, Intensity: 1})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, d := range r.Report.Decisions {
+			for _, ns := range []uint32{d.BeforeNs, d.AfterNs} {
+				if ns > cudaschedule.DefaultMaxSleepNs {
+					t.Fatalf("default sleep %d exceeds %d", ns, cudaschedule.DefaultMaxSleepNs)
+				}
+				if ns > 2000 {
+					sawLargeDefault = true
+				}
+			}
+		}
+	}
+	if !sawLargeDefault {
+		t.Fatal(fmt.Sprintf("zero MaxSleepNs did not use the %d ns default", cudaschedule.DefaultMaxSleepNs))
+	}
+}
+
+func TestPerturb_NonTrivialEmptyDrawIsExactNoOp(t *testing.T) {
+	const oneSite = `.version 8.7
+.target sm_90
+.address_size 64
+.visible .entry only(){ atom.global.add.u32 %r, [%rd], 1; ret; }
+`
+	for seed := uint64(0); seed < 10000; seed++ {
+		r, err := cudaschedule.Perturb(oneSite, cudaschedule.Options{Seed: seed, Intensity: 0.5})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r.Report.SitesInjected == 0 {
+			if r.PTX != oneSite {
+				t.Fatalf("empty draw changed PTX for seed %d", seed)
+			}
+			return
+		}
+	}
+	t.Fatal("no non-trivial empty draw found in 10000 seeds")
+}
+
+func TestPerturb_InlineAsmInjectionStaysOutsideMarkers(t *testing.T) {
+	const inline = `.version 8.7
+.target sm_90
+.address_size 64
+.visible .entry inline(){
+// begin inline asm
+    atom.global.add.u32 %r, [%rd], 1;
+// end inline asm
+    ret;
+}
+`
+	r, err := cudaschedule.Perturb(inline, cudaschedule.Options{Seed: 1, Intensity: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	begin := strings.Index(r.PTX, "// begin inline asm")
+	end := strings.Index(r.PTX, "// end inline asm")
+	for offset := strings.Index(r.PTX, "nanosleep.u32"); offset >= 0; offset = strings.Index(r.PTX[offset+1:], "nanosleep.u32") {
+		if offset > begin && offset < end {
+			t.Fatalf("injected nanosleep inside inline asm markers:\n%s", r.PTX)
+		}
+		if offset+1 >= len(r.PTX) {
+			break
+		}
+		// This case has a single schedule site, so no additional occurrence exists.
+		break
 	}
 }

@@ -3,8 +3,10 @@ package cudaschedule_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudaerrors"
 	"github.com/tmc/lib/nvidia/x/cudaschedule"
@@ -106,7 +108,7 @@ func TestCampaign_PluggableRunnerSweep(t *testing.T) {
 		PTXSource:   CAMPAIGN_PTX,
 		SeedStart:   0,
 		SeedEnd:     5,
-		Intensity:   1.0,
+		Intensity:   2.0,
 		ConfirmRuns: 3,
 		RunVariant:  runner,
 	}
@@ -138,5 +140,334 @@ func TestCampaign_PluggableRunnerSweep(t *testing.T) {
 	}
 	if seed2.Confirmation.Findings != 3 {
 		t.Errorf("seed 2 findings = %d, want 3", seed2.Confirmation.Findings)
+	}
+}
+
+func TestCampaign_DefaultRunnerUsesVariant(t *testing.T) {
+	ctx := context.Background()
+	builds := 0
+	opts := cudaschedule.CampaignOptions{
+		PTXSource: CAMPAIGN_PTX,
+		SeedStart: 1, SeedEnd: 4, Intensity: 2, ConfirmRuns: 1,
+		DeviceProbe: func() bool { return true },
+		BuildVariant: func(_ context.Context, _ uint64, ptxPath string) (string, []string, error) {
+			builds++
+			return "/bin/sh", []string{"-c", `cksum "$1"`, "variant-hash"}, nil
+		},
+	}
+	report, err := cudaschedule.RunCampaign(ctx, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.BaselineVerdict != cudaschedule.VerdictPass || len(report.Seeds) != 3 || builds != 4 {
+		t.Fatalf("baseline/seeds/builds = %v/%d/%d, want Pass/3/4", report.BaselineVerdict, len(report.Seeds), builds)
+	}
+	for _, seed := range report.Seeds {
+		if seed.Run.Stdout == report.Baseline.Stdout {
+			t.Errorf("seed %d executable saw pristine PTX: %q", seed.Seed, seed.Run.Stdout)
+		}
+	}
+}
+
+func TestCampaign_RunnerReceivesSeed(t *testing.T) {
+	type call struct {
+		seed uint64
+		ptx  string
+	}
+	var calls []call
+	firstVariant := true
+	runner := func(_ context.Context, seed uint64, ptx string) (cudaschedule.RunRecord, error) {
+		calls = append(calls, call{seed, ptx})
+		if ptx != CAMPAIGN_PTX && seed == 5 && firstVariant {
+			firstVariant = false
+			return cudaschedule.RunRecord{Exited: true, Stdout: "MISMATCH"}, nil
+		}
+		if ptx != CAMPAIGN_PTX && seed == 6 {
+			return cudaschedule.RunRecord{TimedOut: true}, nil
+		}
+		return cudaschedule.RunRecord{Exited: true, Stdout: "PASS"}, nil
+	}
+	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
+		PTXSource: CAMPAIGN_PTX, SeedStart: 5, SeedEnd: 8, Intensity: 2,
+		ConfirmRuns: 3, RunVariant: runner,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Seeds) != 3 || !report.Baseline.PristineRun {
+		t.Fatalf("report = %+v; want three seeds and a marked pristine baseline", report)
+	}
+	if report.Seeds[0].Seed != 5 || report.Seeds[0].Confirmation == nil || report.Seeds[0].Confirmation.Attempts != 3 {
+		t.Fatalf("seed 5 confirmation = %+v", report.Seeds[0])
+	}
+	seenVariants := map[uint64]int{}
+	for _, c := range calls {
+		if c.ptx != CAMPAIGN_PTX {
+			seenVariants[c.seed]++
+		}
+	}
+	if seenVariants[5] != 3 || seenVariants[6] != 3 || seenVariants[7] != 1 {
+		t.Fatalf("variant calls by seed = %v, want 5:3, 6:3, 7:1", seenVariants)
+	}
+	if report.Seeds[1].Run.Pristine == nil || !report.Seeds[1].Run.Pristine.PristineRun {
+		t.Fatalf("seed 6 timeout lacks marked pristine health check: %+v", report.Seeds[1].Run)
+	}
+	pristineSeed6 := 0
+	for _, c := range calls {
+		if c.seed == 6 && c.ptx == CAMPAIGN_PTX {
+			pristineSeed6++
+		}
+	}
+	if pristineSeed6 != 3 {
+		t.Fatalf("seed 6 pristine health calls = %d, want one per timeout attempt", pristineSeed6)
+	}
+	for _, seed := range report.Seeds {
+		if seed.Run.PristineRun {
+			t.Errorf("variant seed %d was marked pristine", seed.Seed)
+		}
+	}
+}
+
+func TestCampaign_BrokenBaselineRunsNoVariants(t *testing.T) {
+	var variantRuns int
+	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
+		PTXSource: CAMPAIGN_PTX, SeedStart: 1, SeedEnd: 4, Intensity: 2, ConfirmRuns: 1,
+		RunVariant: func(_ context.Context, _ uint64, _ string) (cudaschedule.RunRecord, error) {
+			variantRuns++
+			return cudaschedule.RunRecord{Exited: true, Stdout: "MISMATCH"}, nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.BaselineVerdict != cudaschedule.VerdictMismatch || report.BaselineStatus != "Broken" || len(report.Seeds) != 0 || variantRuns != 1 {
+		t.Fatalf("baseline=%v/%s seeds=%d calls=%d, want Mismatch/Broken/0/1", report.BaselineVerdict, report.BaselineStatus, len(report.Seeds), variantRuns)
+	}
+}
+
+func TestCampaign_BrokenBaselinePrecedesAnalysis(t *testing.T) {
+	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
+		PTXSource: "not valid PTX", SeedStart: 1, SeedEnd: 2, ConfirmRuns: 1,
+		RunVariant: func(_ context.Context, _ uint64, _ string) (cudaschedule.RunRecord, error) {
+			return cudaschedule.RunRecord{Exited: true, Stdout: "MISMATCH"}, nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("RunCampaign error = %v, want baseline report before PTX analysis", err)
+	}
+	if report.BaselineStatus != "Broken" || report.BaselineVerdict != cudaschedule.VerdictMismatch || len(report.Seeds) != 0 {
+		t.Fatalf("malformed broken baseline report = %+v", report)
+	}
+}
+
+func TestCampaign_SkippedBaselineIsDeclined(t *testing.T) {
+	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
+		PTXSource: CAMPAIGN_PTX, SeedStart: 1, SeedEnd: 2, ConfirmRuns: 1,
+		RunVariant: func(_ context.Context, _ uint64, _ string) (cudaschedule.RunRecord, error) {
+			return cudaschedule.RunRecord{Exited: true, Stdout: "skipping: unsupported target"}, nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.BaselineVerdict != cudaschedule.VerdictSkipped || report.BaselineStatus != "Declined" || len(report.Seeds) != 0 {
+		t.Fatalf("skipped baseline = %+v, want Declined and no seeds", report)
+	}
+}
+
+func TestCampaign_EmptyDrawNotAFinding(t *testing.T) {
+	const oneSite = `.version 8.7
+.target sm_90
+.address_size 64
+.visible .entry only(){ atom.global.add.u32 %r, [%rd], 1; ret; }
+`
+	seed := uint64(0)
+	for ; seed < 10000; seed++ {
+		r, err := cudaschedule.Perturb(oneSite, cudaschedule.Options{Seed: seed, Intensity: 0.5})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r.Report.SitesInjected == 0 {
+			break
+		}
+	}
+	if seed == 10000 {
+		t.Fatal("failed to find non-trivial empty draw")
+	}
+	var variantRuns int
+	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
+		PTXSource: oneSite, SeedStart: seed, SeedEnd: seed + 1, Intensity: 0.5, ConfirmRuns: 1,
+		RunVariant: func(_ context.Context, _ uint64, _ string) (cudaschedule.RunRecord, error) {
+			variantRuns++
+			return cudaschedule.RunRecord{Exited: true}, nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Seeds) != 1 || report.Seeds[0].Report.SitesInjected != 0 || report.Seeds[0].Verdict.IsFinding() || variantRuns != 1 {
+		t.Fatalf("empty draw result=%+v variant calls=%d, want recorded non-finding and baseline only", report.Seeds, variantRuns)
+	}
+	if report.Seeds[0].Report.SitesInjected != 0 || report.Seeds[0].Run.Exited {
+		t.Fatalf("empty draw unexpectedly ran: %+v", report.Seeds[0])
+	}
+}
+
+func TestCampaign_OneOffReported(t *testing.T) {
+	variantRuns := 0
+	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
+		PTXSource: CAMPAIGN_PTX, SeedStart: 2, SeedEnd: 3, Intensity: 2, ConfirmRuns: 5,
+		RunVariant: func(_ context.Context, _ uint64, ptx string) (cudaschedule.RunRecord, error) {
+			if ptx == CAMPAIGN_PTX {
+				return cudaschedule.RunRecord{Exited: true, Stdout: "PASS"}, nil
+			}
+			variantRuns++
+			if variantRuns == 1 {
+				return cudaschedule.RunRecord{Exited: true, Stdout: "MISMATCH"}, nil
+			}
+			return cudaschedule.RunRecord{Exited: true, Stdout: "PASS"}, nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := report.Seeds[0].Confirmation
+	if s == nil || s.Confirmed || s.Findings != 1 || s.Attempts != 5 || len(s.Outcomes) != 5 || variantRuns != 5 {
+		t.Fatalf("one-off confirmation = %+v, variant calls=%d", s, variantRuns)
+	}
+}
+
+func TestCampaign_HarnessErrorNotFinding(t *testing.T) {
+	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
+		PTXSource: CAMPAIGN_PTX, SeedStart: 3, SeedEnd: 6, Intensity: 2, ConfirmRuns: 1,
+		RunVariant: func(_ context.Context, seed uint64, ptx string) (cudaschedule.RunRecord, error) {
+			if ptx == CAMPAIGN_PTX {
+				return cudaschedule.RunRecord{Exited: true, Stdout: "PASS"}, nil
+			}
+			if seed == 3 {
+				return cudaschedule.RunRecord{}, fmt.Errorf("compile failed")
+			}
+			return cudaschedule.RunRecord{Exited: true, Stdout: "PASS"}, nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Seeds) != 3 || report.Seeds[0].Verdict != cudaschedule.VerdictHarnessError || report.FindingCount() != 0 {
+		t.Fatalf("campaign results = %+v, finding count %d", report.Seeds, report.FindingCount())
+	}
+}
+
+func TestCampaign_WedgeAndKeepGoing(t *testing.T) {
+	run := func(keepGoing bool) *cudaschedule.CampaignReport {
+		report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
+			PTXSource: CAMPAIGN_PTX, SeedStart: 0, SeedEnd: 3, Intensity: 2,
+			ConfirmRuns: 1, KeepGoing: keepGoing,
+			RunVariant: func(_ context.Context, seed uint64, ptx string) (cudaschedule.RunRecord, error) {
+				if ptx == CAMPAIGN_PTX {
+					if seed == 0 {
+						return cudaschedule.RunRecord{Exited: true, Stdout: "PASS"}, nil
+					}
+					return cudaschedule.RunRecord{Exited: true, ExitCode: 1}, nil
+				}
+				return cudaschedule.RunRecord{TimedOut: true}, nil
+			},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return report
+	}
+	stop := run(false)
+	if len(stop.Seeds) != 2 || stop.Seeds[0].Verdict != cudaschedule.VerdictHang || stop.Seeds[1].Verdict != cudaschedule.VerdictGpuWedged {
+		t.Fatalf("stop-on-wedge results = %+v", stop.Seeds)
+	}
+	keep := run(true)
+	if len(keep.Seeds) != 3 || keep.Seeds[1].Verdict != cudaschedule.VerdictGpuWedged {
+		t.Fatalf("keep-going results = %+v", keep.Seeds)
+	}
+	if got := cudaschedule.Classify(cudaschedule.RunRecord{TimedOut: true, Pristine: &cudaschedule.RunRecord{HarnessErr: "probe failed"}}); got != cudaschedule.VerdictHarnessError {
+		t.Fatalf("timeout with pristine harness error = %v, want HarnessError", got)
+	}
+}
+
+func TestCampaign_CancellationHasNoSeedVerdict(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	report, err := cudaschedule.RunCampaign(ctx, cudaschedule.CampaignOptions{
+		PTXSource: CAMPAIGN_PTX, SeedStart: 2, SeedEnd: 3, Intensity: 2, ConfirmRuns: 1,
+		RunVariant: func(_ context.Context, _ uint64, ptx string) (cudaschedule.RunRecord, error) {
+			if ptx == CAMPAIGN_PTX {
+				return cudaschedule.RunRecord{Exited: true, Stdout: "PASS"}, nil
+			}
+			cancel()
+			return cudaschedule.RunRecord{Exited: true, ExitCode: 1}, nil
+		},
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("RunCampaign error = %v, want context.Canceled", err)
+	}
+	if report == nil || len(report.Seeds) != 0 {
+		t.Fatalf("canceled run recorded a seed verdict: %+v", report)
+	}
+}
+
+func TestCampaign_DeadlineHasNoSeedVerdict(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	report, err := cudaschedule.RunCampaign(ctx, cudaschedule.CampaignOptions{
+		PTXSource: CAMPAIGN_PTX, SeedStart: 4, SeedEnd: 5, Intensity: 2, ConfirmRuns: 1,
+		RunVariant: func(ctx context.Context, _ uint64, ptx string) (cudaschedule.RunRecord, error) {
+			if ptx == CAMPAIGN_PTX {
+				return cudaschedule.RunRecord{Exited: true, Stdout: "PASS"}, nil
+			}
+			<-ctx.Done()
+			return cudaschedule.RunRecord{}, nil
+		},
+	})
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("RunCampaign error = %v, want context deadline", err)
+	}
+	if report == nil || len(report.Seeds) != 0 {
+		t.Fatalf("deadline recorded a seed verdict: %+v", report)
+	}
+}
+
+func TestCampaign_ParentDeadlineIsNotWatchdog(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
+	defer cancel()
+	report, err := cudaschedule.RunCampaign(ctx, cudaschedule.CampaignOptions{
+		PTXSource: CAMPAIGN_PTX, Executable: "/bin/sh",
+		Args:      []string{"-c", `grep -q nanosleep "$1" && exec sleep 5 || echo PASS`, "parent-deadline"},
+		SeedStart: 10, SeedEnd: 11, Intensity: 2, ConfirmRuns: 1, Timeout: 5 * time.Second,
+		DeviceProbe: func() bool { return true },
+	})
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("RunCampaign error = %v, want parent deadline", err)
+	}
+	if report == nil || len(report.Seeds) != 0 {
+		t.Fatalf("parent deadline was recorded as a seed verdict: %+v", report)
+	}
+}
+
+func TestCampaign_WaitDelayClosesInheritedPipe(t *testing.T) {
+	start := time.Now()
+	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
+		PTXSource: CAMPAIGN_PTX, Executable: "/bin/sh",
+		Args:      []string{"-c", `grep -q nanosleep "$1" && { sleep 0.6 & wait; } || echo PASS`, "wait-delay"},
+		SeedStart: 9, SeedEnd: 10, Intensity: 2, ConfirmRuns: 1, Timeout: 100 * time.Millisecond,
+		DeviceProbe: func() bool { return true },
+	})
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Seeds) != 1 || report.Seeds[0].Verdict != cudaschedule.VerdictHang {
+		t.Fatalf("wait-delay campaign = %+v", report.Seeds)
+	}
+	if report.Seeds[0].Run.Pristine == nil || !report.Seeds[0].Run.Pristine.PristineRun {
+		t.Fatalf("timeout health check is not marked pristine: %+v", report.Seeds[0].Run)
+	}
+	if elapsed > 500*time.Millisecond {
+		t.Fatalf("watchdog plus WaitDelay took %s", elapsed)
 	}
 }

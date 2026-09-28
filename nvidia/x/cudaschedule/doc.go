@@ -11,19 +11,19 @@
 // [Analyze] scans a PTX module and classifies schedule-sensitive sites into ten kinds:
 //   - [SiteAtomic]: atomic read-modify-write instructions (atom.*)
 //   - [SiteReduction]: memory reductions with no returned value (red.*)
-//   - [SiteBarrier]: barrier and mbarrier synchronization (bar.*, barrier.*, mbarrier.*)
+//   - [SiteBarrier]: CTA, warp, and mbarrier synchronization (bar.*, barrier.*, mbarrier.*)
 //   - [SiteFence]: memory ordering and fences (fence.*, membar.*)
 //   - [SiteOrderedMemory]: memory loads and stores with explicit ordering qualifiers
 //     (.volatile, .acquire, .release, .relaxed, .acq_rel, .mmio), excluding non-coherent loads
 //   - [SiteWarpCollective]: warp-wide communication (shfl.*, vote.*, match.*, elect.*, activemask, redux.*)
 //   - [SiteAsyncProxy]: asynchronous proxy pipeline operations (cp.async.*, cp.reduce.async.*,
-//     wgmma.*, tcgen05.*, clusterlaunchcontrol.*) and ordering commit/wait pairs
+//     st.async.*, tensormap.cp_fenceproxy.*, wgmma.*, tcgen05.*, clusterlaunchcontrol.*)
 //   - [SiteGridDependency]: programmatic dependent launch boundaries (griddepcontrol.launch_dependents, griddepcontrol.wait)
 //   - [SiteTensorMapMutation]: generic-proxy tensor map descriptor mutations (tensormap.replace.*)
 //   - [SiteBackedge]: intraprocedural branches (bra, brx) to the same or an earlier basic block
 //
-// The site taxonomy is a closed set: unrecognized ordering-sensitive opcodes return an error,
-// never an unclassified site.
+// The site taxonomy is a closed set: unsupported ordering-sensitive families such as multimem.*
+// return an error, never an unclassified site.
 //
 // # Verdict Taxonomy
 //

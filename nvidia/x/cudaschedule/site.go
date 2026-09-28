@@ -211,6 +211,8 @@ func classifyInstruction(opcode, mnemonic string, line int) (SiteKind, bool, err
 	for _, prefix := range []string{
 		"cp.async",
 		"cp.reduce.async",
+		"st.async",
+		"tensormap.cp_fenceproxy",
 		"wgmma.",
 		"tcgen05.",
 		"clusterlaunchcontrol.",
@@ -224,6 +226,8 @@ func classifyInstruction(opcode, mnemonic string, line int) (SiteKind, bool, err
 	for _, prefix := range []string{
 		"bar.sync",
 		"bar.arrive",
+		"bar.cta.sync",
+		"bar.cta.arrive",
 		"bar.red",
 		"bar.warp",
 		"barrier.",
@@ -295,7 +299,7 @@ func isOrderingOpcode(head, mnemonic string) bool {
 	}
 	for _, p := range []string{
 		"atom.", "red.", "bar.", "barrier.", "mbarrier.", "membar.",
-		"fence.", "griddepcontrol.", "tensormap.",
+		"fence.", "griddepcontrol.", "tensormap.", "multimem.",
 	} {
 		if strings.HasPrefix(head, p) {
 			return true
@@ -487,7 +491,7 @@ func findBranchTables(src string, startOffset, endOffset int) (map[string][]stri
 		if len(fields) < 2 {
 			return nil, fmt.Errorf("malformed .branchtargets declaration")
 		}
-		tableName := fields[0]
+		tableName := strings.TrimSuffix(fields[0], ",")
 		targetStr := strings.Join(fields[1:], " ")
 		var targets []string
 		for _, t := range strings.Split(targetStr, ",") {
