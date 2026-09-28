@@ -23,11 +23,14 @@ void cudnnGetLastErrorString(char *p, size_t n) { if (n == 4) memcpy(p, "ok\0\0"
 `
 
 func TestDirectReturns(t *testing.T) {
+	// Restore in a cleanup, not a defer: bindStub's cleanup restores the
+	// stub state below, and cleanups run after defers, so a deferred
+	// restore would be undone.
 	oldReady, oldPresent := ready.Load(), present
-	defer func() {
+	t.Cleanup(func() {
 		ready.Store(oldReady)
 		present = oldPresent
-	}()
+	})
 	ready.Store(true)
 	present = map[string]bool{}
 	for _, tt := range []struct {
