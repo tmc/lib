@@ -50,3 +50,31 @@ func TestLaunchSignatureRejectsBeforeDriver(t *testing.T) {
 		t.Fatalf("Launch error = %v, want size mismatch", err)
 	}
 }
+
+// Equal-width arguments must still be checked before the driver sees them.
+func TestLaunchSignatureRejectsFloatForInteger(t *testing.T) {
+	for _, typ := range []string{"u32", "s32"} {
+		t.Run(typ, func(t *testing.T) {
+			sig := Signature{KernelName: "vecadd", Params: []Param{{Name: "n", Type: typ, Size: 4}}}
+			if err := Validate(sig, int32(1024)); err != nil {
+				t.Fatal(err)
+			}
+			l := Kernel(driver.Function(1)).WithSignature(sig)
+			if err := l.Launch(float32(1024)); err == nil || !strings.Contains(err.Error(), "type mismatch") {
+				t.Fatalf("Launch error = %v, want type mismatch before driver call", err)
+			}
+		})
+	}
+}
+
+func TestSignatureBitStorage(t *testing.T) {
+	sig := Signature{Params: []Param{{Type: "b32", Size: 4}}}
+	for _, arg := range []any{float32(1), int32(1)} {
+		if err := Validate(sig, arg); err != nil {
+			t.Fatalf("untyped b32 storage rejected %T: %v", arg, err)
+		}
+	}
+	if err := Validate(sig, float64(1)); err == nil {
+		t.Fatal("accepted wrong storage width")
+	}
+}
