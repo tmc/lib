@@ -2,6 +2,10 @@
 
 package cublaslt
 
+import (
+	"unsafe"
+)
+
 // NewMatmulDesc creates a matrix multiply descriptor by allocating the memory needed to hold its opaque structure.
 //
 //   - matmulDesc: Pointer to the structure holding the matrix multiply descriptor created by this function. See [MatmulDesc]
@@ -31,7 +35,7 @@ func NewMatmulDesc(computeType ComputeType, scaleType DataType) (MatmulDesc, err
 //   - [ErrInvalidValue]: If sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL, or sizeInBytes doesn’t match size of internal storage for the selected attribute
 //
 // Wraps cublasLtMatmulDescGetAttribute.
-func (m MatmulDesc) Attribute(attr MatmulDescAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
+func (m MatmulDesc) Attribute(attr MatmulDescAttributes, buf unsafe.Pointer, sizeInBytes uint) (uint, error) {
 	return matmulDescGetAttribute(m, attr, buf, sizeInBytes)
 }
 
@@ -70,6 +74,6 @@ func (m MatmulDesc) Init_internal(size uint, computeType ComputeType, scaleType 
 //   - [ErrInvalidValue]: If buf is NULL or sizeInBytes doesn’t match the size of the internal storage for the selected attribute.
 //
 // Wraps cublasLtMatmulDescSetAttribute.
-func (m MatmulDesc) SetAttribute(attr MatmulDescAttributes, buf uintptr, sizeInBytes uint) error {
+func (m MatmulDesc) SetAttribute(attr MatmulDescAttributes, buf unsafe.Pointer, sizeInBytes uint) error {
 	return matmulDescSetAttribute(m, attr, buf, sizeInBytes)
 }

@@ -2,6 +2,10 @@
 
 package cublaslt
 
+import (
+	"unsafe"
+)
+
 // NewMatrixTransformDesc creates a matrix transform descriptor by allocating the memory needed to hold its opaque structure.
 //
 //   - transformDesc: Pointer to the structure holding the matrix transform descriptor created by this function. See [MatrixTransformDesc]
@@ -30,7 +34,7 @@ func NewMatrixTransformDesc(scaleType DataType) (MatrixTransformDesc, error) {
 //   - [ErrInvalidValue]: If sizeInBytes is zero and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL, or if sizeInBytes doesn’t match size of internal storage for the selected attribute
 //
 // Wraps cublasLtMatrixTransformDescGetAttribute.
-func (m MatrixTransformDesc) Attribute(attr MatrixTransformDescAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
+func (m MatrixTransformDesc) Attribute(attr MatrixTransformDescAttributes, buf unsafe.Pointer, sizeInBytes uint) (uint, error) {
 	return matrixTransformDescGetAttribute(m, attr, buf, sizeInBytes)
 }
 
@@ -71,6 +75,6 @@ func (m MatrixTransformDesc) Init_internal(size uint, scaleType DataType) error 
 //   - [ErrInvalidValue]: If buf is NULL or sizeInBytes does not match size of the internal storage for the selected attribute.
 //
 // Wraps cublasLtMatrixTransformDescSetAttribute.
-func (m MatrixTransformDesc) SetAttribute(attr MatrixTransformDescAttributes, buf uintptr, sizeInBytes uint) error {
+func (m MatrixTransformDesc) SetAttribute(attr MatrixTransformDescAttributes, buf unsafe.Pointer, sizeInBytes uint) error {
 	return matrixTransformDescSetAttribute(m, attr, buf, sizeInBytes)
 }

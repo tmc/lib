@@ -2,6 +2,10 @@
 
 package cublaslt
 
+import (
+	"unsafe"
+)
+
 // NewEmulationDesc creates a new emulation descriptor.
 //
 //   - emulationDesc: Pointer to the previously created structure holding the emulation descriptor queried by this function. See [EmulationDesc]
@@ -29,7 +33,7 @@ func NewEmulationDesc() (EmulationDesc, error) {
 //   - [ErrInvalidValue]: If sizeInBytes is zero and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL, or if sizeInBytes doesn’t match size of internal storage for the selected attribute
 //
 // Wraps cublasLtEmulationDescGetAttribute.
-func (e EmulationDesc) Attribute(attr EmulationDescAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
+func (e EmulationDesc) Attribute(attr EmulationDescAttributes, buf unsafe.Pointer, sizeInBytes uint) (uint, error) {
 	return emulationDescGetAttribute(e, attr, buf, sizeInBytes)
 }
 
@@ -70,6 +74,6 @@ func (e EmulationDesc) Init_internal(size uint) error {
 //   - [ErrInvalidValue]: If buf is NULL or sizeInBytes does not match size of the internal storage for the selected attribute.
 //
 // Wraps cublasLtEmulationDescSetAttribute.
-func (e EmulationDesc) SetAttribute(attr EmulationDescAttributes, buf uintptr, sizeInBytes uint) error {
+func (e EmulationDesc) SetAttribute(attr EmulationDescAttributes, buf unsafe.Pointer, sizeInBytes uint) error {
 	return emulationDescSetAttribute(e, attr, buf, sizeInBytes)
 }

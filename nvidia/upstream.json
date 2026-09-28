@@ -169,10 +169,11 @@
           "-output",
           "${OUTPUT_DIR}"
         ],
-        "comparison": "All 19 outputs regenerated into the committed package. No exported declaration was dropped; the package gains BindFailures, LibraryError and LibraryAttempt, and generated parameters are renamed from snake_case to camelCase.",
+        "comparison": "All recorded outputs regenerated with the recorded recipe; package compile and API review recorded in the release receipt. GPU qualification is separate.",
         "cwd": "${CODEGEN_REPO}",
         "environment": {
-          "GOWORK": "off"
+          "GOWORK": "off",
+          "GOTOOLCHAIN": "go1.27.0"
         },
         "outputs": [
           {
@@ -185,7 +186,7 @@
           },
           {
             "path": "nvidia/cublaslt/emulation_desc.gen.go",
-            "sha256": "665b1586419bb8bf8ec74e579bb7c7e093703d1348f70f72f293c938ab9715af"
+            "sha256": "2950a6bcbaa88d50e83ef795bfa487aa9e9be09ef4111f4170f5821d530f737d"
           },
           {
             "path": "nvidia/cublaslt/enums.gen.go",
@@ -193,11 +194,11 @@
           },
           {
             "path": "nvidia/cublaslt/funcs.gen.go",
-            "sha256": "41e3e7fcb39808f03561815f45d42e2d21345313f0bb2e5d73672ab928ed2873"
+            "sha256": "9c6467f0a0e3366f1894f3831f039227321b22a589c381c83349fee25b0fae3f"
           },
           {
             "path": "nvidia/cublaslt/handle.gen.go",
-            "sha256": "5ce7404e0e01fd72b8997b6f5cde91ae03c94ca07df3adc7fefca3779835873e"
+            "sha256": "f505abbd7b7e845b3511d2506b8932d7abb1e4631ee0fd73398398b5b0a77079"
           },
           {
             "path": "nvidia/cublaslt/handles.gen.go",
@@ -225,19 +226,27 @@
           },
           {
             "path": "nvidia/cublaslt/matmul_desc.gen.go",
-            "sha256": "3bc0d80741c527ebfe052ff574927fa0043c5e95b5161f77d424523580fbf8d5"
+            "sha256": "0fa177c6c47d16983bdf73f6e3bf72f583d85ebd064241ae7108adfa6953b296"
           },
           {
             "path": "nvidia/cublaslt/matmul_preference.gen.go",
-            "sha256": "d2a619f4cafdcc598075cbc9b6decbc6fedcec28fb475670398fa613d6f800f9"
+            "sha256": "d780c4370e6da372754e4d66975e47f560dfed02156940e9bfc1bc2d3589a119"
           },
           {
             "path": "nvidia/cublaslt/matrix_layout.gen.go",
-            "sha256": "4903ec120d0e228029526c5874432dc915b7b689d94211ec0392f58552eb4f2e"
+            "sha256": "01231177fce8b3143059ff63f5da4454118da6e7e3753758dbf7f87a20720cf7"
           },
           {
             "path": "nvidia/cublaslt/matrix_transform_desc.gen.go",
-            "sha256": "5aff2df8112171d2797397895574a4dccb760e5152b656d4fb41d02575d794b9"
+            "sha256": "cb293b0041e3eb9ab26b90b0b1e3a2bed7e28068249ecf4e9a7d85d71d1d37a6"
+          },
+          {
+            "path": "nvidia/cublaslt/provenance.gen.go",
+            "sha256": "8fcb3206b6e2b354ffbce76493a89238ccb878a9ee2d346085cfed4d81f2fd30"
+          },
+          {
+            "path": "nvidia/cublaslt/provenance.json",
+            "sha256": "06f320dd818a8530b8a6f0ef120be0c3ba37917ce12c613eaf252b75e257ae58"
           },
           {
             "path": "nvidia/cublaslt/result.gen.go",
@@ -254,7 +263,8 @@
         ],
         "toolchain": {
           "go": "go version go1.27.0 darwin/arm64"
-        }
+        },
+        "source_state": "clean tracked libgen sources at 3005ecfdb35134468c9a9d93532ee08f6c7c53cf"
       },
       "header": {
         "path": "cublas/cublasLt.h",
@@ -265,10 +275,10 @@
       "package": "github.com/tmc/lib/nvidia/cublaslt",
       "repositories": {
         "codegen": {
-          "commit": "b3dc359c9db53dea61a497ef6f5c4a305f945132",
+          "commit": "3005ecfdb35134468c9a9d93532ee08f6c7c53cf",
           "note": "Unpublished at the time of recording; it is the commit this generation was taken from. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 8cdab9e: cublasLtNumericalImplFlags_t, spelled as macros above a uint64_t typedef, is now the NumericalImplFlags type with typed constants. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen fc6bb16 regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c",
           "url": "https://github.com/tmc/libgen.git",
-          "tree": "f54815ecdd777ae664e200e000db35f1e948469d"
+          "tree": "c4c5a286244f546c9503a20d3b38bb8c46acbdb2"
         },
         "headers": {
           "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",

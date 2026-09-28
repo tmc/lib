@@ -259,7 +259,7 @@ func fnemulationDescDestroy(a0 EmulationDesc) Result {
 }
 
 // fnemulationDescGetAttribute calls cublasLtEmulationDescGetAttribute.
-func fnemulationDescGetAttribute(a0 EmulationDesc, a1 EmulationDescAttributes, a2 uintptr, a3 uint, a4 *uint) Result {
+func fnemulationDescGetAttribute(a0 EmulationDesc, a1 EmulationDescAttributes, a2 unsafe.Pointer, a3 uint, a4 *uint) Result {
 	r1, _ := ffiCallWidths5(symemulationDescGetAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
@@ -271,7 +271,7 @@ func fnemulationDescInit_internal(a0 EmulationDesc, a1 uint) Result {
 }
 
 // fnemulationDescSetAttribute calls cublasLtEmulationDescSetAttribute.
-func fnemulationDescSetAttribute(a0 EmulationDesc, a1 EmulationDescAttributes, a2 uintptr, a3 uint) Result {
+func fnemulationDescSetAttribute(a0 EmulationDesc, a1 EmulationDescAttributes, a2 unsafe.Pointer, a3 uint) Result {
 	r1, _ := ffiCallWidths4(symemulationDescSetAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
@@ -343,7 +343,7 @@ func fnLoggerSetMask(a0 int32) Result {
 }
 
 // fnMatmulAlgoCapGetAttribute calls cublasLtMatmulAlgoCapGetAttribute.
-func fnMatmulAlgoCapGetAttribute(a0 *MatmulAlgo, a1 MatmulAlgoCapAttributes, a2 uintptr, a3 uint, a4 *uint) Result {
+func fnMatmulAlgoCapGetAttribute(a0 *MatmulAlgo, a1 MatmulAlgoCapAttributes, a2 unsafe.Pointer, a3 uint, a4 *uint) Result {
 	r1, _ := ffiCallWidths5(symMatmulAlgoCapGetAttribute, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
@@ -355,13 +355,13 @@ func fnmatmulAlgoCheck(a0 Handle, a1 MatmulDesc, a2 MatrixLayout, a3 MatrixLayou
 }
 
 // fnMatmulAlgoConfigGetAttribute calls cublasLtMatmulAlgoConfigGetAttribute.
-func fnMatmulAlgoConfigGetAttribute(a0 *MatmulAlgo, a1 MatmulAlgoConfigAttributes, a2 uintptr, a3 uint, a4 *uint) Result {
+func fnMatmulAlgoConfigGetAttribute(a0 *MatmulAlgo, a1 MatmulAlgoConfigAttributes, a2 unsafe.Pointer, a3 uint, a4 *uint) Result {
 	r1, _ := ffiCallWidths5(symMatmulAlgoConfigGetAttribute, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
 // fnMatmulAlgoConfigSetAttribute calls cublasLtMatmulAlgoConfigSetAttribute.
-func fnMatmulAlgoConfigSetAttribute(a0 *MatmulAlgo, a1 MatmulAlgoConfigAttributes, a2 uintptr, a3 uint) Result {
+func fnMatmulAlgoConfigSetAttribute(a0 *MatmulAlgo, a1 MatmulAlgoConfigAttributes, a2 unsafe.Pointer, a3 uint) Result {
 	r1, _ := ffiCallWidths4(symMatmulAlgoConfigSetAttribute, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
@@ -397,7 +397,7 @@ func fnmatmulDescDestroy(a0 MatmulDesc) Result {
 }
 
 // fnmatmulDescGetAttribute calls cublasLtMatmulDescGetAttribute.
-func fnmatmulDescGetAttribute(a0 MatmulDesc, a1 MatmulDescAttributes, a2 uintptr, a3 uint, a4 *uint) Result {
+func fnmatmulDescGetAttribute(a0 MatmulDesc, a1 MatmulDescAttributes, a2 unsafe.Pointer, a3 uint, a4 *uint) Result {
 	r1, _ := ffiCallWidths5(symmatmulDescGetAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
@@ -409,7 +409,7 @@ func fnmatmulDescInit_internal(a0 MatmulDesc, a1 uint, a2 ComputeType, a3 DataTy
 }
 
 // fnmatmulDescSetAttribute calls cublasLtMatmulDescSetAttribute.
-func fnmatmulDescSetAttribute(a0 MatmulDesc, a1 MatmulDescAttributes, a2 uintptr, a3 uint) Result {
+func fnmatmulDescSetAttribute(a0 MatmulDesc, a1 MatmulDescAttributes, a2 unsafe.Pointer, a3 uint) Result {
 	r1, _ := ffiCallWidths4(symmatmulDescSetAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
@@ -427,7 +427,7 @@ func fnmatmulPreferenceDestroy(a0 MatmulPreference) Result {
 }
 
 // fnmatmulPreferenceGetAttribute calls cublasLtMatmulPreferenceGetAttribute.
-func fnmatmulPreferenceGetAttribute(a0 MatmulPreference, a1 MatmulPreferenceAttributes, a2 uintptr, a3 uint, a4 *uint) Result {
+func fnmatmulPreferenceGetAttribute(a0 MatmulPreference, a1 MatmulPreferenceAttributes, a2 unsafe.Pointer, a3 uint, a4 *uint) Result {
 	r1, _ := ffiCallWidths5(symmatmulPreferenceGetAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
@@ -439,7 +439,7 @@ func fnmatmulPreferenceInit_internal(a0 MatmulPreference, a1 uint) Result {
 }
 
 // fnmatmulPreferenceSetAttribute calls cublasLtMatmulPreferenceSetAttribute.
-func fnmatmulPreferenceSetAttribute(a0 MatmulPreference, a1 MatmulPreferenceAttributes, a2 uintptr, a3 uint) Result {
+func fnmatmulPreferenceSetAttribute(a0 MatmulPreference, a1 MatmulPreferenceAttributes, a2 unsafe.Pointer, a3 uint) Result {
 	r1, _ := ffiCallWidths4(symmatmulPreferenceSetAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
@@ -457,7 +457,7 @@ func fnmatrixLayoutDestroy(a0 MatrixLayout) Result {
 }
 
 // fnmatrixLayoutGetAttribute calls cublasLtMatrixLayoutGetAttribute.
-func fnmatrixLayoutGetAttribute(a0 MatrixLayout, a1 MatrixLayoutAttribute, a2 uintptr, a3 uint, a4 *uint) Result {
+func fnmatrixLayoutGetAttribute(a0 MatrixLayout, a1 MatrixLayoutAttribute, a2 unsafe.Pointer, a3 uint, a4 *uint) Result {
 	r1, _ := ffiCallWidths5(symmatrixLayoutGetAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
@@ -469,7 +469,7 @@ func fnmatrixLayoutInit_internal(a0 MatrixLayout, a1 uint, a2 DataType, a3 uint6
 }
 
 // fnmatrixLayoutSetAttribute calls cublasLtMatrixLayoutSetAttribute.
-func fnmatrixLayoutSetAttribute(a0 MatrixLayout, a1 MatrixLayoutAttribute, a2 uintptr, a3 uint) Result {
+func fnmatrixLayoutSetAttribute(a0 MatrixLayout, a1 MatrixLayoutAttribute, a2 unsafe.Pointer, a3 uint) Result {
 	r1, _ := ffiCallWidths4(symmatrixLayoutSetAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
@@ -487,7 +487,7 @@ func fnmatrixTransformDescDestroy(a0 MatrixTransformDesc) Result {
 }
 
 // fnmatrixTransformDescGetAttribute calls cublasLtMatrixTransformDescGetAttribute.
-func fnmatrixTransformDescGetAttribute(a0 MatrixTransformDesc, a1 MatrixTransformDescAttributes, a2 uintptr, a3 uint, a4 *uint) Result {
+func fnmatrixTransformDescGetAttribute(a0 MatrixTransformDesc, a1 MatrixTransformDescAttributes, a2 unsafe.Pointer, a3 uint, a4 *uint) Result {
 	r1, _ := ffiCallWidths5(symmatrixTransformDescGetAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
@@ -499,7 +499,7 @@ func fnmatrixTransformDescInit_internal(a0 MatrixTransformDesc, a1 uint, a2 Data
 }
 
 // fnmatrixTransformDescSetAttribute calls cublasLtMatrixTransformDescSetAttribute.
-func fnmatrixTransformDescSetAttribute(a0 MatrixTransformDesc, a1 MatrixTransformDescAttributes, a2 uintptr, a3 uint) Result {
+func fnmatrixTransformDescSetAttribute(a0 MatrixTransformDesc, a1 MatrixTransformDescAttributes, a2 unsafe.Pointer, a3 uint) Result {
 	r1, _ := ffiCallWidths4(symmatrixTransformDescSetAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
@@ -754,7 +754,7 @@ func emulationDescDestroy(emulationDesc EmulationDesc) error {
 //   - [ErrInvalidValue]: If sizeInBytes is zero and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL, or if sizeInBytes doesn’t match size of internal storage for the selected attribute
 //
 // Wraps cublasLtEmulationDescGetAttribute.
-func emulationDescGetAttribute(emulationDesc EmulationDesc, attr EmulationDescAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
+func emulationDescGetAttribute(emulationDesc EmulationDesc, attr EmulationDescAttributes, buf unsafe.Pointer, sizeInBytes uint) (uint, error) {
 	if err := checkLibSym("cublasLtEmulationDescGetAttribute"); err != nil {
 		var zero uint
 		return zero, err
@@ -791,7 +791,7 @@ func emulationDescInit_internal(emulationDesc EmulationDesc, size uint) error {
 //   - [ErrInvalidValue]: If buf is NULL or sizeInBytes does not match size of the internal storage for the selected attribute.
 //
 // Wraps cublasLtEmulationDescSetAttribute.
-func emulationDescSetAttribute(emulationDesc EmulationDesc, attr EmulationDescAttributes, buf uintptr, sizeInBytes uint) error {
+func emulationDescSetAttribute(emulationDesc EmulationDesc, attr EmulationDescAttributes, buf unsafe.Pointer, sizeInBytes uint) error {
 	if err := checkLibSym("cublasLtEmulationDescSetAttribute"); err != nil {
 		return err
 	}
@@ -1010,27 +1010,94 @@ func LoggerSetMask(mask int32) error {
 //   - The scale type must be CUDA_R_32F.
 //
 // See the table below when using FP8 kernels:
+//
+//	AType           BType           CType        DType             Bias Type
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E4M3  CUDA_R_16BF  CUDA_R_16BF       CUDA_R_16BF 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E4M3  CUDA_R_16BF  CUDA_R_8F_E4M3 9  CUDA_R_16BF 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E4M3  CUDA_R_16F   CUDA_R_16F        CUDA_R_16F 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E4M3  CUDA_R_16F   CUDA_R_8F_E4M3 9  CUDA_R_16F 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E4M3  CUDA_R_32F   CUDA_R_32F        CUDA_R_16BF 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_16BF  CUDA_R_16BF       CUDA_R_16BF 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_16BF  CUDA_R_8F_E4M3 9  CUDA_R_16BF 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_16BF  CUDA_R_8F_E5M2 9  CUDA_R_16BF 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_16F   CUDA_R_16F        CUDA_R_16F 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_16F   CUDA_R_8F_E4M3 9  CUDA_R_16F 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_16F   CUDA_R_8F_E5M2 9  CUDA_R_16F 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_32F   CUDA_R_32F        CUDA_R_16BF 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_16BF  CUDA_R_16BF       CUDA_R_16BF 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_16BF  CUDA_R_8F_E4M3 9  CUDA_R_16BF 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_16BF  CUDA_R_8F_E5M2 9  CUDA_R_16BF 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_16F   CUDA_R_16F        CUDA_R_16F 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_16F   CUDA_R_8F_E4M3 9  CUDA_R_16F 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_16F   CUDA_R_8F_E5M2 9  CUDA_R_16F 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_32F   CUDA_R_32F        CUDA_R_16BF 7
+//
 // To use block-scaled FP4 kernels, the following set of requirements must be satisfied:
-//   - All matrix dimensions must meet the optimal requirements listed in Tensor Core Usage (i.e. pointers and matrix dimension must support 16-byte alignment).
-//   - Scaling mode must be [MatmulMatrixScaleVec16Ue4m3]
-//   - A must be transposed and B non-transposed (The “TN” format)
-//   - The compute type must be [CublasCompute32F].
-//   - The scale type must be CUDA_R_32F.
+//
+// All matrix dimensions must meet the optimal requirements listed in Tensor Core Usage (i.e. pointers and matrix dimension must support 16-byte alignment).
+//
+// Scaling mode must be [MatmulMatrixScaleVec16Ue4m3]
+//
+// A must be transposed and B non-transposed (The “TN” format).
+//
+// The compute type must be [CublasCompute32F].
+//
+// The scale type must be CUDA_R_32F.
+//
+//	AType           BType           CType        DType           Bias Type
+//	CUDA_R_4F_E2M1  CUDA_R_4F_E2M1  CUDA_R_16BF  CUDA_R_16BF     CUDA_R_16BF 7
+//	CUDA_R_4F_E2M1  CUDA_R_4F_E2M1  CUDA_R_16BF  CUDA_R_4F_E2M1  CUDA_R_16BF 7
+//	CUDA_R_4F_E2M1  CUDA_R_4F_E2M1  CUDA_R_16F   CUDA_R_16F      CUDA_R_16F 7
+//	CUDA_R_4F_E2M1  CUDA_R_4F_E2M1  CUDA_R_16F   CUDA_R_4F_E2M1  CUDA_R_16F 7
+//	CUDA_R_4F_E2M1  CUDA_R_4F_E2M1  CUDA_R_32F   CUDA_R_32F      CUDA_R_16BF 7
 //
 // When A,B,C,D are planar-complex matrices ( [MatrixLayoutPlaneOffset] != 0, see [MatrixLayoutAttribute]) to make use of mixed precision tensor core acceleration, the following set of requirements must be satisfied:
-//   - computeType: [CublasCompute32F]; scaleType: CUDA_C_32F; Atype/Btype: CUDA_C_16F 8; Ctype: CUDA_C_16F 8
-//   - computeType: [CublasCompute32F]; scaleType: CUDA_C_32F; Atype/Btype: CUDA_C_16F 8; Ctype: CUDA_C_32F 8
-//   - computeType: [CublasCompute32F]; scaleType: CUDA_C_32F; Atype/Btype: CUDA_C_16BF 8; Ctype: CUDA_C_16BF 8
-//   - computeType: [CublasCompute32F]; scaleType: CUDA_C_32F; Atype/Btype: CUDA_C_16BF 8; Ctype: CUDA_C_32F 8
+//
+//	computeType         scaleType   Atype/Btype    Ctype
+//	CUBLAS_COMPUTE_32F  CUDA_C_32F  CUDA_C_16F 8   CUDA_C_16F 8
+//	CUBLAS_COMPUTE_32F  CUDA_C_32F  CUDA_C_16F 8   CUDA_C_32F 8
+//	CUBLAS_COMPUTE_32F  CUDA_C_32F  CUDA_C_16BF 8  CUDA_C_16BF 8
+//	CUBLAS_COMPUTE_32F  CUDA_C_32F  CUDA_C_16BF 8  CUDA_C_32F 8
 //
 // Experimental: To use [Handle.Matmul] with grouped matrices, the following set of requirements must be satisfied:
-//   - All matrix dimensions must meet the optimal requirements listed in Tensor Core Usage (i.e. pointers and matrix dimension must support 16-byte alignment).
-//   - GPU with one of the following compute capabilities: 9.0, 10.x, 11.0.
-//   - The batch mode of all matrices must be [BatchModeGrouped].
-//   - The pointer mode must be [PointerModeHost] or [PointerModeDevice].
-//   - The scale mode of matrices C and D must be [MatmulMatrixScaleScalar32F].
-//   - On GPUs with compute capability 9.0:
-//   - On GPUs with compute capability 10.x and 11.0:
+//
+// All matrix dimensions must meet the optimal requirements listed in Tensor Core Usage (i.e. pointers and matrix dimension must support 16-byte alignment).
+//
+// GPU with one of the following compute capabilities: 9.0, 10.x, 11.0.
+//
+// The batch mode of all matrices must be [BatchModeGrouped].
+//
+// The pointer mode must be [PointerModeHost] or [PointerModeDevice].
+//
+// The scale mode of matrices C and D must be [MatmulMatrixScaleScalar32F].
+//
+// On GPUs with compute capability 9.0:
+//
+// On GPUs with compute capability 10.x and 11.0:
+//
+//	AType           BType           CType        DType             Bias Type
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E4M3  CUDA_R_16BF  CUDA_R_16BF       CUDA_R_16BF 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E4M3  CUDA_R_16BF  CUDA_R_8F_E4M3 9  CUDA_R_16BF 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E4M3  CUDA_R_16F   CUDA_R_16F        CUDA_R_16F 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E4M3  CUDA_R_16F   CUDA_R_8F_E4M3 9  CUDA_R_16F 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E4M3  CUDA_R_32F   CUDA_R_32F        CUDA_R_16BF 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_16BF  CUDA_R_16BF       CUDA_R_16BF 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_16BF  CUDA_R_8F_E4M3 9  CUDA_R_16BF 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_16BF  CUDA_R_8F_E5M2 9  CUDA_R_16BF 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_16F   CUDA_R_16F        CUDA_R_16F 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_16F   CUDA_R_8F_E4M3 9  CUDA_R_16F 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_16F   CUDA_R_8F_E5M2 9  CUDA_R_16F 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_32F   CUDA_R_32F        CUDA_R_16BF 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_16BF  CUDA_R_16BF       CUDA_R_16BF 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_16BF  CUDA_R_8F_E4M3 9  CUDA_R_16BF 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_16BF  CUDA_R_8F_E5M2 9  CUDA_R_16BF 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_16F   CUDA_R_16F        CUDA_R_16F 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_16F   CUDA_R_8F_E4M3 9  CUDA_R_16F 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_16F   CUDA_R_8F_E5M2 9  CUDA_R_16F 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_32F   CUDA_R_32F        CUDA_R_16BF 7
+//	CUDA_R_4F_E2M1  CUDA_R_4F_E2M1  CUDA_R_16BF  CUDA_R_16BF       CUDA_R_16BF 7
+//	CUDA_R_4F_E2M1  CUDA_R_4F_E2M1  CUDA_R_16F   CUDA_R_16F        CUDA_R_16F 7
+//	CUDA_R_4F_E2M1  CUDA_R_4F_E2M1  CUDA_R_32F   CUDA_R_32F        CUDA_R_16BF 7
 //
 // Note: Because the shape information for the matrices is only available on the GPU (see [GroupedMatrixLayoutRowsArray], [GroupedMatrixLayoutColsArray], and [GroupedMatrixLayoutLdArray]), the arguments validation is very limited. So it is possible that invalid arguments are not detected which will result in an undefined behavior.
 // NOTES:
@@ -1098,7 +1165,7 @@ func matmul(lightHandle Handle, computeDesc MatmulDesc, alpha Scalar, a driver.D
 //   - [ErrInvalidValue]: If sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL, or if sizeInBytes doesn’t match size of internal storage for the selected attribute
 //
 // Wraps cublasLtMatmulAlgoCapGetAttribute.
-func MatmulAlgoCapGetAttribute(algo *MatmulAlgo, attr MatmulAlgoCapAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
+func MatmulAlgoCapGetAttribute(algo *MatmulAlgo, attr MatmulAlgoCapAttributes, buf unsafe.Pointer, sizeInBytes uint) (uint, error) {
 	if err := checkLibSym("cublasLtMatmulAlgoCapGetAttribute"); err != nil {
 		var zero uint
 		return zero, err
@@ -1169,7 +1236,7 @@ var slotMatmulAlgoCheck outSlot[MatmulHeuristicResult]
 //   - [ErrInvalidValue]: If sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL, or if sizeInBytes doesn’t match size of internal storage for the selected attribute
 //
 // Wraps cublasLtMatmulAlgoConfigGetAttribute.
-func MatmulAlgoConfigGetAttribute(algo *MatmulAlgo, attr MatmulAlgoConfigAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
+func MatmulAlgoConfigGetAttribute(algo *MatmulAlgo, attr MatmulAlgoConfigAttributes, buf unsafe.Pointer, sizeInBytes uint) (uint, error) {
 	if err := checkLibSym("cublasLtMatmulAlgoConfigGetAttribute"); err != nil {
 		var zero uint
 		return zero, err
@@ -1200,7 +1267,7 @@ var slotMatmulAlgoConfigGetAttribute outSlot[uint]
 //   - [ErrInvalidValue]: If buf is NULL or sizeInBytes doesn’t match the size of the internal storage for the selected attribute.
 //
 // Wraps cublasLtMatmulAlgoConfigSetAttribute.
-func MatmulAlgoConfigSetAttribute(algo *MatmulAlgo, attr MatmulAlgoConfigAttributes, buf uintptr, sizeInBytes uint) error {
+func MatmulAlgoConfigSetAttribute(algo *MatmulAlgo, attr MatmulAlgoConfigAttributes, buf unsafe.Pointer, sizeInBytes uint) error {
 	if err := checkLibSym("cublasLtMatmulAlgoConfigSetAttribute"); err != nil {
 		return err
 	}
@@ -1364,7 +1431,7 @@ func matmulDescDestroy(matmulDesc MatmulDesc) error {
 //   - [ErrInvalidValue]: If sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL, or sizeInBytes doesn’t match size of internal storage for the selected attribute
 //
 // Wraps cublasLtMatmulDescGetAttribute.
-func matmulDescGetAttribute(matmulDesc MatmulDesc, attr MatmulDescAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
+func matmulDescGetAttribute(matmulDesc MatmulDesc, attr MatmulDescAttributes, buf unsafe.Pointer, sizeInBytes uint) (uint, error) {
 	if err := checkLibSym("cublasLtMatmulDescGetAttribute"); err != nil {
 		var zero uint
 		return zero, err
@@ -1401,7 +1468,7 @@ func matmulDescInit_internal(matmulDesc MatmulDesc, size uint, computeType Compu
 //   - [ErrInvalidValue]: If buf is NULL or sizeInBytes doesn’t match the size of the internal storage for the selected attribute.
 //
 // Wraps cublasLtMatmulDescSetAttribute.
-func matmulDescSetAttribute(matmulDesc MatmulDesc, attr MatmulDescAttributes, buf uintptr, sizeInBytes uint) error {
+func matmulDescSetAttribute(matmulDesc MatmulDesc, attr MatmulDescAttributes, buf unsafe.Pointer, sizeInBytes uint) error {
 	if err := checkLibSym("cublasLtMatmulDescSetAttribute"); err != nil {
 		return err
 	}
@@ -1462,7 +1529,7 @@ func matmulPreferenceDestroy(pref MatmulPreference) error {
 //   - [ErrInvalidValue]: If sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL, or sizeInBytes doesn’t match size of internal storage for the selected attribute
 //
 // Wraps cublasLtMatmulPreferenceGetAttribute.
-func matmulPreferenceGetAttribute(pref MatmulPreference, attr MatmulPreferenceAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
+func matmulPreferenceGetAttribute(pref MatmulPreference, attr MatmulPreferenceAttributes, buf unsafe.Pointer, sizeInBytes uint) (uint, error) {
 	if err := checkLibSym("cublasLtMatmulPreferenceGetAttribute"); err != nil {
 		var zero uint
 		return zero, err
@@ -1499,7 +1566,7 @@ func matmulPreferenceInit_internal(pref MatmulPreference, size uint) error {
 //   - [ErrInvalidValue]: If buf is NULL or sizeInBytes doesn’t match the size of the internal storage for the selected attribute.
 //
 // Wraps cublasLtMatmulPreferenceSetAttribute.
-func matmulPreferenceSetAttribute(pref MatmulPreference, attr MatmulPreferenceAttributes, buf uintptr, sizeInBytes uint) error {
+func matmulPreferenceSetAttribute(pref MatmulPreference, attr MatmulPreferenceAttributes, buf unsafe.Pointer, sizeInBytes uint) error {
 	if err := checkLibSym("cublasLtMatmulPreferenceSetAttribute"); err != nil {
 		return err
 	}
@@ -1564,7 +1631,7 @@ func matrixLayoutDestroy(matLayout MatrixLayout) error {
 //   - [ErrInvalidValue]: If sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL, or sizeInBytes doesn’t match size of internal storage for the selected attribute
 //
 // Wraps cublasLtMatrixLayoutGetAttribute.
-func matrixLayoutGetAttribute(matLayout MatrixLayout, attr MatrixLayoutAttribute, buf uintptr, sizeInBytes uint) (uint, error) {
+func matrixLayoutGetAttribute(matLayout MatrixLayout, attr MatrixLayoutAttribute, buf unsafe.Pointer, sizeInBytes uint) (uint, error) {
 	if err := checkLibSym("cublasLtMatrixLayoutGetAttribute"); err != nil {
 		var zero uint
 		return zero, err
@@ -1601,7 +1668,7 @@ func matrixLayoutInit_internal(matLayout MatrixLayout, size uint, type_ DataType
 //   - [ErrInvalidValue]: If buf is NULL or sizeInBytes doesn’t match size of internal storage for the selected attribute.
 //
 // Wraps cublasLtMatrixLayoutSetAttribute.
-func matrixLayoutSetAttribute(matLayout MatrixLayout, attr MatrixLayoutAttribute, buf uintptr, sizeInBytes uint) error {
+func matrixLayoutSetAttribute(matLayout MatrixLayout, attr MatrixLayoutAttribute, buf unsafe.Pointer, sizeInBytes uint) error {
 	if err := checkLibSym("cublasLtMatrixLayoutSetAttribute"); err != nil {
 		return err
 	}
@@ -1697,7 +1764,7 @@ func matrixTransformDescDestroy(transformDesc MatrixTransformDesc) error {
 //   - [ErrInvalidValue]: If sizeInBytes is zero and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL, or if sizeInBytes doesn’t match size of internal storage for the selected attribute
 //
 // Wraps cublasLtMatrixTransformDescGetAttribute.
-func matrixTransformDescGetAttribute(transformDesc MatrixTransformDesc, attr MatrixTransformDescAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
+func matrixTransformDescGetAttribute(transformDesc MatrixTransformDesc, attr MatrixTransformDescAttributes, buf unsafe.Pointer, sizeInBytes uint) (uint, error) {
 	if err := checkLibSym("cublasLtMatrixTransformDescGetAttribute"); err != nil {
 		var zero uint
 		return zero, err
@@ -1734,7 +1801,7 @@ func matrixTransformDescInit_internal(transformDesc MatrixTransformDesc, size ui
 //   - [ErrInvalidValue]: If buf is NULL or sizeInBytes does not match size of the internal storage for the selected attribute.
 //
 // Wraps cublasLtMatrixTransformDescSetAttribute.
-func matrixTransformDescSetAttribute(transformDesc MatrixTransformDesc, attr MatrixTransformDescAttributes, buf uintptr, sizeInBytes uint) error {
+func matrixTransformDescSetAttribute(transformDesc MatrixTransformDesc, attr MatrixTransformDescAttributes, buf unsafe.Pointer, sizeInBytes uint) error {
 	if err := checkLibSym("cublasLtMatrixTransformDescSetAttribute"); err != nil {
 		return err
 	}

@@ -2,6 +2,10 @@
 
 package cublaslt
 
+import (
+	"unsafe"
+)
+
 // NewMatmulPreference creates a matrix multiply heuristic search preferences descriptor by allocating the memory needed to hold its opaque structure.
 //
 //   - pref: Pointer to the structure holding the matrix multiply preferences descriptor created by this function. See [MatrixLayout]
@@ -29,7 +33,7 @@ func NewMatmulPreference() (MatmulPreference, error) {
 //   - [ErrInvalidValue]: If sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL, or sizeInBytes doesn’t match size of internal storage for the selected attribute
 //
 // Wraps cublasLtMatmulPreferenceGetAttribute.
-func (m MatmulPreference) Attribute(attr MatmulPreferenceAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
+func (m MatmulPreference) Attribute(attr MatmulPreferenceAttributes, buf unsafe.Pointer, sizeInBytes uint) (uint, error) {
 	return matmulPreferenceGetAttribute(m, attr, buf, sizeInBytes)
 }
 
@@ -70,6 +74,6 @@ func (m MatmulPreference) Init_internal(size uint) error {
 //   - [ErrInvalidValue]: If buf is NULL or sizeInBytes doesn’t match the size of the internal storage for the selected attribute.
 //
 // Wraps cublasLtMatmulPreferenceSetAttribute.
-func (m MatmulPreference) SetAttribute(attr MatmulPreferenceAttributes, buf uintptr, sizeInBytes uint) error {
+func (m MatmulPreference) SetAttribute(attr MatmulPreferenceAttributes, buf unsafe.Pointer, sizeInBytes uint) error {
 	return matmulPreferenceSetAttribute(m, attr, buf, sizeInBytes)
 }

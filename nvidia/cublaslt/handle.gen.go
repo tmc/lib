@@ -53,27 +53,94 @@ func (h *Handle) Close() error {
 //   - The scale type must be CUDA_R_32F.
 //
 // See the table below when using FP8 kernels:
+//
+//	AType           BType           CType        DType             Bias Type
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E4M3  CUDA_R_16BF  CUDA_R_16BF       CUDA_R_16BF 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E4M3  CUDA_R_16BF  CUDA_R_8F_E4M3 9  CUDA_R_16BF 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E4M3  CUDA_R_16F   CUDA_R_16F        CUDA_R_16F 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E4M3  CUDA_R_16F   CUDA_R_8F_E4M3 9  CUDA_R_16F 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E4M3  CUDA_R_32F   CUDA_R_32F        CUDA_R_16BF 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_16BF  CUDA_R_16BF       CUDA_R_16BF 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_16BF  CUDA_R_8F_E4M3 9  CUDA_R_16BF 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_16BF  CUDA_R_8F_E5M2 9  CUDA_R_16BF 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_16F   CUDA_R_16F        CUDA_R_16F 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_16F   CUDA_R_8F_E4M3 9  CUDA_R_16F 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_16F   CUDA_R_8F_E5M2 9  CUDA_R_16F 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_32F   CUDA_R_32F        CUDA_R_16BF 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_16BF  CUDA_R_16BF       CUDA_R_16BF 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_16BF  CUDA_R_8F_E4M3 9  CUDA_R_16BF 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_16BF  CUDA_R_8F_E5M2 9  CUDA_R_16BF 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_16F   CUDA_R_16F        CUDA_R_16F 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_16F   CUDA_R_8F_E4M3 9  CUDA_R_16F 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_16F   CUDA_R_8F_E5M2 9  CUDA_R_16F 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_32F   CUDA_R_32F        CUDA_R_16BF 7
+//
 // To use block-scaled FP4 kernels, the following set of requirements must be satisfied:
-//   - All matrix dimensions must meet the optimal requirements listed in Tensor Core Usage (i.e. pointers and matrix dimension must support 16-byte alignment).
-//   - Scaling mode must be [MatmulMatrixScaleVec16Ue4m3]
-//   - A must be transposed and B non-transposed (The “TN” format)
-//   - The compute type must be [CublasCompute32F].
-//   - The scale type must be CUDA_R_32F.
+//
+// All matrix dimensions must meet the optimal requirements listed in Tensor Core Usage (i.e. pointers and matrix dimension must support 16-byte alignment).
+//
+// Scaling mode must be [MatmulMatrixScaleVec16Ue4m3]
+//
+// A must be transposed and B non-transposed (The “TN” format).
+//
+// The compute type must be [CublasCompute32F].
+//
+// The scale type must be CUDA_R_32F.
+//
+//	AType           BType           CType        DType           Bias Type
+//	CUDA_R_4F_E2M1  CUDA_R_4F_E2M1  CUDA_R_16BF  CUDA_R_16BF     CUDA_R_16BF 7
+//	CUDA_R_4F_E2M1  CUDA_R_4F_E2M1  CUDA_R_16BF  CUDA_R_4F_E2M1  CUDA_R_16BF 7
+//	CUDA_R_4F_E2M1  CUDA_R_4F_E2M1  CUDA_R_16F   CUDA_R_16F      CUDA_R_16F 7
+//	CUDA_R_4F_E2M1  CUDA_R_4F_E2M1  CUDA_R_16F   CUDA_R_4F_E2M1  CUDA_R_16F 7
+//	CUDA_R_4F_E2M1  CUDA_R_4F_E2M1  CUDA_R_32F   CUDA_R_32F      CUDA_R_16BF 7
 //
 // When A,B,C,D are planar-complex matrices ( [MatrixLayoutPlaneOffset] != 0, see [MatrixLayoutAttribute]) to make use of mixed precision tensor core acceleration, the following set of requirements must be satisfied:
-//   - computeType: [CublasCompute32F]; scaleType: CUDA_C_32F; Atype/Btype: CUDA_C_16F 8; Ctype: CUDA_C_16F 8
-//   - computeType: [CublasCompute32F]; scaleType: CUDA_C_32F; Atype/Btype: CUDA_C_16F 8; Ctype: CUDA_C_32F 8
-//   - computeType: [CublasCompute32F]; scaleType: CUDA_C_32F; Atype/Btype: CUDA_C_16BF 8; Ctype: CUDA_C_16BF 8
-//   - computeType: [CublasCompute32F]; scaleType: CUDA_C_32F; Atype/Btype: CUDA_C_16BF 8; Ctype: CUDA_C_32F 8
+//
+//	computeType         scaleType   Atype/Btype    Ctype
+//	CUBLAS_COMPUTE_32F  CUDA_C_32F  CUDA_C_16F 8   CUDA_C_16F 8
+//	CUBLAS_COMPUTE_32F  CUDA_C_32F  CUDA_C_16F 8   CUDA_C_32F 8
+//	CUBLAS_COMPUTE_32F  CUDA_C_32F  CUDA_C_16BF 8  CUDA_C_16BF 8
+//	CUBLAS_COMPUTE_32F  CUDA_C_32F  CUDA_C_16BF 8  CUDA_C_32F 8
 //
 // Experimental: To use [Handle.Matmul] with grouped matrices, the following set of requirements must be satisfied:
-//   - All matrix dimensions must meet the optimal requirements listed in Tensor Core Usage (i.e. pointers and matrix dimension must support 16-byte alignment).
-//   - GPU with one of the following compute capabilities: 9.0, 10.x, 11.0.
-//   - The batch mode of all matrices must be [BatchModeGrouped].
-//   - The pointer mode must be [PointerModeHost] or [PointerModeDevice].
-//   - The scale mode of matrices C and D must be [MatmulMatrixScaleScalar32F].
-//   - On GPUs with compute capability 9.0:
-//   - On GPUs with compute capability 10.x and 11.0:
+//
+// All matrix dimensions must meet the optimal requirements listed in Tensor Core Usage (i.e. pointers and matrix dimension must support 16-byte alignment).
+//
+// GPU with one of the following compute capabilities: 9.0, 10.x, 11.0.
+//
+// The batch mode of all matrices must be [BatchModeGrouped].
+//
+// The pointer mode must be [PointerModeHost] or [PointerModeDevice].
+//
+// The scale mode of matrices C and D must be [MatmulMatrixScaleScalar32F].
+//
+// On GPUs with compute capability 9.0:
+//
+// On GPUs with compute capability 10.x and 11.0:
+//
+//	AType           BType           CType        DType             Bias Type
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E4M3  CUDA_R_16BF  CUDA_R_16BF       CUDA_R_16BF 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E4M3  CUDA_R_16BF  CUDA_R_8F_E4M3 9  CUDA_R_16BF 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E4M3  CUDA_R_16F   CUDA_R_16F        CUDA_R_16F 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E4M3  CUDA_R_16F   CUDA_R_8F_E4M3 9  CUDA_R_16F 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E4M3  CUDA_R_32F   CUDA_R_32F        CUDA_R_16BF 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_16BF  CUDA_R_16BF       CUDA_R_16BF 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_16BF  CUDA_R_8F_E4M3 9  CUDA_R_16BF 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_16BF  CUDA_R_8F_E5M2 9  CUDA_R_16BF 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_16F   CUDA_R_16F        CUDA_R_16F 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_16F   CUDA_R_8F_E4M3 9  CUDA_R_16F 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_16F   CUDA_R_8F_E5M2 9  CUDA_R_16F 7
+//	CUDA_R_8F_E4M3  CUDA_R_8F_E5M2  CUDA_R_32F   CUDA_R_32F        CUDA_R_16BF 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_16BF  CUDA_R_16BF       CUDA_R_16BF 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_16BF  CUDA_R_8F_E4M3 9  CUDA_R_16BF 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_16BF  CUDA_R_8F_E5M2 9  CUDA_R_16BF 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_16F   CUDA_R_16F        CUDA_R_16F 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_16F   CUDA_R_8F_E4M3 9  CUDA_R_16F 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_16F   CUDA_R_8F_E5M2 9  CUDA_R_16F 7
+//	CUDA_R_8F_E5M2  CUDA_R_8F_E4M3  CUDA_R_32F   CUDA_R_32F        CUDA_R_16BF 7
+//	CUDA_R_4F_E2M1  CUDA_R_4F_E2M1  CUDA_R_16BF  CUDA_R_16BF       CUDA_R_16BF 7
+//	CUDA_R_4F_E2M1  CUDA_R_4F_E2M1  CUDA_R_16F   CUDA_R_16F        CUDA_R_16F 7
+//	CUDA_R_4F_E2M1  CUDA_R_4F_E2M1  CUDA_R_32F   CUDA_R_32F        CUDA_R_16BF 7
 //
 // Note: Because the shape information for the matrices is only available on the GPU (see [GroupedMatrixLayoutRowsArray], [GroupedMatrixLayoutColsArray], and [GroupedMatrixLayoutLdArray]), the arguments validation is very limited. So it is possible that invalid arguments are not detected which will result in an undefined behavior.
 // NOTES:

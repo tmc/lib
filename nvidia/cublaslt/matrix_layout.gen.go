@@ -2,6 +2,10 @@
 
 package cublaslt
 
+import (
+	"unsafe"
+)
+
 // NewMatrixLayout creates a matrix layout descriptor by allocating the memory needed to hold its opaque structure.
 //
 //   - matLayout: Pointer to the structure holding the matrix layout descriptor created by this function. See [MatrixLayout]
@@ -33,7 +37,7 @@ func NewMatrixLayout(type_ DataType, rows uint64, cols uint64, ld int64) (Matrix
 //   - [ErrInvalidValue]: If sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL, or sizeInBytes doesn’t match size of internal storage for the selected attribute
 //
 // Wraps cublasLtMatrixLayoutGetAttribute.
-func (m MatrixLayout) Attribute(attr MatrixLayoutAttribute, buf uintptr, sizeInBytes uint) (uint, error) {
+func (m MatrixLayout) Attribute(attr MatrixLayoutAttribute, buf unsafe.Pointer, sizeInBytes uint) (uint, error) {
 	return matrixLayoutGetAttribute(m, attr, buf, sizeInBytes)
 }
 
@@ -79,6 +83,6 @@ func (m MatrixLayout) Init_internal(size uint, type_ DataType, rows uint64, cols
 //   - [ErrInvalidValue]: If buf is NULL or sizeInBytes doesn’t match size of internal storage for the selected attribute.
 //
 // Wraps cublasLtMatrixLayoutSetAttribute.
-func (m MatrixLayout) SetAttribute(attr MatrixLayoutAttribute, buf uintptr, sizeInBytes uint) error {
+func (m MatrixLayout) SetAttribute(attr MatrixLayoutAttribute, buf unsafe.Pointer, sizeInBytes uint) error {
 	return matrixLayoutSetAttribute(m, attr, buf, sizeInBytes)
 }
