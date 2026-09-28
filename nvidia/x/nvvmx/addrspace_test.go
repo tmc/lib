@@ -56,6 +56,7 @@ body:
 	if !strings.Contains(outStr, "load ptr addrspace(3), ptr %slot") {
 		t.Errorf("expected load to read ptr addrspace(3), got:\n%s", outStr)
 	}
+	verifyIRWithClang(t, rewritten)
 }
 
 func TestAddrSpace_MixedStaysGeneric(t *testing.T) {
@@ -176,7 +177,7 @@ exit:
   ret void
 }
 `
-	_, report, err := InferAddressSpaces([]byte(ir))
+	rewritten, report, err := InferAddressSpaces([]byte(ir))
 	if err != nil {
 		t.Fatalf("InferAddressSpaces: %v", err)
 	}
@@ -201,6 +202,7 @@ exit:
 			t.Errorf("slot %s effective = %v, want AddrSpaceShared", name, info.Effective)
 		}
 	}
+	verifyIRWithClang(t, rewritten)
 }
 
 func TestAddrSpace_ClusterPointerNotInferred(t *testing.T) {
@@ -265,33 +267,52 @@ entry:
 
 func TestAddrSpace_MixedStaysGenericForUntrackedWrites(t *testing.T) {
 	base := `@smem = internal addrspace(3) global [4 x i8] undef
-define void @kernel(ptr addrspace(1) %gptr) {
+declare void @consume(ptr)
+define void @kernel(ptr addrspace(1) %gptr, ptr %unknown) {
 entry:
   %slot = alloca ptr, align 8
-  %gep = getelementptr ptr, ptr %slot, i64 0
-  %cast = addrspacecast ptr %slot to ptr addrspace(3)
+  %dest = alloca ptr, align 8
+  %src = alloca ptr, align 8
+  store ptr addrspace(1) %gptr, ptr %src, align 8
+  %loaded = load ptr, ptr %src, align 8
+  %cast = addrspacecast ptr addrspace(1) %gptr to ptr addrspace(3)
+  %gep = getelementptr i8, ptr addrspace(1) %gptr, i64 0
   store ptr addrspace(3) @smem, ptr %slot, align 8
-  %LOAD
-  %WRITE
   ret void
 }
+!0 = !{!"Simple C/C++ TBAA"}
+!1 = !{!2, !2, i64 0}
+!2 = !{!"omnipotent char", !0, i64 0}
 `
 	tests := []struct {
 		name, line string
 	}{
-		{"metadata", "store ptr addrspace(1) %gptr, ptr %slot, !tbaa !1"},
+		{"metadata", "store ptr addrspace(1) %gptr, ptr %slot, align 8, !tbaa !1"},
 		{"atomic store", "store atomic ptr addrspace(1) %gptr, ptr %slot seq_cst, align 8"},
-		{"store through gep", "store ptr addrspace(3) @smem, ptr %gep, align 8"},
 		{"escape to call", "call void @consume(ptr %slot)"},
 		{"atomicrmw", "%old = atomicrmw xchg ptr %slot, ptr addrspace(3) @smem seq_cst"},
 		{"cmpxchg", "%pair = cmpxchg ptr %slot, ptr addrspace(3) @smem, ptr addrspace(3) @smem seq_cst seq_cst"},
 		{"memcpy destination", "call void @llvm.memcpy.p0.p0.i64(ptr %slot, ptr %gptr, i64 8, i1 false)"},
 		{"unknown stored value", "store ptr %unknown, ptr %slot, align 8"},
+		{"loaded from generic-required slot", "store ptr %loaded, ptr %slot, align 8"},
+		{"register cast from non-shared", "store ptr addrspace(3) %cast, ptr %slot, align 8"},
+		{"gep of non-shared base", "store ptr %gep, ptr %slot, align 8"},
+		{"slot address escapes to memory", "store ptr %slot, ptr %dest, align 8"},
+		{"atomic load", "%old = load atomic ptr, ptr %slot seq_cst, align 8"},
+	}
+	baseIR, _, err := InferAddressSpaces([]byte(base))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(baseIR), "%slot = alloca ptr addrspace(3)") {
+		t.Fatalf("control base did not infer shared:\n%s", baseIR)
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ir := strings.Replace(base, "%LOAD", "", 1)
-			ir = strings.Replace(ir, "%WRITE", tt.line, 1)
+			ir := strings.Replace(base, "  ret void", "  "+tt.line+"\n  ret void", 1)
+			if tt.name == "metadata" {
+				verifyIRWithClang(t, []byte(ir))
+			}
 			_, report, err := InferAddressSpaces([]byte(ir))
 			if err != nil {
 				t.Fatal(err)
@@ -366,7 +387,7 @@ exit:
   ret void
 }
 `
-	_, report, err := InferAddressSpaces([]byte(ir))
+	rewritten, report, err := InferAddressSpaces([]byte(ir))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -378,6 +399,7 @@ exit:
 			t.Errorf("%s state = %v, want shared", name, got)
 		}
 	}
+	verifyIRWithClang(t, rewritten)
 }
 
 func TestInferAddressSpaces_LongLine(t *testing.T) {
@@ -394,6 +416,7 @@ func TestInferAddressSpaces_LongLine(t *testing.T) {
 	if !bytes.HasPrefix(got, []byte(comment)) || !bytes.Contains(got, []byte("  %slot = alloca ptr addrspace(3), align 8\r\n")) || !bytes.HasSuffix(got, []byte("}\r\n")) {
 		t.Fatalf("long line or CRLF boundaries were not preserved (got %d bytes, input %d)", len(got), len(ir))
 	}
+	verifyIRWithClang(t, got)
 }
 
 func TestInferAddressSpaces_RefusesBitcode(t *testing.T) {
@@ -417,20 +440,17 @@ entry:
   ret void
 }
 `
-	_, report, err := InferAddressSpaces([]byte(ir))
+	rewritten, report, err := InferAddressSpaces([]byte(ir))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if report.Slots["@first/%slot"].State != StateShared || report.Slots["@second/%slot"].State != StateGenericRequired {
 		t.Fatalf("per-function slot states = %+v", report.Slots)
 	}
+	verifyIRWithClang(t, rewritten)
 }
 
 func TestAddrSpace_OutputIsValidIR(t *testing.T) {
-	clang, err := exec.LookPath("clang")
-	if err != nil {
-		t.Skip("clang is not on PATH")
-	}
 	ir := []byte(`target datalayout = "e-p:64:64:64-p3:32:32:32"
 target triple = "nvptx64-nvidia-cuda"
 @smem = internal addrspace(3) global [4 x i8] undef
@@ -439,6 +459,7 @@ entry:
   %slot = alloca ptr, align 8
   store ptr addrspace(3) @smem, ptr %slot, align 8
   %p = load ptr, ptr %slot, align 8
+  %value = load i8, ptr %p, align 1
   ret void
 }
 `)
@@ -446,9 +467,91 @@ entry:
 	if err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command(clang, "-x", "ir", "-S", "-emit-llvm", "-o", "/dev/null", "-")
-	cmd.Stdin = bytes.NewReader(rewritten)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("clang rejected rewritten IR: %v\n%s\n%s", err, out, rewritten)
+	verifyIRWithClang(t, rewritten)
+}
+
+func verifyIRWithClang(t *testing.T, ir []byte) {
+	t.Helper()
+	clang, err := exec.LookPath("clang")
+	if err != nil {
+		t.Skip("clang is not on PATH")
 	}
+	cmd := exec.Command(clang, "-x", "ir", "-S", "-emit-llvm", "-o", "/dev/null", "-")
+	cmd.Stdin = bytes.NewReader(ir)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("clang rejected rewritten IR: %v\n%s\n%s", err, out, ir)
+	}
+}
+
+func TestInferAddressSpacesRejectsUnterminatedFunction(t *testing.T) {
+	ir := []byte("define void @broken() {\nentry:\n  ret void\n")
+	if _, _, err := InferAddressSpaces(ir); err == nil {
+		t.Fatal("unterminated function accepted")
+	}
+}
+
+func TestAddrSpace_GlobalQualifierDoesNotComeFromElementType(t *testing.T) {
+	tests := []struct{ name, global, store string }{
+		{"addrspace one global with shared pointer element", "@gp = internal addrspace(1) global ptr addrspace(3) null, align 8", "store ptr addrspace(1) @gp, ptr %slot, align 8"},
+		{"generic global with shared pointer initializer", "@tbl = internal global ptr addrspace(3) @smem, align 8", "store ptr @tbl, ptr %slot, align 8"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ir := "@smem = internal addrspace(3) global i8 0\n" + tt.global + `
+define void @kernel() {
+entry:
+  %slot = alloca ptr, align 8
+  ` + tt.store + `
+  ret void
+}
+`
+			rewritten, report, err := InferAddressSpaces([]byte(ir))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := report.Slots["@kernel/%slot"].State; got != StateGenericRequired {
+				t.Fatalf("state=%v, want generic-required", got)
+			}
+			if strings.Contains(string(rewritten), "%slot = alloca ptr addrspace(3)") {
+				t.Fatalf("non-shared global inferred shared:\n%s", rewritten)
+			}
+		})
+	}
+}
+
+func TestAddrSpace_TypedPointerSlotUsesConsistentTypes(t *testing.T) {
+	ir := []byte(`@smem = internal addrspace(3) global i32 0
+define void @kernel() {
+entry:
+  %slot = alloca i32*, align 8
+  store i32 addrspace(3)* @smem, i32** %slot, align 8
+  %p = load i32*, i32** %slot, align 8
+  %v = load i32, i32* %p, align 4
+  ret void
+}
+`)
+	rewritten, report, err := InferAddressSpaces(ir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Slots["@kernel/%slot"].State != StateShared {
+		t.Fatalf("typed slot not inferred: %+v", report.Slots["@kernel/%slot"])
+	}
+	verifyIRWithClang(t, rewritten)
+}
+
+func TestAddrSpace_ExampleOutputIsValidIR(t *testing.T) {
+	ir := []byte(`@smem = internal addrspace(3) global [16 x float] undef, align 4
+define void @example() {
+entry:
+  %slot = alloca ptr, align 8
+  store ptr addrspace(3) @smem, ptr %slot, align 8
+  ret void
+}
+`)
+	rewritten, _, err := InferAddressSpaces(ir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verifyIRWithClang(t, rewritten)
 }

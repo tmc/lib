@@ -150,6 +150,9 @@ func InferAddressSpaces(ir []byte) ([]byte, *InferenceReport, error) {
 		}
 		output.WriteString(line)
 	}
+	if inFunc {
+		return nil, nil, fmt.Errorf("nvvmx: unterminated function at line %d", funcStart+1)
+	}
 
 	return []byte(output.String()), report, nil
 }
@@ -180,15 +183,19 @@ func functionName(line string) string {
 
 func parseGlobalAddrSpaces(lines []string) map[string]AddrSpace {
 	globals := make(map[string]AddrSpace)
-	reGlobal := regexp.MustCompile(`^(@[a-zA-Z0-9_$.]+)\s*=.*addrspace\((\d+)\)`)
+	reGlobal := regexp.MustCompile(`^(@[a-zA-Z0-9_$.]+)\s*=([^\n]*?)\bglobal\b`)
+	reAS := regexp.MustCompile(`addrspace\((\d+)\)`)
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "@") {
 			if m := reGlobal.FindStringSubmatch(trimmed); len(m) == 3 {
-				as, err := strconv.Atoi(m[2])
-				if err == nil {
-					globals[m[1]] = AddrSpace(as)
+				as := AddrSpaceGeneric
+				if q := reAS.FindStringSubmatch(m[2]); len(q) == 2 {
+					if n, err := strconv.Atoi(q[1]); err == nil {
+						as = AddrSpace(n)
+					}
 				}
+				globals[m[1]] = as
 			}
 		}
 	}
@@ -237,7 +244,10 @@ func instructionPointer(line string) string {
 
 func directSlotPointer(pointer, name string) bool {
 	pattern := `^ptr(?: addrspace\([0-9]+\))?\s+` + regexp.QuoteMeta(name) + `(?:,\s*align\s+[0-9]+)?$`
-	return regexp.MustCompile(pattern).MatchString(pointer)
+	if regexp.MustCompile(pattern).MatchString(pointer) {
+		return true
+	}
+	return regexp.MustCompile(`^.+\s+` + regexp.QuoteMeta(name) + `(?:,\s*align\s+[0-9]+)?$`).MatchString(pointer)
 }
 
 type slotDecl struct {
@@ -302,12 +312,20 @@ func analyzeAndRewriteFunc(lines []string, globals map[string]AddrSpace) (string
 
 		// Map of value address spaces for intermediate registers in this pass.
 		valAS := make(map[string]AddrSpace)
+		loadedFrom := make(map[string]string)
 		for g, as := range globals {
 			valAS[g] = as
 		}
 
 		for _, line := range lines {
 			trimmed := strings.TrimSpace(line)
+
+			for value, owner := range loadedFrom {
+				if mentionsValue(trimmed, value) && !supportedInferredPointerUse(trimmed, value) && state[owner] != StateGenericRequired {
+					state[owner] = StateGenericRequired
+					changed = true
+				}
+			}
 
 			for name := range slots {
 				if mentionsValue(trimmed, name) && !supportedSlotReference(trimmed, name) && state[name] != StateGenericRequired {
@@ -324,9 +342,12 @@ func analyzeAndRewriteFunc(lines []string, globals map[string]AddrSpace) (string
 			// Track addrspacecast: %cast = addrspacecast ptr addrspace(3) %p to ptr
 			if m := reCast.FindStringSubmatch(trimmed); len(m) == 4 {
 				dst := m[1]
-				srcPart := strings.TrimSpace(m[2])
-				srcAS := parseAddrSpaceFromTypeVal(srcPart, valAS)
-				valAS[dst] = srcAS
+				srcAS := parseAddrSpaceFromTypeVal(strings.TrimSpace(m[2]), valAS)
+				if srcAS == AddrSpaceShared {
+					valAS[dst] = parseAddrSpaceType(strings.TrimSpace(m[3]))
+				} else {
+					valAS[dst] = srcAS
+				}
 				continue
 			}
 
@@ -345,6 +366,10 @@ func analyzeAndRewriteFunc(lines []string, globals map[string]AddrSpace) (string
 				ptrPart := strings.TrimSpace(m[3])
 				ptrReg := extractRegister(ptrPart)
 				if _, ok := slots[ptrReg]; ok {
+					loadedType := strings.TrimSpace(m[2])
+					if strings.HasPrefix(loadedType, "ptr") || strings.HasSuffix(loadedType, "*") {
+						loadedFrom[dst] = ptrReg
+					}
 					if state[ptrReg] == StateShared {
 						valAS[dst] = AddrSpaceShared
 					} else if state[ptrReg] == StateGenericRequired {
@@ -428,6 +453,19 @@ func analyzeAndRewriteFunc(lines []string, globals map[string]AddrSpace) (string
 	}
 
 	// Rewrite IR: update declarations and uses of inferred shared slots.
+	type pointerType struct{ old, new string }
+	sharedValues := make(map[string]pointerType)
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if m := reLoad.FindStringSubmatch(trimmed); len(m) == 4 && toRewrite[extractRegister(strings.TrimSpace(m[3]))] {
+			loadedType := strings.TrimSpace(m[2])
+			if strings.HasPrefix(loadedType, "ptr") || strings.HasSuffix(loadedType, "*") {
+				oldType := slots[extractRegister(strings.TrimSpace(m[3]))].allocType
+				old, new := inferredPointerType(oldType)
+				sharedValues[m[1]] = pointerType{old: old, new: new}
+			}
+		}
+	}
 	var rewritten strings.Builder
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
@@ -451,9 +489,9 @@ func analyzeAndRewriteFunc(lines []string, globals map[string]AddrSpace) (string
 				ptrPart := strings.TrimSpace(m[2])
 				ptrReg := extractRegister(ptrPart)
 				if toRewrite[ptrReg] {
-					newLine := rewriteStoreLine(line)
-					rewritten.WriteString(newLine)
-					continue
+					line = rewriteStoreLine(line)
+					line = rewriteSlotStore(line, slots[ptrReg])
+					line = rewriteSlotPointerOperand(line, slots[ptrReg])
 				}
 			}
 		}
@@ -464,10 +502,16 @@ func analyzeAndRewriteFunc(lines []string, globals map[string]AddrSpace) (string
 				ptrPart := strings.TrimSpace(m[3])
 				ptrReg := extractRegister(ptrPart)
 				if toRewrite[ptrReg] {
-					newLine := rewriteLoadLine(line)
+					newLine := rewriteSlotLoad(line, slots[ptrReg])
+					newLine = rewriteSlotPointerOperand(newLine, slots[ptrReg])
 					rewritten.WriteString(newLine)
 					continue
 				}
+			}
+		}
+		for value, types := range sharedValues {
+			if mentionsValue(trimmed, value) && supportedInferredPointerUse(trimmed, value) {
+				line = rewritePointerValueUses(line, value, types.old, types.new)
 			}
 		}
 
@@ -475,6 +519,16 @@ func analyzeAndRewriteFunc(lines []string, globals map[string]AddrSpace) (string
 	}
 
 	return rewritten.String(), report, nil
+}
+
+func supportedInferredPointerUse(line, value string) bool {
+	if m := reLoad.FindStringSubmatch(line); len(m) == 4 && extractRegister(strings.TrimSpace(m[3])) == value {
+		return true
+	}
+	if m := reStore.FindStringSubmatch(line); len(m) == 3 && extractRegister(strings.TrimSpace(m[1])) == value {
+		return true
+	}
+	return false
 }
 
 func parseSlotDecl(lineIdx int, rawLine, name, allocType string) *slotDecl {
@@ -540,44 +594,38 @@ func parseSlotDecl(lineIdx int, rawLine, name, allocType string) *slotDecl {
 
 func parseAddrSpaceFromTypeVal(typeVal string, valAS map[string]AddrSpace) AddrSpace {
 	typeVal = strings.TrimSpace(typeVal)
-
 	// Check if there is an embedded addrspacecast:
 	// addrspacecast (ptr addrspace(3) @var to ptr)
 	if strings.Contains(typeVal, "addrspacecast") {
-		if strings.Contains(typeVal, "addrspace(7)") {
-			return AddrSpaceCluster
-		}
-		if strings.Contains(typeVal, "addrspace(3)") {
-			return AddrSpaceShared
+		if m := regexp.MustCompile(`addrspacecast\s*\(\s*(.*?)\s+to\s+[^)]+\)`).FindStringSubmatch(typeVal); len(m) == 2 {
+			return parseAddrSpaceFromTypeVal(m[1], valAS)
 		}
 		return AddrSpaceGeneric
 	}
-	if reg := extractRegister(typeVal); reg != "" {
-		if as, ok := valAS[reg]; ok {
-			return as
-		}
-	}
-
-	// Check for explicit addrspace annotation in type:
-	// e.g. "ptr addrspace(3) %val", "float addrspace(3)* %val"
-	if idx := strings.Index(typeVal, "addrspace("); idx >= 0 {
-		rest := typeVal[idx+len("addrspace("):]
-		if end := strings.Index(rest, ")"); end >= 0 {
-			as, err := strconv.Atoi(rest[:end])
-			if err == nil {
-				return AddrSpace(as)
-			}
-		}
-	}
-
-	// Check register or global symbol in valAS map:
 	reg := extractRegister(typeVal)
+	if as, ok := valAS[reg]; ok && as != AddrSpaceShared {
+		return as
+	}
+	if as := parseAddrSpaceType(typeVal); as != AddrSpaceGeneric {
+		return as
+	}
 	if reg != "" {
 		if as, ok := valAS[reg]; ok {
 			return as
 		}
 	}
+	return AddrSpaceGeneric
+}
 
+func parseAddrSpaceType(typeVal string) AddrSpace {
+	if idx := strings.Index(typeVal, "addrspace("); idx >= 0 {
+		rest := typeVal[idx+len("addrspace("):]
+		if end := strings.Index(rest, ")"); end >= 0 {
+			if as, err := strconv.Atoi(rest[:end]); err == nil {
+				return AddrSpace(as)
+			}
+		}
+	}
 	return AddrSpaceGeneric
 }
 
@@ -618,20 +666,46 @@ func rewriteStoreLine(line string) string {
 	// -> "store ptr addrspace(3) @sym, ptr %slot"
 	if strings.Contains(line, "addrspacecast") && strings.Contains(line, "addrspace(3)") {
 		// Match: addrspacecast (ptr addrspace(3) <val> to ptr)
-		reInlineCast := regexp.MustCompile(`addrspacecast\s*\(\s*(ptr\s+addrspace\(3\)\s+[@%][a-zA-Z0-9_$.]+)\s+to\s+ptr\s*\)`)
-		if reInlineCast.MatchString(line) {
-			line = reInlineCast.ReplaceAllString(line, "$1")
-		}
+		reInlineCast := regexp.MustCompile(`store ptr\s+addrspacecast\s*\(\s*(ptr\s+addrspace\(3\)\s+[@%][a-zA-Z0-9_$.]+)\s+to\s+ptr\s*\)`)
+		line = reInlineCast.ReplaceAllString(line, "store $1")
 	}
 	return line
 }
 
-func rewriteLoadLine(line string) string {
-	// If loading from a slot declared in addrspace(3), the loaded type is ptr addrspace(3).
-	// E.g. "%p = load ptr, ptr %slot" -> "%p = load ptr addrspace(3), ptr %slot"
-	idx := strings.Index(line, "load ptr,")
-	if idx >= 0 {
-		return line[:idx] + "load ptr addrspace(3)," + line[idx+len("load ptr,"):]
+func inferredPointerType(allocType string) (old, new string) {
+	if allocType == "ptr" {
+		return "ptr", "ptr addrspace(3)"
 	}
+	if strings.HasSuffix(allocType, "*") {
+		return allocType, strings.TrimSuffix(allocType, "*") + " addrspace(3)*"
+	}
+	return allocType, allocType
+}
+
+func rewriteSlotStore(line string, decl *slotDecl) string {
+	oldType, newType := inferredPointerType(decl.allocType)
+	if strings.HasPrefix(strings.TrimSpace(line), "store "+newType+" ") {
+		return line
+	}
+	return strings.Replace(line, "store "+oldType+" ", "store "+newType+" ", 1)
+}
+
+func rewriteSlotPointerOperand(line string, decl *slotDecl) string {
+	if decl.allocType == "ptr" {
+		return line
+	}
+	oldType, newType := inferredPointerType(decl.allocType)
+	return strings.Replace(line, oldType+"* "+decl.name, newType+"* "+decl.name, 1)
+}
+
+func rewriteSlotLoad(line string, decl *slotDecl) string {
+	oldType, newType := inferredPointerType(decl.allocType)
+	return strings.Replace(line, "load "+oldType+",", "load "+newType+",", 1)
+}
+
+func rewritePointerValueUses(line, value, oldType, newType string) string {
+	quoted := regexp.QuoteMeta(value)
+	oldType = regexp.QuoteMeta(oldType)
+	line = regexp.MustCompile(oldType+`\s+`+quoted+`\b`).ReplaceAllString(line, newType+" "+value)
 	return line
 }
