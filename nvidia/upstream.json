@@ -1105,7 +1105,7 @@
           },
           {
             "path": "nvidia/cudss/doc.gen.go",
-            "sha256": "31613c005c82aaab28ccc5f46128b1381a141eda3e2ab061cda183e3b4a0b84d"
+            "sha256": "4e373376b090b91821251f3f6d6ddfd4c65dc9814744ae88465eb5553f6776e0"
           },
           {
             "path": "nvidia/cudss/enums.gen.go",
@@ -1113,7 +1113,7 @@
           },
           {
             "path": "nvidia/cudss/funcs.gen.go",
-            "sha256": "06488b3c81daedb375bd7d4393beb8e9c501b05f347f1ae911573b09bb393fde"
+            "sha256": "d30f4dcfa54de693b236648e46573e9857e51efd9e9adf0b5c8ebf5e2dd8762e"
           },
           {
             "path": "nvidia/cudss/handle.gen.go",
@@ -1137,7 +1137,7 @@
           },
           {
             "path": "nvidia/cudss/matrix.gen.go",
-            "sha256": "17f177f99770ab37edfce515ca1362cd379e2cc5f3d74189b70a487b793f0a07"
+            "sha256": "7a7d2289947cb0ff52d8e97fccd5352a3823f70ed6a40dddda6501205867b58a"
           },
           {
             "path": "nvidia/cudss/params.gen.go",

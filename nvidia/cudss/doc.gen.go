@@ -82,19 +82,19 @@
 //
 // # Matrix objects
 //
-//   - [NewMatrixBatchCsr].
-//   - [NewMatrixBatchDn].
+//   - [NewMatrixBatchCsr]: creates a batch of CSR matrices.
+//   - [NewMatrixBatchDn]: creates a batch of dense matrices.
 //   - [NewMatrixCsr].
 //   - [NewMatrixDn].
 //   - [Matrix.Close].
-//   - [Matrix.BatchCsr].
-//   - [Matrix.BatchDn].
+//   - [Matrix.BatchCsr]: retrieves a batch of CSR matrices.
+//   - [Matrix.BatchDn]: retrieves a batch of dense matrices.
 //   - [Matrix.Csr].
 //   - [Matrix.DistributionRow1d].
 //   - [Matrix.Dn].
 //   - [Matrix.Format].
-//   - [Matrix.SetBatchCsrPointers].
-//   - [Matrix.SetBatchValues].
+//   - [Matrix.SetBatchCsrPointers]: sets the CSR arrays of a batch.
+//   - [Matrix.SetBatchValues]: sets the values arrays of a batch.
 //   - [Matrix.SetCsrPointers].
 //   - [Matrix.SetDistributionRow1d].
 //   - [Matrix.SetValues].

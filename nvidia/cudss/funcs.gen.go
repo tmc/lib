@@ -445,14 +445,14 @@ func fnLoggerSetMask(a0 int32) Result {
 }
 
 // fnMatrixCreateBatchCsr calls cudssMatrixCreateBatchCsr.
-func fnMatrixCreateBatchCsr(a0 *Matrix, a1 int64, a2 uintptr, a3 uintptr, a4 uintptr, a5 *uintptr, a6 *uintptr, a7 *uintptr, a8 *uintptr, a9 DataType, a10 DataType, a11 DataType, a12 MatrixType, a13 MatrixViewType, a14 IndexBase) Result {
-	r1, _ := ffiCallWidths15(symMatrixCreateBatchCsr, 0, 0x3ffc0000, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14))
+func fnMatrixCreateBatchCsr(a0 *Matrix, a1 int64, a2 uintptr, a3 uintptr, a4 uintptr, a5 uintptr, a6 uintptr, a7 uintptr, a8 uintptr, a9 DataType, a10 DataType, a11 DataType, a12 MatrixType, a13 MatrixViewType, a14 IndexBase) Result {
+	r1, _ := ffiCallWidths15(symMatrixCreateBatchCsr, 0, 0x3ffc0000, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14))
 	return Result(r1)
 }
 
 // fnMatrixCreateBatchDn calls cudssMatrixCreateBatchDn.
-func fnMatrixCreateBatchDn(a0 *Matrix, a1 int64, a2 uintptr, a3 uintptr, a4 uintptr, a5 *uintptr, a6 DataType, a7 DataType, a8 Layout) Result {
-	r1, _ := ffiCallWidths9(symMatrixCreateBatchDn, 0, 0x3f000, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8))
+func fnMatrixCreateBatchDn(a0 *Matrix, a1 int64, a2 uintptr, a3 uintptr, a4 uintptr, a5 uintptr, a6 DataType, a7 DataType, a8 Layout) Result {
+	r1, _ := ffiCallWidths9(symMatrixCreateBatchDn, 0, 0x3f000, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
 	return Result(r1)
 }
 
@@ -475,13 +475,13 @@ func fnMatrixDestroy(a0 Matrix) Result {
 }
 
 // fnMatrixGetBatchCsr calls cudssMatrixGetBatchCsr.
-func fnMatrixGetBatchCsr(a0 Matrix, a1 *int64, a2 *uintptr, a3 *uintptr, a4 *uintptr, a5 **uintptr, a6 **uintptr, a7 **uintptr, a8 **uintptr, a9 *DataType, a10 *DataType, a11 *DataType, a12 *MatrixType, a13 *MatrixViewType, a14 *IndexBase) Result {
+func fnMatrixGetBatchCsr(a0 Matrix, a1 *int64, a2 *uintptr, a3 *uintptr, a4 *uintptr, a5 *driver.DevicePtr, a6 *driver.DevicePtr, a7 *driver.DevicePtr, a8 *driver.DevicePtr, a9 *DataType, a10 *DataType, a11 *DataType, a12 *MatrixType, a13 *MatrixViewType, a14 *IndexBase) Result {
 	r1, _ := ffiCall15(symMatrixGetBatchCsr, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)), uintptr(unsafe.Pointer(a10)), uintptr(unsafe.Pointer(a11)), uintptr(unsafe.Pointer(a12)), uintptr(unsafe.Pointer(a13)), uintptr(unsafe.Pointer(a14)))
 	return Result(r1)
 }
 
 // fnMatrixGetBatchDn calls cudssMatrixGetBatchDn.
-func fnMatrixGetBatchDn(a0 Matrix, a1 *int64, a2 *uintptr, a3 *uintptr, a4 *uintptr, a5 **uintptr, a6 *DataType, a7 *DataType, a8 *Layout) Result {
+func fnMatrixGetBatchDn(a0 Matrix, a1 *int64, a2 *uintptr, a3 *uintptr, a4 *uintptr, a5 *driver.DevicePtr, a6 *DataType, a7 *DataType, a8 *Layout) Result {
 	r1, _ := ffiCall9(symMatrixGetBatchDn, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)))
 	return Result(r1)
 }
@@ -511,14 +511,14 @@ func fnMatrixGetFormat(a0 Matrix, a1 *int32) Result {
 }
 
 // fnMatrixSetBatchCsrPointers calls cudssMatrixSetBatchCsrPointers.
-func fnMatrixSetBatchCsrPointers(a0 Matrix, a1 *uintptr, a2 *uintptr, a3 *uintptr, a4 *uintptr) Result {
-	r1, _ := ffiCall5(symMatrixSetBatchCsrPointers, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+func fnMatrixSetBatchCsrPointers(a0 Matrix, a1 uintptr, a2 uintptr, a3 uintptr, a4 uintptr) Result {
+	r1, _ := ffiCall5(symMatrixSetBatchCsrPointers, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
 
 // fnMatrixSetBatchValues calls cudssMatrixSetBatchValues.
-func fnMatrixSetBatchValues(a0 Matrix, a1 *uintptr) Result {
-	r1, _ := ffiCall2(symMatrixSetBatchValues, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+func fnMatrixSetBatchValues(a0 Matrix, a1 uintptr) Result {
+	r1, _ := ffiCall2(symMatrixSetBatchValues, 0, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
@@ -739,15 +739,19 @@ func LoggerSetMask(mask int32) error {
 	return toError(fnLoggerSetMask(mask), "cudssLoggerSetMask")
 }
 
-// MatrixCreateBatchCsr wraps cudssMatrixCreateBatchCsr.
-func MatrixCreateBatchCsr(batchCount int64, nrows HostPtr, ncols HostPtr, nnz HostPtr, rowStart *uintptr, rowEnd *uintptr, colIndices *uintptr, values *uintptr, offsetType DataType, indexType DataType, valueType DataType, mtype MatrixType, mview MatrixViewType, indexBase IndexBase) (Matrix, error) {
+// MatrixCreateBatchCsr creates a batch of CSR matrices.
+//
+// The rowStart, rowEnd, colIndices, and values arguments are device addresses of arrays whose elements are device pointers. Keep the arrays and their data valid until the matrix is closed and its stream work completes. See https://docs.nvidia.com/cuda/cudss/functions.html#cudssmatrixcreatebatchcsr.
+//
+// Wraps cudssMatrixCreateBatchCsr.
+func MatrixCreateBatchCsr(batchCount int64, nrows HostPtr, ncols HostPtr, nnz HostPtr, rowStart driver.DevicePtr, rowEnd driver.DevicePtr, colIndices driver.DevicePtr, values driver.DevicePtr, offsetType DataType, indexType DataType, valueType DataType, mtype MatrixType, mview MatrixViewType, indexBase IndexBase) (Matrix, error) {
 	if err := checkLibSym("cudssMatrixCreateBatchCsr"); err != nil {
 		var zero Matrix
 		return zero, err
 	}
 	out := slotMatrixCreateBatchCsr.get()
 	defer slotMatrixCreateBatchCsr.put(out)
-	if err := toError(fnMatrixCreateBatchCsr(out, batchCount, uintptr(nrows), uintptr(ncols), uintptr(nnz), rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase), "cudssMatrixCreateBatchCsr"); err != nil {
+	if err := toError(fnMatrixCreateBatchCsr(out, batchCount, uintptr(nrows), uintptr(ncols), uintptr(nnz), uintptr(rowStart), uintptr(rowEnd), uintptr(colIndices), uintptr(values), offsetType, indexType, valueType, mtype, mview, indexBase), "cudssMatrixCreateBatchCsr"); err != nil {
 		var zero Matrix
 		return zero, err
 	}
@@ -756,15 +760,19 @@ func MatrixCreateBatchCsr(batchCount int64, nrows HostPtr, ncols HostPtr, nnz Ho
 
 var slotMatrixCreateBatchCsr outSlot[Matrix]
 
-// MatrixCreateBatchDn wraps cudssMatrixCreateBatchDn.
-func MatrixCreateBatchDn(batchCount int64, nrows HostPtr, ncols HostPtr, ld HostPtr, values *uintptr, integerType DataType, valueType DataType, layout Layout) (Matrix, error) {
+// MatrixCreateBatchDn creates a batch of dense matrices.
+//
+// The values arguments are device addresses of arrays whose elements are device pointers. Keep the arrays and their data valid until the matrix is closed and its stream work completes. See https://docs.nvidia.com/cuda/cudss/functions.html#cudssmatrixcreatebatchdn.
+//
+// Wraps cudssMatrixCreateBatchDn.
+func MatrixCreateBatchDn(batchCount int64, nrows HostPtr, ncols HostPtr, ld HostPtr, values driver.DevicePtr, integerType DataType, valueType DataType, layout Layout) (Matrix, error) {
 	if err := checkLibSym("cudssMatrixCreateBatchDn"); err != nil {
 		var zero Matrix
 		return zero, err
 	}
 	out := slotMatrixCreateBatchDn.get()
 	defer slotMatrixCreateBatchDn.put(out)
-	if err := toError(fnMatrixCreateBatchDn(out, batchCount, uintptr(nrows), uintptr(ncols), uintptr(ld), values, integerType, valueType, layout), "cudssMatrixCreateBatchDn"); err != nil {
+	if err := toError(fnMatrixCreateBatchDn(out, batchCount, uintptr(nrows), uintptr(ncols), uintptr(ld), uintptr(values), integerType, valueType, layout), "cudssMatrixCreateBatchDn"); err != nil {
 		var zero Matrix
 		return zero, err
 	}
@@ -815,16 +823,24 @@ func MatrixDestroy(matrix Matrix) error {
 	return toError(fnMatrixDestroy(matrix), "cudssMatrixDestroy")
 }
 
-// MatrixGetBatchCsr wraps cudssMatrixGetBatchCsr.
-func MatrixGetBatchCsr(matrix Matrix, batchCount *int64, nrows *HostPtr, ncols *HostPtr, nnz *HostPtr, rowStart **uintptr, rowEnd **uintptr, colIndices **uintptr, values **uintptr, offsetType *DataType, indexType *DataType, valueType *DataType, mtype *MatrixType, mview *MatrixViewType, indexBase *IndexBase) error {
+// MatrixGetBatchCsr retrieves a batch of CSR matrices.
+//
+// The rowStart, rowEnd, colIndices, and values output slots receive addresses of device arrays whose elements are device pointers. See https://docs.nvidia.com/cuda/cudss/functions.html#cudssmatrixgetbatchcsr.
+//
+// Wraps cudssMatrixGetBatchCsr.
+func MatrixGetBatchCsr(matrix Matrix, batchCount *int64, nrows *HostPtr, ncols *HostPtr, nnz *HostPtr, rowStart *driver.DevicePtr, rowEnd *driver.DevicePtr, colIndices *driver.DevicePtr, values *driver.DevicePtr, offsetType *DataType, indexType *DataType, valueType *DataType, mtype *MatrixType, mview *MatrixViewType, indexBase *IndexBase) error {
 	if err := checkLibSym("cudssMatrixGetBatchCsr"); err != nil {
 		return err
 	}
 	return toError(fnMatrixGetBatchCsr(matrix, batchCount, (*uintptr)(nrows), (*uintptr)(ncols), (*uintptr)(nnz), rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase), "cudssMatrixGetBatchCsr")
 }
 
-// MatrixGetBatchDn wraps cudssMatrixGetBatchDn.
-func MatrixGetBatchDn(matrix Matrix, batchCount *int64, nrows *HostPtr, ncols *HostPtr, ld *HostPtr, values **uintptr, indexType *DataType, valueType *DataType, layout *Layout) error {
+// MatrixGetBatchDn retrieves a batch of dense matrices.
+//
+// The values output slots receive addresses of device arrays whose elements are device pointers. See https://docs.nvidia.com/cuda/cudss/functions.html#cudssmatrixgetbatchdn.
+//
+// Wraps cudssMatrixGetBatchDn.
+func MatrixGetBatchDn(matrix Matrix, batchCount *int64, nrows *HostPtr, ncols *HostPtr, ld *HostPtr, values *driver.DevicePtr, indexType *DataType, valueType *DataType, layout *Layout) error {
 	if err := checkLibSym("cudssMatrixGetBatchDn"); err != nil {
 		return err
 	}
@@ -872,20 +888,28 @@ func MatrixGetFormat(matrix Matrix) (int32, error) {
 
 var slotMatrixGetFormat outSlot[int32]
 
-// MatrixSetBatchCsrPointers wraps cudssMatrixSetBatchCsrPointers.
-func MatrixSetBatchCsrPointers(matrix Matrix, rowOffsets *uintptr, rowEnd *uintptr, colIndices *uintptr, values *uintptr) error {
+// MatrixSetBatchCsrPointers sets the CSR arrays of a batch.
+//
+// The rowOffsets, rowEnd, colIndices, and values arguments are device addresses of arrays whose elements are device pointers. Keep the arrays and their data valid until the matrix is closed and its stream work completes. See https://docs.nvidia.com/cuda/cudss/functions.html#cudssmatrixsetbatchcsrpointers.
+//
+// Wraps cudssMatrixSetBatchCsrPointers.
+func MatrixSetBatchCsrPointers(matrix Matrix, rowOffsets driver.DevicePtr, rowEnd driver.DevicePtr, colIndices driver.DevicePtr, values driver.DevicePtr) error {
 	if err := checkLibSym("cudssMatrixSetBatchCsrPointers"); err != nil {
 		return err
 	}
-	return toError(fnMatrixSetBatchCsrPointers(matrix, rowOffsets, rowEnd, colIndices, values), "cudssMatrixSetBatchCsrPointers")
+	return toError(fnMatrixSetBatchCsrPointers(matrix, uintptr(rowOffsets), uintptr(rowEnd), uintptr(colIndices), uintptr(values)), "cudssMatrixSetBatchCsrPointers")
 }
 
-// MatrixSetBatchValues wraps cudssMatrixSetBatchValues.
-func MatrixSetBatchValues(matrix Matrix, values *uintptr) error {
+// MatrixSetBatchValues sets the values arrays of a batch.
+//
+// The values arguments are device addresses of arrays whose elements are device pointers. Keep the arrays and their data valid until the matrix is closed and its stream work completes. See https://docs.nvidia.com/cuda/cudss/functions.html#cudssmatrixsetbatchvalues.
+//
+// Wraps cudssMatrixSetBatchValues.
+func MatrixSetBatchValues(matrix Matrix, values driver.DevicePtr) error {
 	if err := checkLibSym("cudssMatrixSetBatchValues"); err != nil {
 		return err
 	}
-	return toError(fnMatrixSetBatchValues(matrix, values), "cudssMatrixSetBatchValues")
+	return toError(fnMatrixSetBatchValues(matrix, uintptr(values)), "cudssMatrixSetBatchValues")
 }
 
 // MatrixSetCsrPointers wraps cudssMatrixSetCsrPointers.

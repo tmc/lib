@@ -5,13 +5,25 @@
 
 package cudss
 
-// NewMatrixBatchCsr wraps cudssMatrixCreateBatchCsr.
-func NewMatrixBatchCsr(batchCount int64, nrows HostPtr, ncols HostPtr, nnz HostPtr, rowStart *uintptr, rowEnd *uintptr, colIndices *uintptr, values *uintptr, offsetType DataType, indexType DataType, valueType DataType, mtype MatrixType, mview MatrixViewType, indexBase IndexBase) (Matrix, error) {
+import (
+	"github.com/tmc/lib/nvidia/driver"
+)
+
+// NewMatrixBatchCsr creates a batch of CSR matrices.
+//
+// The rowStart, rowEnd, colIndices, and values arguments are device addresses of arrays whose elements are device pointers. Keep the arrays and their data valid until the matrix is closed and its stream work completes. See https://docs.nvidia.com/cuda/cudss/functions.html#cudssmatrixcreatebatchcsr.
+//
+// Wraps cudssMatrixCreateBatchCsr.
+func NewMatrixBatchCsr(batchCount int64, nrows HostPtr, ncols HostPtr, nnz HostPtr, rowStart driver.DevicePtr, rowEnd driver.DevicePtr, colIndices driver.DevicePtr, values driver.DevicePtr, offsetType DataType, indexType DataType, valueType DataType, mtype MatrixType, mview MatrixViewType, indexBase IndexBase) (Matrix, error) {
 	return MatrixCreateBatchCsr(batchCount, nrows, ncols, nnz, rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase)
 }
 
-// NewMatrixBatchDn wraps cudssMatrixCreateBatchDn.
-func NewMatrixBatchDn(batchCount int64, nrows HostPtr, ncols HostPtr, ld HostPtr, values *uintptr, integerType DataType, valueType DataType, layout Layout) (Matrix, error) {
+// NewMatrixBatchDn creates a batch of dense matrices.
+//
+// The values arguments are device addresses of arrays whose elements are device pointers. Keep the arrays and their data valid until the matrix is closed and its stream work completes. See https://docs.nvidia.com/cuda/cudss/functions.html#cudssmatrixcreatebatchdn.
+//
+// Wraps cudssMatrixCreateBatchDn.
+func NewMatrixBatchDn(batchCount int64, nrows HostPtr, ncols HostPtr, ld HostPtr, values driver.DevicePtr, integerType DataType, valueType DataType, layout Layout) (Matrix, error) {
 	return MatrixCreateBatchDn(batchCount, nrows, ncols, ld, values, integerType, valueType, layout)
 }
 
@@ -25,13 +37,21 @@ func NewMatrixDn(nrows int64, ncols int64, ld int64, values uintptr, valueType D
 	return MatrixCreateDn(nrows, ncols, ld, values, valueType, layout)
 }
 
-// BatchCsr wraps cudssMatrixGetBatchCsr.
-func (m Matrix) BatchCsr(batchCount *int64, nrows *HostPtr, ncols *HostPtr, nnz *HostPtr, rowStart **uintptr, rowEnd **uintptr, colIndices **uintptr, values **uintptr, offsetType *DataType, indexType *DataType, valueType *DataType, mtype *MatrixType, mview *MatrixViewType, indexBase *IndexBase) error {
+// BatchCsr retrieves a batch of CSR matrices.
+//
+// The rowStart, rowEnd, colIndices, and values output slots receive addresses of device arrays whose elements are device pointers. See https://docs.nvidia.com/cuda/cudss/functions.html#cudssmatrixgetbatchcsr.
+//
+// Wraps cudssMatrixGetBatchCsr.
+func (m Matrix) BatchCsr(batchCount *int64, nrows *HostPtr, ncols *HostPtr, nnz *HostPtr, rowStart *driver.DevicePtr, rowEnd *driver.DevicePtr, colIndices *driver.DevicePtr, values *driver.DevicePtr, offsetType *DataType, indexType *DataType, valueType *DataType, mtype *MatrixType, mview *MatrixViewType, indexBase *IndexBase) error {
 	return MatrixGetBatchCsr(m, batchCount, nrows, ncols, nnz, rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase)
 }
 
-// BatchDn wraps cudssMatrixGetBatchDn.
-func (m Matrix) BatchDn(batchCount *int64, nrows *HostPtr, ncols *HostPtr, ld *HostPtr, values **uintptr, indexType *DataType, valueType *DataType, layout *Layout) error {
+// BatchDn retrieves a batch of dense matrices.
+//
+// The values output slots receive addresses of device arrays whose elements are device pointers. See https://docs.nvidia.com/cuda/cudss/functions.html#cudssmatrixgetbatchdn.
+//
+// Wraps cudssMatrixGetBatchDn.
+func (m Matrix) BatchDn(batchCount *int64, nrows *HostPtr, ncols *HostPtr, ld *HostPtr, values *driver.DevicePtr, indexType *DataType, valueType *DataType, layout *Layout) error {
 	return MatrixGetBatchDn(m, batchCount, nrows, ncols, ld, values, indexType, valueType, layout)
 }
 
@@ -71,13 +91,21 @@ func (m Matrix) Format() (int32, error) {
 	return MatrixGetFormat(m)
 }
 
-// SetBatchCsrPointers wraps cudssMatrixSetBatchCsrPointers.
-func (m Matrix) SetBatchCsrPointers(rowOffsets *uintptr, rowEnd *uintptr, colIndices *uintptr, values *uintptr) error {
+// SetBatchCsrPointers sets the CSR arrays of a batch.
+//
+// The rowOffsets, rowEnd, colIndices, and values arguments are device addresses of arrays whose elements are device pointers. Keep the arrays and their data valid until the matrix is closed and its stream work completes. See https://docs.nvidia.com/cuda/cudss/functions.html#cudssmatrixsetbatchcsrpointers.
+//
+// Wraps cudssMatrixSetBatchCsrPointers.
+func (m Matrix) SetBatchCsrPointers(rowOffsets driver.DevicePtr, rowEnd driver.DevicePtr, colIndices driver.DevicePtr, values driver.DevicePtr) error {
 	return MatrixSetBatchCsrPointers(m, rowOffsets, rowEnd, colIndices, values)
 }
 
-// SetBatchValues wraps cudssMatrixSetBatchValues.
-func (m Matrix) SetBatchValues(values *uintptr) error {
+// SetBatchValues sets the values arrays of a batch.
+//
+// The values arguments are device addresses of arrays whose elements are device pointers. Keep the arrays and their data valid until the matrix is closed and its stream work completes. See https://docs.nvidia.com/cuda/cudss/functions.html#cudssmatrixsetbatchvalues.
+//
+// Wraps cudssMatrixSetBatchValues.
+func (m Matrix) SetBatchValues(values driver.DevicePtr) error {
 	return MatrixSetBatchValues(m, values)
 }
 
