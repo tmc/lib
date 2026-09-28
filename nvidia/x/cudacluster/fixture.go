@@ -159,6 +159,7 @@ int main() {
   if (cudaMalloc(&d, sizeof h) != cudaSuccess) return 2;
   if (cudaMemset(d, 0, sizeof h) != cudaSuccess) return 3;
   oracle<<<%d,32>>>(d);
+  if (cudaGetLastError() != cudaSuccess) return 6;
   if (cudaDeviceSynchronize() != cudaSuccess) return 4;
   if (cudaMemcpy(&h,d,sizeof h,cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
   printf("total %%u\n", h); cudaFree(d); return 0;

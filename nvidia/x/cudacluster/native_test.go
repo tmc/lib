@@ -46,21 +46,7 @@ func runReduction(t *testing.T, clusterSize int, mut Mutant) (uint32, error) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	src += fmt.Sprintf(`
-#include <cuda_runtime.h>
-int main() {
-  unsigned *d = 0, h = 0;
-  if (cudaMalloc(&d, sizeof h) != cudaSuccess) return 2;
-  if (cudaMemset(d, 0, sizeof h) != cudaSuccess) return 3;
-  dsmem_reduce<<<%d, 32>>>(d);
-  if (cudaDeviceSynchronize() != cudaSuccess) return 4;
-  if (cudaMemcpy(&h, d, sizeof h, cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
-  cudaFree(d);
-  printf("total %%u\n", h);
-  return 0;
-}
-
-`, clusterSize)
+	src += reductionMain(clusterSize)
 
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -89,6 +75,24 @@ int main() {
 	return got, nil
 }
 
+func reductionMain(clusterSize int) string {
+	return fmt.Sprintf(`#include <cuda_runtime.h>
+#include <stdio.h>
+int main() {
+  unsigned *d = 0, h = 0;
+  if (cudaMalloc(&d, sizeof h) != cudaSuccess) return 2;
+  if (cudaMemset(d, 0, sizeof h) != cudaSuccess) return 3;
+  dsmem_reduce<<<%d, 32>>>(d);
+  if (cudaGetLastError() != cudaSuccess) return 6;
+  if (cudaDeviceSynchronize() != cudaSuccess) return 4;
+  if (cudaMemcpy(&h, d, sizeof h, cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
+  cudaFree(d);
+  printf("total %%u\n", h);
+  return 0;
+}
+`, clusterSize)
+}
+
 func requireNativeLock(getenv func(string) string) error {
 	if getenv("CUDA_CLUSTER_NATIVE") != "1" {
 		return fmt.Errorf("cudacluster: native gate is closed")
@@ -99,7 +103,6 @@ func requireNativeLock(getenv func(string) string) error {
 
 func compileRunTotal(t *testing.T, nvcc, target, dir, name, src string) (uint32, error) {
 	t.Helper()
-	src += "\n#include <cuda_runtime.h>\n#include <stdio.h>\n"
 	file := filepath.Join(dir, name+".cu")
 	if err := os.WriteFile(file, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
@@ -135,7 +138,7 @@ func classifyFixtureResult(hasProcessState, timedOut bool, exitCode int, output 
 	switch exitCode {
 	case 0:
 		return parseTotal(output)
-	case 2, 3, 4, 5:
+	case 2, 3, 4, 5, 6:
 		return 0, fmt.Errorf("fixture failed at CUDA stage %d: %s", exitCode, output)
 	default:
 		return 0, fmt.Errorf("fixture exited %d: %s", exitCode, output)
@@ -152,23 +155,28 @@ func TestClassifyFixtureResult(t *testing.T) {
 		want        uint32
 		wantErr     bool
 		wantTimeout bool
+		wantErrText string
 	}{
 		{name: "success total", hasState: true, output: "total 628", want: 628},
 		{name: "success without total", hasState: true, wantErr: true},
-		{name: "cuda exit 2", hasState: true, exitCode: 2, wantErr: true},
-		{name: "cuda exit 3", hasState: true, exitCode: 3, wantErr: true},
-		{name: "cuda exit 4", hasState: true, exitCode: 4, wantErr: true},
-		{name: "cuda exit 5", hasState: true, exitCode: 5, wantErr: true},
-		{name: "ordinary error", hasState: true, exitCode: 1, wantErr: true},
-		{name: "signal", hasState: true, exitCode: -1, wantErr: true},
-		{name: "no process state", wantErr: true},
-		{name: "timeout", hasState: true, timedOut: true, wantErr: true, wantTimeout: true},
+		{name: "cuda exit 2", hasState: true, exitCode: 2, output: "total 628", wantErr: true, wantErrText: "CUDA stage 2"},
+		{name: "cuda exit 3", hasState: true, exitCode: 3, output: "total 628", wantErr: true, wantErrText: "CUDA stage 3"},
+		{name: "cuda exit 4", hasState: true, exitCode: 4, output: "total 628", wantErr: true, wantErrText: "CUDA stage 4"},
+		{name: "cuda exit 5", hasState: true, exitCode: 5, output: "total 628", wantErr: true, wantErrText: "CUDA stage 5"},
+		{name: "launch error", hasState: true, exitCode: 6, output: "total 628", wantErr: true, wantErrText: "CUDA stage 6"},
+		{name: "ordinary error", hasState: true, exitCode: 1, output: "total 628", wantErr: true, wantErrText: "fixture exited 1"},
+		{name: "signal", hasState: true, exitCode: -1, output: "total 628", wantErr: true, wantErrText: "fixture exited -1"},
+		{name: "no process state", output: "total 628", wantErr: true, wantErrText: "no exit status"},
+		{name: "timeout", hasState: true, timedOut: true, exitCode: -1, output: "total 628", wantErr: true, wantTimeout: true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := classifyFixtureResult(tc.hasState, tc.timedOut, tc.exitCode, tc.output)
 			if got != tc.want || (err != nil) != tc.wantErr || errors.Is(err, errFixtureTimeout) != tc.wantTimeout {
 				t.Fatalf("classifyFixtureResult = (%d, %v), want (%d, err=%v, timeout=%v)", got, err, tc.want, tc.wantErr, tc.wantTimeout)
+			}
+			if tc.wantErrText != "" && (err == nil || !strings.Contains(err.Error(), tc.wantErrText)) {
+				t.Fatalf("classifyFixtureResult error = %v, want substring %q", err, tc.wantErrText)
 			}
 		})
 	}
@@ -258,9 +266,8 @@ func TestNativeControlLocalWindowMutantFails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := ExpectedReduction(size); got == want {
-		t.Fatalf("local-window mutant produced the correct total %d: "+
-			"the remote-window test cannot fail and proves nothing", want)
+	if want := uint32(size) * 7; got != want {
+		t.Fatalf("local-window mutant total = %d, want %d", got, want)
 	}
 }
 

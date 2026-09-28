@@ -247,6 +247,46 @@ func TestReductionFixtureSourceIsValidCXXShape(t *testing.T) {
 	}
 }
 
+func TestGeneratedReductionLaunchesCheckErrorsBeforeSynchronize(t *testing.T) {
+	const size = 4
+	fixture, err := ReductionFixture("sm_121a", size, MutantNone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reduction := fixture + reductionMain(size)
+	assertLaunchCheckBeforeSync(t, reduction, "dsmem_reduce<<<4, 32>>>(d);")
+	assertIncludesBeforeMain(t, reduction)
+
+	oracle := cooperativeReductionFixture(size)
+	assertLaunchCheckBeforeSync(t, oracle, "oracle<<<4,32>>>(d);")
+	assertIncludesBeforeMain(t, oracle)
+}
+
+func assertLaunchCheckBeforeSync(t *testing.T, source, launch string) {
+	t.Helper()
+	launchAt := strings.Index(source, launch)
+	if launchAt < 0 {
+		t.Fatalf("source has no launch %q", launch)
+	}
+	checkAt := strings.Index(source[launchAt:], "cudaGetLastError()")
+	syncAt := strings.Index(source[launchAt:], "cudaDeviceSynchronize()")
+	if checkAt < 0 || syncAt < 0 || checkAt > syncAt {
+		t.Fatalf("launch %q does not check cudaGetLastError before synchronize:\n%s", launch, source)
+	}
+}
+
+func assertIncludesBeforeMain(t *testing.T, source string) {
+	t.Helper()
+	mainAt := strings.Index(source, "int main()")
+	stdioAt := strings.Index(source, "#include <stdio.h>")
+	if mainAt < 0 || stdioAt < 0 || stdioAt > mainAt {
+		t.Fatalf("stdio is not included before main:\n%s", source)
+	}
+	if strings.Contains(source[mainAt:], "#include ") {
+		t.Fatalf("source has an include after main begins:\n%s", source)
+	}
+}
+
 func cOutsideStringLiterals(src string) string {
 	var b strings.Builder
 	quoted, escaped := false, false
