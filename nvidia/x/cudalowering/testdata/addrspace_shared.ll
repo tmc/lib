@@ -7,7 +7,7 @@ define void @kernel(ptr addrspace(1) %out, i32 %input) {
 entry:
   %slot = alloca ptr, align 8
   store i32 %input, ptr addrspace(3) @shared_mem, align 4
-  store ptr addrspace(3) @shared_mem, ptr %slot, align 8
+  store ptr addrspacecast (ptr addrspace(3) @shared_mem to ptr), ptr %slot, align 8
   %p = load ptr, ptr %slot, align 8
   %value = load i32, ptr %p, align 4
   %result = add i32 %value, 7
