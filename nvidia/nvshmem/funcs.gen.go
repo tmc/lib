@@ -473,7 +473,7 @@ func fnMulticastPtr(a0 Team, a1 uintptr) uintptr {
 }
 
 // fnSetAttrMPICommArgs calls nvshmemx_set_attr_mpi_comm_args.
-func fnSetAttrMPICommArgs(a0 uintptr, a1 *InitAttr) Status {
+func fnSetAttrMPICommArgs(a0 unsafe.Pointer, a1 *InitAttr) Status {
 	r1, _ := ffiCall2(symSetAttrMPICommArgs, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Status(r1)
 }
@@ -1056,7 +1056,7 @@ func QuietOnStream(cstrm driver.Stream) error {
 }
 
 // SetAttrMPICommArgs wraps nvshmemx_set_attr_mpi_comm_args.
-func SetAttrMPICommArgs(mpiComm uintptr, nvshmemAttr *InitAttr) error {
+func SetAttrMPICommArgs(mpiComm unsafe.Pointer, nvshmemAttr *InitAttr) error {
 	if err := checkLibSym("nvshmemx_set_attr_mpi_comm_args"); err != nil {
 		return err
 	}

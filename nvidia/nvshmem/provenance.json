@@ -9,7 +9,7 @@
     "-cuda-headers",
     "cuda-headers",
     "-output",
-    "nvshmem"
+    "${OUTPUT_DIR}"
   ],
   "inputs": [
     {

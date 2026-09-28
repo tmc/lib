@@ -5,6 +5,11 @@
 
 package nvshmem
 
+import (
+	"runtime"
+	"unsafe"
+)
+
 // NewUniqueID asks the library for a bootstrap unique ID.
 //
 // Exactly one PE calls it. That PE must then distribute the returned ID to
@@ -58,15 +63,17 @@ func InitWithUniqueID(pe, npes int, id *UniqueID) error {
 //
 // The library reads through comm during the call. Keep whatever it points at
 // alive and unmoved for the duration.
-func InitWithMPIComm(comm uintptr) error {
-	if comm == 0 {
+func InitWithMPIComm(comm unsafe.Pointer) error {
+	if comm == nil {
 		return ErrorInvalidValue
 	}
 	attr := NewInitAttr()
 	if err := SetAttrMPICommArgs(comm, &attr); err != nil {
 		return err
 	}
-	return HostlibInit(FlagMPIComm, &attr)
+	err := HostlibInit(FlagMPIComm, &attr)
+	runtime.KeepAlive(comm)
+	return err
 }
 
 // HostlibInit calls nvshmemx_hostlib_init_attr directly, for a bootstrap the

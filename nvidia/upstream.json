@@ -11470,7 +11470,8 @@
         "cwd": "${CODEGEN_REPO}",
         "environment": {
           "GOWORK": "off",
-          "TMPDIR": "${SCRATCH_DIR}"
+          "TMPDIR": "${SCRATCH_DIR}",
+          "GOTOOLCHAIN": "go1.27.0"
         },
         "outputs": [
           {
@@ -11487,7 +11488,7 @@
           },
           {
             "path": "nvidia/nvshmem/funcs.gen.go",
-            "sha256": "30ca05583efb0076455c26228fe68cf13357212659669bc157a8ffd18d5e472a"
+            "sha256": "175febda292dc9cbf32f327c0cc6b457e25d8af6030b73e09819a643c0acb008"
           },
           {
             "path": "nvidia/nvshmem/init.gen.go",
@@ -11499,7 +11500,7 @@
           },
           {
             "path": "nvidia/nvshmem/lifecycle.gen.go",
-            "sha256": "25f6730c0a4bf9e965a2d21091456888110a8f202c2a4b6d94450dbbf850eb77"
+            "sha256": "5b59df958e99917b0f4b578395bdae57bd9741a64cbe9ab0c2b08a0a4e17fc7e"
           },
           {
             "path": "nvidia/nvshmem/loader.gen_test.go",
@@ -11508,6 +11509,10 @@
           {
             "path": "nvidia/nvshmem/provenance.gen.go",
             "sha256": "478109fc522f494a69224824802ed1510a1e6b8b6a177526d497f2099a57cfd2"
+          },
+          {
+            "path": "nvidia/nvshmem/provenance.json",
+            "sha256": "746ec654eea0a4f498df27275df568dd43440d877c775dc772dbcdc995109d8c"
           },
           {
             "path": "nvidia/nvshmem/status.gen.go",
@@ -11522,7 +11527,7 @@
             "sha256": "86a4dcf8ce3a41226aaa6b18cee6b445c5e1eb690c31fd9d3a1bff98536d3d31"
           }
         ],
-        "source_state": "clean codegen checkout at the recorded commit; generation re-run and every output compared byte for byte with the recorded lib commit",
+        "source_state": "clean tracked libgen sources at 3005ecfdb35134468c9a9d93532ee08f6c7c53cf",
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
           "clang_target": "arm64-apple-darwin25.6.0",
@@ -11536,7 +11541,8 @@
             "GOTOOLCHAIN": "auto",
             "GOVERSION": "go1.27.0"
           }
-        }
+        },
+        "comparison": "All recorded outputs regenerated with the recorded recipe; package compile and API review recorded in the release receipt. GPU qualification is separate."
       },
       "header": {
         "path": "cmd/gen-nvshmem/headers/nvshmem_host.h",
@@ -11613,8 +11619,8 @@
       "package": "github.com/tmc/lib/nvidia/nvshmem",
       "repositories": {
         "codegen": {
-          "commit": "e987d3ac281785619a1cf126e695e3beb6e36175",
-          "tree": "a5e1ebff0fdbe1ecb0f08fb58be51df4b582c660",
+          "commit": "3005ecfdb35134468c9a9d93532ee08f6c7c53cf",
+          "tree": "c4c5a286244f546c9503a20d3b38bb8c46acbdb2",
           "url": "https://github.com/tmc/libgen.git",
           "note": "regenerate at libgen 4222a55 regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a"
         },
