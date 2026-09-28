@@ -64,7 +64,7 @@ extern "C" __global__ void apply(int* out) {
 	inputs := make([]nvjitlinkx.Input, len(sources))
 	for i, source := range sources {
 		cm, err := nvrtcx.Compile(source, nvrtcx.WithName(fmt.Sprintf("cubin%d.cu", i)),
-			nvrtcx.WithFlag("--gpu-architecture="+arch), nvrtcx.WithFlag("--device-c"),
+			nvrtcx.WithFlag("--gpu-architecture="+arch), nvrtcx.WithRelocatableDeviceCode(true),
 			nvrtcx.WithOutput(nvrtcx.OutputCUBIN), nvrtcx.WithNoCache())
 		check(err)
 		data := cm.CUBIN()

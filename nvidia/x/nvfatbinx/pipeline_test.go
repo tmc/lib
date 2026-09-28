@@ -101,7 +101,7 @@ func TestCompiledPackaging(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			cm, err := nvrtcx.Compile(`extern "C" __global__ void packaged(float* out) { out[0] = 7; }`,
-				nvrtcx.WithFlag("--gpu-architecture=sm_80"), nvrtcx.WithFlag("--device-c"), nvrtcx.WithOutput(tt.output), nvrtcx.WithNoCache())
+				nvrtcx.WithFlag("--gpu-architecture=sm_80"), nvrtcx.WithRelocatableDeviceCode(true), nvrtcx.WithOutput(tt.output), nvrtcx.WithNoCache())
 			if err != nil {
 				t.Fatal(err)
 			}
