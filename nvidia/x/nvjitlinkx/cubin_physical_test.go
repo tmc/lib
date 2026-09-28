@@ -67,9 +67,10 @@ extern "C" __global__ void apply(int* out) {
 			nvrtcx.WithFlag("--gpu-architecture="+arch), nvrtcx.WithRelocatableDeviceCode(true),
 			nvrtcx.WithOutput(nvrtcx.OutputCUBIN), nvrtcx.WithNoCache())
 		check(err)
+		// nvrtcx retains PTX beside a requested CUBIN; only the CUBIN is linked.
 		data := cm.CUBIN()
-		if len(data) < 4 || string(data[:4]) != "\x7fELF" || cm.PTX() != "" || len(cm.LTOIR()) != 0 {
-			t.Fatalf("unit %d: expected only ELF CUBIN", i)
+		if len(data) < 4 || string(data[:4]) != "\x7fELF" || len(cm.LTOIR()) != 0 {
+			t.Fatalf("unit %d: expected ELF CUBIN without LTOIR", i)
 		}
 		t.Logf("unit=%d source_sha256=%x cubin_bytes=%d cubin_sha256=%x log=%q", i, sha256.Sum256([]byte(source)), len(data), sha256.Sum256(data), cm.Log())
 		inputs[i] = nvjitlinkx.Input{Name: fmt.Sprintf("unit%d.cubin", i), Kind: nvjitlink.InputCubin, Data: data}
