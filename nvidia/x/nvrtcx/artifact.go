@@ -99,6 +99,22 @@ func (cm *CompiledModule) OptiXIR() []byte {
 
 func outputFlags(kind OutputKind, flags []string) ([]string, error) {
 	flags = append([]string(nil), flags...)
+	if kind == OutputCUBIN {
+		var arch string
+		for i, flag := range flags {
+			name, value, hasValue := strings.Cut(flag, "=")
+			if name != "--gpu-architecture" && name != "-arch" {
+				continue
+			}
+			if !hasValue && i+1 < len(flags) {
+				value = flags[i+1]
+			}
+			arch = value
+		}
+		if !strings.HasPrefix(arch, "sm_") {
+			return nil, fmt.Errorf("nvrtcx: OutputCUBIN requires a physical architecture (sm_*), got %q; use WithPhysicalArch or WithDeviceArch", arch)
+		}
+	}
 	for _, flag := range flags {
 		name, _, _ := strings.Cut(flag, "=")
 		switch name {
