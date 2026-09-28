@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -173,6 +174,111 @@ func TestCompareAndPerturbationsRefuseNaNTracesBeforeCompile(t *testing.T) {
 				t.Fatalf("RunPerturbations reached compile/load: %d/%d", compileCalls, loadCalls)
 			}
 		})
+	}
+}
+
+func TestCompareDetectsNoncanonicalNaNsWithoutTriage(t *testing.T) {
+	payload := uint32(0xffc00001)
+	makeAdd := func() (*cudair.Graph, map[string][]float32) {
+		g := cudair.NewGraph()
+		x := g.AddInput("X", []int{1}, cudair.Float32)
+		zero := g.AddConstant("zero", []int{1}, cudair.Float32, []float32{0})
+		y := g.AddBinary("add", x, zero)
+		y.Name = "sum"
+		_ = g.SetOutputs(y)
+		return g, map[string][]float32{"X": {math.Float32frombits(payload)}}
+	}
+	makeConstant := func() *cudair.Graph {
+		g := cudair.NewGraph()
+		y := g.AddConstant("payload", []int{1}, cudair.Float32, []float32{math.Float32frombits(0xffc00002)})
+		_ = g.SetOutputs(y)
+		return g
+	}
+	tests := []struct {
+		name     string
+		graph    *cudair.Graph
+		inputs   map[string][]float32
+		wantNode string
+		wantBits uint32
+	}{
+		{name: "negative-payload-add", wantNode: "sum", wantBits: payload},
+		{name: "negative-payload-constant", graph: makeConstant(), wantNode: "payload", wantBits: 0xffc00002},
+	}
+	tests[0].graph, tests[0].inputs = makeAdd()
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			acc, err := EvaluateCPUGraph(tc.graph, tc.inputs, PolicyRawBits, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !acc.hasNaN {
+				t.Fatal("CPU trace did not record NaN detection")
+			}
+			found := false
+			for _, event := range acc.Events() {
+				if event.NodeName != tc.wantNode {
+					continue
+				}
+				found = true
+				got := uint32(event.Bits)
+				if !math.IsNaN(float64(math.Float32frombits(got))) {
+					t.Fatalf("trace event bits=%08x are not a NaN", got)
+				}
+				if got == CanonicalQuietNaN32Bits {
+					t.Fatalf("trace canonicalized payload NaN: %08x", got)
+				}
+				if tc.wantNode == "payload" || runtime.GOARCH == "arm64" {
+					if got != tc.wantBits {
+						t.Fatalf("trace NaN bits = %08x, want %08x", got, tc.wantBits)
+					}
+				}
+			}
+			if !found {
+				t.Fatalf("no trace event for %q", tc.wantNode)
+			}
+
+			compileCalls := 0
+			compile := func(string, []nvrtcx.Option, cudakernel.JITOptions) (*nvrtcx.CompiledModule, error) {
+				compileCalls++
+				return newFakeCompiled(cudakernel.JITOptions{}), nil
+			}
+			res, err := Compare(context.Background(), tc.graph, WithInputs(tc.inputs), WithTriage(false), withCompileKernel(compile))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if res.Status != StatusUnmeasured || res.Stage != StagePolicy || !errors.Is(res.Err, ErrNaNTraceUnsupported) {
+				t.Fatalf("Compare with triage disabled = %#v, want NaN policy refusal", res)
+			}
+			if compileCalls != 0 {
+				t.Fatalf("NaN Compare reached compile %d times", compileCalls)
+			}
+		})
+	}
+}
+
+func TestCompareNaNFreeInfinityReachesCompile(t *testing.T) {
+	g := cudair.NewGraph()
+	y := g.AddConstant("infinity", []int{1}, cudair.Float32, []float32{float32(math.Inf(1))})
+	_ = g.SetOutputs(y)
+	compileCalls := 0
+	var source string
+	compile := func(src string, _ []nvrtcx.Option, _ cudakernel.JITOptions) (*nvrtcx.CompiledModule, error) {
+		compileCalls++
+		source = src
+		return newFakeCompiled(cudakernel.JITOptions{}), nil
+	}
+	loader := func(*nvrtcx.CompiledModule, *cuda.Device) (traceModule, error) {
+		return &fakeTraceModule{stateHash: FNVOffsetBasis}, nil
+	}
+	_, err := Compare(context.Background(), g, withCompileKernel(compile), withTraceModuleLoader(loader))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if compileCalls != 1 {
+		t.Fatalf("compile calls = %d, want 1", compileCalls)
+	}
+	if !strings.Contains(source, "__int_as_float(0x7f800000)") {
+		t.Fatalf("infinite constant source does not use a valid CUDA expression:\n%s", source)
 	}
 }
 

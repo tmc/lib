@@ -670,7 +670,20 @@ func synthesizeGraphKernel(g *cudair.Graph) (src string, entryPoint string, err 
 }
 
 func float32Literal(v float32) string {
-	return strconv.FormatFloat(float64(v), 'g', 9, 32) + "f"
+	if math.IsNaN(float64(v)) {
+		return fmt.Sprintf("__uint_as_float(0x%08xU)", math.Float32bits(v))
+	}
+	if math.IsInf(float64(v), 1) {
+		return "__int_as_float(0x7f800000)"
+	}
+	if math.IsInf(float64(v), -1) {
+		return "-__int_as_float(0x7f800000)"
+	}
+	literal := strconv.FormatFloat(float64(v), 'g', 9, 32)
+	if !strings.ContainsAny(literal, ".eE") {
+		literal += ".0"
+	}
+	return literal + "f"
 }
 
 type foldTicket struct {

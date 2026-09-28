@@ -33,6 +33,10 @@
 // from the emitted CUDA operation, so RawBits on the accumulator does not make
 // such a graph a valid CPU/device bitwise comparison.
 //
+// The CPU reference preserves and detects noncanonical NaN payloads. Device
+// comparison refuses any graph whose reference trace contains a NaN, including
+// when triage is disabled. Infinities alone do not cause this refusal.
+//
 // # Traversal and Fold Order
 //
 // The fold sequence follows a declared canonical traversal:
@@ -46,9 +50,12 @@
 // Generated device kernels compute each graph node across threads in one CTA.
 // Each thread completes its node value before entering the ordered fold; one CTA
 // serializes node-major, then row-major fold tickets before updating the scalar
-// hash. This serialization does not prove that a data race remains observable;
-// that needs native measurement. The generated harness refuses tensors or inputs
-// above 1,024 elements.
+// hash. A node's fold is an ordering point: a thread cannot compute node k+1
+// until its node-k ticket is served, and that ticket waits for all earlier
+// tickets. Computation of later nodes is therefore staggered in ticket order.
+// Generated kernels are elementwise and have no inter-thread data dependence.
+// Race observability concerns caller-supplied kernels and their instrumentation.
+// The generated harness refuses tensors or inputs above 1,024 elements.
 // Caller-supplied kernels do not receive the generated kernel's fold-limit argument
 // and are not localized to a graph fold index.
 //
@@ -67,5 +74,13 @@
 // policy (only zero ULP is admissible). Unlocalized mismatches report DiffIndex -1
 // and have no numerical interpretation. Floating-point contraction such as FMA
 // may therefore be reported as a disagreement when it changes an intermediate
-// value, even if the contracted result is mathematically equivalent.
+// value, even if the contracted result is mathematically equivalent. The device
+// reference evaluates exp and log in float64 and rounds once, while CUDA expf and
+// logf are not correctly rounded; bit-exact comparison can report a disagreement
+// of a few ULP for those operations.
+//
+// ULP distance uses IEEE totalOrder positions. It counts +0 and -0 as one ULP
+// apart, and -min_denormal to +min_denormal as three. Other tools may use a
+// different convention. ULP distance is unknown when either value is an
+// infinity or NaN.
 package cudalmvet

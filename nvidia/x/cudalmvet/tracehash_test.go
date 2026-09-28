@@ -7,6 +7,7 @@ import (
 	"math"
 	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -149,6 +150,70 @@ func TestSynthesizedFoldPlanAndArgumentLayout(t *testing.T) {
 		if !strings.Contains(source, want) {
 			t.Errorf("synthesized source missing %q", want)
 		}
+	}
+}
+
+func TestFloat32LiteralRoundTripsEveryFiniteBoundary(t *testing.T) {
+	values := []float32{
+		0,
+		math.Float32frombits(0x80000000),
+		1,
+		2,
+		1e10,
+		math.MaxFloat32,
+		math.SmallestNonzeroFloat32,
+	}
+	for _, value := range values {
+		literal := float32Literal(value)
+		if !strings.HasSuffix(literal, "f") || strings.HasPrefix(literal, "__") {
+			t.Errorf("finite %08x emitted non-literal %q", math.Float32bits(value), literal)
+			continue
+		}
+		parsed, err := strconv.ParseFloat(strings.TrimSuffix(literal, "f"), 32)
+		if err != nil {
+			t.Errorf("parse %q: %v", literal, err)
+			continue
+		}
+		if got := math.Float32bits(float32(parsed)); got != math.Float32bits(value) {
+			t.Errorf("%08x emitted %q parsed as %08x", math.Float32bits(value), literal, got)
+		}
+	}
+	for _, tc := range []struct {
+		value float32
+		want  string
+	}{
+		{float32(math.Inf(1)), "__int_as_float(0x7f800000)"},
+		{float32(math.Inf(-1)), "-__int_as_float(0x7f800000)"},
+	} {
+		if got := float32Literal(tc.value); got != tc.want {
+			t.Errorf("infinity %08x emitted %q, want %q", math.Float32bits(tc.value), got, tc.want)
+		}
+	}
+}
+
+func TestFloat32ULPDistanceBoundariesAndSymmetry(t *testing.T) {
+	cases := []struct {
+		name  string
+		a, b  uint32
+		want  uint64
+		known bool
+	}{
+		{name: "signed-zero", a: 0, b: 0x80000000, want: 1, known: true},
+		{name: "across-zero", a: 0x80000001, b: 1, want: 3, known: true},
+		{name: "infinity", a: 0x7f800000, b: 0x3f800000, known: false},
+		{name: "nan", a: 0x7fc00001, b: 0x3f800000, known: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ab, abKnown := float32ULPDistance(tc.a, tc.b)
+			ba, baKnown := float32ULPDistance(tc.b, tc.a)
+			if ab != tc.want || abKnown != tc.known {
+				t.Fatalf("distance(%08x, %08x) = %d, %t; want %d, %t", tc.a, tc.b, ab, abKnown, tc.want, tc.known)
+			}
+			if ab != ba || abKnown != baKnown {
+				t.Fatalf("distance is asymmetric: a,b=%d,%t b,a=%d,%t", ab, abKnown, ba, baKnown)
+			}
+		})
 	}
 }
 
