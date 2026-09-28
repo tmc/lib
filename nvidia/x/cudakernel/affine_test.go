@@ -10,10 +10,12 @@ import (
 )
 
 // affinePTX is a valid, hand-crafted PTX module implementing y[i] = a * x[i] + b.
+// PTX ISA 8.8 is the first to accept .target sm_121a; ptxas 13.0 and 13.4
+// reject 8.7 and earlier with "PTX .version 8.7 does not support .target sm_121a".
 const affinePTX = `//
 // Affine kernel: y[i] = a * x[i] + b
 //
-.version 8.0
+.version 8.8
 .target sm_121a
 .address_size 64
 
