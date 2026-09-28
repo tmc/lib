@@ -20,7 +20,7 @@ var (
 	symenableCallback            uintptr
 	symenableDomain              uintptr
 	fnFree                       func(driver.Context, uintptr) Result
-	fnFreeHost                   func(driver.Context, uintptr) Result
+	fnFreeHost                   func(driver.Context, unsafe.Pointer) Result
 	fnGetCallbackPcAndSize       func(driver.Context, *byte, *uint64, *uint64) Result
 	symgetCallbackState          uintptr
 	symGetCudaBarrierCount       uintptr
@@ -446,7 +446,7 @@ func Free(ctx driver.Context, devPtr uintptr) error {
 //   - devPtr: Host pointer to memory to free
 //
 // Wraps sanitizerFreeHost.
-func FreeHost(ctx driver.Context, devPtr uintptr) error {
+func FreeHost(ctx driver.Context, devPtr unsafe.Pointer) error {
 	if err := checkLibSym("sanitizerFreeHost"); err != nil {
 		return err
 	}

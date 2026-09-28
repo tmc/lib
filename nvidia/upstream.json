@@ -11871,11 +11871,12 @@
           "-output",
           "${OUTPUT_DIR}"
         ],
-        "comparison": "All 17 generated outputs, including provenance.json and layout/loader tests, match sanitizer-survey at libgen c1387a4. apidiff reports zero incompatible changes on linux/amd64, linux/arm64 and darwin/arm64. Added C layout checks, enum values and union accessors; output placement and documentation wording changed.",
+        "comparison": "All recorded outputs regenerated with the recorded recipe; package compile and API review recorded in the release receipt. GPU qualification is separate.",
         "cwd": "${CODEGEN_REPO}",
         "environment": {
           "GOWORK": "off",
-          "TMPDIR": "${SCRATCH_DIR}"
+          "TMPDIR": "${SCRATCH_DIR}",
+          "GOTOOLCHAIN": "go1.27.0"
         },
         "maintained_files_excluded": [
           "example_test.go",
@@ -11905,7 +11906,7 @@
           },
           {
             "path": "nvidia/sanitizer/funcs.gen.go",
-            "sha256": "f7a2bb3f516939fd1e05843b48535d401efdd8ba19c0229a86ffe95f153754b1"
+            "sha256": "64e0dc41023a5d409a3f89d8573789ce9713c062ffe21bda5ab30cdf7a828108"
           },
           {
             "path": "nvidia/sanitizer/handles.gen.go",
@@ -11964,7 +11965,7 @@
             "sha256": "b8478e417bf04d7952fd7c8e6f136e2f9e3e715914d1ae475286e10a7ff7c273"
           }
         ],
-        "source_state": "Recipe source is committed at libgen 32a54c5; the shared checkout has two unrelated untracked binaries.",
+        "source_state": "clean tracked libgen sources at 3005ecfdb35134468c9a9d93532ee08f6c7c53cf",
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
           "clang_target": "arm64-apple-darwin25.6.0",
@@ -12081,8 +12082,8 @@
       "package": "github.com/tmc/lib/nvidia/sanitizer",
       "repositories": {
         "codegen": {
-          "commit": "c1387a4722b8cec2d00d11d0b6553519b686047c",
-          "tree": "ce60086c0e675b01220f7904530ef613d0e25cde",
+          "commit": "3005ecfdb35134468c9a9d93532ee08f6c7c53cf",
+          "tree": "c4c5a286244f546c9503a20d3b38bb8c46acbdb2",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 4d9ccca: launch extents grouped into Dim3. Regenerated at libgen 80aa768: methods drop the receiver words they repeat (LaunchHandle.SetCallbackData). regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen e987d3a; sanitizer-survey migration at libgen c1387a4"
         },
