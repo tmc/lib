@@ -3,7 +3,6 @@
 package nvml_test
 
 import (
-	"errors"
 	"os"
 	"testing"
 
@@ -11,23 +10,10 @@ import (
 	"github.com/tmc/lib/nvidia/nvml"
 )
 
-// This package is generated from cuda-headers nvml/nvml.h, which does not
-// declare the nine symbols the pinned cuda-13.3 header adds. Whether to move
-// the pin is a question about the driver, not about the header: a binding for
-// nvmlDeviceGetAccountingStats_v2 is useless against a libnvidia-ml that does
-// not export it, and actively misleading if the _v2 form disagrees with the
-// _v1 form this package already binds.
-//
-// So this test asks the library rather than the header. It resolves the four
-// symbols by name out of the same shared object the package loaded, and where
-// a _v2 form exists it calls both forms and compares them.
-//
-// What it does not do is call nvmlDeviceGetBBXTimeData_v1 or
-// nvmlSystemGetCPER_v1. Both take structs that carry an NVML_STRUCT_VERSION
-// stamp the caller has to set, this package has no binding and no constant for
-// either, and calling them with an unstamped struct measures nothing except
-// what the library does with a malformed argument. Their presence is the
-// question that was asked; their behavior is a separate piece of work.
+// Compare the v1 and v2 entry points from the shared object loaded by nvml.
+// Resolve each version explicitly so a header upgrade cannot turn this into
+// a comparison of v2 with itself. Presence checks for BBX and CPER do not
+// qualify their behavior.
 //
 // Requires a GPU and a driver. Run with NVML_VERSIONED_PHYSICAL_TEST=1.
 func TestPhysicalVersionedSymbols(t *testing.T) {
@@ -59,7 +45,7 @@ func TestPhysicalVersionedSymbols(t *testing.T) {
 		"nvmlDeviceGetRemappedRows_v2",
 		"nvmlDeviceGetBBXTimeData_v1",
 		"nvmlSystemGetCPER_v1",
-		// Controls. The first is bound by this package and must resolve; the
+		// Controls. The first is a baseline entry point and must resolve; the
 		// second must not, or dlsym is answering yes to everything and the
 		// four answers above are worthless.
 		"nvmlDeviceGetAccountingStats",
@@ -70,8 +56,7 @@ func TestPhysicalVersionedSymbols(t *testing.T) {
 		t.Logf("symbol %-34s present=%t", name, present[name])
 	}
 	if !present["nvmlDeviceGetAccountingStats"] {
-		t.Fatal("nvmlDeviceGetAccountingStats did not resolve; this package binds it," +
-			" so the lookup is broken rather than the library incomplete")
+		t.Fatal("baseline nvmlDeviceGetAccountingStats did not resolve")
 	}
 	if present["nvmlDeviceGetNoSuchThing_v9"] {
 		t.Fatal("a symbol that cannot exist resolved; the presence answers above mean nothing")
@@ -98,18 +83,24 @@ func TestPhysicalVersionedSymbols(t *testing.T) {
 		if !present["nvmlDeviceGetRemappedRows_v2"] {
 			t.Skip("library does not export nvmlDeviceGetRemappedRows_v2")
 		}
-		corr, unc, pending, failure, err := device.RemappedRows()
-		if errors.Is(err, nvml.ErrNotSupported) {
+		if _, err := purego.Dlsym(lib, "nvmlDeviceGetRemappedRows"); err != nil {
+			t.Fatalf("resolve v1 remapped rows: %v", err)
+		}
+		var getV1 func(nvml.Device, *uint32, *uint32, *uint32, *uint32) nvml.Result
+		purego.RegisterLibFunc(&getV1, lib, "nvmlDeviceGetRemappedRows")
+		var corr, unc, pending, failure uint32
+		result := getV1(device, &corr, &unc, &pending, &failure)
+		if result == nvml.ErrNotSupported {
 			// Row remapping is a property of the memory, not of the library:
 			// a part without remappable rows answers ErrNotSupported, which is
 			// the library working rather than failing. Skip says so out loud,
 			// because the comparison this subtest exists for was not made and
 			// a bare skip reads as a passing one.
 			t.Skipf("UNQUALIFIED: %s reports row remapping unsupported (%v);"+
-				" the v1 against v2 comparison was not made on this device", name, err)
+				" the v1 against v2 comparison was not made on this device", name, result)
 		}
-		if err != nil {
-			t.Fatalf("GetRemappedRows: %v", err)
+		if result != nvml.Success {
+			t.Fatalf("nvmlDeviceGetRemappedRows: %v", result)
 		}
 		var v2 remappedRowsInfoV2
 		var getV2 func(nvml.Device, *remappedRowsInfoV2) nvml.Result
@@ -156,13 +147,15 @@ func TestPhysicalVersionedSymbols(t *testing.T) {
 		if len(pids) == 0 {
 			t.Skip("no accounted processes; nothing to compare")
 		}
+		var getV1 func(nvml.Device, uint32, *nvml.AccountingStats) nvml.Result
+		purego.RegisterLibFunc(&getV1, lib, "nvmlDeviceGetAccountingStats")
 		var getV2 func(nvml.Device, *accountingStatsV2) nvml.Result
 		purego.RegisterLibFunc(&getV2, lib, "nvmlDeviceGetAccountingStats_v2")
 		compared := 0
 		for _, pid := range pids {
 			var v1 nvml.AccountingStats
-			if err := device.AccountingStats(pid, &v1); err != nil {
-				t.Logf("pid %d: v1 unavailable (%v); skipped", pid, err)
+			if r := getV1(device, pid, &v1); r != nvml.Success {
+				t.Logf("pid %d: v1 unavailable (%v); skipped", pid, r)
 				continue
 			}
 			v2 := accountingStatsV2{Pid: pid}
