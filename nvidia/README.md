@@ -143,6 +143,26 @@ writing.
 was actually generated from. Those are the two different questions: what a
 package is supposed to be generated from, and what it was.
 
+### v0.2.0 preparation: reproduction check
+
+On 2026-09-27, `nvidia-reproduce -closure` reported all 35 packages
+reproduced, all 35 repository input sets pinned, and zero incomplete header
+closures for lib `883cf9698`, libgen `504a3728`, and cuda-headers `0187274`.
+All 35 packages include `provenance.gen.go` and `provenance.json`.
+
+This result is qualified for the host toolchain used for the check:
+
+- Xcode 26.6, build 17F113, with macOS SDK 26.5.
+- Apple clang 21.0.0 (`clang-2100.1.1.101`), targeting
+  `arm64-apple-darwin25.6.0`.
+- Go 1.27.0 on darwin/arm64.
+
+Each recipe also read 14–302 headers outside the recorded repositories,
+including Xcode SDK and clang resource headers. The gate reports these inputs
+but does not pin their contents. Reproduction with another host toolchain
+requires a fresh check. This result does not establish GPU runtime behavior;
+physical qualification remains a separate release check.
+
 Generated API fixes belong in libgen; editing generated output alone loses the
 fix on the next run. Preserve historical provenance and record which new
 outputs were actually regenerated.
