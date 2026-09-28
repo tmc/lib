@@ -740,14 +740,14 @@ func LoggerSetMask(mask int32) error {
 }
 
 // MatrixCreateBatchCsr wraps cudssMatrixCreateBatchCsr.
-func MatrixCreateBatchCsr(batchCount int64, nrows uintptr, ncols uintptr, nnz uintptr, rowStart *uintptr, rowEnd *uintptr, colIndices *uintptr, values *uintptr, offsetType DataType, indexType DataType, valueType DataType, mtype MatrixType, mview MatrixViewType, indexBase IndexBase) (Matrix, error) {
+func MatrixCreateBatchCsr(batchCount int64, nrows HostPtr, ncols HostPtr, nnz HostPtr, rowStart *uintptr, rowEnd *uintptr, colIndices *uintptr, values *uintptr, offsetType DataType, indexType DataType, valueType DataType, mtype MatrixType, mview MatrixViewType, indexBase IndexBase) (Matrix, error) {
 	if err := checkLibSym("cudssMatrixCreateBatchCsr"); err != nil {
 		var zero Matrix
 		return zero, err
 	}
 	out := slotMatrixCreateBatchCsr.get()
 	defer slotMatrixCreateBatchCsr.put(out)
-	if err := toError(fnMatrixCreateBatchCsr(out, batchCount, nrows, ncols, nnz, rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase), "cudssMatrixCreateBatchCsr"); err != nil {
+	if err := toError(fnMatrixCreateBatchCsr(out, batchCount, uintptr(nrows), uintptr(ncols), uintptr(nnz), rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase), "cudssMatrixCreateBatchCsr"); err != nil {
 		var zero Matrix
 		return zero, err
 	}
@@ -757,14 +757,14 @@ func MatrixCreateBatchCsr(batchCount int64, nrows uintptr, ncols uintptr, nnz ui
 var slotMatrixCreateBatchCsr outSlot[Matrix]
 
 // MatrixCreateBatchDn wraps cudssMatrixCreateBatchDn.
-func MatrixCreateBatchDn(batchCount int64, nrows uintptr, ncols uintptr, ld uintptr, values *uintptr, integerType DataType, valueType DataType, layout Layout) (Matrix, error) {
+func MatrixCreateBatchDn(batchCount int64, nrows HostPtr, ncols HostPtr, ld HostPtr, values *uintptr, integerType DataType, valueType DataType, layout Layout) (Matrix, error) {
 	if err := checkLibSym("cudssMatrixCreateBatchDn"); err != nil {
 		var zero Matrix
 		return zero, err
 	}
 	out := slotMatrixCreateBatchDn.get()
 	defer slotMatrixCreateBatchDn.put(out)
-	if err := toError(fnMatrixCreateBatchDn(out, batchCount, nrows, ncols, ld, values, integerType, valueType, layout), "cudssMatrixCreateBatchDn"); err != nil {
+	if err := toError(fnMatrixCreateBatchDn(out, batchCount, uintptr(nrows), uintptr(ncols), uintptr(ld), values, integerType, valueType, layout), "cudssMatrixCreateBatchDn"); err != nil {
 		var zero Matrix
 		return zero, err
 	}
@@ -816,19 +816,19 @@ func MatrixDestroy(matrix Matrix) error {
 }
 
 // MatrixGetBatchCsr wraps cudssMatrixGetBatchCsr.
-func MatrixGetBatchCsr(matrix Matrix, batchCount *int64, nrows *uintptr, ncols *uintptr, nnz *uintptr, rowStart **uintptr, rowEnd **uintptr, colIndices **uintptr, values **uintptr, offsetType *DataType, indexType *DataType, valueType *DataType, mtype *MatrixType, mview *MatrixViewType, indexBase *IndexBase) error {
+func MatrixGetBatchCsr(matrix Matrix, batchCount *int64, nrows *HostPtr, ncols *HostPtr, nnz *HostPtr, rowStart **uintptr, rowEnd **uintptr, colIndices **uintptr, values **uintptr, offsetType *DataType, indexType *DataType, valueType *DataType, mtype *MatrixType, mview *MatrixViewType, indexBase *IndexBase) error {
 	if err := checkLibSym("cudssMatrixGetBatchCsr"); err != nil {
 		return err
 	}
-	return toError(fnMatrixGetBatchCsr(matrix, batchCount, nrows, ncols, nnz, rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase), "cudssMatrixGetBatchCsr")
+	return toError(fnMatrixGetBatchCsr(matrix, batchCount, (*uintptr)(nrows), (*uintptr)(ncols), (*uintptr)(nnz), rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase), "cudssMatrixGetBatchCsr")
 }
 
 // MatrixGetBatchDn wraps cudssMatrixGetBatchDn.
-func MatrixGetBatchDn(matrix Matrix, batchCount *int64, nrows *uintptr, ncols *uintptr, ld *uintptr, values **uintptr, indexType *DataType, valueType *DataType, layout *Layout) error {
+func MatrixGetBatchDn(matrix Matrix, batchCount *int64, nrows *HostPtr, ncols *HostPtr, ld *HostPtr, values **uintptr, indexType *DataType, valueType *DataType, layout *Layout) error {
 	if err := checkLibSym("cudssMatrixGetBatchDn"); err != nil {
 		return err
 	}
-	return toError(fnMatrixGetBatchDn(matrix, batchCount, nrows, ncols, ld, values, indexType, valueType, layout), "cudssMatrixGetBatchDn")
+	return toError(fnMatrixGetBatchDn(matrix, batchCount, (*uintptr)(nrows), (*uintptr)(ncols), (*uintptr)(ld), values, indexType, valueType, layout), "cudssMatrixGetBatchDn")
 }
 
 // MatrixGetCsr wraps cudssMatrixGetCsr.

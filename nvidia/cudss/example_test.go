@@ -166,3 +166,9 @@ func Example() {
 	}
 	fmt.Printf("x = %.3f, factor nnz = %d\n", x, nnz)
 }
+
+func ExampleHostPtr() {
+	var p cudss.HostPtr
+	fmt.Println(p == 0)
+	// Output: true
+}

@@ -1113,7 +1113,7 @@
           },
           {
             "path": "nvidia/cudss/funcs.gen.go",
-            "sha256": "92af34fab454986a2802ffe700218d1743078826507f042b8397c964f6ca4690"
+            "sha256": "06488b3c81daedb375bd7d4393beb8e9c501b05f347f1ae911573b09bb393fde"
           },
           {
             "path": "nvidia/cudss/handle.gen.go",
@@ -1137,7 +1137,7 @@
           },
           {
             "path": "nvidia/cudss/matrix.gen.go",
-            "sha256": "dcefe0f930fe81c8f08082f1e19cbf17cca1794d4512a505ba0529edf1e26025"
+            "sha256": "17f177f99770ab37edfce515ca1362cd379e2cc5f3d74189b70a487b793f0a07"
           },
           {
             "path": "nvidia/cudss/params.gen.go",
@@ -1161,7 +1161,7 @@
           },
           {
             "path": "nvidia/cudss/types.gen.go",
-            "sha256": "af4802a458117a99b93498c390150bac3a90830790a93711a8c16bb4ddebfbfd"
+            "sha256": "f623438fb66849fc0cc178cb65e3e0772e3d158ac691f6d4b40c89793d34cb32"
           }
         ],
         "source_state": "clean codegen checkout at the recorded commit; generation re-run and every output compared byte for byte with the recorded lib commit",

@@ -5,6 +5,9 @@
 
 package cudss
 
+// HostPtr is the address of host memory referenced by a matrix. Keep the memory valid until the matrix is closed and its stream work completes. Go memory must be pinned with runtime.Pinner for that entire interval. The zero value is a null address.
+type HostPtr uintptr
+
 // LibraryPropertyType identifies a library property to query.
 type LibraryPropertyType int32
 

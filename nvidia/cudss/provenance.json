@@ -9,7 +9,7 @@
     "-cuda-headers",
     "cuda-headers",
     "-output",
-    "cudss"
+    "${OUTPUT_DIR}"
   ],
   "inputs": [
     {
