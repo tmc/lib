@@ -45,12 +45,8 @@ func TestCapabilityOf(t *testing.T) {
 // TestCluster_UnsupportedPartReturnsPending is lane 56's acceptance test, and
 // it distinguishes the two answers that a single bool would collapse.
 //
-// sm_80 was probed and refused, so it is ErrUnsupported. sm_86 is below the
-// capability fence, which is also a refusal, but a lexical one. sm_89 appears
-// in no feature record at all -- however, it is below the fence too, so the
-// fence answers before the table is consulted. The case that actually reaches
-// ErrHardwarePending is a target above the fence with no record, which is why
-// it is tested explicitly rather than assumed.
+// sm_80 was probed and refused, so it is ErrUnsupported. sm_86 and sm_89 are
+// below the fence and have no recorded refusal, so they remain pending.
 func TestCluster_UnsupportedPartReturnsPending(t *testing.T) {
 	tests := []struct {
 		target string
@@ -58,18 +54,31 @@ func TestCluster_UnsupportedPartReturnsPending(t *testing.T) {
 	}{
 		{"sm_80", ErrUnsupported},
 		{"sm_86", ErrHardwarePending},
-		{"sm_89", ErrUnsupported},
+		{"sm_89", ErrHardwarePending},
 		{"sm_98a", ErrHardwarePending}, // above the fence, no record anywhere
 		{"sm_121a", nil},
 		{"sm_90a", nil},
 	}
 	for _, tt := range tests {
-		err := Check(tt.target)
-		switch {
-		case tt.want == nil && err != nil:
-			t.Errorf("Check(%q) = %v, want nil", tt.target, err)
-		case tt.want != nil && !errors.Is(err, tt.want):
-			t.Errorf("Check(%q) = %v, want %v", tt.target, err, tt.want)
+		for _, entry := range []struct {
+			name string
+			fn   func(string) error
+		}{
+			{"Check", Check},
+			{"Open", func(target string) error { _, err := Open(target); return err }},
+			{"CheckDSMEM", CheckDSMEM},
+		} {
+			err := entry.fn(tt.target)
+			want := tt.want
+			if entry.name == "CheckDSMEM" && want == nil {
+				want = ErrHardwarePending
+			}
+			switch {
+			case want == nil && err != nil:
+				t.Errorf("%s(%q) = %v, want nil", entry.name, tt.target, err)
+			case want != nil && !errors.Is(err, want):
+				t.Errorf("%s(%q) = %v, want %v", entry.name, tt.target, err, want)
+			}
 		}
 	}
 }
@@ -157,34 +166,111 @@ func TestMapSharedRank(t *testing.T) {
 }
 
 func TestReductionFixtureUsesEmitters(t *testing.T) {
-	src, err := ReductionFixture(4, MutantNone)
+	src, err := ReductionFixture("sm_121a", 4, MutantNone)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, emitted := range []string{
-		"mov.u32 %0, smem;",
+		`asm volatile("mov.u32 %0, %1;" : "=r"(base) : "r"((unsigned)__cvta_generic_to_shared(&window)))`,
 		"mapa.shared::cluster.u32 %1, %2, %3;",
 		"ld.shared::cluster.u32 %0, [%1];",
-		"barrier.cluster.arrive;",
-		"barrier.cluster.wait;",
+		`asm volatile("barrier.cluster.arrive;\nbarrier.cluster.wait;" ::: "memory");`,
 	} {
 		if !strings.Contains(src, emitted) {
 			t.Errorf("generated fixture lacks emitter output %q", emitted)
 		}
 	}
-	mutant, err := ReductionFixture(4, MutantLocalWindow)
+	mutant, err := ReductionFixture("sm_121a", 4, MutantLocalWindow)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(mutant, "mapa.shared::cluster.u32 %1, %2, %4;") {
 		t.Fatalf("local-window mutant does not substitute current rank")
 	}
+	noSync, err := ReductionFixture("sm_121a", 4, MutantNoSync)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(noSync, `barrier.cluster.wait;`) != 1 {
+		t.Fatal("no-sync mutant must retain only the trailing liveness barrier")
+	}
 }
 
 func TestReductionFixtureRejectsUnknownMutant(t *testing.T) {
-	if _, err := ReductionFixture(4, Mutant("bogus")); err == nil {
+	if _, err := ReductionFixture("sm_121a", 4, Mutant("bogus")); err == nil {
 		t.Fatal("unknown mutant accepted")
 	}
+}
+
+func TestReductionFixtureSizeBounds(t *testing.T) {
+	for _, size := range []int{1, 9} {
+		if _, err := ReductionFixture("sm_121a", size, MutantNone); err == nil {
+			t.Errorf("ReductionFixture(%d) accepted", size)
+		}
+	}
+	for _, size := range []int{2, 8} {
+		if _, err := ReductionFixture("sm_121a", size, MutantNone); err != nil {
+			t.Errorf("ReductionFixture(%d): %v", size, err)
+		}
+	}
+}
+
+func TestReductionFixtureSourceIsValidCXXShape(t *testing.T) {
+	src, err := ReductionFixture("sm_121a", 4, MutantNone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	outside := cOutsideStringLiterals(src)
+	for _, line := range strings.Split(outside, "\n") {
+		trimmed := strings.TrimSpace(line)
+		for _, mnemonic := range []string{"barrier.cluster.", "mov.u32", "mapa.shared::cluster.", "ld.shared::cluster."} {
+			if strings.HasPrefix(trimmed, mnemonic) {
+				t.Errorf("PTX mnemonic appears outside an asm string: %q", trimmed)
+			}
+		}
+	}
+	if strings.Contains(outside, `\n`) {
+		t.Fatal("newline escape appears outside a C string literal")
+	}
+	if !strings.Contains(src, `mov.u32 %0, %1;`) || !strings.Contains(src, `"r"((unsigned)__cvta_generic_to_shared(&window))`) {
+		t.Fatal("base operand is not derived from and uses the kernel's window")
+	}
+	if !strings.Contains(src, `asm volatile("mapa.shared::cluster.u32 %1, %2, %3;\nld.shared::cluster.u32 %0, [%1];" : "=r"(value), "=&r"(mapped) : "r"(base), "r"(r));`) {
+		t.Fatal("mapping/read assembly does not reference both declared input operands")
+	}
+	if strings.Index(src, `*out = total;`) > strings.LastIndex(src, `barrier.cluster.wait;`) {
+		t.Fatal("reduction fixture lacks a trailing cluster barrier after remote reads")
+	}
+	oracle := cooperativeReductionFixture(4)
+	if strings.Index(oracle, `*out = total;`) > strings.LastIndex(oracle, `c.sync();`) {
+		t.Fatal("cooperative oracle lacks a trailing cluster barrier after remote reads")
+	}
+}
+
+func cOutsideStringLiterals(src string) string {
+	var b strings.Builder
+	quoted, escaped := false, false
+	for i := 0; i < len(src); i++ {
+		ch := src[i]
+		if quoted {
+			b.WriteByte(' ')
+			if escaped {
+				escaped = false
+			} else if ch == '\\' {
+				escaped = true
+			} else if ch == '"' {
+				quoted = false
+			}
+			continue
+		}
+		if ch == '"' {
+			quoted = true
+			b.WriteByte(' ')
+			continue
+		}
+		b.WriteByte(ch)
+	}
+	return b.String()
 }
 
 func TestInheritedLockRejectsPresenceOnlyValue(t *testing.T) {
@@ -264,6 +350,30 @@ func TestMapSharedRankRejectsSameNameWithDifferentSize(t *testing.T) {
 	}
 }
 
+func TestMapSharedRankRejectsSmallOrUnalignedU32Region(t *testing.T) {
+	c, _, _ := testPlan(t)
+	limits := cudashared.Limits{StaticMax: 4096, DynamicMax: 4096, TotalMax: 4096, Source: "alignment test"}
+	tooSmallPlan, err := cudashared.NewPlan(limits)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tooSmall, err := tooSmallPlan.Add(cudashared.Request{Name: "byte", Size: 1, Alignment: 1, FirstStage: 0, LastStage: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := c.MapSharedRank("%r1", "%r2", tooSmallPlan, tooSmall, "%r3"); err == nil {
+		t.Fatal("one-byte region accepted for u32 access")
+	}
+	unaligned := ClusterPtr{reg: "%r7", region: cudashared.Region{Name: "unaligned", Offset: 1, Size: 4}, scope: c}
+	if _, err := c.EmitLoadU32("%r1", unaligned); err == nil {
+		t.Fatal("unaligned region accepted for u32 load")
+	}
+	unaligned.mut = true
+	if _, err := c.EmitStoreU32(unaligned, "%r1"); err == nil {
+		t.Fatal("unaligned region accepted for u32 store")
+	}
+}
+
 func TestEmitReadU32IsTheMappingPlusTheLoad(t *testing.T) {
 	c, plan, region := testPlan(t)
 	combined, err := c.EmitReadU32("%r1", "%r2", "%r9", plan, region, "%r3")
@@ -307,7 +417,6 @@ func TestClusterSyncMatchesTheAssembledFixture(t *testing.T) {
 
 func TestGeometryRegisterSpelling(t *testing.T) {
 	// Every cluster special register carries an underscore after "cluster".
-	// Lane 56 spells two of them without one; no assembler accepts that.
 	emitted := []string{
 		EmitBlockRank("%r1"),
 		EmitClusterSize("%r1"),

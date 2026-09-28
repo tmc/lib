@@ -41,10 +41,15 @@ const (
 // failure the per-rank values rule out.
 //
 // clusterSize is compiled in via __cluster_dims__, so an ordinary launch
-// configuration carries the cluster shape.
-func ReductionFixture(clusterSize int, mut Mutant) (string, error) {
+// configuration carries the cluster shape. target selects a recorded cluster
+// capability and is checked before the source is generated. Sizes from 2 to 8
+// are accepted because the fixture does not opt into non-portable clusters.
+func ReductionFixture(target string, clusterSize int, mut Mutant) (string, error) {
 	if clusterSize < 2 {
 		return "", fmt.Errorf("cudacluster: reduction fixture needs at least 2 CTAs, got %d", clusterSize)
+	}
+	if clusterSize > 8 {
+		return "", fmt.Errorf("cudacluster: reduction fixture supports at most 8 CTAs, got %d", clusterSize)
 	}
 	switch mut {
 	case MutantNone, MutantLocalWindow, MutantNoSync:
@@ -60,11 +65,11 @@ func ReductionFixture(clusterSize int, mut Mutant) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	c, err := Open("sm_121a")
+	c, err := Open(target)
 	if err != nil {
 		return "", err
 	}
-	sharedAddr, err := EmitSharedAddr("%0", "smem", plan, region)
+	sharedAddr, err := EmitSharedAddr("%0", "%1", plan, region)
 	if err != nil {
 		return "", err
 	}
@@ -101,8 +106,8 @@ __global__ void __cluster_dims__(%d, 1, 1) dsmem_reduce(unsigned *out) {
 	unsigned rank = cluster.block_rank();
 	if (threadIdx.x == 0) window = seed_for(rank);
 	unsigned base = 0;
-	asm volatile("%s" : "=r"(base) : "r"(__cvta_generic_to_shared(&window)));
-%s
+	asm volatile("%s" : "=r"(base) : "r"((unsigned)__cvta_generic_to_shared(&window)));
+	asm volatile("%s" ::: "memory");
 
     if (cluster.block_rank() == 0 && threadIdx.x == 0) {
         unsigned total = 0;
@@ -113,7 +118,8 @@ __global__ void __cluster_dims__(%d, 1, 1) dsmem_reduce(unsigned *out) {
             total += value;
         }
         *out = total;
-    }
+	    }
+	asm volatile("barrier.cluster.arrive;\nbarrier.cluster.wait;" ::: "memory");
 }
 	`, clusterSize, sharedAddr, sync, readAsm, rankArg)
 	return b.String(), nil
@@ -146,6 +152,7 @@ __global__ void __cluster_dims__(%d,1,1) oracle(unsigned *out) {
     for (unsigned r = 0; r < c.num_blocks(); ++r) total += *c.map_shared_rank(&window, r);
     *out = total;
   }
+  c.sync();
 }
 int main() {
   unsigned *d = 0, h = 0;

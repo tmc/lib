@@ -8,14 +8,17 @@ import (
 
 // Cluster is a capability scope for emitting cluster-window operations.
 // Obtain one with Open after the target has passed Check.
-type Cluster struct{ target string }
+type Cluster struct {
+	target  string
+	checked bool
+}
 
 // Open returns a scope for a target whose cluster support was measured.
 func Open(target string) (*Cluster, error) {
 	if err := Check(target); err != nil {
 		return nil, err
 	}
-	return &Cluster{target: target}, nil
+	return &Cluster{target: target, checked: true}, nil
 }
 
 // ClusterPtr names a PTX register holding a pointer into another CTA's shared
@@ -88,6 +91,9 @@ func (c *Cluster) mapShared(dst, base string, plan *cudashared.Plan, region cuda
 	if c == nil {
 		return "", ClusterPtr{}, fmt.Errorf("cudacluster: nil cluster scope")
 	}
+	if !c.checked {
+		return "", ClusterPtr{}, fmt.Errorf("cudacluster: cluster scope was not opened after capability check")
+	}
 	if plan == nil {
 		return "", ClusterPtr{}, fmt.Errorf("cudacluster: nil shared plan")
 	}
@@ -96,6 +102,9 @@ func (c *Cluster) mapShared(dst, base string, plan *cudashared.Plan, region cuda
 	}
 	if !planHas(plan, region) {
 		return "", ClusterPtr{}, fmt.Errorf("cudacluster: region %q is not in the shared plan", region.Name)
+	}
+	if region.Size < 4 || region.Offset%4 != 0 {
+		return "", ClusterPtr{}, fmt.Errorf("cudacluster: region %q must contain an aligned 32-bit word", region.Name)
 	}
 	ptx := fmt.Sprintf("mapa.shared::cluster.u32 %s, %s, %s;", dst, base, rank)
 	return ptx, ClusterPtr{reg: dst, region: region, mut: mut, scope: c}, nil
@@ -112,12 +121,14 @@ func planHas(plan *cudashared.Plan, region cudashared.Region) bool {
 
 // EmitLoadU32 returns PTX loading a 32-bit word from a mapped cluster pointer
 // into dst, a .u32 register.
-
 func (c *Cluster) EmitLoadU32(dst string, p ClusterPtr) (string, error) {
 	if !p.Valid() {
 		return "", fmt.Errorf("cudacluster: load through an unmapped cluster pointer")
 	}
-	if c == nil || p.scope != c {
+	if !validWordRegion(p.region) {
+		return "", fmt.Errorf("cudacluster: mapped region cannot hold an aligned 32-bit word")
+	}
+	if c == nil || !c.checked || p.scope != c {
 		return "", fmt.Errorf("cudacluster: cluster pointer belongs to another scope")
 	}
 	return fmt.Sprintf("ld.shared::cluster.u32 %s, [%s];", dst, p.Reg()), nil
@@ -132,13 +143,20 @@ func (c *Cluster) EmitStoreU32(p ClusterPtr, src string) (string, error) {
 	if !p.Valid() {
 		return "", fmt.Errorf("cudacluster: store through an unmapped cluster pointer")
 	}
-	if c == nil || p.scope != c {
+	if !validWordRegion(p.region) {
+		return "", fmt.Errorf("cudacluster: mapped region cannot hold an aligned 32-bit word")
+	}
+	if c == nil || !c.checked || p.scope != c {
 		return "", fmt.Errorf("cudacluster: cluster pointer belongs to another scope")
 	}
 	if !p.Mutable() {
 		return "", fmt.Errorf("cudacluster: store through a read-only mapping of region %q", p.region.Name)
 	}
 	return fmt.Sprintf("st.shared::cluster.u32 [%s], %s;", p.Reg(), src), nil
+}
+
+func validWordRegion(region cudashared.Region) bool {
+	return region.Size >= 4 && region.Offset%4 == 0
 }
 
 // EmitReadU32 returns the combined mapping-and-load sequence for one 32-bit

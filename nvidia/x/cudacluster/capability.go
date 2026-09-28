@@ -93,8 +93,16 @@ func check(target string, lookup func(string) (cudadevicetable.Target, bool)) er
 		return err
 	}
 	if cap < minClusterCapability {
-		if cap == 86 {
-			return fmt.Errorf("cudacluster: %s is below the cluster capability fence, but has no recorded refusal: %w", target, ErrHardwarePending)
+		rec, ok := lookup(target)
+		if !ok {
+			return fmt.Errorf("cudacluster: %s is below the cluster capability fence, with no recorded result: %w", target, ErrHardwarePending)
+		}
+		supported, err := rec.Supports(clusterFeature)
+		if err != nil {
+			return fmt.Errorf("cudacluster: %s has no usable feature result: %w: %w", target, ErrHardwarePending, err)
+		}
+		if !supported {
+			return fmt.Errorf("cudacluster: assembler refused clusters for %s: %w", target, ErrUnsupported)
 		}
 		return fmt.Errorf("cudacluster: %s is compute capability %s, below %s: %w",
 			target, cap, Capability(minClusterCapability), ErrUnsupported)
