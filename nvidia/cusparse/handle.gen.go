@@ -4,6 +4,7 @@ package cusparse
 
 import (
 	"github.com/tmc/lib/nvidia/driver"
+	"unsafe"
 )
 
 // Close releases CPU-side resources used by the cuSPARSE library.
@@ -197,12 +198,16 @@ func (h Handle) PointerMode() (PointerMode, error) {
 //   - A/X/Y/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_32F, CUDA_C_64F
 //
 // Mixed-precision computation:
-//   - A/B: CUDA_R_16F; C: CUDA_R_32F; computeType: CUDA_R_32F
-//   - A/B: CUDA_R_16F; C: CUDA_R_16F; computeType: CUDA_R_32F
+//
+//	A/B         C           computeType
+//	CUDA_R_16F  CUDA_R_32F  CUDA_R_32F
+//	CUDA_R_16F  CUDA_R_16F  CUDA_R_32F
 //
 // [Handle.SDDMM] for [FormatBsr] also supports the following mixed-precision computation:
-//   - A/B: CUDA_R_16BF; C: CUDA_R_32F; computeType: CUDA_R_32F
-//   - A/B: CUDA_R_16BF; C: CUDA_R_16BF; computeType: CUDA_R_32F
+//
+//	A/B          C            computeType
+//	CUDA_R_16BF  CUDA_R_32F   CUDA_R_32F
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_32F
 //
 // NOTE: CUDA_R_16F, CUDA_R_16BF data types always imply mixed-precision computation.
 // [Handle.SDDMM] for CUSPASRE_FORMAT_BSR supports block sizes of 2, 4, 8, 16, 32, 64 and 128.
@@ -301,12 +306,16 @@ func (h Handle) SDDMMBufferSize(opA Operation, opB Operation, alpha Scalar, matA
 //   - A/X/Y/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_32F, CUDA_C_64F
 //
 // Mixed-precision computation:
-//   - A/B: CUDA_R_16F; C: CUDA_R_32F; computeType: CUDA_R_32F
-//   - A/B: CUDA_R_16F; C: CUDA_R_16F; computeType: CUDA_R_32F
+//
+//	A/B         C           computeType
+//	CUDA_R_16F  CUDA_R_32F  CUDA_R_32F
+//	CUDA_R_16F  CUDA_R_16F  CUDA_R_32F
 //
 // [Handle.SDDMM] for [FormatBsr] also supports the following mixed-precision computation:
-//   - A/B: CUDA_R_16BF; C: CUDA_R_32F; computeType: CUDA_R_32F
-//   - A/B: CUDA_R_16BF; C: CUDA_R_16BF; computeType: CUDA_R_32F
+//
+//	A/B          C            computeType
+//	CUDA_R_16BF  CUDA_R_32F   CUDA_R_32F
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_32F
 //
 // NOTE: CUDA_R_16F, CUDA_R_16BF data types always imply mixed-precision computation.
 // [Handle.SDDMM] for CUSPASRE_FORMAT_BSR supports block sizes of 2, 4, 8, 16, 32, 64 and 128.
@@ -643,8 +652,10 @@ func (h Handle) SpGEMMWorkEstimation(opA Operation, opB Operation, alpha Scalar,
 //   - A/B/C/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_16F DEPRECATED, CUDA_C_16BF DEPRECATED, CUDA_C_32F, CUDA_C_64F
 //
 // Mixed-precision computation: DEPRECATED
-//   - A/B: CUDA_R_16F; C: CUDA_R_16F; computeType: CUDA_R_32F
-//   - A/B: CUDA_R_16BF; C: CUDA_R_16BF; computeType: CUDA_R_32F
+//
+//	A/B          C            computeType
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_32F
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_32F
 //
 // cusparseSpGEMMreuse routine runs for the following algorithm:
 //   - [SpgemmDefault], [SpgemmCsrAlgNondeterminitic]: Default algorithm. Provides deterministic (bit-wise) structure for the output matrix for each run, while value computation is not deterministic.
@@ -688,8 +699,10 @@ func (h Handle) SpGEMMreuseCompute(opA Operation, opB Operation, alpha Scalar, m
 //   - A/B/C/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_16F DEPRECATED, CUDA_C_16BF DEPRECATED, CUDA_C_32F, CUDA_C_64F
 //
 // Mixed-precision computation: DEPRECATED
-//   - A/B: CUDA_R_16F; C: CUDA_R_16F; computeType: CUDA_R_32F
-//   - A/B: CUDA_R_16BF; C: CUDA_R_16BF; computeType: CUDA_R_32F
+//
+//	A/B          C            computeType
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_32F
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_32F
 //
 // cusparseSpGEMMreuse routine runs for the following algorithm:
 //   - [SpgemmDefault], [SpgemmCsrAlgNondeterminitic]: Default algorithm. Provides deterministic (bit-wise) structure for the output matrix for each run, while value computation is not deterministic.
@@ -730,8 +743,10 @@ func (h Handle) SpGEMMreuseCopy(opA Operation, opB Operation, matA ConstSpMatDes
 //   - A/B/C/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_16F DEPRECATED, CUDA_C_16BF DEPRECATED, CUDA_C_32F, CUDA_C_64F
 //
 // Mixed-precision computation: DEPRECATED
-//   - A/B: CUDA_R_16F; C: CUDA_R_16F; computeType: CUDA_R_32F
-//   - A/B: CUDA_R_16BF; C: CUDA_R_16BF; computeType: CUDA_R_32F
+//
+//	A/B          C            computeType
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_32F
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_32F
 //
 // cusparseSpGEMMreuse routine runs for the following algorithm:
 //   - [SpgemmDefault], [SpgemmCsrAlgNondeterminitic]: Default algorithm. Provides deterministic (bit-wise) structure for the output matrix for each run, while value computation is not deterministic.
@@ -772,8 +787,10 @@ func (h Handle) SpGEMMreuseNnz(opA Operation, opB Operation, matA ConstSpMatDesc
 //   - A/B/C/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_16F DEPRECATED, CUDA_C_16BF DEPRECATED, CUDA_C_32F, CUDA_C_64F
 //
 // Mixed-precision computation: DEPRECATED
-//   - A/B: CUDA_R_16F; C: CUDA_R_16F; computeType: CUDA_R_32F
-//   - A/B: CUDA_R_16BF; C: CUDA_R_16BF; computeType: CUDA_R_32F
+//
+//	A/B          C            computeType
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_32F
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_32F
 //
 // cusparseSpGEMMreuse routine runs for the following algorithm:
 //   - [SpgemmDefault], [SpgemmCsrAlgNondeterminitic]: Default algorithm. Provides deterministic (bit-wise) structure for the output matrix for each run, while value computation is not deterministic.
@@ -833,14 +850,16 @@ func (h Handle) SpGEMMreuseWorkEstimation(opA Operation, opB Operation, matA Con
 //   - A/B/C/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_32F, CUDA_C_64F
 //
 // Mixed-precision computation:
-//   - A/B: CUDA_R_8I; C: CUDA_R_32I; computeType: CUDA_R_32I
-//   - A/B: CUDA_R_8I; C: CUDA_R_32F; computeType: CUDA_R_32F
-//   - A/B: CUDA_R_16F; C: CUDA_R_32F; computeType: CUDA_R_32F
-//   - A/B: CUDA_R_16BF; C: CUDA_R_32F; computeType: CUDA_R_32F
-//   - A/B: CUDA_R_16F; C: CUDA_R_16F; computeType: CUDA_R_32F
-//   - A/B: CUDA_R_16BF; C: CUDA_R_16BF; computeType: CUDA_R_32F
-//   - A/B: CUDA_C_16F; C: CUDA_C_16F; computeType: CUDA_C_32F; DEPRECATED
-//   - A/B: CUDA_C_16BF; C: CUDA_C_16BF; computeType: CUDA_C_32F; DEPRECATED
+//
+//	A/B          C            computeType
+//	CUDA_R_8I    CUDA_R_32I   CUDA_R_32I
+//	CUDA_R_8I    CUDA_R_32F   CUDA_R_32F
+//	CUDA_R_16F   CUDA_R_32F   CUDA_R_32F
+//	CUDA_R_16BF  CUDA_R_32F   CUDA_R_32F
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_32F
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_32F
+//	CUDA_C_16F   CUDA_C_16F   CUDA_C_32F   [DEPRECATED]
+//	CUDA_C_16BF  CUDA_C_16BF  CUDA_C_32F   [DEPRECATED]
 //
 // NOTE: CUDA_R_16F, CUDA_R_16BF, CUDA_C_16F, and CUDA_C_16BF data types always imply mixed-precision computation.
 // [Handle.SpMM] supports the following algorithms:
@@ -882,6 +901,18 @@ func (h Handle) SpGEMMreuseWorkEstimation(opA Operation, opB Operation, matA Con
 //   - (2): BLOCKED-ELLPACK FORMAT
 //
 // [Handle.SpMM] supports the following data types for [FormatBlockedEll] format and the following GPU architectures for exploiting NVIDIA Tensor Cores:
+//
+//	A/B          C            computeType  opB             Compute Capability
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_16F   N, T            ≥ 70
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_32F   N, T            ≥ 70
+//	CUDA_R_16F   CUDA_R_32F   CUDA_R_32F   N, T            ≥ 70
+//	CUDA_R_8I    CUDA_R_32I   CUDA_R_32I   N column-major  ≥ 75
+//	CUDA_R_8I    CUDA_R_32I   CUDA_R_32I   T row-major     ≥ 75
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_32F   N, T            ≥ 80
+//	CUDA_R_16BF  CUDA_R_32F   CUDA_R_32F   N, T            ≥ 80
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_32F   N, T            ≥ 80
+//	CUDA_R_64F   CUDA_R_64F   CUDA_R_64F   N, T            ≥ 80
+//
 // [Handle.SpMM] supports the following algorithms with [FormatBlockedEll] format:
 //   - [SpmmAlgDefault]: Default algorithm for any sparse matrix format
 //   - [SpmmBlockedEllALG1]: Default algorithm for Blocked-ELL format
@@ -970,14 +1001,16 @@ func (h Handle) SpMMBufferSize(opA Operation, opB Operation, alpha Scalar, matA 
 //   - A/B/C/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_32F, CUDA_C_64F
 //
 // Mixed-precision computation:
-//   - A/B: CUDA_R_8I; C: CUDA_R_32I; computeType: CUDA_R_32I
-//   - A/B: CUDA_R_8I; C: CUDA_R_32F; computeType: CUDA_R_32F
-//   - A/B: CUDA_R_16F; C: CUDA_R_32F; computeType: CUDA_R_32F
-//   - A/B: CUDA_R_16BF; C: CUDA_R_32F; computeType: CUDA_R_32F
-//   - A/B: CUDA_R_16F; C: CUDA_R_16F; computeType: CUDA_R_32F
-//   - A/B: CUDA_R_16BF; C: CUDA_R_16BF; computeType: CUDA_R_32F
-//   - A/B: CUDA_C_16F; C: CUDA_C_16F; computeType: CUDA_C_32F; DEPRECATED
-//   - A/B: CUDA_C_16BF; C: CUDA_C_16BF; computeType: CUDA_C_32F; DEPRECATED
+//
+//	A/B          C            computeType
+//	CUDA_R_8I    CUDA_R_32I   CUDA_R_32I
+//	CUDA_R_8I    CUDA_R_32F   CUDA_R_32F
+//	CUDA_R_16F   CUDA_R_32F   CUDA_R_32F
+//	CUDA_R_16BF  CUDA_R_32F   CUDA_R_32F
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_32F
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_32F
+//	CUDA_C_16F   CUDA_C_16F   CUDA_C_32F   [DEPRECATED]
+//	CUDA_C_16BF  CUDA_C_16BF  CUDA_C_32F   [DEPRECATED]
 //
 // NOTE: CUDA_R_16F, CUDA_R_16BF, CUDA_C_16F, and CUDA_C_16BF data types always imply mixed-precision computation.
 // [Handle.SpMM] supports the following algorithms:
@@ -1019,6 +1052,18 @@ func (h Handle) SpMMBufferSize(opA Operation, opB Operation, alpha Scalar, matA 
 //   - (2): BLOCKED-ELLPACK FORMAT
 //
 // [Handle.SpMM] supports the following data types for [FormatBlockedEll] format and the following GPU architectures for exploiting NVIDIA Tensor Cores:
+//
+//	A/B          C            computeType  opB             Compute Capability
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_16F   N, T            ≥ 70
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_32F   N, T            ≥ 70
+//	CUDA_R_16F   CUDA_R_32F   CUDA_R_32F   N, T            ≥ 70
+//	CUDA_R_8I    CUDA_R_32I   CUDA_R_32I   N column-major  ≥ 75
+//	CUDA_R_8I    CUDA_R_32I   CUDA_R_32I   T row-major     ≥ 75
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_32F   N, T            ≥ 80
+//	CUDA_R_16BF  CUDA_R_32F   CUDA_R_32F   N, T            ≥ 80
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_32F   N, T            ≥ 80
+//	CUDA_R_64F   CUDA_R_64F   CUDA_R_64F   N, T            ≥ 80
+//
 // [Handle.SpMM] supports the following algorithms with [FormatBlockedEll] format:
 //   - [SpmmAlgDefault]: Default algorithm for any sparse matrix format
 //   - [SpmmBlockedEllALG1]: Default algorithm for Blocked-ELL format
@@ -1077,16 +1122,19 @@ func (h Handle) SpMMPreprocess(opA Operation, opB Operation, alpha Scalar, matA 
 //   - A/X/Y/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_32F, CUDA_C_64F
 //
 // Mixed-precision computation:
-//   - A/X: CUDA_R_8I; Y: CUDA_R_32I; computeType: CUDA_R_32I
-//   - A/X: CUDA_R_8I; Y: CUDA_R_32F; computeType: CUDA_R_32F
-//   - A/X: CUDA_R_16F; Y: CUDA_R_32F; computeType: CUDA_R_32F
-//   - A/X: CUDA_R_16BF; Y: CUDA_R_32F; computeType: CUDA_R_32F
-//   - A/X: CUDA_R_16F; Y: CUDA_R_16F; computeType: CUDA_R_32F
-//   - A/X: CUDA_R_16BF; Y: CUDA_R_16BF; computeType: CUDA_R_32F
-//   - A/X: CUDA_C_32F; Y: CUDA_C_32F; computeType: CUDA_C_32F
-//   - A/X: CUDA_C_16F; Y: CUDA_C_16F; computeType: CUDA_C_32F; Notes: DEPRECATED
-//   - A/X: CUDA_C_16BF; Y: CUDA_C_16BF; computeType: CUDA_C_32F; Notes: DEPRECATED
-//   - A: CUDA_R_32F; X/Y/computeType: CUDA_R_64F
+//
+//	A/X          Y            computeType  Notes
+//	CUDA_R_8I    CUDA_R_32I   CUDA_R_32I
+//	CUDA_R_8I    CUDA_R_32F   CUDA_R_32F
+//	CUDA_R_16F   CUDA_R_32F   CUDA_R_32F
+//	CUDA_R_16BF  CUDA_R_32F   CUDA_R_32F
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_32F
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_32F
+//	CUDA_C_32F   CUDA_C_32F   CUDA_C_32F
+//	CUDA_C_16F   CUDA_C_16F   CUDA_C_32F   [DEPRECATED]
+//	CUDA_C_16BF  CUDA_C_16BF  CUDA_C_32F   [DEPRECATED]
+//
+// A: CUDA_R_32F; X/Y/computeType: CUDA_R_64F.
 //
 // Mixed Regular/Complex computation:
 //   - A: CUDA_R_32F; X/Y/computeType: CUDA_C_32F
@@ -1163,12 +1211,20 @@ func (h Handle) SpMVBufferSize(opA Operation, alpha Scalar, matA ConstSpMatDescr
 // This function is experimental.
 // Zᵢ=epilogue(α∑_(k)(op(Aᵢₖ)⋅Xₖ)+βYᵢ)
 // where
-//   - op(A) is a sparse matrix of size m×k
-//   - X is a dense vector of size k
-//   - Y is a dense vector of size m
-//   - Z is a dense vector of size m. It is allowed to alias Y.
-//   - α and β are scalars
-//   - epilogue is a custom function with the following signature
+//
+// op(A) is a sparse matrix of size m×k.
+//
+// X is a dense vector of size k.
+//
+// Y is a dense vector of size m.
+//
+// Z is a dense vector of size m. It is allowed to alias Y.
+//
+// α and β are scalars.
+//
+// epilogue is a custom function with the following signature
+//
+//	__device__ <computetype> spmv_op_epilogue(int64_t row, <computetype> value);
 //
 // [Handle.SpMVOp] supports sparse format [FormatCsr] and opA=[OperationNonTranspose]. The following index type combinations are supported:
 //   - csrRowOffsetsType: [Index32I]; csrColIndType: [Index32I]
@@ -1236,12 +1292,20 @@ func (h Handle) SpMVOpBufferSize(opA Operation, matA ConstSpMatDescr, vecX Const
 // This function is experimental.
 // Zᵢ=epilogue(α∑_(k)(op(Aᵢₖ)⋅Xₖ)+βYᵢ)
 // where
-//   - op(A) is a sparse matrix of size m×k
-//   - X is a dense vector of size k
-//   - Y is a dense vector of size m
-//   - Z is a dense vector of size m. It is allowed to alias Y.
-//   - α and β are scalars
-//   - epilogue is a custom function with the following signature
+//
+// op(A) is a sparse matrix of size m×k.
+//
+// X is a dense vector of size k.
+//
+// Y is a dense vector of size m.
+//
+// Z is a dense vector of size m. It is allowed to alias Y.
+//
+// α and β are scalars.
+//
+// epilogue is a custom function with the following signature
+//
+//	__device__ <computetype> spmv_op_epilogue(int64_t row, <computetype> value);
 //
 // [Handle.SpMVOp] supports sparse format [FormatCsr] and opA=[OperationNonTranspose]. The following index type combinations are supported:
 //   - csrRowOffsetsType: [Index32I]; csrColIndType: [Index32I]
@@ -1295,12 +1359,20 @@ func (h Handle) SpMVOpCreateDescr(opA Operation, matA ConstSpMatDescr, vecX Cons
 // This function is experimental.
 // Zᵢ=epilogue(α∑_(k)(op(Aᵢₖ)⋅Xₖ)+βYᵢ)
 // where
-//   - op(A) is a sparse matrix of size m×k
-//   - X is a dense vector of size k
-//   - Y is a dense vector of size m
-//   - Z is a dense vector of size m. It is allowed to alias Y.
-//   - α and β are scalars
-//   - epilogue is a custom function with the following signature
+//
+// op(A) is a sparse matrix of size m×k.
+//
+// X is a dense vector of size k.
+//
+// Y is a dense vector of size m.
+//
+// Z is a dense vector of size m. It is allowed to alias Y.
+//
+// α and β are scalars.
+//
+// epilogue is a custom function with the following signature
+//
+//	__device__ <computetype> spmv_op_epilogue(int64_t row, <computetype> value);
 //
 // [Handle.SpMVOp] supports sparse format [FormatCsr] and opA=[OperationNonTranspose]. The following index type combinations are supported:
 //   - csrRowOffsetsType: [Index32I]; csrColIndType: [Index32I]
@@ -1338,7 +1410,7 @@ func (h Handle) SpMVOpCreateDescr(opA Operation, matA ConstSpMatDescr, vecX Cons
 //   - plan: Opaque descriptor for storing the multiplication execution plan, namely all the information necessary to execute [Handle.SpMVOp]
 //
 // Wraps cusparseSpMVOpCreatePlan, bound as cusparseSpMVOp_createPlan.
-func (h Handle) SpMVOpCreatePlan(desc SpMVOpDescr, code uintptr, codeSize uint) (SpMVOpPlan, error) {
+func (h Handle) SpMVOpCreatePlan(desc SpMVOpDescr, code unsafe.Pointer, codeSize uint) (SpMVOpPlan, error) {
 	return spMVOpCreatePlan(h, desc, code, codeSize)
 }
 
@@ -1348,12 +1420,20 @@ func (h Handle) SpMVOpCreatePlan(desc SpMVOpDescr, code uintptr, codeSize uint) 
 // This function is experimental.
 // Zᵢ=epilogue(α∑_(k)(op(Aᵢₖ)⋅Xₖ)+βYᵢ)
 // where
-//   - op(A) is a sparse matrix of size m×k
-//   - X is a dense vector of size k
-//   - Y is a dense vector of size m
-//   - Z is a dense vector of size m. It is allowed to alias Y.
-//   - α and β are scalars
-//   - epilogue is a custom function with the following signature
+//
+// op(A) is a sparse matrix of size m×k.
+//
+// X is a dense vector of size k.
+//
+// Y is a dense vector of size m.
+//
+// Z is a dense vector of size m. It is allowed to alias Y.
+//
+// α and β are scalars.
+//
+// epilogue is a custom function with the following signature
+//
+//	__device__ <computetype> spmv_op_epilogue(int64_t row, <computetype> value);
 //
 // [Handle.SpMVOp] supports sparse format [FormatCsr] and opA=[OperationNonTranspose]. The following index type combinations are supported:
 //   - csrRowOffsetsType: [Index32I]; csrColIndType: [Index32I]
@@ -1422,16 +1502,19 @@ func (h Handle) SpMVOpSetGlobalUserData(plan SpMVOpPlan, globalDataName *byte, i
 //   - A/X/Y/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_32F, CUDA_C_64F
 //
 // Mixed-precision computation:
-//   - A/X: CUDA_R_8I; Y: CUDA_R_32I; computeType: CUDA_R_32I
-//   - A/X: CUDA_R_8I; Y: CUDA_R_32F; computeType: CUDA_R_32F
-//   - A/X: CUDA_R_16F; Y: CUDA_R_32F; computeType: CUDA_R_32F
-//   - A/X: CUDA_R_16BF; Y: CUDA_R_32F; computeType: CUDA_R_32F
-//   - A/X: CUDA_R_16F; Y: CUDA_R_16F; computeType: CUDA_R_32F
-//   - A/X: CUDA_R_16BF; Y: CUDA_R_16BF; computeType: CUDA_R_32F
-//   - A/X: CUDA_C_32F; Y: CUDA_C_32F; computeType: CUDA_C_32F
-//   - A/X: CUDA_C_16F; Y: CUDA_C_16F; computeType: CUDA_C_32F; Notes: DEPRECATED
-//   - A/X: CUDA_C_16BF; Y: CUDA_C_16BF; computeType: CUDA_C_32F; Notes: DEPRECATED
-//   - A: CUDA_R_32F; X/Y/computeType: CUDA_R_64F
+//
+//	A/X          Y            computeType  Notes
+//	CUDA_R_8I    CUDA_R_32I   CUDA_R_32I
+//	CUDA_R_8I    CUDA_R_32F   CUDA_R_32F
+//	CUDA_R_16F   CUDA_R_32F   CUDA_R_32F
+//	CUDA_R_16BF  CUDA_R_32F   CUDA_R_32F
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_32F
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_32F
+//	CUDA_C_32F   CUDA_C_32F   CUDA_C_32F
+//	CUDA_C_16F   CUDA_C_16F   CUDA_C_32F   [DEPRECATED]
+//	CUDA_C_16BF  CUDA_C_16BF  CUDA_C_32F   [DEPRECATED]
+//
+// A: CUDA_R_32F; X/Y/computeType: CUDA_R_64F.
 //
 // Mixed Regular/Complex computation:
 //   - A: CUDA_R_32F; X/Y/computeType: CUDA_C_32F

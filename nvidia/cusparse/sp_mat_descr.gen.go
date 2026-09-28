@@ -4,6 +4,7 @@ package cusparse
 
 import (
 	"github.com/tmc/lib/nvidia/driver"
+	"unsafe"
 )
 
 // BlockedEllGet returns the fields of the sparse matrix descriptor spMatDescr stored in Blocked-Ellpack (ELL) format.
@@ -173,7 +174,7 @@ func (s SpMatDescr) MatGetValues(values *uintptr) error {
 //   - dataSize: Size of the attribute in bytes for safety
 //
 // Wraps cusparseSpMatSetAttribute.
-func (s SpMatDescr) MatSetAttribute(attribute SpMatAttribute, data uintptr, dataSize uint) error {
+func (s SpMatDescr) MatSetAttribute(attribute SpMatAttribute, data unsafe.Pointer, dataSize uint) error {
 	return spMatSetAttribute(s, attribute, data, dataSize)
 }
 

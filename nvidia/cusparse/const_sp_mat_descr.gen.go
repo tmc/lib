@@ -2,6 +2,10 @@
 
 package cusparse
 
+import (
+	"unsafe"
+)
+
 // BlockedEllGet returns the fields of the sparse matrix descriptor spMatDescr stored in Blocked-Ellpack (ELL) format.
 //
 //   - rows: Number of rows of the sparse matrix
@@ -100,7 +104,7 @@ func (c ConstSpMatDescr) CsrGet(rows *int64, cols *int64, nnz *int64, csrRowOffs
 //   - dataSize: Size of the attribute in bytes for safety
 //
 // Wraps cusparseSpMatGetAttribute.
-func (c ConstSpMatDescr) SpMatGetAttribute(attribute SpMatAttribute, data uintptr, dataSize uint) error {
+func (c ConstSpMatDescr) SpMatGetAttribute(attribute SpMatAttribute, data unsafe.Pointer, dataSize uint) error {
 	return spMatGetAttribute(c, attribute, data, dataSize)
 }
 

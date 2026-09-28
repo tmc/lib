@@ -20,8 +20,10 @@ package cusparse
 //   - A/B/C/computeType: CUDA_R_32F, CUDA_R_64F, CUDA_C_16F DEPRECATED, CUDA_C_16BF DEPRECATED, CUDA_C_32F, CUDA_C_64F
 //
 // Mixed-precision computation: DEPRECATED
-//   - A/B: CUDA_R_16F; C: CUDA_R_16F; computeType: CUDA_R_32F
-//   - A/B: CUDA_R_16BF; C: CUDA_R_16BF; computeType: CUDA_R_32F
+//
+//	A/B          C            computeType
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_32F
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_32F
 //
 // cusparseSpGEMMreuse routine runs for the following algorithm:
 //   - [SpgemmDefault], [SpgemmCsrAlgNondeterminitic]: Default algorithm. Provides deterministic (bit-wise) structure for the output matrix for each run, while value computation is not deterministic.

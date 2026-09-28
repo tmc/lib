@@ -6,13 +6,12 @@
   "cwd": ".",
   "argv": [
     "cusparse-survey",
-    "-allow-missing-contract",
     "-header",
     "cusparse.h",
     "-headers-dir",
     "cuda-headers",
     "-output",
-    "cusparse"
+    "${OUTPUT_DIR}"
   ],
   "inputs": [
     {

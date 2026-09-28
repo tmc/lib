@@ -8,12 +8,20 @@ package cusparse
 // This function is experimental.
 // Zᵢ=epilogue(α∑_(k)(op(Aᵢₖ)⋅Xₖ)+βYᵢ)
 // where
-//   - op(A) is a sparse matrix of size m×k
-//   - X is a dense vector of size k
-//   - Y is a dense vector of size m
-//   - Z is a dense vector of size m. It is allowed to alias Y.
-//   - α and β are scalars
-//   - epilogue is a custom function with the following signature
+//
+// op(A) is a sparse matrix of size m×k.
+//
+// X is a dense vector of size k.
+//
+// Y is a dense vector of size m.
+//
+// Z is a dense vector of size m. It is allowed to alias Y.
+//
+// α and β are scalars.
+//
+// epilogue is a custom function with the following signature
+//
+//	__device__ <computetype> spmv_op_epilogue(int64_t row, <computetype> value);
 //
 // [Handle.SpMVOp] supports sparse format [FormatCsr] and opA=[OperationNonTranspose]. The following index type combinations are supported:
 //   - csrRowOffsetsType: [Index32I]; csrColIndType: [Index32I]
