@@ -176,14 +176,14 @@ func TestCampaign_BuildTimeIsOutsideRunTimeout(t *testing.T) {
 	var variantBuilds int
 	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
 		PTXSource: CAMPAIGN_PTX, SeedStart: 20, SeedEnd: 21, Intensity: 2,
-		ConfirmRuns: 1, Timeout: 300 * time.Millisecond, BuildTimeout: time.Second,
+		ConfirmRuns: 1, Timeout: 2 * time.Second, PristineTimeout: 8 * time.Second, BuildTimeout: 12 * time.Second,
 		DeviceProbe: func() bool { return true },
 		Executable:  "/bin/sh",
 		Args:        []string{"-c", "echo PASS"},
 		BuildVariant: func(_ context.Context, _ uint64, pristine bool, _ string) (string, []string, error) {
 			if !pristine {
 				variantBuilds++
-				time.Sleep(400 * time.Millisecond)
+				time.Sleep(4 * time.Second)
 			}
 			return "/bin/sh", []string{"-c", "echo PASS"}, nil
 		},
@@ -250,14 +250,14 @@ func TestCampaign_BuildHookSeesPristineAndDistinctImages(t *testing.T) {
 	var builds []build
 	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
 		PTXSource: CAMPAIGN_PTX, SeedStart: 50, SeedEnd: 51, Intensity: 2,
-		ConfirmRuns: 1, Timeout: 30 * time.Millisecond, DeviceProbe: func() bool { return true },
+		ConfirmRuns: 1, Timeout: 2 * time.Second, PristineTimeout: 8 * time.Second, DeviceProbe: func() bool { return true },
 		BuildVariant: func(_ context.Context, seed uint64, pristine bool, path string) (string, []string, error) {
 			data, err := os.ReadFile(path)
 			if err != nil {
 				return "", nil, err
 			}
 			builds = append(builds, build{seed: seed, pristine: pristine, path: path, ptx: string(data)})
-			return "/bin/sh", []string{"-c", `grep -q nanosleep "$1" && exec sleep 1 || echo PASS`, "image-check"}, nil
+			return "/bin/sh", []string{"-c", `grep -q nanosleep "$1" && exec sleep 10 || echo PASS`, "image-check"}, nil
 		},
 	})
 	if err != nil {
@@ -277,6 +277,32 @@ func TestCampaign_BuildHookSeesPristineAndDistinctImages(t *testing.T) {
 	}
 	if builds[0].path == builds[1].path || builds[1].path == builds[2].path {
 		t.Fatalf("pristine and variant paths collide: %+v", builds)
+	}
+}
+
+func TestCampaign_PristineRunUsesSeparateTimeout(t *testing.T) {
+	pristineRuns := 0
+	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
+		PTXSource: CAMPAIGN_PTX, SeedStart: 51, SeedEnd: 52, Intensity: 10,
+		ConfirmRuns: 1, Timeout: time.Second, PristineTimeout: 5 * time.Second,
+		RunVariant: func(ctx context.Context, _ uint64, pristine bool, _ string) (cudaschedule.RunRecord, error) {
+			if pristine {
+				pristineRuns++
+				time.Sleep(2 * time.Second)
+				return cudaschedule.RunRecord{Exited: true, Stdout: "PASS"}, nil
+			}
+			<-ctx.Done()
+			return cudaschedule.RunRecord{}, nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pristineRuns != 2 || report.BaselineVerdict != cudaschedule.VerdictPass || len(report.Seeds) != 1 || report.Seeds[0].Verdict != cudaschedule.VerdictHang {
+		t.Fatalf("separate baseline and health timeouts were not applied: pristine runs=%d report=%+v", pristineRuns, report)
+	}
+	if report.Seeds[0].Run.Pristine == nil || report.Seeds[0].Run.Pristine.TimedOut || !report.Seeds[0].Run.Pristine.PristineRun {
+		t.Fatalf("health re-run did not pass under the pristine timeout: %+v", report.Seeds[0].Run)
 	}
 }
 
@@ -336,6 +362,92 @@ func TestCampaign_RunnerReceivesSeed(t *testing.T) {
 		if seed.Run.PristineRun {
 			t.Errorf("variant seed %d was marked pristine", seed.Seed)
 		}
+	}
+}
+
+func TestCampaign_RaceFixtureSweepReplayWithFakeRunner(t *testing.T) {
+	readFixture := func(name string) string {
+		t.Helper()
+		data, err := os.ReadFile(filepath.Join("testdata", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(data)
+	}
+	racePTX := readFixture("schedule_race.ptx")
+	cleanPTX := readFixture("schedule_race_clean.ptx")
+	const start, end = uint64(17), uint64(49)
+	var findingSeed uint64
+	for seed := start; seed < end; seed++ {
+		rewrite, err := cudaschedule.Perturb(racePTX, cudaschedule.Options{Seed: seed, Intensity: 2})
+		if err != nil {
+			t.Fatal(err)
+		}
+		maxDelay := uint64(2 * rewrite.Report.SitesTotal * cudaschedule.DefaultMaxSleepNs)
+		if rewrite.Report.InjectedNsPerVisit > maxDelay {
+			t.Fatalf("seed %d injected delay %d ns exceeds the per-site ceiling", seed, rewrite.Report.InjectedNsPerVisit)
+		}
+		if rewrite.Report.SitesInjected > 0 {
+			findingSeed = seed
+			break
+		}
+	}
+	if findingSeed == 0 {
+		t.Fatal("fixed seed interval has no non-empty race draw")
+	}
+
+	run := func(source string, mismatchSeed uint64, images map[uint64]string) *cudaschedule.CampaignReport {
+		report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
+			PTXSource: source, SeedStart: start, SeedEnd: end, Intensity: 2,
+			ConfirmRuns: 1, Timeout: 3 * time.Second, RunVariant: func(_ context.Context, seed uint64, pristine bool, ptx string) (cudaschedule.RunRecord, error) {
+				if !pristine {
+					images[seed] = ptx
+					if seed == mismatchSeed && strings.Contains(ptx, "nanosleep.u32") {
+						return cudaschedule.RunRecord{Exited: true, Stdout: "MISMATCH: shared handoff read before write"}, nil
+					}
+				}
+				return cudaschedule.RunRecord{Exited: true, Stdout: "PASS"}, nil
+			},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return report
+	}
+	cleanImages := make(map[uint64]string)
+	clean := run(cleanPTX, 0, cleanImages)
+	if clean.FindingCount() != 0 || len(clean.Seeds) != int(end-start) {
+		t.Fatalf("synchronized control campaign found a defect: %+v", clean.Seeds)
+	}
+
+	sweepImages := make(map[uint64]string)
+	sweep := run(racePTX, findingSeed, sweepImages)
+	var selected *cudaschedule.SeedResult
+	for i := range sweep.Seeds {
+		if sweep.Seeds[i].Seed == findingSeed {
+			selected = &sweep.Seeds[i]
+			break
+		}
+	}
+	if selected == nil || selected.Verdict != cudaschedule.VerdictMismatch {
+		t.Fatalf("selected race seed %d did not produce the planted mismatch: %+v", findingSeed, sweep.Seeds)
+	}
+	replay, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
+		PTXSource: racePTX, SeedStart: findingSeed, SeedEnd: findingSeed + 1,
+		Intensity: 2, ConfirmRuns: 1, Timeout: 3 * time.Second,
+		RunVariant: func(_ context.Context, seed uint64, pristine bool, ptx string) (cudaschedule.RunRecord, error) {
+			if !pristine {
+				sweepImages[seed+1000] = ptx
+				return cudaschedule.RunRecord{Exited: true, Stdout: "MISMATCH: shared handoff read before write"}, nil
+			}
+			return cudaschedule.RunRecord{Exited: true, Stdout: "PASS"}, nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(replay.Seeds) != 1 || replay.Seeds[0].Verdict != cudaschedule.VerdictMismatch || sweepImages[findingSeed] != sweepImages[findingSeed+1000] {
+		t.Fatalf("seed %d replay differs: sweep=%+v replay=%+v", findingSeed, selected, replay.Seeds)
 	}
 }
 
@@ -593,7 +705,7 @@ func TestCampaign_WaitDelayClosesInheritedPipe(t *testing.T) {
 	})
 	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
 		PTXSource: CAMPAIGN_PTX,
-		SeedStart: 9, SeedEnd: 10, Intensity: 2, ConfirmRuns: 1, Timeout: 100 * time.Millisecond,
+		SeedStart: 9, SeedEnd: 10, Intensity: 2, ConfirmRuns: 1, Timeout: 5 * time.Second, PristineTimeout: 8 * time.Second,
 		DeviceProbe: func() bool { return true },
 		BuildVariant: func(_ context.Context, _ uint64, _ bool, _ string) (string, []string, error) {
 			return "/bin/sh", []string{"-c", `grep -q nanosleep "$2" && { sleep 30 & echo $! > "$1"; wait; } || echo PASS`, "wait-delay", pidFile}, nil
@@ -609,7 +721,7 @@ func TestCampaign_WaitDelayClosesInheritedPipe(t *testing.T) {
 	if report.Seeds[0].Run.Pristine == nil || !report.Seeds[0].Run.Pristine.PristineRun {
 		t.Fatalf("timeout health check is not marked pristine: %+v", report.Seeds[0].Run)
 	}
-	if elapsed > 900*time.Millisecond {
+	if elapsed > 15*time.Second {
 		t.Fatalf("watchdog plus WaitDelay took %s", elapsed)
 	}
 	if data, err := os.ReadFile(pidFile); err != nil || len(strings.TrimSpace(string(data))) == 0 {

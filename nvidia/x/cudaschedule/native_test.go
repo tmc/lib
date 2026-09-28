@@ -15,7 +15,9 @@ import (
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/cudalaunch"
 	"github.com/tmc/lib/nvidia/x/cudalock"
+	"github.com/tmc/lib/nvidia/x/cudamem"
 	"github.com/tmc/lib/nvidia/x/cudaschedule"
 )
 
@@ -52,17 +54,36 @@ func TestCampaignNativeHarness(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer mod.Close()
-	kernel, err := mod.Function("schedule_hang")
+	kernel, err := mod.Function("schedule_race")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := kernel.Launch([3]uint32{1, 1, 1}, [3]uint32{1, 1, 1}, 0, 0, nil); err != nil {
+	output, err := cudamem.Alloc[uint32](dev, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer output.Free()
+	if err := output.CopyFromHost([]uint32{0}); err != nil {
+		t.Fatal(err)
+	}
+	if err := cudalaunch.OwnedKernel(kernel).Block(64, 1, 1).Launch(output); err != nil {
+		t.Fatal(err)
+	}
+	if err := driver.CtxSynchronize(); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]uint32, 1)
+	if err := output.CopyToHost(got); err != nil {
 		t.Fatal(err)
 	}
 	if err := mod.Close(); err != nil {
 		t.Fatal(err)
 	}
-	fmt.Fprintln(os.Stdout, "PASS: exact PTX path loaded and launched")
+	if got[0] != 1 {
+		fmt.Fprintf(os.Stdout, "MISMATCH: shared handoff produced %d, want 1\n", got[0])
+		return
+	}
+	fmt.Fprintln(os.Stdout, "PASS: shared handoff produced 1")
 }
 
 func TestCampaign_FindingReproducesFromSeed(t *testing.T) {
@@ -80,9 +101,13 @@ func TestCampaign_FindingReproducesFromSeed(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer lease.Release()
-	ptx, err := os.ReadFile(filepath.Join("testdata", "schedule_hang.ptx"))
-	if err != nil {
-		t.Fatal(err)
+	readPTX := func(name string) string {
+		t.Helper()
+		ptx, err := os.ReadFile(filepath.Join("testdata", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(ptx)
 	}
 	executable, err := os.Executable()
 	if err != nil {
@@ -98,37 +123,57 @@ func TestCampaign_FindingReproducesFromSeed(t *testing.T) {
 			return executable, []string{"-test.run=^TestCampaignNativeHarness$"}, nil
 		}
 	}
-	options := func(start, end uint64, images map[string][]byte) cudaschedule.CampaignOptions {
+	options := func(source string, start, end uint64, images map[string][]byte) cudaschedule.CampaignOptions {
 		return cudaschedule.CampaignOptions{
-			PTXSource: string(ptx), SeedStart: start, SeedEnd: end, Intensity: 2,
-			ConfirmRuns: 1, Timeout: 3 * time.Second,
+			PTXSource: source, SeedStart: start, SeedEnd: end, Intensity: 2,
+			MaxSleepNs:  cudaschedule.DefaultMaxSleepNs,
+			ConfirmRuns: 1, Timeout: 3 * time.Second, PristineTimeout: 8 * time.Second,
 			BuildVariant: build(images),
 		}
 	}
+	const seedStart, seedEnd = uint64(17), uint64(49)
+	cleanImages := make(map[string][]byte)
+	clean, err := cudaschedule.RunCampaign(context.Background(), options(readPTX("schedule_race_clean.ptx"), seedStart, seedEnd, cleanImages))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if clean.FindingCount() != 0 {
+		t.Fatalf("synchronized control reported findings: %+v", clean.Seeds)
+	}
 	firstImages := make(map[string][]byte)
-	first, err := cudaschedule.RunCampaign(context.Background(), options(17, 21, firstImages))
+	first, err := cudaschedule.RunCampaign(context.Background(), options(readPTX("schedule_race.ptx"), seedStart, seedEnd, firstImages))
 	if err != nil {
 		t.Fatal(err)
 	}
 	var seed uint64
 	found := false
 	for _, result := range first.Seeds {
-		if result.Verdict.IsFinding() {
+		if result.Verdict == cudaschedule.VerdictMismatch {
 			seed, found = result.Seed, true
 			break
 		}
 	}
 	if !found {
-		t.Fatalf("sweep found no schedule-dependent timeout: %+v", first.Seeds)
+		t.Fatalf("sweep found no shared-memory race mismatch: %+v", first.Seeds)
 	}
+	var maxInjected uint64
+	for _, result := range first.Seeds {
+		if result.Report.InjectedNsPerVisit > maxInjected {
+			maxInjected = result.Report.InjectedNsPerVisit
+		}
+	}
+	if maxInjected >= uint64((3 * time.Second).Nanoseconds()) {
+		t.Fatalf("injected sleep %d ns reaches the 3 s run timeout", maxInjected)
+	}
+	t.Logf("race fixture injected sleep ceiling=%d ns, below 3 s run timeout", maxInjected)
 	firstPTX := append([]byte(nil), firstImages[strconv.FormatUint(seed, 10)+"/false"]...)
 	secondImages := make(map[string][]byte)
-	second, err := cudaschedule.RunCampaign(context.Background(), options(seed, seed+1, secondImages))
+	second, err := cudaschedule.RunCampaign(context.Background(), options(readPTX("schedule_race.ptx"), seed, seed+1, secondImages))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(second.Seeds) != 1 || second.Seeds[0].Verdict != first.Seeds[seed-17].Verdict {
-		t.Fatalf("seed %d did not reproduce: first=%+v second=%+v", seed, first.Seeds[seed-17], second.Seeds)
+	if len(second.Seeds) != 1 || second.Seeds[0].Verdict != cudaschedule.VerdictMismatch {
+		t.Fatalf("seed %d did not reproduce its mismatch: second=%+v", seed, second.Seeds)
 	}
 	if len(firstPTX) == 0 || !bytes.Equal(firstPTX, secondImages[strconv.FormatUint(seed, 10)+"/false"]) {
 		t.Fatal("replayed seed produced different PTX bytes")

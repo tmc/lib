@@ -1,0 +1,33 @@
+.version 8.7
+.target sm_70
+.address_size 64
+
+.visible .entry schedule_race(
+    .param .u64 output
+)
+{
+    .reg .pred %p<2>;
+    .reg .b32 %r<4>;
+    .reg .b64 %rd<2>;
+    .shared .align 4 .b32 handoff;
+
+    ld.param.u64 %rd0, [output];
+    mov.u32 %r0, %tid.x;
+    setp.lt.u32 %p0, %r0, 32;
+    @!%p0 bra READER;
+    mov.u32 %r1, 1;
+    st.volatile.shared.u32 [handoff], %r1;
+    bra JOIN;
+
+READER:
+    bra JOIN;
+
+JOIN:
+    bar.sync 0;
+    ld.volatile.shared.u32 %r2, [handoff];
+    setp.eq.u32 %p1, %r0, 32;
+    @!%p1 bra DONE;
+    st.volatile.global.u32 [%rd0], %r2;
+DONE:
+    ret;
+}

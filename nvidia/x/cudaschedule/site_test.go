@@ -10,24 +10,36 @@ import (
 )
 
 func TestNativeScheduleFixtureAnalyzes(t *testing.T) {
-	ptx, err := os.ReadFile(filepath.Join("testdata", "schedule_hang.ptx"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	sites, err := cudaschedule.Analyze(string(ptx))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(sites) != 1 || sites[0].Kind != cudaschedule.SiteBackedge {
-		t.Fatalf("native schedule fixture sites = %+v, want one backedge", sites)
-	}
-	for seed := uint64(17); seed < 21; seed++ {
-		rewrite, err := cudaschedule.Perturb(string(ptx), cudaschedule.Options{Seed: seed, Intensity: 2})
+	for _, fixture := range []struct {
+		name        string
+		wantBarrier bool
+	}{
+		{"schedule_race.ptx", false},
+		{"schedule_race_clean.ptx", true},
+	} {
+		ptx, err := os.ReadFile(filepath.Join("testdata", fixture.name))
 		if err != nil {
 			t.Fatal(err)
 		}
-		if rewrite.Report.SitesInjected != 1 || !strings.Contains(rewrite.PTX, "nanosleep.u32") {
-			t.Fatalf("native fixture seed %d was not perturbed: %+v", seed, rewrite.Report)
+		sites, err := cudaschedule.Analyze(string(ptx))
+		if err != nil {
+			t.Fatalf("Analyze %s: %v", fixture.name, err)
+		}
+		barrier := false
+		for _, site := range sites {
+			barrier = barrier || site.Kind == cudaschedule.SiteBarrier
+		}
+		if barrier != fixture.wantBarrier {
+			t.Fatalf("%s barrier site=%t, want %t (sites=%+v)", fixture.name, barrier, fixture.wantBarrier, sites)
+		}
+		for seed := uint64(17); seed < 49; seed++ {
+			rewrite, err := cudaschedule.Perturb(string(ptx), cudaschedule.Options{Seed: seed, Intensity: 2})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if rewrite.Report.SitesInjected > 0 && !strings.Contains(rewrite.PTX, "nanosleep.u32") {
+				t.Fatalf("%s seed %d reported injection without nanosleep: %+v", fixture.name, seed, rewrite.Report)
+			}
 		}
 	}
 }
@@ -218,6 +230,10 @@ func TestAnalyze_RejectsMalformedModules(t *testing.T) {
 		{"no callable", `.version 8.7
 .target sm_90
 .address_size 64`},
+		{"extern declarations only", `.version 8.7
+.target sm_90
+.address_size 64
+.extern .func foo();`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -71,6 +71,11 @@ type CampaignOptions struct {
 	// Timeout is the execution deadline per run before triggering Hang.
 	Timeout time.Duration
 
+	// PristineTimeout bounds baseline and health-check runs. Zero uses Timeout.
+	// A larger value can keep host scheduling noise from classifying a healthy
+	// reference run as a hang when variants use a deliberately short watchdog.
+	PristineTimeout time.Duration
+
 	// Focus is an optional substring to focus perturbation.
 	Focus string
 
@@ -87,13 +92,15 @@ type CampaignOptions struct {
 	// Defaults to checking driver device files.
 	DeviceProbe func() bool
 
-	// BuildVariant prepares a runnable artifact from a seed-specific PTX file.
-	// It receives an explicit pristine flag and returns the executable and
-	// arguments used for that run. The campaign appends ptxPath as the final
-	// argument. Builds have their own BuildTimeout, separate from Timeout.
+	// BuildVariant prepares a runnable artifact from a PTX file. It receives an
+	// explicit pristine flag and returns the executable and arguments used for
+	// that run. The campaign appends ptxPath as the final argument. The seed is
+	// the campaign's start seed for pristine runs and is meaningful only when
+	// pristine is false. Builds have their own BuildTimeout, separate from Timeout.
 	BuildVariant func(ctx context.Context, seed uint64, pristine bool, ptxPath string) (string, []string, error)
 
-	// RunVariant is an optional runner hook for testing or external perturbation layers.
+	// RunVariant is an optional runner hook for testing or external perturbation
+	// layers. The seed is meaningful only when pristine is false.
 	RunVariant func(ctx context.Context, seed uint64, pristine bool, ptx string) (RunRecord, error)
 
 	// BuildTimeout bounds artifact preparation separately from executable runtime.
@@ -318,6 +325,9 @@ func recordSeed(report *CampaignReport, seed SeedResult) {
 }
 
 func executeRun(ctx context.Context, opts CampaignOptions, seed uint64, ptx string, pristine bool, timeout time.Duration, variantRoot string) (RunRecord, error) {
+	if pristine && opts.PristineTimeout > 0 {
+		timeout = opts.PristineTimeout
+	}
 	if opts.RunVariant != nil {
 		runCtx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()

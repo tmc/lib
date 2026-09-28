@@ -106,10 +106,18 @@ func Analyze(src string) ([]Site, error) {
 	if len(mod.Kernels) == 0 {
 		return nil, fmt.Errorf("cudaschedule: PTX has no callable body")
 	}
+	hasBody := false
 	for _, k := range mod.Kernels {
-		if k.Body && k.EndLine == 0 {
+		if !k.Body {
+			continue
+		}
+		hasBody = true
+		if k.EndLine == 0 {
 			return nil, fmt.Errorf("cudaschedule: callable %q has unterminated body", k.Name)
 		}
+	}
+	if !hasBody {
+		return nil, fmt.Errorf("cudaschedule: PTX has no callable body")
 	}
 	lines := splitLines(src)
 	lineOffsets := make([]int, len(lines)+1)

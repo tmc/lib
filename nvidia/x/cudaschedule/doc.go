@@ -4,7 +4,7 @@
 // A kernel that races only under one interleaving passes until it does not.
 // This package finds points in a PTX module where another thread's progress is
 // observable, injects seeded nanosleep.u32 delays at a drawn subset of them,
-// and sweeps seeds to classify execution outcomes into an eight-way verdict taxonomy.
+// and sweeps seeds to classify execution outcomes into a nine-value verdict taxonomy.
 //
 // # Site Taxonomy
 //
@@ -27,7 +27,7 @@
 //
 // # Verdict Taxonomy
 //
-// [Classify] maps execution outcomes into eight verdicts:
+// [Classify] maps execution outcomes into nine verdicts:
 //   - [VerdictPass]: the perturbed run behaved like the baseline
 //   - [VerdictSkipped]: the target declined execution via a recognized skip marker
 //   - [VerdictHang]: the watchdog timer fired
@@ -36,6 +36,7 @@
 //   - [VerdictOutputChanged]: stdout differed from baseline without an explicit error marker (opt-in)
 //   - [VerdictGpuWedged]: a timeout occurred and a pristine re-run also failed
 //   - [VerdictHarnessError]: the harness failed to perturb or execute the variant
+//   - [VerdictEmptyDraw]: no site was selected, so no variant run occurred
 //
 // Exactly five verdicts are findings: [VerdictMismatch], [VerdictOutputChanged],
 // [VerdictHang], [VerdictCrash], and [VerdictGpuWedged].
