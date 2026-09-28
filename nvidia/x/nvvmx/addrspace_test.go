@@ -644,17 +644,18 @@ func TestAddrSpace_UnrewritableSupportedFormsStayValidAndGeneric(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			allocType := tt.slotType
-			irText := `target datalayout = "e-p:64:64:64-p3:32:32:32"
-@smem = internal addrspace(3) global i8 0, align 1
-define void @kernel() {
-entry:
-  %slot = alloca SLOT_TYPE, align 8
-  STORE_LINE
-  LOAD_LINE
-  USE_LINE
-  ret void
-}
-			`
+			irText := strings.Join([]string{
+				`target datalayout = "e-p:64:64:64-p3:32:32:32"`,
+				`@smem = internal addrspace(3) global i8 0, align 1`,
+				`define void @kernel() {`,
+				`entry:`,
+				`  %slot = alloca SLOT_TYPE, align 8`,
+				`  STORE_LINE`,
+				`  LOAD_LINE`,
+				`  USE_LINE`,
+				`  ret void`,
+				`}`,
+			}, "\n") + "\n"
 			ir := []byte(strings.NewReplacer(
 				"SLOT_TYPE", allocType,
 				"STORE_LINE", tt.store,
