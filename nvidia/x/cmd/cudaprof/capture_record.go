@@ -891,7 +891,11 @@ func writeCapture(path string, result captureResult, budget captureArtifactBudge
 			return nil, err
 		}
 		if stackSidecar.damaged {
-			c.Profile.Comments = append(c.Profile.Comments, "cudaprof: external stack sidecar damaged; "+stackSidecar.damageNote)
+			detail := stackSidecar.damageNote
+			if len(stackSidecar.damageFiles) != 0 {
+				detail += "; files: " + strings.Join(stackSidecar.damageFiles, ", ")
+			}
+			c.Profile.Comments = append(c.Profile.Comments, "cudaprof: external stack sidecar damaged; "+detail)
 		}
 	} else {
 		c.Profile, err = labelExternalCorrelation(c.Profile, result.Session, uint64(result.TargetPID), result.Activities, sampleRecords, nil)

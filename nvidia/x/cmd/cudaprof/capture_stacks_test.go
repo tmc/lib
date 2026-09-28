@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -261,6 +262,119 @@ func TestCaptureRecordReportsExternalStackLosses(t *testing.T) {
 	cap, _ := readStackCapture(t, data, oneExternalActivity(), captureArtifactBudget{FileBytes: 1 << 20, TotalBytes: 4 << 20})
 	if !strings.Contains(strings.Join(cap.Profile.Comments, "\n"), "external stack losses lower bound: 5") {
 		t.Fatalf("loss count not reported in capture profile: %v", cap.Profile.Comments)
+	}
+}
+
+func TestPerProcessSidecarDamageIsIsolated(t *testing.T) {
+	dir := t.TempDir()
+	base := filepath.Join(dir, cudacapture.ExternalStacksName)
+	good := "{\"version\":1,\"kind\":\"header\",\"losses\":\"00000000000000000000\"}\n" +
+		"{\"version\":1,\"kind\":\"stack\",\"process\":101,\"external_kind\":3,\"external_id\":77,\"frames\":[\"main\",\"good\"]}\n"
+	if err := os.WriteFile(base+".101", []byte(good), 0600); err != nil {
+		t.Fatal(err)
+	}
+	badName := filepath.Base(base + ".202")
+	if err := os.WriteFile(base+".202", []byte("{partial"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := readExternalStackSidecar(base, 101)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.damaged || !strings.Contains(strings.Join(got.damageFiles, ","), badName) {
+		t.Fatalf("damage report = %+v", got)
+	}
+	var table cudaprof.ExternalStackTable
+	if err := json.Unmarshal(got.data, &table); err != nil {
+		t.Fatal(err)
+	}
+	if len(table.Stacks) != 1 || table.Stacks[0].Process != 101 || table.Stacks[0].Frames[1] != "good" {
+		t.Fatalf("healthy sidecar lost: %+v", table.Stacks)
+	}
+	activities := stackActivitySet(101, struct {
+		name string
+		id   uint64
+		corr uint32
+	}{"healthy", 77, 123})
+	path := filepath.Join(t.TempDir(), "capture.cudaprof")
+	result := captureResult{Protocol: captureProtocolVersion, Session: "damaged-process-sidecar", State: captureStateFinalized, Outcome: captureOutcomeObserved, TargetPID: 101, CaptureSuccess: true, ScratchDir: dir, Activities: activities}
+	if _, err := writeCapture(path, result, captureArtifactBudget{FileBytes: 1 << 20, TotalBytes: 4 << 20}); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	capture, err := cudacapture.Read(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStack(t, samplesByName(capture)["healthy"], "matched", "main;good")
+	comments := strings.Join(capture.Profile.Comments, "\n")
+	if !strings.Contains(comments, badName) {
+		t.Fatalf("damaged filename missing from profile comment: %v", capture.Profile.Comments)
+	}
+}
+
+func TestPerProcessSidecarInvalidCompleteLineIsReported(t *testing.T) {
+	dir := t.TempDir()
+	base := filepath.Join(dir, cudacapture.ExternalStacksName)
+	if err := os.WriteFile(base+".101", []byte("not-json\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := readExternalStackSidecar(base, 101)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.damaged || len(got.damageFiles) != 1 || got.damageFiles[0] != filepath.Base(base+".101") {
+		t.Fatalf("invalid complete line was not reported: %+v", got)
+	}
+}
+
+func TestUnreadablePerProcessSidecarIsReported(t *testing.T) {
+	dir := t.TempDir()
+	base := filepath.Join(dir, cudacapture.ExternalStacksName)
+	bad := base + ".303"
+	if err := os.WriteFile(bad, []byte("sidecar"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	oldRead := readExternalStackFile
+	readExternalStackFile = func(path string) ([]byte, error) {
+		if path == bad {
+			return nil, os.ErrPermission
+		}
+		return oldRead(path)
+	}
+	t.Cleanup(func() { readExternalStackFile = oldRead })
+	got, err := readExternalStackSidecar(base, 303)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.damaged || len(got.damageFiles) != 1 || got.damageFiles[0] != filepath.Base(bad) {
+		t.Fatalf("unreadable sidecar was not reported: %+v", got)
+	}
+}
+
+func TestPerProcessSidecarLossesAreSummed(t *testing.T) {
+	dir := t.TempDir()
+	base := filepath.Join(dir, cudacapture.ExternalStacksName)
+	for pid, losses := range map[int]int{101: 5, 202: 7} {
+		line := fmt.Sprintf("{\"version\":1,\"kind\":\"header\",\"losses\":\"%020d\",\"losses_lower_bound\":true}\n", losses)
+		if err := os.WriteFile(fmt.Sprintf("%s.%d", base, pid), []byte(line), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := readExternalStackSidecar(base, 101)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var table cudaprof.ExternalStackTable
+	if err := json.Unmarshal(got.data, &table); err != nil {
+		t.Fatal(err)
+	}
+	if table.Losses != 12 || !table.LossesLowerBound {
+		t.Fatalf("losses = %d lower=%v, want 12 lower bound", table.Losses, table.LossesLowerBound)
 	}
 }
 

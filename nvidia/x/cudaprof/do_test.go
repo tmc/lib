@@ -89,8 +89,25 @@ func TestExternalStackSidecarWrittenByTarget(t *testing.T) {
 	if len(record.Frames) == 0 || !strings.Contains(record.Frames[len(record.Frames)-1], "sidecarTargetCallSite") {
 		t.Fatalf("leaf frame = %v, want sidecarTargetCallSite", record.Frames)
 	}
-	if header.Losses != "00000000000000000065" || !header.LowerBound {
-		t.Fatalf("loss checkpoint = %q, want lower-bound checkpoint 65", header.Losses)
+	var lastLoss string
+	for scanner.Scan() {
+		var row struct {
+			Kind       string `json:"kind"`
+			Losses     string `json:"losses"`
+			LowerBound bool   `json:"losses_lower_bound"`
+		}
+		if err := json.Unmarshal(scanner.Bytes(), &row); err != nil {
+			t.Fatal(err)
+		}
+		if row.Kind == "losses" {
+			lastLoss = row.Losses
+			if !row.LowerBound {
+				t.Fatal("loss checkpoint is not a lower bound")
+			}
+		}
+	}
+	if lastLoss != "00000000000000000065" {
+		t.Fatalf("loss checkpoint = %q, want lower-bound checkpoint 65", lastLoss)
 	}
 }
 
@@ -126,16 +143,29 @@ func TestDoCostAfterStackBudgetFull(t *testing.T) {
 	if !bytes.Equal(before, after) {
 		t.Fatalf("sidecar changed during full-budget calls: size %d -> %d", len(before), len(after))
 	}
-	var header struct {
+	var checkpoint struct {
 		Kind       string `json:"kind"`
 		Losses     string `json:"losses"`
 		LowerBound bool   `json:"losses_lower_bound"`
 	}
-	if err := json.Unmarshal(bytes.SplitN(after, []byte{'\n'}, 2)[0], &header); err != nil {
-		t.Fatal(err)
+	for _, line := range bytes.Split(after, []byte{'\n'}) {
+		var row struct {
+			Kind       string `json:"kind"`
+			Losses     string `json:"losses"`
+			LowerBound bool   `json:"losses_lower_bound"`
+		}
+		if len(line) == 0 {
+			continue
+		}
+		if err := json.Unmarshal(line, &row); err != nil {
+			t.Fatal(err)
+		}
+		if row.Kind == "losses" {
+			checkpoint = row
+		}
 	}
-	if header.Kind != "header" || header.Losses != "00000000000000000001" || !header.LowerBound {
-		t.Fatalf("loss checkpoint = %+v", header)
+	if checkpoint.Kind != "losses" || checkpoint.Losses != "00000000000000000001" || !checkpoint.LowerBound {
+		t.Fatalf("loss checkpoint = %+v", checkpoint)
 	}
 }
 
@@ -153,6 +183,34 @@ func BenchmarkDoCostAfterStackBudgetFull(b *testing.B) {
 	Correlate(cupti.ExternalCorrelationKindCustom0)
 	sidecarTargetCallSite()
 	sidecarTargetCallSite()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		sidecarTargetCallSite()
+	}
+	b.StopTimer()
+	pushExternalCorrelationID, popExternalCorrelationID = oldPush, oldPop
+	externalStackBudget = oldBudget
+	correlationKind.Store(oldKind)
+	ResetExternalStacks()
+	if hadPath {
+		_ = os.Setenv(ExternalStacksEnv, oldPath)
+	} else {
+		_ = os.Unsetenv(ExternalStacksEnv)
+	}
+}
+
+func BenchmarkDoCostWithinStackBudget(b *testing.B) {
+	base := filepath.Join(b.TempDir(), "external-stacks.json")
+	oldPath, hadPath := os.LookupEnv(ExternalStacksEnv)
+	_ = os.Setenv(ExternalStacksEnv, base)
+	oldPush, oldPop := pushExternalCorrelationID, popExternalCorrelationID
+	oldBudget, oldKind := externalStackBudget, correlationKind.Load()
+	var last uint64
+	pushExternalCorrelationID = func(_ cupti.ExternalCorrelationKind, id uint64) error { last = id; return nil }
+	popExternalCorrelationID = func(cupti.ExternalCorrelationKind) (uint64, error) { return last, nil }
+	ResetExternalStacks()
+	externalStackBudget = b.N + 10
+	Correlate(cupti.ExternalCorrelationKindCustom0)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		sidecarTargetCallSite()
@@ -443,7 +501,7 @@ func TestDoStackTruncationMarked(t *testing.T) {
 }
 
 func TestDoStackExactly64FramesMarked(t *testing.T) {
-	var pcs [maxCallstackFrames]uintptr
+	var pcs [maxCallstackFrames + 1]uintptr
 	var caller [1]uintptr
 	if n := runtime.Callers(0, caller[:]); n != 1 {
 		t.Fatalf("runtime.Callers = %d, want 1", n)
@@ -451,9 +509,52 @@ func TestDoStackExactly64FramesMarked(t *testing.T) {
 	for i := range pcs {
 		pcs[i] = caller[0]
 	}
-	stack := formatCallstack(pcs[:])
+	stack := formatCallstack(pcs[:maxCallstackFrames])
+	if len(stack) == 0 || stack[0] == "[truncated]" {
+		t.Fatalf("64-frame stack root = %v, want complete stack", stack)
+	}
+	stack = formatCallstack(pcs[:])
 	if len(stack) == 0 || stack[0] != "[truncated]" {
-		t.Fatalf("64-frame stack root = %v, want [truncated]", stack)
+		t.Fatalf("65-frame stack root = %v, want [truncated]", stack)
+	}
+}
+
+type countedSidecarFile struct {
+	externalStackSidecarFile
+	syncs *int
+}
+
+func (f countedSidecarFile) Sync() error { *f.syncs++; return f.externalStackSidecarFile.Sync() }
+
+func TestExternalStackSidecarKeepsOpenAndDoesNotSync(t *testing.T) {
+	ResetExternalStacks()
+	base := filepath.Join(t.TempDir(), "stacks")
+	t.Setenv(ExternalStacksEnv, base)
+	oldOpen := openExternalStackSidecarFile
+	opens, syncs := 0, 0
+	openExternalStackSidecarFile = func(path string) (externalStackSidecarFile, error) {
+		opens++
+		f, err := oldOpen(path)
+		if err != nil {
+			return nil, err
+		}
+		return countedSidecarFile{f, &syncs}, nil
+	}
+	t.Cleanup(func() { ResetExternalStacks(); openExternalStackSidecarFile = oldOpen })
+	for i := uint64(1); i <= 8; i++ {
+		if !RecordExternalStack(cupti.ExternalCorrelationKindCustom0, i, []string{"frame"}) {
+			t.Fatal("record was rejected")
+		}
+	}
+	if opens != 1 || syncs != 0 {
+		t.Fatalf("retained stacks: opens=%d syncs=%d, want 1 and 0", opens, syncs)
+	}
+	ResetExternalStacks()
+	for i := uint64(2); i <= externalStackLossCheckpointInterval; i++ {
+		_ = appendExternalStackLoss(i)
+	}
+	if opens != 1 || syncs != 0 {
+		t.Fatalf("losses between checkpoints: opens=%d syncs=%d, want unchanged", opens, syncs)
 	}
 }
 

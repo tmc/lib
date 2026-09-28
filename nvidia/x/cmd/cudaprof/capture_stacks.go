@@ -46,12 +46,15 @@ type stackSidecarLine struct {
 }
 
 type stackSidecarRead struct {
-	data       []byte
-	rawSize    int64
-	damaged    bool
-	damageNote string
-	exists     bool
+	data        []byte
+	rawSize     int64
+	damaged     bool
+	damageNote  string
+	damageFiles []string
+	exists      bool
 }
+
+var readExternalStackFile = os.ReadFile
 
 // readExternalStackSidecar collects process-isolated sidecars into one bounded
 // capture member. Complete records survive a torn final line; malformed
@@ -83,7 +86,7 @@ func readExternalStackSidecar(base string, targetPID uint64) (stackSidecarRead, 
 		}
 		pidText := strings.TrimPrefix(entry.Name(), prefix)
 		pid, parseErr := strconv.ParseUint(pidText, 10, 64)
-		if parseErr != nil || pid == 0 || entry.IsDir() {
+		if parseErr != nil || pid == 0 {
 			continue
 		}
 		paths = append(paths, filepath.Join(filepath.Dir(base), entry.Name()))
@@ -95,16 +98,32 @@ func readExternalStackSidecar(base string, targetPID uint64) (stackSidecarRead, 
 	out.exists = true
 	table := cudaprof.ExternalStackTable{Version: 1}
 	for _, path := range paths {
+		baseFile := filepath.Clean(path) == filepath.Clean(base)
 		info, err := os.Stat(path)
 		if err != nil {
-			return out, fmt.Errorf("stat %s: %w", filepath.Base(path), err)
+			if baseFile {
+				return out, fmt.Errorf("stat %s: %w", filepath.Base(path), err)
+			}
+			out.damaged = true
+			out.damageFiles = append(out.damageFiles, filepath.Base(path))
+			continue
 		}
 		if !info.Mode().IsRegular() {
-			return out, fmt.Errorf("%s is not a regular file", filepath.Base(path))
+			if baseFile {
+				return out, fmt.Errorf("%s is not a regular file", filepath.Base(path))
+			}
+			out.damaged = true
+			out.damageFiles = append(out.damageFiles, filepath.Base(path))
+			continue
 		}
-		data, err := os.ReadFile(path)
+		data, err := readExternalStackFile(path)
 		if err != nil {
-			return out, fmt.Errorf("read %s: %w", filepath.Base(path), err)
+			if baseFile {
+				return out, fmt.Errorf("read %s: %w", filepath.Base(path), err)
+			}
+			out.damaged = true
+			out.damageFiles = append(out.damageFiles, filepath.Base(path))
+			continue
 		}
 		out.rawSize += int64(len(data))
 		fallbackPID := uint64(0)
@@ -113,11 +132,17 @@ func readExternalStackSidecar(base string, targetPID uint64) (stackSidecarRead, 
 		}
 		part, damaged, err := decodeStackSidecar(data, fallbackPID)
 		if err != nil {
-			return out, fmt.Errorf("decode %s: %w", filepath.Base(path), err)
+			if baseFile {
+				return out, fmt.Errorf("decode %s: %w", filepath.Base(path), err)
+			}
+			out.damaged = true
+			out.damageFiles = append(out.damageFiles, filepath.Base(path))
+			continue
 		}
 		out.damaged = out.damaged || damaged
 		if damaged {
 			out.damageNote = "trailing partial sidecar line omitted"
+			out.damageFiles = append(out.damageFiles, filepath.Base(path))
 		}
 		for i := range part.Stacks {
 			if part.Stacks[i].Process == 0 {
@@ -176,6 +201,15 @@ func decodeStackSidecar(data []byte, fallbackPID uint64) (cudaprof.ExternalStack
 				}
 				table.Losses += losses
 			}
+			table.LossesLowerBound = table.LossesLowerBound || row.LowerBound
+			continue
+		}
+		if row.Kind == "losses" {
+			losses, err := strconv.ParseUint(row.Losses, 10, 64)
+			if err != nil {
+				return table, false, fmt.Errorf("invalid loss count: %w", err)
+			}
+			table.Losses = losses
 			table.LossesLowerBound = table.LossesLowerBound || row.LowerBound
 			continue
 		}

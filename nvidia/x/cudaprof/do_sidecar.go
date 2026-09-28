@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 const maxExternalStackSidecarBytes = 16 << 20
@@ -22,76 +23,134 @@ type externalStackSidecarLine struct {
 	Frames       []string `json:"frames,omitempty"`
 }
 
-// appendExternalStackRecord writes one complete JSONL record to this process's
-// sidecar. The controller gives each capture a shared base path; the PID
-// suffix keeps child processes from mixing IDs or racing on the header.
+type externalStackSidecarFile interface {
+	Write([]byte) (int, error)
+	Stat() (os.FileInfo, error)
+	Close() error
+	Sync() error
+}
+
+var openExternalStackSidecarFile = func(path string) (externalStackSidecarFile, error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return nil, fmt.Errorf("cudaprof: create external stack sidecar directory: %w", err)
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0600)
+	if err != nil {
+		return nil, fmt.Errorf("cudaprof: open external stack sidecar: %w", err)
+	}
+	return f, nil
+}
+
+var externalStackSidecarState struct {
+	sync.Mutex
+	path string
+	file externalStackSidecarFile
+	size int64
+}
+
+func closeExternalStackSidecar() {
+	externalStackSidecarState.Lock()
+	defer externalStackSidecarState.Unlock()
+	if externalStackSidecarState.file != nil {
+		_ = externalStackSidecarState.file.Close()
+	}
+	externalStackSidecarState.path, externalStackSidecarState.file, externalStackSidecarState.size = "", nil, 0
+}
+
+func sidecarFile(path string) (externalStackSidecarFile, int64, error) {
+	if externalStackSidecarState.path == path && externalStackSidecarState.file != nil {
+		return externalStackSidecarState.file, externalStackSidecarState.size, nil
+	}
+	if externalStackSidecarState.file != nil {
+		_ = externalStackSidecarState.file.Close()
+	}
+	f, err := openExternalStackSidecarFile(path)
+	if err != nil {
+		externalStackSidecarState.file = nil
+		return nil, 0, err
+	}
+	info, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		externalStackSidecarState.file = nil
+		return nil, 0, fmt.Errorf("cudaprof: stat external stack sidecar: %w", err)
+	}
+	externalStackSidecarState.path, externalStackSidecarState.file, externalStackSidecarState.size = path, f, info.Size()
+	return f, info.Size(), nil
+}
+
+func writeExternalStackSidecar(data []byte) error {
+	externalStackSidecarState.Lock()
+	defer externalStackSidecarState.Unlock()
+	path, err := externalStackSidecarPath()
+	if err != nil || path == "" {
+		return err
+	}
+	f, size, err := sidecarFile(path)
+	if err != nil {
+		return err
+	}
+	if size+int64(len(data)) > maxExternalStackSidecarBytes {
+		return fmt.Errorf("cudaprof: external stack sidecar exceeds %d bytes", maxExternalStackSidecarBytes)
+	}
+	n, err := f.Write(data)
+	if err != nil {
+		return fmt.Errorf("cudaprof: append external stack sidecar: %w", err)
+	}
+	if n != len(data) {
+		return io.ErrShortWrite
+	}
+	externalStackSidecarState.size += int64(n)
+	return nil
+}
+
 func appendExternalStackRecord(record ExternalStackRecord, losses uint64) error {
 	path, err := externalStackSidecarPath()
 	if err != nil || path == "" {
 		return err
 	}
-	f, info, err := openExternalStackSidecar(path)
+	var data []byte
+	externalStackSidecarState.Lock()
+	defer externalStackSidecarState.Unlock()
+	f, size, err := sidecarFile(path)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	process := uint64(os.Getpid())
-	var data []byte
-	if info.Size() == 0 {
-		header := externalStackSidecarLine{Version: 1, Kind: "header", Process: process, Losses: fmt.Sprintf("%020d", losses), LowerBound: true}
-		line, err := marshalExternalStackSidecarLine(header)
+	if size == 0 {
+		header, err := marshalExternalStackSidecarLine(externalStackSidecarLine{Version: 1, Kind: "header", Process: uint64(os.Getpid()), Losses: fmt.Sprintf("%020d", losses), LowerBound: true})
 		if err != nil {
 			return err
 		}
-		data = append(data, line...)
+		data = append(data, header...)
 	}
-	line := externalStackSidecarLine{Version: 1, Kind: "stack", Process: process, ExternalKind: record.ExternalKind, ExternalID: record.ExternalID, Frames: record.Frames}
-	encoded, err := marshalExternalStackSidecarLine(line)
+	line, err := marshalExternalStackSidecarLine(externalStackSidecarLine{Version: 1, Kind: "stack", Process: uint64(os.Getpid()), ExternalKind: record.ExternalKind, ExternalID: record.ExternalID, Frames: record.Frames})
 	if err != nil {
 		return err
 	}
-	data = append(data, encoded...)
-	if info.Size()+int64(len(data)) > maxExternalStackSidecarBytes {
+	data = append(data, line...)
+	if size+int64(len(data)) > maxExternalStackSidecarBytes {
 		return fmt.Errorf("cudaprof: external stack sidecar exceeds %d bytes", maxExternalStackSidecarBytes)
 	}
-	if _, err := f.Seek(0, io.SeekEnd); err != nil {
-		return fmt.Errorf("cudaprof: seek external stack sidecar: %w", err)
-	}
-	if _, err := f.Write(data); err != nil {
+	n, err := f.Write(data)
+	if err != nil {
 		return fmt.Errorf("cudaprof: append external stack sidecar: %w", err)
 	}
+	if n != len(data) {
+		return io.ErrShortWrite
+	}
+	externalStackSidecarState.size += int64(n)
 	return nil
 }
 
-// appendExternalStackLoss checkpoints losses once when the budget first fills
-// and then every fixed interval. The header is therefore a lower bound between
-// checkpoints, and repeated rejected Do calls do no file I/O.
 func appendExternalStackLoss(losses uint64) error {
 	if losses == 0 || (losses != 1 && (losses-1)%externalStackLossCheckpointInterval != 0) {
 		return nil
 	}
-	path, err := externalStackSidecarPath()
-	if err != nil || path == "" {
-		return err
-	}
-	f, info, err := openExternalStackSidecar(path)
+	data, err := marshalExternalStackSidecarLine(externalStackSidecarLine{Version: 1, Kind: "losses", Process: uint64(os.Getpid()), Losses: fmt.Sprintf("%020d", losses), LowerBound: true})
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	header := externalStackSidecarLine{Version: 1, Kind: "header", Process: uint64(os.Getpid()), Losses: fmt.Sprintf("%020d", losses), LowerBound: true}
-	data, err := marshalExternalStackSidecarLine(header)
-	if err != nil {
-		return err
-	}
-	if info.Size() == 0 {
-		if _, err := f.Write(data); err != nil {
-			return fmt.Errorf("cudaprof: write external stack sidecar header: %w", err)
-		}
-	} else if _, err := f.WriteAt(data, 0); err != nil {
-		return fmt.Errorf("cudaprof: update external stack sidecar loss checkpoint: %w", err)
-	}
-	return nil
+	return writeExternalStackSidecar(data)
 }
 
 func externalStackSidecarPath() (string, error) {
@@ -100,22 +159,6 @@ func externalStackSidecarPath() (string, error) {
 		return "", nil
 	}
 	return fmt.Sprintf("%s.%d", base, os.Getpid()), nil
-}
-
-func openExternalStackSidecar(path string) (*os.File, os.FileInfo, error) {
-	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
-		return nil, nil, fmt.Errorf("cudaprof: create external stack sidecar directory: %w", err)
-	}
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0600)
-	if err != nil {
-		return nil, nil, fmt.Errorf("cudaprof: open external stack sidecar: %w", err)
-	}
-	info, err := f.Stat()
-	if err != nil {
-		_ = f.Close()
-		return nil, nil, fmt.Errorf("cudaprof: stat external stack sidecar: %w", err)
-	}
-	return f, info, nil
 }
 
 func marshalExternalStackSidecarLine(line externalStackSidecarLine) ([]byte, error) {

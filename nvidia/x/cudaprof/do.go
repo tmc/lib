@@ -229,6 +229,7 @@ func RecordExternalStack(kind cupti.ExternalCorrelationKind, id uint64, stack []
 func ResetExternalStacks() {
 	externalStacksMu.Lock()
 	defer externalStacksMu.Unlock()
+	closeExternalStackSidecar()
 	externalStacks = make(map[externalStackKey][][]string)
 	externalStackCount = 0
 	externalStackLosses = 0
@@ -325,7 +326,7 @@ func captureCallerStack(kind cupti.ExternalCorrelationKind, id uint64) {
 }
 
 func formatCallstack(pcs []uintptr) []string {
-	truncated := len(pcs) >= maxCallstackFrames
+	truncated := len(pcs) > maxCallstackFrames
 	if len(pcs) > maxCallstackFrames {
 		pcs = pcs[:maxCallstackFrames]
 	}
