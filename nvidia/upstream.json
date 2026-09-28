@@ -1334,6 +1334,98 @@
           "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d",
           "repository": "headers"
         }
+      ],
+      "header_dependencies": [
+        {
+          "path": "cuda_crt/crt/host_defines.h",
+          "repository": "headers",
+          "sha256": "dbabf0f8e8461362addf1bd4a04b6878923aa9be997352baf0bab7af7b9e47e1"
+        },
+        {
+          "path": "cuda_cudart/builtin_types.h",
+          "repository": "headers",
+          "sha256": "2714fd55fdaadac9f14c138bf400b33666334d60023b654e554bb529d16deff8"
+        },
+        {
+          "path": "cuda_cudart/cuda_device_runtime_api.h",
+          "repository": "headers",
+          "sha256": "0a159d4210c02213df336c8582700b617d6d298a7d74d9eb16c561bc5f4e9b7c"
+        },
+        {
+          "path": "cuda_cudart/cuda_runtime_api.h",
+          "repository": "headers",
+          "sha256": "a848e416776a49904e8bace4bd377c0c5b379461e6bb2fb8accb7e6162c3a96d"
+        },
+        {
+          "path": "cuda_cudart/device_types.h",
+          "repository": "headers",
+          "sha256": "d8b171a190493e80395741f511b29311a5c38b718324fb7338f7511c36ae7084"
+        },
+        {
+          "path": "cuda_cudart/driver_types.h",
+          "repository": "headers",
+          "sha256": "b37eb334124c5e43cfa2baa087aa128b44ddd8913da476ca0e92358d5d1be9c4"
+        },
+        {
+          "path": "cuda_cudart/library_types.h",
+          "repository": "headers",
+          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
+        },
+        {
+          "path": "cuda_cudart/surface_types.h",
+          "repository": "headers",
+          "sha256": "5e41570f59c76de48c81a8d1f94244f6e43b4c1cb32678dd9d42f8fb21a2b9f9"
+        },
+        {
+          "path": "cuda_cudart/texture_types.h",
+          "repository": "headers",
+          "sha256": "ef79ed57283cafc7f32b2e55224eb2baf0b8e460de59ea5a2c8a8893e337462f"
+        },
+        {
+          "path": "cuda_cudart/vector_types.h",
+          "repository": "headers",
+          "sha256": "ded087a2c3ca89fd3a5150589175aca0aa4714357016209ea3e7a51f94845e75"
+        },
+        {
+          "path": "libcudnn/cudnn_adv_v9.h",
+          "repository": "headers",
+          "sha256": "f74ee54b3fa51bbe10526f32fe2f34414530a790d0129462ed76254eab4f3f8e"
+        },
+        {
+          "path": "libcudnn/cudnn_cnn_v9.h",
+          "repository": "headers",
+          "sha256": "86fe44b28e2c356cb0099a470e9894fe2fbdb231fdea144c35b1266e907f260a"
+        },
+        {
+          "path": "libcudnn/cudnn_graph_v9.h",
+          "repository": "headers",
+          "sha256": "75a70552a07660d25ad900dd45f180ec557965fd41433be8723bbd4c64337308"
+        },
+        {
+          "path": "libcudnn/cudnn_ops_v9.h",
+          "repository": "headers",
+          "sha256": "906942f64d5542c122101423d1a0e8d8711ee836c4cb61c9836c012bcb5f38c8"
+        },
+        {
+          "path": "libcudnn/cudnn_v9.h",
+          "repository": "headers",
+          "sha256": "1082d51d3b564bace8ef6fc6ee335b668b2bfa517f57c06efd428263e5c21855"
+        },
+        {
+          "path": "libcudnn/cudnn_version_v9.h",
+          "repository": "headers",
+          "sha256": "8d79398cefba20da6ca84b9b9c3160490373709b4bc940893695a2b7bc2a9528"
+        },
+        {
+          "path": "runtime/driver_types.h",
+          "repository": "headers",
+          "sha256": "915f0a66b668944cf34f6e2c1f88b4507789ffdc7905c98ec792e7c184cd12f2"
+        },
+        {
+          "path": "types/library_types.h",
+          "repository": "headers",
+          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
+        }
       ]
     },
     "cudss": {
