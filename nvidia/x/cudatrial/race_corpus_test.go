@@ -357,8 +357,8 @@ func TestCasewiseModelTracksUpstreamFixMechanisms(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if interkernel[0].AgentID == interkernel[1].AgentID || interkernel[0].StreamID == interkernel[1].StreamID {
-		t.Fatal("interkernel accesses do not model different agents on different streams")
+	if interkernel[0].AgentID == interkernel[1].AgentID || interkernel[0].StreamID == interkernel[1].StreamID || interkernel[0].ThreadID != interkernel[1].ThreadID || interkernel[0].BlockID != interkernel[1].BlockID {
+		t.Fatal("interkernel accesses do not isolate different agents at the same execution coordinates")
 	}
 	dsmem, err := caseAccesses("dsmem/shared_readwrite_race", false)
 	if err != nil {
@@ -367,9 +367,9 @@ func TestCasewiseModelTracksUpstreamFixMechanisms(t *testing.T) {
 	if dsmem[0].BlockID == dsmem[1].BlockID || dsmem[0].ClusterID != dsmem[1].ClusterID {
 		t.Fatal("DSMEM case does not model two CTAs in one cluster")
 	}
-	war, err := caseAccesses("bulkcpy/shared_readwrite_race", false)
-	if err != nil || !war[0].IsWrite || war[1].IsWrite {
-		t.Fatalf("bulkcpy shared-source case is not read-after-write: accesses=%+v err=%v", war, err)
+	bulkAccesses, err := caseAccesses("bulkcpy/shared_readwrite_race", false)
+	if err != nil || bulkAccesses[0].IsWrite || !bulkAccesses[1].IsWrite {
+		t.Fatalf("bulkcpy shared-source case is not read-then-write: accesses=%+v err=%v", bulkAccesses, err)
 	}
 	if len(accessModels) != len(c.TestCases()) {
 		t.Fatalf("case model table has %d entries for %d corpus cases", len(accessModels), len(c.TestCases()))
@@ -445,6 +445,29 @@ func TestConformanceRateReportsDisjointCounts(t *testing.T) {
 	}
 	if summary.Passed+summary.Failed+summary.HardwarePending+summary.Unmodelled+summary.UnknownExit != summary.Total {
 		t.Fatalf("counts do not sum to total: %+v", summary)
+	}
+}
+
+func TestConformanceRateReportsFixed0MissesAfterControlPasses(t *testing.T) {
+	c := NewRaceCorpus()
+	configuration := "FIXED=0;ARCH=sm_90"
+	control := makeExecControl(t, configuration)
+	results := []EvaluationResult{{
+		TestCase: "cudatrial/planted-race-control", IsLivenessControl: true,
+		HasRace: true, ExitCode: 1, Configuration: configuration,
+	}}
+	for _, tc := range c.TestCases() {
+		results = append(results, EvaluationResult{
+			TestCase: tc.Name, Category: tc.Category, Fixed: false,
+			Configuration: configuration,
+		})
+	}
+	summary, err := c.ConformanceRate(results, control)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if summary.Total != 27 || summary.Failed == 0 || summary.Rate >= 1 {
+		t.Fatalf("passing only the planted control looked like corpus conformance: %+v", summary)
 	}
 }
 
@@ -573,6 +596,29 @@ func TestControl_DetectorNeverReachedFixed1(t *testing.T) {
 	}
 }
 
+func TestConformanceRateRejectsMissingPlantedControlAlone(t *testing.T) {
+	c := NewRaceCorpus()
+	root := makeCorpusBinaries(t, c, "sm_90")
+	t.Setenv("CUHADRON_BINARY_ROOT", root)
+	results, runErr := c.RunExternal(context.Background(), "true", false, "sm_90")
+	if !errors.Is(runErr, ErrDetectorNeverReached) {
+		t.Fatalf("clean planted-control run error = %v, want ErrDetectorNeverReached", runErr)
+	}
+	if len(results) != 28 {
+		t.Fatalf("results contain %d rows, want 27 corpus rows plus control", len(results))
+	}
+	for i, result := range results {
+		if result.TestCase == "cudatrial/planted-race-control" {
+			results = append(results[:i], results[i+1:]...)
+			break
+		}
+	}
+	control := makeExecControl(t, "FIXED=0;ARCH=sm_90")
+	if _, err := c.ConformanceRate(results, control); err == nil {
+		t.Fatal("27 complete corpus rows without planted control were accepted")
+	}
+}
+
 func TestHazardMatrix_SubwarpAndHostDeviceControls(t *testing.T) {
 	c := NewRaceCorpus()
 	for _, name := range []string{"intersubwarp/shared_readwrite_race", "hostdevice/global_readwrite_race"} {
@@ -618,12 +664,56 @@ func TestControl_NonOneExitIsNotDetection(t *testing.T) {
 
 func TestConformanceRateRejectsMismatchedExecConfiguration(t *testing.T) {
 	c := NewRaceCorpus()
-	results := []EvaluationResult{
-		{TestCase: "cudatrial/planted-race-control", IsLivenessControl: true, HasRace: true, ExitCode: 1, Configuration: "FIXED=0;ARCH=sm_90"},
-		{TestCase: "memcpy/shared_readwrite_race", Category: CategoryMemcpy, Fixed: true, Configuration: "FIXED=1;ARCH=sm_90"},
+	configuration := "FIXED=0;ARCH=sm_90"
+	control := makeExecControl(t, configuration)
+	results := validConformanceResults(c, configuration)
+	for i := range results {
+		if results[i].TestCase != "cudatrial/planted-race-control" {
+			results[i].Configuration = "FIXED=1;ARCH=sm_90"
+			break
+		}
 	}
-	if _, err := c.ConformanceRate(results, makeExecControl(t, "FIXED=0;ARCH=sm_90")); err == nil {
+	if _, err := c.ConformanceRate(results, control); err == nil {
 		t.Fatal("mismatched exec-control configuration accepted")
+	}
+}
+
+func TestReadExecControlRejectsInvalidReceipts(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		data string
+	}{
+		{"passed false", `{"configuration":"FIXED=1;ARCH=sm_90","passed":false}`},
+		{"empty configuration", `{"configuration":"  ","passed":true}`},
+		{"malformed JSON", `{"configuration":`},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "exec-control.json")
+			if err := os.WriteFile(path, []byte(tt.data), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := ReadExecControl(path); err == nil {
+				t.Fatal("invalid exec-control receipt was accepted")
+			}
+		})
+	}
+}
+
+func TestConformanceRateRevalidatesExecControlEvidence(t *testing.T) {
+	c := NewRaceCorpus()
+	control := makeExecControl(t, "FIXED=1;ARCH=sm_90")
+	results := validConformanceResults(c, control.Configuration())
+	if err := os.Remove(control.EvidencePath()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.ConformanceRate(results, control); err == nil {
+		t.Fatal("removed exec-control evidence was accepted")
+	}
+	if err := os.WriteFile(control.EvidencePath(), []byte(`{"configuration":"FIXED=1;ARCH=sm_90","passed":false}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.ConformanceRate(results, control); err == nil {
+		t.Fatal("exec-control evidence changed to passed=false was accepted")
 	}
 }
 

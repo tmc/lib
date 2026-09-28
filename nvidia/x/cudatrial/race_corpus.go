@@ -91,6 +91,7 @@ func (r EvaluationResult) Passed() bool {
 // private so a result row cannot claim control status with a struct literal.
 // Lane 52 writes JSON with `configuration` and `passed` fields, then callers
 // pass the value returned by [ReadExecControl] to [RaceCorpus.ConformanceRate].
+// ConformanceRate re-reads and validates the file on each call.
 type ExecControl struct {
 	configuration string
 	evidencePath  string
@@ -152,7 +153,7 @@ func NewRaceCorpus() *RaceCorpus {
 			{Name: "memcpy/shared_readwrite_race", Category: CategoryMemcpy, Memory: cudashared.MemoryShared, Scope: cudashared.ScopeCTA, Hazard: cudashared.HazardReadWrite, MinArch: "sm_80", FixedSupported: true, Description: "Consumer reads shared memory before cp.async completes"},
 
 			// bulkcpy (cp.async.bulk, sm_90+)
-			{Name: "bulkcpy/shared_readwrite_race", Category: CategoryBulkcpy, Memory: cudashared.MemoryShared, Scope: cudashared.ScopeCTA, Hazard: cudashared.HazardWriteRead, MinArch: "sm_90", FixedSupported: true, Description: "Bulk copy reads shared memory while other threads write"},
+			{Name: "bulkcpy/shared_readwrite_race", Category: CategoryBulkcpy, Memory: cudashared.MemoryShared, Scope: cudashared.ScopeCTA, Hazard: cudashared.HazardReadWrite, MinArch: "sm_90", FixedSupported: true, Description: "Bulk copy reads shared memory before other threads write"},
 			{Name: "bulkcpy/global_writewrite_race", Category: CategoryBulkcpy, Memory: cudashared.MemoryGlobal, Scope: cudashared.ScopeDevice, Hazard: cudashared.HazardWriteWrite, MinArch: "sm_90", FixedSupported: true, Description: "Multiple blocks write same global location via bulk copy"},
 			{Name: "bulkcpy/global_readwrite_race", Category: CategoryBulkcpy, Memory: cudashared.MemoryGlobal, Scope: cudashared.ScopeDevice, Hazard: cudashared.HazardReadWrite, MinArch: "sm_90", FixedSupported: true, Description: "Read before cp.async.bulk completes"},
 			{Name: "bulkcpy/shared_writeread_race_g2s", Category: CategoryBulkcpy, Memory: cudashared.MemoryShared, Scope: cudashared.ScopeCTA, Hazard: cudashared.HazardWriteRead, MinArch: "sm_90", FixedSupported: true, Description: "Bulk copy global to shared write-read race"},
@@ -278,26 +279,33 @@ func (c *RaceCorpus) EvaluateCase(name string, fixed bool, targetArch string) (E
 		base.Error = fmt.Errorf("unmodelled case %s: %w", name, err)
 		return base, base.Error
 	}
-	m := cudashared.NewHazardMatrix(targetArch)
-	for _, a := range accesses {
-		if err := m.AddAccess(a); err != nil {
-			base.Error = err
-			return base, err
-		}
-	}
-	records, err := m.Evaluate()
+	base.HasRace, base.EvaluatedPairs, err = evaluateAccesses(targetArch, accesses)
 	if err != nil {
 		base.HardwarePending, base.Error = errors.Is(err, cudaerrors.ErrHardwarePending), err
 		return base, err
-	}
-	base.EvaluatedPairs = len(records)
-	for _, record := range records {
-		base.HasRace = base.HasRace || record.IsRace
 	}
 	if base.HasRace {
 		base.ReportedDefects = 1
 	}
 	return base, nil
+}
+
+func evaluateAccesses(targetArch string, accesses []cudashared.MemoryAccess) (bool, int, error) {
+	m := cudashared.NewHazardMatrix(targetArch)
+	for _, access := range accesses {
+		if err := m.AddAccess(access); err != nil {
+			return false, 0, err
+		}
+	}
+	records, err := m.Evaluate()
+	if err != nil {
+		return false, 0, err
+	}
+	hasRace := false
+	for _, record := range records {
+		hasRace = hasRace || record.IsRace
+	}
+	return hasRace, len(records), nil
 }
 
 type caseAccessModel struct {
@@ -312,7 +320,7 @@ var accessModels = map[string]caseAccessModel{
 	"memcpy/shared_writewrite_race":              {cudashared.ScopeCTA, cudashared.MemoryShared, cudashared.HazardWriteWrite, "disjoint", "threads"},
 	"memcpy/global_readwrite_race":               {cudashared.ScopeCTA, cudashared.MemoryGlobal, cudashared.HazardReadWrite, "sync", "threads"},
 	"memcpy/shared_readwrite_race":               {cudashared.ScopeCTA, cudashared.MemoryShared, cudashared.HazardReadWrite, "sync", "threads"},
-	"bulkcpy/shared_readwrite_race":              {cudashared.ScopeCTA, cudashared.MemoryShared, cudashared.HazardWriteRead, "sync", "threads"},
+	"bulkcpy/shared_readwrite_race":              {cudashared.ScopeCTA, cudashared.MemoryShared, cudashared.HazardReadWrite, "sync", "threads"},
 	"bulkcpy/global_writewrite_race":             {cudashared.ScopeDevice, cudashared.MemoryGlobal, cudashared.HazardWriteWrite, "disjoint", "blocks"},
 	"bulkcpy/global_readwrite_race":              {cudashared.ScopeDevice, cudashared.MemoryGlobal, cudashared.HazardReadWrite, "sync", "threads"},
 	"bulkcpy/shared_writeread_race_g2s":          {cudashared.ScopeCTA, cudashared.MemoryShared, cudashared.HazardWriteRead, "sync", "threads"},
@@ -362,9 +370,11 @@ func caseAccesses(name string, fixed bool) ([]cudashared.MemoryAccess, error) {
 	case "threads":
 	case "kernels":
 		a.AgentID, b.AgentID = 1, 2
+		b.ThreadID = a.ThreadID
 		a.StreamID, b.StreamID = 1, 2
 	case "agents":
 		a.AgentID, b.AgentID = 1, 2
+		b.ThreadID, b.BlockID, b.ClusterID = a.ThreadID, a.BlockID, a.ClusterID
 	case "subwarps":
 		b.ThreadID = 16
 		if fixed {
@@ -555,8 +565,12 @@ func (c *RaceCorpus) ConformanceRate(results []EvaluationResult, control ExecCon
 	if control.configuration == "" || control.evidencePath == "" {
 		return summary, fmt.Errorf("conformance rate requires validated exec-control evidence")
 	}
-	if _, err := os.Stat(control.evidencePath); err != nil {
-		return summary, fmt.Errorf("exec-control evidence is unavailable: %w", err)
+	current, err := ReadExecControl(control.evidencePath)
+	if err != nil {
+		return summary, fmt.Errorf("exec-control evidence is no longer valid: %w", err)
+	}
+	if current.configuration != control.configuration {
+		return summary, fmt.Errorf("exec-control evidence configuration changed from %q to %q", control.configuration, current.configuration)
 	}
 	want := make(map[string]bool, len(c.cases))
 	for _, tc := range c.cases {
