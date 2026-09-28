@@ -16,6 +16,7 @@
 package nvvm_test
 
 import (
+	"errors"
 	"os"
 	"runtime"
 	"strconv"
@@ -24,6 +25,7 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/nvjitlink"
 	"github.com/tmc/lib/nvidia/nvvm"
 )
 
@@ -118,10 +120,75 @@ func TestVersions(t *testing.T) {
 	}
 }
 
-// TestCompileAndRun compiles the NVVM IR module to PTX and executes it.
+// TestCompileAndRun compiles the NVVM IR module to PTX and hands the PTX to
+// the driver to JIT. A driver older than the toolkit cannot read the PTX ISA
+// version the toolkit's libNVVM emits, so on such a host this test skips and
+// TestCompileAndLinkRun, which does not depend on the driver's JIT, carries
+// the assertion.
 func TestCompileAndRun(t *testing.T) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
+	ptx, _ := compile(t, current(t))
+
+	mod, err := driver.ModuleLoadData(append(ptx, 0))
+	if errors.Is(err, driver.ErrUnsupportedPtxVersion) {
+		v, _ := driver.DriverGetVersion()
+		major, minor, _ := nvvm.Version()
+		t.Skipf("driver %d.%d cannot JIT the PTX libNVVM %d.%d emits; TestCompileAndLinkRun covers this toolkit",
+			v/1000, v%1000/10, major, minor)
+	}
+	if err != nil {
+		t.Fatalf("ModuleLoadData: %v", err)
+	}
+	run(t, mod)
+}
+
+// TestCompileAndLinkRun compiles the same module and links the PTX to a CUBIN
+// with nvJitLink from the same toolkit. The driver loads the CUBIN without
+// JIT, which is how NVIDIA documents running newer-toolkit code on an older
+// driver under minor version compatibility, so this test must pass on every
+// supported toolkit minor whatever the driver.
+func TestCompileAndLinkRun(t *testing.T) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	arch := current(t)
+	ptx, _ := compile(t, arch)
+
+	if major, minor, err := nvjitlink.Version(); err == nil {
+		t.Logf("nvJitLink %d.%d", major, minor)
+	}
+	h, err := nvjitlink.Create("-arch=sm_" + arch)
+	if err != nil {
+		t.Fatalf("nvJitLink create for sm_%s: %v", arch, err)
+	}
+	defer func() {
+		if err := h.Destroy(); err != nil {
+			t.Errorf("destroy link handle: %v", err)
+		}
+	}()
+	if err := h.AddData(nvjitlink.InputPtx, unsafe.Pointer(&ptx[0]), uint(len(ptx)), "fill.ptx"); err != nil {
+		log, _ := h.ErrorLog()
+		t.Fatalf("AddData: %v\n%s", err, log)
+	}
+	if err := h.Complete(); err != nil {
+		log, _ := h.ErrorLog()
+		t.Fatalf("Complete: %v\n%s", err, log)
+	}
+	cubin, err := h.LinkedCubin()
+	if err != nil {
+		t.Fatalf("LinkedCubin: %v", err)
+	}
+	mod, err := driver.ModuleLoadData(cubin)
+	if err != nil {
+		t.Fatalf("ModuleLoadData of the linked CUBIN: %v", err)
+	}
+	run(t, mod)
+}
+
+// current makes device 0's primary context current and returns its compute
+// capability as digits, such as "121".
+func current(t *testing.T) string {
+	t.Helper()
 	if err := driver.Init(0); err != nil {
 		t.Skipf("CUDA driver unavailable: %v", err)
 	}
@@ -138,15 +205,21 @@ func TestCompileAndRun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("retain primary context: %v", err)
 	}
-	defer func() {
+	t.Cleanup(func() {
 		if err := dev.PrimaryCtxRelease(); err != nil {
 			t.Errorf("release context: %v", err)
 		}
-	}()
+	})
 	if err := ctx.SetCurrent(); err != nil {
 		t.Fatalf("set current context: %v", err)
 	}
+	return arch
+}
 
+// compile compiles module to PTX for the newest virtual architecture both
+// libNVVM and the device support, and returns the PTX and that architecture.
+func compile(t *testing.T, arch string) ([]byte, string) {
+	t.Helper()
 	prog, err := nvvm.CreateProgram()
 	if err != nil {
 		t.Skipf("libNVVM unavailable: %v", err)
@@ -208,13 +281,13 @@ func TestCompileAndRun(t *testing.T) {
 	}
 	t.Logf("compiled %d bytes of NVVM IR into %d bytes of PTX for sm_%s", len(ir), len(ptx), arch)
 
-	// The driver JIT-compiles the PTX, so this also confirms libNVVM produced
-	// PTX the installed driver accepts.
-	image := append(ptx, 0)
-	mod, err := driver.ModuleLoadData(image)
-	if err != nil {
-		t.Fatalf("ModuleLoadData: %v", err)
-	}
+	return ptx, arch
+}
+
+// run launches fill from mod, checks every element against the host's
+// prediction, and unloads mod.
+func run(t *testing.T, mod driver.Module) {
+	t.Helper()
 	defer func() {
 		if err := mod.Close(); err != nil {
 			t.Errorf("unload module: %v", err)
