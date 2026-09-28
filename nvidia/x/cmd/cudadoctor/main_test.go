@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -58,8 +60,8 @@ func TestScript(t *testing.T) {
 }
 
 func TestToolSelection(t *testing.T) {
-	if os.PathSeparator != '/' {
-		t.Skip("shell fixture")
+	if runtime.GOOS != "linux" {
+		t.Skip("cudatool searches toolkit roots only on linux")
 	}
 	dir := t.TempDir()
 	bin := filepath.Join(dir, "bin")
@@ -92,5 +94,20 @@ func TestToolSelection(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestBindProbeMissingLibrary(t *testing.T) {
+	t.Setenv("CUDABIND_LIBCLANG", filepath.Join(t.TempDir(), "missing-libclang.so"))
+	var out, errout bytes.Buffer
+	if code := probeMain("libclang", "compute_75", &out, &errout); code != 0 {
+		t.Fatalf("probe exit %d: %s", code, &errout)
+	}
+	var c check
+	if err := json.Unmarshal(out.Bytes(), &c); err != nil {
+		t.Fatal(err)
+	}
+	if c.Status != "fail" || !strings.Contains(c.Remedy, "CUDABIND_LIBCLANG") {
+		t.Fatalf("check = %+v", c)
 	}
 }

@@ -9,6 +9,7 @@ go run ./x/cmd/cudadoctor -workflow=profile -json
 
 | Workflow | Required checks |
 | --- | --- |
+| `bind` | Load libclang, locate CUDA resource headers, parse a CUDA kernel in device mode |
 | `jit` (default) | Load NVRTC and query its version |
 | `aot` | Run `nvcc --version` and `ptxas --version` |
 | `profile` | Load driver and CUPTI, query CUPTI version, run `nvdisasm --version` |
@@ -55,3 +56,8 @@ Each library/smoke probe runs in a separate subprocess, bounded by `-timeout`
 same timeout. Exit status is 0 if required checks pass (warnings may remain), 1
 for a failed check, and 2 for invalid arguments. JSON has schema version 1 and
 preserves individual check status, paths, versions, diagnostics and remedies.
+
+For cudabind, use `-workflow=bind`. Set `CUDABIND_LIBCLANG` to select the parser
+and `CUDA_PATH` to select its toolkit. This workflow tests header compatibility
+without initializing a GPU. `-arch` selects the parse target (`compute_*` is
+translated to `sm_*`). It does not validate the application translation unit.

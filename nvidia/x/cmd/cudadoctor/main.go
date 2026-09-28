@@ -44,7 +44,7 @@ func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
 func run(args []string, out, errout io.Writer) int {
 	fs := flag.NewFlagSet("cudadoctor", flag.ContinueOnError)
 	fs.SetOutput(errout)
-	workflow := fs.String("workflow", "jit", "jit, aot, profile, sanitize, or tileir")
+	workflow := fs.String("workflow", "jit", "jit, bind, aot, profile, sanitize, or tileir")
 	jsonOutput := fs.Bool("json", false, "write a JSON report")
 	smoke := fs.String("smoke", "none", "JIT smoke test: none, compile, load, or run (load/run use GPU)")
 	arch := fs.String("arch", "compute_75", "virtual architecture for the JIT smoke test")
@@ -95,7 +95,7 @@ func run(args []string, out, errout io.Writer) int {
 			r.Module = &info.Main
 		}
 	}
-	for _, key := range []string{"CUDA_HOME", "CUDA_PATH", "CUDA_ROOT", "CUDA_TOOLKIT_PATH", "CUDA_LIB_PATH", "NVRTC_LIB_PATH", "NVJITLINK_LIB_PATH", "CUPTI_LIB_PATH", "LD_LIBRARY_PATH", "PATH", "CODEGEN_SKIP_BINDINGS"} {
+	for _, key := range []string{"CUDA_HOME", "CUDA_PATH", "CUDA_ROOT", "CUDA_TOOLKIT_PATH", "CUDA_LIB_PATH", "NVRTC_LIB_PATH", "NVJITLINK_LIB_PATH", "CUPTI_LIB_PATH", "CUDABIND_LIBCLANG", "LD_LIBRARY_PATH", "PATH", "CODEGEN_SKIP_BINDINGS"} {
 		if v, ok := os.LookupEnv(key); ok {
 			r.Environment[key] = v
 		}
@@ -135,6 +135,7 @@ type workflowPlan struct{ tools, libraries []string }
 
 var workflows = map[string]workflowPlan{
 	"jit":      {libraries: []string{"nvrtc"}},
+	"bind":     {libraries: []string{"libclang"}},
 	"aot":      {tools: []string{"nvcc", "ptxas"}},
 	"profile":  {tools: []string{"nvdisasm"}, libraries: []string{"driver", "cupti"}},
 	"sanitize": {tools: []string{"compute-sanitizer"}, libraries: []string{"driver"}},

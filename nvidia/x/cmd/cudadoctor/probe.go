@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/tmc/lib/nvidia/cupti"
@@ -15,6 +16,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
 	"github.com/tmc/lib/nvidia/x/cudamem"
+	"github.com/tmc/lib/nvidia/x/internal/libclang"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
 
@@ -22,6 +24,31 @@ func probeMain(name, arch string, out, errout io.Writer) int {
 	c := check{Name: name, Status: "pass"}
 	var err error
 	switch name {
+	case "libclang":
+		c.Remedy = "Install matching libclang and CUDA resource headers, set CUDABIND_LIBCLANG, and select a compatible toolkit with CUDA_PATH."
+		var lib *libclang.Library
+		lib, err = libclang.Open(os.Getenv("CUDABIND_LIBCLANG"))
+		if err == nil {
+			c.Path, c.Version = lib.Path(), lib.Version()
+			res := lib.ResourceDir()
+			if _, err = os.Stat(filepath.Join(res, "include", "__clang_cuda_runtime_wrapper.h")); err == nil {
+				args := []string{"-x", "cuda", "--cuda-device-only", "-nocudalib", "-Wno-unknown-cuda-version", "-resource-dir", res, "--cuda-gpu-arch=" + strings.Replace(arch, "compute_", "sm_", 1)}
+				if p := os.Getenv("CUDA_PATH"); p != "" {
+					args = append(args, "--cuda-path="+p)
+				}
+				var tu *libclang.TranslationUnit
+				tu, err = lib.Parse("cudadoctor.cu", args, libclang.UnsavedFile{Name: "cudadoctor.cu", Contents: `extern "C" __global__ void doctor(float *out, int n) {}`})
+				if err == nil {
+					defer tu.Close()
+					for _, d := range tu.Diagnostics() {
+						if d.Severity >= libclang.Error {
+							err = errors.Join(err, errors.New(d.Text))
+						}
+					}
+				}
+				c.Detail = "parsed a CUDA kernel in device mode; resource headers: " + res
+			}
+		}
 	case "nvrtc", "tileir":
 		err = nvrtc.Load("")
 		c.Path = nvrtc.Path()
