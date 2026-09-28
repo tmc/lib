@@ -31,4 +31,13 @@
 // artifact integrity and reproduce the defect, failing if the defect reproduces
 // and passing on a fixed kernel. Without a device or native gate, tests report
 // the shared pending sentinel rather than passing.
+//
+// Capture and Replay isolate a single CUDA launch for debugging. Capture
+// copies entire backing allocations, preserving aliases and pointer offsets,
+// and retains a native kernel image. It synchronizes the supplied stream;
+// callers must exclude concurrent mutation and keep allocations alive. Graph
+// capture, mutable module globals, embedded device pointers, external
+// resources, and race reproduction are outside this single-launch model.
+// Captures contain application data and are written only by explicit request.
+// Native images and scalar layouts require a compatible GPU and host ABI.
 package cudarepro
