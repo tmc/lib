@@ -3458,7 +3458,7 @@
           "GOWORK": "off",
           "TMPDIR": "${SCRATCH_DIR}"
         },
-        "note": "The prior CUPTI migration was reproduced twice with GOTOOLCHAIN=go1.27.0 from the pinned CUDA 13.2 CUPTI header family. This bridge correction was regenerated once with GOTOOLCHAIN=go1.27.0. The explicit ffi bridge was restored in libgen commit 2ee197be; regeneration restores all 173 ffiCall sites and pooled output slots. The package test passes and apidiff reports no exported API changes. gen.Apply reported no API removals; apidiff reported zero incompatible changes on linux/amd64, linux/arm64 and darwin/arm64. The generated ActivityDeviceAttribute compatibility type preserves the prior exported fields and C layout. nvidia-reproduce hashes only the primary header; all 19 declared header digests were independently verified against the headers checkout.",
+        "note": "The prior CUPTI migration was reproduced twice with GOTOOLCHAIN=go1.27.0 from the pinned CUDA 13.2 CUPTI header family. This bridge correction was regenerated once with GOTOOLCHAIN=go1.27.0. The explicit ffi bridge was restored in libgen commit 2ee197be; regeneration restores all 173 ffiCall sites and pooled output slots. The package test passes and apidiff reports no exported API changes. gen.Apply reported no API removals; apidiff reported zero incompatible changes on linux/amd64, linux/arm64 and darwin/arm64. The generated ActivityDeviceAttribute compatibility type preserves the prior exported fields and C layout. nvidia-reproduce hashes only the primary header; all 19 declared header digests were independently verified against the headers checkout. Regenerated at libgen dcb1372d: deprecation notices and sibling header docs restored.",
         "outputs": [
           {
             "path": "nvidia/cupti/activity_device_attribute.gen.go",
@@ -3474,19 +3474,19 @@
           },
           {
             "path": "nvidia/cupti/doc.gen.go",
-            "sha256": "f0b70766bb20cad070dc068ad00ffb7b200eca62003be2b8e596394d5ef23bcb"
+            "sha256": "9e37d3a624ec4dfbda17a372b317baa1612bdf5f2f6ba89dff84a36977274ca7"
           },
           {
             "path": "nvidia/cupti/enums.gen.go",
-            "sha256": "0206aeafbec50960f1ca93b2a75619b630b271bdb30dd0b8fdc2773ed0a301d8"
+            "sha256": "02b667fd3b02f6c0a59ac8fe13086472431b24929b670cf63463fc832721d0c1"
           },
           {
             "path": "nvidia/cupti/event_group.gen.go",
-            "sha256": "8314bf1091953b24ca3166963ead83f5de48a1f4273149f6928bce958c9c4a52"
+            "sha256": "954f0657987aa45b7a0bb5cb08fa2dcaa89fbe9bf419638c9338e52002e422ea"
           },
           {
             "path": "nvidia/cupti/funcs.gen.go",
-            "sha256": "3a1fe9ade59fde79eee8361ff2002a55f84515fc7b38db09362a1afa0b66d5d4"
+            "sha256": "65d0856a26cca0228a298e4acc443958bdb4f97bae7644fb538cb241c6f4bcfe"
           },
           {
             "path": "nvidia/cupti/handles.gen.go",
@@ -3526,15 +3526,15 @@
           },
           {
             "path": "nvidia/cupti/result.gen.go",
-            "sha256": "a8c501c79798c4c66e3731fb7d8270fb6df0d9f097e3d377e2658f38c8ea9f12"
+            "sha256": "806e2fcfcdd857d3b02250f416d807246c89f8ffa4bf80dceed220b8d59294be"
           },
           {
             "path": "nvidia/cupti/structs.gen.go",
-            "sha256": "19bbec7e94de567b8e4c598d01ee301336dc03ca2d4a922fcd178c4cc5cf603a"
+            "sha256": "8668feb81f84a49131f10d4b59324cd770ab998d7725d91106632544971c4aa8"
           },
           {
             "path": "nvidia/cupti/subscriber.gen.go",
-            "sha256": "663023a8e85949c75f98d2a4fa770ae0e685f4075539d4b074b1645124ba26b2"
+            "sha256": "2e00fa7097bb902a61dae95ec2fb630d202e14be566f55fffac6ce9b423fee7d"
           },
           {
             "path": "nvidia/cupti/types.gen.go",
@@ -3656,8 +3656,8 @@
       "package": "github.com/tmc/lib/nvidia/cupti",
       "repositories": {
         "codegen": {
-          "commit": "9a0d37545b201dcfed4fd7f0d04ea3da5f85a23c",
-          "tree": "ddd8e454992bcf3cc55b277b6dbf5c5275243a51",
+          "commit": "dcb1372d6078a4df18aafbe5f838a3fd56eba836",
+          "tree": "99e03c117de0d1d58cfb2f8ddd407dc58f1574fb",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Private local generator commit used for this reproduction; not published."
         },

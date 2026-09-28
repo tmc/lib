@@ -1410,8 +1410,12 @@ func fnunsubscribe(a0 Subscriber) Result {
 
 // ActivityConfigurePCSampling sets PC sampling configuration.
 //
-// For Pascal and older GPU architectures this API must be called before enabling activity kind [ActivityKindPcSampling]. There is no such requirement for Volta and newer GPU architectures.
-// For Volta and newer GPU architectures if this API is called in the middle of execution, PC sampling configuration will be updated for subsequent kernel launches.
+// For Pascal and older GPU architectures this API must be called before enabling
+// activity kind [ActivityKindPcSampling]. There is no such requirement
+// for Volta and newer GPU architectures.
+//
+// For Volta and newer GPU architectures if this API is called in the middle of
+// execution, PC sampling configuration will be updated for subsequent kernel launches.
 //
 //   - ctx: The context
 //   - config: A pointer to [ActivityPCSamplingConfig] structure containing PC sampling configuration
@@ -1420,6 +1424,8 @@ func fnunsubscribe(a0 Subscriber) Result {
 //   - [ErrInvalidOperation]: if this api is called while some valid event collection method is set.
 //   - [ErrInvalidParameter]: if config is NULL or any parameter in the config structures is not a valid value
 //   - [ErrNotSupported]: Indicates that the system/device does not support the unified memory counters
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the PC Sampling API, starting with [PCSamplingEnable].
 //
 // Wraps cuptiActivityConfigurePCSampling.
 func ActivityConfigurePCSampling(ctx driver.Context, config *ActivityPCSamplingConfig) error {
@@ -1431,7 +1437,9 @@ func ActivityConfigurePCSampling(ctx driver.Context, config *ActivityPCSamplingC
 
 // ActivityConfigureUnifiedMemoryCounter sets Unified Memory Counter configuration.
 //
-// Set the configuration before enabling the corresponding activity kind [ActivityKindUnifiedMemoryCounter]. The API should be called after CUDA driver initialization.
+// Set the configuration before enabling the corresponding activity kind
+// [ActivityKindUnifiedMemoryCounter].
+// The API should be called after CUDA driver initialization.
 //
 //   - config: A pointer to [ActivityUnifiedMemoryCounterConfig] structures containing Unified Memory counter configuration
 //   - count: Number of Unified Memory counter configuration structures
@@ -1461,7 +1469,7 @@ func ActivityConfigureUnifiedMemoryCounter(config *ActivityUnifiedMemoryCounterC
 //   - [ErrInvalidKind]: if the activity kind is not supported
 //   - [ErrNotInitialized]
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [Subscriber.ActivityDisableV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [Subscriber.ActivityDisableV2].
 //
 // Wraps cuptiActivityDisable.
 func ActivityDisable(kind ActivityKind) error {
@@ -1473,7 +1481,9 @@ func ActivityDisable(kind ActivityKind) error {
 
 // ActivityDisableContext disables collection of a specific kind of activity record for a context.
 //
-// This setting done by this API will supersede the global settings for activity records. Multiple kinds can be enabled by calling this function multiple times.
+// This setting done by this API will supersede the global settings
+// for activity records.
+// Multiple kinds can be enabled by calling this function multiple times.
 //
 //   - context: The context for which activity is to be disabled
 //   - kind: The kind of activity record to stop collecting
@@ -1492,7 +1502,9 @@ func ActivityDisableContext(context driver.Context, kind ActivityKind) error {
 
 // activityDisableV2 disables collection of a specific kind of activity record for the subscriber.
 //
-// Disable collection of a specific kind of activity record. Multiple kinds can be disabled by calling this function multiple times. By default all activity kinds are disabled for collection.
+// Disable collection of a specific kind of activity record. Multiple
+// kinds can be disabled by calling this function multiple times. By
+// default all activity kinds are disabled for collection.
 //
 //   - subscriber: The subscriber handle
 //   - kind: The kind of activity record to stop collecting
@@ -1521,7 +1533,7 @@ func activityDisableV2(subscriber Subscriber, kind ActivityKind, pActivityConfig
 //   - [ErrNotCompatible]: if the activity kind cannot be enabled
 //   - [ErrNotInitialized]
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [Subscriber.ActivityEnableV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [Subscriber.ActivityEnableV2].
 //
 // Wraps cuptiActivityEnable.
 func ActivityEnable(kind ActivityKind) error {
@@ -1541,7 +1553,7 @@ func ActivityEnable(kind ActivityKind) error {
 // Errors:
 //   - [ErrNotInitialized]
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableAllSyncRecords], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableAllSyncRecords], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2].
 //
 // Wraps cuptiActivityEnableAllSyncRecords.
 func ActivityEnableAllSyncRecords(enable uint8) error {
@@ -1560,7 +1572,7 @@ func ActivityEnableAllSyncRecords(enable uint8) error {
 // Errors:
 //   - [ErrNotInitialized]
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableAllocationSourceTracking], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableAllocationSourceTracking], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2].
 //
 // Wraps cuptiActivityEnableAllocationSource.
 func ActivityEnableAllocationSource(enable uint8) error {
@@ -1585,7 +1597,7 @@ func ActivityEnableAllocationSource(enable uint8) error {
 //   - [ErrNotInitialized]
 //   - [ErrUnknown]: if buffer is not initialized.
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [Subscriber.ActivityEnableAndDumpV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [Subscriber.ActivityEnableAndDumpV2].
 //
 // Wraps cuptiActivityEnableAndDump.
 func ActivityEnableAndDump(kind ActivityKind) error {
@@ -1622,7 +1634,11 @@ func activityEnableAndDumpV2(subscriber Subscriber, kind ActivityKind, activityC
 
 // ActivityEnableContext enables collection of a specific kind of activity record for a context.
 //
-// This setting done by this API will supersede the global settings for activity records enabled by [ActivityEnable]. Multiple kinds can be enabled by calling this function multiple times.
+// Enable collection of a specific kind of activity record for a
+// context. This setting done by this API will supersede the global
+// settings for activity records enabled by [ActivityEnable].
+// Multiple kinds can be enabled by calling this function multiple
+// times.
 //
 //   - context: The context for which activity is to be enabled
 //   - kind: The kind of activity record to collect
@@ -1649,7 +1665,7 @@ func ActivityEnableContext(context driver.Context, kind ActivityKind) error {
 // Errors:
 //   - [ErrNotInitialized]
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableCudaEventDeviceTimestamps], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableCudaEventDeviceTimestamps], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2].
 //
 // Wraps cuptiActivityEnableCudaEventDeviceTimestamps.
 func ActivityEnableCudaEventDeviceTimestamps(enable uint8) error {
@@ -1668,7 +1684,7 @@ func ActivityEnableCudaEventDeviceTimestamps(enable uint8) error {
 // Errors:
 //   - [ErrNotInitialized]
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableDeviceGraphTrace], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableDeviceGraphTrace], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2].
 //
 // Wraps cuptiActivityEnableDeviceGraph.
 func ActivityEnableDeviceGraph(enable uint8) error {
@@ -1690,7 +1706,7 @@ func ActivityEnableDeviceGraph(enable uint8) error {
 // Errors:
 //   - [ErrNotInitialized]
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is cuptiActivityEnableDriverApi_v2. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is cuptiActivityEnableDriverApi_v2.
 //
 // Wraps cuptiActivityEnableDriverApi.
 func ActivityEnableDriverApi(cbid uint32, enable uint8) error {
@@ -1720,7 +1736,7 @@ func ActivityEnableDriverApi(cbid uint32, enable uint8) error {
 //   - [ErrVirtualizedDeviceNotSupported]
 //   - [ErrWslDeviceNotSupported]
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableHes], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableHes], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2].
 //
 // Wraps cuptiActivityEnableHWTrace.
 func ActivityEnableHWTrace(enable uint8) error {
@@ -1740,7 +1756,7 @@ func ActivityEnableHWTrace(enable uint8) error {
 // Errors:
 //   - [ErrNotInitialized]
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableKernelLatencyTimestamps], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableKernelLatencyTimestamps], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2].
 //
 // Wraps cuptiActivityEnableLatencyTimestamps.
 func ActivityEnableLatencyTimestamps(enable uint8) error {
@@ -1756,7 +1772,7 @@ func ActivityEnableLatencyTimestamps(enable uint8) error {
 //
 //   - enable: is a boolean denoting whether these launch attributes should be collected
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableKernelLaunchAttributes], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrEnableKernelLaunchAttributes], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2].
 //
 // Wraps cuptiActivityEnableLaunchAttributes.
 func ActivityEnableLaunchAttributes(enable uint8) error {
@@ -1778,7 +1794,7 @@ func ActivityEnableLaunchAttributes(enable uint8) error {
 // Errors:
 //   - [ErrNotInitialized]
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is cuptiActivityEnableRuntimeApi_v2. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is cuptiActivityEnableRuntimeApi_v2.
 //
 // Wraps cuptiActivityEnableRuntimeApi.
 func ActivityEnableRuntimeApi(cbid uint32, enable uint8) error {
@@ -1790,7 +1806,9 @@ func ActivityEnableRuntimeApi(cbid uint32, enable uint8) error {
 
 // activityEnableV2 enables collection of a specific kind of activity record for the subscriber.
 //
-// Enable collection of a specific kind of activity record. Multiple kinds can be enabled by calling this function multiple times. By default all activity kinds are disabled for collection.
+// Enable collection of a specific kind of activity record. Multiple
+// kinds can be enabled by calling this function multiple times. By
+// default all activity kinds are disabled for collection.
 //
 //   - subscriber: The subscriber handle
 //   - kind: The kind of activity record to collect
@@ -1895,7 +1913,7 @@ func ActivityFlushPeriod(time uint32) error {
 //   - [ErrNotInitialized]
 //   - [ErrParameterSizeNotSufficient]: Indicates that the value buffer is too small to hold the attribute value.
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [Subscriber.ActivityGetAttributeV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [Subscriber.ActivityGetAttributeV2].
 //
 // Wraps cuptiActivityGetAttribute.
 func ActivityGetAttribute(attr ActivityAttribute, valueSize *uint, value unsafe.Pointer) error {
@@ -1907,7 +1925,9 @@ func ActivityGetAttribute(attr ActivityAttribute, valueSize *uint, value unsafe.
 
 // activityGetAttributeV2 reads an activity API attribute.
 //
-// This function is similar to [ActivityGetAttribute]. Note that in case of multiple subscribers, only [Subscriber.ActivityGetAttributeV2] can be used to read the attribute for the subscriber.
+// This function is similar to [ActivityGetAttribute]. Note that in case of multiple subscribers, only [Subscriber.ActivityGetAttributeV2]
+// can be used to read the attribute for the subscriber.
+//
 // Read an activity API attribute and return it in *value.
 //
 //   - subscriber: The subscriber handle
@@ -1989,7 +2009,7 @@ var slotActivityGetEnabledKinds outSlot[uint32]
 //   - [ErrMaxLimitReached]: if no more records in the buffer
 //   - [ErrNotInitialized]
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is cuptiActivityGetNextRecord_v2. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is cuptiActivityGetNextRecord_v2.
 //
 // Wraps cuptiActivityGetNextRecord.
 func ActivityGetNextRecord(buffer *uint8, validBufferSizeBytes uint, record **Activity) error {
@@ -2011,7 +2031,7 @@ func ActivityGetNextRecord(buffer *uint8, validBufferSizeBytes uint, record **Ac
 //   - [ErrInvalidParameter]: if dropped is NULL
 //   - [ErrNotInitialized]
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is cuptiActivityGetNumDroppedRecords_v2. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is cuptiActivityGetNumDroppedRecords_v2.
 //
 // Wraps cuptiActivityGetNumDroppedRecords.
 func ActivityGetNumDroppedRecords(context driver.Context, streamId uint32) (uint, error) {
@@ -2068,7 +2088,7 @@ var slotActivityGetStructSize outSlot[uint]
 //   - [ErrInvalidParameter]: The external API kind is invalid.
 //   - [ErrQueueEmpty]: No external id is currently associated with kind.
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is cuptiActivityPopExternalCorrelationId_v2. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is cuptiActivityPopExternalCorrelationId_v2.
 //
 // Wraps cuptiActivityPopExternalCorrelationId.
 func ActivityPopExternalCorrelationId(kind ExternalCorrelationKind) (uint64, error) {
@@ -2097,7 +2117,7 @@ var slotActivityPopExternalCorrelationId outSlot[uint64]
 // Errors:
 //   - [ErrInvalidParameter]: The external API kind is invalid
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is cuptiActivityPushExternalCorrelationId_v2. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is cuptiActivityPushExternalCorrelationId_v2.
 //
 // Wraps cuptiActivityPushExternalCorrelationId.
 func ActivityPushExternalCorrelationId(kind ExternalCorrelationKind, id uint64) error {
@@ -2118,7 +2138,7 @@ func ActivityPushExternalCorrelationId(kind ExternalCorrelationKind, id uint64) 
 // Errors:
 //   - [ErrInvalidParameter]: if either funcBufferRequested or funcBufferCompleted is NULL
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [Subscriber.ActivityRegisterCallbacksV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [Subscriber.ActivityRegisterCallbacksV2].
 //
 // Wraps cuptiActivityRegisterCallbacks.
 func ActivityRegisterCallbacks(funcBufferRequested uintptr, funcBufferCompleted uintptr) error {
@@ -2161,7 +2181,7 @@ func activityRegisterCallbacksV2(subscriber Subscriber, funcBufferRequested uint
 //   - [ErrInvalidParameter]: if funcTimestamp is NULL
 //   - [ErrNotInitialized]
 //
-// Deprecated: This API will be deprecated in a future release. In CUDA 13.4 and later, the corresponding V2 activity attribute is [ActivityAttrTimestampCallback], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
+// Deprecated: This API will be deprecated in a future release. In CUDA 13.4 and later, the corresponding V2 activity attribute is [ActivityAttrTimestampCallback], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2].
 //
 // Wraps cuptiActivityRegisterTimestampCallback.
 func ActivityRegisterTimestampCallback(funcTimestamp uintptr) error {
@@ -2185,7 +2205,7 @@ func ActivityRegisterTimestampCallback(funcTimestamp uintptr) error {
 //   - [ErrNotSupported]: if multiple subscribers are not allowed.
 //   - [ErrParameterSizeNotSufficient]: Indicates that the value buffer is too small to hold the attribute value.
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [Subscriber.ActivitySetAttributeV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [Subscriber.ActivitySetAttributeV2].
 //
 // Wraps cuptiActivitySetAttribute.
 func ActivitySetAttribute(attr ActivityAttribute, valueSize *uint, value unsafe.Pointer) error {
@@ -2313,7 +2333,25 @@ func ComputeCapabilitySupported(major int32, minor int32) (int32, error) {
 
 var slotComputeCapabilitySupported outSlot[int32]
 
-// DeviceEnumEventDomains wraps cuptiDeviceEnumEventDomains.
+// DeviceEnumEventDomains gets the event domains for a device.
+//
+// Returns the event domains IDs in domainArray for a device. The
+// size of the domainArray buffer is given by *arraySizeBytes. The size of the domainArray buffer must be at
+// least numdomains * sizeof(CUpti_EventDomainID) or else all
+// domains will not be returned. The value returned in *arraySizeBytes contains the number of bytes returned in domainArray.
+//
+//   - device: CUDA device
+//   - arraySizeBytes: The size of domainArray in bytes, and returns the number of bytes written to domainArray
+//   - domainArray: Returns the IDs of the event domains for the device
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidParameter]: if arraySizeBytes or domainArray are NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiDeviceEnumEventDomains.
 func DeviceEnumEventDomains(device Device, arraySizeBytes *uint, domainArray *uint32) error {
 	if err := checkLibSym("cuptiDeviceEnumEventDomains"); err != nil {
 		return err
@@ -2321,7 +2359,27 @@ func DeviceEnumEventDomains(device Device, arraySizeBytes *uint, domainArray *ui
 	return toError(fnDeviceEnumEventDomains(device, arraySizeBytes, domainArray), "cuptiDeviceEnumEventDomains")
 }
 
-// DeviceEnumMetrics wraps cuptiDeviceEnumMetrics.
+// DeviceEnumMetrics gets the metrics for a device.
+//
+// Returns the metric IDs in metricArray for a device. The size of
+// the metricArray buffer is given by *arraySizeBytes. The size
+// of the metricArray buffer must be at least numMetrics *
+// sizeof(CUpti_MetricID) or else all metric IDs will not be
+// returned. The value returned in *arraySizeBytes contains the
+// number of bytes returned in metricArray.
+//
+//   - device: The CUDA device
+//   - arraySizeBytes: The size of metricArray in bytes, and returns the number of bytes written to metricArray
+//   - metricArray: Returns the IDs of the metrics for the device
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidParameter]: if arraySizeBytes or metricArray are NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiDeviceEnumMetrics.
 func DeviceEnumMetrics(device Device, arraySizeBytes *uint, metricArray *uint32) error {
 	if err := checkLibSym("cuptiDeviceEnumMetrics"); err != nil {
 		return err
@@ -2329,7 +2387,24 @@ func DeviceEnumMetrics(device Device, arraySizeBytes *uint, metricArray *uint32)
 	return toError(fnDeviceEnumMetrics(device, arraySizeBytes, metricArray), "cuptiDeviceEnumMetrics")
 }
 
-// DeviceGetAttribute wraps cuptiDeviceGetAttribute.
+// DeviceGetAttribute reads a device attribute.
+//
+// Read a device attribute and return it in *value.
+//
+//   - device: CUDA device
+//   - attrib: The attribute to read
+//   - valueSize: Size of buffer pointed by the value, and returns the number of bytes written to value
+//   - value: Returns the value of the attribute
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidParameter]: if valueSize or value is NULL, or if attrib is not a device attribute
+//   - [ErrParameterSizeNotSufficient]: For non-c-string attribute values, indicates that the value buffer is too small to hold the attribute value.
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiDeviceGetAttribute.
 func DeviceGetAttribute(device Device, attrib DeviceAttribute, valueSize *uint, value unsafe.Pointer) error {
 	if err := checkLibSym("cuptiDeviceGetAttribute"); err != nil {
 		return err
@@ -2345,7 +2420,29 @@ func DeviceGetChipName(pParams *DeviceGetChipNameParams) error {
 	return toError(fnDeviceGetChipName(pParams), "cuptiDeviceGetChipName")
 }
 
-// DeviceGetEventDomainAttribute wraps cuptiDeviceGetEventDomainAttribute.
+// DeviceGetEventDomainAttribute reads an event domain attribute.
+//
+// Returns an event domain attribute in *value. The size of the value buffer is given by *valueSize. The value returned in *valueSize contains the number of bytes returned in value.
+//
+// If the attribute value is a c-string that is longer than *valueSize, then only the first *valueSize characters will be
+// returned and there will be no terminating null byte.
+//
+//   - device: CUDA device
+//   - eventDomain: ID of the event domain
+//   - attrib: The event domain attribute to read
+//   - valueSize: The size of the value buffer in bytes, and returns the number of bytes written to value
+//   - value: Returns the attribute's value
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidEventDomainId]
+//   - [ErrInvalidParameter]: if valueSize or value is NULL, or if attrib is not an event domain attribute
+//   - [ErrParameterSizeNotSufficient]: For non-c-string attribute values, indicates that the value buffer is too small to hold the attribute value.
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiDeviceGetEventDomainAttribute.
 func DeviceGetEventDomainAttribute(device Device, eventDomain uint32, attrib EventDomainAttribute, valueSize *uint, value unsafe.Pointer) error {
 	if err := checkLibSym("cuptiDeviceGetEventDomainAttribute"); err != nil {
 		return err
@@ -2353,7 +2450,21 @@ func DeviceGetEventDomainAttribute(device Device, eventDomain uint32, attrib Eve
 	return toError(fnDeviceGetEventDomainAttribute(device, eventDomain, attrib, valueSize, value), "cuptiDeviceGetEventDomainAttribute")
 }
 
-// DeviceGetNumEventDomains wraps cuptiDeviceGetNumEventDomains.
+// DeviceGetNumEventDomains gets the number of domains for a device.
+//
+// Returns the number of domains in numDomains for a device.
+//
+//   - device: CUDA device
+//   - numDomains: Returns the number of domains
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidParameter]: if numDomains is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiDeviceGetNumEventDomains.
 func DeviceGetNumEventDomains(device Device) (uint32, error) {
 	if err := checkLibSym("cuptiDeviceGetNumEventDomains"); err != nil {
 		var zero uint32
@@ -2370,7 +2481,21 @@ func DeviceGetNumEventDomains(device Device) (uint32, error) {
 
 var slotDeviceGetNumEventDomains outSlot[uint32]
 
-// DeviceGetNumMetrics wraps cuptiDeviceGetNumMetrics.
+// DeviceGetNumMetrics gets the number of metrics for a device.
+//
+// Returns the number of metrics available for a device.
+//
+//   - device: The CUDA device
+//   - numMetrics: Returns the number of metrics available for the device
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidParameter]: if numMetrics is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiDeviceGetNumMetrics.
 func DeviceGetNumMetrics(device Device) (uint32, error) {
 	if err := checkLibSym("cuptiDeviceGetNumMetrics"); err != nil {
 		var zero uint32
@@ -2436,7 +2561,18 @@ func DeviceVirtualizationMode(dev Device, mode *VirtualizationMode) error {
 	return toError(fnDeviceVirtualizationMode(dev, mode), "cuptiDeviceVirtualizationMode")
 }
 
-// DisableKernelReplayMode wraps cuptiDisableKernelReplayMode.
+// DisableKernelReplayMode disables kernel replay mode.
+//
+// Set profiling mode for the context to non-replay (default)
+// mode. Event collection mode will be set to
+// [EventCollectionModeKernel]. All previously enabled
+// event groups and event group sets will be disabled.
+//
+//   - context: The context
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiDisableKernelReplayMode.
 func DisableKernelReplayMode(context driver.Context) error {
 	if err := checkLibSym("cuptiDisableKernelReplayMode"); err != nil {
 		return err
@@ -2512,7 +2648,19 @@ func enableDomain(enable uint32, subscriber Subscriber, domain CallbackDomain) e
 	return toError(fnenableDomain(enable, subscriber, domain), "cuptiEnableDomain")
 }
 
-// EnableKernelReplayMode wraps cuptiEnableKernelReplayMode.
+// EnableKernelReplayMode enables kernel replay mode.
+//
+// Set profiling mode for the context to replay mode. In this mode,
+// any number of events can be collected in one run of the kernel. The
+// event collection mode will automatically switch to
+// [EventCollectionModeKernel]. In this mode, [SetEventCollectionMode] will return
+// [ErrInvalidOperation].
+//
+//   - context: The context
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEnableKernelReplayMode.
 func EnableKernelReplayMode(context driver.Context) error {
 	if err := checkLibSym("cuptiEnableKernelReplayMode"); err != nil {
 		return err
@@ -2520,7 +2668,22 @@ func EnableKernelReplayMode(context driver.Context) error {
 	return toError(fnEnableKernelReplayMode(context), "cuptiEnableKernelReplayMode")
 }
 
-// EnumEventDomains wraps cuptiEnumEventDomains.
+// EnumEventDomains gets the event domains available on any device.
+//
+// Returns all the event domains available on any CUDA-capable device.
+// Event domain IDs are returned in domainArray. The size of the domainArray buffer is given by *arraySizeBytes. The size of the
+// domainArray buffer must be at least numDomains *
+// sizeof(CUpti_EventDomainID) or all domains will not be
+// returned. The value returned in *arraySizeBytes contains the
+// number of bytes returned in domainArray.
+//
+//   - arraySizeBytes: The size of domainArray in bytes, and returns the number of bytes written to domainArray
+//   - domainArray: Returns all the event domains Starting with CUDA 13.0, this function is unsupported and should not be used. It always returns the error code [ErrLegacyProfilerNotSupported]
+//
+// Errors:
+//   - [ErrInvalidParameter]: if arraySizeBytes or domainArray are NULL
+//
+// Wraps cuptiEnumEventDomains.
 func EnumEventDomains(arraySizeBytes *uint, domainArray *uint32) error {
 	if err := checkLibSym("cuptiEnumEventDomains"); err != nil {
 		return err
@@ -2528,7 +2691,23 @@ func EnumEventDomains(arraySizeBytes *uint, domainArray *uint32) error {
 	return toError(fnEnumEventDomains(arraySizeBytes, domainArray), "cuptiEnumEventDomains")
 }
 
-// EnumMetrics wraps cuptiEnumMetrics.
+// EnumMetrics gets all the metrics available on any device.
+//
+// Returns the metric IDs in metricArray for all CUDA-capable
+// devices. The size of the metricArray buffer is given by *arraySizeBytes. The size of the metricArray buffer must be at
+// least numMetrics * sizeof(CUpti_MetricID) or all metric IDs will
+// not be returned. The value returned in *arraySizeBytes contains
+// the number of bytes returned in metricArray.
+//
+//   - arraySizeBytes: The size of metricArray in bytes, and returns the number of bytes written to metricArray
+//   - metricArray: Returns the IDs of the metrics
+//
+// Errors:
+//   - [ErrInvalidParameter]: if arraySizeBytes or metricArray are NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEnumMetrics.
 func EnumMetrics(arraySizeBytes *uint, metricArray *uint32) error {
 	if err := checkLibSym("cuptiEnumMetrics"); err != nil {
 		return err
@@ -2536,7 +2715,27 @@ func EnumMetrics(arraySizeBytes *uint, metricArray *uint32) error {
 	return toError(fnEnumMetrics(arraySizeBytes, metricArray), "cuptiEnumMetrics")
 }
 
-// EventDomainEnumEvents wraps cuptiEventDomainEnumEvents.
+// EventDomainEnumEvents gets the events in a domain.
+//
+// Returns the event IDs in eventArray for a domain. The size of
+// the eventArray buffer is given by *arraySizeBytes. The size
+// of the eventArray buffer must be at least numdomainevents *
+// sizeof(CUpti_EventID) or else all events will not be returned. The
+// value returned in *arraySizeBytes contains the number of bytes
+// returned in eventArray.
+//
+//   - eventDomain: ID of the event domain
+//   - arraySizeBytes: The size of eventArray in bytes, and returns the number of bytes written to eventArray
+//   - eventArray: Returns the IDs of the events in the domain
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidEventDomainId]
+//   - [ErrInvalidParameter]: if arraySizeBytes or eventArray are NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventDomainEnumEvents.
 func EventDomainEnumEvents(eventDomain uint32, arraySizeBytes *uint, eventArray *uint32) error {
 	if err := checkLibSym("cuptiEventDomainEnumEvents"); err != nil {
 		return err
@@ -2544,7 +2743,25 @@ func EventDomainEnumEvents(eventDomain uint32, arraySizeBytes *uint, eventArray 
 	return toError(fnEventDomainEnumEvents(eventDomain, arraySizeBytes, eventArray), "cuptiEventDomainEnumEvents")
 }
 
-// EventDomainGetAttribute wraps cuptiEventDomainGetAttribute.
+// EventDomainGetAttribute reads an event domain attribute.
+//
+// Returns an event domain attribute in *value. The size of the value buffer is given by *valueSize. The value returned in *valueSize contains the number of bytes returned in value.
+//
+// If the attribute value is a c-string that is longer than *valueSize, then only the first *valueSize characters will be
+// returned and there will be no terminating null byte.
+//
+//   - eventDomain: ID of the event domain
+//   - attrib: The event domain attribute to read
+//   - valueSize: The size of the value buffer in bytes, and returns the number of bytes written to value
+//   - value: Returns the attribute's value Starting with CUDA 13.0, this function is unsupported and should not be used. It always returns the error code [ErrLegacyProfilerNotSupported]
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidEventDomainId]
+//   - [ErrInvalidParameter]: if valueSize or value is NULL, or if attrib is not an event domain attribute
+//   - [ErrParameterSizeNotSufficient]: For non-c-string attribute values, indicates that the value buffer is too small to hold the attribute value.
+//
+// Wraps cuptiEventDomainGetAttribute.
 func EventDomainGetAttribute(eventDomain uint32, attrib EventDomainAttribute, valueSize *uint, value unsafe.Pointer) error {
 	if err := checkLibSym("cuptiEventDomainGetAttribute"); err != nil {
 		return err
@@ -2552,7 +2769,21 @@ func EventDomainGetAttribute(eventDomain uint32, attrib EventDomainAttribute, va
 	return toError(fnEventDomainGetAttribute(eventDomain, attrib, valueSize, value), "cuptiEventDomainGetAttribute")
 }
 
-// EventDomainGetNumEvents wraps cuptiEventDomainGetNumEvents.
+// EventDomainGetNumEvents gets number of events in a domain.
+//
+// Returns the number of events in numEvents for a domain.
+//
+//   - eventDomain: ID of the event domain
+//   - numEvents: Returns the number of events in the domain
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidEventDomainId]
+//   - [ErrInvalidParameter]: if numEvents is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventDomainGetNumEvents.
 func EventDomainGetNumEvents(eventDomain uint32) (uint32, error) {
 	if err := checkLibSym("cuptiEventDomainGetNumEvents"); err != nil {
 		var zero uint32
@@ -2569,7 +2800,27 @@ func EventDomainGetNumEvents(eventDomain uint32) (uint32, error) {
 
 var slotEventDomainGetNumEvents outSlot[uint32]
 
-// EventGetAttribute wraps cuptiEventGetAttribute.
+// EventGetAttribute gets an event attribute.
+//
+// Returns an event attribute in *value. The size of the value buffer is given by *valueSize. The value returned in *valueSize contains the number of bytes returned in value.
+//
+// If the attribute value is a c-string that is longer than *valueSize, then only the first *valueSize characters will be
+// returned and there will be no terminating null byte.
+//
+//   - event: ID of the event
+//   - attrib: The event attribute to read
+//   - valueSize: The size of the value buffer in bytes, and returns the number of bytes written to value
+//   - value: Returns the attribute's value
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidEventId]
+//   - [ErrInvalidParameter]: if valueSize or value is NULL, or if attrib is not an event attribute
+//   - [ErrParameterSizeNotSufficient]: For non-c-string attribute values, indicates that the value buffer is too small to hold the attribute value.
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventGetAttribute.
 func EventGetAttribute(event uint32, attrib EventAttribute, valueSize *uint, value unsafe.Pointer) error {
 	if err := checkLibSym("cuptiEventGetAttribute"); err != nil {
 		return err
@@ -2577,7 +2828,23 @@ func EventGetAttribute(event uint32, attrib EventAttribute, valueSize *uint, val
 	return toError(fnEventGetAttribute(event, attrib, valueSize, value), "cuptiEventGetAttribute")
 }
 
-// EventGetIdFromName wraps cuptiEventGetIdFromName.
+// EventGetIdFromName finds an event by name.
+//
+// Find an event by name and return the event ID in *event.
+//
+//   - device: CUDA device
+//   - eventName: The name of the event to find
+//   - event: Returns the ID of the found event or undefined if unable to find the event
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidEventName]: if unable to find an event with name eventName. In this case *event is undefined
+//   - [ErrInvalidParameter]: if eventName or event are NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventGetIdFromName.
 func EventGetIdFromName(device Device, eventName string) (uint32, error) {
 	if err := checkLibSym("cuptiEventGetIdFromName"); err != nil {
 		var zero uint32
@@ -2595,7 +2862,30 @@ func EventGetIdFromName(device Device, eventName string) (uint32, error) {
 
 var slotEventGetIdFromName outSlot[uint32]
 
-// eventGroupAddEvent wraps cuptiEventGroupAddEvent.
+// eventGroupAddEvent adds an event to an event group.
+//
+// The event add can fail for a number of reasons:
+//   - The event group is enabled
+//   - The event does not belong to the same event domain as the events that are already in the event group
+//   - Device limitations on the events that can belong to the same group
+//   - The event group is full
+//
+// Parameters:
+//   - eventGroup: The event group
+//   - event: The event to add to the group
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidEventId]
+//   - [ErrOutOfMemory]
+//   - [ErrInvalidOperation]: if eventGroup is enabled
+//   - [ErrNotCompatible]: if event belongs to a different event domain than the events already in eventGroup, or if a device limitation prevents event from being collected at the same time as the events already in eventGroup
+//   - [ErrMaxLimitReached]: if eventGroup is full
+//   - [ErrInvalidParameter]: if eventGroup is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventGroupAddEvent.
 func eventGroupAddEvent(eventGroup EventGroup, event uint32) error {
 	if err := checkLibSym("cuptiEventGroupAddEvent"); err != nil {
 		return err
@@ -2603,7 +2893,24 @@ func eventGroupAddEvent(eventGroup EventGroup, event uint32) error {
 	return toError(fneventGroupAddEvent(eventGroup, event), "cuptiEventGroupAddEvent")
 }
 
-// eventGroupCreate wraps cuptiEventGroupCreate.
+// eventGroupCreate creates a new event group for a context.
+//
+// Creates a new event group for context and returns the new group
+// in *eventGroup.
+//
+//   - context: The context for the event group
+//   - eventGroup: Returns the new event group
+//   - flags: Reserved - must be zero
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidContext]
+//   - [ErrOutOfMemory]
+//   - [ErrInvalidParameter]: if eventGroup is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventGroupCreate.
 func eventGroupCreate(context driver.Context, flags uint32) (EventGroup, error) {
 	if err := checkLibSym("cuptiEventGroupCreate"); err != nil {
 		var zero EventGroup
@@ -2617,7 +2924,21 @@ func eventGroupCreate(context driver.Context, flags uint32) (EventGroup, error) 
 	return out, nil
 }
 
-// eventGroupDestroy wraps cuptiEventGroupDestroy.
+// eventGroupDestroy destroys an event group.
+//
+// Destroy an eventGroup and free its resources. An event group
+// cannot be destroyed if it is enabled.
+//
+//   - eventGroup: The event group to destroy
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidOperation]: if the event group is enabled
+//   - [ErrInvalidParameter]: if eventGroup is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventGroupDestroy.
 func eventGroupDestroy(eventGroup EventGroup) error {
 	if err := checkLibSym("cuptiEventGroupDestroy"); err != nil {
 		return err
@@ -2625,7 +2946,21 @@ func eventGroupDestroy(eventGroup EventGroup) error {
 	return toError(fneventGroupDestroy(eventGroup), "cuptiEventGroupDestroy")
 }
 
-// eventGroupDisable wraps cuptiEventGroupDisable.
+// eventGroupDisable disables an event group.
+//
+// Disabling an event group stops collection
+// of events contained in the group.
+//
+//   - eventGroup: The event group
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrHardware]
+//   - [ErrInvalidParameter]: if eventGroup is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventGroupDisable.
 func eventGroupDisable(eventGroup EventGroup) error {
 	if err := checkLibSym("cuptiEventGroupDisable"); err != nil {
 		return err
@@ -2633,7 +2968,25 @@ func eventGroupDisable(eventGroup EventGroup) error {
 	return toError(fneventGroupDisable(eventGroup), "cuptiEventGroupDisable")
 }
 
-// eventGroupEnable wraps cuptiEventGroupEnable.
+// eventGroupEnable enables an event group.
+//
+// Enabling an event group zeros the value of
+// all the events in the group and then starts collection of those
+// events.
+//
+//   - eventGroup: The event group
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrHardware]
+//   - [ErrNotReady]: if eventGroup does not contain any events
+//   - [ErrNotCompatible]: if eventGroup cannot be enabled due to other already enabled event groups
+//   - [ErrInvalidParameter]: if eventGroup is NULL
+//   - [ErrHardwareBusy]: if another client is profiling and hardware is busy
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventGroupEnable.
 func eventGroupEnable(eventGroup EventGroup) error {
 	if err := checkLibSym("cuptiEventGroupEnable"); err != nil {
 		return err
@@ -2641,7 +2994,29 @@ func eventGroupEnable(eventGroup EventGroup) error {
 	return toError(fneventGroupEnable(eventGroup), "cuptiEventGroupEnable")
 }
 
-// eventGroupGetAttribute wraps cuptiEventGroupGetAttribute.
+// eventGroupGetAttribute reads an event group attribute.
+//
+// Read an event group attribute and return it in *value.
+// must guard against simultaneous destruction or modification of eventGroup (for example, client must guard against simultaneous
+// calls to [EventGroup.Close], [EventGroup.AddEvent],
+// etc.), and must guard against simultaneous destruction of the
+// context in which eventGroup was created (for example, client
+// must guard against simultaneous calls to cudaDeviceReset,
+// cuCtxDestroy, etc.).
+//
+//   - eventGroup: The event group
+//   - attrib: The attribute to read
+//   - valueSize: Size of buffer pointed by the value, and returns the number of bytes written to value
+//   - value: Returns the value of the attribute
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidParameter]: if valueSize or value is NULL, or if attrib is not an eventgroup attribute
+//   - [ErrParameterSizeNotSufficient]: For non-c-string attribute values, indicates that the value buffer is too small to hold the attribute value.
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventGroupGetAttribute.
 func eventGroupGetAttribute(eventGroup EventGroup, attrib EventGroupAttribute, valueSize *uint, value unsafe.Pointer) error {
 	if err := checkLibSym("cuptiEventGroupGetAttribute"); err != nil {
 		return err
@@ -2649,7 +3024,58 @@ func eventGroupGetAttribute(eventGroup EventGroup, attrib EventGroupAttribute, v
 	return toError(fneventGroupGetAttribute(eventGroup, attrib, valueSize, value), "cuptiEventGroupGetAttribute")
 }
 
-// eventGroupReadAllEvents wraps cuptiEventGroupReadAllEvents.
+// eventGroupReadAllEvents reads the values for all the events in an event group.
+//
+// The event
+// values are returned in the eventValueBuffer buffer. The buffer must be at least (sizeof(uint64) *
+// number of events in group) if
+// [EventGroupAttrProfileAllDomainInstances] is not set on
+// the group containing the events. The buffer must be at least
+// (sizeof(uint64) * number of domain instances * number of events in
+// group) if [EventGroupAttrProfileAllDomainInstances] is
+// set on the group.
+//
+// The data format returned in eventValueBuffer is:
+//   - domain instance 0: event0 event1 ... eventN
+//   - domain instance 1: event0 event1 ... eventN
+//   - ...
+//   - domain instance M: event0 event1 ... eventN
+//
+// The event order in eventValueBuffer is returned in eventIdArray. The size should be at least
+// (sizeof(CUpti_EventID) * number of events in group).
+//
+// If any instance of any event counter overflows, the value returned
+// for that event instance will be CUPTI_EVENT_OVERFLOW.
+//
+// The only allowed value for flags is [EventReadFlagNone].
+//
+// Reading events from a disabled event group is not allowed. After
+// being read, an event's value is reset to zero.
+// must guard against simultaneous destruction or modification of eventGroup (for example, client must guard against simultaneous
+// calls to [EventGroup.Close], [EventGroup.AddEvent],
+// etc.), and must guard against simultaneous destruction of the
+// context in which eventGroup was created (for example, client
+// must guard against simultaneous calls to cudaDeviceReset,
+// cuCtxDestroy, etc.). If [EventGroup.ResetAllEvents] is
+// called simultaneously with this function, then returned event
+// values are undefined.
+//
+//   - eventGroup: The event group
+//   - flags: Flags controlling the reading mode
+//   - eventValueBuffer: Returns the event values
+//   - eventIdArray: Returns the IDs of the events in the same order as the values return in eventValueBuffer
+//   - numEventIdsRead: Returns the number of event IDs returned in eventIdArray
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrHardware]
+//   - [ErrInvalidOperation]: if eventGroup is disabled
+//   - [ErrInvalidParameter]: if eventGroup, eventValueBufferSizeBytes, eventValueBuffer, eventIdArraySizeBytes, eventIdArray or numEventIdsRead is NULL
+//   - [ErrParameterSizeNotSufficient]: if size of eventValueBuffer or eventIdArray is not sufficient
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventGroupReadAllEvents.
 func eventGroupReadAllEvents(eventGroup EventGroup, flags ReadEventFlags, eventValueBuffer []uint64, eventIdArray []uint32) (int, error) {
 	if err := checkLibSym("cuptiEventGroupReadAllEvents"); err != nil {
 		var zero int
@@ -2678,7 +3104,49 @@ var slotEventGroupReadAllEvents outSlot[struct {
 	size4 uint
 }]
 
-// eventGroupReadEvent wraps cuptiEventGroupReadEvent.
+// eventGroupReadEvent reads the value for an event in an event group.
+//
+// The event value is
+// returned in the eventValueBuffer buffer. eventValueBufferSizeBytes indicates the size of the eventValueBuffer buffer. The buffer must be at least sizeof(uint64)
+// if [EventGroupAttrProfileAllDomainInstances] is not set
+// on the group containing the event. The buffer must be at least
+// (sizeof(uint64) * number of domain instances) if
+// [EventGroupAttrProfileAllDomainInstances] is set on the
+// group.
+//
+// If any instance of an event counter overflows, the value returned
+// for that event instance will be CUPTI_EVENT_OVERFLOW.
+//
+// The only allowed value for flags is [EventReadFlagNone].
+//
+// Reading an event from a disabled event group is not allowed. After
+// being read, an event's value is reset to zero.
+// must guard against simultaneous destruction or modification of eventGroup (for example, client must guard against simultaneous
+// calls to [EventGroup.Close], [EventGroup.AddEvent],
+// etc.), and must guard against simultaneous destruction of the
+// context in which eventGroup was created (for example, client
+// must guard against simultaneous calls to cudaDeviceReset,
+// cuCtxDestroy, etc.). If [EventGroup.ResetAllEvents] is
+// called simultaneously with this function, then returned event
+// values are undefined.
+//
+//   - eventGroup: The event group
+//   - flags: Flags controlling the reading mode
+//   - event: The event to read
+//   - eventValueBufferSizeBytes: The size of eventValueBuffer in bytes, and returns the number of bytes written to eventValueBuffer
+//   - eventValueBuffer: Returns the event value(s)
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidEventId]
+//   - [ErrHardware]
+//   - [ErrInvalidOperation]: if eventGroup is disabled
+//   - [ErrInvalidParameter]: if eventGroup, eventValueBufferSizeBytes or eventValueBuffer is NULL
+//   - [ErrParameterSizeNotSufficient]: if size of eventValueBuffer is not sufficient
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventGroupReadEvent.
 func eventGroupReadEvent(eventGroup EventGroup, flags ReadEventFlags, event uint32, eventValueBufferSizeBytes *uint, eventValueBuffer *uint64) error {
 	if err := checkLibSym("cuptiEventGroupReadEvent"); err != nil {
 		return err
@@ -2686,7 +3154,21 @@ func eventGroupReadEvent(eventGroup EventGroup, flags ReadEventFlags, event uint
 	return toError(fneventGroupReadEvent(eventGroup, flags, event, eventValueBufferSizeBytes, eventValueBuffer), "cuptiEventGroupReadEvent")
 }
 
-// eventGroupRemoveAllEvents wraps cuptiEventGroupRemoveAllEvents.
+// eventGroupRemoveAllEvents removes all events from an event group.
+//
+// Events cannot be removed if
+// the event group is enabled.
+//
+//   - eventGroup: The event group
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidOperation]: if eventGroup is enabled
+//   - [ErrInvalidParameter]: if eventGroup is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventGroupRemoveAllEvents.
 func eventGroupRemoveAllEvents(eventGroup EventGroup) error {
 	if err := checkLibSym("cuptiEventGroupRemoveAllEvents"); err != nil {
 		return err
@@ -2694,7 +3176,23 @@ func eventGroupRemoveAllEvents(eventGroup EventGroup) error {
 	return toError(fneventGroupRemoveAllEvents(eventGroup), "cuptiEventGroupRemoveAllEvents")
 }
 
-// eventGroupRemoveEvent wraps cuptiEventGroupRemoveEvent.
+// eventGroupRemoveEvent removes an event from an event group.
+//
+// Remove event from the an event group. The event cannot be
+// removed if the event group is enabled.
+//
+//   - eventGroup: The event group
+//   - event: The event to remove from the group
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidEventId]
+//   - [ErrInvalidOperation]: if eventGroup is enabled
+//   - [ErrInvalidParameter]: if eventGroup is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventGroupRemoveEvent.
 func eventGroupRemoveEvent(eventGroup EventGroup, event uint32) error {
 	if err := checkLibSym("cuptiEventGroupRemoveEvent"); err != nil {
 		return err
@@ -2704,6 +3202,24 @@ func eventGroupRemoveEvent(eventGroup EventGroup, event uint32) error {
 
 // eventGroupResetAllEvents zeroes the counts of all the events in the event group.
 //
+// Zero all the event counts in an event group.
+//
+// must guard against simultaneous destruction or modification of eventGroup (for example, client must guard against simultaneous
+// calls to [EventGroup.Close], [EventGroup.AddEvent],
+// etc.), and must guard against simultaneous destruction of the
+// context in which eventGroup was created (for example, client
+// must guard against simultaneous calls to cudaDeviceReset,
+// cuCtxDestroy, etc.).
+//
+//   - eventGroup: The event group
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrHardware]
+//   - [ErrInvalidParameter]: if eventGroup is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
 // Wraps cuptiEventGroupResetAllEvents.
 func eventGroupResetAllEvents(eventGroup EventGroup) error {
 	if err := checkLibSym("cuptiEventGroupResetAllEvents"); err != nil {
@@ -2712,7 +3228,21 @@ func eventGroupResetAllEvents(eventGroup EventGroup) error {
 	return toError(fneventGroupResetAllEvents(eventGroup), "cuptiEventGroupResetAllEvents")
 }
 
-// eventGroupSetAttribute wraps cuptiEventGroupSetAttribute.
+// eventGroupSetAttribute writes an event group attribute.
+//
+//   - eventGroup: The event group
+//   - attrib: The attribute to write
+//   - valueSize: The size, in bytes, of the value
+//   - value: The attribute value to write
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidParameter]: if valueSize or value is NULL, or if attrib is not an event group attribute, or if attrib is not a writable attribute
+//   - [ErrParameterSizeNotSufficient]: Indicates that the value buffer is too small to hold the attribute value.
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventGroupSetAttribute.
 func eventGroupSetAttribute(eventGroup EventGroup, attrib EventGroupAttribute, valueSize uint, value unsafe.Pointer) error {
 	if err := checkLibSym("cuptiEventGroupSetAttribute"); err != nil {
 		return err
@@ -2720,7 +3250,22 @@ func eventGroupSetAttribute(eventGroup EventGroup, attrib EventGroupAttribute, v
 	return toError(fneventGroupSetAttribute(eventGroup, attrib, valueSize, value), "cuptiEventGroupSetAttribute")
 }
 
-// EventGroupSetDisable wraps cuptiEventGroupSetDisable.
+// EventGroupSetDisable disables an event group set.
+//
+// Disable a set of event groups. Disabling a set of event groups
+// stops collection of events contained in the groups.
+// and other event groups may remain enabled.
+//
+//   - eventGroupSet: The pointer to the event group set
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrHardware]
+//   - [ErrInvalidParameter]: if eventGroupSet is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventGroupSetDisable.
 func EventGroupSetDisable(eventGroupSet *EventGroupSet) error {
 	if err := checkLibSym("cuptiEventGroupSetDisable"); err != nil {
 		return err
@@ -2728,7 +3273,24 @@ func EventGroupSetDisable(eventGroupSet *EventGroupSet) error {
 	return toError(fnEventGroupSetDisable(eventGroupSet), "cuptiEventGroupSetDisable")
 }
 
-// EventGroupSetEnable wraps cuptiEventGroupSetEnable.
+// EventGroupSetEnable enables an event group set.
+//
+// Enable a set of event groups. Enabling a set of event groups zeros the value of
+// all the events in all the groups and then starts collection of those events.
+//
+//   - eventGroupSet: The pointer to the event group set
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrHardware]
+//   - [ErrNotReady]: if eventGroup does not contain any events
+//   - [ErrNotCompatible]: if eventGroup cannot be enabled due to other already enabled event groups
+//   - [ErrInvalidParameter]: if eventGroupSet is NULL
+//   - [ErrHardwareBusy]: if other client is profiling and hardware is busy
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventGroupSetEnable.
 func EventGroupSetEnable(eventGroupSet *EventGroupSet) error {
 	if err := checkLibSym("cuptiEventGroupSetEnable"); err != nil {
 		return err
@@ -2737,6 +3299,34 @@ func EventGroupSetEnable(eventGroupSet *EventGroupSet) error {
 }
 
 // EventGroupSetsCreate returns the event groups, one set per pass, needed to collect a set of events.
+//
+// For a set of events, get the grouping that indicates the number of passes and the event groups necessary to collect the events.
+//
+// The number of events that can be collected simultaneously varies by
+// device and by the type of the events. When events can be collected
+// simultaneously, they may need to be grouped into multiple event
+// groups because they are from different event domains. This function
+// takes a set of events and determines how many passes are required
+// to collect all those events, and which events can be collected
+// simultaneously in each pass.
+//
+// The [EventGroupSets] returned in eventGroupPasses indicates
+// how many passes are required to collect the events with the numSets field. Within each event group set, the sets array
+// indicates the event groups that should be collected on each pass.
+// must guard against another thread simultaneously destroying context.
+//
+//   - context: The context for event collection
+//   - eventIdArraySizeBytes: Size of eventIdArray in bytes
+//   - eventIdArray: Array of event IDs that need to be grouped
+//   - eventGroupPasses: Returns a [EventGroupSets] object that indicates the number of passes required to collect the events and the events to collect on each pass
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidEventId]
+//   - [ErrInvalidParameter]: if eventIdArray or eventGroupPasses is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
 //
 // Wraps cuptiEventGroupSetsCreate.
 func EventGroupSetsCreate(context driver.Context, eventIdArraySizeBytes uint, eventIdArray *uint32) (eventGroupPasses *EventGroupSets, err error) {
@@ -2750,7 +3340,20 @@ func EventGroupSetsCreate(context driver.Context, eventIdArraySizeBytes uint, ev
 	return out0, nil
 }
 
-// EventGroupSetsDestroy wraps cuptiEventGroupSetsDestroy.
+// EventGroupSetsDestroy destroys a event group sets object.
+//
+// Destroy a [EventGroupSets] object.
+//
+//   - eventGroupSets: The object to destroy
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidOperation]: if any of the event groups contained in the sets is enabled
+//   - [ErrInvalidParameter]: if eventGroupSets is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventGroupSetsDestroy.
 func EventGroupSetsDestroy(eventGroupSets *EventGroupSets) error {
 	if err := checkLibSym("cuptiEventGroupSetsDestroy"); err != nil {
 		return err
@@ -2795,7 +3398,11 @@ func Finalize() error {
 
 // GetAutoBoostState gets auto boost state.
 //
-// The profiling results can be inconsistent in case auto boost is enabled. CUPTI tries to disable auto boost while profiling. It can fail to disable in cases where user does not have the permissions or CUDA_AUTO_BOOST env variable is set. The function can be used to query whether auto boost is enabled.
+// The profiling results can be inconsistent in case auto boost is enabled.
+// CUPTI tries to disable auto boost while profiling. It can fail to disable in
+// cases where user does not have the permissions or CUDA_AUTO_BOOST env
+// variable is set. The function can be used to query whether auto boost is
+// enabled.
 //
 //   - context: A valid driver.Context
 //   - state: A pointer to [ActivityAutoBoostState] structure which contains the current state and the id of the process that has requested the current state
@@ -2916,7 +3523,11 @@ func GetCubinCrc(pParams *GetCubinCrcParams) error {
 
 // GetDeviceId gets the ID of a device.
 //
-// If context is NULL, returns the ID of the device that contains the currently active context. If context is non-NULL, returns the ID of the device which contains that context. Operates in a similar manner to cudaGetDevice() or cuCtxGetDevice() but may be called from within callback functions.
+// If context is NULL, returns the ID of the device that contains
+// the currently active context. If context is non-NULL, returns
+// the ID of the device which contains that context. Operates in a
+// similar manner to cudaGetDevice() or cuCtxGetDevice() but may be
+// called from within callback functions.
 //
 //   - context: The context, or NULL to indicate the current context
 //   - deviceId: Returns the ID of the device that is current for the calling thread
@@ -3056,7 +3667,8 @@ var slotGetGraphNodeId outSlot[uint64]
 
 // GetLastError returns the last error from a cupti call or callback.
 //
-// Returns the last error that has been produced by any of the cupti api calls or the callback in the same host thread and resets it to [Success].
+// Returns the last error that has been produced by any of the cupti api calls
+// or the callback in the same host thread and resets it to [Success].
 //
 // Wraps cuptiGetLastError.
 func GetLastError() error {
@@ -3066,7 +3678,19 @@ func GetLastError() error {
 	return toError(fnGetLastError(), "cuptiGetLastError")
 }
 
-// GetNumEventDomains wraps cuptiGetNumEventDomains.
+// GetNumEventDomains gets the number of event domains available on any device.
+//
+// Returns the total number of event domains available on any
+// CUDA-capable device.
+//
+//   - numDomains: Returns the number of domains
+//
+// Errors:
+//   - [ErrInvalidParameter]: if numDomains is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiGetNumEventDomains.
 func GetNumEventDomains() (uint32, error) {
 	if err := checkLibSym("cuptiGetNumEventDomains"); err != nil {
 		var zero uint32
@@ -3083,7 +3707,19 @@ func GetNumEventDomains() (uint32, error) {
 
 var slotGetNumEventDomains outSlot[uint32]
 
-// GetNumMetrics wraps cuptiGetNumMetrics.
+// GetNumMetrics gets the total number of metrics available on any device.
+//
+// Returns the total number of metrics available on any CUDA-capable
+// devices.
+//
+//   - numMetrics: Returns the number of metrics
+//
+// Errors:
+//   - [ErrInvalidParameter]: if numMetrics is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiGetNumMetrics.
 func GetNumMetrics() (uint32, error) {
 	if err := checkLibSym("cuptiGetNumMetrics"); err != nil {
 		var zero uint32
@@ -3150,7 +3786,9 @@ func GetStreamId(context driver.Context, stream driver.Stream) (uint32, error) {
 
 // GetStreamIdEx gets the ID of a stream.
 //
-// The stream ID is unique within a context (i.e. all streams within a context will have unique stream IDs).
+// The stream ID is unique within a context
+// (i.e. all streams within a context will have unique stream
+// IDs).
 //
 //   - context: If non-NULL then the stream is checked to ensure that it belongs to this context. Typically this parameter should be null
 //   - stream: The stream
@@ -3183,7 +3821,7 @@ func GetStreamIdEx(context driver.Context, stream driver.Stream, perThreadStream
 // Errors:
 //   - [ErrInvalidParameter]: if type is NULL
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrThreadIdType], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrThreadIdType], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2].
 //
 // Wraps cuptiGetThreadIdType.
 func GetThreadIdType(type_ *ActivityThreadIdType) error {
@@ -3202,7 +3840,7 @@ func GetThreadIdType(type_ *ActivityThreadIdType) error {
 // Errors:
 //   - [ErrInvalidParameter]: if timestamp is NULL
 //
-// Deprecated: This API will be deprecated in a future release. In CUDA 13.4 and later, the corresponding V2 API is cuptiGetTimestamp_v2. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
+// Deprecated: This API will be deprecated in a future release. In CUDA 13.4 and later, the corresponding V2 API is cuptiGetTimestamp_v2.
 //
 // Wraps cuptiGetTimestamp.
 func GetTimestamp() (uint64, error) {
@@ -3273,7 +3911,19 @@ func IsTracingSessionRunning() (uint8, error) {
 
 var slotIsTracingSessionRunning outSlot[uint8]
 
-// KernelReplaySubscribeUpdate wraps cuptiKernelReplaySubscribeUpdate.
+// KernelReplaySubscribeUpdate subscribes to kernel replay updates.
+//
+// When subscribed, the function pointer passed in will be called each time a
+// kernel run is finished during kernel replay. Previously subscribed function
+// pointer will be replaced. Pass in NULL as the function pointer unsubscribes
+// the update.
+//
+//   - updateFunc: The update function pointer (see [KernelReplayUpdateFunc])
+//   - customData: Pointer to any custom data
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiKernelReplaySubscribeUpdate.
 func KernelReplaySubscribeUpdate(updateFunc uintptr, customData uintptr) error {
 	if err := checkLibSym("cuptiKernelReplaySubscribeUpdate"); err != nil {
 		return err
@@ -3282,6 +3932,28 @@ func KernelReplaySubscribeUpdate(updateFunc uintptr, customData uintptr) error {
 }
 
 // MetricCreateEventGroupSets returns the event groups, one set per pass, needed to collect the events a set of metrics requires.
+//
+// For a set of metrics, get the grouping that indicates the number of passes and the event groups necessary to collect the events required for those metrics.
+//
+// For a set of metrics, get the grouping that indicates the number of
+// passes and the event groups necessary to collect the events
+// required for those metrics.
+//
+// [EventGroupSetsCreate] for details on event group set
+// creation.
+//
+//   - context: The context for event collection
+//   - metricIdArraySizeBytes: Size of the metricIdArray in bytes
+//   - metricIdArray: Array of metric IDs
+//   - eventGroupPasses: Returns a [EventGroupSets] object that indicates the number of passes required to collect the events and the events to collect on each pass
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidMetricId]
+//   - [ErrInvalidParameter]: if metricIdArray or eventGroupPasses is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
 //
 // Wraps cuptiMetricCreateEventGroupSets.
 func MetricCreateEventGroupSets(context driver.Context, metricIdArraySizeBytes uint, metricIdArray *uint32) (eventGroupPasses *EventGroupSets, err error) {
@@ -3295,7 +3967,25 @@ func MetricCreateEventGroupSets(context driver.Context, metricIdArraySizeBytes u
 	return out0, nil
 }
 
-// MetricEnumEvents wraps cuptiMetricEnumEvents.
+// MetricEnumEvents gets the events required to calculating a metric.
+//
+// Gets the event IDs in eventIdArray required to calculate a metric. The size of the eventIdArray buffer is given by *eventIdArraySizeBytes and must be at least numEvents *
+// sizeof(CUpti_EventID) or all events will not be returned. The value
+// returned in *eventIdArraySizeBytes contains the number of bytes
+// returned in eventIdArray.
+//
+//   - metric: ID of the metric
+//   - eventIdArraySizeBytes: The size of eventIdArray in bytes, and returns the number of bytes written to eventIdArray
+//   - eventIdArray: Returns the IDs of the events required to calculate metric
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidMetricId]
+//   - [ErrInvalidParameter]: if eventIdArraySizeBytes or eventIdArray are NULL.
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiMetricEnumEvents.
 func MetricEnumEvents(metric uint32, eventIdArraySizeBytes *uint, eventIdArray *uint32) error {
 	if err := checkLibSym("cuptiMetricEnumEvents"); err != nil {
 		return err
@@ -3303,7 +3993,25 @@ func MetricEnumEvents(metric uint32, eventIdArraySizeBytes *uint, eventIdArray *
 	return toError(fnMetricEnumEvents(metric, eventIdArraySizeBytes, eventIdArray), "cuptiMetricEnumEvents")
 }
 
-// MetricEnumProperties wraps cuptiMetricEnumProperties.
+// MetricEnumProperties gets the properties required to calculating a metric.
+//
+// Gets the property IDs in propIdArray required to calculate a metric. The size of the propIdArray buffer is given by *propIdArraySizeBytes and must be at least numProp *
+// sizeof([DeviceAttribute]) or all properties will not be
+// returned. The value returned in *propIdArraySizeBytes contains
+// the number of bytes returned in propIdArray.
+//
+//   - metric: ID of the metric
+//   - propIdArraySizeBytes: The size of propIdArray in bytes, and returns the number of bytes written to propIdArray
+//   - propIdArray: Returns the IDs of the properties required to calculate metric
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidMetricId]
+//   - [ErrInvalidParameter]: if propIdArraySizeBytes or propIdArray are NULL.
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiMetricEnumProperties.
 func MetricEnumProperties(metric uint32, propIdArraySizeBytes *uint, propIdArray *MetricPropertyID) error {
 	if err := checkLibSym("cuptiMetricEnumProperties"); err != nil {
 		return err
@@ -3311,7 +4019,27 @@ func MetricEnumProperties(metric uint32, propIdArraySizeBytes *uint, propIdArray
 	return toError(fnMetricEnumProperties(metric, propIdArraySizeBytes, propIdArray), "cuptiMetricEnumProperties")
 }
 
-// MetricGetAttribute wraps cuptiMetricGetAttribute.
+// MetricGetAttribute gets a metric attribute.
+//
+// Returns a metric attribute in *value. The size of the value buffer is given by *valueSize. The value returned in *valueSize contains the number of bytes returned in value.
+//
+// If the attribute value is a c-string that is longer than *valueSize, then only the first *valueSize characters will be
+// returned and there will be no terminating null byte.
+//
+//   - metric: ID of the metric
+//   - attrib: The metric attribute to read
+//   - valueSize: The size of the value buffer in bytes, and returns the number of bytes written to value
+//   - value: Returns the attribute's value
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidMetricId]
+//   - [ErrInvalidParameter]: if valueSize or value is NULL, or if attrib is not a metric attribute
+//   - [ErrParameterSizeNotSufficient]: For non-c-string attribute values, indicates that the value buffer is too small to hold the attribute value.
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiMetricGetAttribute.
 func MetricGetAttribute(metric uint32, attrib MetricAttribute, valueSize *uint, value unsafe.Pointer) error {
 	if err := checkLibSym("cuptiMetricGetAttribute"); err != nil {
 		return err
@@ -3319,7 +4047,23 @@ func MetricGetAttribute(metric uint32, attrib MetricAttribute, valueSize *uint, 
 	return toError(fnMetricGetAttribute(metric, attrib, valueSize, value), "cuptiMetricGetAttribute")
 }
 
-// MetricGetIdFromName wraps cuptiMetricGetIdFromName.
+// MetricGetIdFromName finds an metric by name.
+//
+// Find a metric by name and return the metric ID in *metric.
+//
+//   - device: The CUDA device
+//   - metricName: The name of metric to find
+//   - metric: Returns the ID of the found metric or undefined if unable to find the metric
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidMetricName]: if unable to find a metric with name metricName. In this case *metric is undefined
+//   - [ErrInvalidParameter]: if metricName or metric are NULL.
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiMetricGetIdFromName.
 func MetricGetIdFromName(device Device, metricName string) (uint32, error) {
 	if err := checkLibSym("cuptiMetricGetIdFromName"); err != nil {
 		var zero uint32
@@ -3337,7 +4081,22 @@ func MetricGetIdFromName(device Device, metricName string) (uint32, error) {
 
 var slotMetricGetIdFromName outSlot[uint32]
 
-// MetricGetNumEvents wraps cuptiMetricGetNumEvents.
+// MetricGetNumEvents gets number of events required to calculate a metric.
+//
+// Returns the number of events in numEvents that are required to
+// calculate a metric.
+//
+//   - metric: ID of the metric
+//   - numEvents: Returns the number of events required for the metric
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidMetricId]
+//   - [ErrInvalidParameter]: if numEvents is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiMetricGetNumEvents.
 func MetricGetNumEvents(metric uint32) (uint32, error) {
 	if err := checkLibSym("cuptiMetricGetNumEvents"); err != nil {
 		var zero uint32
@@ -3354,7 +4113,22 @@ func MetricGetNumEvents(metric uint32) (uint32, error) {
 
 var slotMetricGetNumEvents outSlot[uint32]
 
-// MetricGetNumProperties wraps cuptiMetricGetNumProperties.
+// MetricGetNumProperties gets number of properties required to calculate a metric.
+//
+// Returns the number of properties in numProp that are required to
+// calculate a metric.
+//
+//   - metric: ID of the metric
+//   - numProp: Returns the number of properties required for the metric
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidMetricId]
+//   - [ErrInvalidParameter]: if numProp is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiMetricGetNumProperties.
 func MetricGetNumProperties(metric uint32) (uint32, error) {
 	if err := checkLibSym("cuptiMetricGetNumProperties"); err != nil {
 		var zero uint32
@@ -3373,6 +4147,27 @@ var slotMetricGetNumProperties outSlot[uint32]
 
 // MetricGetRequiredEventGroupSets returns the groups of events that must be collected in the same pass for the metric to be computed correctly.
 //
+// For a metric get the groups of events that must be collected in the same pass.
+//
+// For a metric get the groups of events that must be collected in the
+// same pass to ensure that the metric is calculated correctly. If the
+// events are not collected as specified then the metric value may be
+// inaccurate.
+//
+// The function returns NULL if a metric does not have any required
+// event group. In this case the events needed for the metric can be
+// grouped in any manner for collection.
+//
+//   - context: The context for event collection
+//   - metric: The metric ID
+//   - eventGroupSets: Returns a [EventGroupSets] object that indicates the events that must be collected in the same pass to ensure the metric is calculated correctly. Returns NULL if no grouping is required for metric
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidMetricId]
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
 // Wraps cuptiMetricGetRequiredEventGroupSets.
 func MetricGetRequiredEventGroupSets(context driver.Context, metric uint32) (eventGroupSets *EventGroupSets, err error) {
 	if err := checkLibSym("cuptiMetricGetRequiredEventGroupSets"); err != nil {
@@ -3385,7 +4180,46 @@ func MetricGetRequiredEventGroupSets(context driver.Context, metric uint32) (eve
 	return out0, nil
 }
 
-// MetricGetValue wraps cuptiMetricGetValue.
+// MetricGetValue calculates the value for a metric.
+//
+// Use the events collected for a metric to calculate the metric
+// value. Metric value evaluation depends on the evaluation mode
+// [MetricEvaluationMode] that the metric supports.
+// If a metric has evaluation mode as [MetricEvaluationModePerInstance],
+// then it assumes that the input event value is for one domain instance.
+// If a metric has evaluation mode as [MetricEvaluationModeAggregate],
+// it assumes that input event values are
+// normalized to represent all domain instances on a device. For the
+// most accurate metric collection, the events required for the metric
+// should be collected for all profiled domain instances. For example,
+// to collect all instances of an event, set the
+// [EventGroupAttrProfileAllDomainInstances] attribute on
+// the group containing the event to 1. The normalized value for the
+// event is then: (sum_event_values * totalInstanceCount) / instanceCount, where sum_event_values is the summation of the
+// event values across all profiled domain instances, totalInstanceCount is obtained from querying
+// [EventDomainAttrTotalInstanceCount] and instanceCount
+// is obtained from querying [EventGroupAttrInstanceCount] (or
+// [EventDomainAttrInstanceCount]).
+//
+//   - device: The CUDA device that the metric is being calculated for
+//   - metric: The metric ID
+//   - eventIdArray: The event IDs required to calculate metric
+//   - eventValueArray: The normalized event values required to calculate metric. The values must be order to match the order of events in eventIdArray
+//   - timeDuration: The duration over which the events were collected, in ns
+//   - metricValue: Returns the value for the metric
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidMetricId]
+//   - [ErrInvalidOperation]
+//   - [ErrParameterSizeNotSufficient]: if the eventIdArray does not contain all the events needed for metric
+//   - [ErrInvalidEventValue]: if any of the event values required for the metric is CUPTI_EVENT_OVERFLOW
+//   - [ErrInvalidMetricValue]: if the computed metric value cannot be represented in the metric's value type. For example, if the metric value type is unsigned and the computed metric value is negative
+//   - [ErrInvalidParameter]: if metricValue, eventIdArray or eventValueArray is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiMetricGetValue.
 func MetricGetValue(device Device, metric uint32, eventIdArray []uint32, eventValueArray []uint64, timeDuration uint64) ([1]uint64, error) {
 	if err := checkLibSym("cuptiMetricGetValue"); err != nil {
 		var zero [1]uint64
@@ -3408,7 +4242,47 @@ func MetricGetValue(device Device, metric uint32, eventIdArray []uint32, eventVa
 
 var slotMetricGetValue outSlot[[1]uint64]
 
-// MetricGetValue2 wraps cuptiMetricGetValue2.
+// MetricGetValue2 calculates the value for a metric.
+//
+// Use the events and properties collected for a metric to calculate
+// the metric value. Metric value evaluation depends on the evaluation
+// mode [MetricEvaluationMode] that the metric supports. If
+// a metric has evaluation mode as
+// [MetricEvaluationModePerInstance], then it assumes that the
+// input event value is for one domain instance. If a metric has
+// evaluation mode as [MetricEvaluationModeAggregate], it
+// assumes that input event values are normalized to represent all
+// domain instances on a device. For the most accurate metric
+// collection, the events required for the metric should be collected
+// for all profiled domain instances. For example, to collect all
+// instances of an event, set the
+// [EventGroupAttrProfileAllDomainInstances] attribute on
+// the group containing the event to 1. The normalized value for the
+// event is then: (sum_event_values * totalInstanceCount) / instanceCount, where sum_event_values is the summation of the
+// event values across all profiled domain instances, totalInstanceCount is obtained from querying
+// [EventDomainAttrTotalInstanceCount] and instanceCount
+// is obtained from querying [EventGroupAttrInstanceCount] (or
+// [EventDomainAttrInstanceCount]).
+//
+//   - metric: The metric ID
+//   - eventIdArray: The event IDs required to calculate metric
+//   - eventValueArray: The normalized event values required to calculate metric. The values must be order to match the order of events in eventIdArray
+//   - propIdArray: The metric property IDs required to calculate metric
+//   - propValueArray: The metric property values required to calculate metric. The values must be order to match the order of metric properties in propIdArray
+//   - metricValue: Returns the value for the metric
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidMetricId]
+//   - [ErrInvalidOperation]
+//   - [ErrParameterSizeNotSufficient]: if the eventIdArray does not contain all the events needed for metric
+//   - [ErrInvalidEventValue]: if any of the event values required for the metric is CUPTI_EVENT_OVERFLOW
+//   - [ErrNotCompatible]: if the computed metric value cannot be represented in the metric's value type. For example, if the metric value type is unsigned and the computed metric value is negative
+//   - [ErrInvalidParameter]: if metricValue, eventIdArray or eventValueArray is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiMetricGetValue2.
 func MetricGetValue2(metric uint32, eventIdArray []uint32, eventValueArray []uint64, propIdArray []MetricPropertyID, propValueArray []uint64) ([1]uint64, error) {
 	if err := checkLibSym("cuptiMetricGetValue2"); err != nil {
 		var zero [1]uint64
@@ -3803,9 +4677,7 @@ func PmSamplingStop(pParams *PmSamplingStopParams) error {
 // for multipass collection of the metrics configurations.
 // It's a no-op in case of [KernelReplay].
 //
-// **DEPRECATED** This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
-//
-// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future.
+// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
 // Wraps cuptiProfilerBeginPass.
 func ProfilerBeginPass(pParams *ProfilerBeginPassParams) error {
@@ -3820,9 +4692,7 @@ func ProfilerBeginPass(pParams *ProfilerBeginPassParams) error {
 // Although, it doesn't start the profiling but GPU resources needed for profiling are allocated.
 // Outside of a session, the GPU will return to its normal operating state.
 //
-// **DEPRECATED** This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
-//
-// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future.
+// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
 // Wraps cuptiProfilerBeginSession.
 func ProfilerBeginSession(pParams *ProfilerBeginSessionParams) error {
@@ -3836,9 +4706,7 @@ func ProfilerBeginSession(pParams *ProfilerBeginSessionParams) error {
 //
 // Use these APIs to calculate the allocation size and initialize counterData image scratch buffer.
 //
-// **DEPRECATED** This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
-//
-// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future.
+// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
 // Wraps cuptiProfilerCounterDataImageCalculateScratchBufferSize.
 func ProfilerCounterDataImageCalculateScratchBufferSize(pParams *ProfilerCounterDataImageCalculateScratchBufferSizeParams) error {
@@ -3854,9 +4722,7 @@ func ProfilerCounterDataImageCalculateScratchBufferSize(pParams *ProfilerCounter
 // CounterDataPrefix contains meta data about the metrics that will be stored in counterDataImage.
 // Use these APIs to calculate the allocation size and initialize counterData image.
 //
-// **DEPRECATED** This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
-//
-// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future.
+// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
 // Wraps cuptiProfilerCounterDataImageCalculateSize.
 func ProfilerCounterDataImageCalculateSize(pParams *ProfilerCounterDataImageCalculateSizeParams) error {
@@ -3910,9 +4776,7 @@ func ProfilerDeviceSupported(pParams *ProfilerDeviceSupportedParams) error {
 // In [AutoRange], these APIs are used to enable/disable profiling for the kernels to be executed in
 // a profiling session.
 //
-// **DEPRECATED** This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
-//
-// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future.
+// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
 // Wraps cuptiProfilerDisableProfiling.
 func ProfilerDisableProfiling(pParams *ProfilerDisableProfilingParams) error {
@@ -3927,9 +4791,7 @@ func ProfilerDisableProfiling(pParams *ProfilerDisableProfilingParams) error {
 // In [AutoRange], these APIs are used to enable/disable profiling for the kernels to be executed in
 // a profiling session.
 //
-// **DEPRECATED** This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
-//
-// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future.
+// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
 // Wraps cuptiProfilerEnableProfiling.
 func ProfilerEnableProfiling(pParams *ProfilerEnableProfilingParams) error {
@@ -3946,9 +4808,7 @@ func ProfilerEnableProfiling(pParams *ProfilerEnableProfilingParams) error {
 // Its a no-op in case of [KernelReplay].
 // Returns information for next pass.
 //
-// **DEPRECATED** This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
-//
-// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future.
+// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
 // Wraps cuptiProfilerEndPass.
 func ProfilerEndPass(pParams *ProfilerEndPassParams) error {
@@ -3963,9 +4823,7 @@ func ProfilerEndPass(pParams *ProfilerEndPassParams) error {
 // Frees up the GPU resources acquired for profiling.
 // Outside of a session, the GPU will return to it's normal operating state.
 //
-// **DEPRECATED** This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
-//
-// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future.
+// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
 // Wraps cuptiProfilerEndSession.
 func ProfilerEndSession(pParams *ProfilerEndSessionParams) error {
@@ -3980,9 +4838,7 @@ func ProfilerEndSession(pParams *ProfilerEndSessionParams) error {
 // Flush Counter data API to ensure every pass is decoded into the counterDataImage passed at beginSession.
 // This will cause the CPU/GPU sync to collect all the undecoded pass.
 //
-// **DEPRECATED** This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
-//
-// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future.
+// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
 // Wraps cuptiProfilerFlushCounterData.
 func ProfilerFlushCounterData(pParams *ProfilerFlushCounterDataParams) error {
@@ -4302,9 +5158,7 @@ func ProfilerInitialize(pParams *ProfilerInitializeParams) error {
 //
 // Asynchronous call to query if the submitted pass to GPU is collected.
 //
-// **DEPRECATED** This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
-//
-// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future.
+// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
 // Wraps cuptiProfilerIsPassCollected.
 func ProfilerIsPassCollected(pParams *ProfilerIsPassCollectedParams) error {
@@ -4321,9 +5175,7 @@ func ProfilerIsPassCollected(pParams *ProfilerIsPassCollectedParams) error {
 // Counter data is collected per unique range-stack. Identified by a string label passsed by the user.
 // It's an invalid operation in case of [AutoRange].
 //
-// **DEPRECATED** This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
-//
-// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future.
+// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
 // Wraps cuptiProfilerPopRange.
 func ProfilerPopRange(pParams *ProfilerPopRangeParams) error {
@@ -4340,9 +5192,7 @@ func ProfilerPopRange(pParams *ProfilerPopRangeParams) error {
 // Counter data is collected per unique range-stack. Identified by a string label passsed by the user.
 // It's an invalid operation in case of [AutoRange].
 //
-// **DEPRECATED** This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
-//
-// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future.
+// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
 // Wraps cuptiProfilerPushRange.
 func ProfilerPushRange(pParams *ProfilerPushRangeParams) error {
@@ -4357,9 +5207,7 @@ func ProfilerPushRange(pParams *ProfilerPushRangeParams) error {
 // Use these APIs to set the config to profile in a session. It can be used for advanced cases such as where multiple
 // configurations are collected into a single CounterData Image on the need basis, without restarting the session.
 //
-// **DEPRECATED** This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
-//
-// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future.
+// Deprecated: This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
 // Wraps cuptiProfilerSetConfig.
 func ProfilerSetConfig(pParams *ProfilerSetConfigParams) error {
@@ -4773,7 +5621,25 @@ func SassMetricsUnsetConfig(pParams *SassMetricsUnsetConfigParams) error {
 	return toError(fnSassMetricsUnsetConfig(pParams), "cuptiSassMetricsUnsetConfig")
 }
 
-// SetEventCollectionMode wraps cuptiSetEventCollectionMode.
+// SetEventCollectionMode sets the event collection mode.
+//
+// Set the event collection mode for a context. The mode
+// controls the event collection behavior of all events in event
+// groups created in the context. This API is invalid in kernel
+// replay mode.
+//
+//   - context: The context
+//   - mode: The event collection mode
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidOperation]: if called when replay mode is enabled
+//   - [ErrNotSupported]: if mode is not supported on the device
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiSetEventCollectionMode.
 func SetEventCollectionMode(context driver.Context, mode EventCollectionMode) error {
 	if err := checkLibSym("cuptiSetEventCollectionMode"); err != nil {
 		return err
@@ -4788,7 +5654,7 @@ func SetEventCollectionMode(context driver.Context, mode EventCollectionMode) er
 // Errors:
 //   - [ErrNotSupported]: if type is not supported on the platform
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrThreadIdType], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 activity attribute is [ActivityAttrThreadIdType], which can be queried or modified via [Subscriber.ActivityGetAttributeV2] and [Subscriber.ActivitySetAttributeV2].
 //
 // Wraps cuptiSetThreadIdType.
 func SetThreadIdType(type_ ActivityThreadIdType) error {
@@ -4817,7 +5683,7 @@ func SetThreadIdType(type_ ActivityThreadIdType) error {
 //   - [ErrMultipleSubscribersNotSupported]: if there is already a CUPTI subscriber, or if the application is launched with NVIDIA tools like Nsight Systems, Nsight Compute, cuda-gdb and cuda-memcheck.
 //   - [ErrNotInitialized]: if unable to initialize CUPTI
 //
-// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [SubscribeV2]. See the V1 to V2 API Migration section in the CUPTI documentation for more details.
+// Deprecated: This API will be deprecated in a future release. The corresponding V2 API is [SubscribeV2].
 //
 // Wraps cuptiSubscribe.
 func Subscribe(callback uintptr, userdata uintptr) (Subscriber, error) {

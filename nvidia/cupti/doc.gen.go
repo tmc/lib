@@ -80,16 +80,39 @@
 //   - [CheckpointRestore]: Restore a checkpoint to the device associated with its context.
 //   - [CheckpointSave]: Initialize and save a checkpoint of the device state associated with the handle context.
 //
+// # CUPTI Activity API
+//
+//   - [ComputeCapabilitySupported]: Check support for a compute capability.
+//   - [GetAutoBoostState]: Get auto boost state.
+//   - [GetLastError]: Returns the last error from a cupti call or callback.
+//   - [GetThreadIdType]: Get the thread-id type.
+//   - [IsTracingSessionRunning]: Check whether a CUPTI tracing session is still running.
+//   - [SetThreadIdType]: Set the thread-id type.
+//
 // # Device Queries
 //
+//   - [DeviceEnumEventDomains]: Get the event domains for a device.
+//   - [DeviceEnumMetrics]: Get the metrics for a device.
+//   - [DeviceGetAttribute]: Read a device attribute.
+//   - [DeviceGetEventDomainAttribute]: Read an event domain attribute.
+//   - [DeviceGetNumEventDomains]: Get the number of domains for a device.
+//   - [DeviceGetNumMetrics]: Get the number of metrics for a device.
 //   - [DeviceSupported]: Check support for a compute device.
 //   - [DeviceVirtualizationMode]: Query the virtualization mode of the device.
+//
+// # CUPTI Event API
+//
+//   - [DisableKernelReplayMode]: Disable kernel replay mode.
+//   - [EnumEventDomains]: Get the event domains available on any device.
+//   - [GetNumEventDomains]: Get the number of event domains available on any device.
+//   - [SetEventCollectionMode]: Set the event collection mode.
 //
 // # Callback API
 //
 //   - [Subscriber.EnableAllDomains]: Enable or disable all callbacks in all domains.
 //   - [Subscriber.EnableCallback]: Enable or disabled callbacks for a specific domain and callback ID.
 //   - [Subscriber.EnableDomain]: Enable or disabled all callbacks for a specific domain.
+//   - [EnableKernelReplayMode]: Enable kernel replay mode.
 //   - [GetCallbackName]: Get the name of a callback for a specific domain and callback ID.
 //   - [Subscriber.CallbackState]: Get the current enabled/disabled state of a callback for a specific domain and function ID.
 //   - [Subscriber.EnabledCallbacks]: Get the enabled callbacks for a subscriber.
@@ -97,6 +120,35 @@
 //   - [SubscribeV2]: Initialize a callback subscriber with a callback function and user data.
 //   - [SupportedDomains]: Get the available callback domains.
 //   - [Subscriber.Unsubscribe]: Unregister a callback subscriber.
+//
+// # CUPTI Metric API
+//
+//   - [EnumMetrics]: Get all the metrics available on any device.
+//   - [GetNumMetrics]: Get the total number of metrics available on any device.
+//
+// # Event API
+//
+//   - [EventDomainEnumEvents]: Get the events in a domain.
+//   - [EventDomainGetAttribute]: Read an event domain attribute.
+//   - [EventDomainGetNumEvents]: Get number of events in a domain.
+//   - [EventGetAttribute]: Get an event attribute.
+//   - [EventGetIdFromName]: Find an event by name.
+//   - [EventGroup.AddEvent]: Add an event to an event group.
+//   - [NewEventGroup]: Create a new event group for a context.
+//   - [EventGroup.Close]: Destroy an event group.
+//   - [EventGroup.Disable]: Disable an event group.
+//   - [EventGroup.Enable]: Enable an event group.
+//   - [EventGroup.Attribute]: Read an event group attribute.
+//   - [EventGroup.ReadAllEvents]: Read the values for all the events in an event group.
+//   - [EventGroup.ReadEvent]: Read the value for an event in an event group.
+//   - [EventGroup.RemoveAllEvents]: Remove all events from an event group.
+//   - [EventGroup.RemoveEvent]: Remove an event from an event group.
+//   - [EventGroup.ResetAllEvents]: Zero all the event counts in an event group.
+//   - [EventGroup.SetAttribute]: Write an event group attribute.
+//   - [EventGroupSetDisable]: Disable an event group set.
+//   - [EventGroupSetEnable]: Enable an event group set.
+//   - [EventGroupSetsCreate]: For a set of events, get the grouping that indicates the number of passes and the event groups necessary to collect the events.
+//   - [EventGroupSetsDestroy]: Destroy a event group sets object.
 //
 // # Lifecycle
 //
@@ -125,6 +177,23 @@
 // # Version Queries
 //
 //   - [GetVersion]: Get the CUPTI API version.
+//
+// # Kernel Replay
+//
+//   - [KernelReplaySubscribeUpdate]: Subscribe to kernel replay updates.
+//
+// # Metric API
+//
+//   - [MetricCreateEventGroupSets]: For a set of metrics, get the grouping that indicates the number of passes and the event groups necessary to collect the events required for those metrics.
+//   - [MetricEnumEvents]: Get the events required to calculating a metric.
+//   - [MetricEnumProperties]: Get the properties required to calculating a metric.
+//   - [MetricGetAttribute]: Get a metric attribute.
+//   - [MetricGetIdFromName]: Find an metric by name.
+//   - [MetricGetNumEvents]: Get number of events required to calculate a metric.
+//   - [MetricGetNumProperties]: Get number of properties required to calculate a metric.
+//   - [MetricGetRequiredEventGroupSets]: For a metric get the groups of events that must be collected in the same pass.
+//   - [MetricGetValue]: Calculate the value for a metric.
+//   - [MetricGetValue2]: Calculate the value for a metric.
 //
 // # PC Sampling API
 //
@@ -214,15 +283,6 @@
 //   - [SassMetricsGetProperties]: Get metric properties for the queried metric.
 //   - [SassMetricsSetConfig]: Set config for the SASS metric data collection for a device.
 //   - [SassMetricsUnsetConfig]: Unset config API will reset the SASS metric data collection configuration for the device.
-//
-// # Other
-//
-//   - [ComputeCapabilitySupported]: Check support for a compute capability.
-//   - [GetAutoBoostState]: Get auto boost state.
-//   - [GetLastError]: Returns the last error from a cupti call or callback.
-//   - [GetThreadIdType]: Get the thread-id type.
-//   - [IsTracingSessionRunning]: Check whether a CUPTI tracing session is still running.
-//   - [SetThreadIdType]: Set the thread-id type.
 //
 // [CUPTI Documentation]: https://docs.nvidia.com/cupti/
 package cupti

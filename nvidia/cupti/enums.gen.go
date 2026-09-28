@@ -91,7 +91,7 @@ const (
 	CbidResourceGraphCreated                       CallbackIdResource = 9  // CUDA graph has been created.
 	CbidResourceGraphDestroyStarting               CallbackIdResource = 10 // CUDA graph is about to be destroyed.
 	CbidResourceGraphCloned                        CallbackIdResource = 11 // CUDA graph is cloned.
-	CbidResourceGraphnodeCreateStarting            CallbackIdResource = 12 // CUDA graph node is about to be created.
+	CbidResourceGraphnodeCreateStarting            CallbackIdResource = 12 // CUDA graph node is about to be created
 	CbidResourceGraphnodeCreated                   CallbackIdResource = 13 // CUDA graph node is created.
 	CbidResourceGraphnodeDestroyStarting           CallbackIdResource = 14 // CUDA graph node is about to be destroyed.
 	CbidResourceGraphnodeDependencyCreated         CallbackIdResource = 15 // Dependency on a CUDA graph node is created.
@@ -206,7 +206,7 @@ const (
 	CbidStateInvalid CallbackIdState = 0 // Invalid state callback ID.
 	// CbidStateFatalError: Notification of fatal errors - high impact, non-recoverable When encountered, CUPTI automatically invokes [Finalize] User can control behavior of the application in future from receiving this callback - such as continuing without profiling, or terminating the whole application.
 	CbidStateFatalError CallbackIdState = 1
-	// CbidStateError: Notification of non fatal errors - high impact, but recoverable.
+	// CbidStateError: Notification of non fatal errors - high impact, but recoverable This notification is not issued in the current release.
 	CbidStateError    CallbackIdState = 2
 	CbidStateWarning  CallbackIdState = 3 // Notification of warnings - low impact, recoverable.
 	CbidStateSize     CallbackIdState = 4
@@ -232,7 +232,9 @@ func (e CallbackIdState) String() string {
 	return fmt.Sprintf("CallbackIdState(%d)", e)
 }
 
-// DeviceAttributeDeviceClass specifies the device attribute device class (CUpti_DeviceAttributeDeviceClass).
+// DeviceAttributeDeviceClass represents device class.
+//
+// Enumeration of device classes for device attribute [DeviceAttrDeviceClass].
 type DeviceAttributeDeviceClass int32
 
 const (
@@ -257,31 +259,50 @@ func (e DeviceAttributeDeviceClass) String() string {
 	return fmt.Sprintf("DeviceAttributeDeviceClass(%d)", e)
 }
 
-// DeviceAttribute specifies the device attribute (CUpti_DeviceAttribute).
+// DeviceAttribute represents device attributes.
+//
+// CUPTI device attributes. These attributes can be read using [DeviceGetAttribute].
 type DeviceAttribute int32
 
 const (
-	DeviceAttrMaxEventId                             DeviceAttribute = 1
-	DeviceAttrMaxEventDomainId                       DeviceAttribute = 2
-	DeviceAttrGlobalMemoryBandwidth                  DeviceAttribute = 3
-	DeviceAttrInstructionPerCycle                    DeviceAttribute = 4
-	DeviceAttrInstructionThroughputSinglePrecision   DeviceAttribute = 5
-	DeviceAttrMaxFrameBuffers                        DeviceAttribute = 6
-	DeviceAttrPcieLinkRate                           DeviceAttribute = 7
-	DeviceAttrPcieLinkWidth                          DeviceAttribute = 8
-	DeviceAttrPcieGen                                DeviceAttribute = 9
-	DeviceAttrDeviceClass                            DeviceAttribute = 10
-	DeviceAttrFlopSpPerCycle                         DeviceAttribute = 11
-	DeviceAttrFlopDpPerCycle                         DeviceAttribute = 12
-	DeviceAttrMaxL2Units                             DeviceAttribute = 13
+	DeviceAttrMaxEventId DeviceAttribute = 1 // Number of event IDs for a device. Value is a uint32_t.
+	// DeviceAttrMaxEventDomainId: Number of event domain IDs for a device. Value is a uint32_t.
+	DeviceAttrMaxEventDomainId DeviceAttribute = 2
+	// DeviceAttrGlobalMemoryBandwidth: Get global memory bandwidth in Kbytes/sec. Value is a uint64_t.
+	DeviceAttrGlobalMemoryBandwidth DeviceAttribute = 3
+	// DeviceAttrInstructionPerCycle: Get theoretical maximum number of instructions per cycle. Value is a uint32_t.
+	DeviceAttrInstructionPerCycle DeviceAttribute = 4
+	// DeviceAttrInstructionThroughputSinglePrecision: Get theoretical maximum number of single precision instructions that can be executed per second. Value is a uint64_t.
+	DeviceAttrInstructionThroughputSinglePrecision DeviceAttribute = 5
+	DeviceAttrMaxFrameBuffers                      DeviceAttribute = 6 // Get number of frame buffers for device. Value is a uint64_t.
+	// DeviceAttrPcieLinkRate: Get PCIE link rate in Mega bits/sec for device. Return 0 if bus-type is non-PCIE. Value is a uint64_t.
+	DeviceAttrPcieLinkRate DeviceAttribute = 7
+	// DeviceAttrPcieLinkWidth: Get PCIE link width for device. Return 0 if bus-type is non-PCIE. Value is a uint64_t.
+	DeviceAttrPcieLinkWidth DeviceAttribute = 8
+	// DeviceAttrPcieGen: Get PCIE generation for device. Return 0 if bus-type is non-PCIE. Value is a uint64_t.
+	DeviceAttrPcieGen DeviceAttribute = 9
+	// DeviceAttrDeviceClass: Get the class for the device. Value is a [DeviceAttributeDeviceClass].
+	DeviceAttrDeviceClass DeviceAttribute = 10
+	// DeviceAttrFlopSpPerCycle: Get the peak single precision flop per cycle. Value is a uint64_t.
+	DeviceAttrFlopSpPerCycle DeviceAttribute = 11
+	// DeviceAttrFlopDpPerCycle: Get the peak double precision flop per cycle. Value is a uint64_t.
+	DeviceAttrFlopDpPerCycle DeviceAttribute = 12
+	DeviceAttrMaxL2Units     DeviceAttribute = 13 // Get number of L2 units. Value is a uint64_t.
+	// DeviceAttrMaxSharedMemoryCacheConfigPreferShared: Get the maximum shared memory for the CU_FUNC_CACHE_PREFER_SHARED preference. Value is a uint64_t.
 	DeviceAttrMaxSharedMemoryCacheConfigPreferShared DeviceAttribute = 14
-	DeviceAttrMaxSharedMemoryCacheConfigPreferL1     DeviceAttribute = 15
-	DeviceAttrMaxSharedMemoryCacheConfigPreferEqual  DeviceAttribute = 16
-	DeviceAttrFlopHpPerCycle                         DeviceAttribute = 17
-	DeviceAttrNvlinkPresent                          DeviceAttribute = 18
-	DeviceAttrGpuCpuNvlinkBw                         DeviceAttribute = 19
-	DeviceAttrNvswitchPresent                        DeviceAttribute = 20
-	DeviceAttrForceInt                               DeviceAttribute = 0x7fffffff
+	// DeviceAttrMaxSharedMemoryCacheConfigPreferL1: Get the maximum shared memory for the CU_FUNC_CACHE_PREFER_L1 preference. Value is a uint64_t.
+	DeviceAttrMaxSharedMemoryCacheConfigPreferL1 DeviceAttribute = 15
+	// DeviceAttrMaxSharedMemoryCacheConfigPreferEqual: Get the maximum shared memory for the CU_FUNC_CACHE_PREFER_EQUAL preference. Value is a uint64_t.
+	DeviceAttrMaxSharedMemoryCacheConfigPreferEqual DeviceAttribute = 16
+	// DeviceAttrFlopHpPerCycle: Get the peak half precision flop per cycle. Value is a uint64_t.
+	DeviceAttrFlopHpPerCycle DeviceAttribute = 17
+	// DeviceAttrNvlinkPresent: Check if Nvlink is connected to device. Returns 1, if at least one Nvlink is connected to the device, returns 0 otherwise. Value is a uint32_t.
+	DeviceAttrNvlinkPresent DeviceAttribute = 18
+	// DeviceAttrGpuCpuNvlinkBw: Check if Nvlink is present between GPU and CPU. Returns Bandwidth, in Bytes/sec, if Nvlink is present, returns 0 otherwise. Value is a uint64_t.
+	DeviceAttrGpuCpuNvlinkBw DeviceAttribute = 19
+	// DeviceAttrNvswitchPresent: Check if NVSwitch is present in the underlying topology. Returns 1, if present, returns 0 otherwise. Value is a uint32_t.
+	DeviceAttrNvswitchPresent DeviceAttribute = 20
+	DeviceAttrForceInt        DeviceAttribute = 0x7fffffff
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -333,15 +354,21 @@ func (e DeviceAttribute) String() string {
 	return fmt.Sprintf("DeviceAttribute(%d)", e)
 }
 
-// EventDomainAttribute specifies the event domain attribute (CUpti_EventDomainAttribute).
+// EventDomainAttribute represents event domain attributes.
+//
+// Event domain attributes. Except where noted, all the attributes can be read using either [DeviceGetEventDomainAttribute] or [EventDomainGetAttribute].
 type EventDomainAttribute int32
 
 const (
-	EventDomainAttrName               EventDomainAttribute = 0
-	EventDomainAttrInstanceCount      EventDomainAttribute = 1
+	// EventDomainAttrName: Event domain name. Value is a null terminated const c-string.
+	EventDomainAttrName EventDomainAttribute = 0
+	// EventDomainAttrInstanceCount: Number of instances of the domain for which event counts will be collected. The domain may have additional instances that cannot be profiled (see [EventDomainAttrTotalInstanceCount]). Can be read only with [DeviceGetEventDomainAttribute]. Value is a uint32_t.
+	EventDomainAttrInstanceCount EventDomainAttribute = 1
+	// EventDomainAttrTotalInstanceCount: Total number of instances of the domain, including instances that cannot be profiled. Use [EventDomainAttrInstanceCount] to get the number of instances that can be profiled. Can be read only with [DeviceGetEventDomainAttribute]. Value is a uint32_t.
 	EventDomainAttrTotalInstanceCount EventDomainAttribute = 3
-	EventDomainAttrCollectionMethod   EventDomainAttribute = 4
-	EventDomainAttrForceInt           EventDomainAttribute = 0x7fffffff
+	// EventDomainAttrCollectionMethod: Collection method used for events contained in the event domain. Value is a [EventCollectionMethod].
+	EventDomainAttrCollectionMethod EventDomainAttribute = 4
+	EventDomainAttrForceInt         EventDomainAttribute = 0x7fffffff
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -361,14 +388,17 @@ func (e EventDomainAttribute) String() string {
 	return fmt.Sprintf("EventDomainAttribute(%d)", e)
 }
 
-// EventCollectionMethod specifies the event collection method (CUpti_EventCollectionMethod).
+// EventCollectionMethod represents the collection method used for an event.
+//
+// The collection method indicates how an event is collected.
 type EventCollectionMethod int32
 
 const (
+	// EventCollectionMethodPm: Event is collected using a hardware global performance monitor.
 	EventCollectionMethodPm           EventCollectionMethod = 0
-	EventCollectionMethodSm           EventCollectionMethod = 1
-	EventCollectionMethodInstrumented EventCollectionMethod = 2
-	EventCollectionMethodNvlinkTc     EventCollectionMethod = 3
+	EventCollectionMethodSm           EventCollectionMethod = 1 // Event is collected using a hardware SM performance monitor.
+	EventCollectionMethodInstrumented EventCollectionMethod = 2 // Event is collected using software instrumentation.
+	EventCollectionMethodNvlinkTc     EventCollectionMethod = 3 // Event is collected using NvLink throughput counter method.
 	EventCollectionMethodForceInt     EventCollectionMethod = 0x7fffffff
 )
 
@@ -389,18 +419,25 @@ func (e EventCollectionMethod) String() string {
 	return fmt.Sprintf("EventCollectionMethod(%d)", e)
 }
 
-// EventGroupAttribute specifies the event group attribute (CUpti_EventGroupAttribute).
+// EventGroupAttribute represents event group attributes.
+//
+// Event group attributes. These attributes can be read using [EventGroup.Attribute]. Attributes marked [rw] can also be written using [EventGroup.SetAttribute].
 type EventGroupAttribute int32
 
 const (
-	EventGroupAttrEventDomainId             EventGroupAttribute = 0
+	// EventGroupAttrEventDomainId: The domain to which the event group is bound. This attribute is set when the first event is added to the group. Value is a CUpti_EventDomainID.
+	EventGroupAttrEventDomainId EventGroupAttribute = 0
+	// EventGroupAttrProfileAllDomainInstances: [rw] Profile all the instances of the domain for this eventgroup. This feature can be used to get load balancing across all instances of a domain. Value is an integer.
 	EventGroupAttrProfileAllDomainInstances EventGroupAttribute = 1
-	EventGroupAttrUserData                  EventGroupAttribute = 2
-	EventGroupAttrNumEvents                 EventGroupAttribute = 3
-	EventGroupAttrEvents                    EventGroupAttribute = 4
-	EventGroupAttrInstanceCount             EventGroupAttribute = 5
-	EventGroupAttrProfilingScope            EventGroupAttribute = 6
-	EventGroupAttrForceInt                  EventGroupAttribute = 0x7fffffff
+	EventGroupAttrUserData                  EventGroupAttribute = 2 // [rw] Reserved for user data.
+	EventGroupAttrNumEvents                 EventGroupAttribute = 3 // Number of events in the group. Value is a uint32_t.
+	// EventGroupAttrEvents: Enumerates events in the group. Value is a pointer to buffer of size sizeof(CUpti_EventID) * num_of_events in the eventgroup. num_of_events can be queried using [EventGroupAttrNumEvents].
+	EventGroupAttrEvents EventGroupAttribute = 4
+	// EventGroupAttrInstanceCount: Number of instances of the domain bound to this event group that will be counted. Value is a uint32_t.
+	EventGroupAttrInstanceCount EventGroupAttribute = 5
+	// EventGroupAttrProfilingScope: Event group scope can be set to [EventProfilingScopeDevice] or [EventProfilingScopeContext] for an eventGroup, before adding any event. Sets the scope of eventgroup as [EventProfilingScopeDevice] or [EventProfilingScopeContext] when the scope of the events that will be added is [EventProfilingScopeBoth]. If profiling scope of event is either [EventProfilingScopeDevice] or [EventProfilingScopeContext] then setting this attribute will not affect the default scope. It is not allowed to add events of different scope to same eventgroup. Value is a uint32_t.
+	EventGroupAttrProfilingScope EventGroupAttribute = 6
+	EventGroupAttrForceInt       EventGroupAttribute = 0x7fffffff
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -426,12 +463,15 @@ func (e EventGroupAttribute) String() string {
 	return fmt.Sprintf("EventGroupAttribute(%d)", e)
 }
 
-// EventProfilingScope specifies the event profiling scope (CUpti_EventProfilingScope).
+// EventProfilingScope represents profiling scope for event.
+//
+// Profiling scope of event indicates if the event can be collected at context scope or device scope or both i.e. it can be collected at any of context or device scope.
 type EventProfilingScope int32
 
 const (
-	EventProfilingScopeContext  EventProfilingScope = 0
-	EventProfilingScopeDevice   EventProfilingScope = 1
+	EventProfilingScopeContext EventProfilingScope = 0 // Event is collected at context scope.
+	EventProfilingScopeDevice  EventProfilingScope = 1 // Event is collected at device scope.
+	// EventProfilingScopeBoth: Event can be collected at device or context scope. The scope can be set using [EventGroup.SetAttribute] API.
 	EventProfilingScopeBoth     EventProfilingScope = 2
 	EventProfilingScopeForceInt EventProfilingScope = 0x7fffffff
 )
@@ -451,16 +491,21 @@ func (e EventProfilingScope) String() string {
 	return fmt.Sprintf("EventProfilingScope(%d)", e)
 }
 
-// EventAttribute specifies the event attribute (CUpti_EventAttribute).
+// EventAttribute represents event attributes.
+//
+// Event attributes. These attributes can be read using [EventGetAttribute].
 type EventAttribute int32
 
 const (
-	EventAttrName             EventAttribute = 0
+	EventAttrName EventAttribute = 0 // Event name. Value is a null terminated const c-string.
+	// EventAttrShortDescription: Short description of event. Value is a null terminated const c-string.
 	EventAttrShortDescription EventAttribute = 1
-	EventAttrLongDescription  EventAttribute = 2
-	EventAttrCategory         EventAttribute = 3
-	EventAttrProfilingScope   EventAttribute = 5
-	EventAttrForceInt         EventAttribute = 0x7fffffff
+	// EventAttrLongDescription: Long description of event. Value is a null terminated const c-string.
+	EventAttrLongDescription EventAttribute = 2
+	EventAttrCategory        EventAttribute = 3 // Category of event. Value is [EventCategory].
+	// EventAttrProfilingScope: Profiling scope of the events. It can be either device or context or both. Value is a [EventProfilingScope].
+	EventAttrProfilingScope EventAttribute = 5
+	EventAttrForceInt       EventAttribute = 0x7fffffff
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -482,13 +527,17 @@ func (e EventAttribute) String() string {
 	return fmt.Sprintf("EventAttribute(%d)", e)
 }
 
-// EventCollectionMode specifies the event collection mode (CUpti_EventCollectionMode).
+// EventCollectionMode represents event collection modes.
+//
+// The event collection mode determines the period over which the events within the enabled event groups will be collected.
 type EventCollectionMode int32
 
 const (
+	// EventCollectionModeContinuous: Events are collected for the entire duration between the [EventGroup.Enable] and [EventGroup.Disable] calls. Event values are reset when the events are read. For CUDA toolkit v6.0 and older this was the default mode.
 	EventCollectionModeContinuous EventCollectionMode = 0
-	EventCollectionModeKernel     EventCollectionMode = 1
-	EventCollectionModeForceInt   EventCollectionMode = 0x7fffffff
+	// EventCollectionModeKernel: Events are collected only for the durations of kernel executions that occur between the [EventGroup.Enable] and [EventGroup.Disable] calls. Event collection begins when a kernel execution begins, and stops when kernel execution completes. Event values are reset to zero when each kernel execution begins. If multiple kernel executions occur between the [EventGroup.Enable] and [EventGroup.Disable] calls then the event values must be read after each kernel launch if those events need to be associated with the specific kernel launch. Note that collection in this mode may significantly change the overall performance characteristics of the application because kernel executions that occur between the [EventGroup.Enable] and [EventGroup.Disable] calls are serialized on the GPU. This is the default mode from CUDA toolkit v6.5
+	EventCollectionModeKernel   EventCollectionMode = 1
+	EventCollectionModeForceInt EventCollectionMode = 0x7fffffff
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -504,15 +553,17 @@ func (e EventCollectionMode) String() string {
 	return fmt.Sprintf("EventCollectionMode(%d)", e)
 }
 
-// EventCategory specifies the event category (CUpti_EventCategory).
+// EventCategory represents an event category.
+//
+// Each event is assigned to a category that represents the general type of the event. A event's category is accessed using [EventGetAttribute] and the [EventAttrCategory] attribute.
 type EventCategory int32
 
 const (
-	EventCategoryInstruction    EventCategory = 0
-	EventCategoryMemory         EventCategory = 1
-	EventCategoryCache          EventCategory = 2
-	EventCategoryProfileTrigger EventCategory = 3
-	EventCategorySystem         EventCategory = 4
+	EventCategoryInstruction    EventCategory = 0 // An instruction related event.
+	EventCategoryMemory         EventCategory = 1 // A memory related event.
+	EventCategoryCache          EventCategory = 2 // A cache related event.
+	EventCategoryProfileTrigger EventCategory = 3 // A profile-trigger event.
+	EventCategorySystem         EventCategory = 4 // A system event.
 	EventCategoryForceInt       EventCategory = 0x7fffffff
 )
 
@@ -535,11 +586,13 @@ func (e EventCategory) String() string {
 	return fmt.Sprintf("EventCategory(%d)", e)
 }
 
-// ReadEventFlags specifies the read event flags (CUpti_ReadEventFlags).
+// ReadEventFlags represents flags for [EventGroup.ReadEvent] an [EventGroup.ReadAllEvents].
+//
+// Flags for [EventGroup.ReadEvent] an [EventGroup.ReadAllEvents].
 type ReadEventFlags int32
 
 const (
-	EventReadFlagNone     ReadEventFlags = 0
+	EventReadFlagNone     ReadEventFlags = 0 // No flags.
 	EventReadFlagForceInt ReadEventFlags = 0x7fffffff
 )
 
@@ -554,17 +607,19 @@ func (e ReadEventFlags) String() string {
 	return fmt.Sprintf("ReadEventFlags(%d)", e)
 }
 
-// MetricCategory specifies the metric category (CUpti_MetricCategory).
+// MetricCategory represents a metric category.
+//
+// Each metric is assigned to a category that represents the general type of the metric. A metric's category is accessed using [MetricGetAttribute] and the [MetricAttrCategory] attribute.
 type MetricCategory int32
 
 const (
-	MetricCategoryMemory         MetricCategory = 0
-	MetricCategoryInstruction    MetricCategory = 1
-	MetricCategoryMultiprocessor MetricCategory = 2
-	MetricCategoryCache          MetricCategory = 3
-	MetricCategoryTexture        MetricCategory = 4
-	MetricCategoryNvlink         MetricCategory = 5
-	MetricCategoryPcie           MetricCategory = 6
+	MetricCategoryMemory         MetricCategory = 0 // A memory related metric.
+	MetricCategoryInstruction    MetricCategory = 1 // An instruction related metric.
+	MetricCategoryMultiprocessor MetricCategory = 2 // A multiprocessor related metric.
+	MetricCategoryCache          MetricCategory = 3 // A cache related metric.
+	MetricCategoryTexture        MetricCategory = 4 // A texture related metric.
+	MetricCategoryNvlink         MetricCategory = 5 // A Nvlink related metric.
+	MetricCategoryPcie           MetricCategory = 6 // A PCIe related metric.
 	MetricCategoryForceInt       MetricCategory = 0x7fffffff
 )
 
@@ -591,13 +646,17 @@ func (e MetricCategory) String() string {
 	return fmt.Sprintf("MetricCategory(%d)", e)
 }
 
-// MetricEvaluationMode specifies the metric evaluation mode (CUpti_MetricEvaluationMode).
+// MetricEvaluationMode represents a metric evaluation mode.
+//
+// A metric can be evaluated per hardware instance to know the load balancing across instances of a domain or the metric can be evaluated in aggregate mode when the events involved in metric evaluation are from different event domains. It might be possible to evaluate some metrics in both modes for convenience. A metric's evaluation mode is accessed using [MetricEvaluationMode] and the [MetricAttrEvaluationMode] attribute.
 type MetricEvaluationMode int32
 
 const (
+	// MetricEvaluationModePerInstance: If this bit is set, the metric can be profiled for each instance of the domain. The event values passed to [MetricGetValue] can contain values for one instance of the domain. And [MetricGetValue] can be called for each instance.
 	MetricEvaluationModePerInstance MetricEvaluationMode = 1
-	MetricEvaluationModeAggregate   MetricEvaluationMode = 1 << 1
-	MetricEvaluationModeForceInt    MetricEvaluationMode = 0x7fffffff
+	// MetricEvaluationModeAggregate: If this bit is set, the metric can be profiled over all instances. The event values passed to [MetricGetValue] can be aggregated values of events for all instances of the domain.
+	MetricEvaluationModeAggregate MetricEvaluationMode = 1 << 1
+	MetricEvaluationModeForceInt  MetricEvaluationMode = 0x7fffffff
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -613,16 +672,22 @@ func (e MetricEvaluationMode) String() string {
 	return fmt.Sprintf("MetricEvaluationMode(%d)", e)
 }
 
-// MetricValueKind specifies the metric value kind (CUpti_MetricValueKind).
+// MetricValueKind represents kinds of metric values.
+//
+// Metric values can be one of several different kinds. Corresponding to each kind is a member of the CUpti_MetricValue union. The metric value returned by [MetricGetValue] should be accessed using the appropriate member of that union based on its value kind.
 type MetricValueKind int32
 
 const (
-	MetricValueKindDouble              MetricValueKind = 0
-	MetricValueKindUint64              MetricValueKind = 1
-	MetricValueKindPercent             MetricValueKind = 2
-	MetricValueKindThroughput          MetricValueKind = 3
-	MetricValueKindInt64               MetricValueKind = 4
-	MetricValueKindUtilizationLevel    MetricValueKind = 5
+	MetricValueKindDouble MetricValueKind = 0 // The metric value is a 64-bit double.
+	MetricValueKindUint64 MetricValueKind = 1 // The metric value is a 64-bit unsigned integer.
+	// MetricValueKindPercent: The metric value is a percentage represented by a 64-bit double. For example, 57.5% is represented by the value 57.5.
+	MetricValueKindPercent MetricValueKind = 2
+	// MetricValueKindThroughput: The metric value is a throughput represented by a 64-bit integer. The unit for throughput values is bytes/second.
+	MetricValueKindThroughput MetricValueKind = 3
+	MetricValueKindInt64      MetricValueKind = 4 // The metric value is a 64-bit signed integer.
+	// MetricValueKindUtilizationLevel: The metric value is a utilization level, as represented by [MetricValueUtilizationLevel].
+	MetricValueKindUtilizationLevel MetricValueKind = 5
+	// MetricValueKindNvtxExtendedPayload: The metric value is a pointer to a NVTX extended payload. nvtxPayloadData_t is the structure that contains the payload data.
 	MetricValueKindNvtxExtendedPayload MetricValueKind = 6
 	MetricValueKindForceInt            MetricValueKind = 0x7fffffff
 )
@@ -650,7 +715,9 @@ func (e MetricValueKind) String() string {
 	return fmt.Sprintf("MetricValueKind(%d)", e)
 }
 
-// MetricValueUtilizationLevel specifies the metric value utilization level (CUpti_MetricValueUtilizationLevel).
+// MetricValueUtilizationLevel is an enumeration of utilization levels for metrics values of kind [MetricValueKindUtilizationLevel].
+//
+// Utilization values can vary from IDLE (0) to MAX (10) but the enumeration only provides specific names for a few values.
 type MetricValueUtilizationLevel int32
 
 const (
@@ -681,17 +748,23 @@ func (e MetricValueUtilizationLevel) String() string {
 	return fmt.Sprintf("MetricValueUtilizationLevel(%d)", e)
 }
 
-// MetricAttribute specifies the metric attribute (CUpti_MetricAttribute).
+// MetricAttribute represents metric attributes.
+//
+// Metric attributes describe properties of a metric. These attributes can be read using [MetricGetAttribute].
 type MetricAttribute int32
 
 const (
-	MetricAttrName             MetricAttribute = 0
+	MetricAttrName MetricAttribute = 0 // Metric name. Value is a null terminated const c-string.
+	// MetricAttrShortDescription: Short description of metric. Value is a null terminated const c-string.
 	MetricAttrShortDescription MetricAttribute = 1
-	MetricAttrLongDescription  MetricAttribute = 2
-	MetricAttrCategory         MetricAttribute = 3
-	MetricAttrValueKind        MetricAttribute = 4
-	MetricAttrEvaluationMode   MetricAttribute = 5
-	MetricAttrForceInt         MetricAttribute = 0x7fffffff
+	// MetricAttrLongDescription: Long description of metric. Value is a null terminated const c-string.
+	MetricAttrLongDescription MetricAttribute = 2
+	MetricAttrCategory        MetricAttribute = 3 // Category of the metric. Value is of type [MetricCategory].
+	// MetricAttrValueKind: Value type of the metric. Value is of type [MetricValueKind].
+	MetricAttrValueKind MetricAttribute = 4
+	// MetricAttrEvaluationMode: Metric evaluation mode. Value is of type [MetricEvaluationMode].
+	MetricAttrEvaluationMode MetricAttribute = 5
+	MetricAttrForceInt       MetricAttribute = 0x7fffffff
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -715,7 +788,9 @@ func (e MetricAttribute) String() string {
 	return fmt.Sprintf("MetricAttribute(%d)", e)
 }
 
-// MetricPropertyDeviceClass specifies the metric property device class (CUpti_MetricPropertyDeviceClass).
+// MetricPropertyDeviceClass represents device class.
+//
+// Enumeration of device classes for metric property [MetricPropertyDeviceClass].
 type MetricPropertyDeviceClass int32
 
 const (
@@ -740,7 +815,9 @@ func (e MetricPropertyDeviceClass) String() string {
 	return fmt.Sprintf("MetricPropertyDeviceClass(%d)", e)
 }
 
-// MetricPropertyID specifies the metric property id (CUpti_MetricPropertyID).
+// MetricPropertyID represents metric device properties.
+//
+// Metric device properties describe device properties which are needed for a metric. Some of these properties can be collected using cuDeviceGetAttribute.
 type MetricPropertyID int32
 
 const (
@@ -808,11 +885,11 @@ type ActivityKind int32
 
 const (
 	ActivityKindInvalid ActivityKind = 0 // The activity record is invalid.
-	// ActivityKindMemcpy: A host<->host, host<->device, or device<->device memory copy. For peer to peer memory copy, use the kind [ActivityKindMemcpy2]. The corresponding activity record structure is CUpti_ActivityMemcpy7.
+	// ActivityKindMemcpy: A host<->host, host<->device, or device<->device memory copy. For peer to peer memory copy, use the kind [ActivityKindMemcpy2]. The corresponding activity record structure is [ActivityMemcpy6].
 	ActivityKindMemcpy ActivityKind = 1
-	// ActivityKindMemset: A memory set executing on the GPU. The corresponding activity record structure is CUpti_ActivityMemset5.
+	// ActivityKindMemset: A memory set executing on the GPU. The corresponding activity record structure is [ActivityMemset4].
 	ActivityKindMemset ActivityKind = 2
-	// ActivityKindKernel: A kernel executing on the GPU. This activity kind may significantly change the overall performance characteristics of the application because all kernel executions are serialized on the GPU. Other activity kind for kernel [ActivityKindConcurrentKernel] doesn’t break kernel concurrency. The corresponding activity record structure is CUpti_ActivityKernel13
+	// ActivityKindKernel: A kernel executing on the GPU. This activity kind may significantly change the overall performance characteristics of the application because all kernel executions are serialized on the GPU. Other activity kind for kernel [ActivityKindConcurrentKernel] doesn't break kernel concurrency. The corresponding activity record structure is [ActivityKernel11].
 	ActivityKindKernel ActivityKind = 3
 	// ActivityKindDriver: A CUDA driver API function execution. The corresponding activity record structure is [ActivityAPI].
 	ActivityKindDriver ActivityKind = 4
@@ -826,7 +903,7 @@ const (
 	ActivityKindDevice ActivityKind = 8
 	// ActivityKindContext: Information about a CUDA context. The corresponding activity record structure is [ActivityContext4].
 	ActivityKindContext ActivityKind = 9
-	// ActivityKindConcurrentKernel: A kernel executing on the GPU. This activity kind doesn’t break kernel concurrency. The corresponding activity record structure is CUpti_ActivityKernel13.
+	// ActivityKindConcurrentKernel: A kernel executing on the GPU. This activity kind doesn't break kernel concurrency. The corresponding activity record structure is [ActivityKernel11].
 	ActivityKindConcurrentKernel ActivityKind = 10
 	// ActivityKindName: Resource naming done via NVTX APIs for thread, device, context, etc. The corresponding activity record structure is [ActivityName].
 	ActivityKindName ActivityKind = 11
@@ -862,7 +939,7 @@ const (
 	ActivityKindFunction ActivityKind = 26
 	// ActivityKindModule: CUDA Module record. The corresponding activity record structure is [ActivityModule]. This activity cannot be directly enabled or disabled. Information collected using the module callback can be be stored in the corresponding activity record.
 	ActivityKindModule ActivityKind = 27
-	// ActivityKindDeviceAttribute: A device attribute value. The corresponding activity record structure is CUpti_ActivityDeviceAttribute. This activity cannot be directly enabled or disabled. Information collected using attributes [DeviceAttribute] or CUdevice_attribute can be stored in the corresponding activity record.
+	// ActivityKindDeviceAttribute: A device attribute value. The corresponding activity record structure is . This activity cannot be directly enabled or disabled. Information collected using attributes [DeviceAttribute] or CUdevice_attribute can be stored in the corresponding activity record.
 	ActivityKindDeviceAttribute ActivityKind = 28
 	// ActivityKindSharedAccess: Results for source-level shared access. The corresponding activity record structure is [ActivitySharedAccess]. Starting with the CUDA 13.0 release, this enum is unsupported and should no longer be used. Enabling it will return the error code [ErrLegacyProfilerNotSupported]. Instead, use the SASS Metric APIs from the cupti_sass_metrics.h header.
 	ActivityKindSharedAccess ActivityKind = 29
@@ -912,7 +989,7 @@ const (
 	ActivityKindGraphTrace ActivityKind = 51
 	// ActivityKindJit: JIT (Just-in-time) operation tracking. The corresponding activity record structure is [ActivityJit2].
 	ActivityKindJit ActivityKind = 52
-	// ActivityKindDeviceGraphTrace: This activity can not be directly enabled or disabled when using predefined records. It is enabled when [ActivityKindGraphTrace] is enabled and device graph trace is enabled through API [ActivityEnableDeviceGraph]. For user defined activity records, this activity kind must be explicitly enabled through API [Subscriber.ActivityEnableV2] The corresponding activity record structure is [ActivityDeviceGraphTrace].
+	// ActivityKindDeviceGraphTrace: This activity can not be directly enabled or disabled. It is enabled when [ActivityKindGraphTrace] is enabled and device graph trace is enabled through API [ActivityEnableDeviceGraph]. The corresponding activity record structure is [ActivityDeviceGraphTrace].
 	ActivityKindDeviceGraphTrace ActivityKind = 53
 	// ActivityKindMemDecompress: Tracing batches of copies that are to be decompressed. The corresponding activity record structure is [ActivityMemDecompress].
 	ActivityKindMemDecompress ActivityKind = 54
@@ -924,7 +1001,7 @@ const (
 	ActivityKindComputeEngineCtxSwitch ActivityKind = 57
 	// ActivityKindHostLaunch: An activity kind denoting the launch of a host function through cu(da)LaunchHostFunc API. The corresponding activity record structure is [ActivityHostLaunch].
 	ActivityKindHostLaunch ActivityKind = 58
-	// ActivityKindGreenContext: An activity kind denoting the allocation of a green context. The corresponding activity record structure is CUpti_ActivityGreenContext3.
+	// ActivityKindGreenContext: An activity kind denoting the allocation of a green context. The corresponding activity record structure is [ActivityGreenContext].
 	ActivityKindGreenContext ActivityKind = 59
 	ActivityKindCount        ActivityKind = 60 // Count of supported activity kinds.
 	ActivityKindForceInt     ActivityKind = 0x7fffffff
@@ -1209,13 +1286,13 @@ const (
 	ActivityFlagGlobalAccessKindCached ActivityFlag = 1 << 9
 	// ActivityFlagMetricOverflowed: If this bit in flag is set, the metric value overflowed. Valid for [ActivityMetric] and [ActivityMetricInstance].
 	ActivityFlagMetricOverflowed ActivityFlag = 1 << 0
-	// ActivityFlagMetricValueInvalid: If this bit in flag is set, the metric value couldn’t be calculated. This occurs when a value(s) required to calculate the metric is missing. Valid for [ActivityMetric] and [ActivityMetricInstance].
+	// ActivityFlagMetricValueInvalid: If this bit in flag is set, the metric value couldn't be calculated. This occurs when a value(s) required to calculate the metric is missing. Valid for [ActivityMetric] and [ActivityMetricInstance].
 	ActivityFlagMetricValueInvalid ActivityFlag = 1 << 1
-	// ActivityFlagInstructionValueInvalid: If this bit in flag is set, the source level metric value couldn’t be calculated. This occurs when a value(s) required to calculate the source level metric cannot be evaluated. Valid for [ActivityInstructionExecution].
+	// ActivityFlagInstructionValueInvalid: If this bit in flag is set, the source level metric value couldn't be calculated. This occurs when a value(s) required to calculate the source level metric cannot be evaluated. Valid for [ActivityInstructionExecution].
 	ActivityFlagInstructionValueInvalid ActivityFlag = 1 << 0
-	// ActivityFlagInstructionClassMask: The mask for the instruction class, [ActivityInstructionClass] Valid for [ActivityInstructionExecution] and [ActivityInstructionCorrelation].
+	// ActivityFlagInstructionClassMask: The mask for the instruction class, [ActivityInstructionClass] Valid for [ActivityInstructionExecution] and [ActivityInstructionCorrelation]
 	ActivityFlagInstructionClassMask ActivityFlag = 0xFF << 1
-	// ActivityFlagFlushForced: When calling [ActivityFlushAll], this flag can be set to force CUPTI to flush all records in the buffer, whether finished or not.
+	// ActivityFlagFlushForced: When calling [ActivityFlushAll], this flag can be set to force CUPTI to flush all records in the buffer, whether finished or not
 	ActivityFlagFlushForced ActivityFlag = 1 << 0
 	// ActivityFlagSharedAccessKindSizeMask: The number of bytes requested by each thread Valid for [ActivitySharedAccess].
 	ActivityFlagSharedAccessKindSizeMask ActivityFlag = 0xFF << 0
@@ -1268,24 +1345,24 @@ type ActivityPCSamplingStallReason int32
 
 const (
 	ActivityPcSamplingStallInvalid ActivityPCSamplingStallReason = 0 // Invalid reason.
-	ActivityPcSamplingStallNone    ActivityPCSamplingStallReason = 1 // No stall, instruction is selected for issue.
-	// ActivityPcSamplingStallInstFetch: Warp is blocked because next instruction is not yet available, because of instruction cache miss, or because of branching effects.
+	ActivityPcSamplingStallNone    ActivityPCSamplingStallReason = 1 // No stall, instruction is selected for issue
+	// ActivityPcSamplingStallInstFetch: Warp is blocked because next instruction is not yet available, because of instruction cache miss, or because of branching effects
 	ActivityPcSamplingStallInstFetch      ActivityPCSamplingStallReason = 2
-	ActivityPcSamplingStallExecDependency ActivityPCSamplingStallReason = 3 // Instruction is waiting on an arithmetic dependency.
+	ActivityPcSamplingStallExecDependency ActivityPCSamplingStallReason = 3 // Instruction is waiting on an arithmetic dependency
 	// ActivityPcSamplingStallMemoryDependency: Warp is blocked because it is waiting for a memory access to complete.
 	ActivityPcSamplingStallMemoryDependency ActivityPCSamplingStallReason = 4
 	// ActivityPcSamplingStallTexture: Texture sub-system is fully utilized or has too many outstanding requests.
 	ActivityPcSamplingStallTexture ActivityPCSamplingStallReason = 5
 	// ActivityPcSamplingStallSync: Warp is blocked as it is waiting at __syncthreads() or at memory barrier.
 	ActivityPcSamplingStallSync ActivityPCSamplingStallReason = 6
-	// ActivityPcSamplingStallConstantMemoryDependency: Warp is blocked waiting for constant memory and immediate memory access to complete.
+	// ActivityPcSamplingStallConstantMemoryDependency: Warp is blocked waiting for __constant__ memory and immediate memory access to complete.
 	ActivityPcSamplingStallConstantMemoryDependency ActivityPCSamplingStallReason = 7
 	// ActivityPcSamplingStallPipeBusy: Compute operation cannot be performed due to the required resources not being available.
 	ActivityPcSamplingStallPipeBusy ActivityPCSamplingStallReason = 8
 	// ActivityPcSamplingStallMemoryThrottle: Warp is blocked because there are too many pending memory operations.
 	ActivityPcSamplingStallMemoryThrottle ActivityPCSamplingStallReason = 9
 	ActivityPcSamplingStallNotSelected    ActivityPCSamplingStallReason = 10 // Warp was ready to issue, but some other warp issued instead.
-	ActivityPcSamplingStallOther          ActivityPCSamplingStallReason = 11 // Miscellaneous reasons.
+	ActivityPcSamplingStallOther          ActivityPCSamplingStallReason = 11 // Miscellaneous reasons
 	ActivityPcSamplingStallSleeping       ActivityPCSamplingStallReason = 12 // Sleeping.
 	ActivityPcSamplingStallForceInt       ActivityPCSamplingStallReason = 0x7fffffff
 )
@@ -1423,9 +1500,9 @@ const (
 	ActivityMemoryKindPinned        ActivityMemoryKind = 2 // The memory is pinned.
 	ActivityMemoryKindDevice        ActivityMemoryKind = 3 // The memory is on the device.
 	ActivityMemoryKindArray         ActivityMemoryKind = 4 // The memory is an array.
-	ActivityMemoryKindManaged       ActivityMemoryKind = 5 // The memory is managed.
-	ActivityMemoryKindDeviceStatic  ActivityMemoryKind = 6 // The memory is device static.
-	ActivityMemoryKindManagedStatic ActivityMemoryKind = 7 // The memory is managed static.
+	ActivityMemoryKindManaged       ActivityMemoryKind = 5 // The memory is managed
+	ActivityMemoryKindDeviceStatic  ActivityMemoryKind = 6 // The memory is device static
+	ActivityMemoryKindManagedStatic ActivityMemoryKind = 7 // The memory is managed static
 	ActivityMemoryKindForceInt      ActivityMemoryKind = 0x7fffffff
 )
 
@@ -1564,9 +1641,9 @@ type ActivityUnifiedMemoryCounterScope int32
 
 const (
 	ActivityUnifiedMemoryCounterScopeUnknown ActivityUnifiedMemoryCounterScope = 0 // The unified memory counter scope is not known.
-	// ActivityUnifiedMemoryCounterScopeProcessSingleDevice: Collect unified memory counter for single process on one device.
+	// ActivityUnifiedMemoryCounterScopeProcessSingleDevice: Collect unified memory counter for single process on one device
 	ActivityUnifiedMemoryCounterScopeProcessSingleDevice ActivityUnifiedMemoryCounterScope = 1
-	// ActivityUnifiedMemoryCounterScopeProcessAllDevices: Collect unified memory counter for single process across all devices.
+	// ActivityUnifiedMemoryCounterScopeProcessAllDevices: Collect unified memory counter for single process across all devices
 	ActivityUnifiedMemoryCounterScopeProcessAllDevices ActivityUnifiedMemoryCounterScope = 2
 	ActivityUnifiedMemoryCounterScopeCount             ActivityUnifiedMemoryCounterScope = 3
 	ActivityUnifiedMemoryCounterScopeForceInt          ActivityUnifiedMemoryCounterScope = 0x7fffffff
@@ -1596,15 +1673,15 @@ type ActivityUnifiedMemoryCounterKind int32
 
 const (
 	ActivityUnifiedMemoryCounterKindUnknown           ActivityUnifiedMemoryCounterKind = 0 // The unified memory counter kind is not known.
-	ActivityUnifiedMemoryCounterKindBytesTransferHtod ActivityUnifiedMemoryCounterKind = 1 // Number of bytes transferred from host to device.
-	ActivityUnifiedMemoryCounterKindBytesTransferDtoh ActivityUnifiedMemoryCounterKind = 2 // Number of bytes transferred from device to host.
-	// ActivityUnifiedMemoryCounterKindCpuPageFaultCount: Number of CPU page faults, this is only supported on 64 bit Linux and Mac platforms.
+	ActivityUnifiedMemoryCounterKindBytesTransferHtod ActivityUnifiedMemoryCounterKind = 1 // Number of bytes transferred from host to device
+	ActivityUnifiedMemoryCounterKindBytesTransferDtoh ActivityUnifiedMemoryCounterKind = 2 // Number of bytes transferred from device to host
+	// ActivityUnifiedMemoryCounterKindCpuPageFaultCount: Number of CPU page faults, this is only supported on 64 bit Linux and Mac platforms
 	ActivityUnifiedMemoryCounterKindCpuPageFaultCount ActivityUnifiedMemoryCounterKind = 3
-	// ActivityUnifiedMemoryCounterKindGpuPageFault: Number of GPU page faults, this is only supported on devices with compute capability 6.0 and higher and 64 bit Linux platforms.
+	// ActivityUnifiedMemoryCounterKindGpuPageFault: Number of GPU page faults, this is only supported on devices with compute capability 6.0 and higher and 64 bit Linux platforms
 	ActivityUnifiedMemoryCounterKindGpuPageFault ActivityUnifiedMemoryCounterKind = 4
 	// ActivityUnifiedMemoryCounterKindThrashing: Thrashing occurs when data is frequently accessed by multiple processors and has to be constantly migrated around to achieve data locality. In this case the overhead of migration may exceed the benefits of locality. This is only supported on 64 bit Linux platforms.
 	ActivityUnifiedMemoryCounterKindThrashing ActivityUnifiedMemoryCounterKind = 5
-	// ActivityUnifiedMemoryCounterKindThrottling: Throttling is a prevention technique used by the driver to avoid further thrashing. Here, the driver doesn’t service the fault for one of the contending processors for a specific period of time, so that the other processor can run at full-speed. This is only supported on 64 bit Linux platforms.
+	// ActivityUnifiedMemoryCounterKindThrottling: Throttling is a prevention technique used by the driver to avoid further thrashing. Here, the driver doesn't service the fault for one of the contending processors for a specific period of time, so that the other processor can run at full-speed. This is only supported on 64 bit Linux platforms.
 	ActivityUnifiedMemoryCounterKindThrottling ActivityUnifiedMemoryCounterKind = 6
 	// ActivityUnifiedMemoryCounterKindRemoteMap: In case throttling does not help, the driver tries to pin the memory to a processor for a specific period of time. One of the contending processors will have slow access to the memory, while the other will have fast access. This is only supported on 64 bit Linux platforms.
 	ActivityUnifiedMemoryCounterKindRemoteMap ActivityUnifiedMemoryCounterKind = 7
@@ -1649,10 +1726,10 @@ func (e ActivityUnifiedMemoryCounterKind) String() string {
 type ActivityUnifiedMemoryAccessType int32
 
 const (
-	ActivityUnifiedMemoryAccessTypeUnknown  ActivityUnifiedMemoryAccessType = 0 // The unified memory access type is not known.
-	ActivityUnifiedMemoryAccessTypeRead     ActivityUnifiedMemoryAccessType = 1 // The page fault was triggered by read memory instruction.
-	ActivityUnifiedMemoryAccessTypeWrite    ActivityUnifiedMemoryAccessType = 2 // The page fault was triggered by write memory instruction.
-	ActivityUnifiedMemoryAccessTypeAtomic   ActivityUnifiedMemoryAccessType = 3 // The page fault was triggered by atomic memory instruction.
+	ActivityUnifiedMemoryAccessTypeUnknown  ActivityUnifiedMemoryAccessType = 0 // The unified memory access type is not known
+	ActivityUnifiedMemoryAccessTypeRead     ActivityUnifiedMemoryAccessType = 1 // The page fault was triggered by read memory instruction
+	ActivityUnifiedMemoryAccessTypeWrite    ActivityUnifiedMemoryAccessType = 2 // The page fault was triggered by write memory instruction
+	ActivityUnifiedMemoryAccessTypeAtomic   ActivityUnifiedMemoryAccessType = 3 // The page fault was triggered by atomic memory instruction
 	ActivityUnifiedMemoryAccessTypePrefetch ActivityUnifiedMemoryAccessType = 4 // The page fault was triggered by memory prefetch operation.
 )
 
@@ -1679,14 +1756,14 @@ func (e ActivityUnifiedMemoryAccessType) String() string {
 type ActivityUnifiedMemoryMigrationCause int32
 
 const (
-	ActivityUnifiedMemoryMigrationCauseUnknown ActivityUnifiedMemoryMigrationCause = 0 // The unified memory migration cause is not known.
+	ActivityUnifiedMemoryMigrationCauseUnknown ActivityUnifiedMemoryMigrationCause = 0 // The unified memory migration cause is not known
 	// ActivityUnifiedMemoryMigrationCauseUser: The unified memory migrated due to an explicit call from the user e.g. cudaMemPrefetchAsync
 	ActivityUnifiedMemoryMigrationCauseUser ActivityUnifiedMemoryMigrationCause = 1
 	// ActivityUnifiedMemoryMigrationCauseCoherence: The unified memory migrated to guarantee data coherence e.g. CPU/GPU faults on Pascal+ and kernel launch on pre-Pascal GPUs
 	ActivityUnifiedMemoryMigrationCauseCoherence ActivityUnifiedMemoryMigrationCause = 2
-	// ActivityUnifiedMemoryMigrationCausePrefetch: The unified memory was speculatively migrated by the UVM driver before being accessed by the destination processor to improve performance.
+	// ActivityUnifiedMemoryMigrationCausePrefetch: The unified memory was speculatively migrated by the UVM driver before being accessed by the destination processor to improve performance
 	ActivityUnifiedMemoryMigrationCausePrefetch ActivityUnifiedMemoryMigrationCause = 3
-	// ActivityUnifiedMemoryMigrationCauseEviction: The unified memory migrated to the CPU because it was evicted to make room for another block of memory on the GPU.
+	// ActivityUnifiedMemoryMigrationCauseEviction: The unified memory migrated to the CPU because it was evicted to make room for another block of memory on the GPU
 	ActivityUnifiedMemoryMigrationCauseEviction ActivityUnifiedMemoryMigrationCause = 4
 	// ActivityUnifiedMemoryMigrationCauseAccessCounters: The unified memory migrated to another processor because of access counter notifications. Only frequently accessed pages are migrated between CPU and GPU, or between peer GPUs.
 	ActivityUnifiedMemoryMigrationCauseAccessCounters ActivityUnifiedMemoryMigrationCause = 5
@@ -1717,16 +1794,16 @@ func (e ActivityUnifiedMemoryMigrationCause) String() string {
 type ActivityUnifiedMemoryRemoteMapCause int32
 
 const (
-	ActivityUnifiedMemoryRemoteMapCauseUnknown ActivityUnifiedMemoryRemoteMapCause = 0 // The cause of mapping to remote memory was unknown.
+	ActivityUnifiedMemoryRemoteMapCauseUnknown ActivityUnifiedMemoryRemoteMapCause = 0 // The cause of mapping to remote memory was unknown
 	// ActivityUnifiedMemoryRemoteMapCauseCoherence: Mapping to remote memory was added to maintain data coherence.
 	ActivityUnifiedMemoryRemoteMapCauseCoherence ActivityUnifiedMemoryRemoteMapCause = 1
-	// ActivityUnifiedMemoryRemoteMapCauseThrashing: Mapping to remote memory was added to prevent further thrashing.
+	// ActivityUnifiedMemoryRemoteMapCauseThrashing: Mapping to remote memory was added to prevent further thrashing
 	ActivityUnifiedMemoryRemoteMapCauseThrashing ActivityUnifiedMemoryRemoteMapCause = 2
-	// ActivityUnifiedMemoryRemoteMapCausePolicy: Mapping to remote memory was added to enforce the hints specified by the programmer or by performance heuristics of the UVM driver.
+	// ActivityUnifiedMemoryRemoteMapCausePolicy: Mapping to remote memory was added to enforce the hints specified by the programmer or by performance heuristics of the UVM driver
 	ActivityUnifiedMemoryRemoteMapCausePolicy ActivityUnifiedMemoryRemoteMapCause = 3
-	// ActivityUnifiedMemoryRemoteMapCauseOutOfMemory: Mapping to remote memory was added because there is no more memory available on the processor and eviction was not possible.
+	// ActivityUnifiedMemoryRemoteMapCauseOutOfMemory: Mapping to remote memory was added because there is no more memory available on the processor and eviction was not possible
 	ActivityUnifiedMemoryRemoteMapCauseOutOfMemory ActivityUnifiedMemoryRemoteMapCause = 4
-	// ActivityUnifiedMemoryRemoteMapCauseEviction: Mapping to remote memory was added after the memory was evicted to make room for another block of memory on the GPU.
+	// ActivityUnifiedMemoryRemoteMapCauseEviction: Mapping to remote memory was added after the memory was evicted to make room for another block of memory on the GPU
 	ActivityUnifiedMemoryRemoteMapCauseEviction ActivityUnifiedMemoryRemoteMapCause = 5
 )
 
@@ -2047,7 +2124,7 @@ type ChannelType int32
 
 const (
 	ChannelTypeInvalid ChannelType = 0
-	ChannelTypeCompute ChannelType = 1 // Channel is used for standard work launch and tracking.
+	ChannelTypeCompute ChannelType = 1 // Channel is used for standard work launch and tracking
 	// ChannelTypeAsyncMemcpy: Channel is used by an asynchronous copy engine For confidential compute configurations, work launch and completion are done using the copy engines.
 	ChannelTypeAsyncMemcpy ChannelType = 2
 	ChannelTypeDecomp      ChannelType = 3 // Channel is used for memory decompression operations.
@@ -2077,7 +2154,7 @@ func (e ChannelType) String() string {
 type ContextCigMode int32
 
 const (
-	ContextCigModeNone        ContextCigMode = 0 // Regular (non-CIG) mode.
+	ContextCigModeNone        ContextCigMode = 0 // Regular (non-CIG) mode
 	ContextCigModeCig         ContextCigMode = 1 // CIG mode.
 	ContextCigModeCigFallback ContextCigMode = 2 // CIG fallback mode.
 	ContextCigModeForceInt    ContextCigMode = 0x7fffffff
@@ -2532,12 +2609,12 @@ func (e ActivityMemoryPoolFieldIds) String() string {
 type ActivityLaunchType int32
 
 const (
-	ActivityLaunchTypeRegular ActivityLaunchType = 0 // The kernel was launched via a regular kernel call.
+	ActivityLaunchTypeRegular ActivityLaunchType = 0 // The kernel was launched via a regular kernel call
 	// ActivityLaunchTypeCooperativeSingleDevice: The kernel was launched via API cudaLaunchCooperativeKernel() or cuLaunchCooperativeKernel()
 	ActivityLaunchTypeCooperativeSingleDevice ActivityLaunchType = 1
 	// ActivityLaunchTypeCooperativeMultiDevice: The kernel was launched via API cudaLaunchCooperativeKernelMultiDevice() or cuLaunchCooperativeKernelMultiDevice()
 	ActivityLaunchTypeCooperativeMultiDevice ActivityLaunchType = 2
-	ActivityLaunchTypeCblCommandlist         ActivityLaunchType = 3 // The kernel was launched as a CBL commandlist.
+	ActivityLaunchTypeCblCommandlist         ActivityLaunchType = 3 // The kernel was launched as a CBL commandlist
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -3568,11 +3645,11 @@ type ExternalCorrelationKind int32
 
 const (
 	ExternalCorrelationKindInvalid  ExternalCorrelationKind = 0
-	ExternalCorrelationKindUnknown  ExternalCorrelationKind = 1 // The external API is unknown to CUPTI.
-	ExternalCorrelationKindOpenacc  ExternalCorrelationKind = 2 // The external API is OpenACC.
-	ExternalCorrelationKindCustom0  ExternalCorrelationKind = 3 // The external API is custom0.
-	ExternalCorrelationKindCustom1  ExternalCorrelationKind = 4 // The external API is custom1.
-	ExternalCorrelationKindCustom2  ExternalCorrelationKind = 5 // The external API is custom2.
+	ExternalCorrelationKindUnknown  ExternalCorrelationKind = 1 // The external API is unknown to CUPTI
+	ExternalCorrelationKindOpenacc  ExternalCorrelationKind = 2 // The external API is OpenACC
+	ExternalCorrelationKindCustom0  ExternalCorrelationKind = 3 // The external API is custom0
+	ExternalCorrelationKindCustom1  ExternalCorrelationKind = 4 // The external API is custom1
+	ExternalCorrelationKindCustom2  ExternalCorrelationKind = 5 // The external API is custom2
 	ExternalCorrelationKindSize     ExternalCorrelationKind = 6 // Add new kinds before this line.
 	ExternalCorrelationKindForceInt ExternalCorrelationKind = 0x7fffffff
 )
@@ -4299,21 +4376,21 @@ func (e ActivityGreenContextFieldIds) String() string {
 type ActivityAttribute int32
 
 const (
-	// ActivityAttrDeviceBufferSize: The device memory size (in bytes) reserved for storing profiling data for concurrent kernels (activity kind [ActivityKindConcurrentKernel]), memcopies and memsets for each buffer on a context. The value is a size_t. There is a limit on how many device buffers can be allocated per context. User can query and set this limit using the attribute [ActivityAttrDeviceBufferPoolLimit]. CUPTI doesn’t pre-allocate all the buffers, it pre-allocates only those many buffers as set by the attribute [ActivityAttrDeviceBufferPreAllocateValue]. When all of the data in a buffer is consumed, it is added in the reuse pool, and CUPTI picks a buffer from this pool when a new buffer is needed. Thus memory footprint does not scale with the kernel count. Applications with the high density of kernels, memcopies and memsets might result in having CUPTI to allocate more device buffers. CUPTI allocates another buffer only when it runs out of the buffers in the reuse pool. Since buffer allocation happens in the main application thread, this might result in stalls in the critical path. CUPTI pre-allocates 3 buffers of the same size to mitigate this issue. User can query and set the pre-allocation limit using the attribute [ActivityAttrDeviceBufferPreAllocateValue]. Having larger buffer size leaves less device memory for the application. Having smaller buffer size increases the risk of dropping timestamps for records if too many kernels or memcopies or memsets are launched at one time. This value only applies to new buffer allocations. Set this value before initializing CUDA or before creating a context to ensure it is considered for the following allocations. The default value is 3200000 (~3MB) which can accommodate profiling data up to 100,000 kernels, memcopies and memsets combined. Note: Starting with the CUDA 12.0 Update 1 release, CUPTI allocates the profiling buffer in the device memory by default, which may improve the performance of the tracing run. To change the preferred location to page-locked host memory, refer to the attribute [ActivityAttrMemAllocationTypeHostPinned]. The size of the memory and maximum number of pools are still controlled by the attributes [ActivityAttrDeviceBufferSize] and [ActivityAttrDeviceBufferPoolLimit]. Note: The actual amount of device memory per buffer reserved by CUPTI might be larger.
+	// ActivityAttrDeviceBufferSize: The device memory size (in bytes) reserved for storing profiling data for concurrent kernels (activity kind [ActivityKindConcurrentKernel]), memcopies and memsets for each buffer on a context. The value is a size_t. There is a limit on how many device buffers can be allocated per context. User can query and set this limit using the attribute [ActivityAttrDeviceBufferPoolLimit]. CUPTI doesn't pre-allocate all the buffers, it pre-allocates only those many buffers as set by the attribute [ActivityAttrDeviceBufferPreAllocateValue]. When all of the data in a buffer is consumed, it is added in the reuse pool, and CUPTI picks a buffer from this pool when a new buffer is needed. Thus memory footprint does not scale with the kernel count. Applications with the high density of kernels, memcopies and memsets might result in having CUPTI to allocate more device buffers. CUPTI allocates another buffer only when it runs out of the buffers in the reuse pool. Since buffer allocation happens in the main application thread, this might result in stalls in the critical path. CUPTI pre-allocates 3 buffers of the same size to mitigate this issue. User can query and set the pre-allocation limit using the attribute [ActivityAttrDeviceBufferPreAllocateValue]. Having larger buffer size leaves less device memory for the application. Having smaller buffer size increases the risk of dropping timestamps for records if too many kernels or memcopies or memsets are launched at one time. This value only applies to new buffer allocations. Set this value before initializing CUDA or before creating a context to ensure it is considered for the following allocations. The default value is 3200000 (~3MB) which can accommodate profiling data up to 100,000 kernels, memcopies and memsets combined. Note: Starting with the CUDA 12.0 Update 1 release, CUPTI allocates the profiling buffer in the device memory by default, which may improve the performance of the tracing run. To change the preferred location to page-locked host memory, refer to the attribute [ActivityAttrMemAllocationTypeHostPinned]. The size of the memory and maximum number of pools are still controlled by the attributes [ActivityAttrDeviceBufferSize] and [ActivityAttrDeviceBufferPoolLimit]. Note: The actual amount of device memory per buffer reserved by CUPTI might be larger.
 	ActivityAttrDeviceBufferSize ActivityAttribute = 0
 	// ActivityAttrDeviceBufferSizeCdp: The device memory size (in bytes) reserved for storing profiling data for CDP operations for each buffer on a context. The value is a size_t. Having larger buffer size means less flush operations but consumes more device memory. This value only applies to new allocations. Set this value before initializing CUDA or before creating a context to ensure it is considered for the following allocations. The default value is 8388608 (8MB). Note: The actual amount of device memory per context reserved by CUPTI might be larger.
 	ActivityAttrDeviceBufferSizeCdp ActivityAttribute = 1
 	// ActivityAttrDeviceBufferPoolLimit: The maximum number of device memory buffers per context. The value is a size_t. For an application with high rate of kernel launches, memcopies and memsets having a bigger pool limit helps in timestamp collection for all these activities at the expense of a larger memory footprint. Refer to the description of the attribute [ActivityAttrDeviceBufferSize] for more details. Setting this value will not modify the number of memory buffers currently stored. Set this value before initializing CUDA to ensure the limit is not exceeded. The default value is 250.
 	ActivityAttrDeviceBufferPoolLimit ActivityAttribute = 2
-	// ActivityAttrProfilingSemaphorePoolSize: This attribute is not supported starting with CUDA 12.3 CUPTI no longer uses profiling semaphore pool to store profiling data. There is a limit on how many semaphore pools can be allocated per context. User can query and set this limit using the attribute [ActivityAttrProfilingSemaphorePoolLimit]. CUPTI doesn’t pre-allocate all the semaphore pools, it pre-allocates only those many semaphore pools as set by the attribute [ActivityAttrProfilingSemaphorePreAllocateValue]. When all of the data in a semaphore pool is consumed, it is added in the reuse pool, and CUPTI picks a semaphore pool from the reuse pool when a new semaphore pool is needed. Thus memory footprint does not scale with the kernel count. Applications with the high density of kernels might result in having CUPTI to allocate more semaphore pools. CUPTI allocates another semaphore pool only when it runs out of the semaphore pools in the reuse pool. Since semaphore pool allocation happens in the main application thread, this might result in stalls in the critical path. CUPTI pre-allocates 3 semaphore pools of the same size to mitigate this issue. User can query and set the pre-allocation limit using the attribute [ActivityAttrProfilingSemaphorePreAllocateValue]. Having larger semaphore pool size leaves less device memory for the application. Having smaller semaphore pool size increases the risk of dropping timestamps for kernel records if too many kernels are issued/launched at one time. This value only applies to new semaphore pool allocations. Set this value before initializing CUDA or before creating a context to ensure it is considered for the following allocations. The default value is 25000 which can accommodate profiling data for upto 25,000 kernels.
+	// ActivityAttrProfilingSemaphorePoolSize: This attribute is not supported starting with CUDA 12.3 CUPTI no longer uses profiling semaphore pool to store profiling data. There is a limit on how many semaphore pools can be allocated per context. User can query and set this limit using the attribute [ActivityAttrProfilingSemaphorePoolLimit]. CUPTI doesn't pre-allocate all the semaphore pools, it pre-allocates only those many semaphore pools as set by the attribute [ActivityAttrProfilingSemaphorePreAllocateValue]. When all of the data in a semaphore pool is consumed, it is added in the reuse pool, and CUPTI picks a semaphore pool from the reuse pool when a new semaphore pool is needed. Thus memory footprint does not scale with the kernel count. Applications with the high density of kernels might result in having CUPTI to allocate more semaphore pools. CUPTI allocates another semaphore pool only when it runs out of the semaphore pools in the reuse pool. Since semaphore pool allocation happens in the main application thread, this might result in stalls in the critical path. CUPTI pre-allocates 3 semaphore pools of the same size to mitigate this issue. User can query and set the pre-allocation limit using the attribute [ActivityAttrProfilingSemaphorePreAllocateValue]. Having larger semaphore pool size leaves less device memory for the application. Having smaller semaphore pool size increases the risk of dropping timestamps for kernel records if too many kernels are issued/launched at one time. This value only applies to new semaphore pool allocations. Set this value before initializing CUDA or before creating a context to ensure it is considered for the following allocations. The default value is 25000 which can accommodate profiling data for upto 25,000 kernels.
 	ActivityAttrProfilingSemaphorePoolSize ActivityAttribute = 3
 	// ActivityAttrProfilingSemaphorePoolLimit: This attribute is not supported starting with CUDA 12.3 CUPTI no longer uses profiling semaphore pool to store profiling data. The maximum number of profiling semaphore pools per context. The value is a size_t. Refer to the description of the attribute [ActivityAttrProfilingSemaphorePoolSize] for more details. Set this value before initializing CUDA to ensure the limit is not exceeded. The default value is 250.
 	ActivityAttrProfilingSemaphorePoolLimit ActivityAttribute = 4
-	// ActivityAttrZeroedOutActivityBuffer: The flag to indicate whether user should provide activity buffer of zero value. The value is a uint8_t. If the value of this attribute is non-zero, user should provide a zero value buffer in the [BuffersCallbackRequestFunc]. If the user does not provide a zero value buffer after setting this to non-zero, the activity buffer may contain some uninitialized values when CUPTI returns it in [BuffersCallbackCompleteFunc] If the value of this attribute is zero, CUPTI will initialize the user buffer received in the [BuffersCallbackRequestFunc] to zero before filling it. If the user sets this to zero, a few stalls may appear in critical path because CUPTI will zero out the buffer in the main thread. Set this value before returning from [BuffersCallbackRequestFunc] to ensure it is considered for all the subsequent user buffers. The default value is 0.
+	// ActivityAttrZeroedOutActivityBuffer: The flag to indicate whether user should provide activity buffer of zero value. The value is a uint8_t. If the value of this attribute is non-zero, user should provide a zero value buffer in the [BuffersCallbackRequestFunc]. If the user does not provide a zero value buffer after setting this to non-zero, the activity buffer may contain some uninitialized values when CUPTI returns it in [BuffersCallbackCompleteFunc]. If the value of this attribute is zero, CUPTI will initialize the user buffer received in the [BuffersCallbackRequestFunc] to zero before filling it. If the user sets this to zero, a few stalls may appear in critical path because CUPTI will zero out the buffer in the main thread. Set this value before returning from [BuffersCallbackRequestFunc] to ensure it is considered for all the subsequent user buffers. The default value is 0.
 	ActivityAttrZeroedOutActivityBuffer ActivityAttribute = 5
-	// ActivityAttrDeviceBufferPreAllocateValue: Number of device buffers to pre-allocate for a context during the initialization phase. The value is a size_t. Refer to the description of the attribute [ActivityAttrDeviceBufferSize] for details. This value must be less than the maximum number of device buffers set using the attribute [ActivityAttrDeviceBufferPoolLimit] Set this value before initializing CUDA or before creating a context to ensure it is considered by the CUPTI. The default value is set to 3 to ping pong between these buffers (if possible).
+	// ActivityAttrDeviceBufferPreAllocateValue: Number of device buffers to pre-allocate for a context during the initialization phase. The value is a size_t. Refer to the description of the attribute [ActivityAttrDeviceBufferSize] for details. This value must be less than the maximum number of device buffers set using the attribute [ActivityAttrDeviceBufferPoolLimit]. Set this value before initializing CUDA or before creating a context to ensure it is considered by the CUPTI. The default value is set to 3 to ping pong between these buffers (if possible).
 	ActivityAttrDeviceBufferPreAllocateValue ActivityAttribute = 6
-	// ActivityAttrProfilingSemaphorePreAllocateValue: This attribute is not supported starting with CUDA 12.3 CUPTI no longer uses profiling semaphore pool to store profiling data. Number of profiling semaphore pools to pre-allocate for a context during the initialization phase. The value is a size_t. Refer to the description of the attribute [ActivityAttrProfilingSemaphorePoolSize] for details. This value must be less than the maximum number of profiling semaphore pools set using the attribute [ActivityAttrProfilingSemaphorePoolLimit] Set this value before initializing CUDA or before creating a context to ensure it is considered by the CUPTI. The default value is set to 3 to ping pong between these pools (if possible).
+	// ActivityAttrProfilingSemaphorePreAllocateValue: This attribute is not supported starting with CUDA 12.3 CUPTI no longer uses profiling semaphore pool to store profiling data. Number of profiling semaphore pools to pre-allocate for a context during the initialization phase. The value is a size_t. Refer to the description of the attribute [ActivityAttrProfilingSemaphorePoolSize] for details. This value must be less than the maximum number of profiling semaphore pools set using the attribute [ActivityAttrProfilingSemaphorePoolLimit]. Set this value before initializing CUDA or before creating a context to ensure it is considered by the CUPTI. The default value is set to 3 to ping pong between these pools (if possible).
 	ActivityAttrProfilingSemaphorePreAllocateValue ActivityAttribute = 7
 	// ActivityAttrMemAllocationTypeHostPinned: Allocate page-locked (pinned) host memory for storing profiling data for concurrent kernels, memcopies and memsets for each buffer on a context. The value is a uint8_t. From CUDA 11.2 through CUDA 12.0 GA releases, CUPTI allocated the profiling buffer in pinned host memory by default. Allocating excessive amounts of pinned memory may degrade system performance, as it reduces the amount of memory available to the system for paging. For this reason user might want to change the location from pinned host memory to device memory by setting value of this attribute to 0. Using page-locked (pinned) host memory buffers is not supported on confidential computing devices. If this attribute is set to 1, CUPTI will return error [ErrNotSupported]. The default value is 0.
 	ActivityAttrMemAllocationTypeHostPinned ActivityAttribute = 8
@@ -4438,7 +4515,7 @@ func (e ActivityThreadIdType) String() string {
 type VirtualizationMode int32
 
 const (
-	// DeviceVirtualizationModeNone: No virtualization mode is associated with the device i.e. it’s a baremetal GPU
+	// DeviceVirtualizationModeNone: No virtualization mode is associated with the device i.e. it's a baremetal GPU
 	DeviceVirtualizationModeNone VirtualizationMode = 0
 	// DeviceVirtualizationModePassThrough: The device is associated with the pass-through GPU. In this mode, an entire physical GPU is directly assigned to one virtual machine (VM).
 	DeviceVirtualizationModePassThrough VirtualizationMode = 1

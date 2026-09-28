@@ -8,7 +8,9 @@ import (
 
 // ActivityDisableV2 disables collection of a specific kind of activity record for the subscriber.
 //
-// Disable collection of a specific kind of activity record. Multiple kinds can be disabled by calling this function multiple times. By default all activity kinds are disabled for collection.
+// Disable collection of a specific kind of activity record. Multiple
+// kinds can be disabled by calling this function multiple times. By
+// default all activity kinds are disabled for collection.
 //
 //   - kind: The kind of activity record to stop collecting
 //   - pActivityConfig: The activity config. It can be NULL
@@ -45,7 +47,9 @@ func (s Subscriber) ActivityEnableAndDumpV2(kind ActivityKind, activityConfig *A
 
 // ActivityEnableV2 enables collection of a specific kind of activity record for the subscriber.
 //
-// Enable collection of a specific kind of activity record. Multiple kinds can be enabled by calling this function multiple times. By default all activity kinds are disabled for collection.
+// Enable collection of a specific kind of activity record. Multiple
+// kinds can be enabled by calling this function multiple times. By
+// default all activity kinds are disabled for collection.
 //
 //   - kind: The kind of activity record to collect
 //   - pActivityConfig: The activity config. It can be NULL
@@ -62,7 +66,9 @@ func (s Subscriber) ActivityEnableV2(kind ActivityKind, pActivityConfig *Activit
 
 // ActivityGetAttributeV2 reads an activity API attribute.
 //
-// This function is similar to [ActivityGetAttribute]. Note that in case of multiple subscribers, only [Subscriber.ActivityGetAttributeV2] can be used to read the attribute for the subscriber.
+// This function is similar to [ActivityGetAttribute]. Note that in case of multiple subscribers, only [Subscriber.ActivityGetAttributeV2]
+// can be used to read the attribute for the subscriber.
+//
 // Read an activity API attribute and return it in *value.
 //
 //   - attr: The attribute to read

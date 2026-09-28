@@ -7,26 +7,98 @@ import (
 	"unsafe"
 )
 
-// NewEventGroup wraps cuptiEventGroupCreate.
+// NewEventGroup creates a new event group for a context.
+//
+// Creates a new event group for context and returns the new group
+// in *eventGroup.
+//
+//   - context: The context for the event group
+//   - eventGroup: Returns the new event group
+//   - flags: Reserved - must be zero
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidContext]
+//   - [ErrOutOfMemory]
+//   - [ErrInvalidParameter]: if eventGroup is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventGroupCreate.
 func NewEventGroup(context driver.Context, flags uint32) (EventGroup, error) {
 	return eventGroupCreate(context, flags)
 }
 
-// AddEvent wraps cuptiEventGroupAddEvent.
+// AddEvent adds an event to an event group.
+//
+// The event add can fail for a number of reasons:
+//   - The event group is enabled
+//   - The event does not belong to the same event domain as the events that are already in the event group
+//   - Device limitations on the events that can belong to the same group
+//   - The event group is full
+//
+// Parameters:
+//   - event: The event to add to the group
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidEventId]
+//   - [ErrOutOfMemory]
+//   - [ErrInvalidOperation]: if eventGroup is enabled
+//   - [ErrNotCompatible]: if event belongs to a different event domain than the events already in eventGroup, or if a device limitation prevents event from being collected at the same time as the events already in eventGroup
+//   - [ErrMaxLimitReached]: if eventGroup is full
+//   - [ErrInvalidParameter]: if eventGroup is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventGroupAddEvent.
 func (e EventGroup) AddEvent(event uint32) error {
 	return eventGroupAddEvent(e, event)
 }
 
-// Attribute wraps cuptiEventGroupGetAttribute.
+// Attribute reads an event group attribute.
+//
+// Read an event group attribute and return it in *value.
+// must guard against simultaneous destruction or modification of eventGroup (for example, client must guard against simultaneous
+// calls to [EventGroup.Close], [EventGroup.AddEvent],
+// etc.), and must guard against simultaneous destruction of the
+// context in which eventGroup was created (for example, client
+// must guard against simultaneous calls to cudaDeviceReset,
+// cuCtxDestroy, etc.).
+//
+//   - attrib: The attribute to read
+//   - valueSize: Size of buffer pointed by the value, and returns the number of bytes written to value
+//   - value: Returns the value of the attribute
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidParameter]: if valueSize or value is NULL, or if attrib is not an eventgroup attribute
+//   - [ErrParameterSizeNotSufficient]: For non-c-string attribute values, indicates that the value buffer is too small to hold the attribute value.
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventGroupGetAttribute.
 func (e EventGroup) Attribute(attrib EventGroupAttribute, valueSize *uint, value unsafe.Pointer) error {
 	return eventGroupGetAttribute(e, attrib, valueSize, value)
 }
 
-// Close wraps cuptiEventGroupDestroy.
+// Close destroys an event group.
+//
+// Destroy an eventGroup and free its resources. An event group
+// cannot be destroyed if it is enabled.
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidOperation]: if the event group is enabled
+//   - [ErrInvalidParameter]: if eventGroup is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
 //
 // If e is zero, Close returns nil. Otherwise Close sets e to zero
 // when the call succeeds and leaves it unchanged when it fails. Only
 // e is zeroed: a copy of it still refers to the released object.
+//
+// Wraps cuptiEventGroupDestroy.
 func (e *EventGroup) Close() error {
 	if *e == 0 {
 		return nil
@@ -43,44 +115,221 @@ func (e *EventGroup) Close() error {
 // Deprecated: use Close.
 func (e EventGroup) Destroy() error { return (&e).Close() }
 
-// Disable wraps cuptiEventGroupDisable.
+// Disable disables an event group.
+//
+// Disabling an event group stops collection
+// of events contained in the group.
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrHardware]
+//   - [ErrInvalidParameter]: if eventGroup is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventGroupDisable.
 func (e EventGroup) Disable() error {
 	return eventGroupDisable(e)
 }
 
-// Enable wraps cuptiEventGroupEnable.
+// Enable enables an event group.
+//
+// Enabling an event group zeros the value of
+// all the events in the group and then starts collection of those
+// events.
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrHardware]
+//   - [ErrNotReady]: if eventGroup does not contain any events
+//   - [ErrNotCompatible]: if eventGroup cannot be enabled due to other already enabled event groups
+//   - [ErrInvalidParameter]: if eventGroup is NULL
+//   - [ErrHardwareBusy]: if another client is profiling and hardware is busy
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventGroupEnable.
 func (e EventGroup) Enable() error {
 	return eventGroupEnable(e)
 }
 
-// ReadAllEvents wraps cuptiEventGroupReadAllEvents.
+// ReadAllEvents reads the values for all the events in an event group.
+//
+// The event
+// values are returned in the eventValueBuffer buffer. The buffer must be at least (sizeof(uint64) *
+// number of events in group) if
+// [EventGroupAttrProfileAllDomainInstances] is not set on
+// the group containing the events. The buffer must be at least
+// (sizeof(uint64) * number of domain instances * number of events in
+// group) if [EventGroupAttrProfileAllDomainInstances] is
+// set on the group.
+//
+// The data format returned in eventValueBuffer is:
+//   - domain instance 0: event0 event1 ... eventN
+//   - domain instance 1: event0 event1 ... eventN
+//   - ...
+//   - domain instance M: event0 event1 ... eventN
+//
+// The event order in eventValueBuffer is returned in eventIdArray. The size should be at least
+// (sizeof(CUpti_EventID) * number of events in group).
+//
+// If any instance of any event counter overflows, the value returned
+// for that event instance will be CUPTI_EVENT_OVERFLOW.
+//
+// The only allowed value for flags is [EventReadFlagNone].
+//
+// Reading events from a disabled event group is not allowed. After
+// being read, an event's value is reset to zero.
+// must guard against simultaneous destruction or modification of eventGroup (for example, client must guard against simultaneous
+// calls to [EventGroup.Close], [EventGroup.AddEvent],
+// etc.), and must guard against simultaneous destruction of the
+// context in which eventGroup was created (for example, client
+// must guard against simultaneous calls to cudaDeviceReset,
+// cuCtxDestroy, etc.). If [EventGroup.ResetAllEvents] is
+// called simultaneously with this function, then returned event
+// values are undefined.
+//
+//   - flags: Flags controlling the reading mode
+//   - eventValueBufferSizeBytes: The size of eventValueBuffer in bytes, and returns the number of bytes written to eventValueBuffer
+//   - eventValueBuffer: Returns the event values
+//   - eventIdArraySizeBytes: The size of eventIdArray in bytes, and returns the number of bytes written to eventIdArray
+//   - eventIdArray: Returns the IDs of the events in the same order as the values return in eventValueBuffer
+//   - numEventIdsRead: Returns the number of event IDs returned in eventIdArray
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrHardware]
+//   - [ErrInvalidOperation]: if eventGroup is disabled
+//   - [ErrInvalidParameter]: if eventGroup, eventValueBufferSizeBytes, eventValueBuffer, eventIdArraySizeBytes, eventIdArray or numEventIdsRead is NULL
+//   - [ErrParameterSizeNotSufficient]: if size of eventValueBuffer or eventIdArray is not sufficient
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventGroupReadAllEvents.
 func (e EventGroup) ReadAllEvents(flags ReadEventFlags, eventValueBuffer []uint64, eventIdArray []uint32) (int, error) {
 	return eventGroupReadAllEvents(e, flags, eventValueBuffer, eventIdArray)
 }
 
-// ReadEvent wraps cuptiEventGroupReadEvent.
+// ReadEvent reads the value for an event in an event group.
+//
+// The event value is
+// returned in the eventValueBuffer buffer. eventValueBufferSizeBytes indicates the size of the eventValueBuffer buffer. The buffer must be at least sizeof(uint64)
+// if [EventGroupAttrProfileAllDomainInstances] is not set
+// on the group containing the event. The buffer must be at least
+// (sizeof(uint64) * number of domain instances) if
+// [EventGroupAttrProfileAllDomainInstances] is set on the
+// group.
+//
+// If any instance of an event counter overflows, the value returned
+// for that event instance will be CUPTI_EVENT_OVERFLOW.
+//
+// The only allowed value for flags is [EventReadFlagNone].
+//
+// Reading an event from a disabled event group is not allowed. After
+// being read, an event's value is reset to zero.
+// must guard against simultaneous destruction or modification of eventGroup (for example, client must guard against simultaneous
+// calls to [EventGroup.Close], [EventGroup.AddEvent],
+// etc.), and must guard against simultaneous destruction of the
+// context in which eventGroup was created (for example, client
+// must guard against simultaneous calls to cudaDeviceReset,
+// cuCtxDestroy, etc.). If [EventGroup.ResetAllEvents] is
+// called simultaneously with this function, then returned event
+// values are undefined.
+//
+//   - flags: Flags controlling the reading mode
+//   - event: The event to read
+//   - eventValueBufferSizeBytes: The size of eventValueBuffer in bytes, and returns the number of bytes written to eventValueBuffer
+//   - eventValueBuffer: Returns the event value(s)
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidEventId]
+//   - [ErrHardware]
+//   - [ErrInvalidOperation]: if eventGroup is disabled
+//   - [ErrInvalidParameter]: if eventGroup, eventValueBufferSizeBytes or eventValueBuffer is NULL
+//   - [ErrParameterSizeNotSufficient]: if size of eventValueBuffer is not sufficient
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventGroupReadEvent.
 func (e EventGroup) ReadEvent(flags ReadEventFlags, event uint32, eventValueBufferSizeBytes *uint, eventValueBuffer *uint64) error {
 	return eventGroupReadEvent(e, flags, event, eventValueBufferSizeBytes, eventValueBuffer)
 }
 
-// RemoveAllEvents wraps cuptiEventGroupRemoveAllEvents.
+// RemoveAllEvents removes all events from an event group.
+//
+// Events cannot be removed if
+// the event group is enabled.
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidOperation]: if eventGroup is enabled
+//   - [ErrInvalidParameter]: if eventGroup is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventGroupRemoveAllEvents.
 func (e EventGroup) RemoveAllEvents() error {
 	return eventGroupRemoveAllEvents(e)
 }
 
-// RemoveEvent wraps cuptiEventGroupRemoveEvent.
+// RemoveEvent removes an event from an event group.
+//
+// Remove event from the an event group. The event cannot be
+// removed if the event group is enabled.
+//
+//   - event: The event to remove from the group
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidEventId]
+//   - [ErrInvalidOperation]: if eventGroup is enabled
+//   - [ErrInvalidParameter]: if eventGroup is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventGroupRemoveEvent.
 func (e EventGroup) RemoveEvent(event uint32) error {
 	return eventGroupRemoveEvent(e, event)
 }
 
 // ResetAllEvents zeroes the counts of all the events in the event group.
 //
+// Zero all the event counts in an event group.
+//
+// must guard against simultaneous destruction or modification of eventGroup (for example, client must guard against simultaneous
+// calls to [EventGroup.Close], [EventGroup.AddEvent],
+// etc.), and must guard against simultaneous destruction of the
+// context in which eventGroup was created (for example, client
+// must guard against simultaneous calls to cudaDeviceReset,
+// cuCtxDestroy, etc.).
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrHardware]
+//   - [ErrInvalidParameter]: if eventGroup is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
 // Wraps cuptiEventGroupResetAllEvents.
 func (e EventGroup) ResetAllEvents() error {
 	return eventGroupResetAllEvents(e)
 }
 
-// SetAttribute wraps cuptiEventGroupSetAttribute.
+// SetAttribute writes an event group attribute.
+//
+//   - attrib: The attribute to write
+//   - valueSize: The size, in bytes, of the value
+//   - value: The attribute value to write
+//
+// Errors:
+//   - [ErrNotInitialized]
+//   - [ErrInvalidParameter]: if valueSize or value is NULL, or if attrib is not an event group attribute, or if attrib is not a writable attribute
+//   - [ErrParameterSizeNotSufficient]: Indicates that the value buffer is too small to hold the attribute value.
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
+// Wraps cuptiEventGroupSetAttribute.
 func (e EventGroup) SetAttribute(attrib EventGroupAttribute, valueSize uint, value unsafe.Pointer) error {
 	return eventGroupSetAttribute(e, attrib, valueSize, value)
 }
