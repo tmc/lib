@@ -191,3 +191,45 @@ func TestHazardMatrix_ClusterHardwarePendingOnSM80(t *testing.T) {
 		t.Errorf("expected ErrHardwarePending on sm_80, got %v", err)
 	}
 }
+
+func TestHazardMatrix_EmptyArchIsPending(t *testing.T) {
+	m := NewHazardMatrix("")
+	if err := m.AddAccess(MemoryAccess{Scope: ScopeCluster, ThreadID: 0, BlockID: 0, ClusterID: 0, Space: MemoryDSMEM, Offset: 1, SizeBytes: 4, IsWrite: true}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := m.Evaluate(); !errors.Is(err, cudaerrors.ErrHardwarePending) {
+		t.Fatalf("empty architecture = %v, want ErrHardwarePending", err)
+	}
+}
+
+func TestHazardMatrix_IntraCTADSMEMRace(t *testing.T) {
+	m := NewHazardMatrix("sm_90")
+	for _, access := range []MemoryAccess{
+		{Scope: ScopeCluster, ThreadID: 0, BlockID: 0, ClusterID: 0, Space: MemoryDSMEM, Offset: 0x400, SizeBytes: 4, IsWrite: true},
+		{Scope: ScopeCluster, ThreadID: 1, BlockID: 0, ClusterID: 0, Space: MemoryDSMEM, Offset: 0x400, SizeBytes: 4},
+	} {
+		if err := m.AddAccess(access); err != nil {
+			t.Fatal(err)
+		}
+	}
+	hasRace, err := m.HasRace()
+	if err != nil || !hasRace {
+		t.Fatalf("same-CTA DSMEM overlap = %v, %v; want race", hasRace, err)
+	}
+}
+
+func TestHazardMatrix_SynchronizedOverlapIsClean(t *testing.T) {
+	m := NewHazardMatrix("sm_90")
+	for _, access := range []MemoryAccess{
+		{Scope: ScopeCTA, ThreadID: 0, BlockID: 0, Space: MemoryShared, Offset: 0x500, SizeBytes: 4, IsWrite: true, Stage: 0},
+		{Scope: ScopeCTA, ThreadID: 1, BlockID: 0, Space: MemoryShared, Offset: 0x500, SizeBytes: 4, Stage: 1},
+	} {
+		if err := m.AddAccess(access); err != nil {
+			t.Fatal(err)
+		}
+	}
+	hasRace, err := m.HasRace()
+	if err != nil || hasRace {
+		t.Fatalf("different-stage overlap = %v, %v; want clean", hasRace, err)
+	}
+}

@@ -6,4 +6,7 @@
 //
 // This package is outside the compatibility promise of
 // github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
+//
+// HazardMatrix compares MemoryAccess pairs for byte conflicts, word overlap,
+// and missing synchronization across execution scopes.
 package cudashared

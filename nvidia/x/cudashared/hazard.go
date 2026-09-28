@@ -174,9 +174,6 @@ type HazardMatrix struct {
 
 // NewHazardMatrix initializes a hazard matrix for a given target GPU architecture.
 func NewHazardMatrix(targetArch string) *HazardMatrix {
-	if targetArch == "" {
-		targetArch = "sm_90"
-	}
 	return &HazardMatrix{
 		TargetArch:  targetArch,
 		ClusterSize: 1,
@@ -274,8 +271,9 @@ func (m *HazardMatrix) Evaluate() ([]HazardRecord, error) {
 					// Threads in same CTA without __syncthreads().
 					scopeConflict = true
 				} else if a.Scope == ScopeCluster || b.Scope == ScopeCluster || a.Space == MemoryDSMEM {
-					// Different CTAs in cluster without cluster.sync().
-					scopeConflict = a.BlockID != b.BlockID || a.ClusterID != b.ClusterID
+					// Same-CTA DSMEM aliases are still concurrent thread accesses;
+					// cross-CTA DSMEM requires cluster synchronization.
+					scopeConflict = a.ClusterID != b.ClusterID || a.BlockID != b.BlockID || a.Space == MemoryDSMEM
 				} else if a.Scope == ScopeHostDevice || b.Scope == ScopeHostDevice {
 					// Host and device without cudaDeviceSynchronize.
 					scopeConflict = true

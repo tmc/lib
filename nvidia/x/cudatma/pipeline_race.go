@@ -21,16 +21,17 @@ type StageState struct {
 	CompletedTxBytes uint64
 	BarrierArrived   bool
 	BarrierPhase     int
+	ExpectedParity   int
 	HasPendingWrites bool
 }
 
 // AsyncCopyPipeline models multi-stage producer-consumer asynchronous copy buffers and barriers.
 type AsyncCopyPipeline struct {
-	numStages     int
-	stageBytes    uint64
-	stages        []StageState
-	inFlightGroup int
-	hazards       []PipelineHazard
+	numStages  int
+	stageBytes uint64
+	stages     []StageState
+	groups     [][]int
+	hazards    []PipelineHazard
 }
 
 // NewAsyncCopyPipeline initializes an async copy pipeline state machine with the given number of stages.
@@ -99,14 +100,16 @@ func (p *AsyncCopyPipeline) CommitGroup() error {
 		return fmt.Errorf("nil async copy pipeline")
 	}
 	committedAny := false
+	var group []int
 	for i := range p.stages {
 		if p.stages[i].InFlight && !p.stages[i].GroupCommitted {
 			p.stages[i].GroupCommitted = true
 			committedAny = true
+			group = append(group, i)
 		}
 	}
 	if committedAny {
-		p.inFlightGroup++
+		p.groups = append(p.groups, group)
 	}
 	return nil
 }
@@ -121,16 +124,14 @@ func (p *AsyncCopyPipeline) WaitGroup(remaining int) error {
 		return fmt.Errorf("wait_group count cannot be negative: %d", remaining)
 	}
 
-	for p.inFlightGroup > remaining {
-		// Retire the oldest committed stages.
-		for i := range p.stages {
-			if p.stages[i].InFlight && p.stages[i].GroupCommitted {
-				p.stages[i].InFlight = false
-				p.stages[i].HasPendingWrites = false
-				p.stages[i].BarrierArrived = true
-			}
+	for len(p.groups) > remaining {
+		// Retire only stages in the oldest committed group.
+		for _, i := range p.groups[0] {
+			p.stages[i].InFlight = false
+			p.stages[i].HasPendingWrites = false
+			p.stages[i].BarrierArrived = true
 		}
-		p.inFlightGroup--
+		p.groups = p.groups[1:]
 	}
 	return nil
 }
@@ -175,16 +176,20 @@ func (p *AsyncCopyPipeline) WaitParity(stage int, phase int) error {
 		return fmt.Errorf("invalid stage %d", stage)
 	}
 	s := &p.stages[stage]
-	if !s.BarrierArrived || s.CompletedTxBytes < s.ExpectedTxBytes {
+	validPhase := phase == s.ExpectedParity
+	if !validPhase || !s.BarrierArrived || s.CompletedTxBytes < s.ExpectedTxBytes {
 		p.hazards = append(p.hazards, PipelineHazard{
 			StageID:     stage,
 			Kind:        "WaitFailure",
 			Description: fmt.Sprintf("mbarrier wait on stage %d before transaction completed (expected %d, got %d)", stage, s.ExpectedTxBytes, s.CompletedTxBytes),
 		})
 	}
-	s.InFlight = false
-	s.HasPendingWrites = false
-	s.BarrierPhase = phase
+	if validPhase && s.BarrierArrived && s.CompletedTxBytes >= s.ExpectedTxBytes {
+		s.InFlight = false
+		s.HasPendingWrites = false
+		s.BarrierPhase = phase
+		s.ExpectedParity ^= 1
+	}
 	return nil
 }
 
@@ -310,7 +315,7 @@ func GenerateTMAScenario(fixed bool) (PipelineScenario, error) {
 
 	if fixed {
 		// FIXED=1: Wait for transaction barrier parity before reading
-		if err := pipe.WaitParity(0, 1); err != nil {
+		if err := pipe.WaitParity(0, 0); err != nil {
 			return PipelineScenario{}, err
 		}
 	} else {
@@ -333,4 +338,30 @@ func GenerateTMAScenario(fixed bool) (PipelineScenario, error) {
 		Hazards:     hazards,
 		Description: "TMA mbarrier transaction barrier hazard verification",
 	}, nil
+}
+
+// GenerateTMASharedReadWriteScenario models a bulk copy reading a shared
+// source while CTA threads write it (a WAR hazard), fixed by waiting for the
+// read transaction and synchronizing before the write.
+func GenerateTMASharedReadWriteScenario(fixed bool) (PipelineScenario, error) {
+	pipe, err := NewAsyncCopyPipeline(1, 512)
+	if err != nil {
+		return PipelineScenario{}, err
+	}
+	if err := pipe.ArriveExpectTx(0, 512); err != nil {
+		return PipelineScenario{}, err
+	}
+	if fixed {
+		if err := pipe.CompleteTx(0, 512); err != nil {
+			return PipelineScenario{}, err
+		}
+		if err := pipe.WaitParity(0, 0); err != nil {
+			return PipelineScenario{}, err
+		}
+	}
+	if err := pipe.WriteStage(0); err != nil {
+		return PipelineScenario{}, err
+	}
+	hazards := pipe.CheckHazards()
+	return PipelineScenario{Name: "bulkcpy/shared_readwrite_race", Fixed: fixed, IsTMA: true, NumStages: 1, StageBytes: 512, HasHazards: len(hazards) != 0, Hazards: hazards, Description: "TMA shared-source WAR ordering"}, nil
 }

@@ -76,3 +76,75 @@ func TestAsyncCopyPipeline_WAWHazard(t *testing.T) {
 		t.Errorf("expected WAW hazard on overlapping issue into same stage, got %v", hazards)
 	}
 }
+
+func TestAsyncCopyPipeline_WaitGroupKeepsNewest(t *testing.T) {
+	p, _ := NewAsyncCopyPipeline(2, 256)
+	_ = p.IssueCopy(0, 256)
+	_ = p.CommitGroup()
+	_ = p.IssueCopy(1, 256)
+	_ = p.CommitGroup()
+	if err := p.WaitGroup(1); err != nil {
+		t.Fatal(err)
+	}
+	if err := p.ReadStage(1); err != nil {
+		t.Fatal(err)
+	}
+	var raw bool
+	for _, h := range p.CheckHazards() {
+		raw = raw || h.Kind == "RAW"
+	}
+	if !raw {
+		t.Fatal("WaitGroup(1) retired newest group; expected s1 read-after-write hazard")
+	}
+}
+
+func TestAsyncCopyPipeline_WaitBeforeCompleteIsHazard(t *testing.T) {
+	p, _ := NewAsyncCopyPipeline(1, 512)
+	_ = p.ArriveExpectTx(0, 512)
+	_ = p.WaitParity(0, 0)
+	if len(p.CheckHazards()) == 0 || p.CheckHazards()[0].Kind != "WaitFailure" {
+		t.Fatalf("wait before CompleteTx was not reported: %v", p.CheckHazards())
+	}
+}
+
+func TestAsyncCopyPipeline_WriteInFlightIsHazard(t *testing.T) {
+	p, _ := NewAsyncCopyPipeline(1, 512)
+	_ = p.ArriveExpectTx(0, 512)
+	_ = p.WriteStage(0)
+	if len(p.CheckHazards()) == 0 || p.CheckHazards()[0].Kind != "WAR" {
+		t.Fatalf("write in flight was not reported: %v", p.CheckHazards())
+	}
+}
+
+func TestAsyncCopyPipeline_WrongParityDoesNotRetire(t *testing.T) {
+	p, _ := NewAsyncCopyPipeline(1, 512)
+	_ = p.ArriveExpectTx(0, 512)
+	_ = p.CompleteTx(0, 512)
+	_ = p.WaitParity(0, 1)
+	_ = p.ReadStage(0)
+	var failure, raw bool
+	for _, h := range p.CheckHazards() {
+		failure = failure || h.Kind == "WaitFailure"
+		raw = raw || h.Kind == "RAW"
+	}
+	if !failure || !raw {
+		t.Fatalf("wrong parity should fail without retiring stage: %v", p.CheckHazards())
+	}
+}
+
+func TestTMASharedSourceIsWAR(t *testing.T) {
+	bad, err := GenerateTMASharedReadWriteScenario(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bad.Hazards) != 1 || bad.Hazards[0].Kind != "WAR" {
+		t.Fatalf("unfixed shared-source copy = %v, want one WAR", bad.Hazards)
+	}
+	good, err := GenerateTMASharedReadWriteScenario(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if good.HasHazards {
+		t.Fatalf("fixed shared-source copy still has hazards: %v", good.Hazards)
+	}
+}
