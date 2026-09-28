@@ -3,12 +3,8 @@
 package cuptirange_test
 
 import (
-	"bytes"
 	"fmt"
 	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -16,7 +12,6 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
 	"github.com/tmc/lib/nvidia/x/cudalock"
 	"github.com/tmc/lib/nvidia/x/cudamem"
-	"github.com/tmc/lib/nvidia/x/cudasass"
 	"github.com/tmc/lib/nvidia/x/cuptirange"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
@@ -216,7 +211,7 @@ extern "C" __global__ void heavy_kernel(unsigned int *out, unsigned int trips) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	static, err := loopBodySASSInstructions(t, dev, cm.PTX(), src)
+	static, err := loopBodySASSInstructions(t, dev, cm.PTX())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -317,99 +312,18 @@ extern "C" __global__ void heavy_kernel(unsigned int *out, unsigned int trips) {
 	if err := checkIsolation(h1, l1, h2, l2, uint64(static), trips1, trips2); err != nil {
 		t.Fatalf("range isolation failed (static loop body=%d SASS instructions): %v; h1=%g l1=%g h2=%g l2=%g", static, err, h1, l1, h2, l2)
 	}
-	combined, _, err := runCapture(trips1, true)
+	combined1, _, err := runCapture(trips1, true)
 	if err != nil {
-		t.Fatalf("combined range control: %v", err)
+		t.Fatalf("combined range control trips=%d: %v", trips1, err)
 	}
-	if err := checkIsolation(combined, combined, combined, combined, uint64(static), trips1, trips2); err == nil {
-		t.Fatalf("single range containing both kernels passed isolation check: combined=%g static=%d", combined, static)
+	combined2, _, err := runCapture(trips2, true)
+	if err != nil {
+		t.Fatalf("combined range control trips=%d: %v", trips2, err)
+	}
+	if err := checkIsolation(h1, combined1, h2, combined2, uint64(static), trips1, trips2); err == nil {
+		t.Fatalf("single range control passed isolation check: heavy=(%g,%g) combined=(%g,%g) static=%d", h1, h2, combined1, combined2, static)
 	}
 
 	t.Logf("range isolation confirmed on %s (%s): loop_body_sass=%d heavy(%d)=%g heavy(%d)=%g light=%g combined_control=%g",
-		chip, metricName, static, trips1, h1, trips2, h2, l1, combined)
-}
-
-func loopBodySASSInstructions(t *testing.T, dev *cuda.Device, ptx, source string) (int, error) {
-	t.Helper()
-	findTool := func(name string) (string, error) {
-		for _, root := range []string{os.Getenv("CUDA"), os.Getenv("CUDA_HOME")} {
-			if root == "" {
-				continue
-			}
-			candidate := filepath.Join(root, "bin", name)
-			if _, err := os.Stat(candidate); err == nil {
-				return candidate, nil
-			}
-		}
-		return exec.LookPath(name)
-	}
-	ptxas, err := findTool("ptxas")
-	if err != nil {
-		t.Skipf("static loop bound requires ptxas: %v", err)
-	}
-	nvdisasm, err := findTool("nvdisasm")
-	if err != nil {
-		t.Skipf("static loop bound requires nvdisasm: %v", err)
-	}
-	major, minor, err := dev.ComputeCapability()
-	if err != nil {
-		return 0, err
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return 0, err
-	}
-	tmp := filepath.Join(home, "tmp")
-	if err := os.MkdirAll(tmp, 0o700); err != nil {
-		return 0, err
-	}
-	dir, err := os.MkdirTemp(tmp, "cuptirange-sass-")
-	if err != nil {
-		return 0, err
-	}
-	t.Cleanup(func() { _ = os.RemoveAll(dir) })
-	ptxPath := filepath.Join(dir, "range.ptx")
-	cubinPath := filepath.Join(dir, "range.cubin")
-	if err := os.WriteFile(ptxPath, []byte(ptx), 0o600); err != nil {
-		return 0, err
-	}
-	compile := exec.Command(ptxas, "-arch=sm_"+fmt.Sprintf("%d%d", major, minor), "-lineinfo", "-o", cubinPath, ptxPath)
-	if out, err := compile.CombinedOutput(); err != nil {
-		return 0, fmt.Errorf("ptxas: %w: %s", err, out)
-	}
-	disassemble := exec.Command(nvdisasm, "-g", cubinPath)
-	out, err := disassemble.CombinedOutput()
-	if err != nil {
-		return 0, fmt.Errorf("nvdisasm: %w: %s", err, out)
-	}
-	parsed, err := cudasass.Parse(bytes.NewReader(out))
-	if err != nil {
-		return 0, fmt.Errorf("parse loop SASS: %w", err)
-	}
-	f := parsed.Function("heavy_kernel")
-	if f == nil {
-		return 0, fmt.Errorf("SASS omitted heavy_kernel")
-	}
-	marker := "v = v * 1664525u + 1013904223u;"
-	line := 0
-	for i, text := range strings.Split(source, "\n") {
-		if strings.Contains(text, marker) {
-			line = i + 1
-			break
-		}
-	}
-	if line == 0 {
-		return 0, fmt.Errorf("loop body marker not found in source")
-	}
-	count := 0
-	for _, inst := range f.Instructions {
-		if inst.SourceLine == line {
-			count++
-		}
-	}
-	if count == 0 {
-		return 0, fmt.Errorf("SASS has no instructions attributed to loop body source line %d", line)
-	}
-	t.Logf("static loop bound: ptxas %s -arch=sm_%d%d -lineinfo; nvdisasm -g; source line %d maps to %d SASS instructions", ptxas, major, minor, line, count)
-	return count, nil
+		chip, metricName, static, trips1, h1, trips2, h2, l1, combined1)
 }

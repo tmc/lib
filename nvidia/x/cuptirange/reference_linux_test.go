@@ -8,8 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -99,8 +97,8 @@ func TestNativeRangeMatchesReferenceSample(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Logf("device=%s sm_%d%d reference sample=%g package=%g metric=%s reference-CUPTI=%d package-CUPTI=%d library=%s", chip, major, minor, refValue, got, rangeReferenceMetric, sampleVersion, packageVersion, sampleCUPTI)
-	if got != refValue {
-		t.Fatalf("CUPTI range result disagrees with independent sample: package=%g reference=%g", got, refValue)
+	if referenceMetricRound(got) != refValue {
+		t.Fatalf("CUPTI range result disagrees at sample precision: package_raw=%g package_rounded=%g reference_raw=%g", got, referenceMetricRound(got), refValue)
 	}
 }
 
@@ -212,10 +210,10 @@ extern "C" __global__ void VectorSubtract(const int *a, const int *b, int *c, in
 		Synchronize: driver.CtxSynchronize,
 		Run: func(_ uint, scope *cuptirange.Scope) error {
 			return scope.Region("vector-workload", func() error {
-				if err := cudalaunch.Kernel(add).Launch(a, b, c, n); err != nil {
+				if err := cudalaunch.Kernel(add).Grid((n+255)/256, 1, 1).Block(256, 1, 1).Launch(a, b, c, n); err != nil {
 					return err
 				}
-				return cudalaunch.Kernel(sub).Launch(a, b, c, n)
+				return cudalaunch.Kernel(sub).Grid((n+255)/256, 1, 1).Block(256, 1, 1).Launch(a, b, c, n)
 			})
 		},
 	})
@@ -238,28 +236,6 @@ extern "C" __global__ void VectorSubtract(const int *a, const int *b, int *c, in
 		}
 	}
 	return 0, fmt.Errorf("vector-workload range missing")
-}
-
-var metricNumber = regexp.MustCompile(`[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?`)
-
-func parseMetricValue(output, metric string) (float64, error) {
-	lines := strings.Split(output, "\n")
-	for i, line := range lines {
-		if !strings.Contains(line, metric) {
-			continue
-		}
-		for _, candidate := range lines[i:min(i+3, len(lines))] {
-			matches := metricNumber.FindAllString(candidate, -1)
-			if len(matches) == 0 {
-				continue
-			}
-			value, err := strconv.ParseFloat(matches[len(matches)-1], 64)
-			if err == nil {
-				return value, nil
-			}
-		}
-	}
-	return 0, fmt.Errorf("metric %q has no numeric value", metric)
 }
 
 func checkReferenceBinary(path string) error {
@@ -296,21 +272,6 @@ func checkReferenceBinary(path string) error {
 		}
 	}
 	return checkReferenceDependencies(deps, hasGoBuildID)
-}
-
-func TestParseMetricValue(t *testing.T) {
-	for _, input := range []struct {
-		output string
-		want   float64
-	}{
-		{output: "smsp__warps_launched.avg = 12.5\n", want: 12.5},
-		{output: "Metric: smsp__warps_launched.avg\nValue: 1.25e+02\n", want: 125},
-	} {
-		got, err := parseMetricValue(input.output, rangeReferenceMetric)
-		if err != nil || got != input.want {
-			t.Errorf("parseMetricValue(%q) = %g, %v; want %g", input.output, got, err, input.want)
-		}
-	}
 }
 
 func referenceRoots(t *testing.T) (string, string) {

@@ -40,15 +40,38 @@ func TestCheckIsolation(t *testing.T) {
 	}{
 		{name: "isolated", h1: 130, l1: 100, h2: 160, l2: 100},
 		{name: "single-range-absorbs-heavy", h1: 300, l1: 300, h2: 600, l2: 600, wantErr: true},
-		{name: "bound-uses-static-instructions", h1: 130, l1: 100, h2: 150, l2: 100, wantErr: true},
+		{name: "first-bound-only", h1: 110, l1: 100, h2: 150, l2: 100, wantErr: true},
+		{name: "scaling-bound-only", h1: 130, l1: 100, h2: 159, l2: 100, wantErr: true},
 		{name: "light-zero", h1: 100, l1: 0, h2: 130, l2: 0, wantErr: true},
 		{name: "light-range-leaks", h1: 130, l1: 100, h2: 160, l2: 101, wantErr: true},
+		{name: "nan", h1: math.NaN(), l1: 100, h2: 160, l2: 100, wantErr: true},
+		{name: "positive-infinity", h1: math.Inf(1), l1: 100, h2: 160, l2: 100, wantErr: true},
+		{name: "negative-count", h1: 130, l1: -1, h2: 160, l2: 100, wantErr: true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			err := checkIsolation(test.h1, test.l1, test.h2, test.l2, static, trips1, trips2)
 			if (err != nil) != test.wantErr {
 				t.Fatalf("checkIsolation() error = %v, wantErr %t", err, test.wantErr)
+			}
+		})
+	}
+}
+
+func TestCheckIsolationRejectsInvalidBounds(t *testing.T) {
+	tests := []struct {
+		name           string
+		static         uint64
+		trips1, trips2 uint32
+	}{
+		{"zero-static", 0, 10, 20},
+		{"zero-trips", 3, 0, 20},
+		{"non-increasing-trips", 3, 20, 20},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := checkIsolation(130, 100, 160, 100, tt.static, tt.trips1, tt.trips2); err == nil {
+				t.Fatal("checkIsolation accepted invalid bounds")
 			}
 		})
 	}
