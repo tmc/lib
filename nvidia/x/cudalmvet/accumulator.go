@@ -114,29 +114,39 @@ func (a *Accumulator) Events() []TraceEvent {
 
 // FoldByte mixes a single byte into the accumulator.
 func (a *Accumulator) FoldByte(b byte) {
-	a.hash = (a.hash ^ uint64(b)) * FNVPrime
+	a.mixByte(b)
+	a.recordEvent("", float64(b), uint64(b))
 }
 
 // FoldBytes mixes a slice of bytes into the accumulator.
 func (a *Accumulator) FoldBytes(p []byte) {
 	for _, b := range p {
-		a.hash = (a.hash ^ uint64(b)) * FNVPrime
+		a.mixByte(b)
+		a.recordEvent("", float64(b), uint64(b))
 	}
+}
+
+func (a *Accumulator) mixByte(b byte) {
+	a.hash = (a.hash ^ uint64(b)) * FNVPrime
 }
 
 // FoldBool mixes a boolean into the accumulator as 1 or 0 byte.
 func (a *Accumulator) FoldBool(v bool) {
 	if v {
-		a.FoldByte(1)
+		a.mixByte(1)
 	} else {
-		a.FoldByte(0)
+		a.mixByte(0)
 	}
-	a.recordEvent("", 0, uint64(a.hash))
+	var bits uint64
+	if v {
+		bits = 1
+	}
+	a.recordEvent("", float64(bits), bits)
 }
 
 // FoldUint8 mixes an unsigned 8-bit integer into the accumulator.
 func (a *Accumulator) FoldUint8(v uint8) {
-	a.FoldByte(v)
+	a.mixByte(v)
 	a.recordEvent("", float64(v), uint64(v))
 }
 
@@ -147,8 +157,8 @@ func (a *Accumulator) FoldInt8(v int8) {
 
 // FoldUint16 mixes an unsigned 16-bit integer in little-endian order.
 func (a *Accumulator) FoldUint16(v uint16) {
-	a.FoldByte(byte(v & 0xff))
-	a.FoldByte(byte((v >> 8) & 0xff))
+	a.mixByte(byte(v & 0xff))
+	a.mixByte(byte((v >> 8) & 0xff))
 	a.recordEvent("", float64(v), uint64(v))
 }
 
@@ -161,7 +171,9 @@ func (a *Accumulator) FoldInt16(v int16) {
 func (a *Accumulator) FoldUint32(v uint32) {
 	var buf [4]byte
 	binary.LittleEndian.PutUint32(buf[:], v)
-	a.FoldBytes(buf[:])
+	for _, b := range buf {
+		a.mixByte(b)
+	}
 	a.recordEvent("", float64(v), uint64(v))
 }
 
@@ -174,7 +186,9 @@ func (a *Accumulator) FoldInt32(v int32) {
 func (a *Accumulator) FoldUint64(v uint64) {
 	var buf [8]byte
 	binary.LittleEndian.PutUint64(buf[:], v)
-	a.FoldBytes(buf[:])
+	for _, b := range buf {
+		a.mixByte(b)
+	}
 	a.recordEvent("", float64(v), v)
 }
 
@@ -212,7 +226,7 @@ func (a *Accumulator) FoldFloat32Named(nodeName string, v float32) {
 	var buf [4]byte
 	binary.LittleEndian.PutUint32(buf[:], bits)
 	for _, b := range buf {
-		a.hash = (a.hash ^ uint64(b)) * FNVPrime
+		a.mixByte(b)
 	}
 
 	a.recordEvent(nodeName, float64(v), uint64(bits))
@@ -260,7 +274,7 @@ func (a *Accumulator) FoldFloat64Named(nodeName string, v float64) {
 	var buf [8]byte
 	binary.LittleEndian.PutUint64(buf[:], bits)
 	for _, b := range buf {
-		a.hash = (a.hash ^ uint64(b)) * FNVPrime
+		a.mixByte(b)
 	}
 
 	a.recordEvent(nodeName, v, bits)

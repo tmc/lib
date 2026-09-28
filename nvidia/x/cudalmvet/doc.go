@@ -31,14 +31,17 @@
 //   - For computation graphs ([cudair.Graph]), nodes are traversed in safe
 //     sequential topological order ([cudair.Snapshot.Order]).
 //   - Tensor elements are folded in canonical row-major flat index order (0, 1, ..., N-1).
-//   - Unit/empty tensors (0 elements) are pruned and fold zero bytes, leaving the accumulator unchanged.
+//   - Values from every non-input intermediate node are folded, including graph outputs.
+//   - Graph inputs, node metadata, and unit/empty tensors are skipped; skipped values fold
+//     zero bytes and leave the accumulator unchanged.
 //
 // # Schedule Perturbation
 //
 // The schedule-perturbation driver recompiles kernels under a bounded set of
 // scheduling-affecting compiler options:
 //   - NVRTC phase: --extra-device-vectorization (enabled / disabled).
-//   - Driver JIT phase: CU_JIT_OPT_LEVEL across its range (0 through 4).
+//   - Driver JIT phase: CU_JIT_OPT_LEVEL 1 through 4. Level 0 is unsupported
+//     because the JIT option type uses zero to mean unset.
 //
 // Each perturbation is compiled into an independent artifact with its own cache identity.
 // A perturbation whose trace hash moves indicates miscompilation, a data race, or

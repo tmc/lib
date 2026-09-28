@@ -19,12 +19,13 @@ var ErrPerturbationArtifactMismatch = errors.New("cudalmvet: compiled artifact d
 type Perturbation struct {
 	Name                 string
 	ExtraDeviceVectorize bool
-	JITOptLevel          int // 0 to 4
+	JITOptLevel          int // 1 to 4; zero means unset in cudakernel.JITOptions.
 }
 
 // DefaultPerturbations returns the bounded set of scheduling-affecting perturbation configurations:
 //   - --extra-device-vectorization on / off at NVRTC phase
-//   - CU_JIT_OPT_LEVEL across its complete 0-4 range at driver JIT phase
+//   - CU_JIT_OPT_LEVEL 1 through 4 at driver JIT phase; zero is unsupported because
+//     cudakernel uses zero to mean unset.
 func DefaultPerturbations() []Perturbation {
 	return []Perturbation{
 		{
@@ -36,11 +37,6 @@ func DefaultPerturbations() []Perturbation {
 			Name:                 "vectorize_on",
 			ExtraDeviceVectorize: true,
 			JITOptLevel:          4,
-		},
-		{
-			Name:                 "jit_opt0",
-			ExtraDeviceVectorize: false,
-			JITOptLevel:          0,
 		},
 		{
 			Name:                 "jit_opt1",
@@ -58,16 +54,6 @@ func DefaultPerturbations() []Perturbation {
 			JITOptLevel:          3,
 		},
 		{
-			Name:                 "jit_opt4",
-			ExtraDeviceVectorize: false,
-			JITOptLevel:          4,
-		},
-		{
-			Name:                 "vectorize_opt0",
-			ExtraDeviceVectorize: true,
-			JITOptLevel:          0,
-		},
-		{
 			Name:                 "vectorize_opt3",
 			ExtraDeviceVectorize: true,
 			JITOptLevel:          3,
@@ -78,6 +64,9 @@ func DefaultPerturbations() []Perturbation {
 // ValidatePerturbationArtifact verifies that a compiled artifact faithfully embodies
 // the requested perturbation options, preventing silent cache reuse of unperturbed artifacts.
 func ValidatePerturbationArtifact(pert Perturbation, art *cudakernel.Artifact) error {
+	if pert.JITOptLevel < 1 || pert.JITOptLevel > 4 {
+		return fmt.Errorf("cudalmvet: unsupported JIT optimization level %d (want 1 through 4)", pert.JITOptLevel)
+	}
 	if art == nil {
 		return fmt.Errorf("%w: nil artifact", ErrPerturbationArtifactMismatch)
 	}
@@ -116,8 +105,9 @@ type PerturbationResult struct {
 
 // PerturbationReport collects the outcomes across all tested perturbations.
 type PerturbationReport struct {
-	ReferenceHash uint64
-	Results       []PerturbationResult
+	ReferenceHash      uint64
+	BaselineDeviceHash uint64
+	Results            []PerturbationResult
 }
 
 // AllAgree reports whether all perturbations compiled, ran, and matched the reference hash.
@@ -165,8 +155,8 @@ func (r *PerturbationReport) String() string {
 			notes = fmt.Sprintf("compile error: %v", res.CompileErr)
 		} else if res.RunErr != nil {
 			notes = fmt.Sprintf("run error: %v", res.RunErr)
-		} else if res.Hash != r.ReferenceHash && r.ReferenceHash != 0 {
-			notes = "HASH MOVED (divergence)"
+		} else if res.Status != StatusUnmeasured && r.BaselineDeviceHash != 0 && res.Hash != r.BaselineDeviceHash {
+			notes = "HASH MOVED vs baseline device hash"
 		}
 
 		sb.WriteString(fmt.Sprintf("%-18s %-10s %-8d %-12s %-20s %s\n",
@@ -222,6 +212,11 @@ func RunPerturbations(ctx context.Context, g *cudair.Graph, perts []Perturbation
 			compilerOpts = append(compilerOpts, nvrtcx.WithExtraDeviceVectorization())
 		}
 
+		if err := ValidatePerturbationArtifact(p, &cudakernel.Artifact{JITOptions: cudakernel.JITOptions{OptLevel: uint32(p.JITOptLevel)}, CompilerOpts: perturbationCompilerFlags(p)}); err != nil {
+			res.CompileErr = err
+			report.Results = append(report.Results, res)
+			continue
+		}
 		jitOpts := cfg.JITOptions
 		jitOpts.OptLevel = uint32(p.JITOptLevel)
 
@@ -229,21 +224,53 @@ func RunPerturbations(ctx context.Context, g *cudair.Graph, perts []Perturbation
 		pertCompareOpts = append(pertCompareOpts,
 			WithCompilerOptions(compilerOpts...),
 			WithJITOpts(jitOpts),
+			withPerturbation(p),
 		)
 
 		cmpResult, cmpErr := Compare(ctx, g, pertCompareOpts...)
-		if cmpErr != nil {
-			res.RunErr = cmpErr
-		} else {
-			res.Status = cmpResult.Status
-			res.Hash = cmpResult.DeviceHash
-			if cmpResult.Status == StatusUnmeasured && cmpResult.Err != nil {
-				res.CompileErr = cmpResult.Err
-			}
-		}
+		res = perturbationOutcome(p, cmpResult, cmpErr)
 
 		report.Results = append(report.Results, res)
+		if p.Name == "baseline" && res.Status != StatusUnmeasured && res.CompileErr == nil && res.RunErr == nil {
+			report.BaselineDeviceHash = res.Hash
+		}
 	}
 
 	return report, nil
+}
+
+func perturbationOutcome(p Perturbation, result *ComparisonResult, err error) PerturbationResult {
+	row := PerturbationResult{Perturbation: p, Status: StatusUnmeasured}
+	if err != nil {
+		row.RunErr = err
+		return row
+	}
+	if result == nil {
+		row.RunErr = errors.New("cudalmvet: compare returned no result")
+		return row
+	}
+	row.Status, row.Hash = result.Status, result.DeviceHash
+	if result.Err != nil && result.Status == StatusUnmeasured {
+		if result.Stage == StageCompile {
+			row.CompileErr = result.Err
+		} else if result.Stage != StageNone {
+			row.RunErr = result.Err
+		}
+	}
+	return row
+}
+
+func perturbationCompilerFlags(p Perturbation) []string {
+	if p.ExtraDeviceVectorize {
+		return []string{"--extra-device-vectorization"}
+	}
+	return nil
+}
+
+func validateCompiledPerturbation(p Perturbation, compilerOpts []string, module *nvrtcx.CompiledModule) error {
+	if module == nil {
+		return fmt.Errorf("%w: compiler returned nil module", ErrPerturbationArtifactMismatch)
+	}
+	artifact := &cudakernel.Artifact{CompilerOpts: append([]string(nil), compilerOpts...), JITOptions: module.JITOptions()}
+	return ValidatePerturbationArtifact(p, artifact)
 }

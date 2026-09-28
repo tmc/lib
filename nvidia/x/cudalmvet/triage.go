@@ -51,7 +51,7 @@ func Triage(a, b *Accumulator) *TriageReport {
 			if node == "" {
 				node = eb.NodeName
 			}
-			msg := fmt.Sprintf("first divergence at fold #%d (node %q): trace A has value %v (0x%08x, hash 0x%016x), trace B has value %v (0x%08x, hash 0x%016x)",
+			msg := fmt.Sprintf("first divergence at fold #%d (node %q): trace A has value %v (0x%016x, hash 0x%016x), trace B has value %v (0x%016x, hash 0x%016x)",
 				i, node, ea.Value, ea.Bits, ea.Hash, eb.Value, eb.Bits, eb.Hash)
 			return &TriageReport{
 				DiffIndex: i,
