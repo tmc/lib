@@ -438,7 +438,149 @@
         "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/cublasmp/redist/redistrib_0.10.0.json",
         "verification": "Vendored header SHA-256 recomputed from the recorded codegen commit and compared with the per-file digests in the generator's headers/README.md. The vendor archive was not re-downloaded or rehashed for this record, and the online redistribution manifest was not freshly retrieved.",
         "version": "0.10.0.3695"
-      }
+      },
+      "header_dependencies": [
+        {
+          "path": "cmd/gen-cublasmp/headers/cublasmp.h",
+          "repository": "codegen",
+          "sha256": "024414f9be9a4c2b98c18ea7160a071939882b850209674505f8f51a8a594a7e"
+        },
+        {
+          "path": "cuda_cccl/nv/detail/__preprocessor",
+          "repository": "headers",
+          "sha256": "e0d746ea364e52ab89e5ab395762f3859c923dd4b88aee4657023b85172ba541"
+        },
+        {
+          "path": "cuda_cccl/nv/detail/__target_macros",
+          "repository": "headers",
+          "sha256": "199a109be511df3611263605946d2d8af3e8561c639be25fdb19d0f71ca6e736"
+        },
+        {
+          "path": "cuda_cccl/nv/target",
+          "repository": "headers",
+          "sha256": "913c0ee62523291cace9c9d25854eb3c009dd1f3fc108c92a0bc6e4a6aae0bb6"
+        },
+        {
+          "path": "cuda_crt/crt/host_config.h",
+          "repository": "headers",
+          "sha256": "65f961e3ab30696260ea638335d0b67ea04f8c5fb9cb1267b9fa5e550f6beafd"
+        },
+        {
+          "path": "cuda_crt/crt/host_defines.h",
+          "repository": "headers",
+          "sha256": "dbabf0f8e8461362addf1bd4a04b6878923aa9be997352baf0bab7af7b9e47e1"
+        },
+        {
+          "path": "cuda_cudart/builtin_types.h",
+          "repository": "headers",
+          "sha256": "2714fd55fdaadac9f14c138bf400b33666334d60023b654e554bb529d16deff8"
+        },
+        {
+          "path": "cuda_cudart/channel_descriptor.h",
+          "repository": "headers",
+          "sha256": "b78717961fe4aa0c3529fd5e6260331746249bd59b5fad1eebfdc7bc12ba9d1a"
+        },
+        {
+          "path": "cuda_cudart/cuComplex.h",
+          "repository": "headers",
+          "sha256": "5a9720a5a88f854fe8f6c4cf31c353119bb25c321cf31deccf8754592ced2f68"
+        },
+        {
+          "path": "cuda_cudart/cuda_bf16.h",
+          "repository": "headers",
+          "sha256": "5d5a824f1d4401189b501cd934067d3e5a20e58c6d5176ad99665a4843fa8e03"
+        },
+        {
+          "path": "cuda_cudart/cuda_bf16.hpp",
+          "repository": "headers",
+          "sha256": "c71f7902fc526861db301028ad8966dfd93a97dd9be802e5962821a73f373e27"
+        },
+        {
+          "path": "cuda_cudart/cuda_device_runtime_api.h",
+          "repository": "headers",
+          "sha256": "0a159d4210c02213df336c8582700b617d6d298a7d74d9eb16c561bc5f4e9b7c"
+        },
+        {
+          "path": "cuda_cudart/cuda_fp16.h",
+          "repository": "headers",
+          "sha256": "2e34ed9c273f569a4600cfe30694a9c5a980b183fbcb33262fd6f1150c7f4927"
+        },
+        {
+          "path": "cuda_cudart/cuda_fp16.hpp",
+          "repository": "headers",
+          "sha256": "016ce919f3c729be3ae2df385941dabc0a48b8861a75fe3fe880134914b9bbbb"
+        },
+        {
+          "path": "cuda_cudart/cuda_runtime.h",
+          "repository": "headers",
+          "sha256": "c93f92894cabfeafab0c1b7c575b8c932416e2959f8046ef19b79eb82199b6ae"
+        },
+        {
+          "path": "cuda_cudart/cuda_runtime_api.h",
+          "repository": "headers",
+          "sha256": "a848e416776a49904e8bace4bd377c0c5b379461e6bb2fb8accb7e6162c3a96d"
+        },
+        {
+          "path": "cuda_cudart/device_types.h",
+          "repository": "headers",
+          "sha256": "d8b171a190493e80395741f511b29311a5c38b718324fb7338f7511c36ae7084"
+        },
+        {
+          "path": "cuda_cudart/driver_functions.h",
+          "repository": "headers",
+          "sha256": "70ddc88d1033d8c8f63e3df94b2c4922464d0c3bac9c9a9aab305d333a5029b0"
+        },
+        {
+          "path": "cuda_cudart/driver_types.h",
+          "repository": "headers",
+          "sha256": "b37eb334124c5e43cfa2baa087aa128b44ddd8913da476ca0e92358d5d1be9c4"
+        },
+        {
+          "path": "cuda_cudart/library_types.h",
+          "repository": "headers",
+          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
+        },
+        {
+          "path": "cuda_cudart/surface_types.h",
+          "repository": "headers",
+          "sha256": "5e41570f59c76de48c81a8d1f94244f6e43b4c1cb32678dd9d42f8fb21a2b9f9"
+        },
+        {
+          "path": "cuda_cudart/texture_types.h",
+          "repository": "headers",
+          "sha256": "ef79ed57283cafc7f32b2e55224eb2baf0b8e460de59ea5a2c8a8893e337462f"
+        },
+        {
+          "path": "cuda_cudart/vector_functions.h",
+          "repository": "headers",
+          "sha256": "f15e2cc5f6b26a617143551b8aed48bd74e5d997ecbe9e3a7abe7cb430262d6b"
+        },
+        {
+          "path": "cuda_cudart/vector_functions.hpp",
+          "repository": "headers",
+          "sha256": "4d2ef3eff9431eba4e3fe0ae7e2121d24013afb0b7660b40531b1641d9010541"
+        },
+        {
+          "path": "cuda_cudart/vector_types.h",
+          "repository": "headers",
+          "sha256": "ded087a2c3ca89fd3a5150589175aca0aa4714357016209ea3e7a51f94845e75"
+        },
+        {
+          "path": "libcublas/cublas_api.h",
+          "repository": "headers",
+          "sha256": "7a9fec18f54db0ef918af506b709385b3ca5290832b4c71a4716edbd6f47ce82"
+        },
+        {
+          "path": "libcublas/cublas_v2.h",
+          "repository": "headers",
+          "sha256": "78514be9bda58bf84a21eb35a8d31b6744562a62beab78757ce22eae7c6f1b26"
+        },
+        {
+          "path": "nccl/nccl.h",
+          "repository": "headers",
+          "sha256": "fc9720fe6d8b45a62775a2f9d13c43ed6e88b0e01fd771081d6f665e6df94bfb"
+        }
+      ]
     },
     "cudensitymat": {
       "documentation": {
@@ -601,7 +743,74 @@
         "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/cuquantum/redist/redistrib_26.06.0.json",
         "verification": "Vendored header SHA-256 recomputed from the recorded codegen commit and compared with the per-file digests in the generator's headers/README.md. The vendor archive was not re-downloaded or rehashed for this record, and the online redistribution manifest was not freshly retrieved.",
         "version": "26.06.0.17"
-      }
+      },
+      "header_dependencies": [
+        {
+          "path": "cmd/gen-cudensitymat/headers/cudensitymat.h",
+          "repository": "codegen",
+          "sha256": "50625556ef18505d3a9c427b01491952eeeecbd7440061f1b8d12f6c4885ae59"
+        },
+        {
+          "path": "cuda_crt/crt/host_defines.h",
+          "repository": "headers",
+          "sha256": "dbabf0f8e8461362addf1bd4a04b6878923aa9be997352baf0bab7af7b9e47e1"
+        },
+        {
+          "path": "cuda_cudart/builtin_types.h",
+          "repository": "headers",
+          "sha256": "2714fd55fdaadac9f14c138bf400b33666334d60023b654e554bb529d16deff8"
+        },
+        {
+          "path": "cuda_cudart/cuComplex.h",
+          "repository": "headers",
+          "sha256": "5a9720a5a88f854fe8f6c4cf31c353119bb25c321cf31deccf8754592ced2f68"
+        },
+        {
+          "path": "cuda_cudart/cuda_device_runtime_api.h",
+          "repository": "headers",
+          "sha256": "0a159d4210c02213df336c8582700b617d6d298a7d74d9eb16c561bc5f4e9b7c"
+        },
+        {
+          "path": "cuda_cudart/cuda_runtime_api.h",
+          "repository": "headers",
+          "sha256": "a848e416776a49904e8bace4bd377c0c5b379461e6bb2fb8accb7e6162c3a96d"
+        },
+        {
+          "path": "cuda_cudart/device_types.h",
+          "repository": "headers",
+          "sha256": "d8b171a190493e80395741f511b29311a5c38b718324fb7338f7511c36ae7084"
+        },
+        {
+          "path": "cuda_cudart/driver_types.h",
+          "repository": "headers",
+          "sha256": "b37eb334124c5e43cfa2baa087aa128b44ddd8913da476ca0e92358d5d1be9c4"
+        },
+        {
+          "path": "cuda_cudart/library_types.h",
+          "repository": "headers",
+          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
+        },
+        {
+          "path": "cuda_cudart/surface_types.h",
+          "repository": "headers",
+          "sha256": "5e41570f59c76de48c81a8d1f94244f6e43b4c1cb32678dd9d42f8fb21a2b9f9"
+        },
+        {
+          "path": "cuda_cudart/texture_types.h",
+          "repository": "headers",
+          "sha256": "ef79ed57283cafc7f32b2e55224eb2baf0b8e460de59ea5a2c8a8893e337462f"
+        },
+        {
+          "path": "cuda_cudart/vector_types.h",
+          "repository": "headers",
+          "sha256": "ded087a2c3ca89fd3a5150589175aca0aa4714357016209ea3e7a51f94845e75"
+        },
+        {
+          "path": "types/library_types.h",
+          "repository": "headers",
+          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
+        }
+      ]
     },
     "cudnn": {
       "documentation": {
@@ -1237,7 +1446,114 @@
         "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/cudss/redist/redistrib_0.8.0.json",
         "verification": "Vendored header SHA-256 recomputed from the recorded codegen commit and compared with the per-file digests in the generator's headers/README.md. The vendor archive was not re-downloaded or rehashed for this record, and the online redistribution manifest was not freshly retrieved.",
         "version": "0.8.0.10"
-      }
+      },
+      "header_dependencies": [
+        {
+          "path": "cmd/gen-cudss/headers/cudss.h",
+          "repository": "codegen",
+          "sha256": "d328a3bec10ad702174c61c7701daada7aa78db3bda265b30751ff485de62b50"
+        },
+        {
+          "path": "cmd/gen-cudss/headers/cudss_data_types.h",
+          "repository": "codegen",
+          "sha256": "19d48b73319f890f651b67278287ac6df3d7316da9d8ebd26679c97daa0eaebc"
+        },
+        {
+          "path": "cmd/gen-cudss/headers/cudss_distributed_interface.h",
+          "repository": "codegen",
+          "sha256": "7af87b7d6f640607190118bbde11c5f9d931a6d7af5cd38dcd93bba754063190"
+        },
+        {
+          "path": "cmd/gen-cudss/headers/cudss_threading_interface.h",
+          "repository": "codegen",
+          "sha256": "d154e4ddc4dda0296abcbb8eccfdd7e9ee372db12cc17a3d210d0d7373fa9479"
+        },
+        {
+          "path": "cuda_crt/crt/host_config.h",
+          "repository": "headers",
+          "sha256": "65f961e3ab30696260ea638335d0b67ea04f8c5fb9cb1267b9fa5e550f6beafd"
+        },
+        {
+          "path": "cuda_crt/crt/host_defines.h",
+          "repository": "headers",
+          "sha256": "dbabf0f8e8461362addf1bd4a04b6878923aa9be997352baf0bab7af7b9e47e1"
+        },
+        {
+          "path": "cuda_cudart/builtin_types.h",
+          "repository": "headers",
+          "sha256": "2714fd55fdaadac9f14c138bf400b33666334d60023b654e554bb529d16deff8"
+        },
+        {
+          "path": "cuda_cudart/channel_descriptor.h",
+          "repository": "headers",
+          "sha256": "b78717961fe4aa0c3529fd5e6260331746249bd59b5fad1eebfdc7bc12ba9d1a"
+        },
+        {
+          "path": "cuda_cudart/cuda_device_runtime_api.h",
+          "repository": "headers",
+          "sha256": "0a159d4210c02213df336c8582700b617d6d298a7d74d9eb16c561bc5f4e9b7c"
+        },
+        {
+          "path": "cuda_cudart/cuda_runtime.h",
+          "repository": "headers",
+          "sha256": "c93f92894cabfeafab0c1b7c575b8c932416e2959f8046ef19b79eb82199b6ae"
+        },
+        {
+          "path": "cuda_cudart/cuda_runtime_api.h",
+          "repository": "headers",
+          "sha256": "a848e416776a49904e8bace4bd377c0c5b379461e6bb2fb8accb7e6162c3a96d"
+        },
+        {
+          "path": "cuda_cudart/device_types.h",
+          "repository": "headers",
+          "sha256": "d8b171a190493e80395741f511b29311a5c38b718324fb7338f7511c36ae7084"
+        },
+        {
+          "path": "cuda_cudart/driver_functions.h",
+          "repository": "headers",
+          "sha256": "70ddc88d1033d8c8f63e3df94b2c4922464d0c3bac9c9a9aab305d333a5029b0"
+        },
+        {
+          "path": "cuda_cudart/driver_types.h",
+          "repository": "headers",
+          "sha256": "b37eb334124c5e43cfa2baa087aa128b44ddd8913da476ca0e92358d5d1be9c4"
+        },
+        {
+          "path": "cuda_cudart/library_types.h",
+          "repository": "headers",
+          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
+        },
+        {
+          "path": "cuda_cudart/surface_types.h",
+          "repository": "headers",
+          "sha256": "5e41570f59c76de48c81a8d1f94244f6e43b4c1cb32678dd9d42f8fb21a2b9f9"
+        },
+        {
+          "path": "cuda_cudart/texture_types.h",
+          "repository": "headers",
+          "sha256": "ef79ed57283cafc7f32b2e55224eb2baf0b8e460de59ea5a2c8a8893e337462f"
+        },
+        {
+          "path": "cuda_cudart/vector_functions.h",
+          "repository": "headers",
+          "sha256": "f15e2cc5f6b26a617143551b8aed48bd74e5d997ecbe9e3a7abe7cb430262d6b"
+        },
+        {
+          "path": "cuda_cudart/vector_functions.hpp",
+          "repository": "headers",
+          "sha256": "4d2ef3eff9431eba4e3fe0ae7e2121d24013afb0b7660b40531b1641d9010541"
+        },
+        {
+          "path": "cuda_cudart/vector_types.h",
+          "repository": "headers",
+          "sha256": "ded087a2c3ca89fd3a5150589175aca0aa4714357016209ea3e7a51f94845e75"
+        },
+        {
+          "path": "types/library_types.h",
+          "repository": "headers",
+          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
+        }
+      ]
     },
     "cufft": {
       "generation": {
@@ -1374,19 +1690,14 @@
       },
       "header_dependencies": [
         {
-          "path": "cuda_cudart/cuComplex.h",
-          "repository": "headers",
-          "sha256": "5a9720a5a88f854fe8f6c4cf31c353119bb25c321cf31deccf8754592ced2f68"
-        },
-        {
-          "path": "cuda_cudart/vector_types.h",
-          "repository": "headers",
-          "sha256": "ded087a2c3ca89fd3a5150589175aca0aa4714357016209ea3e7a51f94845e75"
-        },
-        {
           "path": "cuda_crt/crt/host_defines.h",
           "repository": "headers",
           "sha256": "dbabf0f8e8461362addf1bd4a04b6878923aa9be997352baf0bab7af7b9e47e1"
+        },
+        {
+          "path": "cuda_cudart/cuComplex.h",
+          "repository": "headers",
+          "sha256": "5a9720a5a88f854fe8f6c4cf31c353119bb25c321cf31deccf8754592ced2f68"
         },
         {
           "path": "cuda_cudart/driver_types.h",
@@ -1395,6 +1706,31 @@
         },
         {
           "path": "cuda_cudart/library_types.h",
+          "repository": "headers",
+          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
+        },
+        {
+          "path": "cuda_cudart/vector_types.h",
+          "repository": "headers",
+          "sha256": "ded087a2c3ca89fd3a5150589175aca0aa4714357016209ea3e7a51f94845e75"
+        },
+        {
+          "path": "cufft/cufft.h",
+          "repository": "headers",
+          "sha256": "7172df0d7581ff27d44f3d546c285f8804cd111537ee916b768d2e5f566ea272"
+        },
+        {
+          "path": "math/cuComplex.h",
+          "repository": "headers",
+          "sha256": "5a9720a5a88f854fe8f6c4cf31c353119bb25c321cf31deccf8754592ced2f68"
+        },
+        {
+          "path": "runtime/driver_types.h",
+          "repository": "headers",
+          "sha256": "915f0a66b668944cf34f6e2c1f88b4507789ffdc7905c98ec792e7c184cd12f2"
+        },
+        {
+          "path": "types/library_types.h",
           "repository": "headers",
           "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
         }
@@ -2601,14 +2937,14 @@
       },
       "header_dependencies": [
         {
-          "path": "libcufile/cufile.h",
-          "repository": "headers",
-          "sha256": "1cffa2c536842568ddd361ca65c5f61a616f18844ce42071736a38e46e9cd791"
-        },
-        {
           "path": "driver/cuda.h",
           "repository": "headers",
           "sha256": "673873a292718591d75ea3c2e65330b1f8f8278eac3c96b32245418fb0817851"
+        },
+        {
+          "path": "libcufile/cufile.h",
+          "repository": "headers",
+          "sha256": "1cffa2c536842568ddd361ca65c5f61a616f18844ce42071736a38e46e9cd791"
         }
       ],
       "note": "Regenerated 2026-09-08 from the recorded recipe. The only change is the Linux candidate list, which no longer ends with the unversioned libcufile.so; see the soname-pinning note in the cufft entry. Exported API is unchanged.",
@@ -2884,6 +3220,173 @@
         "Go and clang executable bytes",
         "transitive Go module source contents",
         "documentation upstream retrieval identities beyond retained JSON bytes"
+      ],
+      "header_dependencies": [
+        {
+          "path": "cuda_crt/crt/host_defines.h",
+          "repository": "headers",
+          "sha256": "dbabf0f8e8461362addf1bd4a04b6878923aa9be997352baf0bab7af7b9e47e1"
+        },
+        {
+          "path": "cuda_cudart/builtin_types.h",
+          "repository": "headers",
+          "sha256": "2714fd55fdaadac9f14c138bf400b33666334d60023b654e554bb529d16deff8"
+        },
+        {
+          "path": "cuda_cudart/cuda.h",
+          "repository": "headers",
+          "sha256": "31df84e16179b6d97db4b3c0bae7697392a370b41983f4a8962f0e5a8069b577"
+        },
+        {
+          "path": "cuda_cudart/cuda_device_runtime_api.h",
+          "repository": "headers",
+          "sha256": "0a159d4210c02213df336c8582700b617d6d298a7d74d9eb16c561bc5f4e9b7c"
+        },
+        {
+          "path": "cuda_cudart/cuda_runtime_api.h",
+          "repository": "headers",
+          "sha256": "a848e416776a49904e8bace4bd377c0c5b379461e6bb2fb8accb7e6162c3a96d"
+        },
+        {
+          "path": "cuda_cudart/device_types.h",
+          "repository": "headers",
+          "sha256": "d8b171a190493e80395741f511b29311a5c38b718324fb7338f7511c36ae7084"
+        },
+        {
+          "path": "cuda_cudart/driver_types.h",
+          "repository": "headers",
+          "sha256": "b37eb334124c5e43cfa2baa087aa128b44ddd8913da476ca0e92358d5d1be9c4"
+        },
+        {
+          "path": "cuda_cudart/surface_types.h",
+          "repository": "headers",
+          "sha256": "5e41570f59c76de48c81a8d1f94244f6e43b4c1cb32678dd9d42f8fb21a2b9f9"
+        },
+        {
+          "path": "cuda_cudart/texture_types.h",
+          "repository": "headers",
+          "sha256": "ef79ed57283cafc7f32b2e55224eb2baf0b8e460de59ea5a2c8a8893e337462f"
+        },
+        {
+          "path": "cuda_cudart/vector_types.h",
+          "repository": "headers",
+          "sha256": "ded087a2c3ca89fd3a5150589175aca0aa4714357016209ea3e7a51f94845e75"
+        },
+        {
+          "path": "cuda_cupti/cuda_stdint.h",
+          "repository": "headers",
+          "sha256": "5db14e93d0ad2632aa93b3e960da9b495b03c40b1533c6af038ad6a4f8b40634"
+        },
+        {
+          "path": "cupti/cupti.h",
+          "repository": "headers",
+          "sha256": "2b0a3268524bf80c13ffb173b7271295ee81161d220ea28951d748d5af26bd0e"
+        },
+        {
+          "path": "cupti/cupti_activity.h",
+          "repository": "headers",
+          "sha256": "a0c33d2f92e73d221406d5996f3fbf9b232e02a6522a44996aa6c210e640ad4d"
+        },
+        {
+          "path": "cupti/cupti_activity_deprecated.h",
+          "repository": "headers",
+          "sha256": "592835010b1b2b5fb8544572cf1efe1539e0ad45b0e939561a5cc2a7b74aacab"
+        },
+        {
+          "path": "cupti/cupti_callbacks.h",
+          "repository": "headers",
+          "sha256": "467dc10e2c8dd54eadbd06460d6c4ae338878247b5945efd4d8767a030c906ff"
+        },
+        {
+          "path": "cupti/cupti_checkpoint.h",
+          "repository": "headers",
+          "sha256": "ad3cfc2685b1a844815f26565216491a6e31798731e0e24eb49ecb775dd3fdbd"
+        },
+        {
+          "path": "cupti/cupti_common.h",
+          "repository": "headers",
+          "sha256": "8a3aa4d3563dbf825f3a27525e67222d86126fb248d86905e615838b126c7214"
+        },
+        {
+          "path": "cupti/cupti_driver_cbid.h",
+          "repository": "headers",
+          "sha256": "a466a41d811a5848a30f34d60b8286b461fa679550190c2f20192ca5b12bdb25"
+        },
+        {
+          "path": "cupti/cupti_events.h",
+          "repository": "headers",
+          "sha256": "8de8e51ce0a6e6f60764e1fb76ca0a12cdbae3eb53d8ac62c637d3e68bf926af"
+        },
+        {
+          "path": "cupti/cupti_metrics.h",
+          "repository": "headers",
+          "sha256": "9190a8697f5ffbec3614fd2b0b7e8e379a54393a962c604b57f8b2ddc8a069d4"
+        },
+        {
+          "path": "cupti/cupti_nvtx_cbid.h",
+          "repository": "headers",
+          "sha256": "633a2107c2f2f1a82f10d8af8b4f487d87ff7ecc6ede938dc411dfdb6a7a4e9a"
+        },
+        {
+          "path": "cupti/cupti_pcsampling.h",
+          "repository": "headers",
+          "sha256": "c9c2474f7e8398f21a5731ec077c718d792117211f30224e9772db0ac1c58320"
+        },
+        {
+          "path": "cupti/cupti_pmsampling.h",
+          "repository": "headers",
+          "sha256": "53de6128ec0891949b18d54fd7541298c6b007ca9d26c96363fb54258e2f79d7"
+        },
+        {
+          "path": "cupti/cupti_profiler_host.h",
+          "repository": "headers",
+          "sha256": "8913cfad9b09f01c30ef857577483d087ef0b67ecbfa15fc62058d3068534a35"
+        },
+        {
+          "path": "cupti/cupti_profiler_target.h",
+          "repository": "headers",
+          "sha256": "2aac4e121b85139483a7ee9105802a70e0610a20f3276d78fc4780b1b0d89b2d"
+        },
+        {
+          "path": "cupti/cupti_range_profiler.h",
+          "repository": "headers",
+          "sha256": "b9ee5b500fb7c42c00b501b20dee4ed5de6b02645b55b72b5ca7c84dde313352"
+        },
+        {
+          "path": "cupti/cupti_result.h",
+          "repository": "headers",
+          "sha256": "b20dded3b2734bbc91a503ae2400e33274eda09b7b1ea25c71f87e153848b8be"
+        },
+        {
+          "path": "cupti/cupti_runtime_cbid.h",
+          "repository": "headers",
+          "sha256": "9ace1de8e0a4192da7b5848994106e91dbdbd49bb5b56395de7e9480bc9c397b"
+        },
+        {
+          "path": "cupti/cupti_sass_metrics.h",
+          "repository": "headers",
+          "sha256": "dd15bdb2726e15074e86b127df00c93abbb4e6ad15ff3b2c5aba83eedbd524ac"
+        },
+        {
+          "path": "cupti/cupti_target.h",
+          "repository": "headers",
+          "sha256": "c78573d54a5bea6f62c6656998668a425743598408dce67ea1c1171b334ad041"
+        },
+        {
+          "path": "cupti/cupti_version.h",
+          "repository": "headers",
+          "sha256": "bf9475286bc81085097d4f493154aa6040ea0b1db62ff690791d3a1a81f0c85a"
+        },
+        {
+          "path": "cupti/generated_cuda_meta.h",
+          "repository": "headers",
+          "sha256": "74385318d40eb7b1467c84d0aea5b5901fde04e27617efcf6589180ef5cc6a48"
+        },
+        {
+          "path": "cupti/generated_cuda_runtime_api_meta.h",
+          "repository": "headers",
+          "sha256": "2441318b44d6f582e783d47a97d80f9c80c2c5d27c4905b45f00bad960efe15c"
+        }
       ]
     },
     "curand": {
@@ -3662,29 +4165,9 @@
       },
       "header_dependencies": [
         {
-          "path": "curand/curand.h",
-          "repository": "headers",
-          "sha256": "e1e56f0c668526253670f110b5c12171d099bdfff634ff1d0d9537e7c21c6c6e"
-        },
-        {
-          "path": "cuda_cudart/cuda_runtime.h",
-          "repository": "headers",
-          "sha256": "945153fa0671b3a5015ce258a63972816a426309a12c4828146cf8e8b836336b"
-        },
-        {
           "path": "cuda_crt/crt/host_config.h",
           "repository": "headers",
           "sha256": "65f961e3ab30696260ea638335d0b67ea04f8c5fb9cb1267b9fa5e550f6beafd"
-        },
-        {
-          "path": "cuda_cudart/builtin_types.h",
-          "repository": "headers",
-          "sha256": "2714fd55fdaadac9f14c138bf400b33666334d60023b654e554bb529d16deff8"
-        },
-        {
-          "path": "cuda_cudart/device_types.h",
-          "repository": "headers",
-          "sha256": "d8b171a190493e80395741f511b29311a5c38b718324fb7338f7511c36ae7084"
         },
         {
           "path": "cuda_crt/crt/host_defines.h",
@@ -3692,14 +4175,49 @@
           "sha256": "dbabf0f8e8461362addf1bd4a04b6878923aa9be997352baf0bab7af7b9e47e1"
         },
         {
-          "path": "cuda_cudart/driver_types.h",
+          "path": "cuda_cudart/builtin_types.h",
           "repository": "headers",
-          "sha256": "915f0a66b668944cf34f6e2c1f88b4507789ffdc7905c98ec792e7c184cd12f2"
+          "sha256": "2714fd55fdaadac9f14c138bf400b33666334d60023b654e554bb529d16deff8"
         },
         {
-          "path": "cuda_cudart/vector_types.h",
+          "path": "cuda_cudart/channel_descriptor.h",
           "repository": "headers",
-          "sha256": "ded087a2c3ca89fd3a5150589175aca0aa4714357016209ea3e7a51f94845e75"
+          "sha256": "b78717961fe4aa0c3529fd5e6260331746249bd59b5fad1eebfdc7bc12ba9d1a"
+        },
+        {
+          "path": "cuda_cudart/cuda_device_runtime_api.h",
+          "repository": "headers",
+          "sha256": "0a159d4210c02213df336c8582700b617d6d298a7d74d9eb16c561bc5f4e9b7c"
+        },
+        {
+          "path": "cuda_cudart/cuda_runtime.h",
+          "repository": "headers",
+          "sha256": "c93f92894cabfeafab0c1b7c575b8c932416e2959f8046ef19b79eb82199b6ae"
+        },
+        {
+          "path": "cuda_cudart/cuda_runtime_api.h",
+          "repository": "headers",
+          "sha256": "a848e416776a49904e8bace4bd377c0c5b379461e6bb2fb8accb7e6162c3a96d"
+        },
+        {
+          "path": "cuda_cudart/device_types.h",
+          "repository": "headers",
+          "sha256": "d8b171a190493e80395741f511b29311a5c38b718324fb7338f7511c36ae7084"
+        },
+        {
+          "path": "cuda_cudart/driver_functions.h",
+          "repository": "headers",
+          "sha256": "70ddc88d1033d8c8f63e3df94b2c4922464d0c3bac9c9a9aab305d333a5029b0"
+        },
+        {
+          "path": "cuda_cudart/driver_types.h",
+          "repository": "headers",
+          "sha256": "b37eb334124c5e43cfa2baa087aa128b44ddd8913da476ca0e92358d5d1be9c4"
+        },
+        {
+          "path": "cuda_cudart/library_types.h",
+          "repository": "headers",
+          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
         },
         {
           "path": "cuda_cudart/surface_types.h",
@@ -3712,31 +4230,6 @@
           "sha256": "ef79ed57283cafc7f32b2e55224eb2baf0b8e460de59ea5a2c8a8893e337462f"
         },
         {
-          "path": "cuda_cudart/library_types.h",
-          "repository": "headers",
-          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
-        },
-        {
-          "path": "cuda_cudart/channel_descriptor.h",
-          "repository": "headers",
-          "sha256": "d1328f86c1db2d71f5957429db69cf72dba98354ee0d265915825002e43bbe0c"
-        },
-        {
-          "path": "cuda_cudart/cuda_runtime_api.h",
-          "repository": "headers",
-          "sha256": "42da3b0dc8fe60bf8730a9f8689668df9f44e5f955ce31ed9b05bb1ef7a3a342"
-        },
-        {
-          "path": "cuda_cudart/cuda_device_runtime_api.h",
-          "repository": "headers",
-          "sha256": "d3110e08d9dbe604058dfae1d5c54c58b9385ce54b32b941b79b850eadc4765f"
-        },
-        {
-          "path": "cuda_cudart/driver_functions.h",
-          "repository": "headers",
-          "sha256": "70ddc88d1033d8c8f63e3df94b2c4922464d0c3bac9c9a9aab305d333a5029b0"
-        },
-        {
           "path": "cuda_cudart/vector_functions.h",
           "repository": "headers",
           "sha256": "f15e2cc5f6b26a617143551b8aed48bd74e5d997ecbe9e3a7abe7cb430262d6b"
@@ -3745,6 +4238,21 @@
           "path": "cuda_cudart/vector_functions.hpp",
           "repository": "headers",
           "sha256": "4d2ef3eff9431eba4e3fe0ae7e2121d24013afb0b7660b40531b1641d9010541"
+        },
+        {
+          "path": "cuda_cudart/vector_types.h",
+          "repository": "headers",
+          "sha256": "ded087a2c3ca89fd3a5150589175aca0aa4714357016209ea3e7a51f94845e75"
+        },
+        {
+          "path": "curand/curand.h",
+          "repository": "headers",
+          "sha256": "e1e56f0c668526253670f110b5c12171d099bdfff634ff1d0d9537e7c21c6c6e"
+        },
+        {
+          "path": "types/library_types.h",
+          "repository": "headers",
+          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
         }
       ],
       "note": "Regenerated 2026-09-08 from the recorded recipe. The only change is the Linux candidate list, which no longer ends with the unversioned libcurand.so; see the soname-pinning note in the cufft entry. Exported API is unchanged. Regenerated to add the post-load version gate: the loader calls this library's own version entry point once after binding symbols and refuses the load if the major does not match the declared soname major.",
@@ -4024,7 +4532,169 @@
         "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/cusolvermp/redist/redistrib_0.9.1.json",
         "verification": "Vendored header SHA-256 recomputed from the recorded codegen commit and compared with the per-file digests in the generator's headers/README.md. The vendor archive was not re-downloaded or rehashed for this record, and the online redistribution manifest was not freshly retrieved.",
         "version": "0.9.1.9318"
-      }
+      },
+      "header_dependencies": [
+        {
+          "path": "cmd/gen-cusolvermp/headers/cusolverMp.h",
+          "repository": "codegen",
+          "sha256": "a5f235a0a357b018abe65718bb9eb766e14bff2febffcf4ea971d372aa89acaa"
+        },
+        {
+          "path": "cublas/cublas_api.h",
+          "repository": "headers",
+          "sha256": "7a9fec18f54db0ef918af506b709385b3ca5290832b4c71a4716edbd6f47ce82"
+        },
+        {
+          "path": "cublas/cublas_v2.h",
+          "repository": "headers",
+          "sha256": "78514be9bda58bf84a21eb35a8d31b6744562a62beab78757ce22eae7c6f1b26"
+        },
+        {
+          "path": "cuda_cccl/nv/detail/__preprocessor",
+          "repository": "headers",
+          "sha256": "e0d746ea364e52ab89e5ab395762f3859c923dd4b88aee4657023b85172ba541"
+        },
+        {
+          "path": "cuda_cccl/nv/detail/__target_macros",
+          "repository": "headers",
+          "sha256": "199a109be511df3611263605946d2d8af3e8561c639be25fdb19d0f71ca6e736"
+        },
+        {
+          "path": "cuda_cccl/nv/target",
+          "repository": "headers",
+          "sha256": "913c0ee62523291cace9c9d25854eb3c009dd1f3fc108c92a0bc6e4a6aae0bb6"
+        },
+        {
+          "path": "cuda_crt/crt/host_config.h",
+          "repository": "headers",
+          "sha256": "65f961e3ab30696260ea638335d0b67ea04f8c5fb9cb1267b9fa5e550f6beafd"
+        },
+        {
+          "path": "cuda_crt/crt/host_defines.h",
+          "repository": "headers",
+          "sha256": "dbabf0f8e8461362addf1bd4a04b6878923aa9be997352baf0bab7af7b9e47e1"
+        },
+        {
+          "path": "cuda_cudart/builtin_types.h",
+          "repository": "headers",
+          "sha256": "2714fd55fdaadac9f14c138bf400b33666334d60023b654e554bb529d16deff8"
+        },
+        {
+          "path": "cuda_cudart/channel_descriptor.h",
+          "repository": "headers",
+          "sha256": "b78717961fe4aa0c3529fd5e6260331746249bd59b5fad1eebfdc7bc12ba9d1a"
+        },
+        {
+          "path": "cuda_cudart/cuComplex.h",
+          "repository": "headers",
+          "sha256": "5a9720a5a88f854fe8f6c4cf31c353119bb25c321cf31deccf8754592ced2f68"
+        },
+        {
+          "path": "cuda_cudart/cuda_bf16.h",
+          "repository": "headers",
+          "sha256": "5d5a824f1d4401189b501cd934067d3e5a20e58c6d5176ad99665a4843fa8e03"
+        },
+        {
+          "path": "cuda_cudart/cuda_bf16.hpp",
+          "repository": "headers",
+          "sha256": "c71f7902fc526861db301028ad8966dfd93a97dd9be802e5962821a73f373e27"
+        },
+        {
+          "path": "cuda_cudart/cuda_device_runtime_api.h",
+          "repository": "headers",
+          "sha256": "0a159d4210c02213df336c8582700b617d6d298a7d74d9eb16c561bc5f4e9b7c"
+        },
+        {
+          "path": "cuda_cudart/cuda_fp16.h",
+          "repository": "headers",
+          "sha256": "2e34ed9c273f569a4600cfe30694a9c5a980b183fbcb33262fd6f1150c7f4927"
+        },
+        {
+          "path": "cuda_cudart/cuda_fp16.hpp",
+          "repository": "headers",
+          "sha256": "016ce919f3c729be3ae2df385941dabc0a48b8861a75fe3fe880134914b9bbbb"
+        },
+        {
+          "path": "cuda_cudart/cuda_fp8.h",
+          "repository": "headers",
+          "sha256": "f2a897a3bb59e2ffb1e7e814e577a928951104d0db0d00ab2d85f288e53830c6"
+        },
+        {
+          "path": "cuda_cudart/cuda_fp8.hpp",
+          "repository": "headers",
+          "sha256": "4ed3ecb636dc223b26488768cf55ed311df1225d89d3a73d6c3360b18c2dc25f"
+        },
+        {
+          "path": "cuda_cudart/cuda_runtime.h",
+          "repository": "headers",
+          "sha256": "c93f92894cabfeafab0c1b7c575b8c932416e2959f8046ef19b79eb82199b6ae"
+        },
+        {
+          "path": "cuda_cudart/cuda_runtime_api.h",
+          "repository": "headers",
+          "sha256": "a848e416776a49904e8bace4bd377c0c5b379461e6bb2fb8accb7e6162c3a96d"
+        },
+        {
+          "path": "cuda_cudart/device_types.h",
+          "repository": "headers",
+          "sha256": "d8b171a190493e80395741f511b29311a5c38b718324fb7338f7511c36ae7084"
+        },
+        {
+          "path": "cuda_cudart/driver_functions.h",
+          "repository": "headers",
+          "sha256": "70ddc88d1033d8c8f63e3df94b2c4922464d0c3bac9c9a9aab305d333a5029b0"
+        },
+        {
+          "path": "cuda_cudart/driver_types.h",
+          "repository": "headers",
+          "sha256": "b37eb334124c5e43cfa2baa087aa128b44ddd8913da476ca0e92358d5d1be9c4"
+        },
+        {
+          "path": "cuda_cudart/library_types.h",
+          "repository": "headers",
+          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
+        },
+        {
+          "path": "cuda_cudart/surface_types.h",
+          "repository": "headers",
+          "sha256": "5e41570f59c76de48c81a8d1f94244f6e43b4c1cb32678dd9d42f8fb21a2b9f9"
+        },
+        {
+          "path": "cuda_cudart/texture_types.h",
+          "repository": "headers",
+          "sha256": "ef79ed57283cafc7f32b2e55224eb2baf0b8e460de59ea5a2c8a8893e337462f"
+        },
+        {
+          "path": "cuda_cudart/vector_functions.h",
+          "repository": "headers",
+          "sha256": "f15e2cc5f6b26a617143551b8aed48bd74e5d997ecbe9e3a7abe7cb430262d6b"
+        },
+        {
+          "path": "cuda_cudart/vector_functions.hpp",
+          "repository": "headers",
+          "sha256": "4d2ef3eff9431eba4e3fe0ae7e2121d24013afb0b7660b40531b1641d9010541"
+        },
+        {
+          "path": "cuda_cudart/vector_types.h",
+          "repository": "headers",
+          "sha256": "ded087a2c3ca89fd3a5150589175aca0aa4714357016209ea3e7a51f94845e75"
+        },
+        {
+          "path": "cusolver/cusolverDn.h",
+          "repository": "headers",
+          "sha256": "8d620eab0a3433baa9ee6309bec968633647a743c970bdc00a469eefab07f0e9"
+        },
+        {
+          "path": "cusolver/cusolver_common.h",
+          "repository": "headers",
+          "sha256": "42228fa7282c24c21f1844a9bcc43212f171b083afe10e8f232a24110b1c61b0"
+        },
+        {
+          "path": "nccl/nccl.h",
+          "repository": "headers",
+          "sha256": "fc9720fe6d8b45a62775a2f9d13c43ed6e88b0e01fd771081d6f665e6df94bfb"
+        }
+      ]
     },
     "cusparse": {
       "documentation": {
@@ -5280,7 +5950,69 @@
         "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/cuquantum/redist/redistrib_26.06.0.json",
         "verification": "Vendored header SHA-256 recomputed from the recorded codegen commit and compared with the per-file digests in the generator's headers/README.md. The vendor archive was not re-downloaded or rehashed for this record, and the online redistribution manifest was not freshly retrieved.",
         "version": "26.06.0.17"
-      }
+      },
+      "header_dependencies": [
+        {
+          "path": "cmd/gen-custatevec/headers/cuquantum/custatevec.h",
+          "repository": "codegen",
+          "sha256": "9e1652e39be74c2af0fc8015d23678362273aecb0a0ef59924dcb6659180c40c"
+        },
+        {
+          "path": "cuda_crt/crt/host_defines.h",
+          "repository": "headers",
+          "sha256": "dbabf0f8e8461362addf1bd4a04b6878923aa9be997352baf0bab7af7b9e47e1"
+        },
+        {
+          "path": "cuda_cudart/builtin_types.h",
+          "repository": "headers",
+          "sha256": "2714fd55fdaadac9f14c138bf400b33666334d60023b654e554bb529d16deff8"
+        },
+        {
+          "path": "cuda_cudart/cuda_device_runtime_api.h",
+          "repository": "headers",
+          "sha256": "0a159d4210c02213df336c8582700b617d6d298a7d74d9eb16c561bc5f4e9b7c"
+        },
+        {
+          "path": "cuda_cudart/cuda_runtime_api.h",
+          "repository": "headers",
+          "sha256": "a848e416776a49904e8bace4bd377c0c5b379461e6bb2fb8accb7e6162c3a96d"
+        },
+        {
+          "path": "cuda_cudart/device_types.h",
+          "repository": "headers",
+          "sha256": "d8b171a190493e80395741f511b29311a5c38b718324fb7338f7511c36ae7084"
+        },
+        {
+          "path": "cuda_cudart/driver_types.h",
+          "repository": "headers",
+          "sha256": "b37eb334124c5e43cfa2baa087aa128b44ddd8913da476ca0e92358d5d1be9c4"
+        },
+        {
+          "path": "cuda_cudart/library_types.h",
+          "repository": "headers",
+          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
+        },
+        {
+          "path": "cuda_cudart/surface_types.h",
+          "repository": "headers",
+          "sha256": "5e41570f59c76de48c81a8d1f94244f6e43b4c1cb32678dd9d42f8fb21a2b9f9"
+        },
+        {
+          "path": "cuda_cudart/texture_types.h",
+          "repository": "headers",
+          "sha256": "ef79ed57283cafc7f32b2e55224eb2baf0b8e460de59ea5a2c8a8893e337462f"
+        },
+        {
+          "path": "cuda_cudart/vector_types.h",
+          "repository": "headers",
+          "sha256": "ded087a2c3ca89fd3a5150589175aca0aa4714357016209ea3e7a51f94845e75"
+        },
+        {
+          "path": "types/library_types.h",
+          "repository": "headers",
+          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
+        }
+      ]
     },
     "cutensor": {
       "generation": {
@@ -5577,7 +6309,114 @@
         "product": "cutensornet",
         "verification": "Vendored header SHA-256 recomputed from the recorded codegen commit and compared with the per-file digests in the generator's headers/README.md. The vendor archive was not re-downloaded or rehashed for this record, and the online redistribution manifest was not freshly retrieved.",
         "version": "2.13.0"
-      }
+      },
+      "header_dependencies": [
+        {
+          "path": "cmd/gen-cutensornet/headers/cuquantum/cutensornet.h",
+          "repository": "codegen",
+          "sha256": "f70f31595c3c7b44682a7e4bdcd468504615983a4ec628f519cf18f0036a4687"
+        },
+        {
+          "path": "cmd/gen-cutensornet/headers/cuquantum/cutensornet/types.h",
+          "repository": "codegen",
+          "sha256": "5c885b23649f1a35de6f2752534ee4a9839247744d71e715ca604215f02f9cd4"
+        },
+        {
+          "path": "cmd/gen-cutensornet/headers/cuquantum/cutensornet/typesDistributed.h",
+          "repository": "codegen",
+          "sha256": "d6ded21edcadbc116b08235392a6ad08e751420042347b1031f113ca0b6d993b"
+        },
+        {
+          "path": "cuda_crt/crt/host_config.h",
+          "repository": "headers",
+          "sha256": "65f961e3ab30696260ea638335d0b67ea04f8c5fb9cb1267b9fa5e550f6beafd"
+        },
+        {
+          "path": "cuda_crt/crt/host_defines.h",
+          "repository": "headers",
+          "sha256": "dbabf0f8e8461362addf1bd4a04b6878923aa9be997352baf0bab7af7b9e47e1"
+        },
+        {
+          "path": "cuda_cudart/builtin_types.h",
+          "repository": "headers",
+          "sha256": "2714fd55fdaadac9f14c138bf400b33666334d60023b654e554bb529d16deff8"
+        },
+        {
+          "path": "cuda_cudart/channel_descriptor.h",
+          "repository": "headers",
+          "sha256": "b78717961fe4aa0c3529fd5e6260331746249bd59b5fad1eebfdc7bc12ba9d1a"
+        },
+        {
+          "path": "cuda_cudart/cuComplex.h",
+          "repository": "headers",
+          "sha256": "5a9720a5a88f854fe8f6c4cf31c353119bb25c321cf31deccf8754592ced2f68"
+        },
+        {
+          "path": "cuda_cudart/cuda_device_runtime_api.h",
+          "repository": "headers",
+          "sha256": "0a159d4210c02213df336c8582700b617d6d298a7d74d9eb16c561bc5f4e9b7c"
+        },
+        {
+          "path": "cuda_cudart/cuda_runtime.h",
+          "repository": "headers",
+          "sha256": "c93f92894cabfeafab0c1b7c575b8c932416e2959f8046ef19b79eb82199b6ae"
+        },
+        {
+          "path": "cuda_cudart/cuda_runtime_api.h",
+          "repository": "headers",
+          "sha256": "a848e416776a49904e8bace4bd377c0c5b379461e6bb2fb8accb7e6162c3a96d"
+        },
+        {
+          "path": "cuda_cudart/device_types.h",
+          "repository": "headers",
+          "sha256": "d8b171a190493e80395741f511b29311a5c38b718324fb7338f7511c36ae7084"
+        },
+        {
+          "path": "cuda_cudart/driver_functions.h",
+          "repository": "headers",
+          "sha256": "70ddc88d1033d8c8f63e3df94b2c4922464d0c3bac9c9a9aab305d333a5029b0"
+        },
+        {
+          "path": "cuda_cudart/driver_types.h",
+          "repository": "headers",
+          "sha256": "b37eb334124c5e43cfa2baa087aa128b44ddd8913da476ca0e92358d5d1be9c4"
+        },
+        {
+          "path": "cuda_cudart/library_types.h",
+          "repository": "headers",
+          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
+        },
+        {
+          "path": "cuda_cudart/surface_types.h",
+          "repository": "headers",
+          "sha256": "5e41570f59c76de48c81a8d1f94244f6e43b4c1cb32678dd9d42f8fb21a2b9f9"
+        },
+        {
+          "path": "cuda_cudart/texture_types.h",
+          "repository": "headers",
+          "sha256": "ef79ed57283cafc7f32b2e55224eb2baf0b8e460de59ea5a2c8a8893e337462f"
+        },
+        {
+          "path": "cuda_cudart/vector_functions.h",
+          "repository": "headers",
+          "sha256": "f15e2cc5f6b26a617143551b8aed48bd74e5d997ecbe9e3a7abe7cb430262d6b"
+        },
+        {
+          "path": "cuda_cudart/vector_functions.hpp",
+          "repository": "headers",
+          "sha256": "4d2ef3eff9431eba4e3fe0ae7e2121d24013afb0b7660b40531b1641d9010541"
+        },
+        {
+          "path": "cuda_cudart/vector_types.h",
+          "repository": "headers",
+          "sha256": "ded087a2c3ca89fd3a5150589175aca0aa4714357016209ea3e7a51f94845e75"
+        },
+        {
+          "path": "types/library_types.h",
+          "repository": "headers",
+          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
+        }
+      ]
     },
     "dcgm": {
       "documentation": {
@@ -5764,7 +6603,29 @@
         },
         "verification": "Vendored header SHA-256 recomputed from the recorded codegen commit and compared with the per-file digests in the generator's headers/README.md. The vendor archive was not re-downloaded or rehashed for this record, and the online redistribution manifest was not freshly retrieved.",
         "version": "v4.6.1"
-      }
+      },
+      "header_dependencies": [
+        {
+          "path": "cmd/gen-dcgm/headers/dcgm_agent.h",
+          "repository": "codegen",
+          "sha256": "1089cc2aff5e32d28d4a5f90d90b2c2742966549e37655933e5faf59da25c708"
+        },
+        {
+          "path": "cmd/gen-dcgm/headers/dcgm_api_export.h",
+          "repository": "codegen",
+          "sha256": "a16f962228f6f9e741ad8b420604dec0f07936e5aba165e2183f12b619f94b47"
+        },
+        {
+          "path": "cmd/gen-dcgm/headers/dcgm_fields.h",
+          "repository": "codegen",
+          "sha256": "84c2805ba1bb1e24593e34536224ea825a1d7b45891880e63c86f0f5fc208421"
+        },
+        {
+          "path": "cmd/gen-dcgm/headers/dcgm_structs.h",
+          "repository": "codegen",
+          "sha256": "17a4546762379a360b3c73ce6a6935557446748d1046f1c05e65022c84e20c6a"
+        }
+      ]
     },
     "driver": {
       "generation": {
@@ -6171,7 +7032,19 @@
       "vendor": {
         "product": "fabricmanager",
         "verification": "Not verified. The headers were fetched by cuda-headers/fetch.sh from the CUDA redistributable CDN, which publishes fabricmanager under a driver version rather than a CUDA version. Neither the archive identity nor its digest was recorded at fetch time, so the vendor archive these headers came from cannot be named."
-      }
+      },
+      "header_dependencies": [
+        {
+          "path": "fabricmanager/nv_fm_agent.h",
+          "repository": "headers",
+          "sha256": "782af92a96b8395f4bc28363574900b7aef3b400933197820edce2976e46d049"
+        },
+        {
+          "path": "fabricmanager/nv_fm_types.h",
+          "repository": "headers",
+          "sha256": "dc65e0ee253c8a8bc0db81163ffe54b19a6a57597687b2bf600e5db35177dc12"
+        }
+      ]
     },
     "gdrcopy": {
       "documentation": {
@@ -6281,7 +7154,14 @@
         },
         "verification": "Vendored header SHA-256 recomputed from the recorded codegen commit and compared with the per-file digests in the generator's headers/README.md. The vendor archive was not re-downloaded or rehashed for this record, and the online redistribution manifest was not freshly retrieved.",
         "version": "v2.6"
-      }
+      },
+      "header_dependencies": [
+        {
+          "path": "cmd/gen-gdrcopy/headers/gdrapi.h",
+          "repository": "codegen",
+          "sha256": "d10ebb8e963fab356ee2fc9841721743dc948f28d4056e40aae5661c510d9dc8"
+        }
+      ]
     },
     "nccl": {
       "documentation": {
@@ -7743,7 +8623,154 @@
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Regenerated at libgen 8da282f: doc comments name snake_case parameters by their Go names. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39 regenerate at libgen 294fc372 regenerate at libgen b3dc359c"
         }
       },
-      "status": "generation-reproduced"
+      "status": "generation-reproduced",
+      "header_dependencies": [
+        {
+          "path": "cmd/gen-nccl-extensions/headers/nccl/nccl.h",
+          "repository": "codegen",
+          "sha256": "1447f19c849c9a9f0f7ff2fd1ad2631e84a7ac2fb65cbe52102324c28a591997"
+        },
+        {
+          "path": "cmd/gen-nccl-extensions/headers/nccl_ep/ep_enums.h",
+          "repository": "codegen",
+          "sha256": "8c0ed44272623923a8bc018423ca93fdb9e27cb5da3ca2c345a5ce7c9bfb32fe"
+        },
+        {
+          "path": "cmd/gen-nccl-extensions/headers/nccl_ep/nccl_ep.h",
+          "repository": "codegen",
+          "sha256": "a9b23b78db72c5973b3ff79be2658f95c000cf31aa759e94599a1b349e09b208"
+        },
+        {
+          "path": "cuda_cccl/nv/detail/__preprocessor",
+          "repository": "headers",
+          "sha256": "e0d746ea364e52ab89e5ab395762f3859c923dd4b88aee4657023b85172ba541"
+        },
+        {
+          "path": "cuda_cccl/nv/detail/__target_macros",
+          "repository": "headers",
+          "sha256": "199a109be511df3611263605946d2d8af3e8561c639be25fdb19d0f71ca6e736"
+        },
+        {
+          "path": "cuda_cccl/nv/target",
+          "repository": "headers",
+          "sha256": "913c0ee62523291cace9c9d25854eb3c009dd1f3fc108c92a0bc6e4a6aae0bb6"
+        },
+        {
+          "path": "cuda_crt/crt/host_config.h",
+          "repository": "headers",
+          "sha256": "65f961e3ab30696260ea638335d0b67ea04f8c5fb9cb1267b9fa5e550f6beafd"
+        },
+        {
+          "path": "cuda_crt/crt/host_defines.h",
+          "repository": "headers",
+          "sha256": "dbabf0f8e8461362addf1bd4a04b6878923aa9be997352baf0bab7af7b9e47e1"
+        },
+        {
+          "path": "cuda_cudart/builtin_types.h",
+          "repository": "headers",
+          "sha256": "2714fd55fdaadac9f14c138bf400b33666334d60023b654e554bb529d16deff8"
+        },
+        {
+          "path": "cuda_cudart/channel_descriptor.h",
+          "repository": "headers",
+          "sha256": "b78717961fe4aa0c3529fd5e6260331746249bd59b5fad1eebfdc7bc12ba9d1a"
+        },
+        {
+          "path": "cuda_cudart/cuda_bf16.h",
+          "repository": "headers",
+          "sha256": "5d5a824f1d4401189b501cd934067d3e5a20e58c6d5176ad99665a4843fa8e03"
+        },
+        {
+          "path": "cuda_cudart/cuda_bf16.hpp",
+          "repository": "headers",
+          "sha256": "c71f7902fc526861db301028ad8966dfd93a97dd9be802e5962821a73f373e27"
+        },
+        {
+          "path": "cuda_cudart/cuda_device_runtime_api.h",
+          "repository": "headers",
+          "sha256": "0a159d4210c02213df336c8582700b617d6d298a7d74d9eb16c561bc5f4e9b7c"
+        },
+        {
+          "path": "cuda_cudart/cuda_fp16.h",
+          "repository": "headers",
+          "sha256": "2e34ed9c273f569a4600cfe30694a9c5a980b183fbcb33262fd6f1150c7f4927"
+        },
+        {
+          "path": "cuda_cudart/cuda_fp16.hpp",
+          "repository": "headers",
+          "sha256": "016ce919f3c729be3ae2df385941dabc0a48b8861a75fe3fe880134914b9bbbb"
+        },
+        {
+          "path": "cuda_cudart/cuda_fp8.h",
+          "repository": "headers",
+          "sha256": "f2a897a3bb59e2ffb1e7e814e577a928951104d0db0d00ab2d85f288e53830c6"
+        },
+        {
+          "path": "cuda_cudart/cuda_fp8.hpp",
+          "repository": "headers",
+          "sha256": "4ed3ecb636dc223b26488768cf55ed311df1225d89d3a73d6c3360b18c2dc25f"
+        },
+        {
+          "path": "cuda_cudart/cuda_runtime.h",
+          "repository": "headers",
+          "sha256": "c93f92894cabfeafab0c1b7c575b8c932416e2959f8046ef19b79eb82199b6ae"
+        },
+        {
+          "path": "cuda_cudart/cuda_runtime_api.h",
+          "repository": "headers",
+          "sha256": "a848e416776a49904e8bace4bd377c0c5b379461e6bb2fb8accb7e6162c3a96d"
+        },
+        {
+          "path": "cuda_cudart/device_types.h",
+          "repository": "headers",
+          "sha256": "d8b171a190493e80395741f511b29311a5c38b718324fb7338f7511c36ae7084"
+        },
+        {
+          "path": "cuda_cudart/driver_functions.h",
+          "repository": "headers",
+          "sha256": "70ddc88d1033d8c8f63e3df94b2c4922464d0c3bac9c9a9aab305d333a5029b0"
+        },
+        {
+          "path": "cuda_cudart/driver_types.h",
+          "repository": "headers",
+          "sha256": "b37eb334124c5e43cfa2baa087aa128b44ddd8913da476ca0e92358d5d1be9c4"
+        },
+        {
+          "path": "cuda_cudart/library_types.h",
+          "repository": "headers",
+          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
+        },
+        {
+          "path": "cuda_cudart/surface_types.h",
+          "repository": "headers",
+          "sha256": "5e41570f59c76de48c81a8d1f94244f6e43b4c1cb32678dd9d42f8fb21a2b9f9"
+        },
+        {
+          "path": "cuda_cudart/texture_types.h",
+          "repository": "headers",
+          "sha256": "ef79ed57283cafc7f32b2e55224eb2baf0b8e460de59ea5a2c8a8893e337462f"
+        },
+        {
+          "path": "cuda_cudart/vector_functions.h",
+          "repository": "headers",
+          "sha256": "f15e2cc5f6b26a617143551b8aed48bd74e5d997ecbe9e3a7abe7cb430262d6b"
+        },
+        {
+          "path": "cuda_cudart/vector_functions.hpp",
+          "repository": "headers",
+          "sha256": "4d2ef3eff9431eba4e3fe0ae7e2121d24013afb0b7660b40531b1641d9010541"
+        },
+        {
+          "path": "cuda_cudart/vector_types.h",
+          "repository": "headers",
+          "sha256": "ded087a2c3ca89fd3a5150589175aca0aa4714357016209ea3e7a51f94845e75"
+        },
+        {
+          "path": "driver/cuda.h",
+          "repository": "headers",
+          "sha256": "673873a292718591d75ea3c2e65330b1f8f8278eac3c96b32245418fb0817851"
+        }
+      ]
     },
     "ncclll": {
       "generation": {
@@ -8144,7 +9171,159 @@
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39 regenerate at libgen 294fc372 regenerate at libgen b3dc359c"
         }
       },
-      "status": "generation-reproduced"
+      "status": "generation-reproduced",
+      "header_dependencies": [
+        {
+          "path": "cmd/gen-nccl-extensions/headers/nccl/nccl.h",
+          "repository": "codegen",
+          "sha256": "1447f19c849c9a9f0f7ff2fd1ad2631e84a7ac2fb65cbe52102324c28a591997"
+        },
+        {
+          "path": "cmd/gen-nccl-extensions/headers/nccl_ll/ll_buffer.h",
+          "repository": "codegen",
+          "sha256": "40d79a8ff5cbd9f48ac067d66459ae6eed2e2ecd9c385005c04126492d0fdbc2"
+        },
+        {
+          "path": "cuda_cccl/nv/detail/__preprocessor",
+          "repository": "headers",
+          "sha256": "e0d746ea364e52ab89e5ab395762f3859c923dd4b88aee4657023b85172ba541"
+        },
+        {
+          "path": "cuda_cccl/nv/detail/__target_macros",
+          "repository": "headers",
+          "sha256": "199a109be511df3611263605946d2d8af3e8561c639be25fdb19d0f71ca6e736"
+        },
+        {
+          "path": "cuda_cccl/nv/target",
+          "repository": "headers",
+          "sha256": "913c0ee62523291cace9c9d25854eb3c009dd1f3fc108c92a0bc6e4a6aae0bb6"
+        },
+        {
+          "path": "cuda_crt/crt/host_config.h",
+          "repository": "headers",
+          "sha256": "65f961e3ab30696260ea638335d0b67ea04f8c5fb9cb1267b9fa5e550f6beafd"
+        },
+        {
+          "path": "cuda_crt/crt/host_defines.h",
+          "repository": "headers",
+          "sha256": "dbabf0f8e8461362addf1bd4a04b6878923aa9be997352baf0bab7af7b9e47e1"
+        },
+        {
+          "path": "cuda_cudart/builtin_types.h",
+          "repository": "headers",
+          "sha256": "2714fd55fdaadac9f14c138bf400b33666334d60023b654e554bb529d16deff8"
+        },
+        {
+          "path": "cuda_cudart/channel_descriptor.h",
+          "repository": "headers",
+          "sha256": "b78717961fe4aa0c3529fd5e6260331746249bd59b5fad1eebfdc7bc12ba9d1a"
+        },
+        {
+          "path": "cuda_cudart/cuda_bf16.h",
+          "repository": "headers",
+          "sha256": "5d5a824f1d4401189b501cd934067d3e5a20e58c6d5176ad99665a4843fa8e03"
+        },
+        {
+          "path": "cuda_cudart/cuda_bf16.hpp",
+          "repository": "headers",
+          "sha256": "c71f7902fc526861db301028ad8966dfd93a97dd9be802e5962821a73f373e27"
+        },
+        {
+          "path": "cuda_cudart/cuda_device_runtime_api.h",
+          "repository": "headers",
+          "sha256": "0a159d4210c02213df336c8582700b617d6d298a7d74d9eb16c561bc5f4e9b7c"
+        },
+        {
+          "path": "cuda_cudart/cuda_fp16.h",
+          "repository": "headers",
+          "sha256": "2e34ed9c273f569a4600cfe30694a9c5a980b183fbcb33262fd6f1150c7f4927"
+        },
+        {
+          "path": "cuda_cudart/cuda_fp16.hpp",
+          "repository": "headers",
+          "sha256": "016ce919f3c729be3ae2df385941dabc0a48b8861a75fe3fe880134914b9bbbb"
+        },
+        {
+          "path": "cuda_cudart/cuda_fp8.h",
+          "repository": "headers",
+          "sha256": "f2a897a3bb59e2ffb1e7e814e577a928951104d0db0d00ab2d85f288e53830c6"
+        },
+        {
+          "path": "cuda_cudart/cuda_fp8.hpp",
+          "repository": "headers",
+          "sha256": "4ed3ecb636dc223b26488768cf55ed311df1225d89d3a73d6c3360b18c2dc25f"
+        },
+        {
+          "path": "cuda_cudart/cuda_runtime.h",
+          "repository": "headers",
+          "sha256": "c93f92894cabfeafab0c1b7c575b8c932416e2959f8046ef19b79eb82199b6ae"
+        },
+        {
+          "path": "cuda_cudart/cuda_runtime_api.h",
+          "repository": "headers",
+          "sha256": "a848e416776a49904e8bace4bd377c0c5b379461e6bb2fb8accb7e6162c3a96d"
+        },
+        {
+          "path": "cuda_cudart/device_types.h",
+          "repository": "headers",
+          "sha256": "d8b171a190493e80395741f511b29311a5c38b718324fb7338f7511c36ae7084"
+        },
+        {
+          "path": "cuda_cudart/driver_functions.h",
+          "repository": "headers",
+          "sha256": "70ddc88d1033d8c8f63e3df94b2c4922464d0c3bac9c9a9aab305d333a5029b0"
+        },
+        {
+          "path": "cuda_cudart/driver_types.h",
+          "repository": "headers",
+          "sha256": "b37eb334124c5e43cfa2baa087aa128b44ddd8913da476ca0e92358d5d1be9c4"
+        },
+        {
+          "path": "cuda_cudart/library_types.h",
+          "repository": "headers",
+          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
+        },
+        {
+          "path": "cuda_cudart/surface_types.h",
+          "repository": "headers",
+          "sha256": "5e41570f59c76de48c81a8d1f94244f6e43b4c1cb32678dd9d42f8fb21a2b9f9"
+        },
+        {
+          "path": "cuda_cudart/texture_types.h",
+          "repository": "headers",
+          "sha256": "ef79ed57283cafc7f32b2e55224eb2baf0b8e460de59ea5a2c8a8893e337462f"
+        },
+        {
+          "path": "cuda_cudart/vector_functions.h",
+          "repository": "headers",
+          "sha256": "f15e2cc5f6b26a617143551b8aed48bd74e5d997ecbe9e3a7abe7cb430262d6b"
+        },
+        {
+          "path": "cuda_cudart/vector_functions.hpp",
+          "repository": "headers",
+          "sha256": "4d2ef3eff9431eba4e3fe0ae7e2121d24013afb0b7660b40531b1641d9010541"
+        },
+        {
+          "path": "cuda_cudart/vector_types.h",
+          "repository": "headers",
+          "sha256": "ded087a2c3ca89fd3a5150589175aca0aa4714357016209ea3e7a51f94845e75"
+        },
+        {
+          "path": "nccl/nccl_device/coop.h",
+          "repository": "headers",
+          "sha256": "e7ea2afd348c8b808038a65041ce18bfb1ffe98d07e3a845a403fa4243406a29"
+        },
+        {
+          "path": "nccl/nccl_device/core.h",
+          "repository": "headers",
+          "sha256": "309cea58b4558f1f419a060b332df716939e6dbae41097747800dbf67f557a57"
+        },
+        {
+          "path": "nccl/nccl_device/utility.h",
+          "repository": "headers",
+          "sha256": "9127bd81d5e04f17f09f2fcb95c5114d524324a50b28231dd2f86dc52b7bb864"
+        }
+      ]
     },
     "ncclm2n": {
       "generation": {
@@ -8551,7 +9730,144 @@
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39 regenerate at libgen 294fc372 regenerate at libgen b3dc359c"
         }
       },
-      "status": "generation-reproduced"
+      "status": "generation-reproduced",
+      "header_dependencies": [
+        {
+          "path": "cmd/gen-nccl-extensions/headers/nccl/nccl.h",
+          "repository": "codegen",
+          "sha256": "1447f19c849c9a9f0f7ff2fd1ad2631e84a7ac2fb65cbe52102324c28a591997"
+        },
+        {
+          "path": "cmd/gen-nccl-extensions/headers/nccl_m2n/nccl_m2n.h",
+          "repository": "codegen",
+          "sha256": "2ea1e425de4a2a4698407341d476771c2049882a624d5ae567a36c119d8c6e58"
+        },
+        {
+          "path": "cuda_cccl/nv/detail/__preprocessor",
+          "repository": "headers",
+          "sha256": "e0d746ea364e52ab89e5ab395762f3859c923dd4b88aee4657023b85172ba541"
+        },
+        {
+          "path": "cuda_cccl/nv/detail/__target_macros",
+          "repository": "headers",
+          "sha256": "199a109be511df3611263605946d2d8af3e8561c639be25fdb19d0f71ca6e736"
+        },
+        {
+          "path": "cuda_cccl/nv/target",
+          "repository": "headers",
+          "sha256": "913c0ee62523291cace9c9d25854eb3c009dd1f3fc108c92a0bc6e4a6aae0bb6"
+        },
+        {
+          "path": "cuda_crt/crt/host_config.h",
+          "repository": "headers",
+          "sha256": "65f961e3ab30696260ea638335d0b67ea04f8c5fb9cb1267b9fa5e550f6beafd"
+        },
+        {
+          "path": "cuda_crt/crt/host_defines.h",
+          "repository": "headers",
+          "sha256": "dbabf0f8e8461362addf1bd4a04b6878923aa9be997352baf0bab7af7b9e47e1"
+        },
+        {
+          "path": "cuda_cudart/builtin_types.h",
+          "repository": "headers",
+          "sha256": "2714fd55fdaadac9f14c138bf400b33666334d60023b654e554bb529d16deff8"
+        },
+        {
+          "path": "cuda_cudart/channel_descriptor.h",
+          "repository": "headers",
+          "sha256": "b78717961fe4aa0c3529fd5e6260331746249bd59b5fad1eebfdc7bc12ba9d1a"
+        },
+        {
+          "path": "cuda_cudart/cuda_bf16.h",
+          "repository": "headers",
+          "sha256": "5d5a824f1d4401189b501cd934067d3e5a20e58c6d5176ad99665a4843fa8e03"
+        },
+        {
+          "path": "cuda_cudart/cuda_bf16.hpp",
+          "repository": "headers",
+          "sha256": "c71f7902fc526861db301028ad8966dfd93a97dd9be802e5962821a73f373e27"
+        },
+        {
+          "path": "cuda_cudart/cuda_device_runtime_api.h",
+          "repository": "headers",
+          "sha256": "0a159d4210c02213df336c8582700b617d6d298a7d74d9eb16c561bc5f4e9b7c"
+        },
+        {
+          "path": "cuda_cudart/cuda_fp16.h",
+          "repository": "headers",
+          "sha256": "2e34ed9c273f569a4600cfe30694a9c5a980b183fbcb33262fd6f1150c7f4927"
+        },
+        {
+          "path": "cuda_cudart/cuda_fp16.hpp",
+          "repository": "headers",
+          "sha256": "016ce919f3c729be3ae2df385941dabc0a48b8861a75fe3fe880134914b9bbbb"
+        },
+        {
+          "path": "cuda_cudart/cuda_fp8.h",
+          "repository": "headers",
+          "sha256": "f2a897a3bb59e2ffb1e7e814e577a928951104d0db0d00ab2d85f288e53830c6"
+        },
+        {
+          "path": "cuda_cudart/cuda_fp8.hpp",
+          "repository": "headers",
+          "sha256": "4ed3ecb636dc223b26488768cf55ed311df1225d89d3a73d6c3360b18c2dc25f"
+        },
+        {
+          "path": "cuda_cudart/cuda_runtime.h",
+          "repository": "headers",
+          "sha256": "c93f92894cabfeafab0c1b7c575b8c932416e2959f8046ef19b79eb82199b6ae"
+        },
+        {
+          "path": "cuda_cudart/cuda_runtime_api.h",
+          "repository": "headers",
+          "sha256": "a848e416776a49904e8bace4bd377c0c5b379461e6bb2fb8accb7e6162c3a96d"
+        },
+        {
+          "path": "cuda_cudart/device_types.h",
+          "repository": "headers",
+          "sha256": "d8b171a190493e80395741f511b29311a5c38b718324fb7338f7511c36ae7084"
+        },
+        {
+          "path": "cuda_cudart/driver_functions.h",
+          "repository": "headers",
+          "sha256": "70ddc88d1033d8c8f63e3df94b2c4922464d0c3bac9c9a9aab305d333a5029b0"
+        },
+        {
+          "path": "cuda_cudart/driver_types.h",
+          "repository": "headers",
+          "sha256": "b37eb334124c5e43cfa2baa087aa128b44ddd8913da476ca0e92358d5d1be9c4"
+        },
+        {
+          "path": "cuda_cudart/library_types.h",
+          "repository": "headers",
+          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
+        },
+        {
+          "path": "cuda_cudart/surface_types.h",
+          "repository": "headers",
+          "sha256": "5e41570f59c76de48c81a8d1f94244f6e43b4c1cb32678dd9d42f8fb21a2b9f9"
+        },
+        {
+          "path": "cuda_cudart/texture_types.h",
+          "repository": "headers",
+          "sha256": "ef79ed57283cafc7f32b2e55224eb2baf0b8e460de59ea5a2c8a8893e337462f"
+        },
+        {
+          "path": "cuda_cudart/vector_functions.h",
+          "repository": "headers",
+          "sha256": "f15e2cc5f6b26a617143551b8aed48bd74e5d997ecbe9e3a7abe7cb430262d6b"
+        },
+        {
+          "path": "cuda_cudart/vector_functions.hpp",
+          "repository": "headers",
+          "sha256": "4d2ef3eff9431eba4e3fe0ae7e2121d24013afb0b7660b40531b1641d9010541"
+        },
+        {
+          "path": "cuda_cudart/vector_types.h",
+          "repository": "headers",
+          "sha256": "ded087a2c3ca89fd3a5150589175aca0aa4714357016209ea3e7a51f94845e75"
+        }
+      ]
     },
     "nvcomp": {
       "documentation": {
@@ -8710,7 +10026,39 @@
         "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/nvcomp/redist/redistrib_5.3.0.json",
         "verification": "Vendored header SHA-256 recomputed from the recorded codegen commit and compared with the per-file digests in the generator's headers/README.md. The vendor archive was not re-downloaded or rehashed for this record, and the online redistribution manifest was not freshly retrieved.",
         "version": "5.3.0.16"
-      }
+      },
+      "header_dependencies": [
+        {
+          "path": "cmd/gen-nvcomp/cuda_stream.h",
+          "repository": "codegen",
+          "sha256": "15b17b8590cd5bdcd4a15c43bc9e711871343422a5c2c74bf2251816f524e092"
+        },
+        {
+          "path": "cmd/gen-nvcomp/headers/nvcomp.h",
+          "repository": "codegen",
+          "sha256": "245c6c5e22d88a64ac0d678e75d6aa8cca5b71f37d97aba88a04931bf9610c0d"
+        },
+        {
+          "path": "cmd/gen-nvcomp/headers/nvcomp/lz4.h",
+          "repository": "codegen",
+          "sha256": "633d2ac6e6c4275ef709b4f0fe7de22b3828b5b78769448c9f0225d0995d8ac2"
+        },
+        {
+          "path": "cmd/gen-nvcomp/headers/nvcomp/shared_types.h",
+          "repository": "codegen",
+          "sha256": "c2072e21593735bc6cd0e9464f04dd3d9a163f8c4c3925db18eebac4d29efccd"
+        },
+        {
+          "path": "cmd/gen-nvcomp/headers/nvcomp/version.h",
+          "repository": "codegen",
+          "sha256": "f017fbe17b7d72338064cb7d546fca361fb9f73e7a51cd5abe2a99a73ba036a8"
+        },
+        {
+          "path": "cmd/gen-nvcomp/headers/nvcomp_export.h",
+          "repository": "codegen",
+          "sha256": "ea87d6d4ef1452e689c778209480b14cb572dcfde2f679e7b26ac4bd7854b47a"
+        }
+      ]
     },
     "nvdec": {
       "documentation": {
@@ -8927,7 +10275,24 @@
         },
         "verification": "Vendored header SHA-256 recomputed from the recorded codegen commit and compared with the per-file digests in the generator's headers/README.md. The vendor archive was not re-downloaded or rehashed for this record, and the online redistribution manifest was not freshly retrieved.",
         "version": "n13.1.15.0"
-      }
+      },
+      "header_dependencies": [
+        {
+          "path": "cmd/gen-nvcodec/headers/dynlink_cuda.h",
+          "repository": "codegen",
+          "sha256": "c970d5817120ea481ba29b9c603bdc9a386985d9fc98a47f6588030dcdba87c1"
+        },
+        {
+          "path": "cmd/gen-nvcodec/headers/dynlink_cuviddec.h",
+          "repository": "codegen",
+          "sha256": "0d9f490e8699a2e000904275d9e380e7ee9945e5717b95f920358013153c6377"
+        },
+        {
+          "path": "cmd/gen-nvcodec/headers/dynlink_nvcuvid.h",
+          "repository": "codegen",
+          "sha256": "c1290075d5d881e98c8f14dc5a23953a792f56971b172cf84ee0bc7aab6d1aab"
+        }
+      ]
     },
     "nvenc": {
       "documentation": {
@@ -9049,7 +10414,14 @@
         },
         "verification": "Vendored header SHA-256 recomputed from the recorded codegen commit and compared with the per-file digests in the generator's headers/README.md. The vendor archive was not re-downloaded or rehashed for this record, and the online redistribution manifest was not freshly retrieved.",
         "version": "n13.0.19.0"
-      }
+      },
+      "header_dependencies": [
+        {
+          "path": "cmd/gen-nvcodec/headers/nvenc-13.0/nvEncodeAPI.h",
+          "repository": "codegen",
+          "sha256": "4fe4094541ef0f8a13249d97a8692dc5f835a6e9dd42eeadb3e2f7321d54dc7e"
+        }
+      ]
     },
     "nvfatbin": {
       "documentation": {
@@ -9199,7 +10571,14 @@
         "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/cuda/redist/redistrib_13.3.1.json",
         "verification": "Pinned header hash matches retained vendor provenance README; archive and online manifest were not freshly reverified by this regeneration.",
         "version": "13.3.29"
-      }
+      },
+      "header_dependencies": [
+        {
+          "path": "nvfatbin/nvFatbin.h",
+          "repository": "headers",
+          "sha256": "d2844bdfe8a938fd7434e6209486f5b0a28002f816245be3847e1cb0f54602ad"
+        }
+      ]
     },
     "nvjitlink": {
       "binding_policy": "The bound symbols are __nvJitLink*_13_2, which come from the top-level headers/nvjitlink/nvJitLink.h. The earlier claim that the cuda-13.0 pin was the input asserted the opposite and was false: generating from that pin yields _13_0 targets and does not reproduce funcs.gen.go.",
@@ -9391,7 +10770,14 @@
         "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/cuda/redist/redistrib_13.0.1.json",
         "verification": "Archive identity recorded from pinned README; header hash checked locally; archive and online manifest not reverified in this run.",
         "version": "13.0.88"
-      }
+      },
+      "header_dependencies": [
+        {
+          "path": "nvjitlink/nvJitLink.h",
+          "repository": "headers",
+          "sha256": "6bd4880984986486e2cee5ddfe848d82efcf2be8454dcad4499b3bc41939b871"
+        }
+      ]
     },
     "nvjpeg2k": {
       "documentation": {
@@ -9544,7 +10930,19 @@
         "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/nvjpeg2000/redist/redistrib_0.11.0.json",
         "verification": "Vendored header SHA-256 recomputed from the recorded codegen commit and compared with the per-file digests in the generator's headers/README.md. The vendor archive was not re-downloaded or rehashed for this record, and the online redistribution manifest was not freshly retrieved.",
         "version": "0.11.0.51"
-      }
+      },
+      "header_dependencies": [
+        {
+          "path": "cmd/gen-nvjpeg2k/headers/nvjpeg2k.h",
+          "repository": "codegen",
+          "sha256": "f83384fe203c45daa35d2b9f8947d25576eacec0b5459cd158dbe67c083d0c2e"
+        },
+        {
+          "path": "cmd/gen-nvjpeg2k/headers/nvjpeg2k_version.h",
+          "repository": "codegen",
+          "sha256": "96f571468a18a17ffaacc572286a2e047a5299bdda4ae720e46a3cfaca98b464"
+        }
+      ]
     },
     "nvml": {
       "documentation": {
@@ -9710,6 +11108,13 @@
         "Go and clang executable bytes",
         "transitive Go module source contents",
         "documentation upstream retrieval identities beyond retained JSON bytes"
+      ],
+      "header_dependencies": [
+        {
+          "path": "pinned/nvml/cuda-13.3/nvml.h",
+          "repository": "headers",
+          "sha256": "31a26e3ce6f0b98a76cea38a3cf28aa112a20cfb37e9057786c768712d6a487f"
+        }
       ]
     },
     "nvrtc": {
@@ -9904,7 +11309,14 @@
         "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/cuda/redist/redistrib_13.4.1.json",
         "verification": "Archive SHA256 verified against the NVIDIA redistribution manifest downloaded in this run; extracted header byte-identical to both vendored copies, which are committed at the headers commit above.",
         "version": "13.4.59"
-      }
+      },
+      "header_dependencies": [
+        {
+          "path": "nvrtc/nvrtc.h",
+          "repository": "headers",
+          "sha256": "0b8cbeb0b5a6ec2c835b03b4b6c8b8e9e8eae4f1cd95a1a652e6fc5cb1b3efed"
+        }
+      ]
     },
     "nvshmem": {
       "documentation": {
@@ -10291,7 +11703,14 @@
         "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/cuda/redist/redistrib_13.3.0.json",
         "verification": "Retained archive SHA256 checked against recorded vendor provenance; extracted header matched pinned header; online redistribution manifest not freshly verified.",
         "version": "13.3.33"
-      }
+      },
+      "header_dependencies": [
+        {
+          "path": "nvvm/nvvm.h",
+          "repository": "headers",
+          "sha256": "ae202212ab45f24a48c168b5fdb04246831048a7fa65e53b6238e3cf2e981605"
+        }
+      ]
     },
     "sanitizer": {
       "generation": {
