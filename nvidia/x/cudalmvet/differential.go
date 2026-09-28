@@ -80,9 +80,11 @@ type FailureStage uint8
 const (
 	StageNone FailureStage = iota
 	StageCompile
+	StageArtifactValidation
 	StageLoad
 	StageLaunch
 	StageReadback
+	StagePolicy
 )
 
 func (r *ComparisonResult) String() string {
@@ -120,7 +122,8 @@ type CompareConfig struct {
 	TriageOnMismatch bool
 	VerifyCleanReset bool
 	perturbation     *Perturbation
-	compileKernel    func(string, ...nvrtcx.Option) (*nvrtcx.CompiledModule, error)
+	compileKernel    func(string, []nvrtcx.Option, cudakernel.JITOptions) (*nvrtcx.CompiledModule, error)
+	loadTraceModule  func(*nvrtcx.CompiledModule, *cuda.Device) (traceModule, error)
 }
 
 // CompareOption configures a Compare execution.
@@ -188,8 +191,35 @@ func withPerturbation(p Perturbation) CompareOption {
 	return func(c *CompareConfig) { c.perturbation = &p }
 }
 
-func withCompileKernel(fn func(string, ...nvrtcx.Option) (*nvrtcx.CompiledModule, error)) CompareOption {
+func withCompileKernel(fn func(string, []nvrtcx.Option, cudakernel.JITOptions) (*nvrtcx.CompiledModule, error)) CompareOption {
 	return func(c *CompareConfig) { c.compileKernel = fn }
+}
+
+type traceModule interface {
+	CheckReset() error
+	Execute(context.Context, string, *CompareConfig, *cudair.Snapshot, uint32, bool, bool) (deviceTrace, error)
+	Close() error
+}
+
+type loadedTraceModule struct {
+	device *cuda.Device
+	module driver.Module
+}
+
+func (m *loadedTraceModule) CheckReset() error {
+	return m.device.WithContext(func() error { return CheckDeviceReset(m.module) })
+}
+
+func (m *loadedTraceModule) Execute(ctx context.Context, entryPoint string, cfg *CompareConfig, snap *cudair.Snapshot, foldLimit uint32, reset, generated bool) (deviceTrace, error) {
+	return executeDeviceKernel(ctx, m.module, entryPoint, cfg, snap, foldLimit, reset, generated)
+}
+
+func (m *loadedTraceModule) Close() error {
+	return m.device.WithContext(func() error { return m.module.Close() })
+}
+
+func withTraceModuleLoader(fn func(*nvrtcx.CompiledModule, *cuda.Device) (traceModule, error)) CompareOption {
+	return func(c *CompareConfig) { c.loadTraceModule = fn }
 }
 
 // EvaluateCPUGraph executes a computation graph on the CPU using cudaref and folds
@@ -345,10 +375,18 @@ func Compare(ctx context.Context, g *cudair.Graph, opts ...CompareOption) (*Comp
 	cpuHash := accCPU.Hash()
 
 	// 2. Check Device Availability
-	if cfg.Device == nil {
+	if cfg.Device == nil && cfg.loadTraceModule == nil {
 		return &ComparisonResult{
 			Status:  StatusUnmeasured,
 			CPUHash: cpuHash,
+		}, nil
+	}
+	if cfg.Policy != PolicyRawBits {
+		return &ComparisonResult{
+			Status:  StatusUnmeasured,
+			Stage:   StagePolicy,
+			CPUHash: cpuHash,
+			Err:     fmt.Errorf("cudalmvet: device trace hashing supports only PolicyRawBits, got policy %d", cfg.Policy),
 		}, nil
 	}
 
@@ -379,6 +417,11 @@ func Compare(ctx context.Context, g *cudair.Graph, opts ...CompareOption) (*Comp
 	if err != nil {
 		return &ComparisonResult{Status: StatusUnmeasured, Stage: StageCompile, CPUHash: cpuHash, Err: err}, nil
 	}
+	if generatedKernel {
+		if _, err := generatedKernelElementCount(executionSnapshot, cfg.Inputs, true); err != nil {
+			return &ComparisonResult{Status: StatusUnmeasured, Stage: StageCompile, CPUHash: cpuHash, Err: err}, nil
+		}
+	}
 
 	// 4. Compile with nvrtcx
 	compileOpts := append([]nvrtcx.Option{
@@ -391,11 +434,12 @@ func Compare(ctx context.Context, g *cudair.Graph, opts ...CompareOption) (*Comp
 		return &ComparisonResult{Status: StatusUnmeasured, Stage: StageCompile, CPUHash: cpuHash, Err: err}, nil
 	}
 
-	compile := cfg.compileKernel
-	if compile == nil {
-		compile = nvrtcx.Compile
+	var cmod *nvrtcx.CompiledModule
+	if cfg.compileKernel != nil {
+		cmod, err = cfg.compileKernel(kernelSrc, compileOpts, cfg.JITOptions)
+	} else {
+		cmod, err = nvrtcx.Compile(kernelSrc, compileOpts...)
 	}
-	cmod, err := compile(kernelSrc, compileOpts...)
 	if err != nil {
 		return &ComparisonResult{
 			Status:  StatusUnmeasured,
@@ -406,12 +450,21 @@ func Compare(ctx context.Context, g *cudair.Graph, opts ...CompareOption) (*Comp
 	}
 	if cfg.perturbation != nil {
 		if err := validateCompiledPerturbation(*cfg.perturbation, compileFlags, cmod); err != nil {
-			return &ComparisonResult{Status: StatusUnmeasured, Stage: StageCompile, CPUHash: cpuHash, Err: err}, nil
+			return &ComparisonResult{Status: StatusUnmeasured, Stage: StageArtifactValidation, CPUHash: cpuHash, Err: err}, nil
 		}
 	}
 
 	// 5. Load and execute on device
-	devMod, err := cmod.Load(cfg.Device)
+	var loaded traceModule
+	if cfg.loadTraceModule != nil {
+		loaded, err = cfg.loadTraceModule(cmod, cfg.Device)
+	} else {
+		var devMod driver.Module
+		devMod, err = cmod.Load(cfg.Device)
+		if err == nil {
+			loaded = &loadedTraceModule{device: cfg.Device, module: devMod}
+		}
+	}
 	if err != nil {
 		return &ComparisonResult{
 			Status:  StatusUnmeasured,
@@ -420,12 +473,15 @@ func Compare(ctx context.Context, g *cudair.Graph, opts ...CompareOption) (*Comp
 			Err:     fmt.Errorf("load module: %w", err),
 		}, nil
 	}
-	defer cfg.Device.WithContext(func() error { return devMod.Close() })
+	if loaded == nil {
+		return &ComparisonResult{Status: StatusUnmeasured, Stage: StageLoad, CPUHash: cpuHash, Err: errors.New("cudalmvet: trace module loader returned nil module")}, nil
+	}
+	defer loaded.Close()
 
 	// Optional check for clean reset
 	if cfg.VerifyCleanReset {
 		var resetErr error
-		if err := cfg.Device.WithContext(func() error { return CheckDeviceReset(devMod) }); err != nil {
+		if err := loaded.CheckReset(); err != nil {
 			resetErr = err
 		}
 		if resetErr != nil {
@@ -433,7 +489,7 @@ func Compare(ctx context.Context, g *cudair.Graph, opts ...CompareOption) (*Comp
 		}
 	}
 
-	trace, err := executeDeviceKernel(ctx, devMod, entryPoint, cfg, executionSnapshot, ^uint32(0), false, generatedKernel)
+	trace, err := loaded.Execute(ctx, entryPoint, cfg, executionSnapshot, ^uint32(0), false, generatedKernel)
 	if err != nil {
 		return &ComparisonResult{
 			Status:  StatusUnmeasured,
@@ -462,7 +518,7 @@ func Compare(ctx context.Context, g *cudair.Graph, opts ...CompareOption) (*Comp
 		res.Triage = deviceMismatchTriage(cpuHash, devHash)
 		if generatedKernel && len(accCPU.Events()) != 0 {
 			localized, err := localizeDeviceMismatch(accCPU.Events(), func(prefix int) (deviceTrace, error) {
-				return executeDeviceKernel(ctx, devMod, entryPoint, cfg, executionSnapshot, uint32(prefix), true, true)
+				return loaded.Execute(ctx, entryPoint, cfg, executionSnapshot, uint32(prefix), true, true)
 			})
 			if err == nil {
 				res.Triage = localized
@@ -643,6 +699,48 @@ func kernelArgumentLayout(snap *cudair.Snapshot) []kernelArgument {
 	return args
 }
 
+type launchScalarArgument uint8
+
+const (
+	launchElementCount launchScalarArgument = iota
+	launchTraceFoldLimit
+)
+
+func launchScalarArguments(generated bool) []launchScalarArgument {
+	args := []launchScalarArgument{launchElementCount}
+	if generated {
+		args = append(args, launchTraceFoldLimit)
+	}
+	return args
+}
+
+func generatedKernelElementCount(snap *cudair.Snapshot, inputs map[string][]float32, generated bool) (int, error) {
+	if snap == nil {
+		return 0, errors.New("cudalmvet: nil graph snapshot")
+	}
+	n := 0
+	for _, arg := range kernelArgumentLayout(snap) {
+		if arg.Output {
+			continue
+		}
+		if count := len(inputs[arg.Name]); count > n {
+			n = count
+		}
+	}
+	for _, node := range snap.Nodes() {
+		if count := node.NumElements(); count > n {
+			n = count
+		}
+	}
+	if n == 0 {
+		n = 1
+	}
+	if generated && n > 1024 {
+		return 0, fmt.Errorf("cudalmvet: generated ordered kernel supports at most 1024 elements, got %d", n)
+	}
+	return n, nil
+}
+
 // executeDeviceKernel allocates buffers, launches the kernel, and reads back the trace hash.
 func executeDeviceKernel(ctx context.Context, mod driver.Module, entryPoint string, cfg *CompareConfig, snap *cudair.Snapshot, foldLimit uint32, reset, generated bool) (deviceTrace, error) {
 	if err := ctx.Err(); err != nil {
@@ -663,26 +761,9 @@ func executeDeviceKernelCurrent(ctx context.Context, mod driver.Module, entryPoi
 		return deviceTrace{}, fmt.Errorf("get function %q: %w", entryPoint, err)
 	}
 
-	numElems := 0
-	for _, arg := range kernelArgumentLayout(snap) {
-		if arg.Output {
-			continue
-		}
-		buf := cfg.Inputs[arg.Name]
-		if len(buf) > numElems {
-			numElems = len(buf)
-		}
-	}
-	for _, node := range snap.Nodes() {
-		if node.NumElements() > numElems {
-			numElems = node.NumElements()
-		}
-	}
-	if numElems == 0 {
-		numElems = 1
-	}
-	if numElems > 1024 {
-		return deviceTrace{}, fmt.Errorf("cudalmvet: generated ordered kernel supports at most 1024 elements, got %d", numElems)
+	numElems, err := generatedKernelElementCount(snap, cfg.Inputs, generated)
+	if err != nil {
+		return deviceTrace{}, err
 	}
 
 	// Allocate input device buffers
@@ -695,9 +776,13 @@ func executeDeviceKernelCurrent(ctx context.Context, mod driver.Module, entryPoi
 
 	var args []unsafe.Pointer
 	nVal := int32(numElems)
-	args = append(args, unsafe.Pointer(&nVal))
-	if generated {
-		args = append(args, unsafe.Pointer(&foldLimit))
+	for _, arg := range launchScalarArguments(generated) {
+		switch arg {
+		case launchElementCount:
+			args = append(args, unsafe.Pointer(&nVal))
+		case launchTraceFoldLimit:
+			args = append(args, unsafe.Pointer(&foldLimit))
+		}
 	}
 
 	for _, arg := range kernelArgumentLayout(snap) {

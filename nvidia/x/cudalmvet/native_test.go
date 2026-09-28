@@ -7,6 +7,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/tmc/lib/nvidia/x/cudakernel"
 	"github.com/tmc/lib/nvidia/x/cudatest"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
@@ -39,7 +40,7 @@ func TestPerturbation_ReportsTable(t *testing.T) {
 	g, inputs := buildTestGraph()
 	perts := append(DefaultPerturbations(), Perturbation{Name: "compile_failure", JITOptLevel: 4})
 	calls := 0
-	compile := func(src string, opts ...nvrtcx.Option) (*nvrtcx.CompiledModule, error) {
+	compile := func(src string, opts []nvrtcx.Option, _ cudakernel.JITOptions) (*nvrtcx.CompiledModule, error) {
 		calls++
 		if calls == len(perts) {
 			return nil, errors.New("injected compile failure")

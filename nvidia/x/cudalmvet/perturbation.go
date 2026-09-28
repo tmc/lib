@@ -99,6 +99,8 @@ type PerturbationResult struct {
 	Perturbation Perturbation
 	Status       ComparisonStatus
 	Hash         uint64
+	ArtifactErr  error
+	PolicyErr    error
 	CompileErr   error
 	RunErr       error
 }
@@ -116,7 +118,7 @@ func (r *PerturbationReport) AllAgree() bool {
 		return false
 	}
 	for _, res := range r.Results {
-		if res.CompileErr != nil || res.RunErr != nil || res.Status != StatusAgreed || res.Hash != r.ReferenceHash {
+		if res.ArtifactErr != nil || res.PolicyErr != nil || res.CompileErr != nil || res.RunErr != nil || res.Status != StatusAgreed || res.Hash != r.ReferenceHash {
 			return false
 		}
 	}
@@ -153,6 +155,10 @@ func (r *PerturbationReport) String() string {
 		notes := "-"
 		if res.CompileErr != nil {
 			notes = fmt.Sprintf("compile error: %v", res.CompileErr)
+		} else if res.PolicyErr != nil {
+			notes = fmt.Sprintf("unsupported device policy: %v", res.PolicyErr)
+		} else if res.ArtifactErr != nil {
+			notes = fmt.Sprintf("artifact mismatch: %v", res.ArtifactErr)
 		} else if res.RunErr != nil {
 			notes = fmt.Sprintf("run error: %v", res.RunErr)
 		} else if res.Status != StatusUnmeasured && r.BaselineDeviceHash != 0 && res.Hash != r.BaselineDeviceHash {
@@ -251,9 +257,14 @@ func perturbationOutcome(p Perturbation, result *ComparisonResult, err error) Pe
 	}
 	row.Status, row.Hash = result.Status, result.DeviceHash
 	if result.Err != nil && result.Status == StatusUnmeasured {
-		if result.Stage == StageCompile {
+		switch result.Stage {
+		case StageCompile:
 			row.CompileErr = result.Err
-		} else if result.Stage != StageNone {
+		case StageArtifactValidation:
+			row.ArtifactErr = result.Err
+		case StagePolicy:
+			row.PolicyErr = result.Err
+		case StageLoad, StageLaunch, StageReadback:
 			row.RunErr = result.Err
 		}
 	}

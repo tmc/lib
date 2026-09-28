@@ -25,6 +25,10 @@
 //   - [PolicyCanonicalizeZero]: Normalizes -0.0 to +0.0 before hashing.
 //   - [PolicyCanonicalizeAll]: Normalizes both signed zeros and NaNs.
 //
+// Device comparison and schedule perturbations currently accept only
+// [PolicyRawBits]. Other policies remain available to the CPU accumulator and
+// are refused before compilation on the device path, with an Unmeasured result.
+//
 // # Traversal and Fold Order
 //
 // The fold sequence follows a declared canonical traversal:
@@ -34,6 +38,12 @@
 //   - Values from every non-input intermediate node are folded, including graph outputs.
 //   - Graph inputs, node metadata, and unit/empty tensors are skipped; skipped values fold
 //     zero bytes and leave the accumulator unchanged.
+//
+// Generated device kernels assign one ticket to each folded float in node-major,
+// then row-major order. A single CTA serializes those tickets before updating the
+// scalar hash. The generated harness refuses tensors or inputs above 1,024 elements.
+// Caller-supplied kernels do not receive the generated kernel's fold-limit argument
+// and are not localized to a graph fold index.
 //
 // # Schedule Perturbation
 //
@@ -45,5 +55,8 @@
 //
 // Each perturbation is compiled into an independent artifact with its own cache identity.
 // A perturbation whose trace hash moves indicates miscompilation, a data race, or
-// unstable reassociation.
+// unstable reassociation. Device results are compared bit for bit; floating-point
+// contraction such as FMA may therefore be reported as a disagreement when it
+// changes an intermediate value, even if the contracted result is mathematically
+// equivalent.
 package cudalmvet
