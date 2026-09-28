@@ -670,7 +670,7 @@ func (f Function) LaunchKernel(gridDim Dim3, blockDim Dim3, sharedMemBytes uint3
 //
 // Exercise caution if such an ordering inversion could lead to deadlock. The event supplied must not be an interprocess or interop event. The event must disable timing (i.e. must be created with the [EventDisableTiming] flag set).
 // Setting [LaunchAttributeDeviceUpdatableKernelNode] to 1 on a captured launch causes the resulting kernel node to be device-updatable. This attribute is specific to graphs, and passing it to a launch in a non-capturing stream results in an error. Passing a value other than 0 or 1 is not allowed.
-// On success, a handle will be returned via CUlaunchAttributeValue.deviceUpdatableKernelNode.devNode which can be passed to the various device-side update functions to update the node’s kernel parameters from within another kernel. For more information on the types of device updates that can be made, as well as the relevant limitations thereof, see cudaGraphKernelNodeUpdatesApply.
+// On success, a handle will be returned via [LaunchAttributeValue].deviceUpdatableKernelNode.devNode which can be passed to the various device-side update functions to update the node’s kernel parameters from within another kernel. For more information on the types of device updates that can be made, as well as the relevant limitations thereof, see cudaGraphKernelNodeUpdatesApply.
 // Kernel nodes which are device-updatable have additional restrictions compared to regular kernel nodes. Firstly, device-updatable nodes cannot be removed from their graph via [GraphNode.Close]. Additionally, once opted-in to this functionality, a node cannot opt out, and any attempt to set the attribute to 0 will result in an error. Graphs containing one or more device-updatable node also do not allow multiple instantiation.
 // [LaunchAttributePreferredClusterDimension] allows the kernel launch to specify a preferred substitute cluster dimension. Blocks may be grouped according to either the dimensions specified with this attribute (grouped into a “preferred substitute cluster”), or the one specified with [LaunchAttributeClusterDimension]
 // attribute (grouped into a “regular
@@ -695,7 +695,6 @@ func (f Function) LaunchKernel(gridDim Dim3, blockDim Dim3, sharedMemBytes uint3
 //
 //   - config: Config to launch
 //   - kernelParams: Array of pointers to kernel parameters
-//   - extra: Extra options
 //
 // Errors:
 //   - [ErrCooperativeLaunchTooLarge]
@@ -713,8 +712,8 @@ func (f Function) LaunchKernel(gridDim Dim3, blockDim Dim3, sharedMemBytes uint3
 //   - [ErrSharedObjectInitFailed]
 //
 // Wraps cuLaunchKernelEx.
-func (f Function) LaunchKernelEx(config *LaunchConfig, kernelParams []unsafe.Pointer, extra *uintptr) error {
-	return launchKernelEx(config, f, kernelParams, extra)
+func (f Function) LaunchKernelEx(config *LaunchConfig, kernelParams []unsafe.Pointer) error {
+	return launchKernelEx(config, f, kernelParams)
 }
 
 // ParamSetSize sets the parameter size for the function.

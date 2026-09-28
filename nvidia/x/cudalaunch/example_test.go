@@ -65,7 +65,7 @@ func ExampleLauncher_WithProgrammaticStreamSerialization() {
 	attrs := l.Attrs()
 	fmt.Printf("num attrs: %d\n", len(attrs))
 	fmt.Printf("attr[0] id: %v\n", attrs[0].Id)
-	fmt.Printf("attr[0] value: %d\n", attrs[0].Value[0])
+	fmt.Printf("attr[0] value: %d\n", *attrs[0].Value.ProgrammaticStreamSerializationAllowed())
 	// Output:
 	// num attrs: 1
 	// attr[0] id: LaunchAttributeProgrammaticStreamSerialization

@@ -93,21 +93,21 @@ func TestLaunchAttributes(t *testing.T) {
 	if pdlAttr.Id != driver.LaunchAttributeProgrammaticStreamSerialization {
 		t.Errorf("Id = %v, want %v", pdlAttr.Id, driver.LaunchAttributeProgrammaticStreamSerialization)
 	}
-	if pdlAttr.Value[0] != 1 {
-		t.Errorf("Value[0] = %d, want 1", pdlAttr.Value[0])
+	if v := *pdlAttr.Value.ProgrammaticStreamSerializationAllowed(); v != 1 {
+		t.Errorf("ProgrammaticStreamSerializationAllowed = %d, want 1", v)
 	}
 
 	pdlOff := cudalaunch.ProgrammaticStreamSerializationAttr(false)
-	if pdlOff.Value[0] != 0 {
-		t.Errorf("Value[0] = %d, want 0", pdlOff.Value[0])
+	if v := *pdlOff.Value.ProgrammaticStreamSerializationAllowed(); v != 0 {
+		t.Errorf("ProgrammaticStreamSerializationAllowed = %d, want 0", v)
 	}
 
 	coopAttr := cudalaunch.CooperativeAttr(true)
 	if coopAttr.Id != driver.LaunchAttributeCooperative {
 		t.Errorf("Id = %v, want %v", coopAttr.Id, driver.LaunchAttributeCooperative)
 	}
-	if coopAttr.Value[0] != 1 {
-		t.Errorf("Value[0] = %d, want 1", coopAttr.Value[0])
+	if v := *coopAttr.Value.Cooperative(); v != 1 {
+		t.Errorf("Cooperative = %d, want 1", v)
 	}
 
 	var mockFn driver.Function = 42
@@ -138,12 +138,7 @@ func TestClusterDimAttr(t *testing.T) {
 	if attr.Id != driver.LaunchAttributeClusterDimension {
 		t.Fatalf("attr.Id = %v, want %v", attr.Id, driver.LaunchAttributeClusterDimension)
 	}
-	val0 := attr.Value[0]
-	val1 := attr.Value[1]
-	x := uint32(val0 & 0xFFFFFFFF)
-	y := uint32(val0 >> 32)
-	z := uint32(val1 & 0xFFFFFFFF)
-	if x != 2 || y != 4 || z != 1 {
-		t.Errorf("unpacked clusterDim = (%d, %d, %d), want (2, 4, 1)", x, y, z)
+	if got, want := *attr.Value.ClusterDim(), driver.Dims(2, 4, 1); got != want {
+		t.Errorf("ClusterDim = %v, want %v", got, want)
 	}
 }

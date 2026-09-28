@@ -2235,8 +2235,8 @@ func fnlaunchKernel(a0 Function, a1 uint32, a2 uint32, a3 uint32, a4 uint32, a5 
 }
 
 // fnlaunchKernelEx calls cuLaunchKernelEx.
-func fnlaunchKernelEx(a0 *LaunchConfig, a1 Function, a2 *uintptr, a3 *uintptr) Result {
-	r1, _ := ffiCall4(symlaunchKernelEx, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+func fnlaunchKernelEx(a0 *cLaunchConfig, a1 Function, a2 *uintptr, a3 unsafe.Pointer) Result {
+	r1, _ := ffiCall4(symlaunchKernelEx, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
 	return Result(r1)
 }
 
@@ -3075,7 +3075,7 @@ func fnoccupancyMaxActiveBlocksPerMultiprocessorWithFlags(a0 *int32, a1 Function
 }
 
 // fnoccupancyMaxActiveClusters calls cuOccupancyMaxActiveClusters.
-func fnoccupancyMaxActiveClusters(a0 *int32, a1 Function, a2 *LaunchConfig) Result {
+func fnoccupancyMaxActiveClusters(a0 *int32, a1 Function, a2 *cLaunchConfig) Result {
 	r1, _ := ffiCall3(symoccupancyMaxActiveClusters, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
@@ -3093,7 +3093,7 @@ func fnoccupancyMaxPotentialBlockSizeWithFlags(a0 *int32, a1 *int32, a2 Function
 }
 
 // fnoccupancyMaxPotentialClusterSize calls cuOccupancyMaxPotentialClusterSize.
-func fnoccupancyMaxPotentialClusterSize(a0 *int32, a1 Function, a2 *LaunchConfig) Result {
+func fnoccupancyMaxPotentialClusterSize(a0 *int32, a1 Function, a2 *cLaunchConfig) Result {
 	r1, _ := ffiCall3(symoccupancyMaxPotentialClusterSize, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
@@ -10807,7 +10807,7 @@ func launchKernel(f Function, gridDimX uint32, gridDimY uint32, gridDimZ uint32,
 //
 // Exercise caution if such an ordering inversion could lead to deadlock. The event supplied must not be an interprocess or interop event. The event must disable timing (i.e. must be created with the [EventDisableTiming] flag set).
 // Setting [LaunchAttributeDeviceUpdatableKernelNode] to 1 on a captured launch causes the resulting kernel node to be device-updatable. This attribute is specific to graphs, and passing it to a launch in a non-capturing stream results in an error. Passing a value other than 0 or 1 is not allowed.
-// On success, a handle will be returned via CUlaunchAttributeValue.deviceUpdatableKernelNode.devNode which can be passed to the various device-side update functions to update the node’s kernel parameters from within another kernel. For more information on the types of device updates that can be made, as well as the relevant limitations thereof, see cudaGraphKernelNodeUpdatesApply.
+// On success, a handle will be returned via [LaunchAttributeValue].deviceUpdatableKernelNode.devNode which can be passed to the various device-side update functions to update the node’s kernel parameters from within another kernel. For more information on the types of device updates that can be made, as well as the relevant limitations thereof, see cudaGraphKernelNodeUpdatesApply.
 // Kernel nodes which are device-updatable have additional restrictions compared to regular kernel nodes. Firstly, device-updatable nodes cannot be removed from their graph via [GraphNode.Close]. Additionally, once opted-in to this functionality, a node cannot opt out, and any attempt to set the attribute to 0 will result in an error. Graphs containing one or more device-updatable node also do not allow multiple instantiation.
 // [LaunchAttributePreferredClusterDimension] allows the kernel launch to specify a preferred substitute cluster dimension. Blocks may be grouped according to either the dimensions specified with this attribute (grouped into a “preferred substitute cluster”), or the one specified with [LaunchAttributeClusterDimension]
 // attribute (grouped into a “regular
@@ -10851,11 +10851,13 @@ func launchKernel(f Function, gridDimX uint32, gridDimY uint32, gridDimZ uint32,
 //   - [ErrSharedObjectInitFailed]
 //
 // Wraps cuLaunchKernelEx.
-func launchKernelEx(config *LaunchConfig, f Function, kernelParams []unsafe.Pointer, extra *uintptr) error {
+func launchKernelEx(config *LaunchConfig, f Function, kernelParams []unsafe.Pointer) error {
 	if err := checkLibSym("cuLaunchKernelEx"); err != nil {
 		return err
 	}
-	return toError(fnlaunchKernelEx(config, f, (*uintptr)(sliceData(kernelParams)), extra), "cuLaunchKernelEx")
+	_config := cLaunchConfigCells.get()
+	defer cLaunchConfigCells.put(_config)
+	return toError(fnlaunchKernelEx(config.cLayout(_config), f, (*uintptr)(sliceData(kernelParams)), nil), "cuLaunchKernelEx")
 }
 
 // libraryEnumerateKernels retrieves the kernel handles within a library.
@@ -15508,9 +15510,11 @@ func occupancyMaxActiveClusters(func_ Function, config *LaunchConfig) (int32, er
 		var zero int32
 		return zero, err
 	}
+	_config := cLaunchConfigCells.get()
+	defer cLaunchConfigCells.put(_config)
 	out := slotOccupancyMaxActiveClusters.get()
 	defer slotOccupancyMaxActiveClusters.put(out)
-	if err := toError(fnoccupancyMaxActiveClusters(out, func_, config), "cuOccupancyMaxActiveClusters"); err != nil {
+	if err := toError(fnoccupancyMaxActiveClusters(out, func_, config.cLayout(_config)), "cuOccupancyMaxActiveClusters"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -15630,9 +15634,11 @@ func occupancyMaxPotentialClusterSize(func_ Function, config *LaunchConfig) (int
 		var zero int32
 		return zero, err
 	}
+	_config := cLaunchConfigCells.get()
+	defer cLaunchConfigCells.put(_config)
 	out := slotOccupancyMaxPotentialClusterSize.get()
 	defer slotOccupancyMaxPotentialClusterSize.put(out)
-	if err := toError(fnoccupancyMaxPotentialClusterSize(out, func_, config), "cuOccupancyMaxPotentialClusterSize"); err != nil {
+	if err := toError(fnoccupancyMaxPotentialClusterSize(out, func_, config.cLayout(_config)), "cuOccupancyMaxPotentialClusterSize"); err != nil {
 		var zero int32
 		return zero, err
 	}

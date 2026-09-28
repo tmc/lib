@@ -1,7 +1,6 @@
 package cudalaunch
 
 import (
-	"encoding/binary"
 	"fmt"
 	"reflect"
 	"runtime"
@@ -290,27 +289,16 @@ func (l *Launcher) WithCooperative(enable bool) *Launcher {
 // ProgrammaticStreamSerializationAttr returns a LaunchAttribute enabling or disabling
 // programmatic stream serialization (PDL) for cuLaunchKernelEx.
 func ProgrammaticStreamSerializationAttr(enable bool) driver.LaunchAttribute {
-	var val uint64
-	if enable {
-		val = 1
-	}
-	return driver.LaunchAttribute{
-		Id:    driver.LaunchAttributeProgrammaticStreamSerialization,
-		Value: [8]uint64{val},
-	}
+	attr := driver.LaunchAttribute{Id: driver.LaunchAttributeProgrammaticStreamSerialization}
+	*attr.Value.ProgrammaticStreamSerializationAllowed() = boolInt(enable)
+	return attr
 }
 
 // ClusterDimAttr returns a LaunchAttribute setting the cluster dimensions
 // for cuLaunchKernelEx or kernel graph nodes.
 func ClusterDimAttr(dim driver.Dim3) driver.LaunchAttribute {
-	var attr driver.LaunchAttribute
-	attr.Id = driver.LaunchAttributeClusterDimension
-	// CUlaunchAttributeValue.clusterDim is struct { unsigned int x, y, z; }.
-	// LittleEndian packing into Value[0] (x, y) and Value[1] (z).
-	slice := unsafe.Slice((*byte)(unsafe.Pointer(&attr.Value[0])), 12)
-	binary.LittleEndian.PutUint32(slice[0:4], dim.X)
-	binary.LittleEndian.PutUint32(slice[4:8], dim.Y)
-	binary.LittleEndian.PutUint32(slice[8:12], dim.Z)
+	attr := driver.LaunchAttribute{Id: driver.LaunchAttributeClusterDimension}
+	*attr.Value.ClusterDim() = dim
 	return attr
 }
 
@@ -321,14 +309,17 @@ func (l *Launcher) WithClusterDim(dim driver.Dim3) *Launcher {
 
 // CooperativeAttr returns a LaunchAttribute enabling or disabling cooperative grid launch.
 func CooperativeAttr(enable bool) driver.LaunchAttribute {
-	var val uint64
-	if enable {
-		val = 1
+	attr := driver.LaunchAttribute{Id: driver.LaunchAttributeCooperative}
+	*attr.Value.Cooperative() = boolInt(enable)
+	return attr
+}
+
+// boolInt returns 1 if b is true and 0 otherwise.
+func boolInt(b bool) int32 {
+	if b {
+		return 1
 	}
-	return driver.LaunchAttribute{
-		Id:    driver.LaunchAttributeCooperative,
-		Value: [8]uint64{val},
-	}
+	return 0
 }
 
 // WithDeviceUpdatable enables or disables marking the kernel node as device-updatable
@@ -340,22 +331,17 @@ func (l *Launcher) WithDeviceUpdatable(enable bool) *Launcher {
 // DeviceUpdatableAttr returns a LaunchAttribute enabling or disabling device-updatable
 // status for a captured kernel node launch.
 func DeviceUpdatableAttr(enable bool) driver.LaunchAttribute {
-	var val uint64
-	if enable {
-		val = 1
-	}
-	return driver.LaunchAttribute{
-		Id:    driver.LaunchAttributeDeviceUpdatableKernelNode,
-		Value: [8]uint64{val},
-	}
+	attr := driver.LaunchAttribute{Id: driver.LaunchAttributeDeviceUpdatableKernelNode}
+	attr.Value.DeviceUpdatableKernelNode().DeviceUpdatable = boolInt(enable)
+	return attr
 }
 
 // DeviceNode returns the device-updatable kernel node handle recorded by the driver
 // for a captured launch, if this launcher had DeviceUpdatable configured and the handle is non-zero.
 func (l *Launcher) DeviceNode() (uintptr, bool) {
-	for _, attr := range l.attrs {
-		if attr.Id == driver.LaunchAttributeDeviceUpdatableKernelNode {
-			h := uintptr(attr.Value[1])
+	for i := range l.attrs {
+		if attr := &l.attrs[i]; attr.Id == driver.LaunchAttributeDeviceUpdatableKernelNode {
+			h := uintptr(attr.Value.DeviceUpdatableKernelNode().DevNode)
 			if h != 0 {
 				return h, true
 			}
@@ -410,13 +396,12 @@ func (l *Launcher) Launch(args ...any) error {
 				BlockDim:       l.block,
 				SharedMemBytes: l.shmem,
 				HStream:        stream,
-				Attrs:          uintptr(unsafe.Pointer(&l.attrs[0])),
-				NumAttrs:       uint32(len(l.attrs)),
+				Attrs:          l.attrs,
 			}
 			if l.owned != nil {
 				return l.owned.LaunchEx(&cfg, kernelParams)
 			}
-			return l.fn.LaunchKernelEx(&cfg, kernelParams, nil)
+			return l.fn.LaunchKernelEx(&cfg, kernelParams)
 		}
 
 		if l.owned != nil {

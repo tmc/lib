@@ -28,7 +28,7 @@ func TestDeviceUpdatableAttr(t *testing.T) {
 	tests := []struct {
 		name     string
 		enable   bool
-		wantVal  uint64
+		wantVal  int32
 		wantAttr driver.LaunchAttributeID
 	}{
 		{
@@ -51,8 +51,8 @@ func TestDeviceUpdatableAttr(t *testing.T) {
 			if attr.Id != tt.wantAttr {
 				t.Errorf("attr.Id = %v, want %v", attr.Id, tt.wantAttr)
 			}
-			if attr.Value[0] != tt.wantVal {
-				t.Errorf("attr.Value[0] = %d, want %d", attr.Value[0], tt.wantVal)
+			if v := attr.Value.DeviceUpdatableKernelNode().DeviceUpdatable; v != tt.wantVal {
+				t.Errorf("DeviceUpdatable = %d, want %d", v, tt.wantVal)
 			}
 		})
 	}
@@ -67,8 +67,8 @@ func TestLauncherWithDeviceUpdatable(t *testing.T) {
 	if attrs[0].Id != driver.LaunchAttributeDeviceUpdatableKernelNode {
 		t.Errorf("attrs[0].Id = %v, want %v", attrs[0].Id, driver.LaunchAttributeDeviceUpdatableKernelNode)
 	}
-	if attrs[0].Value[0] != 1 {
-		t.Errorf("attrs[0].Value[0] = %d, want 1", attrs[0].Value[0])
+	if v := attrs[0].Value.DeviceUpdatableKernelNode().DeviceUpdatable; v != 1 {
+		t.Errorf("DeviceUpdatable = %d, want 1", v)
 	}
 
 	// DeviceNode before launch or when zero
@@ -77,10 +77,9 @@ func TestLauncherWithDeviceUpdatable(t *testing.T) {
 	}
 
 	// Fake driver writing devNode handle into attribute Value[1]
-	l = cudalaunch.Kernel(0).WithAttrs(driver.LaunchAttribute{
-		Id:    driver.LaunchAttributeDeviceUpdatableKernelNode,
-		Value: [8]uint64{1, 0x12345678},
-	})
+	attr := driver.LaunchAttribute{Id: driver.LaunchAttributeDeviceUpdatableKernelNode}
+	*attr.Value.DeviceUpdatableKernelNode() = driver.LaunchAttributeValueDeviceUpdatableKernelNode{DeviceUpdatable: 1, DevNode: 0x12345678}
+	l = cudalaunch.Kernel(0).WithAttrs(attr)
 	node, ok := l.DeviceNode()
 	if !ok {
 		t.Fatal("DeviceNode() returned false, want true")

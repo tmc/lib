@@ -281,6 +281,24 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Alignof(ActivityObjectKindId{}); got != 4 {
 		t.Errorf("alignof(ActivityObjectKindId) = %d, want 4", got)
 	}
+	{ // ActivityObjectKindId.Pt
+		var v ActivityObjectKindId
+		if got := uintptr(unsafe.Pointer(v.Pt())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of ActivityObjectKindId.Pt() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.Pt()); got != 8 {
+			t.Errorf("sizeof(*ActivityObjectKindId.Pt()) = %d, want 8", got)
+		}
+	}
+	{ // ActivityObjectKindId.Dcs
+		var v ActivityObjectKindId
+		if got := uintptr(unsafe.Pointer(v.Dcs())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of ActivityObjectKindId.Dcs() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.Dcs()); got != 12 {
+			t.Errorf("sizeof(*ActivityObjectKindId.Dcs()) = %d, want 12", got)
+		}
+	}
 	if got := unsafe.Sizeof(ActivityOverheadCommandBufferFullData{}); got != 12 {
 		t.Errorf("sizeof(ActivityOverheadCommandBufferFullData) = %d, want 12", got)
 	}

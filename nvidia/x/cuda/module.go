@@ -245,7 +245,7 @@ func (k *Kernel) LaunchEx(config *driver.LaunchConfig, args []unsafe.Pointer) er
 		return fmt.Errorf("cuda: zero launch dimension")
 	}
 	if err := m.ctx.Run(func() error {
-		return k.raw.LaunchKernelEx(config, args, nil)
+		return k.raw.LaunchKernelEx(config, args)
 	}); err != nil {
 		return fmt.Errorf("cuda: launch kernel ex: %w", err)
 	}

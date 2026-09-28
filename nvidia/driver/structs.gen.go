@@ -370,96 +370,137 @@ type LaunchMemSyncDomainMap struct {
 	Remote uint8
 }
 
-// StreamAttrValueV1 represents launch attributes union; used as value field of [LaunchAttribute].
-//
-// These members have no accessor:
-//
-//   - clusterDim: its type is an anonymous record, which has no Go type
-//   - programmaticEvent: its type is an anonymous record, which has no Go type
-//   - launchCompletionEvent: its type is an anonymous record, which has no Go type
-//   - preferredClusterDim: its type is an anonymous record, which has no Go type
-//   - deviceUpdatableKernelNode: its type is an anonymous record, which has no Go type
-type StreamAttrValueV1 struct {
+// LaunchAttributeValue represents launch attributes union; used as value field of [LaunchAttribute].
+type LaunchAttributeValue struct {
 	// Data stores the raw bytes of the underlying C union.
 	Data [8]uint64
 }
 
 // Pad returns a pointer to the pad member of CUlaunchAttributeValue, which shares its
 // storage with every other member of the union.
-func (s *StreamAttrValueV1) Pad() *[64]byte {
-	return (*[64]byte)(unsafe.Pointer(&s.Data))
+func (l *LaunchAttributeValue) Pad() *[64]byte {
+	return (*[64]byte)(unsafe.Pointer(&l.Data))
 }
 
 // AccessPolicyWindow returns a pointer to the accessPolicyWindow member of CUlaunchAttributeValue, which shares its
 // storage with every other member of the union.
-func (s *StreamAttrValueV1) AccessPolicyWindow() *AccessPolicyWindow {
-	return (*AccessPolicyWindow)(unsafe.Pointer(&s.Data))
+func (l *LaunchAttributeValue) AccessPolicyWindow() *AccessPolicyWindow {
+	return (*AccessPolicyWindow)(unsafe.Pointer(&l.Data))
 }
 
 // Cooperative returns a pointer to the cooperative member of CUlaunchAttributeValue, which shares its
 // storage with every other member of the union.
-func (s *StreamAttrValueV1) Cooperative() *int32 {
-	return (*int32)(unsafe.Pointer(&s.Data))
+func (l *LaunchAttributeValue) Cooperative() *int32 {
+	return (*int32)(unsafe.Pointer(&l.Data))
 }
 
 // SyncPolicy returns a pointer to the syncPolicy member of CUlaunchAttributeValue, which shares its
 // storage with every other member of the union.
-func (s *StreamAttrValueV1) SyncPolicy() *SynchronizationPolicy {
-	return (*SynchronizationPolicy)(unsafe.Pointer(&s.Data))
+func (l *LaunchAttributeValue) SyncPolicy() *SynchronizationPolicy {
+	return (*SynchronizationPolicy)(unsafe.Pointer(&l.Data))
+}
+
+// ClusterDim returns a pointer to the clusterDim member of CUlaunchAttributeValue, which shares its
+// storage with every other member of the union.
+func (l *LaunchAttributeValue) ClusterDim() *Dim3 {
+	return (*Dim3)(unsafe.Pointer(&l.Data))
 }
 
 // ClusterSchedulingPolicyPreference returns a pointer to the clusterSchedulingPolicyPreference member of CUlaunchAttributeValue, which shares its
 // storage with every other member of the union.
-func (s *StreamAttrValueV1) ClusterSchedulingPolicyPreference() *ClusterSchedulingPolicy {
-	return (*ClusterSchedulingPolicy)(unsafe.Pointer(&s.Data))
+func (l *LaunchAttributeValue) ClusterSchedulingPolicyPreference() *ClusterSchedulingPolicy {
+	return (*ClusterSchedulingPolicy)(unsafe.Pointer(&l.Data))
 }
 
 // ProgrammaticStreamSerializationAllowed returns a pointer to the programmaticStreamSerializationAllowed member of CUlaunchAttributeValue, which shares its
 // storage with every other member of the union.
-func (s *StreamAttrValueV1) ProgrammaticStreamSerializationAllowed() *int32 {
-	return (*int32)(unsafe.Pointer(&s.Data))
+func (l *LaunchAttributeValue) ProgrammaticStreamSerializationAllowed() *int32 {
+	return (*int32)(unsafe.Pointer(&l.Data))
+}
+
+// LaunchAttributeValueProgrammaticEvent is the type of the programmaticEvent member of LaunchAttributeValue.
+type LaunchAttributeValueProgrammaticEvent struct {
+	Event               Event
+	Flags               int32
+	TriggerAtBlockStart int32
+}
+
+// ProgrammaticEvent returns a pointer to the programmaticEvent member of CUlaunchAttributeValue, which shares its
+// storage with every other member of the union.
+func (l *LaunchAttributeValue) ProgrammaticEvent() *LaunchAttributeValueProgrammaticEvent {
+	return (*LaunchAttributeValueProgrammaticEvent)(unsafe.Pointer(&l.Data))
+}
+
+// LaunchAttributeValueLaunchCompletionEvent is the type of the launchCompletionEvent member of LaunchAttributeValue.
+type LaunchAttributeValueLaunchCompletionEvent struct {
+	Event Event
+	Flags int32
+}
+
+// LaunchCompletionEvent returns a pointer to the launchCompletionEvent member of CUlaunchAttributeValue, which shares its
+// storage with every other member of the union.
+func (l *LaunchAttributeValue) LaunchCompletionEvent() *LaunchAttributeValueLaunchCompletionEvent {
+	return (*LaunchAttributeValueLaunchCompletionEvent)(unsafe.Pointer(&l.Data))
 }
 
 // Priority returns a pointer to the priority member of CUlaunchAttributeValue, which shares its
 // storage with every other member of the union.
-func (s *StreamAttrValueV1) Priority() *int32 {
-	return (*int32)(unsafe.Pointer(&s.Data))
+func (l *LaunchAttributeValue) Priority() *int32 {
+	return (*int32)(unsafe.Pointer(&l.Data))
 }
 
 // MemSyncDomainMap returns a pointer to the memSyncDomainMap member of CUlaunchAttributeValue, which shares its
 // storage with every other member of the union.
-func (s *StreamAttrValueV1) MemSyncDomainMap() *LaunchMemSyncDomainMap {
-	return (*LaunchMemSyncDomainMap)(unsafe.Pointer(&s.Data))
+func (l *LaunchAttributeValue) MemSyncDomainMap() *LaunchMemSyncDomainMap {
+	return (*LaunchMemSyncDomainMap)(unsafe.Pointer(&l.Data))
 }
 
 // MemSyncDomain returns a pointer to the memSyncDomain member of CUlaunchAttributeValue, which shares its
 // storage with every other member of the union.
-func (s *StreamAttrValueV1) MemSyncDomain() *LaunchMemSyncDomain {
-	return (*LaunchMemSyncDomain)(unsafe.Pointer(&s.Data))
+func (l *LaunchAttributeValue) MemSyncDomain() *LaunchMemSyncDomain {
+	return (*LaunchMemSyncDomain)(unsafe.Pointer(&l.Data))
+}
+
+// PreferredClusterDim returns a pointer to the preferredClusterDim member of CUlaunchAttributeValue, which shares its
+// storage with every other member of the union.
+func (l *LaunchAttributeValue) PreferredClusterDim() *Dim3 {
+	return (*Dim3)(unsafe.Pointer(&l.Data))
+}
+
+// LaunchAttributeValueDeviceUpdatableKernelNode is the type of the deviceUpdatableKernelNode member of LaunchAttributeValue.
+type LaunchAttributeValueDeviceUpdatableKernelNode struct {
+	DeviceUpdatable int32
+	DevNode         GraphDeviceNode
+}
+
+// DeviceUpdatableKernelNode returns a pointer to the deviceUpdatableKernelNode member of CUlaunchAttributeValue, which shares its
+// storage with every other member of the union.
+func (l *LaunchAttributeValue) DeviceUpdatableKernelNode() *LaunchAttributeValueDeviceUpdatableKernelNode {
+	return (*LaunchAttributeValueDeviceUpdatableKernelNode)(unsafe.Pointer(&l.Data))
 }
 
 // SharedMemCarveout returns a pointer to the sharedMemCarveout member of CUlaunchAttributeValue, which shares its
 // storage with every other member of the union.
-func (s *StreamAttrValueV1) SharedMemCarveout() *uint32 {
-	return (*uint32)(unsafe.Pointer(&s.Data))
+func (l *LaunchAttributeValue) SharedMemCarveout() *uint32 {
+	return (*uint32)(unsafe.Pointer(&l.Data))
 }
 
 // NvlinkUtilCentricScheduling returns a pointer to the nvlinkUtilCentricScheduling member of CUlaunchAttributeValue, which shares its
 // storage with every other member of the union.
-func (s *StreamAttrValueV1) NvlinkUtilCentricScheduling() *uint32 {
-	return (*uint32)(unsafe.Pointer(&s.Data))
+func (l *LaunchAttributeValue) NvlinkUtilCentricScheduling() *uint32 {
+	return (*uint32)(unsafe.Pointer(&l.Data))
 }
 
 // PortableClusterSizeMode returns a pointer to the portableClusterSizeMode member of CUlaunchAttributeValue, which shares its
 // storage with every other member of the union.
-func (s *StreamAttrValueV1) PortableClusterSizeMode() *LaunchAttributePortableClusterMode {
-	return (*LaunchAttributePortableClusterMode)(unsafe.Pointer(&s.Data))
+func (l *LaunchAttributeValue) PortableClusterSizeMode() *LaunchAttributePortableClusterMode {
+	return (*LaunchAttributePortableClusterMode)(unsafe.Pointer(&l.Data))
 }
 
 // SharedMemoryMode returns a pointer to the sharedMemoryMode member of CUlaunchAttributeValue, which shares its
 // storage with every other member of the union.
-func (s *StreamAttrValueV1) SharedMemoryMode() *SharedMemoryMode {
-	return (*SharedMemoryMode)(unsafe.Pointer(&s.Data))
+func (l *LaunchAttributeValue) SharedMemoryMode() *SharedMemoryMode {
+	return (*SharedMemoryMode)(unsafe.Pointer(&l.Data))
 }
 
 // LaunchAttribute represents launch attribute.
@@ -468,7 +509,7 @@ type LaunchAttribute struct {
 	Id  LaunchAttributeID
 	Pad [4]byte
 	// Value of the attribute
-	Value [8]uint64
+	Value LaunchAttributeValue
 }
 
 // LaunchConfig represents CUDA extensible launch configuration.
@@ -485,11 +526,40 @@ type LaunchConfig struct {
 	SharedMemBytes uint32
 	// Stream identifier
 	HStream Stream
-	// List of attributes; nullable if ::[LaunchConfig].numAttrs == 0
-	Attrs uintptr
-	// Number of attributes populated in ::[LaunchConfig].attrs
-	NumAttrs uint32
+	// List of attributes.
+	// The call passes len(Attrs) as numAttrs.
+	Attrs []LaunchAttribute
 }
+
+// cLaunchConfig is the C layout of [LaunchConfig], which the library reads.
+type cLaunchConfig struct {
+	GridDim        Dim3
+	BlockDim       Dim3
+	SharedMemBytes uint32
+	HStream        Stream
+	Attrs          *LaunchAttribute
+	NumAttrs       uint32
+}
+
+// cLayout stores l in dst in the layout the library reads and returns
+// dst, or nil if l is nil.
+func (l *LaunchConfig) cLayout(dst *cLaunchConfig) *cLaunchConfig {
+	if l == nil {
+		return nil
+	}
+	*dst = cLaunchConfig{
+		GridDim:        l.GridDim,
+		BlockDim:       l.BlockDim,
+		SharedMemBytes: l.SharedMemBytes,
+		HStream:        l.HStream,
+		Attrs:          unsafe.SliceData(l.Attrs),
+		NumAttrs:       uint32(len(l.Attrs)),
+	}
+	return dst
+}
+
+// cLaunchConfigCells pools the cells LaunchConfig values are copied into for a call.
+var cLaunchConfigCells outSlot[cLaunchConfig]
 
 // ExecAffinitySmCount represents value for [ExecAffinityTypeSmCount].
 type ExecAffinitySmCount struct {
@@ -1484,9 +1554,6 @@ type IpcEventHandleV1 = IpcEventHandle
 
 // IpcMemHandleV1 is an alias for IpcMemHandle.
 type IpcMemHandleV1 = IpcMemHandle
-
-// LaunchAttributeValue is an alias for StreamAttrValueV1.
-type LaunchAttributeValue = StreamAttrValueV1
 
 // MemAccessDescV1 is an alias for MemAccessDesc.
 type MemAccessDescV1 = MemAccessDesc

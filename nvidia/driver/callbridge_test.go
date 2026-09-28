@@ -23,6 +23,20 @@ int cuMemAlloc_v2(uint64_t *p, size_t n) { *p = 0x7f0000000000ull + n; return 0;
 int cuMemsetD8_v2(uint64_t p, unsigned char c, size_t n) {
 	return p == 0x7f0000001000ull && c == 0xa5 && n == 64 ? 0 : 1;
 }
+typedef struct { int id; char pad[4]; union { char pad[64]; int i; unsigned d[3]; } v; } attr;
+typedef struct {
+	unsigned grid[3], block[3], shmem;
+	void *stream;
+	attr *attrs;
+	unsigned numAttrs;
+} config;
+int cuLaunchKernelEx(const config *c, void *f, void **params, void **extra) {
+	return c->grid[0] == 8 && c->block[0] == 256 && c->shmem == 1024 &&
+		f == (void *)0x1234 && params == NULL && extra == NULL &&
+		c->numAttrs == 2 &&
+		c->attrs[0].id == 2 && c->attrs[0].v.i == 1 &&
+		c->attrs[1].id == 4 && c->attrs[1].v.d[0] == 2 && c->attrs[1].v.d[2] == 1 ? 0 : 1;
+}
 `
 
 // TestCallBridge checks, without a GPU, that each common wrapper shape
@@ -36,7 +50,18 @@ func TestCallBridge(t *testing.T) {
 		"cuDeviceGetAttribute": &symdeviceGetAttribute,
 		"cuMemAlloc_v2":        &symMemAlloc,
 		"cuMemsetD8_v2":        &symmemsetD8,
+		"cuLaunchKernelEx":     &symlaunchKernelEx,
 	})
+	cfg := LaunchConfig{
+		GridDim:        Dim3{X: 8, Y: 1, Z: 1},
+		BlockDim:       Dim3{X: 256, Y: 1, Z: 1},
+		SharedMemBytes: 1024,
+		Attrs:          make([]LaunchAttribute, 2),
+	}
+	cfg.Attrs[0].Id = LaunchAttributeCooperative
+	*cfg.Attrs[0].Value.Cooperative() = 1
+	cfg.Attrs[1].Id = LaunchAttributeClusterDimension
+	*cfg.Attrs[1].Value.ClusterDim() = Dim3{X: 2, Y: 1, Z: 1}
 	for _, tt := range []struct {
 		name string
 		call func() error
@@ -71,6 +96,7 @@ func TestCallBridge(t *testing.T) {
 			return err
 		}},
 		{"devptr", func() error { return DevicePtr(0x7f0000001000).MemsetD8(0xa5, 64) }},
+		{"launchex", func() error { return Function(0x1234).LaunchKernelEx(&cfg, nil) }},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			if err := tt.call(); err != nil {

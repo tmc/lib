@@ -13,7 +13,7 @@ func viaVar(f driver.Function, s driver.Stream, n uint32) error {
 		BlockDim: driver.Dim3{X: 128, Y: 1, Z: 1},
 		HStream:  s,
 	}
-	return f.LaunchKernelEx(&cfg, nil, nil)
+	return f.LaunchKernelEx(&cfg, nil)
 }
 
 func rounded(f driver.Function, s driver.Stream, n uint32) error {

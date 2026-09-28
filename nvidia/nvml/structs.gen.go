@@ -592,14 +592,32 @@ type VgpuRuntimeState struct {
 }
 
 // VgpuSchedulerParams represents the vGPU Scheduler Parameters.
-//
-// These members have no accessor:
-//
-//   - vgpuSchedDataWithARR: its type is an anonymous record, which has no Go type
-//   - vgpuSchedData: its type is an anonymous record, which has no Go type
 type VgpuSchedulerParams struct {
 	// Data stores the raw bytes of the underlying C union.
 	Data [2]uint32
+}
+
+// VgpuSchedulerParamsVgpuSchedDataWithARR is the type of the vgpuSchedDataWithARR member of VgpuSchedulerParams.
+type VgpuSchedulerParamsVgpuSchedDataWithARR struct {
+	AvgFactor uint32
+	Timeslice uint32
+}
+
+// VgpuSchedDataWithARR returns a pointer to the vgpuSchedDataWithARR member of nvmlVgpuSchedulerParams_t, which shares its
+// storage with every other member of the union.
+func (rec *VgpuSchedulerParams) VgpuSchedDataWithARR() *VgpuSchedulerParamsVgpuSchedDataWithARR {
+	return (*VgpuSchedulerParamsVgpuSchedDataWithARR)(unsafe.Pointer(&rec.Data))
+}
+
+// VgpuSchedulerParamsVgpuSchedData is the type of the vgpuSchedData member of VgpuSchedulerParams.
+type VgpuSchedulerParamsVgpuSchedData struct {
+	Timeslice uint32
+}
+
+// VgpuSchedData returns a pointer to the vgpuSchedData member of nvmlVgpuSchedulerParams_t, which shares its
+// storage with every other member of the union.
+func (rec *VgpuSchedulerParams) VgpuSchedData() *VgpuSchedulerParamsVgpuSchedData {
+	return (*VgpuSchedulerParamsVgpuSchedData)(unsafe.Pointer(&rec.Data))
 }
 
 // VgpuSchedulerLogEntry stores the state and logs of a software runlist.
@@ -630,14 +648,32 @@ type VgpuSchedulerGetState struct {
 }
 
 // VgpuSchedulerSetParams represents the vGPU Scheduler set Parameters.
-//
-// These members have no accessor:
-//
-//   - vgpuSchedDataWithARR: its type is an anonymous record, which has no Go type
-//   - vgpuSchedData: its type is an anonymous record, which has no Go type
 type VgpuSchedulerSetParams struct {
 	// Data stores the raw bytes of the underlying C union.
 	Data [2]uint32
+}
+
+// VgpuSchedulerSetParamsVgpuSchedDataWithARR is the type of the vgpuSchedDataWithARR member of VgpuSchedulerSetParams.
+type VgpuSchedulerSetParamsVgpuSchedDataWithARR struct {
+	AvgFactor uint32
+	Frequency uint32
+}
+
+// VgpuSchedDataWithARR returns a pointer to the vgpuSchedDataWithARR member of nvmlVgpuSchedulerSetParams_t, which shares its
+// storage with every other member of the union.
+func (rec *VgpuSchedulerSetParams) VgpuSchedDataWithARR() *VgpuSchedulerSetParamsVgpuSchedDataWithARR {
+	return (*VgpuSchedulerSetParamsVgpuSchedDataWithARR)(unsafe.Pointer(&rec.Data))
+}
+
+// VgpuSchedulerSetParamsVgpuSchedData is the type of the vgpuSchedData member of VgpuSchedulerSetParams.
+type VgpuSchedulerSetParamsVgpuSchedData struct {
+	Timeslice uint32
+}
+
+// VgpuSchedData returns a pointer to the vgpuSchedData member of nvmlVgpuSchedulerSetParams_t, which shares its
+// storage with every other member of the union.
+func (rec *VgpuSchedulerSetParams) VgpuSchedData() *VgpuSchedulerSetParamsVgpuSchedData {
+	return (*VgpuSchedulerSetParamsVgpuSchedData)(unsafe.Pointer(&rec.Data))
 }
 
 // VgpuSchedulerSetState sets the vGPU scheduler state.

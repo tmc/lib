@@ -1211,6 +1211,24 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Alignof(VgpuSchedulerParams{}); got != 4 {
 		t.Errorf("alignof(VgpuSchedulerParams) = %d, want 4", got)
 	}
+	{ // VgpuSchedulerParams.VgpuSchedDataWithARR
+		var v VgpuSchedulerParams
+		if got := uintptr(unsafe.Pointer(v.VgpuSchedDataWithARR())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of VgpuSchedulerParams.VgpuSchedDataWithARR() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.VgpuSchedDataWithARR()); got != 8 {
+			t.Errorf("sizeof(*VgpuSchedulerParams.VgpuSchedDataWithARR()) = %d, want 8", got)
+		}
+	}
+	{ // VgpuSchedulerParams.VgpuSchedData
+		var v VgpuSchedulerParams
+		if got := uintptr(unsafe.Pointer(v.VgpuSchedData())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of VgpuSchedulerParams.VgpuSchedData() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.VgpuSchedData()); got != 4 {
+			t.Errorf("sizeof(*VgpuSchedulerParams.VgpuSchedData()) = %d, want 4", got)
+		}
+	}
 	if got := unsafe.Sizeof(VgpuSchedulerLogEntry{}); got != 48 {
 		t.Errorf("sizeof(VgpuSchedulerLogEntry) = %d, want 48", got)
 	}
@@ -1279,6 +1297,24 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Alignof(VgpuSchedulerSetParams{}); got != 4 {
 		t.Errorf("alignof(VgpuSchedulerSetParams) = %d, want 4", got)
+	}
+	{ // VgpuSchedulerSetParams.VgpuSchedDataWithARR
+		var v VgpuSchedulerSetParams
+		if got := uintptr(unsafe.Pointer(v.VgpuSchedDataWithARR())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of VgpuSchedulerSetParams.VgpuSchedDataWithARR() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.VgpuSchedDataWithARR()); got != 8 {
+			t.Errorf("sizeof(*VgpuSchedulerSetParams.VgpuSchedDataWithARR()) = %d, want 8", got)
+		}
+	}
+	{ // VgpuSchedulerSetParams.VgpuSchedData
+		var v VgpuSchedulerSetParams
+		if got := uintptr(unsafe.Pointer(v.VgpuSchedData())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of VgpuSchedulerSetParams.VgpuSchedData() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.VgpuSchedData()); got != 4 {
+			t.Errorf("sizeof(*VgpuSchedulerSetParams.VgpuSchedData()) = %d, want 4", got)
+		}
 	}
 	if got := unsafe.Sizeof(VgpuSchedulerSetState{}); got != 16 {
 		t.Errorf("sizeof(VgpuSchedulerSetState) = %d, want 16", got)

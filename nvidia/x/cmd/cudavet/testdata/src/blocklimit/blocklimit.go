@@ -16,7 +16,7 @@ func config(f driver.Function, s driver.Stream) error {
 		BlockDim: driver.Dim3{X: 32, Y: 32, Z: 2}, // want `block of 2048 threads exceeds the limit of 1024`
 		HStream:  s,
 	}
-	return f.LaunchKernelEx(&cfg, nil, nil)
+	return f.LaunchKernelEx(&cfg, nil)
 }
 
 func raised(f driver.Function, s driver.Stream) error {

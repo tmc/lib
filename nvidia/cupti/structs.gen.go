@@ -165,14 +165,34 @@ func (m *MetricValue) MetricValueNvtxExtendedPayload() *uint64 {
 // ActivityObjectKindId represents identifiers for object kinds as specified by [ActivityObjectKind].
 //
 // [ActivityObjectKind]
-//
-// These members have no accessor:
-//
-//   - pt: its type is an anonymous record, which has no Go type
-//   - dcs: its type is an anonymous record, which has no Go type
 type ActivityObjectKindId struct {
 	// Data stores the raw bytes of the underlying C union.
 	Data [3]uint32
+}
+
+// ActivityObjectKindIdPt is the type of the pt member of ActivityObjectKindId.
+type ActivityObjectKindIdPt struct {
+	ProcessId uint32
+	ThreadId  uint32
+}
+
+// Pt returns a pointer to the pt member of CUpti_ActivityObjectKindId, which shares its
+// storage with every other member of the union.
+func (a *ActivityObjectKindId) Pt() *ActivityObjectKindIdPt {
+	return (*ActivityObjectKindIdPt)(unsafe.Pointer(&a.Data))
+}
+
+// ActivityObjectKindIdDcs is the type of the dcs member of ActivityObjectKindId.
+type ActivityObjectKindIdDcs struct {
+	DeviceId  uint32
+	ContextId uint32
+	StreamId  uint32
+}
+
+// Dcs returns a pointer to the dcs member of CUpti_ActivityObjectKindId, which shares its
+// storage with every other member of the union.
+func (a *ActivityObjectKindId) Dcs() *ActivityObjectKindIdDcs {
+	return (*ActivityObjectKindIdDcs)(unsafe.Pointer(&a.Data))
 }
 
 // ActivityOverheadCommandBufferFullData represents the structure to provide additional data for [ActivityOverheadCommandBufferFull].

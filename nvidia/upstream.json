@@ -3498,7 +3498,7 @@
           },
           {
             "path": "nvidia/cupti/layout.gen_test.go",
-            "sha256": "7f4a4ab2a5d81872224ae7bdc997f1639825fe66d886f11c543aa5eaf270bf63"
+            "sha256": "1ebaaa53f013351d9c05faf3c439676df3396a04ac85d6411c4c4a11f3da1551"
           },
           {
             "path": "nvidia/cupti/loader.gen_test.go",
@@ -3530,7 +3530,7 @@
           },
           {
             "path": "nvidia/cupti/structs.gen.go",
-            "sha256": "8668feb81f84a49131f10d4b59324cd770ab998d7725d91106632544971c4aa8"
+            "sha256": "f56d4edf157dc0cea4956590bac3d3d5b2016ab4e0ef4aef69fcb0b10ac0d788"
           },
           {
             "path": "nvidia/cupti/subscriber.gen.go",
@@ -3656,10 +3656,10 @@
       "package": "github.com/tmc/lib/nvidia/cupti",
       "repositories": {
         "codegen": {
-          "commit": "1c7003cbf712995721ce677084aad5b9c383299a",
-          "tree": "94d1a7189a8987d45273add13571c3baefbba798",
+          "commit": "a57cbfdc5f8fa5f8328e4d0971959ef742e9ef14",
+          "tree": "6b8db1be83e64c50ebe0517a5655d24c2d8c2c40",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Private local generator commit used for this reproduction; not published. Regenerated at libgen 4029439a: C source dropped from scraped docs. Regenerated at libgen 1c7003cb: requested-count arrays bind as slices."
+          "note": "Private local generator commit used for this reproduction; not published. Regenerated at libgen 4029439a: C source dropped from scraped docs. Regenerated at libgen 1c7003cb: requested-count arrays bind as slices. Regenerated at libgen a57cbfdc: counted slice fields and typed union members."
         },
         "headers": {
           "commit": "0187274c798507606df855dfe4ec17f99d8ffe97",
@@ -7403,7 +7403,7 @@
           },
           {
             "path": "nvidia/driver/enums.gen.go",
-            "sha256": "9a9bb18f50792c3c5e8e05ebf0e7ff1deebb260e7bc903536d508dc59dfa8446"
+            "sha256": "6695fbf95d78d16fcaf2d718030ed57be2de9acb6a4397cf040b754a74de33b1"
           },
           {
             "path": "nvidia/driver/event.gen.go",
@@ -7435,11 +7435,11 @@
           },
           {
             "path": "nvidia/driver/funcs.gen.go",
-            "sha256": "99ec40221b5980b138d39524335bd1fc2bca30bc0eccbd26d528ab3a2a764c52"
+            "sha256": "c821682fc6df4e3d9fe09d83270bd9099c0c6635ac1518b0c8ae3116c375701b"
           },
           {
             "path": "nvidia/driver/function.gen.go",
-            "sha256": "4dfad2cea0adf6a6afd8d0a2782de8dcffc9a37800c5adefda7b9ed8d0abb8b6"
+            "sha256": "2dacc1940489ff86e2a6c4838a83aae6d5bf6b85e249c08b90a7a3b765fe18e9"
           },
           {
             "path": "nvidia/driver/graph.gen.go",
@@ -7483,7 +7483,7 @@
           },
           {
             "path": "nvidia/driver/layout.gen_test.go",
-            "sha256": "1d51662406cafcef151b6283c2aae47f41708f40ac75391755055f9856beeb97"
+            "sha256": "b0bd5c6d71b21588bae4ff19a2fbfabd4a165435c989811abd725087b589ea81"
           },
           {
             "path": "nvidia/driver/library.gen.go",
@@ -7555,7 +7555,7 @@
           },
           {
             "path": "nvidia/driver/structs.gen.go",
-            "sha256": "ae7f405b52e5142af172b3bf6abad25df3dc711acfd00892991910fc06c12a2e"
+            "sha256": "911ea8024ce01f1a66fae13f43d3c9bb2719ecc2cfc227bcfe9d474acaf1d9d4"
           },
           {
             "path": "nvidia/driver/surf_ref.gen.go",
@@ -7584,10 +7584,10 @@
       "package": "github.com/tmc/lib/nvidia/driver",
       "repositories": {
         "codegen": {
-          "commit": "4029439a681adda1655270cb8605321dbf068988",
-          "note": "Unpublished at the time of recording. This is the commit the recovery was verified against, not the commit that produced the committed bytes, which is unknown. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 72ec663: Function methods use receiver f. Regenerated at libgen 8da282f: methods drop the receiver words they repeat (GraphExec.Launch, GraphNode.KernelNodeGetParams) and parameters and their doc mentions are camel case. Regenerated at libgen 3a98258: copy methods are named by direction, and host copies take a []T with the pointer form renamed Ptr. Regenerated at libgen 4d9ccca: launch extents grouped into Dim3. Regenerated at libgen de368ea: graph node kinds have their own types. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated driver to link the TensorMap note. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 50579d6 regenerate at libgen 9c31466 (docs refetch d0f7ef1) regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen 294fc372 regenerate at libgen b3dc359c Regenerated at libgen 4029439a: C source dropped from scraped docs.",
+          "commit": "a57cbfdc5f8fa5f8328e4d0971959ef742e9ef14",
+          "note": "Unpublished at the time of recording. This is the commit the recovery was verified against, not the commit that produced the committed bytes, which is unknown. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 72ec663: Function methods use receiver f. Regenerated at libgen 8da282f: methods drop the receiver words they repeat (GraphExec.Launch, GraphNode.KernelNodeGetParams) and parameters and their doc mentions are camel case. Regenerated at libgen 3a98258: copy methods are named by direction, and host copies take a []T with the pointer form renamed Ptr. Regenerated at libgen 4d9ccca: launch extents grouped into Dim3. Regenerated at libgen de368ea: graph node kinds have their own types. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated driver to link the TensorMap note. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 50579d6 regenerate at libgen 9c31466 (docs refetch d0f7ef1) regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen 294fc372 regenerate at libgen b3dc359c Regenerated at libgen 4029439a: C source dropped from scraped docs. Regenerated at libgen a57cbfdc: counted slice fields and typed union members.",
           "url": "https://github.com/tmc/libgen.git",
-          "tree": "d059eb3eaa489833308e1a99d9f49be549ee7db6"
+          "tree": "6b8db1be83e64c50ebe0517a5655d24c2d8c2c40"
         },
         "headers": {
           "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",
@@ -11615,7 +11615,7 @@
           },
           {
             "path": "nvidia/nvml/layout.gen_test.go",
-            "sha256": "b53c1ed0ca5610323728ac26fdbe0d448947575285ca1366a11ca5d068a34c7e"
+            "sha256": "be2a884660a2bde7710f60b979785b6dc17b12ec3b55d98726dd6cd86ab1178f"
           },
           {
             "path": "nvidia/nvml/loader.gen_test.go",
@@ -11643,7 +11643,7 @@
           },
           {
             "path": "nvidia/nvml/structs.gen.go",
-            "sha256": "aec9915f4f32bea9a491d818bc8ad3bb261e1d323877634f1746af555af446f0"
+            "sha256": "2c0d98b3c602aa28afa57b31a8ed2f5bad048e6fcbfeb8bd6a9969834243fa87"
           },
           {
             "path": "nvidia/nvml/unit.gen.go",
@@ -11680,10 +11680,10 @@
       "package": "github.com/tmc/lib/nvidia/nvml",
       "repositories": {
         "codegen": {
-          "commit": "4029439a681adda1655270cb8605321dbf068988",
-          "tree": "d059eb3eaa489833308e1a99d9f49be549ee7db6",
+          "commit": "a57cbfdc5f8fa5f8328e4d0971959ef742e9ef14",
+          "tree": "6b8db1be83e64c50ebe0517a5655d24c2d8c2c40",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated with the pinned NVML header; nvgen defaults to the same pin. Regenerated at libgen 4029439a: C source dropped from scraped docs."
+          "note": "Regenerated with the pinned NVML header; nvgen defaults to the same pin. Regenerated at libgen 4029439a: C source dropped from scraped docs. Regenerated at libgen a57cbfdc: counted slice fields and typed union members."
         },
         "headers": {
           "commit": "0187274c798507606df855dfe4ec17f99d8ffe97",

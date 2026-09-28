@@ -575,127 +575,172 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(LaunchMemSyncDomainMap{}.Remote); got != 1 {
 		t.Errorf("offsetof(LaunchMemSyncDomainMap.Remote) = %d, want 1", got)
 	}
-	if got := unsafe.Sizeof(StreamAttrValueV1{}); got != 64 {
-		t.Errorf("sizeof(StreamAttrValueV1) = %d, want 64", got)
+	if got := unsafe.Sizeof(LaunchAttributeValue{}); got != 64 {
+		t.Errorf("sizeof(LaunchAttributeValue) = %d, want 64", got)
 	}
-	if got := unsafe.Alignof(StreamAttrValueV1{}); got != 8 {
-		t.Errorf("alignof(StreamAttrValueV1) = %d, want 8", got)
+	if got := unsafe.Alignof(LaunchAttributeValue{}); got != 8 {
+		t.Errorf("alignof(LaunchAttributeValue) = %d, want 8", got)
 	}
-	{ // StreamAttrValueV1.Pad
-		var v StreamAttrValueV1
+	{ // LaunchAttributeValue.Pad
+		var v LaunchAttributeValue
 		if got := uintptr(unsafe.Pointer(v.Pad())) - uintptr(unsafe.Pointer(&v)); got != 0 {
-			t.Errorf("offset of StreamAttrValueV1.Pad() = %d, want 0", got)
+			t.Errorf("offset of LaunchAttributeValue.Pad() = %d, want 0", got)
 		}
 		if got := unsafe.Sizeof(*v.Pad()); got != 64 {
-			t.Errorf("sizeof(*StreamAttrValueV1.Pad()) = %d, want 64", got)
+			t.Errorf("sizeof(*LaunchAttributeValue.Pad()) = %d, want 64", got)
 		}
 	}
-	{ // StreamAttrValueV1.AccessPolicyWindow
-		var v StreamAttrValueV1
+	{ // LaunchAttributeValue.AccessPolicyWindow
+		var v LaunchAttributeValue
 		if got := uintptr(unsafe.Pointer(v.AccessPolicyWindow())) - uintptr(unsafe.Pointer(&v)); got != 0 {
-			t.Errorf("offset of StreamAttrValueV1.AccessPolicyWindow() = %d, want 0", got)
+			t.Errorf("offset of LaunchAttributeValue.AccessPolicyWindow() = %d, want 0", got)
 		}
 		if got := unsafe.Sizeof(*v.AccessPolicyWindow()); got != 32 {
-			t.Errorf("sizeof(*StreamAttrValueV1.AccessPolicyWindow()) = %d, want 32", got)
+			t.Errorf("sizeof(*LaunchAttributeValue.AccessPolicyWindow()) = %d, want 32", got)
 		}
 	}
-	{ // StreamAttrValueV1.Cooperative
-		var v StreamAttrValueV1
+	{ // LaunchAttributeValue.Cooperative
+		var v LaunchAttributeValue
 		if got := uintptr(unsafe.Pointer(v.Cooperative())) - uintptr(unsafe.Pointer(&v)); got != 0 {
-			t.Errorf("offset of StreamAttrValueV1.Cooperative() = %d, want 0", got)
+			t.Errorf("offset of LaunchAttributeValue.Cooperative() = %d, want 0", got)
 		}
 		if got := unsafe.Sizeof(*v.Cooperative()); got != 4 {
-			t.Errorf("sizeof(*StreamAttrValueV1.Cooperative()) = %d, want 4", got)
+			t.Errorf("sizeof(*LaunchAttributeValue.Cooperative()) = %d, want 4", got)
 		}
 	}
-	{ // StreamAttrValueV1.SyncPolicy
-		var v StreamAttrValueV1
+	{ // LaunchAttributeValue.SyncPolicy
+		var v LaunchAttributeValue
 		if got := uintptr(unsafe.Pointer(v.SyncPolicy())) - uintptr(unsafe.Pointer(&v)); got != 0 {
-			t.Errorf("offset of StreamAttrValueV1.SyncPolicy() = %d, want 0", got)
+			t.Errorf("offset of LaunchAttributeValue.SyncPolicy() = %d, want 0", got)
 		}
 		if got := unsafe.Sizeof(*v.SyncPolicy()); got != 4 {
-			t.Errorf("sizeof(*StreamAttrValueV1.SyncPolicy()) = %d, want 4", got)
+			t.Errorf("sizeof(*LaunchAttributeValue.SyncPolicy()) = %d, want 4", got)
 		}
 	}
-	{ // StreamAttrValueV1.ClusterSchedulingPolicyPreference
-		var v StreamAttrValueV1
+	{ // LaunchAttributeValue.ClusterDim
+		var v LaunchAttributeValue
+		if got := uintptr(unsafe.Pointer(v.ClusterDim())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of LaunchAttributeValue.ClusterDim() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.ClusterDim()); got != 12 {
+			t.Errorf("sizeof(*LaunchAttributeValue.ClusterDim()) = %d, want 12", got)
+		}
+	}
+	{ // LaunchAttributeValue.ClusterSchedulingPolicyPreference
+		var v LaunchAttributeValue
 		if got := uintptr(unsafe.Pointer(v.ClusterSchedulingPolicyPreference())) - uintptr(unsafe.Pointer(&v)); got != 0 {
-			t.Errorf("offset of StreamAttrValueV1.ClusterSchedulingPolicyPreference() = %d, want 0", got)
+			t.Errorf("offset of LaunchAttributeValue.ClusterSchedulingPolicyPreference() = %d, want 0", got)
 		}
 		if got := unsafe.Sizeof(*v.ClusterSchedulingPolicyPreference()); got != 4 {
-			t.Errorf("sizeof(*StreamAttrValueV1.ClusterSchedulingPolicyPreference()) = %d, want 4", got)
+			t.Errorf("sizeof(*LaunchAttributeValue.ClusterSchedulingPolicyPreference()) = %d, want 4", got)
 		}
 	}
-	{ // StreamAttrValueV1.ProgrammaticStreamSerializationAllowed
-		var v StreamAttrValueV1
+	{ // LaunchAttributeValue.ProgrammaticStreamSerializationAllowed
+		var v LaunchAttributeValue
 		if got := uintptr(unsafe.Pointer(v.ProgrammaticStreamSerializationAllowed())) - uintptr(unsafe.Pointer(&v)); got != 0 {
-			t.Errorf("offset of StreamAttrValueV1.ProgrammaticStreamSerializationAllowed() = %d, want 0", got)
+			t.Errorf("offset of LaunchAttributeValue.ProgrammaticStreamSerializationAllowed() = %d, want 0", got)
 		}
 		if got := unsafe.Sizeof(*v.ProgrammaticStreamSerializationAllowed()); got != 4 {
-			t.Errorf("sizeof(*StreamAttrValueV1.ProgrammaticStreamSerializationAllowed()) = %d, want 4", got)
+			t.Errorf("sizeof(*LaunchAttributeValue.ProgrammaticStreamSerializationAllowed()) = %d, want 4", got)
 		}
 	}
-	{ // StreamAttrValueV1.Priority
-		var v StreamAttrValueV1
+	{ // LaunchAttributeValue.ProgrammaticEvent
+		var v LaunchAttributeValue
+		if got := uintptr(unsafe.Pointer(v.ProgrammaticEvent())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of LaunchAttributeValue.ProgrammaticEvent() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.ProgrammaticEvent()); got != 16 {
+			t.Errorf("sizeof(*LaunchAttributeValue.ProgrammaticEvent()) = %d, want 16", got)
+		}
+	}
+	{ // LaunchAttributeValue.LaunchCompletionEvent
+		var v LaunchAttributeValue
+		if got := uintptr(unsafe.Pointer(v.LaunchCompletionEvent())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of LaunchAttributeValue.LaunchCompletionEvent() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.LaunchCompletionEvent()); got != 16 {
+			t.Errorf("sizeof(*LaunchAttributeValue.LaunchCompletionEvent()) = %d, want 16", got)
+		}
+	}
+	{ // LaunchAttributeValue.Priority
+		var v LaunchAttributeValue
 		if got := uintptr(unsafe.Pointer(v.Priority())) - uintptr(unsafe.Pointer(&v)); got != 0 {
-			t.Errorf("offset of StreamAttrValueV1.Priority() = %d, want 0", got)
+			t.Errorf("offset of LaunchAttributeValue.Priority() = %d, want 0", got)
 		}
 		if got := unsafe.Sizeof(*v.Priority()); got != 4 {
-			t.Errorf("sizeof(*StreamAttrValueV1.Priority()) = %d, want 4", got)
+			t.Errorf("sizeof(*LaunchAttributeValue.Priority()) = %d, want 4", got)
 		}
 	}
-	{ // StreamAttrValueV1.MemSyncDomainMap
-		var v StreamAttrValueV1
+	{ // LaunchAttributeValue.MemSyncDomainMap
+		var v LaunchAttributeValue
 		if got := uintptr(unsafe.Pointer(v.MemSyncDomainMap())) - uintptr(unsafe.Pointer(&v)); got != 0 {
-			t.Errorf("offset of StreamAttrValueV1.MemSyncDomainMap() = %d, want 0", got)
+			t.Errorf("offset of LaunchAttributeValue.MemSyncDomainMap() = %d, want 0", got)
 		}
 		if got := unsafe.Sizeof(*v.MemSyncDomainMap()); got != 2 {
-			t.Errorf("sizeof(*StreamAttrValueV1.MemSyncDomainMap()) = %d, want 2", got)
+			t.Errorf("sizeof(*LaunchAttributeValue.MemSyncDomainMap()) = %d, want 2", got)
 		}
 	}
-	{ // StreamAttrValueV1.MemSyncDomain
-		var v StreamAttrValueV1
+	{ // LaunchAttributeValue.MemSyncDomain
+		var v LaunchAttributeValue
 		if got := uintptr(unsafe.Pointer(v.MemSyncDomain())) - uintptr(unsafe.Pointer(&v)); got != 0 {
-			t.Errorf("offset of StreamAttrValueV1.MemSyncDomain() = %d, want 0", got)
+			t.Errorf("offset of LaunchAttributeValue.MemSyncDomain() = %d, want 0", got)
 		}
 		if got := unsafe.Sizeof(*v.MemSyncDomain()); got != 4 {
-			t.Errorf("sizeof(*StreamAttrValueV1.MemSyncDomain()) = %d, want 4", got)
+			t.Errorf("sizeof(*LaunchAttributeValue.MemSyncDomain()) = %d, want 4", got)
 		}
 	}
-	{ // StreamAttrValueV1.SharedMemCarveout
-		var v StreamAttrValueV1
+	{ // LaunchAttributeValue.PreferredClusterDim
+		var v LaunchAttributeValue
+		if got := uintptr(unsafe.Pointer(v.PreferredClusterDim())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of LaunchAttributeValue.PreferredClusterDim() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.PreferredClusterDim()); got != 12 {
+			t.Errorf("sizeof(*LaunchAttributeValue.PreferredClusterDim()) = %d, want 12", got)
+		}
+	}
+	{ // LaunchAttributeValue.DeviceUpdatableKernelNode
+		var v LaunchAttributeValue
+		if got := uintptr(unsafe.Pointer(v.DeviceUpdatableKernelNode())) - uintptr(unsafe.Pointer(&v)); got != 0 {
+			t.Errorf("offset of LaunchAttributeValue.DeviceUpdatableKernelNode() = %d, want 0", got)
+		}
+		if got := unsafe.Sizeof(*v.DeviceUpdatableKernelNode()); got != 16 {
+			t.Errorf("sizeof(*LaunchAttributeValue.DeviceUpdatableKernelNode()) = %d, want 16", got)
+		}
+	}
+	{ // LaunchAttributeValue.SharedMemCarveout
+		var v LaunchAttributeValue
 		if got := uintptr(unsafe.Pointer(v.SharedMemCarveout())) - uintptr(unsafe.Pointer(&v)); got != 0 {
-			t.Errorf("offset of StreamAttrValueV1.SharedMemCarveout() = %d, want 0", got)
+			t.Errorf("offset of LaunchAttributeValue.SharedMemCarveout() = %d, want 0", got)
 		}
 		if got := unsafe.Sizeof(*v.SharedMemCarveout()); got != 4 {
-			t.Errorf("sizeof(*StreamAttrValueV1.SharedMemCarveout()) = %d, want 4", got)
+			t.Errorf("sizeof(*LaunchAttributeValue.SharedMemCarveout()) = %d, want 4", got)
 		}
 	}
-	{ // StreamAttrValueV1.NvlinkUtilCentricScheduling
-		var v StreamAttrValueV1
+	{ // LaunchAttributeValue.NvlinkUtilCentricScheduling
+		var v LaunchAttributeValue
 		if got := uintptr(unsafe.Pointer(v.NvlinkUtilCentricScheduling())) - uintptr(unsafe.Pointer(&v)); got != 0 {
-			t.Errorf("offset of StreamAttrValueV1.NvlinkUtilCentricScheduling() = %d, want 0", got)
+			t.Errorf("offset of LaunchAttributeValue.NvlinkUtilCentricScheduling() = %d, want 0", got)
 		}
 		if got := unsafe.Sizeof(*v.NvlinkUtilCentricScheduling()); got != 4 {
-			t.Errorf("sizeof(*StreamAttrValueV1.NvlinkUtilCentricScheduling()) = %d, want 4", got)
+			t.Errorf("sizeof(*LaunchAttributeValue.NvlinkUtilCentricScheduling()) = %d, want 4", got)
 		}
 	}
-	{ // StreamAttrValueV1.PortableClusterSizeMode
-		var v StreamAttrValueV1
+	{ // LaunchAttributeValue.PortableClusterSizeMode
+		var v LaunchAttributeValue
 		if got := uintptr(unsafe.Pointer(v.PortableClusterSizeMode())) - uintptr(unsafe.Pointer(&v)); got != 0 {
-			t.Errorf("offset of StreamAttrValueV1.PortableClusterSizeMode() = %d, want 0", got)
+			t.Errorf("offset of LaunchAttributeValue.PortableClusterSizeMode() = %d, want 0", got)
 		}
 		if got := unsafe.Sizeof(*v.PortableClusterSizeMode()); got != 4 {
-			t.Errorf("sizeof(*StreamAttrValueV1.PortableClusterSizeMode()) = %d, want 4", got)
+			t.Errorf("sizeof(*LaunchAttributeValue.PortableClusterSizeMode()) = %d, want 4", got)
 		}
 	}
-	{ // StreamAttrValueV1.SharedMemoryMode
-		var v StreamAttrValueV1
+	{ // LaunchAttributeValue.SharedMemoryMode
+		var v LaunchAttributeValue
 		if got := uintptr(unsafe.Pointer(v.SharedMemoryMode())) - uintptr(unsafe.Pointer(&v)); got != 0 {
-			t.Errorf("offset of StreamAttrValueV1.SharedMemoryMode() = %d, want 0", got)
+			t.Errorf("offset of LaunchAttributeValue.SharedMemoryMode() = %d, want 0", got)
 		}
 		if got := unsafe.Sizeof(*v.SharedMemoryMode()); got != 4 {
-			t.Errorf("sizeof(*StreamAttrValueV1.SharedMemoryMode()) = %d, want 4", got)
+			t.Errorf("sizeof(*LaunchAttributeValue.SharedMemoryMode()) = %d, want 4", got)
 		}
 	}
 	if got := unsafe.Sizeof(LaunchAttribute{}); got != 72 {
@@ -713,29 +758,29 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(LaunchAttribute{}.Value); got != 8 {
 		t.Errorf("offsetof(LaunchAttribute.Value) = %d, want 8", got)
 	}
-	if got := unsafe.Sizeof(LaunchConfig{}); got != 56 {
-		t.Errorf("sizeof(LaunchConfig) = %d, want 56", got)
+	if got := unsafe.Sizeof(cLaunchConfig{}); got != 56 {
+		t.Errorf("sizeof(cLaunchConfig) = %d, want 56", got)
 	}
-	if got := unsafe.Alignof(LaunchConfig{}); got != 8 {
-		t.Errorf("alignof(LaunchConfig) = %d, want 8", got)
+	if got := unsafe.Alignof(cLaunchConfig{}); got != 8 {
+		t.Errorf("alignof(cLaunchConfig) = %d, want 8", got)
 	}
-	if got := unsafe.Offsetof(LaunchConfig{}.GridDim); got != 0 {
-		t.Errorf("offsetof(LaunchConfig.GridDim) = %d, want 0", got)
+	if got := unsafe.Offsetof(cLaunchConfig{}.GridDim); got != 0 {
+		t.Errorf("offsetof(cLaunchConfig.GridDim) = %d, want 0", got)
 	}
-	if got := unsafe.Offsetof(LaunchConfig{}.BlockDim); got != 12 {
-		t.Errorf("offsetof(LaunchConfig.BlockDim) = %d, want 12", got)
+	if got := unsafe.Offsetof(cLaunchConfig{}.BlockDim); got != 12 {
+		t.Errorf("offsetof(cLaunchConfig.BlockDim) = %d, want 12", got)
 	}
-	if got := unsafe.Offsetof(LaunchConfig{}.SharedMemBytes); got != 24 {
-		t.Errorf("offsetof(LaunchConfig.SharedMemBytes) = %d, want 24", got)
+	if got := unsafe.Offsetof(cLaunchConfig{}.SharedMemBytes); got != 24 {
+		t.Errorf("offsetof(cLaunchConfig.SharedMemBytes) = %d, want 24", got)
 	}
-	if got := unsafe.Offsetof(LaunchConfig{}.HStream); got != 32 {
-		t.Errorf("offsetof(LaunchConfig.HStream) = %d, want 32", got)
+	if got := unsafe.Offsetof(cLaunchConfig{}.HStream); got != 32 {
+		t.Errorf("offsetof(cLaunchConfig.HStream) = %d, want 32", got)
 	}
-	if got := unsafe.Offsetof(LaunchConfig{}.Attrs); got != 40 {
-		t.Errorf("offsetof(LaunchConfig.Attrs) = %d, want 40", got)
+	if got := unsafe.Offsetof(cLaunchConfig{}.Attrs); got != 40 {
+		t.Errorf("offsetof(cLaunchConfig.Attrs) = %d, want 40", got)
 	}
-	if got := unsafe.Offsetof(LaunchConfig{}.NumAttrs); got != 48 {
-		t.Errorf("offsetof(LaunchConfig.NumAttrs) = %d, want 48", got)
+	if got := unsafe.Offsetof(cLaunchConfig{}.NumAttrs); got != 48 {
+		t.Errorf("offsetof(cLaunchConfig.NumAttrs) = %d, want 48", got)
 	}
 	if got := unsafe.Sizeof(ExecAffinitySmCount{}); got != 4 {
 		t.Errorf("sizeof(ExecAffinitySmCount) = %d, want 4", got)

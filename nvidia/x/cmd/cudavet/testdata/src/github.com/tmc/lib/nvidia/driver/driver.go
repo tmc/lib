@@ -150,7 +150,7 @@ type Function uintptr
 func (f Function) LaunchKernel(gridDim Dim3, blockDim Dim3, sharedMemBytes uint32, hStream Stream, kernelParams []unsafe.Pointer) error {
 	return nil
 }
-func (f Function) LaunchKernelEx(config *LaunchConfig, kernelParams []unsafe.Pointer, extra *uintptr) error {
+func (f Function) LaunchKernelEx(config *LaunchConfig, kernelParams []unsafe.Pointer) error {
 	return nil
 }
 func (f Function) LaunchGrid(gridWidth int32, gridHeight int32) error       { return nil }
@@ -161,7 +161,12 @@ type LaunchConfig struct {
 	BlockDim       Dim3
 	SharedMemBytes uint32
 	HStream        Stream
+	Attrs          []LaunchAttribute
 }
+
+type LaunchAttributeID int32
+
+type LaunchAttribute struct{ Id LaunchAttributeID }
 
 type Graph uintptr
 
