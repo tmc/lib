@@ -26,9 +26,11 @@ const (
 )
 
 type objectTool struct {
-	images map[string]*objectImage
-	ptx    *objectImage
-	tileir *objectImage
+	images  map[string]*objectImage
+	ptx     *objectImage
+	tileir  *objectImage
+	capture *cudacapture.Capture
+	dir     string
 }
 
 type objectImage struct {
@@ -39,6 +41,7 @@ type objectImage struct {
 
 type objectFunction struct {
 	name         string
+	artifact     string
 	start, end   uint64
 	instructions []driver.Inst
 }
@@ -74,8 +77,10 @@ func newObjectTool(c *cudacapture.Capture, code *cudacapture.Code, dir string) (
 	}
 
 	tool := &objectTool{
-		images: map[string]*objectImage{sass.file: sass, ptx.file: ptx},
-		ptx:    ptx,
+		images:  map[string]*objectImage{sass.file: sass, ptx.file: ptx},
+		ptx:     ptx,
+		capture: c,
+		dir:     dir,
 	}
 
 	if c.Code.TileIR != "" && len(c.Files[c.Code.TileIR]) > 0 {
