@@ -140,18 +140,46 @@ func TestCanonicalKeyIncludesStructureAndDimensionBounds(t *testing.T) {
 			t.Fatalf("different einsum structures share key: %q vs %q", pair[0].Nodes[2].Equation, pair[1].Nodes[2].Equation)
 		}
 	}
-	withMetrics := func(macs, elements uint64) *Graph {
+	withMetrics := func(macs, elements, outputElements uint64) *Graph {
 		return &Graph{Nodes: []EinsumNode{
 			{ID: "input", OutputRank: 1, OutputTensors: []TensorInfo{{Name: "x", Elements: 4}}},
 			{ID: "op", Equation: "A->A", Inputs: []string{"input"}, MACs: macs,
-				InputTensors: []TensorInfo{{Name: "x", Elements: elements}}, OutputTensors: []TensorInfo{{Name: "y", Elements: 4}}},
+				InputTensors: []TensorInfo{{Name: "x", Elements: elements}}, OutputTensors: []TensorInfo{{Name: "y", Elements: outputElements}}},
 		}}
 	}
-	if CanonicalKey(withMetrics(10, 4)) == CanonicalKey(withMetrics(11, 4)) {
+	if CanonicalKey(withMetrics(10, 4, 4)) == CanonicalKey(withMetrics(11, 4, 4)) {
 		t.Fatal("MAC count was omitted from canonical key")
 	}
-	if CanonicalKey(withMetrics(10, 4)) == CanonicalKey(withMetrics(10, 5)) {
+	if CanonicalKey(withMetrics(10, 4, 4)) == CanonicalKey(withMetrics(10, 5, 4)) {
 		t.Fatal("input element count was omitted from canonical key")
+	}
+	if CanonicalKey(withMetrics(10, 4, 4)) == CanonicalKey(withMetrics(10, 4, 5)) {
+		t.Fatal("output element count was omitted from canonical key")
+	}
+	canonicalA, err := CanonicalizeRanks(withMetrics(10, 4, 4))
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonicalB, err := CanonicalizeRanks(withMetrics(10, 4, 5))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ceiling := Ceiling{MACsPerCycle: 100, BytesPerCycle: 100, FrequencyGHz: 1, BytesPerElement: 2}
+	costA, err := ComputeSOLBounds(canonicalA, ceiling)
+	if err != nil {
+		t.Fatal(err)
+	}
+	costB, err := ComputeSOLBounds(canonicalB, ceiling)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if costA.Unfused == costB.Unfused {
+		t.Fatalf("output element count did not change SOL cost: %+v vs %+v", costA, costB)
+	}
+	otherOpsA := &Graph{Nodes: []EinsumNode{{ID: "input", OutputRank: 1}, {ID: "op", Equation: "A->A", Inputs: []string{"input"}, OtherOps: 1}}}
+	otherOpsB := &Graph{Nodes: []EinsumNode{{ID: "input", OutputRank: 1}, {ID: "op", Equation: "A->A", Inputs: []string{"input"}, OtherOps: 2}}}
+	if CanonicalKey(otherOpsA) == CanonicalKey(otherOpsB) {
+		t.Fatal("OtherOps was omitted from canonical key")
 	}
 }
 
@@ -205,5 +233,63 @@ func TestLabelTokenSequence(t *testing.T) {
 		if got := string(labelToken(index)); got != want {
 			t.Errorf("labelToken(%d) = %q, want %q", index, got, want)
 		}
+	}
+}
+
+func TestCanonicalizeRanksRejectsFreshShapeConflictsInBothDirections(t *testing.T) {
+	for _, tc := range []struct{ name, first, second, rank string }{
+		{"rank-I", "ij->ji", "ij->ij", "I"},
+		{"rank-J", "ij->ij", "ji->ij", "J"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := &Graph{Nodes: []EinsumNode{
+				{ID: "input", OutputRank: 2},
+				{ID: "first", Equation: tc.first, Inputs: []string{"input"}},
+				{ID: "fresh", Equation: tc.second, Inputs: []string{"first"}},
+			}, Shape: map[string]string{"I": "64", "J": "64"}}
+			_, err := CanonicalizeRanks(g)
+			if err == nil || !strings.Contains(err.Error(), `shape rank "`+tc.rank+`"`) {
+				t.Fatalf("error = %v, want conflict for rank %s", err, tc.rank)
+			}
+		})
+	}
+}
+
+func TestCanonicalizeRanksRejectsDuplicateFreshShapeRankInEitherNodeOrder(t *testing.T) {
+	a := EinsumNode{ID: "external-a", Equation: "i->i", Inputs: []string{""}}
+	b := EinsumNode{ID: "external-b", Equation: "i->i", Inputs: []string{""}}
+	for _, nodes := range [][]EinsumNode{{a, b}, {b, a}} {
+		g := &Graph{Nodes: nodes, Shape: map[string]string{"I": "64"}}
+		if _, err := CanonicalizeRanks(g); err == nil || !strings.Contains(err.Error(), `shape rank "I"`) {
+			t.Fatalf("nodes=%v error=%v, want shared-rank conflict", nodes, err)
+		}
+	}
+}
+
+func TestCanonicalizeRanksShapeNamespaceIsSharedAcrossNodes(t *testing.T) {
+	g := &Graph{Nodes: []EinsumNode{
+		{ID: "first", Equation: "i->i", Inputs: []string{""}},
+		{ID: "second", Equation: "j->j", Inputs: []string{""}},
+	}, Shape: map[string]string{"I": "64", "J": "64"}}
+	c, err := CanonicalizeRanks(g)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Nodes[0].Equation != "A->A" || c.Nodes[1].Equation != "B->B" || c.Shape["A"] != "64" || c.Shape["B"] != "64" {
+		t.Fatalf("shared shape namespace mapping = equations %q,%q shape %v", c.Nodes[0].Equation, c.Nodes[1].Equation, c.Shape)
+	}
+}
+
+func TestCanonicalizeRanksPreservesLowercaseShapeKeys(t *testing.T) {
+	g := &Graph{Nodes: []EinsumNode{{ID: "external", Equation: "i->i", Inputs: []string{""}}}, Shape: map[string]string{"i": "64"}}
+	c, err := CanonicalizeRanks(g)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Shape["i"] != "64" {
+		t.Fatalf("lower-case shape key was not preserved: %v", c.Shape)
+	}
+	if _, ok := c.Shape["A"]; ok {
+		t.Fatalf("lower-case key was upper-cased: %v", c.Shape)
 	}
 }

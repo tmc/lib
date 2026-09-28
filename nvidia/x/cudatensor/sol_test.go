@@ -101,6 +101,28 @@ func TestComputeSOLBounds_FusedSharedInputTieUsesSmallestNodeID(t *testing.T) {
 	}
 }
 
+func TestComputeSOLBounds_TieBreakIDIsIndependentOfOutputSize(t *testing.T) {
+	largeOutput := EinsumNode{ID: "a-large-output", Equation: "A->A", Inputs: []string{"input"}, MACs: 15,
+		InputTensors: []TensorInfo{{Name: "shared", Elements: 500}}, OutputTensors: []TensorInfo{{Name: "large", Elements: 1000}}}
+	smallOutput := EinsumNode{ID: "z-small-output", Equation: "A->A", Inputs: []string{"input"}, MACs: 15,
+		InputTensors: []TensorInfo{{Name: "shared", Elements: 500}}, OutputTensors: []TensorInfo{{Name: "small", Elements: 1}}}
+	for _, nodes := range [][]EinsumNode{{largeOutput, smallOutput}, {smallOutput, largeOutput}} {
+		graph := &Graph{Nodes: []EinsumNode{{ID: "input", OutputRank: 1, OutputTensors: []TensorInfo{{Name: "shared", Elements: 500}}}}}
+		graph.Nodes = append(graph.Nodes, nodes...)
+		canonical, err := CanonicalizeRanks(graph)
+		if err != nil {
+			t.Fatal(err)
+		}
+		report, err := ComputeSOLBounds(canonical, Ceiling{MACsPerCycle: 1, BytesPerCycle: 100, FrequencyGHz: 1, BytesPerElement: 2})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if report.Fused != 45e-9 {
+			t.Fatalf("Fused = %.12g, want 45e-9 (ID a-large-output owns shared read)", report.Fused)
+		}
+	}
+}
+
 func TestComputeSOLBounds_ProducedWeightRemainsExternal(t *testing.T) {
 	g := &Graph{Nodes: []EinsumNode{
 		{ID: "weight", OutputRank: 1, OutputTensors: []TensorInfo{{Name: "source", Elements: 4, Weight: true}}},
