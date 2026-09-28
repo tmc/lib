@@ -6166,10 +6166,11 @@
           "-output",
           "${OUTPUT_DIR}"
         ],
-        "comparison": "All 15 outputs regenerated into the committed package from the recorded recipe and pinned header. gen.CheckAPIRemoval dropped no exported declaration.",
+        "comparison": "All recorded outputs regenerated with the recorded recipe; package compile and API review recorded in the release receipt. GPU qualification is separate.",
         "cwd": "${CODEGEN_REPO}",
         "environment": {
-          "GOWORK": "off"
+          "GOWORK": "off",
+          "GOTOOLCHAIN": "go1.27.0"
         },
         "outputs": [
           {
@@ -6181,17 +6182,16 @@
             "sha256": "5ddcf96f09cce36ac24c8a7aa3f32759d3a532720429ccc5d8b4805808b799c9"
           },
           {
-            "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/cutensor/enums.gen.go",
             "sha256": "779bff78375915cb4652ab94c2483ce5c93708dd914d151ca8d152e3931d1c89"
           },
           {
             "path": "nvidia/cutensor/funcs.gen.go",
-            "sha256": "19f47dcd8cc49de6ef4e93233472cf6578b771e88de4faf11ef1ffdd63934d38"
+            "sha256": "8eb4f01b9bae00ad302ac1b3af84ec0e7c36889ee4a9eb4b5d569ffd0b5211b1"
           },
           {
             "path": "nvidia/cutensor/handle.gen.go",
-            "sha256": "96f410c61e09d529fe9b722e0168520908632277cc0ab0f71ad3c51c67be2c76"
+            "sha256": "7c968187c1e2d97f2e0b4b57fc244365e1b7eadbc18fe4136933dcb0dbf65e9b"
           },
           {
             "path": "nvidia/cutensor/handles.gen.go",
@@ -6215,15 +6215,23 @@
           },
           {
             "path": "nvidia/cutensor/operation_descriptor.gen.go",
-            "sha256": "c4c5bb5ccfb10b9617fe1d702831b20a56c8d73bd4e4005be39e36a5d2619855"
+            "sha256": "2b32fc7f8e0fcaec40c6366bacaa23f6b88969ceb8de4f323337c7438e59067b"
           },
           {
             "path": "nvidia/cutensor/plan.gen.go",
-            "sha256": "b37446e02b3469225c2351cc273da49e5040149c547999865b93cebcb98e668b"
+            "sha256": "c1a668e95b0891d806f657601e4211ec458e38a37fb2fa218fc83d6f15a5e7e4"
           },
           {
             "path": "nvidia/cutensor/plan_preference.gen.go",
-            "sha256": "91feac937af0e46fba03dad9d70e72d3a444ab530acf7beda46420d402c8a99c"
+            "sha256": "81d10fb714a4d599567960da82d593c353412cd36f98bcb1bbc1207aec9c0067"
+          },
+          {
+            "path": "nvidia/cutensor/provenance.gen.go",
+            "sha256": "a6e7b05e58ee3ad2670bbf6f92b476641f3a4b9b2b46bfebe3df1ae45a3006b7"
+          },
+          {
+            "path": "nvidia/cutensor/provenance.json",
+            "sha256": "87005d50a81d220982c3af22942cb17ef8be3f39b47166fac035fa64ca8342fe"
           },
           {
             "path": "nvidia/cutensor/result.gen.go",
@@ -6240,7 +6248,8 @@
         ],
         "toolchain": {
           "go": "go version go1.27.0 darwin/arm64"
-        }
+        },
+        "source_state": "clean tracked libgen sources at 3005ecfdb35134468c9a9d93532ee08f6c7c53cf"
       },
       "header": {
         "path": "libcutensor/cutensor.h",
@@ -6251,10 +6260,10 @@
       "package": "github.com/tmc/lib/nvidia/cutensor",
       "repositories": {
         "codegen": {
-          "commit": "f3b353d8a96b8ed1bd7891a404598de9405d0602",
+          "commit": "3005ecfdb35134468c9a9d93532ee08f6c7c53cf",
           "note": "Unpublished at the time of recording; it is the commit this generation was taken from. The later commit a96f510 fixes the cublas and cublaslt surveys and does not affect this package. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c; regenerate at libgen f3b353d8, dropping the header's claim that descCompute sets the alpha and beta type",
           "url": "https://github.com/tmc/libgen.git",
-          "tree": "4280ab00c95b6a9b98b65792dc47aa73e98d1ebe"
+          "tree": "c4c5a286244f546c9503a20d3b38bb8c46acbdb2"
         },
         "headers": {
           "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",

@@ -442,31 +442,31 @@ func fnLoggerSetMask(a0 int32) Result {
 }
 
 // fnoperationDescriptorGetAttribute calls cutensorOperationDescriptorGetAttribute.
-func fnoperationDescriptorGetAttribute(a0 Handle, a1 OperationDescriptor, a2 OperationdescriptorattributeT, a3 uintptr, a4 uint) Result {
+func fnoperationDescriptorGetAttribute(a0 Handle, a1 OperationDescriptor, a2 OperationdescriptorattributeT, a3 unsafe.Pointer, a4 uint) Result {
 	r1, _ := ffiCallWidths5(symoperationDescriptorGetAttribute, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
 
 // fnoperationDescriptorSetAttribute calls cutensorOperationDescriptorSetAttribute.
-func fnoperationDescriptorSetAttribute(a0 Handle, a1 OperationDescriptor, a2 OperationdescriptorattributeT, a3 uintptr, a4 uint) Result {
+func fnoperationDescriptorSetAttribute(a0 Handle, a1 OperationDescriptor, a2 OperationdescriptorattributeT, a3 unsafe.Pointer, a4 uint) Result {
 	r1, _ := ffiCallWidths5(symoperationDescriptorSetAttribute, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
 
 // fnplanGetAttribute calls cutensorPlanGetAttribute.
-func fnplanGetAttribute(a0 Handle, a1 Plan, a2 PlanattributeT, a3 uintptr, a4 uint) Result {
+func fnplanGetAttribute(a0 Handle, a1 Plan, a2 PlanattributeT, a3 unsafe.Pointer, a4 uint) Result {
 	r1, _ := ffiCallWidths5(symplanGetAttribute, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
 
 // fnplanPreferenceGetAttribute calls cutensorPlanPreferenceGetAttribute.
-func fnplanPreferenceGetAttribute(a0 Handle, a1 PlanPreference, a2 PlanpreferenceattributeT, a3 uintptr, a4 uint) Result {
+func fnplanPreferenceGetAttribute(a0 Handle, a1 PlanPreference, a2 PlanpreferenceattributeT, a3 unsafe.Pointer, a4 uint) Result {
 	r1, _ := ffiCallWidths5(symplanPreferenceGetAttribute, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
 
 // fnplanPreferenceSetAttribute calls cutensorPlanPreferenceSetAttribute.
-func fnplanPreferenceSetAttribute(a0 Handle, a1 PlanPreference, a2 PlanpreferenceattributeT, a3 uintptr, a4 uint) Result {
+func fnplanPreferenceSetAttribute(a0 Handle, a1 PlanPreference, a2 PlanpreferenceattributeT, a3 unsafe.Pointer, a4 uint) Result {
 	r1, _ := ffiCallWidths5(symplanPreferenceSetAttribute, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
@@ -719,6 +719,31 @@ var slotCreate outSlot[Handle]
 // The user is responsible for calling [OperationDescriptor.Close] to free the resources associated with the descriptor.
 // Supported data-type combinations are:
 //
+//	typeA        typeB        typeC        descCompute                   typeScalar  Tensor Core
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_16F   CUTENSOR_COMPUTE_DESC_32F     CUDA_R_32F  Volta+
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_16BF  CUTENSOR_COMPUTE_DESC_32F     CUDA_R_32F  Ampere+
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_32F     CUDA_R_32F  No
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_TF32    CUDA_R_32F  Ampere+
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_3XTF32  CUDA_R_32F  Ampere+
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_16BF    CUDA_R_32F  Ampere+
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_16F     CUDA_R_32F  Volta+
+//	CUDA_R_64F   CUDA_R_64F   CUDA_R_64F   CUTENSOR_COMPUTE_DESC_64F     CUDA_R_64F  Ampere+
+//	CUDA_R_64F   CUDA_R_64F   CUDA_R_64F   CUTENSOR_COMPUTE_DESC_32F     CUDA_R_64F  No
+//	CUDA_C_32F   CUDA_C_32F   CUDA_C_32F   CUTENSOR_COMPUTE_DESC_32F     CUDA_C_32F  No
+//	CUDA_C_32F   CUDA_C_32F   CUDA_C_32F   CUTENSOR_COMPUTE_DESC_TF32    CUDA_C_32F  Ampere+
+//	CUDA_C_32F   CUDA_C_32F   CUDA_C_32F   CUTENSOR_COMPUTE_DESC_3XTF32  CUDA_C_32F  Ampere+
+//	CUDA_C_64F   CUDA_C_64F   CUDA_C_64F   CUTENSOR_COMPUTE_DESC_64F     CUDA_C_64F  Ampere+
+//	CUDA_C_64F   CUDA_C_64F   CUDA_C_64F   CUTENSOR_COMPUTE_DESC_32F     CUDA_C_64F  No
+//	CUDA_R_64F   CUDA_C_64F   CUDA_C_64F   CUTENSOR_COMPUTE_DESC_64F     CUDA_C_64F  No
+//	CUDA_C_64F   CUDA_R_64F   CUDA_C_64F   CUTENSOR_COMPUTE_DESC_64F     CUDA_C_64F  No
+//	CUDA_R_64F   CUDA_R_64F   CUDA_R_64F   CUTENSOR_COMPUTE_DESC_8XINT8  CUDA_R_64F  Hopper+
+//	CUDA_C_64F   CUDA_C_64F   CUDA_C_64F   CUTENSOR_COMPUTE_DESC_8XINT8  CUDA_C_64F  Hopper+
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_9X16BF  CUDA_R_32F  Hopper+
+//	CUDA_C_32F   CUDA_C_32F   CUDA_C_32F   CUTENSOR_COMPUTE_DESC_9X16BF  CUDA_C_32F  Hopper+
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_4X16F   CUDA_R_32F  Blackwell+
+//	CUDA_C_32F   CUDA_C_32F   CUDA_C_32F   CUTENSOR_COMPUTE_DESC_4X16F   CUDA_C_32F  Blackwell+
+//
+// Parameters:
 //   - handle: Opaque handle holding cuTENSOR’s library context
 //   - desc: This opaque struct gets allocated and filled with the information that encodes the tensor contraction operation
 //   - descA: The descriptor that holds the information about the data type, modes and strides of A
@@ -822,17 +847,19 @@ var slotCreateContractionTrinary outSlot[OperationDescriptor]
 // D_(Π^(C)(i₀,i₁,...,iₙ))=Φ_(AC)(αop_(A)(A_(Π^(A)(i₀,i₁,...,iₙ))),γop_(C)(C_(Π^(C)(i₀,i₁,...,iₙ))))
 // Call [Handle.ElementwiseBinaryExecute] to perform the actual operation.
 // Supported data-type combinations are:
-//   - typeA: CUDA_R_16F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_16F
-//   - typeA: CUDA_R_16F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_16BF; typeC: CUDA_R_16BF; descCompute: CUTENSOR_COMPUTE_DESC_16BF
-//   - typeA: CUDA_R_16BF; typeC: CUDA_R_16BF; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_32F; typeC: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_64F; typeC: CUDA_R_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
-//   - typeA: CUDA_C_32F; typeC: CUDA_C_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_C_64F; typeC: CUDA_C_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
-//   - typeA: CUDA_R_32F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_64F; typeC: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_64F
-//   - typeA: CUDA_C_64F; typeC: CUDA_C_32F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//
+//	typeA        typeC        descCompute
+//	CUDA_R_16F   CUDA_R_16F   CUTENSOR_COMPUTE_DESC_16F
+//	CUDA_R_16F   CUDA_R_16F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_16BF  CUDA_R_16BF  CUTENSOR_COMPUTE_DESC_16BF
+//	CUDA_R_16BF  CUDA_R_16BF  CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_32F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_64F   CUDA_R_64F   CUTENSOR_COMPUTE_DESC_64F
+//	CUDA_C_32F   CUDA_C_32F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_C_64F   CUDA_C_64F   CUTENSOR_COMPUTE_DESC_64F
+//	CUDA_R_32F   CUDA_R_16F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_64F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_64F
+//	CUDA_C_64F   CUDA_C_32F   CUTENSOR_COMPUTE_DESC_64F
 //
 // Remark:
 // calls asynchronous functions, no reentrant, and thread-safe
@@ -901,17 +928,19 @@ var slotCreateElementwiseBinary outSlot[OperationDescriptor]
 // Call [Handle.ElementwiseTrinaryExecute] to perform the actual operation.
 // Please use [OperationDescriptor.Close] to deallocated the descriptor once it is no longer used.
 // Supported data-type combinations are:
-//   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_16F
-//   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_16BF; typeB: CUDA_R_16BF; typeC: CUDA_R_16BF; descCompute: CUTENSOR_COMPUTE_DESC_16BF
-//   - typeA: CUDA_R_16BF; typeB: CUDA_R_16BF; typeC: CUDA_R_16BF; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_32F; typeB: CUDA_R_32F; typeC: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_64F; typeB: CUDA_R_64F; typeC: CUDA_R_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
-//   - typeA: CUDA_C_32F; typeB: CUDA_C_32F; typeC: CUDA_C_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_C_64F; typeB: CUDA_C_64F; typeC: CUDA_C_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
-//   - typeA: CUDA_R_32F; typeB: CUDA_R_32F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_64F; typeB: CUDA_R_64F; typeC: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_64F
-//   - typeA: CUDA_C_64F; typeB: CUDA_C_64F; typeC: CUDA_C_32F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//
+//	typeA        typeB        typeC        descCompute
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_16F   CUTENSOR_COMPUTE_DESC_16F
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_16F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_16BF  CUTENSOR_COMPUTE_DESC_16BF
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_16BF  CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_64F   CUDA_R_64F   CUDA_R_64F   CUTENSOR_COMPUTE_DESC_64F
+//	CUDA_C_32F   CUDA_C_32F   CUDA_C_32F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_C_64F   CUDA_C_64F   CUDA_C_64F   CUTENSOR_COMPUTE_DESC_64F
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_16F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_64F   CUDA_R_64F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_64F
+//	CUDA_C_64F   CUDA_C_64F   CUDA_C_32F   CUTENSOR_COMPUTE_DESC_64F
 //
 // Remark:
 // calls asynchronous functions, no reentrant, and thread-safe
@@ -976,20 +1005,22 @@ var slotCreateElementwiseTrinary outSlot[OperationDescriptor]
 //   - each mode may appear in each tensor at most once.
 //
 // Supported data-type combinations are:
-//   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_16F
-//   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_16F; typeB: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_32F; typeB: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_16BF; typeB: CUDA_R_16BF; descCompute: CUTENSOR_COMPUTE_DESC_16BF
-//   - typeA: CUDA_R_16BF; typeB: CUDA_R_16BF; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_32F; typeB: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_64F; typeB: CUDA_R_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
-//   - typeA: CUDA_R_32F; typeB: CUDA_R_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
-//   - typeA: CUDA_R_64F; typeB: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_64F
-//   - typeA: CUDA_C_32F; typeB: CUDA_C_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_C_64F; typeB: CUDA_C_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
-//   - typeA: CUDA_C_32F; typeB: CUDA_C_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
-//   - typeA: CUDA_C_64F; typeB: CUDA_C_32F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//
+//	typeA        typeB        descCompute
+//	CUDA_R_16F   CUDA_R_16F   CUTENSOR_COMPUTE_DESC_16F
+//	CUDA_R_16F   CUDA_R_16F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_16F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_32F   CUDA_R_16F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_16BF  CUDA_R_16BF  CUTENSOR_COMPUTE_DESC_16BF
+//	CUDA_R_16BF  CUDA_R_16BF  CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_32F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_64F   CUDA_R_64F   CUTENSOR_COMPUTE_DESC_64F
+//	CUDA_R_32F   CUDA_R_64F   CUTENSOR_COMPUTE_DESC_64F
+//	CUDA_R_64F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_64F
+//	CUDA_C_32F   CUDA_C_32F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_C_64F   CUDA_C_64F   CUTENSOR_COMPUTE_DESC_64F
+//	CUDA_C_32F   CUDA_C_64F   CUTENSOR_COMPUTE_DESC_64F
+//	CUDA_C_64F   CUDA_C_32F   CUTENSOR_COMPUTE_DESC_64F
 //
 // Remark:
 // calls asynchronous functions, no reentrant, and thread-safe
@@ -1096,14 +1127,16 @@ var slotCreatePlanPreference outSlot[PlanPreference]
 // This function is also able to perform partial reductions; for instance: C[i,j] = alpha * A[k,j,i]; in this case only elements along the k-mode are contracted.
 // The binary opReduce operator provides extra control over what kind of a reduction ought to be performed. For instance, setting opReduce to [OpAdd] reduces element of A via a summation while [OpMax] would find the largest element in A.
 // Supported data-type combinations are:
-//   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; typeC: CUDA_R_16F; typeCompute: CUTENSOR_COMPUTE_DESC_16F
-//   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; typeC: CUDA_R_16F; typeCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_16BF; typeB: CUDA_R_16BF; typeC: CUDA_R_16BF; typeCompute: CUTENSOR_COMPUTE_DESC_16BF
-//   - typeA: CUDA_R_16BF; typeB: CUDA_R_16BF; typeC: CUDA_R_16BF; typeCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_32F; typeB: CUDA_R_32F; typeC: CUDA_R_32F; typeCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_64F; typeB: CUDA_R_64F; typeC: CUDA_R_64F; typeCompute: CUTENSOR_COMPUTE_DESC_64F
-//   - typeA: CUDA_C_32F; typeB: CUDA_C_32F; typeC: CUDA_C_32F; typeCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_C_64F; typeB: CUDA_C_64F; typeC: CUDA_C_64F; typeCompute: CUTENSOR_COMPUTE_DESC_64F
+//
+//	typeA        typeB        typeC        typeCompute
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_16F   CUTENSOR_COMPUTE_DESC_16F
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_16F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_16BF  CUTENSOR_COMPUTE_DESC_16BF
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_16BF  CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_64F   CUDA_R_64F   CUDA_R_64F   CUTENSOR_COMPUTE_DESC_64F
+//	CUDA_C_32F   CUDA_C_32F   CUDA_C_32F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_C_64F   CUDA_C_64F   CUDA_C_64F   CUTENSOR_COMPUTE_DESC_64F
 //
 // Parameters:
 //   - handle: Opaque handle holding cuTENSOR’s library context
@@ -1550,7 +1583,7 @@ func LoggerSetMask(mask int32) error {
 //   - [ErrNotInitialized]: if the handle is not initialized.
 //
 // Wraps cutensorOperationDescriptorGetAttribute.
-func operationDescriptorGetAttribute(handle Handle, desc OperationDescriptor, attr OperationdescriptorattributeT, buf uintptr, sizeInBytes uint) error {
+func operationDescriptorGetAttribute(handle Handle, desc OperationDescriptor, attr OperationdescriptorattributeT, buf unsafe.Pointer, sizeInBytes uint) error {
 	if err := checkLibSym("cutensorOperationDescriptorGetAttribute"); err != nil {
 		return err
 	}
@@ -1572,7 +1605,7 @@ func operationDescriptorGetAttribute(handle Handle, desc OperationDescriptor, at
 //   - [ErrNotInitialized]: if the handle is not initialized.
 //
 // Wraps cutensorOperationDescriptorSetAttribute.
-func operationDescriptorSetAttribute(handle Handle, desc OperationDescriptor, attr OperationdescriptorattributeT, buf uintptr, sizeInBytes uint) error {
+func operationDescriptorSetAttribute(handle Handle, desc OperationDescriptor, attr OperationdescriptorattributeT, buf unsafe.Pointer, sizeInBytes uint) error {
 	if err := checkLibSym("cutensorOperationDescriptorSetAttribute"); err != nil {
 		return err
 	}
@@ -1627,7 +1660,7 @@ func permute(handle Handle, plan Plan, alpha Scalar, a driver.DevicePtr, b drive
 //   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
 //
 // Wraps cutensorPlanGetAttribute.
-func planGetAttribute(handle Handle, plan Plan, attr PlanattributeT, buf uintptr, sizeInBytes uint) error {
+func planGetAttribute(handle Handle, plan Plan, attr PlanattributeT, buf unsafe.Pointer, sizeInBytes uint) error {
 	if err := checkLibSym("cutensorPlanGetAttribute"); err != nil {
 		return err
 	}
@@ -1647,7 +1680,7 @@ func planGetAttribute(handle Handle, plan Plan, attr PlanattributeT, buf uintptr
 //   - [ErrNotInitialized]: if the handle is not initialized.
 //
 // Wraps cutensorPlanPreferenceGetAttribute.
-func planPreferenceGetAttribute(handle Handle, pref PlanPreference, attr PlanpreferenceattributeT, buf uintptr, sizeInBytes uint) error {
+func planPreferenceGetAttribute(handle Handle, pref PlanPreference, attr PlanpreferenceattributeT, buf unsafe.Pointer, sizeInBytes uint) error {
 	if err := checkLibSym("cutensorPlanPreferenceGetAttribute"); err != nil {
 		return err
 	}
@@ -1667,7 +1700,7 @@ func planPreferenceGetAttribute(handle Handle, pref PlanPreference, attr Planpre
 //   - [ErrNotInitialized]: if the handle is not initialized.
 //
 // Wraps cutensorPlanPreferenceSetAttribute.
-func planPreferenceSetAttribute(handle Handle, pref PlanPreference, attr PlanpreferenceattributeT, buf uintptr, sizeInBytes uint) error {
+func planPreferenceSetAttribute(handle Handle, pref PlanPreference, attr PlanpreferenceattributeT, buf unsafe.Pointer, sizeInBytes uint) error {
 	if err := checkLibSym("cutensorPlanPreferenceSetAttribute"); err != nil {
 		return err
 	}

@@ -98,6 +98,31 @@ func (h Handle) ContractTrinary(plan Plan, alpha Scalar, a driver.DevicePtr, b d
 // The user is responsible for calling [OperationDescriptor.Close] to free the resources associated with the descriptor.
 // Supported data-type combinations are:
 //
+//	typeA        typeB        typeC        descCompute                   typeScalar  Tensor Core
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_16F   CUTENSOR_COMPUTE_DESC_32F     CUDA_R_32F  Volta+
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_16BF  CUTENSOR_COMPUTE_DESC_32F     CUDA_R_32F  Ampere+
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_32F     CUDA_R_32F  No
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_TF32    CUDA_R_32F  Ampere+
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_3XTF32  CUDA_R_32F  Ampere+
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_16BF    CUDA_R_32F  Ampere+
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_16F     CUDA_R_32F  Volta+
+//	CUDA_R_64F   CUDA_R_64F   CUDA_R_64F   CUTENSOR_COMPUTE_DESC_64F     CUDA_R_64F  Ampere+
+//	CUDA_R_64F   CUDA_R_64F   CUDA_R_64F   CUTENSOR_COMPUTE_DESC_32F     CUDA_R_64F  No
+//	CUDA_C_32F   CUDA_C_32F   CUDA_C_32F   CUTENSOR_COMPUTE_DESC_32F     CUDA_C_32F  No
+//	CUDA_C_32F   CUDA_C_32F   CUDA_C_32F   CUTENSOR_COMPUTE_DESC_TF32    CUDA_C_32F  Ampere+
+//	CUDA_C_32F   CUDA_C_32F   CUDA_C_32F   CUTENSOR_COMPUTE_DESC_3XTF32  CUDA_C_32F  Ampere+
+//	CUDA_C_64F   CUDA_C_64F   CUDA_C_64F   CUTENSOR_COMPUTE_DESC_64F     CUDA_C_64F  Ampere+
+//	CUDA_C_64F   CUDA_C_64F   CUDA_C_64F   CUTENSOR_COMPUTE_DESC_32F     CUDA_C_64F  No
+//	CUDA_R_64F   CUDA_C_64F   CUDA_C_64F   CUTENSOR_COMPUTE_DESC_64F     CUDA_C_64F  No
+//	CUDA_C_64F   CUDA_R_64F   CUDA_C_64F   CUTENSOR_COMPUTE_DESC_64F     CUDA_C_64F  No
+//	CUDA_R_64F   CUDA_R_64F   CUDA_R_64F   CUTENSOR_COMPUTE_DESC_8XINT8  CUDA_R_64F  Hopper+
+//	CUDA_C_64F   CUDA_C_64F   CUDA_C_64F   CUTENSOR_COMPUTE_DESC_8XINT8  CUDA_C_64F  Hopper+
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_9X16BF  CUDA_R_32F  Hopper+
+//	CUDA_C_32F   CUDA_C_32F   CUDA_C_32F   CUTENSOR_COMPUTE_DESC_9X16BF  CUDA_C_32F  Hopper+
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_4X16F   CUDA_R_32F  Blackwell+
+//	CUDA_C_32F   CUDA_C_32F   CUDA_C_32F   CUTENSOR_COMPUTE_DESC_4X16F   CUDA_C_32F  Blackwell+
+//
+// Parameters:
 //   - desc: This opaque struct gets allocated and filled with the information that encodes the tensor contraction operation
 //   - descA: The descriptor that holds the information about the data type, modes and strides of A
 //   - modeA: Array with ‘nmodeA’ entries that represent the modes of A. The modeA[i] corresponds to extent[i] and stride[i] w.r.t. the arguments provided to cutensorInitTensorDescriptor
@@ -175,17 +200,19 @@ func (h Handle) CreateContractionTrinary(descA TensorDescriptor, modeA []int32, 
 // D_(Π^(C)(i₀,i₁,...,iₙ))=Φ_(AC)(αop_(A)(A_(Π^(A)(i₀,i₁,...,iₙ))),γop_(C)(C_(Π^(C)(i₀,i₁,...,iₙ))))
 // Call [Handle.ElementwiseBinaryExecute] to perform the actual operation.
 // Supported data-type combinations are:
-//   - typeA: CUDA_R_16F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_16F
-//   - typeA: CUDA_R_16F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_16BF; typeC: CUDA_R_16BF; descCompute: CUTENSOR_COMPUTE_DESC_16BF
-//   - typeA: CUDA_R_16BF; typeC: CUDA_R_16BF; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_32F; typeC: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_64F; typeC: CUDA_R_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
-//   - typeA: CUDA_C_32F; typeC: CUDA_C_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_C_64F; typeC: CUDA_C_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
-//   - typeA: CUDA_R_32F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_64F; typeC: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_64F
-//   - typeA: CUDA_C_64F; typeC: CUDA_C_32F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//
+//	typeA        typeC        descCompute
+//	CUDA_R_16F   CUDA_R_16F   CUTENSOR_COMPUTE_DESC_16F
+//	CUDA_R_16F   CUDA_R_16F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_16BF  CUDA_R_16BF  CUTENSOR_COMPUTE_DESC_16BF
+//	CUDA_R_16BF  CUDA_R_16BF  CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_32F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_64F   CUDA_R_64F   CUTENSOR_COMPUTE_DESC_64F
+//	CUDA_C_32F   CUDA_C_32F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_C_64F   CUDA_C_64F   CUTENSOR_COMPUTE_DESC_64F
+//	CUDA_R_32F   CUDA_R_16F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_64F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_64F
+//	CUDA_C_64F   CUDA_C_32F   CUTENSOR_COMPUTE_DESC_64F
 //
 // Remark:
 // calls asynchronous functions, no reentrant, and thread-safe
@@ -241,17 +268,19 @@ func (h Handle) CreateElementwiseBinary(descA TensorDescriptor, modeA []int32, o
 // Call [Handle.ElementwiseTrinaryExecute] to perform the actual operation.
 // Please use [OperationDescriptor.Close] to deallocated the descriptor once it is no longer used.
 // Supported data-type combinations are:
-//   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_16F
-//   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_16BF; typeB: CUDA_R_16BF; typeC: CUDA_R_16BF; descCompute: CUTENSOR_COMPUTE_DESC_16BF
-//   - typeA: CUDA_R_16BF; typeB: CUDA_R_16BF; typeC: CUDA_R_16BF; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_32F; typeB: CUDA_R_32F; typeC: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_64F; typeB: CUDA_R_64F; typeC: CUDA_R_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
-//   - typeA: CUDA_C_32F; typeB: CUDA_C_32F; typeC: CUDA_C_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_C_64F; typeB: CUDA_C_64F; typeC: CUDA_C_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
-//   - typeA: CUDA_R_32F; typeB: CUDA_R_32F; typeC: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_64F; typeB: CUDA_R_64F; typeC: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_64F
-//   - typeA: CUDA_C_64F; typeB: CUDA_C_64F; typeC: CUDA_C_32F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//
+//	typeA        typeB        typeC        descCompute
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_16F   CUTENSOR_COMPUTE_DESC_16F
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_16F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_16BF  CUTENSOR_COMPUTE_DESC_16BF
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_16BF  CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_64F   CUDA_R_64F   CUDA_R_64F   CUTENSOR_COMPUTE_DESC_64F
+//	CUDA_C_32F   CUDA_C_32F   CUDA_C_32F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_C_64F   CUDA_C_64F   CUDA_C_64F   CUTENSOR_COMPUTE_DESC_64F
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_16F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_64F   CUDA_R_64F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_64F
+//	CUDA_C_64F   CUDA_C_64F   CUDA_C_32F   CUTENSOR_COMPUTE_DESC_64F
 //
 // Remark:
 // calls asynchronous functions, no reentrant, and thread-safe
@@ -303,20 +332,22 @@ func (h Handle) CreateElementwiseTrinary(descA TensorDescriptor, modeA []int32, 
 //   - each mode may appear in each tensor at most once.
 //
 // Supported data-type combinations are:
-//   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_16F
-//   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_16F; typeB: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_32F; typeB: CUDA_R_16F; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_16BF; typeB: CUDA_R_16BF; descCompute: CUTENSOR_COMPUTE_DESC_16BF
-//   - typeA: CUDA_R_16BF; typeB: CUDA_R_16BF; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_32F; typeB: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_64F; typeB: CUDA_R_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
-//   - typeA: CUDA_R_32F; typeB: CUDA_R_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
-//   - typeA: CUDA_R_64F; typeB: CUDA_R_32F; descCompute: CUTENSOR_COMPUTE_DESC_64F
-//   - typeA: CUDA_C_32F; typeB: CUDA_C_32F; descCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_C_64F; typeB: CUDA_C_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
-//   - typeA: CUDA_C_32F; typeB: CUDA_C_64F; descCompute: CUTENSOR_COMPUTE_DESC_64F
-//   - typeA: CUDA_C_64F; typeB: CUDA_C_32F; descCompute: CUTENSOR_COMPUTE_DESC_64F
+//
+//	typeA        typeB        descCompute
+//	CUDA_R_16F   CUDA_R_16F   CUTENSOR_COMPUTE_DESC_16F
+//	CUDA_R_16F   CUDA_R_16F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_16F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_32F   CUDA_R_16F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_16BF  CUDA_R_16BF  CUTENSOR_COMPUTE_DESC_16BF
+//	CUDA_R_16BF  CUDA_R_16BF  CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_32F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_64F   CUDA_R_64F   CUTENSOR_COMPUTE_DESC_64F
+//	CUDA_R_32F   CUDA_R_64F   CUTENSOR_COMPUTE_DESC_64F
+//	CUDA_R_64F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_64F
+//	CUDA_C_32F   CUDA_C_32F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_C_64F   CUDA_C_64F   CUTENSOR_COMPUTE_DESC_64F
+//	CUDA_C_32F   CUDA_C_64F   CUTENSOR_COMPUTE_DESC_64F
+//	CUDA_C_64F   CUDA_C_32F   CUTENSOR_COMPUTE_DESC_64F
 //
 // Remark:
 // calls asynchronous functions, no reentrant, and thread-safe
@@ -384,14 +415,16 @@ func (h Handle) CreatePlanPreference(algo AlgoT, jitMode JitmodeT) (PlanPreferen
 // This function is also able to perform partial reductions; for instance: C[i,j] = alpha * A[k,j,i]; in this case only elements along the k-mode are contracted.
 // The binary opReduce operator provides extra control over what kind of a reduction ought to be performed. For instance, setting opReduce to [OpAdd] reduces element of A via a summation while [OpMax] would find the largest element in A.
 // Supported data-type combinations are:
-//   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; typeC: CUDA_R_16F; typeCompute: CUTENSOR_COMPUTE_DESC_16F
-//   - typeA: CUDA_R_16F; typeB: CUDA_R_16F; typeC: CUDA_R_16F; typeCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_16BF; typeB: CUDA_R_16BF; typeC: CUDA_R_16BF; typeCompute: CUTENSOR_COMPUTE_DESC_16BF
-//   - typeA: CUDA_R_16BF; typeB: CUDA_R_16BF; typeC: CUDA_R_16BF; typeCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_32F; typeB: CUDA_R_32F; typeC: CUDA_R_32F; typeCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_R_64F; typeB: CUDA_R_64F; typeC: CUDA_R_64F; typeCompute: CUTENSOR_COMPUTE_DESC_64F
-//   - typeA: CUDA_C_32F; typeB: CUDA_C_32F; typeC: CUDA_C_32F; typeCompute: CUTENSOR_COMPUTE_DESC_32F
-//   - typeA: CUDA_C_64F; typeB: CUDA_C_64F; typeC: CUDA_C_64F; typeCompute: CUTENSOR_COMPUTE_DESC_64F
+//
+//	typeA        typeB        typeC        typeCompute
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_16F   CUTENSOR_COMPUTE_DESC_16F
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_16F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_16BF  CUTENSOR_COMPUTE_DESC_16BF
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_16BF  CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_32F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_R_64F   CUDA_R_64F   CUDA_R_64F   CUTENSOR_COMPUTE_DESC_64F
+//	CUDA_C_32F   CUDA_C_32F   CUDA_C_32F   CUTENSOR_COMPUTE_DESC_32F
+//	CUDA_C_64F   CUDA_C_64F   CUDA_C_64F   CUTENSOR_COMPUTE_DESC_64F
 //
 // Parameters:
 //   - desc: This opaque struct gets allocated and filled with the information that encodes the requested tensor reduction operation

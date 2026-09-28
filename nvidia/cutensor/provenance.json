@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "generator": "github.com/tmc/libgen/cmd/cutensor-survey",
+  "upstream_version": "unrecorded",
+  "version_source": "unrecorded",
+  "cwd": ".",
+  "argv": [
+    "cutensor-survey",
+    "-header",
+    "cutensor.h",
+    "-headers-dir",
+    "cuda-headers",
+    "-output",
+    "${OUTPUT_DIR}"
+  ],
+  "inputs": [
+    {
+      "path": "cutensor.h",
+      "sha256": "edebfe038e91ce0c662a60e85f22e555bb2dec8d662f71f32491a33736cdf62c"
+    }
+  ],
+  "source_hash": "a7490d296cc459ae0058242fdbcedf44dfdfeae8649315b5a156a12db93a72df",
+  "limitations": [
+    "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
+    "argv records portable argument names; host-specific paths are intentionally redacted.",
+    "cwd is recorded as . to avoid embedding the generator host path."
+  ]
+}

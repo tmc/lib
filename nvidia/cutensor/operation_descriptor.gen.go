@@ -2,6 +2,10 @@
 
 package cutensor
 
+import (
+	"unsafe"
+)
+
 // Attribute retrieves an attribute of the provided [OperationDescriptor] object (see [OperationdescriptorattributeT]).
 //
 // Block-sparse contraction descriptors only support the attributes [OperationDescriptorScalarType], [OperationDescriptorMovedBytes], and [OperationDescriptorBlocksparseReproducible].
@@ -16,7 +20,7 @@ package cutensor
 //   - [ErrNotInitialized]: if the handle is not initialized.
 //
 // Wraps cutensorOperationDescriptorGetAttribute.
-func (o OperationDescriptor) Attribute(handle Handle, attr OperationdescriptorattributeT, buf uintptr, sizeInBytes uint) error {
+func (o OperationDescriptor) Attribute(handle Handle, attr OperationdescriptorattributeT, buf unsafe.Pointer, sizeInBytes uint) error {
 	return operationDescriptorGetAttribute(handle, o, attr, buf, sizeInBytes)
 }
 
@@ -55,6 +59,6 @@ func (o *OperationDescriptor) Close() error {
 //   - [ErrNotInitialized]: if the handle is not initialized.
 //
 // Wraps cutensorOperationDescriptorSetAttribute.
-func (o OperationDescriptor) SetAttribute(handle Handle, attr OperationdescriptorattributeT, buf uintptr, sizeInBytes uint) error {
+func (o OperationDescriptor) SetAttribute(handle Handle, attr OperationdescriptorattributeT, buf unsafe.Pointer, sizeInBytes uint) error {
 	return operationDescriptorSetAttribute(handle, o, attr, buf, sizeInBytes)
 }

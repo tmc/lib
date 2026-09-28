@@ -2,6 +2,10 @@
 
 package cutensor
 
+import (
+	"unsafe"
+)
+
 // Attribute retrieves information about an already-created plan (see [PlanattributeT])
 //
 // Block-sparse contraction plans only support [PlanRequiredWorkspace].
@@ -14,7 +18,7 @@ package cutensor
 //   - [ErrInvalidValue]: if some input data is invalid (this typically indicates an user error).
 //
 // Wraps cutensorPlanGetAttribute.
-func (p Plan) Attribute(handle Handle, attr PlanattributeT, buf uintptr, sizeInBytes uint) error {
+func (p Plan) Attribute(handle Handle, attr PlanattributeT, buf unsafe.Pointer, sizeInBytes uint) error {
 	return planGetAttribute(handle, p, attr, buf, sizeInBytes)
 }
 

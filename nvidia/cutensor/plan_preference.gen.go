@@ -2,6 +2,10 @@
 
 package cutensor
 
+import (
+	"unsafe"
+)
+
 // Attribute gets attribute of a [PlanPreference] object.
 //
 //   - handle: Opaque handle holding cuTENSOR’s library context
@@ -14,7 +18,7 @@ package cutensor
 //   - [ErrNotInitialized]: if the handle is not initialized.
 //
 // Wraps cutensorPlanPreferenceGetAttribute.
-func (p PlanPreference) Attribute(handle Handle, attr PlanpreferenceattributeT, buf uintptr, sizeInBytes uint) error {
+func (p PlanPreference) Attribute(handle Handle, attr PlanpreferenceattributeT, buf unsafe.Pointer, sizeInBytes uint) error {
 	return planPreferenceGetAttribute(handle, p, attr, buf, sizeInBytes)
 }
 
@@ -51,6 +55,6 @@ func (p *PlanPreference) Close() error {
 //   - [ErrNotInitialized]: if the handle is not initialized.
 //
 // Wraps cutensorPlanPreferenceSetAttribute.
-func (p PlanPreference) SetAttribute(handle Handle, attr PlanpreferenceattributeT, buf uintptr, sizeInBytes uint) error {
+func (p PlanPreference) SetAttribute(handle Handle, attr PlanpreferenceattributeT, buf unsafe.Pointer, sizeInBytes uint) error {
 	return planPreferenceSetAttribute(handle, p, attr, buf, sizeInBytes)
 }
