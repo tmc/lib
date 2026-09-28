@@ -557,3 +557,124 @@ entry:
 	verifyIRWithClang(t, rewritten)
 	assertIndependentSlotTypes(t, rewritten, report)
 }
+
+func TestAddrSpace_LoadedValueUsedAsPointerAndStoredValueStaysGeneric(t *testing.T) {
+	ir := []byte(`@smem = internal addrspace(3) global i8 0, align 1
+define void @kernel() {
+entry:
+  %slot = alloca ptr, align 8
+  store ptr addrspace(3) @smem, ptr %slot, align 8
+  %p = load ptr, ptr %slot, align 8
+  store ptr %p, ptr %p, align 8
+  ret void
+}
+`)
+	verifyIRWithClang(t, ir)
+	rewritten, report, err := InferAddressSpaces(ir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Slots["@kernel/%slot"].State != StateGenericRequired {
+		t.Fatalf("slot state = %v, want generic-required", report.Slots["@kernel/%slot"].State)
+	}
+	if !bytes.Equal(rewritten, ir) {
+		t.Fatalf("slot with a stored-value escape was rewritten:\n%s", rewritten)
+	}
+	verifyIRWithClang(t, rewritten)
+}
+
+func TestAddrSpace_UnrewritableSupportedFormsStayValidAndGeneric(t *testing.T) {
+	tests := []struct {
+		name     string
+		slotType string
+		store    string
+		load     string
+		use      string
+	}{
+		{
+			name:     "opaque store addrspace zero",
+			slotType: "ptr",
+			store:    "store ptr addrspace(3) @smem, ptr %slot, align 8",
+			load:     "%p = load ptr, ptr %slot, align 8",
+			use:      "store i8 7, ptr addrspace(0) %p, align 1",
+		},
+		{
+			name:     "opaque load addrspace zero",
+			slotType: "ptr",
+			store:    "store ptr addrspace(3) @smem, ptr %slot, align 8",
+			load:     "%p = load ptr, ptr %slot, align 8",
+			use:      "%value = load i8, ptr addrspace(0) %p, align 1",
+		},
+		{
+			name:     "typed store addrspace zero",
+			slotType: "i8*",
+			store:    "store i8 addrspace(3)* @smem, i8** %slot, align 8",
+			load:     "%p = load i8*, i8** %slot, align 8",
+			use:      "store i8 7, i8 addrspace(0)* %p, align 1",
+		},
+		{
+			name:     "typed load addrspace zero",
+			slotType: "i8*",
+			store:    "store i8 addrspace(3)* @smem, i8** %slot, align 8",
+			load:     "%p = load i8*, i8** %slot, align 8",
+			use:      "%value = load i8, i8 addrspace(0)* %p, align 1",
+		},
+		{
+			name:     "extra pointer whitespace",
+			slotType: "ptr",
+			store:    "store ptr addrspace(3) @smem, ptr %slot, align 8",
+			load:     "%p = load ptr, ptr %slot, align 8",
+			use:      "store i8 7, ptr  %p, align 1",
+		},
+		{
+			name:     "extra whitespace after load",
+			slotType: "ptr",
+			store:    "store ptr addrspace(3) @smem, ptr %slot, align 8",
+			load:     "%p = load  ptr, ptr %slot, align 8",
+			use:      "store i8 7, ptr %p, align 1",
+		},
+		{
+			name:     "extra whitespace before load comma",
+			slotType: "ptr",
+			store:    "store ptr addrspace(3) @smem, ptr %slot, align 8",
+			load:     "%p = load ptr , ptr %slot, align 8",
+			use:      "store i8 7, ptr %p, align 1",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			allocType := tt.slotType
+			irText := `target datalayout = "e-p:64:64:64-p3:32:32:32"
+@smem = internal addrspace(3) global i8 0, align 1
+define void @kernel() {
+entry:
+  %slot = alloca SLOT_TYPE, align 8
+  STORE_LINE
+  LOAD_LINE
+  USE_LINE
+  ret void
+}
+			`
+			ir := []byte(strings.NewReplacer(
+				"SLOT_TYPE", allocType,
+				"STORE_LINE", tt.store,
+				"LOAD_LINE", tt.load,
+				"USE_LINE", tt.use,
+			).Replace(irText))
+			verifyIRWithClang(t, ir)
+			rewritten, report, err := InferAddressSpaces(ir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			info := report.Slots["@kernel/%slot"]
+			if info.State == StateShared {
+				if bytes.Equal(rewritten, ir) || len(report.RewrittenSlots) == 0 {
+					t.Fatalf("reported a narrowed slot without rewriting it:\n%s", rewritten)
+				}
+			} else if info.State != StateGenericRequired || !bytes.Equal(rewritten, ir) {
+				t.Fatalf("unrewritable input did not fail closed: state=%v\n%s", info.State, rewritten)
+			}
+			verifyIRWithClang(t, rewritten)
+		})
+	}
+}

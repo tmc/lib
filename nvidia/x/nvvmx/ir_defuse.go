@@ -743,16 +743,13 @@ func inferFunctionAndRewrite(lines []string, globals map[string]AddrSpace) (stri
 		}
 		for _, useLine := range f.uses[value] {
 			p := f.lines[useLine]
-			if p.hasMem && p.mem.kind == "load" && p.mem.ptrID == value && llvmTypeAS(p.mem.ptrType) == AddrSpaceGeneric {
-				continue
+			pointerUse := p.hasMem && p.mem.ptrID == value
+			valueUse := p.hasMem && p.mem.kind == "store" && p.mem.valueID == value
+			pointerAllowed := pointerUse && (p.mem.kind == "load" || p.mem.kind == "store") && llvmTypeAS(p.mem.ptrType) == AddrSpaceGeneric
+			valueAllowed := valueUse && candidates[p.mem.ptrID] && slots[p.mem.ptrID] != nil && p.mem.valueType == slots[p.mem.ptrID].allocType && slots[src].allocType == slots[p.mem.ptrID].allocType
+			if (pointerUse && !pointerAllowed) || (valueUse && !valueAllowed) || (!pointerUse && !valueUse) {
+				bad[src] = true
 			}
-			if p.hasMem && p.mem.kind == "store" && p.mem.ptrID == value && llvmTypeAS(p.mem.ptrType) == AddrSpaceGeneric {
-				continue
-			}
-			if p.hasMem && p.mem.kind == "store" && p.mem.valueID == value && candidates[p.mem.ptrID] && slots[p.mem.ptrID] != nil && p.mem.valueType == slots[p.mem.ptrID].allocType && slots[src].allocType == slots[p.mem.ptrID].allocType {
-				continue
-			}
-			bad[src] = true
 		}
 	}
 
@@ -894,7 +891,57 @@ func inferFunctionAndRewrite(lines []string, globals map[string]AddrSpace) (stri
 		}
 		out.WriteString(line)
 	}
-	return out.String(), report, nil
+	rewritten := out.String()
+	if !rewrittenFunctionIsConsistent(f, splitLines([]byte(rewritten)), slots, toRewrite, lineSlotAccess, loadedFrom) {
+		for name := range toRewrite {
+			info := report.Slots[name]
+			info.State = StateGenericRequired
+			info.Effective = AddrSpaceGeneric
+			report.Slots[name] = info
+		}
+		report.RewrittenSlots = nil
+		return strings.Join(lines, ""), report, nil
+	}
+	return rewritten, report, nil
+}
+
+func rewrittenFunctionIsConsistent(original parsedFunction, rewrittenLines []string, slots map[string]*slotDecl, toRewrite map[string]bool, lineSlotAccess map[int]string, loadedFrom map[string]string) bool {
+	if len(rewrittenLines) != len(original.lines) {
+		return false
+	}
+	rewritten := parseFunctionLines(rewrittenLines)
+	for i, before := range original.lines {
+		after := rewritten.lines[i]
+		if before.hasAlloca && toRewrite[before.allocaName] {
+			_, allocType, ok := parseAlloca(after.code)
+			_, newType := inferredPointerType(slots[before.allocaName].allocType)
+			if !ok || allocType != newType {
+				return false
+			}
+		}
+		if !before.hasMem {
+			continue
+		}
+		if slot := lineSlotAccess[i]; slot != "" && toRewrite[slot] {
+			_, newType := inferredPointerType(slots[slot].allocType)
+			if !after.hasMem || after.mem.kind != before.mem.kind || after.mem.ptrID != slot || after.mem.valueType != newType {
+				return false
+			}
+		}
+		if src, ok := loadedFrom[before.mem.ptrID]; ok && toRewrite[src] {
+			_, newType := inferredPointerType(slots[src].allocType)
+			if !after.hasMem || after.mem.kind != before.mem.kind || after.mem.ptrID != before.mem.ptrID || after.mem.ptrType != newType {
+				return false
+			}
+		}
+		if src, ok := loadedFrom[before.mem.valueID]; ok && toRewrite[src] {
+			_, newType := inferredPointerType(slots[src].allocType)
+			if !after.hasMem || after.mem.kind != "store" || after.mem.valueID != before.mem.valueID || after.mem.valueType != newType {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func (m parsedMemory) ptrTypeCompatible(slot *slotDecl) bool {

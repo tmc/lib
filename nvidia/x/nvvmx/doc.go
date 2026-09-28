@@ -36,6 +36,12 @@
 // atomic, metadata-bearing, indirect, malformed, or otherwise unlisted uses
 // keep the slot generic. The parser checks complete LLVM identifiers and all
 // uses in a function before rewriting; unknown instruction forms fail closed.
+// After rewriting, the function is parsed again and each narrowed slot access
+// and loaded-value use is checked for the required address-space type. If any
+// rewrite does not match its parsed operation, the original function is kept
+// unchanged and all inferred slots in it remain generic. This fallback also
+// declines spellings that the rewriter does not yet normalize, such as explicit
+// addrspace(0) pointer operands or extra whitespace in a load or store.
 //
 // Inference uses a 3-element lattice over slots:
 //
