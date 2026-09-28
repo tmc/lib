@@ -37,6 +37,77 @@ func TestByteRangeOverlap(t *testing.T) {
 	}
 }
 
+func TestHazardMatrix_AgentIdentityAtSameCoordinates(t *testing.T) {
+	first := MemoryAccess{
+		Scope: ScopeDevice, AgentID: 1, StreamID: 1, ThreadID: 0, BlockID: 0,
+		ClusterID: 0, Space: MemoryGlobal, Offset: 0x1000, SizeBytes: 4,
+		IsWrite: true, Stage: 0,
+	}
+	second := first
+	second.AgentID = 2
+	second.StreamID = 2
+	second.IsWrite = false
+
+	for _, tt := range []struct {
+		name   string
+		second MemoryAccess
+		want   bool
+	}{
+		{"different agents", second, true},
+		{"same agent", func() MemoryAccess { a := second; a.AgentID = first.AgentID; return a }(), false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			m := NewHazardMatrix("sm_90")
+			if err := m.AddAccess(first); err != nil {
+				t.Fatal(err)
+			}
+			if err := m.AddAccess(tt.second); err != nil {
+				t.Fatal(err)
+			}
+			hasRace, err := m.HasRace()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if hasRace != tt.want {
+				t.Fatalf("HasRace=%t, want %t", hasRace, tt.want)
+			}
+		})
+	}
+}
+
+func TestHazardMatrix_SameStreamOrdersDistinctKernels(t *testing.T) {
+	first := MemoryAccess{Scope: ScopeDevice, AgentID: 1, StreamID: 7, ThreadID: 0, Space: MemoryGlobal, Offset: 0x2000, SizeBytes: 4, IsWrite: true}
+	second := first
+	second.AgentID = 2
+	second.IsWrite = false
+	for _, tt := range []struct {
+		name   string
+		stream int
+		want   bool
+	}{
+		{"same stream", 7, false},
+		{"different stream", 8, true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			second.StreamID = tt.stream
+			m := NewHazardMatrix("sm_90")
+			if err := m.AddAccess(first); err != nil {
+				t.Fatal(err)
+			}
+			if err := m.AddAccess(second); err != nil {
+				t.Fatal(err)
+			}
+			hasRace, err := m.HasRace()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if hasRace != tt.want {
+				t.Fatalf("HasRace=%t, want %t", hasRace, tt.want)
+			}
+		})
+	}
+}
+
 func TestWordOverlap(t *testing.T) {
 	tests := []struct {
 		name string

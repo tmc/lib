@@ -96,9 +96,9 @@ func (h HazardType) String() string {
 }
 
 // MemoryAccess describes an individual read or write access. AgentID
-// distinguishes independent agents such as kernels, and StreamID records the
-// stream that launched a kernel; thread, block and cluster identify execution
-// coordinates within the agent.
+// distinguishes independent agents such as kernels. For device-scoped accesses
+// from different agents, a shared nonzero StreamID records launch ordering;
+// thread, block and cluster identify execution coordinates within an agent.
 type MemoryAccess struct {
 	Scope     ExecutionScope
 	AgentID   int
@@ -263,9 +263,11 @@ func (m *HazardMatrix) Evaluate() ([]HazardRecord, error) {
 			// Check scope concurrence (is there missing synchronization?).
 			scopeConflict := false
 			sameThread := a.AgentID == b.AgentID && a.ThreadID == b.ThreadID && a.BlockID == b.BlockID && a.ClusterID == b.ClusterID
+			sameStreamOrder := a.AgentID != b.AgentID && a.Scope == ScopeDevice && b.Scope == ScopeDevice && a.StreamID != 0 && a.StreamID == b.StreamID
 
-			if sameThread {
-				// Same thread has sequential execution order within stage.
+			if sameThread || sameStreamOrder {
+				// A thread is sequential, and distinct kernels on one device
+				// stream execute in launch order.
 				scopeConflict = false
 			} else if a.Stage == b.Stage {
 				// Accesses in the same stage by different threads/scopes without barrier.
