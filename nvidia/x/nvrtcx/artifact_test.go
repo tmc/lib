@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -81,7 +82,11 @@ func TestArtifactCache(t *testing.T) {
 
 func TestOutputFlags(t *testing.T) {
 	for _, kind := range []OutputKind{OutputAuto, OutputPTX, OutputCUBIN, OutputLTOIR, OutputTileIR, OutputOptiXIR} {
-		flags, err := outputFlags(kind, nil)
+		var input []string
+		if kind == OutputCUBIN {
+			input = []string{"--gpu-architecture=sm_80"}
+		}
+		flags, err := outputFlags(kind, input)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -102,6 +107,43 @@ func TestOutputFlags(t *testing.T) {
 	}
 	if _, err := Compile("source", WithOutput(255)); err == nil {
 		t.Fatal("accepted unknown output")
+	}
+}
+
+func TestCUBINRequiresPhysicalTarget(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		flags []string
+		valid bool
+	}{
+		{"default", nil, false},
+		{"virtual", []string{"--gpu-architecture=compute_80"}, false},
+		{"physical", []string{"--gpu-architecture=sm_80"}, true},
+		{"specific", []string{"--gpu-architecture=sm_121a"}, true},
+		{"short", []string{"-arch=sm_80"}, true},
+		{"separate", []string{"--gpu-architecture", "sm_80"}, true},
+		{"short separate", []string{"-arch", "sm_80"}, true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := outputFlags(OutputCUBIN, tt.flags)
+			if tt.valid {
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else if err == nil || !strings.Contains(err.Error(), "requires a physical architecture") {
+				t.Fatalf("error = %v, want physical architecture diagnostic", err)
+			}
+		})
+	}
+	for _, opts := range [][]Option{
+		{WithArch(12, 1), WithOutput(OutputCUBIN)},
+		{WithOutput(OutputCUBIN), WithArch(12, 1)},
+	} {
+		// No compiler is needed to diagnose an incompatible output request.
+		_, err := Compile("extern \"C\" __global__ void empty() {}", opts...)
+		if err == nil || !strings.Contains(err.Error(), "requires a physical architecture") {
+			t.Fatalf("Compile error = %v, want physical architecture diagnostic", err)
+		}
 	}
 }
 
