@@ -3,6 +3,7 @@
 package nccl
 
 import (
+	"runtime"
 	"sync"
 	"unsafe"
 
@@ -400,7 +401,7 @@ func fnparamGet(a0 ParamHandle, a1 unsafe.Pointer, a2 int32, a3 *int32) Result {
 }
 
 // fnParamGetAllParameterKeys calls ncclParamGetAllParameterKeys.
-func fnParamGetAllParameterKeys(a0 **byte, a1 *int32) Result {
+func fnParamGetAllParameterKeys(a0 ***byte, a1 *int32) Result {
 	r1, _ := ffiCall2(symParamGetAllParameterKeys, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
@@ -980,14 +981,14 @@ func commWindowDeregister(comm Comm, win Window) error {
 // Since this is a collective call, every rank in the communicator needs to participate in the registration. Size may differ across ranks; callers are responsible for ensuring later operations only access ranges that are valid for the ranks participating in that operation. win is returned for future deregistration (if called within a group, the value may not be filled in until [GroupEnd] has completed). See buff requirement and more instructions in User Buffer Registration. User can also pass different win flags to control the registration behavior. For more win flags information, please refer to Window Registration Flags. Host APIs do not accept buffers that are symmetrically registered more than once. Passing such buffers to host APIs results in undefined behavior.
 //
 // Wraps ncclCommWindowRegister.
-func commWindowRegister(comm Comm, buff driver.DevicePtr, size uint, winFlags int32) (Window, error) {
+func commWindowRegister(comm Comm, buff driver.DevicePtr, size uint, winFlags WinFlags) (Window, error) {
 	if err := checkLibSym("ncclCommWindowRegister"); err != nil {
 		var zero Window
 		return zero, err
 	}
 	out := slotCommWindowRegister.get()
 	defer slotCommWindowRegister.put(out)
-	if err := toError(fncommWindowRegister(comm, uintptr(buff), size, out, winFlags), "ncclCommWindowRegister"); err != nil {
+	if err := toError(fncommWindowRegister(comm, uintptr(buff), size, out, int32(winFlags)), "ncclCommWindowRegister"); err != nil {
 		var zero Window
 		return zero, err
 	}
@@ -1149,12 +1150,22 @@ func MemFree(ptr driver.DevicePtr) error {
 // key is the canonical name of the parameter (typically the corresponding environment variable name).
 //
 // Wraps ncclParamBind.
-func ParamBind(out *ParamHandle, key *byte) error {
+func ParamBind(key string) (ParamHandle, error) {
 	if err := checkLibSym("ncclParamBind"); err != nil {
-		return err
+		var zero ParamHandle
+		return zero, err
 	}
-	return toError(fnParamBind(out, key), "ncclParamBind")
+	key_cstr := append([]byte(key), 0)
+	out := slotParamBind.get()
+	defer slotParamBind.put(out)
+	if err := toError(fnParamBind(out, &key_cstr[0]), "ncclParamBind"); err != nil {
+		var zero ParamHandle
+		return zero, err
+	}
+	return *out, nil
 }
+
+var slotParamBind outSlot[ParamHandle]
 
 // ParamDumpAll writes the key and current value of every registered parameter to the NCCL log output.
 //
@@ -1198,11 +1209,25 @@ func paramGet(h ParamHandle, out unsafe.Pointer, maxLen int32, len_ *int32) erro
 // This function returns parameters published in Environment Variables by default. Setting [ParamDumpAll] to true forces this function to return all parameters.
 //
 // Wraps ncclParamGetAllParameterKeys.
-func ParamGetAllParameterKeys(table **byte, tableLen *int32) error {
+func ParamGetAllParameterKeys() ([]string, error) {
 	if err := checkLibSym("ncclParamGetAllParameterKeys"); err != nil {
-		return err
+		return nil, err
 	}
-	return toError(fnParamGetAllParameterKeys(table, tableLen), "ncclParamGetAllParameterKeys")
+	var table **byte
+	var tableLen int32
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	if err := toError(fnParamGetAllParameterKeys(&table, &tableLen), "ncclParamGetAllParameterKeys"); err != nil {
+		return nil, err
+	}
+	if table == nil || tableLen <= 0 {
+		return nil, nil
+	}
+	strs := make([]string, tableLen)
+	for i, p := range unsafe.Slice(table, tableLen) {
+		strs[i] = goString(p)
+	}
+	return strs, nil
 }
 
 // paramGetI16 reads the value of the parameter bound to h as the type T and stores it in *out.
@@ -1211,12 +1236,21 @@ func ParamGetAllParameterKeys(table **byte, tableLen *int32) error {
 // This function family comes in all combinations of signed (I) and unsigned (U) for 8-, 16-, 32-, and 64-bit integers.
 //
 // Wraps ncclParamGetI16.
-func paramGetI16(h ParamHandle, out *int16) error {
+func paramGetI16(h ParamHandle) (int16, error) {
 	if err := checkLibSym("ncclParamGetI16"); err != nil {
-		return err
+		var zero int16
+		return zero, err
 	}
-	return toError(fnparamGetI16(h, out), "ncclParamGetI16")
+	out := slotParamGetI16.get()
+	defer slotParamGetI16.put(out)
+	if err := toError(fnparamGetI16(h, out), "ncclParamGetI16"); err != nil {
+		var zero int16
+		return zero, err
+	}
+	return *out, nil
 }
+
+var slotParamGetI16 outSlot[int16]
 
 // paramGetI32 reads the value of the parameter bound to h as the type T and stores it in *out.
 //
@@ -1268,23 +1302,40 @@ var slotParamGetI64 outSlot[int64]
 // This function family comes in all combinations of signed (I) and unsigned (U) for 8-, 16-, 32-, and 64-bit integers.
 //
 // Wraps ncclParamGetI8.
-func paramGetI8(h ParamHandle, out *int8) error {
+func paramGetI8(h ParamHandle) (int8, error) {
 	if err := checkLibSym("ncclParamGetI8"); err != nil {
-		return err
+		var zero int8
+		return zero, err
 	}
-	return toError(fnparamGetI8(h, out), "ncclParamGetI8")
+	out := slotParamGetI8.get()
+	defer slotParamGetI8.put(out)
+	if err := toError(fnparamGetI8(h, out), "ncclParamGetI8"); err != nil {
+		var zero int8
+		return zero, err
+	}
+	return *out, nil
 }
+
+var slotParamGetI8 outSlot[int8]
 
 // ParamGetParameter looks up the parameter identified by key and returns its value as a null-terminated string.
 //
 // The pointer written to *value is owned by the parameter system and is valid until the next call to [ParamGetParameter] on the same thread. valueLen receives the length of the string in bytes, excluding the null terminator. Returns ncclInvalidArgument if key is not found.
 //
 // Wraps ncclParamGetParameter.
-func ParamGetParameter(key *byte, value **byte, valueLen *int32) error {
+func ParamGetParameter(key string) (string, error) {
 	if err := checkLibSym("ncclParamGetParameter"); err != nil {
-		return err
+		return "", err
 	}
-	return toError(fnParamGetParameter(key, value, valueLen), "ncclParamGetParameter")
+	key_cstr := append([]byte(key), 0)
+	var value *byte
+	var valueLen int32
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	if err := toError(fnParamGetParameter(&key_cstr[0], &value, &valueLen), "ncclParamGetParameter"); err != nil {
+		return "", err
+	}
+	return goString(value), nil
 }
 
 // paramGetStr returns a C-style string representation of the parameter bound to h.
@@ -1292,11 +1343,17 @@ func ParamGetParameter(key *byte, value **byte, valueLen *int32) error {
 // The pointer written to *out is owned by the parameter system and is valid until the next call to [ParamHandle.Str] on the same thread. Callers that need to retain the value across calls must copy it.
 //
 // Wraps ncclParamGetStr.
-func paramGetStr(h ParamHandle, out **byte) error {
+func paramGetStr(h ParamHandle) (string, error) {
 	if err := checkLibSym("ncclParamGetStr"); err != nil {
-		return err
+		return "", err
 	}
-	return toError(fnparamGetStr(h, out), "ncclParamGetStr")
+	var out *byte
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	if err := toError(fnparamGetStr(h, &out), "ncclParamGetStr"); err != nil {
+		return "", err
+	}
+	return goString(out), nil
 }
 
 // paramGetU16 reads the value of the parameter bound to h as the type T and stores it in *out.
@@ -1305,12 +1362,21 @@ func paramGetStr(h ParamHandle, out **byte) error {
 // This function family comes in all combinations of signed (I) and unsigned (U) for 8-, 16-, 32-, and 64-bit integers.
 //
 // Wraps ncclParamGetU16.
-func paramGetU16(h ParamHandle, out *uint16) error {
+func paramGetU16(h ParamHandle) (uint16, error) {
 	if err := checkLibSym("ncclParamGetU16"); err != nil {
-		return err
+		var zero uint16
+		return zero, err
 	}
-	return toError(fnparamGetU16(h, out), "ncclParamGetU16")
+	out := slotParamGetU16.get()
+	defer slotParamGetU16.put(out)
+	if err := toError(fnparamGetU16(h, out), "ncclParamGetU16"); err != nil {
+		var zero uint16
+		return zero, err
+	}
+	return *out, nil
 }
+
+var slotParamGetU16 outSlot[uint16]
 
 // paramGetU32 reads the value of the parameter bound to h as the type T and stores it in *out.
 //
@@ -1362,12 +1428,21 @@ var slotParamGetU64 outSlot[uint64]
 // This function family comes in all combinations of signed (I) and unsigned (U) for 8-, 16-, 32-, and 64-bit integers.
 //
 // Wraps ncclParamGetU8.
-func paramGetU8(h ParamHandle, out *uint8) error {
+func paramGetU8(h ParamHandle) (uint8, error) {
 	if err := checkLibSym("ncclParamGetU8"); err != nil {
-		return err
+		var zero uint8
+		return zero, err
 	}
-	return toError(fnparamGetU8(h, out), "ncclParamGetU8")
+	out := slotParamGetU8.get()
+	defer slotParamGetU8.put(out)
+	if err := toError(fnparamGetU8(h, out), "ncclParamGetU8"); err != nil {
+		var zero uint8
+		return zero, err
+	}
+	return *out, nil
 }
+
+var slotParamGetU8 outSlot[uint8]
 
 // putSignal writes data from localbuff to rank peer’s registered memory window peerWin at offset peerWinOffset and subsequently updating a remote signal.
 //

@@ -136,7 +136,7 @@
 //   - [Window.MultimemDevicePointer]: Returns a multimem base pointer using a provided multimem handle instead of the window’s internal multimem.
 //   - [Window.PeerDeviceLeInfo]: Host-side query for the logical endpoint leId and leOffset corresponding to window, byte offset and peerWorld within the world team.
 //   - [Window.PeerDevicePointer]: Returns a load/store accessible pointer to the memory buffer of a specific world rank peer within the window.
-//   - [ParamHandle.Bind]: Look up the parameter identified by key and store a handle to it in *out.
+//   - [ParamBind]: Look up the parameter identified by key and store a handle to it in *out.
 //   - [ParamDumpAll]: Write the key and current value of every registered parameter to the NCCL log output.
 //   - [ParamHandle.Get]: Copy the raw binary representation of the parameter bound to h into the caller-allocated buffer out.
 //   - [ParamGetAllParameterKeys]: Return a pointer to the internal table of all registered parameter keys.

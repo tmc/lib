@@ -21,8 +21,8 @@ func (p ParamHandle) Get(out unsafe.Pointer, maxLen int32, len_ *int32) error {
 // This function family comes in all combinations of signed (I) and unsigned (U) for 8-, 16-, 32-, and 64-bit integers.
 //
 // Wraps ncclParamGetI16.
-func (p ParamHandle) I16(out *int16) error {
-	return paramGetI16(p, out)
+func (p ParamHandle) I16() (int16, error) {
+	return paramGetI16(p)
 }
 
 // I32 reads the value of the parameter bound to h as the type T and stores it in *out.
@@ -51,8 +51,8 @@ func (p ParamHandle) I64() (int64, error) {
 // This function family comes in all combinations of signed (I) and unsigned (U) for 8-, 16-, 32-, and 64-bit integers.
 //
 // Wraps ncclParamGetI8.
-func (p ParamHandle) I8(out *int8) error {
-	return paramGetI8(p, out)
+func (p ParamHandle) I8() (int8, error) {
+	return paramGetI8(p)
 }
 
 // Str returns a C-style string representation of the parameter bound to h.
@@ -60,8 +60,8 @@ func (p ParamHandle) I8(out *int8) error {
 // The pointer written to *out is owned by the parameter system and is valid until the next call to [ParamHandle.Str] on the same thread. Callers that need to retain the value across calls must copy it.
 //
 // Wraps ncclParamGetStr.
-func (p ParamHandle) Str(out **byte) error {
-	return paramGetStr(p, out)
+func (p ParamHandle) Str() (string, error) {
+	return paramGetStr(p)
 }
 
 // U16 reads the value of the parameter bound to h as the type T and stores it in *out.
@@ -70,8 +70,8 @@ func (p ParamHandle) Str(out **byte) error {
 // This function family comes in all combinations of signed (I) and unsigned (U) for 8-, 16-, 32-, and 64-bit integers.
 //
 // Wraps ncclParamGetU16.
-func (p ParamHandle) U16(out *uint16) error {
-	return paramGetU16(p, out)
+func (p ParamHandle) U16() (uint16, error) {
+	return paramGetU16(p)
 }
 
 // U32 reads the value of the parameter bound to h as the type T and stores it in *out.
@@ -100,6 +100,6 @@ func (p ParamHandle) U64() (uint64, error) {
 // This function family comes in all combinations of signed (I) and unsigned (U) for 8-, 16-, 32-, and 64-bit integers.
 //
 // Wraps ncclParamGetU8.
-func (p ParamHandle) U8(out *uint8) error {
-	return paramGetU8(p, out)
+func (p ParamHandle) U8() (uint8, error) {
+	return paramGetU8(p)
 }

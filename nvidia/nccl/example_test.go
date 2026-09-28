@@ -95,11 +95,9 @@ func Example_allReduce() {
 }
 
 // ExampleParamBind reads an NCCL parameter by its environment variable name.
-// The key is a NUL-terminated C string.
 func ExampleParamBind() {
-	key := []byte("NCCL_IB_ROCE_VERSION_NUM\x00")
-	var p nccl.ParamHandle
-	if err := nccl.ParamBind(&p, &key[0]); err != nil {
+	p, err := nccl.ParamBind("NCCL_IB_ROCE_VERSION_NUM")
+	if err != nil {
 		fmt.Println("bind:", err)
 		return
 	}
@@ -126,8 +124,7 @@ func ExampleWindow_PeerDevicePointer() {
 	defer nccl.MemFree(buf)
 
 	// WindowRegister is collective: every rank registers its own buffer.
-	const winCollSymmetric = 0x01 // NCCL_WIN_COLL_SYMMETRIC
-	win, err := comm.WindowRegister(buf, size, winCollSymmetric)
+	win, err := comm.WindowRegister(buf, size, nccl.WinCollSymmetric)
 	if err != nil {
 		fmt.Println("register:", err)
 		return

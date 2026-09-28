@@ -530,6 +530,6 @@ func (c Comm) WindowDeregister(win Window) error {
 // Since this is a collective call, every rank in the communicator needs to participate in the registration. Size may differ across ranks; callers are responsible for ensuring later operations only access ranges that are valid for the ranks participating in that operation. win is returned for future deregistration (if called within a group, the value may not be filled in until [GroupEnd] has completed). See buff requirement and more instructions in User Buffer Registration. User can also pass different win flags to control the registration behavior. For more win flags information, please refer to Window Registration Flags. Host APIs do not accept buffers that are symmetrically registered more than once. Passing such buffers to host APIs results in undefined behavior.
 //
 // Wraps ncclCommWindowRegister.
-func (c Comm) WindowRegister(buff driver.DevicePtr, size uint, winFlags int32) (Window, error) {
+func (c Comm) WindowRegister(buff driver.DevicePtr, size uint, winFlags WinFlags) (Window, error) {
 	return commWindowRegister(c, buff, size, winFlags)
 }

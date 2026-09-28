@@ -267,3 +267,18 @@ func (e CftCap) String() string {
 	}
 	return fmt.Sprintf("CftCap(%d)", e)
 }
+
+// WinFlags represents window registration flags for [Comm.WindowRegister].
+type WinFlags int32
+
+// Window registration flags for [Comm.WindowRegister].
+const (
+	WinCollSymmetric  WinFlags = 0x01
+	WinDefault        WinFlags = 0x00
+	WinStrictOrdering WinFlags = 0x02
+)
+
+// WinRequiredAlignment is the buffer alignment, in bytes, nccl.h specifies for window registration.
+const (
+	WinRequiredAlignment = 4096
+)
