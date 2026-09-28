@@ -57,7 +57,11 @@ func TestPhysicalKernelReplayHostBudget(t *testing.T) {
 		Mode: cuptibench.Kernels, ReplayMode: cuptirange.KernelReplay,
 		Metrics: names, Operations: 1, MaxConfigBytes: 16 << 20,
 		CachePolicy: cuptirange.CachePreserve,
-		Limits:      cuptirange.Limits{MaxRanges: 8, MaxRangeTreeNodes: 16, MaxCounterBytes: 32 << 20, MaxPasses: 1},
+		// The default set's traffic counters only widen the configuration past
+		// one pass; this test asserts pass accounting and CTA counts, never
+		// traffic, so the warm cache is recorded rather than evicted.
+		AllowWarmCacheTraffic: true,
+		Limits:                cuptirange.Limits{MaxRanges: 8, MaxRangeTreeNodes: 16, MaxCounterBytes: 32 << 20, MaxPasses: 1},
 	})
 	if plan != nil {
 		physicalClose(t, plan.Close)
