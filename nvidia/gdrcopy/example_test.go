@@ -55,12 +55,12 @@ func Example() {
 	// address is an mmap of a device aperture, and these run the copy paths
 	// libgdrapi implements for it.
 	payload := []byte("hello from the host")
-	if err := mh.CopyToMapping(va+off, payload); err != nil {
+	if err := mh.CopyToMapping(va+gdrcopy.HostPtr(off), payload); err != nil {
 		log.Fatal(err)
 	}
 
 	readback := make([]byte, len(payload))
-	if err := mh.CopyFromMapping(readback, va+off); err != nil {
+	if err := mh.CopyFromMapping(readback, va+gdrcopy.HostPtr(off)); err != nil {
 		log.Fatal(err)
 	}
 	fmt.Printf("mapping type %v, %d bytes at offset %#x\n", info.MappingType, info.MappedSize, off)
@@ -85,4 +85,10 @@ func ExampleHandle_GetAttribute() {
 		flags = gdrcopy.PinFlagForcePcie
 	}
 	fmt.Println(flags)
+}
+
+func ExampleHostPtr() {
+	var p gdrcopy.HostPtr
+	fmt.Println(p == 0)
+	// Output: true
 }

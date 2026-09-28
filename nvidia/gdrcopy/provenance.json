@@ -7,7 +7,7 @@
   "argv": [
     "gen-gdrcopy",
     "-output",
-    "gdrcopy"
+    "${OUTPUT_DIR}"
   ],
   "inputs": [
     {

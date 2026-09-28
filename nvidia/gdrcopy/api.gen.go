@@ -56,6 +56,12 @@ const (
 // reuses the allocation after UnpinBuffer.
 type MemHandle uint64
 
+// HostPtr is a CPU address in a mapping returned by Map or MapV2.
+// It remains valid until Unmap. Use the copy methods to access it so that
+// libgdrapi applies the required store widths and memory fences.
+// The zero value does not identify a mapping.
+type HostPtr uintptr
+
 // Error reports a libgdrapi call that failed.
 //
 // gdrcopy has no status enum: its calls return POSIX error numbers directly,
@@ -298,7 +304,7 @@ func (g Handle) UnpinBuffer(mh MemHandle) error {
 //
 // The mapping begins at the GPU-page-aligned base of the pinning. Add
 // addr - Info.Va, from GetInfoV2, to reach the data that was pinned.
-func (g Handle) Map(mh MemHandle, size uintptr) (uintptr, error) {
+func (g Handle) Map(mh MemHandle, size uintptr) (HostPtr, error) {
 	return g.mapping("gdr_map", mh, size, func(out *uintptr) int32 {
 		return fnMap(g, mh, out, uint(size))
 	})
@@ -313,13 +319,13 @@ func (g Handle) Map(mh MemHandle, size uintptr) (uintptr, error) {
 //
 // gdr_map_v2 was added in gdrcopy 2.5. Against an older libgdrapi this returns
 // *SymbolError; Map is exported by every 2.x release.
-func (g Handle) MapV2(mh MemHandle, size uintptr, flags MapFlags) (uintptr, error) {
+func (g Handle) MapV2(mh MemHandle, size uintptr, flags MapFlags) (HostPtr, error) {
 	return g.mapping("gdr_map_v2", mh, size, func(out *uintptr) int32 {
 		return fnMapV2(g, mh, out, uint(size), int32(flags))
 	})
 }
 
-func (g Handle) mapping(op string, mh MemHandle, size uintptr, call func(*uintptr) int32) (uintptr, error) {
+func (g Handle) mapping(op string, mh MemHandle, size uintptr, call func(*uintptr) int32) (HostPtr, error) {
 	if g == 0 {
 		return 0, ErrHandle
 	}
@@ -341,7 +347,7 @@ func (g Handle) mapping(op string, mh MemHandle, size uintptr, call func(*uintpt
 		pins[mh] = p
 	}
 	p.mapped, p.va, p.size = true, va, size
-	return va, nil
+	return HostPtr(va), nil
 }
 
 // Unmap releases the user-space mapping.
@@ -350,7 +356,7 @@ func (g Handle) mapping(op string, mh MemHandle, size uintptr, call func(*uintpt
 // ErrUnmapRange without calling the library otherwise, because gdr_unmap
 // passes the rounded-up length straight to munmap and would unmap a range the
 // caller does not own.
-func (g Handle) Unmap(mh MemHandle, va, size uintptr) error {
+func (g Handle) Unmap(mh MemHandle, va HostPtr, size uintptr) error {
 	if g == 0 {
 		return ErrHandle
 	}
@@ -363,13 +369,13 @@ func (g Handle) Unmap(mh MemHandle, va, size uintptr) error {
 	if p == nil || !p.mapped {
 		return ErrNotMapped
 	}
-	if p.va != va || p.size != size {
+	if p.va != uintptr(va) || p.size != size {
 		return ErrUnmapRange
 	}
 	if err := checkLibSym("gdr_unmap"); err != nil {
 		return err
 	}
-	if err := toError("gdr_unmap", fnUnmap(g, mh, va, uint(size))); err != nil {
+	if err := toError("gdr_unmap", fnUnmap(g, mh, uintptr(va), uint(size))); err != nil {
 		return err
 	}
 	p.mapped, p.va, p.size = false, 0, 0
@@ -494,14 +500,14 @@ func RuntimeGetVersion() (major, minor int32, err error) {
 // [GPUDirect RDMA sync behavior] notes for what is and is not guaranteed.
 //
 // [GPUDirect RDMA sync behavior]: https://docs.nvidia.com/cuda/gpudirect-rdma/index.html#sync-behavior
-func (mh MemHandle) CopyToMapping(mapDPtr uintptr, src []byte) error {
-	if err := mh.checkCopy("gdr_copy_to_mapping", mapDPtr, len(src)); err != nil {
+func (mh MemHandle) CopyToMapping(mapDPtr HostPtr, src []byte) error {
+	if err := mh.checkCopy("gdr_copy_to_mapping", uintptr(mapDPtr), len(src)); err != nil {
 		return err
 	}
 	if len(src) == 0 {
 		return nil
 	}
-	err := toError("gdr_copy_to_mapping", fnCopyToMapping(mh, mapDPtr, unsafe.Pointer(&src[0]), uint(len(src))))
+	err := toError("gdr_copy_to_mapping", fnCopyToMapping(mh, uintptr(mapDPtr), unsafe.Pointer(&src[0]), uint(len(src))))
 	runtime.KeepAlive(src)
 	return err
 }
@@ -509,14 +515,14 @@ func (mh MemHandle) CopyToMapping(mapDPtr uintptr, src []byte) error {
 // CopyFromMapping copies len(dst) bytes into dst from the mapping at mapDPtr,
 // which must lie inside the mapping Map returned for mh. The same ordering
 // caveats as CopyToMapping apply.
-func (mh MemHandle) CopyFromMapping(dst []byte, mapDPtr uintptr) error {
-	if err := mh.checkCopy("gdr_copy_from_mapping", mapDPtr, len(dst)); err != nil {
+func (mh MemHandle) CopyFromMapping(dst []byte, mapDPtr HostPtr) error {
+	if err := mh.checkCopy("gdr_copy_from_mapping", uintptr(mapDPtr), len(dst)); err != nil {
 		return err
 	}
 	if len(dst) == 0 {
 		return nil
 	}
-	err := toError("gdr_copy_from_mapping", fnCopyFromMapping(mh, unsafe.Pointer(&dst[0]), mapDPtr, uint(len(dst))))
+	err := toError("gdr_copy_from_mapping", fnCopyFromMapping(mh, unsafe.Pointer(&dst[0]), uintptr(mapDPtr), uint(len(dst))))
 	runtime.KeepAlive(dst)
 	return err
 }
