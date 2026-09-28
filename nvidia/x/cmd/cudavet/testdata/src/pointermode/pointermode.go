@@ -172,7 +172,7 @@ func matmulDeviceMode(h cublaslt.Handle, a, b, c, alpha, beta driver.DevicePtr, 
 		return err
 	}
 	mode := int32(1)
-	if err := desc.SetAttribute(cublaslt.MatmulDescPointerMode, uintptr(unsafe.Pointer(&mode)), 4); err != nil {
+	if err := desc.SetAttribute(cublaslt.MatmulDescPointerMode, unsafe.Pointer(&mode), 4); err != nil {
 		return err
 	}
 	return h.Matmul(desc, cublaslt.DeviceScalar(alpha), a, l, b, l, cublaslt.DeviceScalar(beta), c, l, c, l, nil, 0, 0, s)
@@ -185,6 +185,6 @@ func matmulOtherAttribute(h cublaslt.Handle, a, b, c, alpha driver.DevicePtr, l 
 		return err
 	}
 	scale := int32(0)
-	desc.SetAttribute(cublaslt.MatmulDescScaleType, uintptr(unsafe.Pointer(&scale)), 4)
+	desc.SetAttribute(cublaslt.MatmulDescScaleType, unsafe.Pointer(&scale), 4)
 	return h.Matmul(desc, cublaslt.DeviceScalar(alpha), a, l, b, l, cublaslt.Float32Scalar(0), c, l, c, l, nil, 0, 0, s) // want `cublaslt.DeviceScalar\(alpha\) is a device Scalar, but desc is in host pointer mode`
 }

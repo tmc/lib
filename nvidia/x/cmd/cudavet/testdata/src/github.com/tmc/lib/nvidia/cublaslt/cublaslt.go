@@ -1,7 +1,11 @@
 // Package cublaslt is a declaration-only stand-in for the real cublaslt package.
 package cublaslt
 
-import "github.com/tmc/lib/nvidia/driver"
+import (
+	"unsafe"
+
+	"github.com/tmc/lib/nvidia/driver"
+)
 
 type Handle uintptr
 
@@ -46,7 +50,7 @@ const (
 	MatmulDescPointerMode MatmulDescAttributes = 2
 )
 
-func (m MatmulDesc) SetAttribute(attr MatmulDescAttributes, buf uintptr, sizeInBytes uint) error {
+func (m MatmulDesc) SetAttribute(attr MatmulDescAttributes, buf unsafe.Pointer, sizeInBytes uint) error {
 	return nil
 }
 
