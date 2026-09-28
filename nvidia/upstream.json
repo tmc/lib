@@ -57,10 +57,11 @@
           "-output",
           "${OUTPUT_DIR}"
         ],
-        "comparison": "All 12 outputs regenerated into the committed package. No exported declaration was dropped; the package gains BindFailures, LibraryError and LibraryAttempt, and generated parameters are renamed from snake_case to camelCase.",
+        "comparison": "All recorded outputs regenerated with the recorded recipe; package compile and API review recorded in the release receipt. GPU qualification is separate.",
         "cwd": "${CODEGEN_REPO}",
         "environment": {
-          "GOWORK": "off"
+          "GOWORK": "off",
+          "GOTOOLCHAIN": "go1.27.0"
         },
         "outputs": [
           {
@@ -68,7 +69,6 @@
             "sha256": "b4c0ac733331064082ec92178728fe2250a20ed086be878a7d87617870e4f386"
           },
           {
-            "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/cublas/doc.gen.go",
             "sha256": "790627ae6d8dda66ce67436b6bac14b297433e41a997b8986a40c2a89861fdfd"
           },
@@ -78,11 +78,11 @@
           },
           {
             "path": "nvidia/cublas/funcs.gen.go",
-            "sha256": "93b3215f09fa662f5762a34dd5547f9805c3801146afc1f35d5d14984aba0572"
+            "sha256": "b3af531c0a8e59beb9e3e35f4861887779fb45246e2d38f3c03c44133d3e649c"
           },
           {
             "path": "nvidia/cublas/handle.gen.go",
-            "sha256": "ad5ed592c94e5dc1569a2ff187a805fd5c86a1666c54cdccd25d9b6fbe343bdc"
+            "sha256": "6ff7a3f830d331bb3be2e0c12505d0d7cc07c5e24e2c6d0c053c01676c72f51b"
           },
           {
             "path": "nvidia/cublas/handles.gen.go",
@@ -94,7 +94,7 @@
           },
           {
             "path": "nvidia/cublas/layout.gen_test.go",
-            "sha256": "c496bcd47c3b9b0d138d52c4b1bd02dbe9f312f50041264e30f2063093c42b88"
+            "sha256": "cf0e5feec7b7ccfb07fe6c1d93081e12eb56ece2640511685fef1cd625d110f1"
           },
           {
             "path": "nvidia/cublas/loader.gen_test.go",
@@ -109,6 +109,14 @@
             "sha256": "bab07e0a2d44e4b139d6caa31365650ec8e1cbb8f5f17de05f4b887df21509f4"
           },
           {
+            "path": "nvidia/cublas/provenance.gen.go",
+            "sha256": "bf16dab4563386ef232bd4140a6c6116a2be262ad48d26bdb736292a32c39097"
+          },
+          {
+            "path": "nvidia/cublas/provenance.json",
+            "sha256": "b5979845497e72ae59b3984a2ac3493861b924b8525d75a43dc651ec8a8b3125"
+          },
+          {
             "path": "nvidia/cublas/result.gen.go",
             "sha256": "40d17b867c48102679f75fd36aaaab15195d8d1f4c25e749b357ac104522e5d2"
           },
@@ -117,48 +125,10 @@
             "sha256": "67e7d66c770a5f620cb165c84b73ef01c8e62b234985991da940c23a53fb168e"
           }
         ],
-        "supplemental_runs": [
-          {
-            "argv": [
-              "go",
-              "run",
-              "./cmd/gen-nvidia",
-              "-api",
-              "cublas",
-              "-headers-dir",
-              "${HEADERS_REPO}",
-              "-output",
-              "${OUTPUT_DIR}",
-              "-package",
-              "cublas"
-            ],
-            "cwd": "${CODEGEN_REPO}",
-            "environment": {
-              "GOWORK": "off",
-              "TMPDIR": "${SCRATCH_DIR}"
-            },
-            "discarded_outputs": [
-              "nvidia/cublas/provenance.gen.go"
-            ],
-            "note": "layout.gen_test.go is not a cublas-survey output; its own header says gen-nvidia wrote it, and cmd/gen-nvidia/main.go preserves the other tool's files rather than sweeping them. This run also produces the bindings, which lib does not ship: cublas-survey's are the ones in the package. Only the layout test is listed here. The path stays in generation.outputs as well, which is the package file inventory rather than an attribution. This run also writes a provenance.gen.go, which the package does not keep: it would describe gen-nvidia's parse of cublas_api.h, not the bindings cublas-survey generated, and lib would then ship a provenance claim about files it does not describe. It is listed in discarded_outputs so that throwing it away is a recorded decision.",
-            "outputs": [
-              {
-                "path": "nvidia/cublas/layout.gen_test.go",
-                "sha256": "c496bcd47c3b9b0d138d52c4b1bd02dbe9f312f50041264e30f2063093c42b88"
-              }
-            ],
-            "purpose": "Generate the C layout assertions for the cublas types.",
-            "repository": {
-              "commit": "000d4ecfb9d2cbf833fe8efa7127d7f804c4b3e0",
-              "tree": "590829c5daf2a81a18fc01e468620e4fe1a3d3bb",
-              "url": "https://github.com/tmc/libgen.git"
-            },
-            "verification": "Reproduced byte for byte on 2026-09-18, after regenerating the file: the emitter had begun recording which parser and layout source it used, and the committed file predated that. The recorded libgen checkout had unrelated uncommitted work in other commands, none of it reaching this generation."
-          }
-        ],
         "toolchain": {
           "go": "go version go1.27.0 darwin/arm64"
-        }
+        },
+        "source_state": "clean tracked libgen sources at 3005ecfdb35134468c9a9d93532ee08f6c7c53cf"
       },
       "header": {
         "path": "cublas/cublas_api.h",
@@ -169,10 +139,10 @@
       "package": "github.com/tmc/lib/nvidia/cublas",
       "repositories": {
         "codegen": {
-          "commit": "b3dc359c9db53dea61a497ef6f5c4a305f945132",
+          "commit": "3005ecfdb35134468c9a9d93532ee08f6c7c53cf",
           "note": "Unpublished at the time of recording; it is the commit this generation was taken from. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 8da282f: doc comments name snake_case parameters by their Go names. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c",
           "url": "https://github.com/tmc/libgen.git",
-          "tree": "f54815ecdd777ae664e200e000db35f1e948469d"
+          "tree": "c4c5a286244f546c9503a20d3b38bb8c46acbdb2"
         },
         "headers": {
           "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",

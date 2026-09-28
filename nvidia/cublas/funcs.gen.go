@@ -2506,13 +2506,13 @@ func fngetMathMode(a0 Handle, a1 *Math) Result {
 }
 
 // fnGetMatrix calls cublasGetMatrix.
-func fnGetMatrix(a0 int32, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32) Result {
+func fnGetMatrix(a0 int32, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 unsafe.Pointer, a6 int32) Result {
 	r1, _ := ffiCallWidths7(symGetMatrix, 0, 0x333f, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
 	return Result(r1)
 }
 
 // fnGetMatrix64 calls cublasGetMatrix_64.
-func fnGetMatrix64(a0 int64, a1 int64, a2 int64, a3 uintptr, a4 int64, a5 uintptr, a6 int64) Result {
+func fnGetMatrix64(a0 int64, a1 int64, a2 int64, a3 uintptr, a4 int64, a5 unsafe.Pointer, a6 int64) Result {
 	r1, _ := ffiCall7(symGetMatrix64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
 	return Result(r1)
 }
@@ -2542,13 +2542,13 @@ func fngetStream(a0 Handle, a1 *driver.Stream) Result {
 }
 
 // fnGetVector calls cublasGetVector.
-func fnGetVector(a0 int32, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32) Result {
+func fnGetVector(a0 int32, a1 int32, a2 uintptr, a3 int32, a4 unsafe.Pointer, a5 int32) Result {
 	r1, _ := ffiCallWidths6(symGetVector, 0, 0xccf, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
 	return Result(r1)
 }
 
 // fnGetVector64 calls cublasGetVector_64.
-func fnGetVector64(a0 int64, a1 int64, a2 uintptr, a3 int64, a4 uintptr, a5 int64) Result {
+func fnGetVector64(a0 int64, a1 int64, a2 uintptr, a3 int64, a4 unsafe.Pointer, a5 int64) Result {
 	r1, _ := ffiCall6(symGetVector64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
 	return Result(r1)
 }
@@ -2968,13 +2968,13 @@ func fnsetMathMode(a0 Handle, a1 Math) Result {
 }
 
 // fnSetMatrix calls cublasSetMatrix.
-func fnSetMatrix(a0 int32, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32) Result {
+func fnSetMatrix(a0 int32, a1 int32, a2 int32, a3 unsafe.Pointer, a4 int32, a5 uintptr, a6 int32) Result {
 	r1, _ := ffiCallWidths7(symSetMatrix, 0, 0x333f, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
 	return Result(r1)
 }
 
 // fnSetMatrix64 calls cublasSetMatrix_64.
-func fnSetMatrix64(a0 int64, a1 int64, a2 int64, a3 uintptr, a4 int64, a5 uintptr, a6 int64) Result {
+func fnSetMatrix64(a0 int64, a1 int64, a2 int64, a3 unsafe.Pointer, a4 int64, a5 uintptr, a6 int64) Result {
 	r1, _ := ffiCall7(symSetMatrix64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
 	return Result(r1)
 }
@@ -2992,13 +2992,13 @@ func fnsetSmCountTarget(a0 Handle, a1 int32) Result {
 }
 
 // fnSetVector calls cublasSetVector.
-func fnSetVector(a0 int32, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32) Result {
+func fnSetVector(a0 int32, a1 int32, a2 unsafe.Pointer, a3 int32, a4 uintptr, a5 int32) Result {
 	r1, _ := ffiCallWidths6(symSetVector, 0, 0xccf, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
 	return Result(r1)
 }
 
 // fnSetVector64 calls cublasSetVector_64.
-func fnSetVector64(a0 int64, a1 int64, a2 uintptr, a3 int64, a4 uintptr, a5 int64) Result {
+func fnSetVector64(a0 int64, a1 int64, a2 unsafe.Pointer, a3 int64, a4 uintptr, a5 int64) Result {
 	r1, _ := ffiCall6(symSetVector64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
 	return Result(r1)
 }
@@ -4424,12 +4424,14 @@ func asumEx64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx i
 //
 // This function multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result. Hence, the performed operation is y[j]=α×x[k]+y[j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.AxpyEx] are listed in the following table:
-//   - alpha: CUDA_R_32F; x: CUDA_R_16F; y: CUDA_R_16F; execution: CUDA_R_32F
-//   - alpha: CUDA_R_32F; x: CUDA_R_16BF; y: CUDA_R_16BF; execution: CUDA_R_32F
-//   - alpha: CUDA_R_32F; x: CUDA_R_32F; y: CUDA_R_32F; execution: CUDA_R_32F
-//   - alpha: CUDA_R_64F; x: CUDA_R_64F; y: CUDA_R_64F; execution: CUDA_R_64F
-//   - alpha: CUDA_C_32F; x: CUDA_C_32F; y: CUDA_C_32F; execution: CUDA_C_32F
-//   - alpha: CUDA_C_64F; x: CUDA_C_64F; y: CUDA_C_64F; execution: CUDA_C_64F
+//
+//	alpha       x            y            execution
+//	CUDA_R_32F  CUDA_R_16F   CUDA_R_16F   CUDA_R_32F
+//	CUDA_R_32F  CUDA_R_16BF  CUDA_R_16BF  CUDA_R_32F
+//	CUDA_R_32F  CUDA_R_32F   CUDA_R_32F   CUDA_R_32F
+//	CUDA_R_64F  CUDA_R_64F   CUDA_R_64F   CUDA_R_64F
+//	CUDA_C_32F  CUDA_C_32F   CUDA_C_32F   CUDA_C_32F
+//	CUDA_C_64F  CUDA_C_64F   CUDA_C_64F   CUDA_C_64F
 //
 // For references please refer to NETLIB documentation:
 // saxpy(), daxpy(), caxpy(), zaxpy()
@@ -4471,12 +4473,14 @@ func axpyEx(handle Handle, n int32, alpha Scalar, alphaType DataType, x driver.D
 //
 // This function multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result. Hence, the performed operation is y[j]=α×x[k]+y[j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.AxpyEx] are listed in the following table:
-//   - alpha: CUDA_R_32F; x: CUDA_R_16F; y: CUDA_R_16F; execution: CUDA_R_32F
-//   - alpha: CUDA_R_32F; x: CUDA_R_16BF; y: CUDA_R_16BF; execution: CUDA_R_32F
-//   - alpha: CUDA_R_32F; x: CUDA_R_32F; y: CUDA_R_32F; execution: CUDA_R_32F
-//   - alpha: CUDA_R_64F; x: CUDA_R_64F; y: CUDA_R_64F; execution: CUDA_R_64F
-//   - alpha: CUDA_C_32F; x: CUDA_C_32F; y: CUDA_C_32F; execution: CUDA_C_32F
-//   - alpha: CUDA_C_64F; x: CUDA_C_64F; y: CUDA_C_64F; execution: CUDA_C_64F
+//
+//	alpha       x            y            execution
+//	CUDA_R_32F  CUDA_R_16F   CUDA_R_16F   CUDA_R_32F
+//	CUDA_R_32F  CUDA_R_16BF  CUDA_R_16BF  CUDA_R_32F
+//	CUDA_R_32F  CUDA_R_32F   CUDA_R_32F   CUDA_R_32F
+//	CUDA_R_64F  CUDA_R_64F   CUDA_R_64F   CUDA_R_64F
+//	CUDA_C_32F  CUDA_C_32F   CUDA_C_32F   CUDA_C_32F
+//	CUDA_C_64F  CUDA_C_64F   CUDA_C_64F   CUDA_C_64F
 //
 // For references please refer to NETLIB documentation:
 // saxpy(), daxpy(), caxpy(), zaxpy()
@@ -10457,12 +10461,14 @@ var slotDnrm264 outSlot[float64]
 // These functions support the 64-bit Integer Interface.
 // This function computes the dot product of vectors x and y. Hence, the result is ∑_(i=1)^(n)(x[k]×y[j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.DotEx] and [Handle.DotcEx] are listed below:
-//   - x: CUDA_R_16F; y: CUDA_R_16F; result: CUDA_R_16F; execution: CUDA_R_32F
-//   - x: CUDA_R_16BF; y: CUDA_R_16BF; result: CUDA_R_16BF; execution: CUDA_R_32F
-//   - x: CUDA_R_32F; y: CUDA_R_32F; result: CUDA_R_32F; execution: CUDA_R_32F
-//   - x: CUDA_R_64F; y: CUDA_R_64F; result: CUDA_R_64F; execution: CUDA_R_64F
-//   - x: CUDA_C_32F; y: CUDA_C_32F; result: CUDA_C_32F; execution: CUDA_C_32F
-//   - x: CUDA_C_64F; y: CUDA_C_64F; result: CUDA_C_64F; execution: CUDA_C_64F
+//
+//	x            y            result       execution
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_16F   CUDA_R_32F
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_16BF  CUDA_R_32F
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_32F   CUDA_R_32F
+//	CUDA_R_64F   CUDA_R_64F   CUDA_R_64F   CUDA_R_64F
+//	CUDA_C_32F   CUDA_C_32F   CUDA_C_32F   CUDA_C_32F
+//	CUDA_C_64F   CUDA_C_64F   CUDA_C_64F   CUDA_C_64F
 //
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
@@ -10502,12 +10508,14 @@ func dotEx(handle Handle, n int32, x driver.DevicePtr, xType DataType, incx int3
 // These functions support the 64-bit Integer Interface.
 // This function computes the dot product of vectors x and y. Hence, the result is ∑_(i=1)^(n)(x[k]×y[j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.DotEx] and [Handle.DotcEx] are listed below:
-//   - x: CUDA_R_16F; y: CUDA_R_16F; result: CUDA_R_16F; execution: CUDA_R_32F
-//   - x: CUDA_R_16BF; y: CUDA_R_16BF; result: CUDA_R_16BF; execution: CUDA_R_32F
-//   - x: CUDA_R_32F; y: CUDA_R_32F; result: CUDA_R_32F; execution: CUDA_R_32F
-//   - x: CUDA_R_64F; y: CUDA_R_64F; result: CUDA_R_64F; execution: CUDA_R_64F
-//   - x: CUDA_C_32F; y: CUDA_C_32F; result: CUDA_C_32F; execution: CUDA_C_32F
-//   - x: CUDA_C_64F; y: CUDA_C_64F; result: CUDA_C_64F; execution: CUDA_C_64F
+//
+//	x            y            result       execution
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_16F   CUDA_R_32F
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_16BF  CUDA_R_32F
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_32F   CUDA_R_32F
+//	CUDA_R_64F   CUDA_R_64F   CUDA_R_64F   CUDA_R_64F
+//	CUDA_C_32F   CUDA_C_32F   CUDA_C_32F   CUDA_C_32F
+//	CUDA_C_64F   CUDA_C_64F   CUDA_C_64F   CUDA_C_64F
 //
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
@@ -10547,12 +10555,14 @@ func dotEx64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx in
 // These functions support the 64-bit Integer Interface.
 // This function computes the dot product of vectors x and y. Hence, the result is ∑_(i=1)^(n)(x[k]×y[j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.DotEx] and [Handle.DotcEx] are listed below:
-//   - x: CUDA_R_16F; y: CUDA_R_16F; result: CUDA_R_16F; execution: CUDA_R_32F
-//   - x: CUDA_R_16BF; y: CUDA_R_16BF; result: CUDA_R_16BF; execution: CUDA_R_32F
-//   - x: CUDA_R_32F; y: CUDA_R_32F; result: CUDA_R_32F; execution: CUDA_R_32F
-//   - x: CUDA_R_64F; y: CUDA_R_64F; result: CUDA_R_64F; execution: CUDA_R_64F
-//   - x: CUDA_C_32F; y: CUDA_C_32F; result: CUDA_C_32F; execution: CUDA_C_32F
-//   - x: CUDA_C_64F; y: CUDA_C_64F; result: CUDA_C_64F; execution: CUDA_C_64F
+//
+//	x            y            result       execution
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_16F   CUDA_R_32F
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_16BF  CUDA_R_32F
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_32F   CUDA_R_32F
+//	CUDA_R_64F   CUDA_R_64F   CUDA_R_64F   CUDA_R_64F
+//	CUDA_C_32F   CUDA_C_32F   CUDA_C_32F   CUDA_C_32F
+//	CUDA_C_64F   CUDA_C_64F   CUDA_C_64F   CUDA_C_64F
 //
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
@@ -10592,12 +10602,14 @@ func dotcEx(handle Handle, n int32, x driver.DevicePtr, xType DataType, incx int
 // These functions support the 64-bit Integer Interface.
 // This function computes the dot product of vectors x and y. Hence, the result is ∑_(i=1)^(n)(x[k]×y[j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.DotEx] and [Handle.DotcEx] are listed below:
-//   - x: CUDA_R_16F; y: CUDA_R_16F; result: CUDA_R_16F; execution: CUDA_R_32F
-//   - x: CUDA_R_16BF; y: CUDA_R_16BF; result: CUDA_R_16BF; execution: CUDA_R_32F
-//   - x: CUDA_R_32F; y: CUDA_R_32F; result: CUDA_R_32F; execution: CUDA_R_32F
-//   - x: CUDA_R_64F; y: CUDA_R_64F; result: CUDA_R_64F; execution: CUDA_R_64F
-//   - x: CUDA_C_32F; y: CUDA_C_32F; result: CUDA_C_32F; execution: CUDA_C_32F
-//   - x: CUDA_C_64F; y: CUDA_C_64F; result: CUDA_C_64F; execution: CUDA_C_64F
+//
+//	x            y            result       execution
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_16F   CUDA_R_32F
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_16BF  CUDA_R_32F
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_32F   CUDA_R_32F
+//	CUDA_R_64F   CUDA_R_64F   CUDA_R_64F   CUDA_R_64F
+//	CUDA_C_32F   CUDA_C_32F   CUDA_C_32F   CUDA_C_32F
+//	CUDA_C_64F   CUDA_C_64F   CUDA_C_64F   CUDA_C_64F
 //
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
@@ -10729,7 +10741,9 @@ func drotg(handle Handle, a *float64, b *float64, c *float64, s *float64) error 
 // H=(h₁₁h₁₂h₂₁h₂₂), to vectors x and y.
 // Hence, the result is x[k]=h₁₁×x[k]+h₁₂×y[j] and y[j]=h₂₁×x[k]+h₂₂×y[j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The elements , , and of matrix H are stored in param[1], param[2], param[3] and param[4], respectively. The flag = param[0] defines the following predefined values for the matrix H entries
-//   - flag == -1.0: (h₁₁, h₁₂; h₂₁, h₂₂); flag == 0.0: (1.0, h₁₂; h₂₁, 1.0); flag == 1.0: (h₁₁, 1.0; −1.0, h₂₂); flag == -2.0: (1.0, 0.0; 0.0, 1.0)
+//
+//	flag == -1.0          flag == 0.0           flag == 1.0            flag == -2.0
+//	(h₁₁, h₁₂; h₂₁, h₂₂)  (1.0, h₁₂; h₂₁, 1.0)  (h₁₁, 1.0; −1.0, h₂₂)  (1.0, 0.0; 0.0, 1.0)
 //
 // Notice that the values -1.0, 0.0 and 1.0 implied by the flag are not stored in param.
 // For references please refer to NETLIB documentation:
@@ -10762,7 +10776,9 @@ func drotm(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 // H=(h₁₁h₁₂h₂₁h₂₂), to vectors x and y.
 // Hence, the result is x[k]=h₁₁×x[k]+h₁₂×y[j] and y[j]=h₂₁×x[k]+h₂₂×y[j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The elements , , and of matrix H are stored in param[1], param[2], param[3] and param[4], respectively. The flag = param[0] defines the following predefined values for the matrix H entries
-//   - flag == -1.0: (h₁₁, h₁₂; h₂₁, h₂₂); flag == 0.0: (1.0, h₁₂; h₂₁, 1.0); flag == 1.0: (h₁₁, 1.0; −1.0, h₂₂); flag == -2.0: (1.0, 0.0; 0.0, 1.0)
+//
+//	flag == -1.0          flag == 0.0           flag == 1.0            flag == -2.0
+//	(h₁₁, h₁₂; h₂₁, h₂₂)  (1.0, h₁₂; h₂₁, 1.0)  (h₁₁, 1.0; −1.0, h₂₂)  (1.0, 0.0; 0.0, 1.0)
 //
 // Notice that the values -1.0, 0.0 and 1.0 implied by the flag are not stored in param.
 // For references please refer to NETLIB documentation:
@@ -10794,7 +10810,9 @@ func drotm64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 //
 // H=(h₁₁h₁₂h₂₁h₂₂), that zeros out the second entry of a 2×1 vector (d1*x1,d2*y1)ᵀ .
 // The flag = param[0] defines the following predefined values for the matrix H entries
-//   - flag == -1.0: (h₁₁, h₁₂; h₂₁, h₂₂); flag == 0.0: (1.0, h₁₂; h₂₁, 1.0); flag == 1.0: (h₁₁, 1.0; −1.0, h₂₂); flag == -2.0: (1.0, 0.0; 0.0, 1.0)
+//
+//	flag == -1.0          flag == 0.0           flag == 1.0            flag == -2.0
+//	(h₁₁, h₁₂; h₂₁, h₂₂)  (1.0, h₁₂; h₂₁, 1.0)  (h₁₁, 1.0; −1.0, h₂₂)  (1.0, 0.0; 0.0, 1.0)
 //
 // Notice that the values -1.0, 0.0 and 1.0 implied by the flag are not stored in param.
 // For references please refer to NETLIB documentation:
@@ -13347,7 +13365,7 @@ var slotGetMathMode outSlot[Math]
 //   - [ErrMappingError]: There was an error accessing GPU memory
 //
 // Wraps cublasGetMatrix.
-func GetMatrix(rows int32, cols int32, elemSize int32, a driver.DevicePtr, lda int32, b uintptr, ldb int32) error {
+func GetMatrix(rows int32, cols int32, elemSize int32, a driver.DevicePtr, lda int32, b unsafe.Pointer, ldb int32) error {
 	if err := checkLibSym("cublasGetMatrix"); err != nil {
 		return err
 	}
@@ -13361,6 +13379,10 @@ func GetMatrix(rows int32, cols int32, elemSize int32, a driver.DevicePtr, lda i
 // Errors:
 //   - [ErrInvalidValue]: The parameters rows or cols are negative, or elemSize, lda ldb are not positive.
 //   - [ErrMappingError]: There was an error accessing GPU memory
+//
+// b must remain valid, unmoved, and neither read nor modified until the stream work completes.
+// The memory must be pinned (page-locked, or a Go value pinned with runtime.Pinner)
+// and kept alive until the stream work completes. Do not pass stack memory.
 //
 // Wraps cublasGetMatrixAsync.
 func GetMatrixAsync(rows int32, cols int32, elemSize int32, a driver.DevicePtr, lda int32, b uintptr, ldb int32, stream driver.Stream) error {
@@ -13377,6 +13399,10 @@ func GetMatrixAsync(rows int32, cols int32, elemSize int32, a driver.DevicePtr, 
 // Errors:
 //   - [ErrInvalidValue]: The parameters rows or cols are negative, or elemSize, lda ldb are not positive.
 //   - [ErrMappingError]: There was an error accessing GPU memory
+//
+// b must remain valid, unmoved, and neither read nor modified until the stream work completes.
+// The memory must be pinned (page-locked, or a Go value pinned with runtime.Pinner)
+// and kept alive until the stream work completes. Do not pass stack memory.
 //
 // Wraps cublasGetMatrixAsync_64.
 func GetMatrixAsync64(rows int64, cols int64, elemSize int64, a driver.DevicePtr, lda int64, b uintptr, ldb int64, stream driver.Stream) error {
@@ -13397,7 +13423,7 @@ func GetMatrixAsync64(rows int64, cols int64, elemSize int64, a driver.DevicePtr
 //   - [ErrMappingError]: There was an error accessing GPU memory
 //
 // Wraps cublasGetMatrix_64.
-func GetMatrix64(rows int64, cols int64, elemSize int64, a driver.DevicePtr, lda int64, b uintptr, ldb int64) error {
+func GetMatrix64(rows int64, cols int64, elemSize int64, a driver.DevicePtr, lda int64, b unsafe.Pointer, ldb int64) error {
 	if err := checkLibSym("cublasGetMatrix_64"); err != nil {
 		return err
 	}
@@ -13519,7 +13545,7 @@ var slotGetStream outSlot[driver.Stream]
 //   - [ErrMappingError]: There was an error accessing GPU memory
 //
 // Wraps cublasGetVector.
-func GetVector(n int32, elemSize int32, x driver.DevicePtr, incx int32, y uintptr, incy int32) error {
+func GetVector(n int32, elemSize int32, x driver.DevicePtr, incx int32, y unsafe.Pointer, incy int32) error {
 	if err := checkLibSym("cublasGetVector"); err != nil {
 		return err
 	}
@@ -13533,6 +13559,10 @@ func GetVector(n int32, elemSize int32, x driver.DevicePtr, incx int32, y uintpt
 // Errors:
 //   - [ErrInvalidValue]: The parameters incx, incy, or elemSize are not positive
 //   - [ErrMappingError]: There was an error accessing GPU memory
+//
+// hostPtr must remain valid, unmoved, and neither read nor modified until the stream work completes.
+// The memory must be pinned (page-locked, or a Go value pinned with runtime.Pinner)
+// and kept alive until the stream work completes. Do not pass stack memory.
 //
 // Wraps cublasGetVectorAsync.
 func GetVectorAsync(n int32, elemSize int32, devicePtr driver.DevicePtr, incx int32, hostPtr unsafe.Pointer, incy int32, stream driver.Stream) error {
@@ -13549,6 +13579,10 @@ func GetVectorAsync(n int32, elemSize int32, devicePtr driver.DevicePtr, incx in
 // Errors:
 //   - [ErrInvalidValue]: The parameters incx, incy, or elemSize are not positive
 //   - [ErrMappingError]: There was an error accessing GPU memory
+//
+// hostPtr must remain valid, unmoved, and neither read nor modified until the stream work completes.
+// The memory must be pinned (page-locked, or a Go value pinned with runtime.Pinner)
+// and kept alive until the stream work completes. Do not pass stack memory.
 //
 // Wraps cublasGetVectorAsync_64.
 func GetVectorAsync64(n int64, elemSize int64, devicePtr driver.DevicePtr, incx int64, hostPtr unsafe.Pointer, incy int64, stream driver.Stream) error {
@@ -13570,7 +13604,7 @@ func GetVectorAsync64(n int64, elemSize int64, devicePtr driver.DevicePtr, incx 
 //   - [ErrMappingError]: There was an error accessing GPU memory
 //
 // Wraps cublasGetVector_64.
-func GetVector64(n int64, elemSize int64, x driver.DevicePtr, incx int64, y uintptr, incy int64) error {
+func GetVector64(n int64, elemSize int64, x driver.DevicePtr, incx int64, y unsafe.Pointer, incy int64) error {
 	if err := checkLibSym("cublasGetVector_64"); err != nil {
 		return err
 	}
@@ -14898,12 +14932,14 @@ func LoggerConfigure(logIsOn int32, logToStdOut int32, logToStdErr int32, logFil
 //
 // This function computes the Euclidean norm of the vector x. The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x[j]×x[j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.Nrm2Ex] are listed below :
-//   - x: CUDA_R_16F; result: CUDA_R_16F; execution: CUDA_R_32F
-//   - x: CUDA_R_16BF; result: CUDA_R_16BF; execution: CUDA_R_32F
-//   - x: CUDA_R_32F; result: CUDA_R_32F; execution: CUDA_R_32F
-//   - x: CUDA_C_32F; result: CUDA_R_32F; execution: CUDA_R_32F
-//   - x: CUDA_R_64F; result: CUDA_R_64F; execution: CUDA_R_64F
-//   - x: CUDA_C_64F; result: CUDA_R_64F; execution: CUDA_R_64F
+//
+//	x            result       execution
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_32F
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_32F
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_32F
+//	CUDA_C_32F   CUDA_R_32F   CUDA_R_32F
+//	CUDA_R_64F   CUDA_R_64F   CUDA_R_64F
+//	CUDA_C_64F   CUDA_R_64F   CUDA_R_64F
 //
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
@@ -14938,12 +14974,14 @@ func nrm2Ex(handle Handle, n int32, x driver.DevicePtr, xType DataType, incx int
 //
 // This function computes the Euclidean norm of the vector x. The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑_(i=1)^(n)(x[j]×x[j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.Nrm2Ex] are listed below :
-//   - x: CUDA_R_16F; result: CUDA_R_16F; execution: CUDA_R_32F
-//   - x: CUDA_R_16BF; result: CUDA_R_16BF; execution: CUDA_R_32F
-//   - x: CUDA_R_32F; result: CUDA_R_32F; execution: CUDA_R_32F
-//   - x: CUDA_C_32F; result: CUDA_R_32F; execution: CUDA_R_32F
-//   - x: CUDA_R_64F; result: CUDA_R_64F; execution: CUDA_R_64F
-//   - x: CUDA_C_64F; result: CUDA_R_64F; execution: CUDA_R_64F
+//
+//	x            result       execution
+//	CUDA_R_16F   CUDA_R_16F   CUDA_R_32F
+//	CUDA_R_16BF  CUDA_R_16BF  CUDA_R_32F
+//	CUDA_R_32F   CUDA_R_32F   CUDA_R_32F
+//	CUDA_C_32F   CUDA_R_32F   CUDA_R_32F
+//	CUDA_R_64F   CUDA_R_64F   CUDA_R_64F
+//	CUDA_C_64F   CUDA_R_64F   CUDA_R_64F
 //
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
@@ -14981,10 +15019,12 @@ func nrm2Ex64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx i
 // to vectors x and y.
 // Hence, the result is x[k]=c×x[k]+s×y[j] and y[j]=−s×x[k]+c×y[j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.RotEx] are listed below :
-//   - executionType: CUDA_R_32F; xType / yType: CUDA_R_16BF, CUDA_R_16F, CUDA_R_32F; csType: CUDA_R_16BF, CUDA_R_16F, CUDA_R_32F
-//   - executionType: CUDA_R_64F; xType / yType: CUDA_R_64F; csType: CUDA_R_64F
-//   - executionType: CUDA_C_32F; xType / yType: CUDA_C_32F, CUDA_C_32F; csType: CUDA_R_32F, CUDA_C_32F
-//   - executionType: CUDA_C_64F; xType / yType: CUDA_C_64F, CUDA_C_64F; csType: CUDA_R_64F, CUDA_C_64F
+//
+//	executionType  xType / yType                        csType
+//	CUDA_R_32F     CUDA_R_16BF, CUDA_R_16F, CUDA_R_32F  CUDA_R_16BF, CUDA_R_16F, CUDA_R_32F
+//	CUDA_R_64F     CUDA_R_64F                           CUDA_R_64F
+//	CUDA_C_32F     CUDA_C_32F, CUDA_C_32F               CUDA_R_32F, CUDA_C_32F
+//	CUDA_C_64F     CUDA_C_64F, CUDA_C_64F               CUDA_R_64F, CUDA_C_64F
 //
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
@@ -15031,10 +15071,12 @@ func rotEx(handle Handle, n int32, x driver.DevicePtr, xType DataType, incx int3
 // to vectors x and y.
 // Hence, the result is x[k]=c×x[k]+s×y[j] and y[j]=−s×x[k]+c×y[j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.RotEx] are listed below :
-//   - executionType: CUDA_R_32F; xType / yType: CUDA_R_16BF, CUDA_R_16F, CUDA_R_32F; csType: CUDA_R_16BF, CUDA_R_16F, CUDA_R_32F
-//   - executionType: CUDA_R_64F; xType / yType: CUDA_R_64F; csType: CUDA_R_64F
-//   - executionType: CUDA_C_32F; xType / yType: CUDA_C_32F, CUDA_C_32F; csType: CUDA_R_32F, CUDA_C_32F
-//   - executionType: CUDA_C_64F; xType / yType: CUDA_C_64F, CUDA_C_64F; csType: CUDA_R_64F, CUDA_C_64F
+//
+//	executionType  xType / yType                        csType
+//	CUDA_R_32F     CUDA_R_16BF, CUDA_R_16F, CUDA_R_32F  CUDA_R_16BF, CUDA_R_16F, CUDA_R_32F
+//	CUDA_R_64F     CUDA_R_64F                           CUDA_R_64F
+//	CUDA_C_32F     CUDA_C_32F, CUDA_C_32F               CUDA_R_32F, CUDA_C_32F
+//	CUDA_C_64F     CUDA_C_64F, CUDA_C_64F               CUDA_R_64F, CUDA_C_64F
 //
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
@@ -15260,12 +15302,14 @@ func saxpy64(handle Handle, n int64, alpha *float32, x driver.DevicePtr, incx in
 //
 // Hence, the performed operation is x[j]=α×x[j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.ScalEx] are listed below :
-//   - alpha: CUDA_R_32F; x: CUDA_R_16F; execution: CUDA_R_32F
-//   - alpha: CUDA_R_32F; x: CUDA_R_16BF; execution: CUDA_R_32F
-//   - alpha: CUDA_R_32F; x: CUDA_R_32F; execution: CUDA_R_32F
-//   - alpha: CUDA_R_64F; x: CUDA_R_64F; execution: CUDA_R_64F
-//   - alpha: CUDA_C_32F; x: CUDA_C_32F; execution: CUDA_C_32F
-//   - alpha: CUDA_C_64F; x: CUDA_C_64F; execution: CUDA_C_64F
+//
+//	alpha       x            execution
+//	CUDA_R_32F  CUDA_R_16F   CUDA_R_32F
+//	CUDA_R_32F  CUDA_R_16BF  CUDA_R_32F
+//	CUDA_R_32F  CUDA_R_32F   CUDA_R_32F
+//	CUDA_R_64F  CUDA_R_64F   CUDA_R_64F
+//	CUDA_C_32F  CUDA_C_32F   CUDA_C_32F
+//	CUDA_C_64F  CUDA_C_64F   CUDA_C_64F
 //
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
@@ -15304,12 +15348,14 @@ func scalEx(handle Handle, n int32, alpha Scalar, alphaType DataType, x driver.D
 //
 // Hence, the performed operation is x[j]=α×x[j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.ScalEx] are listed below :
-//   - alpha: CUDA_R_32F; x: CUDA_R_16F; execution: CUDA_R_32F
-//   - alpha: CUDA_R_32F; x: CUDA_R_16BF; execution: CUDA_R_32F
-//   - alpha: CUDA_R_32F; x: CUDA_R_32F; execution: CUDA_R_32F
-//   - alpha: CUDA_R_64F; x: CUDA_R_64F; execution: CUDA_R_64F
-//   - alpha: CUDA_C_32F; x: CUDA_C_32F; execution: CUDA_C_32F
-//   - alpha: CUDA_C_64F; x: CUDA_C_64F; execution: CUDA_C_64F
+//
+//	alpha       x            execution
+//	CUDA_R_32F  CUDA_R_16F   CUDA_R_32F
+//	CUDA_R_32F  CUDA_R_16BF  CUDA_R_32F
+//	CUDA_R_32F  CUDA_R_32F   CUDA_R_32F
+//	CUDA_R_64F  CUDA_R_64F   CUDA_R_64F
+//	CUDA_C_32F  CUDA_C_32F   CUDA_C_32F
+//	CUDA_C_64F  CUDA_C_64F   CUDA_C_64F
 //
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
@@ -15855,7 +15901,7 @@ func setMathMode(handle Handle, mode Math) error {
 //   - [ErrMappingError]: There was an error accessing GPU memory
 //
 // Wraps cublasSetMatrix.
-func SetMatrix(rows int32, cols int32, elemSize int32, a uintptr, lda int32, b driver.DevicePtr, ldb int32) error {
+func SetMatrix(rows int32, cols int32, elemSize int32, a unsafe.Pointer, lda int32, b driver.DevicePtr, ldb int32) error {
 	if err := checkLibSym("cublasSetMatrix"); err != nil {
 		return err
 	}
@@ -15869,6 +15915,10 @@ func SetMatrix(rows int32, cols int32, elemSize int32, a uintptr, lda int32, b d
 // Errors:
 //   - [ErrInvalidValue]: The parameters rows or cols are negative, or elemSize, lda ldb are not positive.
 //   - [ErrMappingError]: There was an error accessing GPU memory
+//
+// a must remain valid, unmoved, and unmodified until the stream work completes.
+// The memory must be pinned (page-locked, or a Go value pinned with runtime.Pinner)
+// and kept alive until the stream work completes. Do not pass stack memory.
 //
 // Wraps cublasSetMatrixAsync.
 func SetMatrixAsync(rows int32, cols int32, elemSize int32, a uintptr, lda int32, b driver.DevicePtr, ldb int32, stream driver.Stream) error {
@@ -15885,6 +15935,10 @@ func SetMatrixAsync(rows int32, cols int32, elemSize int32, a uintptr, lda int32
 // Errors:
 //   - [ErrInvalidValue]: The parameters rows or cols are negative, or elemSize, lda ldb are not positive.
 //   - [ErrMappingError]: There was an error accessing GPU memory
+//
+// a must remain valid, unmoved, and unmodified until the stream work completes.
+// The memory must be pinned (page-locked, or a Go value pinned with runtime.Pinner)
+// and kept alive until the stream work completes. Do not pass stack memory.
 //
 // Wraps cublasSetMatrixAsync_64.
 func SetMatrixAsync64(rows int64, cols int64, elemSize int64, a uintptr, lda int64, b driver.DevicePtr, ldb int64, stream driver.Stream) error {
@@ -15905,7 +15959,7 @@ func SetMatrixAsync64(rows int64, cols int64, elemSize int64, a uintptr, lda int
 //   - [ErrMappingError]: There was an error accessing GPU memory
 //
 // Wraps cublasSetMatrix_64.
-func SetMatrix64(rows int64, cols int64, elemSize int64, a uintptr, lda int64, b driver.DevicePtr, ldb int64) error {
+func SetMatrix64(rows int64, cols int64, elemSize int64, a unsafe.Pointer, lda int64, b driver.DevicePtr, ldb int64) error {
 	if err := checkLibSym("cublasSetMatrix_64"); err != nil {
 		return err
 	}
@@ -15977,7 +16031,7 @@ func setStream(handle Handle, streamId driver.Stream) error {
 //   - [ErrMappingError]: There was an error accessing GPU memory
 //
 // Wraps cublasSetVector.
-func SetVector(n int32, elemSize int32, x uintptr, incx int32, devicePtr driver.DevicePtr, incy int32) error {
+func SetVector(n int32, elemSize int32, x unsafe.Pointer, incx int32, devicePtr driver.DevicePtr, incy int32) error {
 	if err := checkLibSym("cublasSetVector"); err != nil {
 		return err
 	}
@@ -15991,6 +16045,10 @@ func SetVector(n int32, elemSize int32, x uintptr, incx int32, devicePtr driver.
 // Errors:
 //   - [ErrInvalidValue]: The parameters incx, incy, or elemSize are not positive
 //   - [ErrMappingError]: There was an error accessing GPU memory
+//
+// hostPtr must remain valid, unmoved, and unmodified until the stream work completes.
+// The memory must be pinned (page-locked, or a Go value pinned with runtime.Pinner)
+// and kept alive until the stream work completes. Do not pass stack memory.
 //
 // Wraps cublasSetVectorAsync.
 func SetVectorAsync(n int32, elemSize int32, hostPtr unsafe.Pointer, incx int32, devicePtr driver.DevicePtr, incy int32, stream driver.Stream) error {
@@ -16007,6 +16065,10 @@ func SetVectorAsync(n int32, elemSize int32, hostPtr unsafe.Pointer, incx int32,
 // Errors:
 //   - [ErrInvalidValue]: The parameters incx, incy, or elemSize are not positive
 //   - [ErrMappingError]: There was an error accessing GPU memory
+//
+// hostPtr must remain valid, unmoved, and unmodified until the stream work completes.
+// The memory must be pinned (page-locked, or a Go value pinned with runtime.Pinner)
+// and kept alive until the stream work completes. Do not pass stack memory.
 //
 // Wraps cublasSetVectorAsync_64.
 func SetVectorAsync64(n int64, elemSize int64, hostPtr unsafe.Pointer, incx int64, devicePtr driver.DevicePtr, incy int64, stream driver.Stream) error {
@@ -16028,7 +16090,7 @@ func SetVectorAsync64(n int64, elemSize int64, hostPtr unsafe.Pointer, incx int6
 //   - [ErrMappingError]: There was an error accessing GPU memory
 //
 // Wraps cublasSetVector_64.
-func SetVector64(n int64, elemSize int64, x uintptr, incx int64, devicePtr driver.DevicePtr, incy int64) error {
+func SetVector64(n int64, elemSize int64, x unsafe.Pointer, incx int64, devicePtr driver.DevicePtr, incy int64) error {
 	if err := checkLibSym("cublasSetVector_64"); err != nil {
 		return err
 	}
@@ -17459,7 +17521,9 @@ func srotg(handle Handle, a *float32, b *float32, c *float32, s *float32) error 
 // H=(h₁₁h₁₂h₂₁h₂₂), to vectors x and y.
 // Hence, the result is x[k]=h₁₁×x[k]+h₁₂×y[j] and y[j]=h₂₁×x[k]+h₂₂×y[j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The elements , , and of matrix H are stored in param[1], param[2], param[3] and param[4], respectively. The flag = param[0] defines the following predefined values for the matrix H entries
-//   - flag == -1.0: (h₁₁, h₁₂; h₂₁, h₂₂); flag == 0.0: (1.0, h₁₂; h₂₁, 1.0); flag == 1.0: (h₁₁, 1.0; −1.0, h₂₂); flag == -2.0: (1.0, 0.0; 0.0, 1.0)
+//
+//	flag == -1.0          flag == 0.0           flag == 1.0            flag == -2.0
+//	(h₁₁, h₁₂; h₂₁, h₂₂)  (1.0, h₁₂; h₂₁, 1.0)  (h₁₁, 1.0; −1.0, h₂₂)  (1.0, 0.0; 0.0, 1.0)
 //
 // Notice that the values -1.0, 0.0 and 1.0 implied by the flag are not stored in param.
 // For references please refer to NETLIB documentation:
@@ -17492,7 +17556,9 @@ func srotm(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 // H=(h₁₁h₁₂h₂₁h₂₂), to vectors x and y.
 // Hence, the result is x[k]=h₁₁×x[k]+h₁₂×y[j] and y[j]=h₂₁×x[k]+h₂₂×y[j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The elements , , and of matrix H are stored in param[1], param[2], param[3] and param[4], respectively. The flag = param[0] defines the following predefined values for the matrix H entries
-//   - flag == -1.0: (h₁₁, h₁₂; h₂₁, h₂₂); flag == 0.0: (1.0, h₁₂; h₂₁, 1.0); flag == 1.0: (h₁₁, 1.0; −1.0, h₂₂); flag == -2.0: (1.0, 0.0; 0.0, 1.0)
+//
+//	flag == -1.0          flag == 0.0           flag == 1.0            flag == -2.0
+//	(h₁₁, h₁₂; h₂₁, h₂₂)  (1.0, h₁₂; h₂₁, 1.0)  (h₁₁, 1.0; −1.0, h₂₂)  (1.0, 0.0; 0.0, 1.0)
 //
 // Notice that the values -1.0, 0.0 and 1.0 implied by the flag are not stored in param.
 // For references please refer to NETLIB documentation:
@@ -17524,7 +17590,9 @@ func srotm64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 //
 // H=(h₁₁h₁₂h₂₁h₂₂), that zeros out the second entry of a 2×1 vector (d1*x1,d2*y1)ᵀ .
 // The flag = param[0] defines the following predefined values for the matrix H entries
-//   - flag == -1.0: (h₁₁, h₁₂; h₂₁, h₂₂); flag == 0.0: (1.0, h₁₂; h₂₁, 1.0); flag == 1.0: (h₁₁, 1.0; −1.0, h₂₂); flag == -2.0: (1.0, 0.0; 0.0, 1.0)
+//
+//	flag == -1.0          flag == 0.0           flag == 1.0            flag == -2.0
+//	(h₁₁, h₁₂; h₂₁, h₂₂)  (1.0, h₁₂; h₂₁, 1.0)  (h₁₁, 1.0; −1.0, h₂₂)  (1.0, 0.0; 0.0, 1.0)
 //
 // Notice that the values -1.0, 0.0 and 1.0 implied by the flag are not stored in param.
 // For references please refer to NETLIB documentation:
