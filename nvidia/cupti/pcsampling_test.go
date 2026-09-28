@@ -1,6 +1,7 @@
 package cupti
 
 import (
+	"strings"
 	"testing"
 	"unsafe"
 )
@@ -24,35 +25,76 @@ func TestPCSamplingReasonLayoutFor(t *testing.T) {
 	}
 }
 
-// TestPCSamplingStallReasons stands in for CUPTI, which receives the output
-// addresses as plain integers. Reconstructing pointers from the uintptr
-// parameter fields is therefore the behavior under test, not an accident, and
-// go vet reports each conversion as a possible misuse. It is sound here for the
-// same reason it is sound for CUPTI: pcSamplingStallReasons pins every
-// referenced object with a [runtime.Pinner] that outlives both callbacks, so
-// nothing moves or is collected while an address is held as an integer. The
-// conversions would become unsound if the pinning were dropped.
-func TestPCSamplingStallReasons(t *testing.T) {
-	inv, err := pcSamplingStallReasons(1, 4, 130400,
-		func(p *PCSamplingGetNumStallReasonsParams) error {
-			if p.Ctx != 1 || p.NumStallReasons == 0 {
-				t.Fatalf("count params = %+v", *p)
+// fakeReasonQueries stands in for CUPTI, which receives the output addresses
+// as plain integers. The fake checks that each address field names the typed
+// storage it was derived from and writes the reasons through that storage.
+func fakeReasonQueries(t *testing.T, count uint, reasons []PCSamplingStallReasonInfo) (func(*PCSamplingGetNumStallReasonsParams, *uint) error, func(*PCSamplingGetStallReasonsParams, pcSamplingReasonStorage) error) {
+	countQuery := func(p *PCSamplingGetNumStallReasonsParams, n *uint) error {
+		if p.Ctx != 1 || p.Size != 32 || p.NumStallReasons != uintptr(unsafe.Pointer(n)) {
+			t.Fatalf("count params = %+v, want NumStallReasons %#x", *p, uintptr(unsafe.Pointer(n)))
+		}
+		*n = count
+		return nil
+	}
+	namesQuery := func(p *PCSamplingGetStallReasonsParams, s pcSamplingReasonStorage) error {
+		if p.Ctx != 1 || p.Size != 48 || p.NumStallReasons != count {
+			t.Fatalf("names params = %+v, want count %d", *p, count)
+		}
+		if len(s.indices) != int(count) || len(s.pointers) != int(count) || len(s.names) != int(count) {
+			t.Fatalf("storage lengths = %d/%d/%d, want %d", len(s.indices), len(s.pointers), len(s.names), count)
+		}
+		if p.StallReasonIndex != uintptr(unsafe.Pointer(&s.indices[0])) {
+			t.Fatalf("StallReasonIndex = %#x, want %#x", p.StallReasonIndex, uintptr(unsafe.Pointer(&s.indices[0])))
+		}
+		if p.StallReasons != uintptr(unsafe.Pointer(&s.pointers[0])) {
+			t.Fatalf("StallReasons = %#x, want %#x", p.StallReasons, uintptr(unsafe.Pointer(&s.pointers[0])))
+		}
+		for i := range s.pointers {
+			if s.pointers[i] != uintptr(unsafe.Pointer(&s.names[i][0])) {
+				t.Fatalf("pointers[%d] = %#x, want %#x", i, s.pointers[i], uintptr(unsafe.Pointer(&s.names[i][0])))
 			}
-			*(*uint)(unsafe.Pointer(p.NumStallReasons)) = 2
-			return nil
-		},
-		func(p *PCSamplingGetStallReasonsParams) error {
-			indices := unsafe.Slice((*uint32)(unsafe.Pointer(p.StallReasonIndex)), 2)
-			pointers := unsafe.Slice((*uintptr)(unsafe.Pointer(p.StallReasons)), 2)
-			indices[0], indices[1] = 9, 3
-			copy((*[StallReasonStringSize]byte)(unsafe.Pointer(pointers[0]))[:], []byte("late\x00"))
-			copy((*[StallReasonStringSize]byte)(unsafe.Pointer(pointers[1]))[:], []byte("early\x00"))
-			return nil
-		})
+		}
+		for i, r := range reasons {
+			s.indices[i] = r.Index
+			copy(s.names[i][:], r.Name+"\x00")
+		}
+		return nil
+	}
+	return countQuery, namesQuery
+}
+
+func TestPCSamplingStallReasons(t *testing.T) {
+	countQuery, namesQuery := fakeReasonQueries(t, 2, []PCSamplingStallReasonInfo{{9, "late"}, {3, "early"}})
+	inv, err := pcSamplingStallReasons(1, 4, 130400, countQuery, namesQuery)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if inv.CUPTIVersion != 130400 || len(inv.Reasons) != 2 || inv.Reasons[0].Index != 3 || inv.Reasons[0].Name != "early" {
-		t.Fatalf("inventory = %+v", inv)
+	want := []PCSamplingStallReasonInfo{{3, "early"}, {9, "late"}}
+	if inv.CUPTIVersion != 130400 || len(inv.Reasons) != len(want) || inv.Reasons[0] != want[0] || inv.Reasons[1] != want[1] {
+		t.Fatalf("inventory = %+v, want %+v", inv, want)
+	}
+}
+
+func TestPCSamplingStallReasonsRejects(t *testing.T) {
+	tests := []struct {
+		name    string
+		count   uint
+		reasons []PCSamplingStallReasonInfo
+		want    string
+	}{
+		{"over limit", 5, nil, "exceeds limit"},
+		{"unterminated", 1, []PCSamplingStallReasonInfo{{1, strings.Repeat("x", StallReasonStringSize)}}, "unterminated"},
+		{"empty name", 1, []PCSamplingStallReasonInfo{{1, ""}}, "unterminated"},
+		{"duplicate index", 2, []PCSamplingStallReasonInfo{{1, "a"}, {1, "b"}}, "duplicate"},
+		{"duplicate name", 2, []PCSamplingStallReasonInfo{{1, "a"}, {2, "a"}}, "duplicate"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			countQuery, namesQuery := fakeReasonQueries(t, tt.count, tt.reasons)
+			inv, err := pcSamplingStallReasons(1, 4, 130400, countQuery, namesQuery)
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("pcSamplingStallReasons = %+v, %v, want error containing %q", inv, err, tt.want)
+			}
+		})
 	}
 }

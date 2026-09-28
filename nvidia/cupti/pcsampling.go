@@ -74,10 +74,27 @@ func PCSamplingStallReasons(ctx driver.Context, maxReasons int) (PCSamplingReaso
 	if err != nil {
 		return PCSamplingReasonInventory{}, err
 	}
-	return pcSamplingStallReasons(ctx, maxReasons, version, PCSamplingGetNumStallReasons, PCSamplingGetStallReasons)
+	return pcSamplingStallReasons(ctx, maxReasons, version,
+		func(p *PCSamplingGetNumStallReasonsParams, _ *uint) error { return PCSamplingGetNumStallReasons(p) },
+		func(p *PCSamplingGetStallReasonsParams, _ pcSamplingReasonStorage) error {
+			return PCSamplingGetStallReasons(p)
+		})
 }
 
-func pcSamplingStallReasons(ctx driver.Context, maxReasons int, version uint32, countQuery func(*PCSamplingGetNumStallReasonsParams) error, namesQuery func(*PCSamplingGetStallReasonsParams) error) (PCSamplingReasonInventory, error) {
+// pcSamplingReasonStorage is the typed Go storage behind the addresses in a
+// [PCSamplingGetStallReasonsParams]. CUPTI ignores it; a test query uses it to
+// check the wire addresses and to write results without converting integers
+// back into pointers.
+type pcSamplingReasonStorage struct {
+	indices  []uint32
+	pointers []uintptr
+	names    [][StallReasonStringSize]byte
+}
+
+// pcSamplingStallReasons implements [PCSamplingStallReasons]. Each query
+// receives the native parameters and the typed storage their address fields
+// refer to.
+func pcSamplingStallReasons(ctx driver.Context, maxReasons int, version uint32, countQuery func(*PCSamplingGetNumStallReasonsParams, *uint) error, namesQuery func(*PCSamplingGetStallReasonsParams, pcSamplingReasonStorage) error) (PCSamplingReasonInventory, error) {
 	if ctx == 0 || maxReasons < 1 || maxReasons > 65536 {
 		return PCSamplingReasonInventory{}, errors.New("cupti: invalid reason inventory request")
 	}
@@ -90,7 +107,7 @@ func pcSamplingStallReasons(ctx driver.Context, maxReasons int, version uint32, 
 	var count uint
 	pin.Pin(&count)
 	q := PCSamplingGetNumStallReasonsParams{Size: layout.CountParamsSize, Ctx: ctx, NumStallReasons: uintptr(unsafe.Pointer(&count))}
-	if err := countQuery(&q); err != nil {
+	if err := countQuery(&q, &count); err != nil {
 		return PCSamplingReasonInventory{}, fmt.Errorf("cupti: query reason count: %w", err)
 	}
 	if count > uint(maxReasons) {
@@ -113,7 +130,7 @@ func pcSamplingStallReasons(ctx driver.Context, maxReasons int, version uint32, 
 	pin.Pin(&indices[0])
 	pin.Pin(&pointers[0])
 	n := PCSamplingGetStallReasonsParams{Size: layout.NamesParamsSize, Ctx: ctx, NumStallReasons: count, StallReasonIndex: uintptr(unsafe.Pointer(&indices[0])), StallReasons: uintptr(unsafe.Pointer(&pointers[0]))}
-	if err := namesQuery(&n); err != nil {
+	if err := namesQuery(&n, pcSamplingReasonStorage{indices: indices, pointers: pointers, names: names}); err != nil {
 		return PCSamplingReasonInventory{}, fmt.Errorf("cupti: query reason names: %w", err)
 	}
 	if n.NumStallReasons != count || n.StallReasonIndex != uintptr(unsafe.Pointer(&indices[0])) || n.StallReasons != uintptr(unsafe.Pointer(&pointers[0])) {
