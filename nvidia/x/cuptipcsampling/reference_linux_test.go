@@ -132,15 +132,15 @@ func TestNativeStartStopMatchesReferenceSample(t *testing.T) {
 
 func captureTutorialPCWorkload(dev *cuda.Device, period uint32) (uint64, []string, []string, error) {
 	const source = `
-extern "C" __global__ void VectorAdd(const int *a, const int *b, int *c, int n) {
+__global__ void VectorAdd(const int *a, const int *b, int *c, int n) {
   int i = blockDim.x * blockIdx.x + threadIdx.x;
   if (i < n) c[i] = a[i] + b[i];
 }
-extern "C" __global__ void VectorSubtract(const int *a, const int *b, int *c, int n) {
+__global__ void VectorSubtract(const int *a, const int *b, int *c, int n) {
   int i = blockDim.x * blockIdx.x + threadIdx.x;
   if (i < n) c[i] = a[i] - b[i];
 }
-extern "C" __global__ void VectorMultiply(const int *a, const int *b, int *c, int n) {
+__global__ void VectorMultiply(const int *a, const int *b, int *c, int n) {
   int i = blockDim.x * blockIdx.x + threadIdx.x;
   if (i < n) c[i] = a[i] * b[i];
 }`
@@ -156,13 +156,13 @@ extern "C" __global__ void VectorMultiply(const int *a, const int *b, int *c, in
 	var add, sub, mul driver.Function
 	if err := dev.WithContext(func() error {
 		var err error
-		if add, err = module.Function("VectorAdd"); err != nil {
+		if add, err = module.Function("_Z9VectorAddPKiS0_Pii"); err != nil {
 			return err
 		}
-		if sub, err = module.Function("VectorSubtract"); err != nil {
+		if sub, err = module.Function("_Z13VectorSubtractPKiS0_Pii"); err != nil {
 			return err
 		}
-		mul, err = module.Function("VectorMultiply")
+		mul, err = module.Function("_Z13VectorMultiplyPKiS0_Pii")
 		return err
 	}); err != nil {
 		return 0, nil, nil, err

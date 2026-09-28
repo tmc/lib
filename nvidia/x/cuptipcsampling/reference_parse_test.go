@@ -42,8 +42,10 @@ func parsePCReferenceOutput(output string) (pcReferenceReport, error) {
 		if match := pcKernel.FindStringSubmatch(line); len(match) == 2 {
 			kernels[strings.TrimSpace(match[1])] = true
 		}
-		if match := pcReason.FindStringSubmatch(line); len(match) == 2 {
-			reasons[strings.TrimSpace(match[1])] = true
+		for _, match := range pcReason.FindAllStringSubmatch(line, -1) {
+			if len(match) == 2 {
+				reasons[strings.TrimSpace(match[1])] = true
+			}
 		}
 		if strings.HasPrefix(line, "Number of PCs remaining to be collected:") {
 			match := pcSummary.FindStringSubmatch(line)
@@ -78,10 +80,11 @@ func parsePCReferenceOutput(output string) (pcReferenceReport, error) {
 
 func TestParsePCReferenceOutputExactSampleFormat(t *testing.T) {
 	const output = `----- PC sampling data for range defined by cuptiPCSamplingStart() and cuptiPCSamplingStop() -----
-pcOffset : 0x10, stallReasonCount: 1, functionName: VectorAdd, correlationID: 1, stallReason: long_scoreboard, samples: 7
+, pcOffset : 0x80, stallReasonCount: 3, functionName: _Z9VectorAddPKiS0_Pii, correlationID: 2, stallReason: reason_a, samples: 5, stallReason: reason_b, samples: 1, stallReason: reason_c, samples: 2
+, pcOffset : 0x90, stallReasonCount: 2, functionName: _Z13VectorSubtractPKiS0_Pii, correlationID: 3, stallReason: reason_d, samples: 4, stallReason: reason_e, samples: 1
 Number of PCs remaining to be collected: 0, range id: 3, total samples: 9, dropped samples: 0, non user kernels total samples: 90
 ----- PC sampling data for range defined by cuptiPCSamplingStart() and cuptiPCSamplingStop() -----
-pcOffset : 0x20, stallReasonCount: 1, functionName: VectorSubtract, correlationID: 2, stallReason: short_scoreboard, samples: 2
+, pcOffset : 0x20, stallReasonCount: 1, functionName: _Z13VectorMultiplyPKiS0_Pii, correlationID: 4, stallReason: reason_f, samples: 2
 Number of PCs remaining to be collected: 0, range id: 4, total samples: 11, dropped samples: 1, non user kernels total samples: 110
 `
 	report, err := parsePCReferenceOutput(output)
@@ -91,7 +94,7 @@ Number of PCs remaining to be collected: 0, range id: 4, total samples: 11, drop
 	if report.Total != 20 || len(report.Counts) != 2 {
 		t.Fatalf("user totals = %d %v, want 20 from two ranges", report.Total, report.Counts)
 	}
-	if strings.Join(report.Kernels, ",") != "VectorAdd,VectorSubtract" || strings.Join(report.Reasons, ",") != "long_scoreboard,short_scoreboard" {
+	if strings.Join(report.Kernels, ",") != "_Z13VectorMultiplyPKiS0_Pii,_Z13VectorSubtractPKiS0_Pii,_Z9VectorAddPKiS0_Pii" || strings.Join(report.Reasons, ",") != "reason_a,reason_b,reason_c,reason_d,reason_e,reason_f" {
 		t.Fatalf("inventory = kernels %v reasons %v", report.Kernels, report.Reasons)
 	}
 }
@@ -100,4 +103,37 @@ func TestParsePCReferenceOutputRejectsTruncatedRange(t *testing.T) {
 	if _, err := parsePCReferenceOutput(pcRangeStart + "\npcOffset : 0x10, functionName: VectorAdd\n"); err == nil {
 		t.Fatal("truncated PC range accepted")
 	}
+}
+
+func TestParsePCReferenceOutputRejectsTruncatedRangeBeforeCompleteRange(t *testing.T) {
+	output := pcRangeStart + `
+, pcOffset : 0x10, stallReasonCount: 1, functionName: _Z9VectorAddPKiS0_Pii, correlationID: 1, stallReason: reason_a, samples: 1
+` + pcRangeStart + `
+, pcOffset : 0x20, stallReasonCount: 1, functionName: _Z9VectorAddPKiS0_Pii, correlationID: 1, stallReason: reason_b, samples: 1
+Number of PCs remaining to be collected: 0, range id: 2, total samples: 1, dropped samples: 0, non user kernels total samples: 0
+`
+	if _, err := parsePCReferenceOutput(output); err == nil || !strings.Contains(err.Error(), "truncated PC range") {
+		t.Fatalf("truncated first range error = %v, want truncation error", err)
+	}
+}
+
+func TestParsePCReferenceOutputRejectsSampleTotalOverflow(t *testing.T) {
+	for _, total := range []string{
+		"18446744073709551616",
+		"18446744073709551615", // first range; the next range overflows the running sum
+	} {
+		t.Run(total, func(t *testing.T) {
+			output := pcRangeStart + "\n" + pcSummaryLine(total, 1)
+			if total == "18446744073709551615" {
+				output += pcRangeStart + "\n" + pcSummaryLine("1", 2)
+			}
+			if _, err := parsePCReferenceOutput(output); err == nil {
+				t.Fatalf("overflowing total %s accepted", total)
+			}
+		})
+	}
+}
+
+func pcSummaryLine(total string, rangeID int) string {
+	return fmt.Sprintf("Number of PCs remaining to be collected: 0, range id: %d, total samples: %s, dropped samples: 0, non user kernels total samples: 0\n", rangeID, total)
 }
