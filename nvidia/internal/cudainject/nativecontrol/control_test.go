@@ -3110,6 +3110,7 @@ type graphTraceRecord struct {
 
 // graphNodeKernel is a kernel record that names the graph node it ran as.
 type graphNodeKernel struct {
+	ModuleID    uint32 `json:"module_id"`
 	Name        string `json:"name"`
 	Correlation uint32 `json:"correlation"`
 	GraphID     uint32 `json:"graph_id"`
@@ -3708,6 +3709,35 @@ func TestCrashTrace(t *testing.T) {
 			}
 			if n := strings.Count(out, "cudaprof: signal"); n != 1 {
 				t.Errorf("crash trace written %d times, want 1:\n%s", n, out)
+			}
+		})
+	}
+}
+
+// TestGraphModuleIdentity follows loaded images through explicit node creation
+// and cloning. Driver update ids are literal CUPTI cbids; runtime ids have
+// 1000 added so the native harness can select their callback domain.
+func TestGraphModuleIdentity(t *testing.T) {
+	bin := controlBinary(t, cuda13Build...)
+	for _, mutate := range []int{0, 521, 538, 561, 586, 691, 692, 696, 713, 714, 1288, 1326, 1335, 1361, 1446, 1447} {
+		t.Run(fmt.Sprint(mutate), func(t *testing.T) {
+			arg := strconv.Itoa(mutate)
+			_, status, captures := runBuilt(t, bin, []string{"CUDAPROF_MODULES=1"}, "graph-modules", arg)
+			c := only(t, captures)
+			if !status.Exited() || status.ExitStatus() != 0 {
+				t.Fatalf("status=%v", status)
+			}
+			if len(c.graphNodes) != 6 {
+				t.Fatalf("nodes=%d, want 6", len(c.graphNodes))
+			}
+			for _, k := range c.graphNodes {
+				want := uint32(20 + k.GraphNodeID)
+				if mutate != 0 {
+					want = 0
+				}
+				if k.ModuleID != want {
+					t.Errorf("node %d module=%d, want %d", k.GraphNodeID, k.ModuleID, want)
+				}
 			}
 		})
 	}

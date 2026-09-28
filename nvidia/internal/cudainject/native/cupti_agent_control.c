@@ -31,6 +31,7 @@
 CUptiResult cudaprof_push_external(uint32_t external_kind, uint64_t external_id);
 CUptiResult cudaprof_pop_external(uint32_t external_kind, uint64_t *external_id);
 int cudaprof_finalize(void);
+void cudaprof_test_graph_modules(int mutate);
 int InitializeInjection(void);
 
 /* Counts this process's open descriptors whose /proc/self/fd link matches a
@@ -259,6 +260,12 @@ int main(int argc, char **argv) {
 	/* graph-replay offers a graph of <nodes> kernel nodes launched <replays>
 	   times, as CUPTI delivers it in whichever graph trace mode the producer
 	   chose: node kernel records, or one envelope per replay. */
+	if (strcmp(scenario, "graph-modules") == 0) {
+		cudaprof_test_graph_modules(arg_uint(argc, argv, 2, 0));
+		int offered = cudaprof_test_offer_graph_replays(2, 3);
+		printf("{\"scenario\":\"graph-modules\",\"offered\":%d}\n", offered);
+		return 0;
+	}
 	if (strcmp(scenario, "graph-replay") == 0) {
 		unsigned nodes = arg_uint(argc, argv, 2, 3);
 		unsigned replays = arg_uint(argc, argv, 3, 4);

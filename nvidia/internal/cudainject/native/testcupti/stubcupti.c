@@ -839,3 +839,39 @@ CUptiResult cuptiGetCubinCrc(CUpti_GetCubinCrcParams *pParams) {
 	(void)pParams;
 	return CUPTI_ERROR_NOT_SUPPORTED;
 }
+
+CUptiResult cuptiGetGraphNodeId(CUgraphNode node, uint64_t *id) {
+	if (node == NULL || id == NULL) return CUPTI_ERROR_INVALID_PARAMETER;
+	*id = (uint64_t)(uintptr_t)node;
+	return CUPTI_SUCCESS;
+}
+
+/* Announce two same-named functions and clone their explicit kernel nodes.
+			Node ids 1 and 2 are the identities emitted by offer_graph_replays. */
+void cudaprof_test_graph_modules(int mutate) {
+	for (uintptr_t i = 1; i <= 2; i++) {
+		CUmodule module = (CUmodule)(100 + i);
+		CUfunction fn = (CUfunction)(200 + i);
+		CUgraphNode node = (CUgraphNode)(300 + i);
+		CUpti_ModuleResourceData image = {(uint32_t)(20 + i), 0, NULL};
+		CUpti_ResourceData resource = {0}; resource.resourceDescriptor = &image;
+		subscriber_cb(subscriber_data, CUPTI_CB_DOMAIN_RESOURCE, CUPTI_CBID_RESOURCE_MODULE_LOADED, &resource);
+		cuModuleLoad_params load = {&module, NULL};
+		CUresult success = CUDA_SUCCESS;
+		CUpti_CallbackData call = {0}; call.callbackSite = CUPTI_API_EXIT; call.functionReturnValue = &success;
+		call.functionParams = &load;
+		subscriber_cb(subscriber_data, CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuModuleLoad, &call);
+		cuModuleGetFunction_params function = {&fn, module, "same"}; call.functionParams = &function;
+		subscriber_cb(subscriber_data, CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuModuleGetFunction, &call);
+		test_kernel_node_params params = {fn};
+		cuGraphAddKernelNode_params add = {&node, NULL, NULL, 0, &params}; call.functionParams = &add;
+		subscriber_cb(subscriber_data, CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuGraphAddKernelNode, &call);
+		CUpti_GraphData clone = {0}; clone.node = (CUgraphNode)i; clone.originalNode = node;
+		resource.resourceDescriptor = &clone;
+		subscriber_cb(subscriber_data, CUPTI_CB_DOMAIN_RESOURCE, CUPTI_CBID_RESOURCE_GRAPHNODE_CLONED, &resource);
+	}
+	if (mutate) {
+		CUpti_CallbackData call = {0}; call.callbackSite = CUPTI_API_ENTER;
+		subscriber_cb(subscriber_data, mutate >= 1000 ? CUPTI_CB_DOMAIN_RUNTIME_API : CUPTI_CB_DOMAIN_DRIVER_API, (CUpti_CallbackId)(mutate % 1000), &call);
+	}
+}

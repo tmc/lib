@@ -953,6 +953,71 @@ static uint32_t launch_module(uint32_t correlation) {
 	return atomic_load(&launch_modules[slot].id);
 }
 
+/* Graph replay correlations name cuGraphLaunch, not a CUfunction. Retain
+   the CUPTI node identity when an explicit kernel node is added, and copy it
+   when instantiation clones the node. Never infer an image from a symbol.
+   Updates invalidate this bounded table: delayed activity may describe either
+   version, so resolving it with the latest function would be incorrect. */
+#define GRAPH_MODULE_SLOTS 4096
+static struct { uint64_t node; uint32_t module; } graph_modules[GRAPH_MODULE_SLOTS];
+static unsigned graph_module_count;
+
+static uint32_t graph_module(uint64_t node) {
+	uint32_t module = 0;
+	pthread_mutex_lock(&handle_mu);
+	for (unsigned i = 0; i < graph_module_count; i++) {
+		if (graph_modules[i].node == node) { module = graph_modules[i].module; break; }
+	}
+	pthread_mutex_unlock(&handle_mu);
+	return module;
+}
+
+static void bind_graph_module(CUgraphNode node, uint32_t module) {
+	uint64_t id = 0;
+	if (module == 0 || node == NULL || cuptiGetGraphNodeId(node, &id) != CUPTI_SUCCESS || id == 0) return;
+	pthread_mutex_lock(&handle_mu);
+	for (unsigned i = 0; i < graph_module_count; i++) {
+		if (graph_modules[i].node == id) {
+			if (graph_modules[i].module != module) graph_modules[i].module = 0;
+			pthread_mutex_unlock(&handle_mu);
+			return;
+		}
+	}
+	if (graph_module_count < GRAPH_MODULE_SLOTS) {
+		graph_modules[graph_module_count].node = id;
+		graph_modules[graph_module_count++].module = module;
+	}
+	pthread_mutex_unlock(&handle_mu);
+}
+
+static void note_graph_function(CUgraphNode node, CUfunction fn) {
+	uint32_t module = 0;
+	pthread_mutex_lock(&handle_mu);
+	for (int i = 0; i < function_handle_count; i++) {
+		if (function_handles[i].handle == fn) { module = function_handles[i].id; break; }
+	}
+	pthread_mutex_unlock(&handle_mu);
+	bind_graph_module(node, module);
+}
+
+static int invalidate_runtime_graph(CUpti_CallbackDomain domain, CUpti_CallbackId cbid) {
+	if (domain != CUPTI_CB_DOMAIN_RUNTIME_API) return 0;
+	switch (cbid) {
+	case CUPTI_RUNTIME_TRACE_CBID_cudaGraphKernelNodeSetParams_v10000:
+	case CUPTI_RUNTIME_TRACE_CBID_cudaGraphExecKernelNodeSetParams_v10010:
+	case CUPTI_RUNTIME_TRACE_CBID_cudaGraphExecUpdate_v10020:
+	case CUPTI_RUNTIME_TRACE_CBID_cudaGraphExecChildGraphNodeSetParams_v11010:
+	case CUPTI_RUNTIME_TRACE_CBID_cudaGraphNodeSetParams_v12020:
+	case CUPTI_RUNTIME_TRACE_CBID_cudaGraphExecNodeSetParams_v12020:
+		pthread_mutex_lock(&handle_mu);
+		graph_module_count = 0;
+		pthread_mutex_unlock(&handle_mu);
+		return 1;
+	default:
+		return 0;
+	}
+}
+
 /* A record that did not fit its buffer is a record nothing downstream will
    ever hear about: queue_pending never sees it, so it is not counted as
    dropped either, and the journal reads as if the work never happened. Say
@@ -1822,7 +1887,7 @@ static void CUPTIAPI buffer_completed(CUcontext context, uint32_t stream_id, uin
 				(uint32_t)(k->blockZ > 0 ? k->blockZ : 0),
 				(uint32_t)k->registersPerThread,
 				(uint32_t)(k->dynamicSharedMemory > 0 ? k->dynamicSharedMemory : 0),
-				CUDAPROF_GRAPH_ID(k), CUDAPROF_GRAPH_NODE_ID(k), launch_module(k->correlationId));
+				CUDAPROF_GRAPH_ID(k), CUDAPROF_GRAPH_NODE_ID(k), CUDAPROF_GRAPH_NODE_ID(k) ? graph_module(CUDAPROF_GRAPH_NODE_ID(k)) : launch_module(k->correlationId));
 		} else if (record->kind == CUPTI_ACTIVITY_KIND_MEMCPY) {
 			if (rp + sizeof(CUpti_ActivityMemcpy6) < rp || rp + sizeof(CUpti_ActivityMemcpy6) > end) { const char *failure = "{\"state\":\"producer_failure\",\"error\":\"short Memcpy6 record\"}"; (void)queue_pending(KIND_FAILURE, now_ns(), failure, strlen(failure)); break; }
 			const CUpti_ActivityMemcpy6 *m6 = (const CUpti_ActivityMemcpy6 *)record;
@@ -2538,6 +2603,31 @@ static int track_module_callback(CUpti_CallbackDomain domain, CUpti_CallbackId c
 	}
 	if (domain != CUPTI_CB_DOMAIN_DRIVER_API) return 0;
 	switch (cbid) {
+	case CUPTI_DRIVER_TRACE_CBID_cuGraphAddKernelNode: {
+		if (data->callbackSite != CUPTI_API_EXIT || data->functionParams == NULL || data->functionReturnValue == NULL || *(CUresult *)data->functionReturnValue != CUDA_SUCCESS) return 1;
+		const cuGraphAddKernelNode_params *p = data->functionParams;
+		if (p->phGraphNode != NULL && p->nodeParams != NULL) note_graph_function(*p->phGraphNode, p->nodeParams->func);
+		return 1;
+	}
+	case CUPTI_DRIVER_TRACE_CBID_cuGraphAddKernelNode_v2: {
+		if (data->callbackSite != CUPTI_API_EXIT || data->functionParams == NULL || data->functionReturnValue == NULL || *(CUresult *)data->functionReturnValue != CUDA_SUCCESS) return 1;
+		const cuGraphAddKernelNode_v2_params *p = data->functionParams;
+		if (p->phGraphNode != NULL && p->nodeParams != NULL) note_graph_function(*p->phGraphNode, p->nodeParams->func);
+		return 1;
+	}
+	case CUPTI_DRIVER_TRACE_CBID_cuGraphKernelNodeSetParams:
+	case CUPTI_DRIVER_TRACE_CBID_cuGraphKernelNodeSetParams_v2:
+	case CUPTI_DRIVER_TRACE_CBID_cuGraphExecKernelNodeSetParams:
+	case CUPTI_DRIVER_TRACE_CBID_cuGraphExecKernelNodeSetParams_v2:
+	case CUPTI_DRIVER_TRACE_CBID_cuGraphNodeSetParams:
+	case CUPTI_DRIVER_TRACE_CBID_cuGraphExecNodeSetParams:
+	case CUPTI_DRIVER_TRACE_CBID_cuGraphExecChildGraphNodeSetParams:
+	case CUPTI_DRIVER_TRACE_CBID_cuGraphExecUpdate:
+	case CUPTI_DRIVER_TRACE_CBID_cuGraphExecUpdate_v2:
+		pthread_mutex_lock(&handle_mu);
+		graph_module_count = 0;
+		pthread_mutex_unlock(&handle_mu);
+		return 1;
 	case CUPTI_DRIVER_TRACE_CBID_cuModuleLoad:
 	case CUPTI_DRIVER_TRACE_CBID_cuModuleLoadData:
 	case CUPTI_DRIVER_TRACE_CBID_cuModuleLoadDataEx:
@@ -3019,6 +3109,14 @@ static void CUPTIAPI range_callback(void *userdata, CUpti_CallbackDomain domain,
 		/* A module load is often the first callback after the target
 		   loads libcublasLt, and so the first chance to find it. */
 		if (gemms_requested && !atomic_load(&gemm_hooked)) gemm_probe();
+		if (cbid == CUPTI_CBID_RESOURCE_GRAPHNODE_CLONED && modules_enabled) {
+			const CUpti_ResourceData *res = cbdata;
+			const CUpti_GraphData *g = res->resourceDescriptor;
+			if (g == NULL) return;
+			uint64_t original = 0;
+			if (cuptiGetGraphNodeId(g->originalNode, &original) == CUPTI_SUCCESS) bind_graph_module(g->node, graph_module(original));
+			return;
+		}
 		if (cbid != CUPTI_CBID_RESOURCE_MODULE_LOADED || !modules_enabled) return;
 		const CUpti_ResourceData *res = (const CUpti_ResourceData *)cbdata;
 		const CUpti_ModuleResourceData *mod = (const CUpti_ModuleResourceData *)res->resourceDescriptor;
@@ -3038,6 +3136,7 @@ static void CUPTIAPI range_callback(void *userdata, CUpti_CallbackDomain domain,
 		loading_module_id = mod->moduleId;
 		return;
 	}
+	if (modules_enabled && invalidate_runtime_graph(domain, cbid)) return;
 	const CUpti_CallbackData *data = (const CUpti_CallbackData *)cbdata;
 	if (crash_depth > 0) crash_note(domain, cbid, data);
 	if (gemms_requested && domain == CUPTI_CB_DOMAIN_DRIVER_API) {
@@ -3591,7 +3690,33 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 			   continues: the consumer already says how many records named
 			   no module. */
 			if (modules_enabled) {
+				static const CUpti_CallbackId runtime_graph_updates[] = {
+					CUPTI_RUNTIME_TRACE_CBID_cudaGraphKernelNodeSetParams_v10000,
+					CUPTI_RUNTIME_TRACE_CBID_cudaGraphExecKernelNodeSetParams_v10010,
+					CUPTI_RUNTIME_TRACE_CBID_cudaGraphExecUpdate_v10020,
+					CUPTI_RUNTIME_TRACE_CBID_cudaGraphExecChildGraphNodeSetParams_v11010,
+					CUPTI_RUNTIME_TRACE_CBID_cudaGraphNodeSetParams_v12020,
+					CUPTI_RUNTIME_TRACE_CBID_cudaGraphExecNodeSetParams_v12020,
+				};
+				for (size_t i = 0; i < sizeof(runtime_graph_updates)/sizeof(runtime_graph_updates[0]); i++) {
+					CUptiResult r = cuptiEnableCallback(1, range_subscriber, CUPTI_CB_DOMAIN_RUNTIME_API, runtime_graph_updates[i]);
+					if (r != CUPTI_SUCCESS) record_cupti_failure("cuptiEnableCallback(graph update)", r);
+				}
+				CUptiResult gr = cuptiEnableCallback(1, range_subscriber, CUPTI_CB_DOMAIN_RESOURCE, CUPTI_CBID_RESOURCE_GRAPHNODE_CLONED);
+				if (gr != CUPTI_SUCCESS) record_cupti_failure("cuptiEnableCallback(graph node clone)", gr);
 				static const struct { CUpti_CallbackDomain domain; CUpti_CallbackId cbid; } module_trace[] = {
+					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuGraphAddKernelNode},
+					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuGraphAddKernelNode_v2},
+					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuGraphKernelNodeSetParams},
+					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuGraphKernelNodeSetParams_v2},
+					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuGraphExecKernelNodeSetParams},
+					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuGraphExecKernelNodeSetParams_v2},
+					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuGraphNodeSetParams},
+					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuGraphExecNodeSetParams},
+					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuGraphExecChildGraphNodeSetParams},
+					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuGraphExecUpdate},
+					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuGraphExecUpdate_v2},
+
 					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuModuleLoad},
 					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuModuleLoadData},
 					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuModuleLoadDataEx},
