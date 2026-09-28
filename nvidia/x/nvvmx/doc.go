@@ -20,6 +20,17 @@
 // the slot generic. InferenceReport.Slots keys each entry by function and slot,
 // in the form @function/%slot, so local register names cannot collide across functions.
 //
+// The supported forms are simple pointer-valued alloca slots; non-volatile,
+// direct loads and stores of the slot's declared pointer type; shared values
+// from a global declared in addrspace(3), an addrspace(3) parameter, a scalar
+// getelementptr with simple integer indices whose base is known shared, or an
+// addrspacecast from a known shared value to generic. A loaded pointer may only
+// be used as a load's pointer operand or stored into another proven-shared slot.
+// Typed-pointer slots are limited to simple scalar pointer types. Volatile,
+// atomic, metadata-bearing, indirect, malformed, or otherwise unlisted uses
+// keep the slot generic. The parser checks complete LLVM identifiers and all
+// uses in a function before rewriting; unknown instruction forms fail closed.
+//
 // Inference uses a 3-element lattice over slots:
 //
 //	StateUnconstrained (top: no writes observed yet)

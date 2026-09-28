@@ -8,12 +8,6 @@ import (
 )
 
 func TestAddrSpace_InfersSharedSlot(t *testing.T) {
-	if !supportedSlotReference("store ptr addrspace(3) @smem, ptr %slot, align 8", "%slot") {
-		t.Fatal("direct store not recognized")
-	}
-	if !supportedSlotReference("%p = load ptr, ptr %slot, align 8", "%slot") {
-		t.Fatal("direct load not recognized")
-	}
 	ir := `
 target datalayout = "e-p:64:64:64-p3:32:32:32"
 target triple = "nvptx64-nvidia-cuda"
@@ -57,6 +51,7 @@ body:
 		t.Errorf("expected load to read ptr addrspace(3), got:\n%s", outStr)
 	}
 	verifyIRWithClang(t, rewritten)
+	assertIndependentSlotTypes(t, rewritten, report)
 }
 
 func TestAddrSpace_MixedStaysGeneric(t *testing.T) {
@@ -203,6 +198,7 @@ exit:
 		}
 	}
 	verifyIRWithClang(t, rewritten)
+	assertIndependentSlotTypes(t, rewritten, report)
 }
 
 func TestAddrSpace_ClusterPointerNotInferred(t *testing.T) {
@@ -276,7 +272,7 @@ entry:
   store ptr addrspace(1) %gptr, ptr %src, align 8
   %loaded = load ptr, ptr %src, align 8
   %cast = addrspacecast ptr addrspace(1) %gptr to ptr addrspace(3)
-  %gep = getelementptr i8, ptr addrspace(1) %gptr, i64 0
+  %gep = getelementptr i8, ptr %unknown, i64 0
   store ptr addrspace(3) @smem, ptr %slot, align 8
   ret void
 }
@@ -292,7 +288,7 @@ entry:
 		{"escape to call", "call void @consume(ptr %slot)"},
 		{"atomicrmw", "%old = atomicrmw xchg ptr %slot, ptr addrspace(3) @smem seq_cst"},
 		{"cmpxchg", "%pair = cmpxchg ptr %slot, ptr addrspace(3) @smem, ptr addrspace(3) @smem seq_cst seq_cst"},
-		{"memcpy destination", "call void @llvm.memcpy.p0.p0.i64(ptr %slot, ptr %gptr, i64 8, i1 false)"},
+		{"memcpy destination", "call void @llvm.memcpy.p0.p0.i64(ptr %slot, ptr %unknown, i64 8, i1 false)"},
 		{"unknown stored value", "store ptr %unknown, ptr %slot, align 8"},
 		{"loaded from generic-required slot", "store ptr %loaded, ptr %slot, align 8"},
 		{"register cast from non-shared", "store ptr addrspace(3) %cast, ptr %slot, align 8"},
@@ -304,15 +300,14 @@ entry:
 	if err != nil {
 		t.Fatal(err)
 	}
+	verifyIRWithClang(t, []byte(base))
 	if !strings.Contains(string(baseIR), "%slot = alloca ptr addrspace(3)") {
 		t.Fatalf("control base did not infer shared:\n%s", baseIR)
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ir := strings.Replace(base, "  ret void", "  "+tt.line+"\n  ret void", 1)
-			if tt.name == "metadata" {
-				verifyIRWithClang(t, []byte(ir))
-			}
+			verifyIRWithClang(t, []byte(ir))
 			_, report, err := InferAddressSpaces([]byte(ir))
 			if err != nil {
 				t.Fatal(err)
@@ -400,6 +395,7 @@ exit:
 		}
 	}
 	verifyIRWithClang(t, rewritten)
+	assertIndependentSlotTypes(t, rewritten, report)
 }
 
 func TestInferAddressSpaces_LongLine(t *testing.T) {
@@ -409,7 +405,7 @@ func TestInferAddressSpaces_LongLine(t *testing.T) {
 		"  %slot = alloca ptr, align 8\r\n" +
 		"  store ptr addrspace(3) @smem, ptr %slot, align 8\r\n" +
 		"  %p = load ptr, ptr %slot, align 8\r\n  ret void\r\n}\r\n")
-	got, _, err := InferAddressSpaces(ir)
+	got, report, err := InferAddressSpaces(ir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -417,6 +413,7 @@ func TestInferAddressSpaces_LongLine(t *testing.T) {
 		t.Fatalf("long line or CRLF boundaries were not preserved (got %d bytes, input %d)", len(got), len(ir))
 	}
 	verifyIRWithClang(t, got)
+	assertIndependentSlotTypes(t, got, report)
 }
 
 func TestInferAddressSpaces_RefusesBitcode(t *testing.T) {
@@ -448,6 +445,7 @@ entry:
 		t.Fatalf("per-function slot states = %+v", report.Slots)
 	}
 	verifyIRWithClang(t, rewritten)
+	assertIndependentSlotTypes(t, rewritten, report)
 }
 
 func TestAddrSpace_OutputIsValidIR(t *testing.T) {
@@ -463,11 +461,12 @@ entry:
   ret void
 }
 `)
-	rewritten, _, err := InferAddressSpaces(ir)
+	rewritten, report, err := InferAddressSpaces(ir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	verifyIRWithClang(t, rewritten)
+	assertIndependentSlotTypes(t, rewritten, report)
 }
 
 func verifyIRWithClang(t *testing.T, ir []byte) {
@@ -538,6 +537,7 @@ entry:
 		t.Fatalf("typed slot not inferred: %+v", report.Slots["@kernel/%slot"])
 	}
 	verifyIRWithClang(t, rewritten)
+	assertIndependentSlotTypes(t, rewritten, report)
 }
 
 func TestAddrSpace_ExampleOutputIsValidIR(t *testing.T) {
@@ -549,9 +549,10 @@ entry:
   ret void
 }
 `)
-	rewritten, _, err := InferAddressSpaces(ir)
+	rewritten, report, err := InferAddressSpaces(ir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	verifyIRWithClang(t, rewritten)
+	assertIndependentSlotTypes(t, rewritten, report)
 }

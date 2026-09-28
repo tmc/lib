@@ -140,4 +140,9 @@ entry:
 	if !strings.Contains(string(prepared[0].Data), "alloca ptr addrspace(3)") {
 		t.Fatalf("prepared input did not apply inference:\n%s", prepared[0].Data)
 	}
+	rewritten, report, err := InferAddressSpaces(ir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertIndependentSlotTypes(t, rewritten, report)
 }
