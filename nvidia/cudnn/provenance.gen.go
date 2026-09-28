@@ -2,7 +2,7 @@
 // Source: cuda_cudart/driver_types.h, cuda_cudart/library_types.h, libcudnn/cudnn.h, libcudnn/cudnn_adv.h, libcudnn/cudnn_cnn.h, libcudnn/cudnn_graph.h, libcudnn/cudnn_ops.h, libcudnn/cudnn_version.h, runtime/driver_types.h, types/library_types.h (sha256:5ee9dda35cf0...)
 // Input SHA256: 5ee9dda35cf0f5180c1602d16d423c919da7f49db3f2f7743a3ca94fe167498a
 // Input scope: explicit header roots only; see provenance.json for limitations
-// Upstream version: unrecorded
-// Version source: unrecorded
+// Upstream version: 9.20.0.48
+// Version source: explicit generator flag; not independently verified
 
 package cudnn

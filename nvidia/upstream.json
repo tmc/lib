@@ -1261,11 +1261,11 @@
           },
           {
             "path": "nvidia/cudnn/provenance.gen.go",
-            "sha256": "5d73cc658926141567e7e0a94e994d6df15b9e2f2e6ba51eeeb7b2e6dcf631c8"
+            "sha256": "5bc74e00d3866e5e0fb36741f5c94b52d202040f0f2ddfc4217a1906ee337f6a"
           },
           {
             "path": "nvidia/cudnn/provenance.json",
-            "sha256": "fde686069ed932df8fa5ac17ff7305dbd93e9de0f9d150a40c48fc58adc801df"
+            "sha256": "b83f913e282a385571adef493e8f9862f6e5aa6fc6b33f8595663453a029c8df"
           },
           {
             "path": "nvidia/cudnn/reduce_tensor_descriptor.gen.go",
