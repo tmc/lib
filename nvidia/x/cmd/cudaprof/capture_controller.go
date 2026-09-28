@@ -875,6 +875,9 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 		}
 		return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, err
 	}
+	if recovered.Stats.Gaps != 0 {
+		return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, fmt.Errorf("capture journal has %d missing sequence record(s)", recovered.Stats.Gaps)
+	}
 	if !recovered.Complete {
 		return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("capture journal is truncated or incomplete")
 	}
