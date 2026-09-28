@@ -176,7 +176,7 @@ func TestMatmul(t *testing.T) {
 				// SetAttribute takes a pointer and a byte count; passing the
 				// wrong size here is exactly the defect this exercises.
 				if err := desc.SetAttribute(cublaslt.MatmulDescTransa,
-					uintptr(unsafe.Pointer(&op)), uint(unsafe.Sizeof(op))); err != nil {
+					unsafe.Pointer(&op), uint(unsafe.Sizeof(op))); err != nil {
 					t.Fatalf("SetAttribute(TRANSA): %v", err)
 				}
 			}
