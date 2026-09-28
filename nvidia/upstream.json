@@ -6197,7 +6197,7 @@
           },
           {
             "path": "nvidia/gdrcopy/api.gen.go",
-            "sha256": "058c425bc1b703371570d0812abf4a9b939f2eb934784ac3a718e0ea9e2eb194"
+            "sha256": "9862752e52fdcb781a250b8ee617e05eac7aacf6aa71f3a16a78c83105bb74c1"
           },
           {
             "path": "nvidia/gdrcopy/doc.gen.go",

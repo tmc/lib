@@ -170,7 +170,7 @@ func TestPinMapCopy(t *testing.T) {
 	for i := range payload {
 		payload[i] = byte(i*7 + 1)
 	}
-	if err := mh.CopyToMapping(va+gdrcopy.HostPtr(off), payload); err != nil {
+	if err := mh.CopyToMapping(va+gdrcopy.MappedPtr(off), payload); err != nil {
 		t.Fatalf("CopyToMapping: %v", err)
 	}
 	if err := driver.CtxSynchronize(); err != nil {
@@ -193,7 +193,7 @@ func TestPinMapCopy(t *testing.T) {
 		t.Fatalf("cuCtxSynchronize after cuMemsetD8: %v", err)
 	}
 	fromMapping := make([]byte, len(payload))
-	if err := mh.CopyFromMapping(fromMapping, va+gdrcopy.HostPtr(off)); err != nil {
+	if err := mh.CopyFromMapping(fromMapping, va+gdrcopy.MappedPtr(off)); err != nil {
 		t.Fatalf("CopyFromMapping: %v", err)
 	}
 	want := bytes.Repeat([]byte{0xa5}, len(payload))

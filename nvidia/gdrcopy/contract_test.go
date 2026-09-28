@@ -78,7 +78,7 @@ func TestUnmapRequiresTheMappedRange(t *testing.T) {
 		{"length longer than the mapping", va, size * 2},
 		{"length shorter than the mapping", va, size / 2},
 	} {
-		if err := g.Unmap(mh, HostPtr(tt.va), tt.size); !errors.Is(err, ErrUnmapRange) {
+		if err := g.Unmap(mh, MappedPtr(tt.va), tt.size); !errors.Is(err, ErrUnmapRange) {
 			t.Errorf("Unmap with %s = %v, want ErrUnmapRange", tt.name, err)
 		}
 	}
@@ -117,10 +117,10 @@ func TestCopyRange(t *testing.T) {
 		{"straddling the end", va + size - 8, len(buf)},
 		{"far away", 0, len(buf)},
 	} {
-		if err := mh.CopyToMapping(HostPtr(tt.at), buf[:tt.n]); !errors.Is(err, ErrCopyRange) {
+		if err := mh.CopyToMapping(MappedPtr(tt.at), buf[:tt.n]); !errors.Is(err, ErrCopyRange) {
 			t.Errorf("CopyToMapping %s = %v, want ErrCopyRange", tt.name, err)
 		}
-		if err := mh.CopyFromMapping(buf[:tt.n], HostPtr(tt.at)); !errors.Is(err, ErrCopyRange) {
+		if err := mh.CopyFromMapping(buf[:tt.n], MappedPtr(tt.at)); !errors.Is(err, ErrCopyRange) {
 			t.Errorf("CopyFromMapping %s = %v, want ErrCopyRange", tt.name, err)
 		}
 	}
