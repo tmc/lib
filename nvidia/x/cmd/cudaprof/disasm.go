@@ -49,6 +49,9 @@ func retainedDisasm(w io.Writer, args []string, p *profile.Profile, tool *object
 	if err != nil {
 		return true, err
 	}
+	if err := tool.loadRetainedImages(); err != nil {
+		return true, err
+	}
 	var functions []objectFunction
 	for _, image := range tool.images {
 		for _, fn := range image.functions {
@@ -60,7 +63,12 @@ func retainedDisasm(w io.Writer, args []string, p *profile.Profile, tool *object
 	if len(functions) == 0 {
 		return true, fmt.Errorf("no retained code matches regexp %s", expression)
 	}
-	slices.SortFunc(functions, func(a, b objectFunction) int { return strings.Compare(a.name, b.name) })
+	slices.SortFunc(functions, func(a, b objectFunction) int {
+		if n := strings.Compare(a.name, b.name); n != 0 {
+			return n
+		}
+		return strings.Compare(a.artifact, b.artifact)
+	})
 	if _, err := fmt.Fprintln(w, "Retained code (unannotated): no mapped profile addresses.\n"+
 		"No instruction costs or associations with profile regions are inferred.\n"+
 		"SASS/PTX use artifact file offsets; Tile IR uses source lines. These are not device PCs."); err != nil {
@@ -69,6 +77,11 @@ func retainedDisasm(w io.Writer, args []string, p *profile.Profile, tool *object
 	for _, fn := range functions {
 		if _, err := fmt.Fprintf(w, "\n%s\n", fn.name); err != nil {
 			return true, err
+		}
+		if fn.artifact != "" {
+			if _, err := fmt.Fprintf(w, "  artifact: %s\n", fn.artifact); err != nil {
+				return true, err
+			}
 		}
 		for _, in := range fn.instructions {
 			if _, err := fmt.Fprintf(w, "  %#x  %s\n", in.Addr, in.Text); err != nil {
