@@ -60,7 +60,7 @@ func TestCompilerPipeline(t *testing.T) {
 	defer func() { check(program.Destroy()) }()
 	check(program.AddModuleTo(unsafe.Pointer(unsafe.SliceData(ir)), uint(len(ir)), "sin.ll"))
 	check(program.LazyAddModuleTo(unsafe.Pointer(unsafe.SliceData(libdevice)), uint(len(libdevice)), "libdevice.10.bc"))
-	if err := program.Compile("-arch=compute_" + arch, "-gen-lto"); err != nil {
+	if err := program.Compile("-arch=compute_"+arch, "-gen-lto"); err != nil {
 		log, _ := program.Log()
 		t.Fatalf("compile: %v\n%s", err, log)
 	}
@@ -70,7 +70,7 @@ func TestCompilerPipeline(t *testing.T) {
 	if len(lto) == 0 {
 		t.Fatal("empty LTOIR")
 	}
-	linker, err := nvjitlink.Create("-arch=sm_" + arch, "-lto")
+	linker, err := nvjitlink.Create("-arch=sm_"+arch, "-lto")
 	check(err)
 	defer func() { check(linker.Destroy()) }()
 	check(linker.AddData(nvjitlink.InputLtoir, unsafe.Pointer(unsafe.SliceData(lto)), uint(len(lto)), "sin.ltoir"))

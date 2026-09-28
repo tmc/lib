@@ -48,9 +48,9 @@ type CodeFiles struct {
 	// every capture written before this field meant. Order is not significant.
 	Sources []string `json:"sources,omitempty"`
 
-	PTX    string `json:"ptx"`
-	CUBIN  string `json:"cubin"`
-	SASS   string `json:"sass"`
+	PTX   string `json:"ptx"`
+	CUBIN string `json:"cubin"`
+	SASS  string `json:"sass"`
 	// Unit names the JSON form of the generated translation unit the module
 	// was compiled from: its name, its generated source, and the map from
 	// each generated line to the program line and call stack it was lowered

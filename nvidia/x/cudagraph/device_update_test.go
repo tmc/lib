@@ -579,7 +579,7 @@ func TestDeviceUpdatableNodeIntegration(t *testing.T) {
 
 	t.Run("captured node device updatable", func(t *testing.T) {
 		launcher := cudalaunch.Kernel(fn).
-			Grid(n / block, 1, 1).
+			Grid(n/block, 1, 1).
 			Block(block, 1, 1).
 			WithDeviceUpdatable(true).
 			On(stream)

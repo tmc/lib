@@ -192,7 +192,7 @@ func TestNativeNormQuantReference(t *testing.T) {
 			t.Fatal(err)
 		}
 		// An extra CTA and inactive lanes exercise the generated bounds checks.
-		if err := cudalaunch.OwnedKernel(kernel).Grid(uint32(f.rows + 1), 1, 1).Block(32, 1, 1).On(stream).Launch(args...); err != nil {
+		if err := cudalaunch.OwnedKernel(kernel).Grid(uint32(f.rows+1), 1, 1).Block(32, 1, 1).On(stream).Launch(args...); err != nil {
 			t.Fatal(err)
 		}
 		if err := stream.Synchronize(ctx); err != nil {
