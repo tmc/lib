@@ -1,0 +1,16 @@
+# Explicit invalid library overrides must fail rather than discover another one.
+env NVRTC_LIB_PATH=$WORK/missing-nvrtc.so
+! exec cudadoctor -json
+stdout '"schema": 1'
+stdout '"status": "fail"'
+stdout 'missing-nvrtc.so'
+stdout 'NVRTC_LIB_PATH'
+! exec cudadoctor -workflow=tileir -json
+stdout '"name": "tileir"'
+stdout '"status": "fail"'
+! exec cudadoctor -workflow=unknown
+stderr 'unknown workflow'
+! exec cudadoctor -workflow=aot -smoke=run
+stderr 'smoke tests require -workflow=jit'
+exec cudadoctor -h
+stderr 'workflow'
