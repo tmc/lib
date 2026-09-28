@@ -616,172 +616,216 @@
         "argv": [
           "go",
           "run",
-          "./cmd/gen-nvidia",
-          "-api",
-          "cudnn",
+          "./cmd/cudnn-survey",
+          "-header",
+          "${HEADERS_REPO}/libcudnn/cudnn.h",
           "-headers-dir",
           "${HEADERS_REPO}",
+          "-docs-dir",
+          "${CODEGEN_REPO}/docs",
+          "-upstream-version",
+          "9.20.0.48",
           "-output",
-          "${OUTPUT_DIR}",
-          "-package",
-          "cudnn"
+          "${OUTPUT_DIR}"
         ],
         "cwd": "${CODEGEN_REPO}",
         "environment": {
           "GOWORK": "off",
+          "GOTOOLCHAIN": "go1.27.0",
           "TMPDIR": "${SCRATCH_DIR}"
         },
         "outputs": [
           {
             "path": "nvidia/cudnn/activation_descriptor.gen.go",
-            "sha256": "94632a927debf9e97937bef0c6a53361b50be1ddd380d1271581e5dd38cb9674"
+            "sha256": "0f387a166a7000c0246a6d644e081abd7073036a6202fee57191368a01d53689"
           },
           {
             "path": "nvidia/cudnn/attn_descriptor.gen.go",
-            "sha256": "f76ae33515a3c9c10a95ab26083e6df714f011e51906f0e7570c1e2a85d2d4f9"
+            "sha256": "fd058b1dd890135da77a78cacbcb315c4bf126127ffd5a59d8543716d8bf35a4"
           },
           {
             "path": "nvidia/cudnn/backend_descriptor.gen.go",
-            "sha256": "12dd9341ef04d3d8b75c4538b7c4efe1eabf8eb12f23814e622ef5f273a5f3ab"
+            "sha256": "e9b7e1dce9c387a2676d20ac0ec091bf7f3ac3d7a4f266dcf32d627fbf231b14"
           },
           {
             "path": "nvidia/cudnn/callbacks.gen.go",
-            "sha256": "d6d0634c32d28cb1d5e0ec11f2cc590c4cc607cb339f88105fb23984da9feb2e"
+            "sha256": "1cb11390f27f8c3f735c8f5af9afbb9f2ba4f82ae734129005747821f04c7124"
           },
           {
             "path": "nvidia/cudnn/convolution_descriptor.gen.go",
-            "sha256": "ee8529e11f6008b0bdab8a3ea46fc0e9e796e61acdfeefc033f01881d4ac4c72"
+            "sha256": "e1a751bcac598e1ed941d10a2fdbd628b266304954b5dc73858779c39d6ee202"
           },
           {
             "path": "nvidia/cudnn/ctc_loss_descriptor.gen.go",
-            "sha256": "9acc7e66d2b0dd0097be79f1d2aa8fcae2fc0f6bfc2633948ec5e1f9f6239e7d"
+            "sha256": "6ef5cd0aa6272db32eb91bad74301a9c0d195a0b940bfba8eae0750c728ecc75"
           },
           {
             "path": "nvidia/cudnn/doc.gen.go",
-            "sha256": "742e24cbfe46e4e711b987929f8939db5d55d4bbef438f633a83db57d48c0de9"
+            "sha256": "3f9c7377cc855b555f80d36a5d9bc5c1550a07e2ec68a5309273086b49aee6fa"
           },
           {
             "path": "nvidia/cudnn/dropout_descriptor.gen.go",
-            "sha256": "d42921280ec7312b78368c6db6db133b4132aa7492d49c3c98484f6e8f1f6722"
+            "sha256": "961cde1f720cac634a00fd52bc71c79bae36f94cfe75fcc67f0b44c1f86be0e4"
           },
           {
             "path": "nvidia/cudnn/enums.gen.go",
-            "sha256": "6c3f1e05e9227e91a47e4e91fbae5baf933215c66cfabd30ad14fc25ab5eb3cb"
+            "sha256": "db9d43f59271b42f1c64e5a783e76ca1cfdab4027d3ed1fdf2ad6f6e35ab4bbd"
           },
           {
             "path": "nvidia/cudnn/filter_descriptor.gen.go",
-            "sha256": "75d52f9d827d2fb6bfc13145abf00228aa1f72bcaeebb7368746a6c4bbc7fd29"
+            "sha256": "9d279a96f1fee756f6f082248f6a04fb4378f4326442a37fed77c7a3b3239bac"
           },
           {
             "path": "nvidia/cudnn/funcs.gen.go",
-            "sha256": "7dd7230682efa7a940af3bcfeffdbbf3aba99478201efbce3f42ee5f97d007fd"
+            "sha256": "ff78f2cb2526ae136b97f1f27f0ed71198a00fd4c3caebb3cf97dc2cdfd63e0f"
           },
           {
             "path": "nvidia/cudnn/fused_ops_const_param_pack.gen.go",
-            "sha256": "23f75b361bf54ac43302735f5f8e0793cca19deef70f7f4345dde7dae52d2af0"
+            "sha256": "076ac0a1533337460c6eca97c1712555cd6320e9a1f3b630e462f7bfba888663"
           },
           {
             "path": "nvidia/cudnn/fused_ops_plan.gen.go",
-            "sha256": "6740d14a462bc29578b9e7fb5ccba063f27a2c4d2c7ad37a8adff83038e6e560"
+            "sha256": "6c8025eaab265583e48378d64424c49df3ba5f570a86e4ad23049dd49fd2f8c8"
           },
           {
             "path": "nvidia/cudnn/fused_ops_variant_param_pack.gen.go",
-            "sha256": "356224bbd73cb732808edb7167216c1d702692a41fee041f9dc21e02f1cc0293"
+            "sha256": "155eda21bfb5002d22b1e82c684941fd67f8f31cae2d9030c9dd401c8c86d693"
           },
           {
             "path": "nvidia/cudnn/handle.gen.go",
-            "sha256": "a435a3f6059f4087df07a4fa8f1458eee6c2456aa50754d4eb9de3209c4dd30b"
+            "sha256": "d0c42df14604024f6b6781c58f3cb794bf34cce5faf6ec4b8bdbd353b915e0b8"
           },
           {
             "path": "nvidia/cudnn/handles.gen.go",
-            "sha256": "77bf71cd06ac9553f63665cb28ee207bceef6c45bf68af93b478cc389d6afd5b"
+            "sha256": "a37d25e531d1eb9daf95fc932373ebb3af529840fbd3ec2316077a0a115196a9"
           },
           {
             "path": "nvidia/cudnn/init.gen.go",
-            "sha256": "af01c945b490834df06e33d6b09c3f55b76c8969938b1792f9e2232a3c1d2c7b"
+            "sha256": "adca7206ba33b03bdbf847d6c63b6ad6f921bdd06a51980911e420e963db4ffc"
           },
           {
             "path": "nvidia/cudnn/layout.gen_test.go",
-            "sha256": "29089ba0eeafdf4a9f8a775f6df6b97920b2112ba581be397e0af653161b1600"
+            "sha256": "665071312f11afbb16c5cb157d40702d67c86317640b1ae7acdfdee42c329ec0"
           },
           {
             "path": "nvidia/cudnn/loader.gen_test.go",
-            "sha256": "c6bf86ccc71366ca61f43fa8abe5d3a5e399c00af1b06e553020e86bd2b64759"
+            "sha256": "d2081bafbd9c4348b4d31fd3f3b0c748a7954fd64ee130106ee699c989e7cc11"
           },
           {
             "path": "nvidia/cudnn/loader_unix.gen.go",
-            "sha256": "c8cce55e32c77f574c573ad21ae05428a253fb6ab0deee3dc5f245afa4f6b668"
+            "sha256": "042f0c11592998b85183f5dea5f7d13b749ca60a098fa5343b5862bb93e2b7ce"
           },
           {
             "path": "nvidia/cudnn/loader_windows.gen.go",
-            "sha256": "fc15bbc78ddf004ad42e64f18ffe3118e9c6a1e0870198faa00ad4fee5c373bc"
+            "sha256": "8a10b1db8fadc91f85a76eba5deedf15323da699f906dc41e3db6d7af1615da0"
           },
           {
             "path": "nvidia/cudnn/lrn_descriptor.gen.go",
-            "sha256": "dae955e05da9d27d4e7e11c93b3891fe62f075c6aa8d85e3ac19903939294f0f"
+            "sha256": "2a01b9e756f90a80613064a983e64bd46a219c556ba6b64fe161acc9f2067c12"
           },
           {
             "path": "nvidia/cudnn/macros.gen.go",
-            "sha256": "e540f30b02da6e0378b850ca7184b83ebbb77bb1d19859934c809e09b2810e36"
+            "sha256": "b23318b75012aa0dcbc0b4bffb68b5c1a42f1d85910023aef6eca0a28ce614a8"
           },
           {
             "path": "nvidia/cudnn/op_tensor_descriptor.gen.go",
-            "sha256": "c5da18f9d2ee7ef8dd4de3de50e05570dda86c76e0fca87bc856e4db80b48a4c"
+            "sha256": "6f68dadc003b5ae5b2c6561ec18a567b7dfa0090e0b988f7c68cc87dfb419930"
           },
           {
             "path": "nvidia/cudnn/pooling_descriptor.gen.go",
-            "sha256": "615b2ca5d0844cc78288f4bf55b1344088eec57aa8f8d7ec43d760270a5a58e3"
+            "sha256": "1c09c634604cec6c15a48e2a3a1f2e985c2cccc56f421327a0acca9210b16b93"
           },
           {
             "path": "nvidia/cudnn/provenance.gen.go",
-            "sha256": "9a742db4ba15d426234c8ab4e5f3c4fb073975291549a135c8d910a72ed26954"
+            "sha256": "5bc74e00d3866e5e0fb36741f5c94b52d202040f0f2ddfc4217a1906ee337f6a"
+          },
+          {
+            "path": "nvidia/cudnn/provenance.json",
+            "sha256": "b83f913e282a385571adef493e8f9862f6e5aa6fc6b33f8595663453a029c8df"
           },
           {
             "path": "nvidia/cudnn/reduce_tensor_descriptor.gen.go",
-            "sha256": "75926292c74f8428976e3ab80020b719359b5c0f1781f86b89ef9e34e9c811a2"
+            "sha256": "23415b3901a78a981be6a607eb773b56643933a7b5c6eaae8346e3aaccd18322"
           },
           {
             "path": "nvidia/cudnn/result.gen.go",
-            "sha256": "a7ac85479bf48d3a1188431819e62445d97a1044348c1d1993dbef3d8e773a0d"
+            "sha256": "8f67d731c8667bdb540425f3fef5fa59ee41831fbe63232c69a27a67f98a8ef5"
           },
           {
             "path": "nvidia/cudnn/rnn_data_descriptor.gen.go",
-            "sha256": "d77d4fdec17aa91cbfc14e9a0b4d982a83a5ccf5db254ca6dbfa276500d168b9"
+            "sha256": "3c59eb2c6cf81298a22031b425d2a839d59ca4a38d7229a1a5fe55122d45e0ad"
           },
           {
             "path": "nvidia/cudnn/rnn_descriptor.gen.go",
-            "sha256": "dafbe45ac6b63d5c47e15adb14fb8e1d878604e1da60f1dd688dcca100369560"
+            "sha256": "799389be629914614ba19f288f906fd570ca75c4a666cd78f472954628b0b607"
           },
           {
             "path": "nvidia/cudnn/seq_data_descriptor.gen.go",
-            "sha256": "4d7b3cd75ab2984bb0dbf003ddb4a0efacd14ebed56cf1769432a4934157774c"
+            "sha256": "da644da646875f0f4fb5f2fcf4ae38eb1bcb829c8fa5e4e8b55d11df0c92db0b"
           },
           {
             "path": "nvidia/cudnn/spatial_transformer_descriptor.gen.go",
-            "sha256": "13886e651b92c88f5d367ba88333e93820743e6fe341f2253f4a312af3bc1ba2"
+            "sha256": "96e118de27a115a0c6c1018fa8b21aae46fcfca8e5305f2cafc33c9e23bc4d37"
           },
           {
             "path": "nvidia/cudnn/structs.gen.go",
-            "sha256": "d3ea6f370ad47071fb68bdc691e546184785f20ffe7f711232e77ef075ceb375"
+            "sha256": "79f7df92c5852802b390c0a737b8e7e88bd3c09bafb2111789b896144032f4d3"
           },
           {
             "path": "nvidia/cudnn/tensor_descriptor.gen.go",
-            "sha256": "2f58846df0676ab7694f526cab4b045542231f590f22c683921317208f552f33"
+            "sha256": "5284cf763a1a4b178f73fff1e7cb45c8f64a329ddd2f9770165d5dcc073a7aa3"
           },
           {
             "path": "nvidia/cudnn/tensor_transform_descriptor.gen.go",
-            "sha256": "9861d28b9c2fb0ca21caf9c18a1816fdbf0e2611c9949bd77c08456a1d58fcd0"
+            "sha256": "3ccd91028873c7606869521353ce12aed08ad8e1a70fd6872ee5439612a94ddd"
           },
           {
             "path": "nvidia/cudnn/types.gen.go",
-            "sha256": "989d1c02644dfd0e00f963f9fb6047465168c94f6a9db49c17b09c14b8504b8f"
+            "sha256": "89f8c29ad1b33c6446fbe52b94d7998b9d946c0c00edf25c7024b4944f9ff999"
           }
         ],
-        "source_state": "clean committed generator, output compared against committed lib",
+        "source_state": "clean codegen checkout at libgen 56a7881b830b54f2beb5eda0447dc6a344d6d38a",
         "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
-          "go": "go version go1.25.0 darwin/arm64"
-        }
+          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+          "clang_target": "arm64-apple-darwin25.6.0",
+          "go": "go version go1.27.0 darwin/arm64",
+          "go_environment": {
+            "CC": "clang",
+            "CGO_ENABLED": "1",
+            "GOARCH": "arm64",
+            "GOFLAGS": "",
+            "GOOS": "darwin",
+            "GOTOOLCHAIN": "go1.27.0",
+            "GOVERSION": "go1.27.0"
+          }
+        },
+        "comparison": "All 37 generated outputs, including provenance.json and layout/loader tests, reproduce from cudnn-survey at libgen 56a7881b. apidiff reports zero incompatible changes on linux/amd64, linux/arm64 and darwin/arm64; package tests pass and vet passes on linux/amd64, linux/arm64, darwin/arm64 and windows/amd64. Receiver methods Clip and SetClip, zero-argument descriptor getters, size_t-as-int results, and the ffi call bridge are preserved.",
+        "options": {
+          "clang": true,
+          "docs_enabled": true,
+          "call_bridge": "github.com/tmc/lib/nvidia/internal/ffi",
+          "size_t_as_int": true,
+          "pointer_count_parameters_as_slices": true,
+          "result_shapes": true,
+          "merged_headers": [
+            "cudnn_version.h",
+            "cudnn_graph.h",
+            "cudnn_ops.h",
+            "cudnn_cnn.h",
+            "cudnn_adv.h"
+          ]
+        },
+        "maintained_files_excluded": [
+          "nvidia/cudnn/activation_physical_test.go",
+          "nvidia/cudnn/bind_native_test.go",
+          "nvidia/cudnn/bindsymbol_test.go",
+          "nvidia/cudnn/direct_returns_physical_test.go",
+          "nvidia/cudnn/direct_returns_test.go",
+          "nvidia/cudnn/example_test.go",
+          "nvidia/cudnn/load_probe_test.go",
+          "nvidia/cudnn/macros_test.go",
+          "nvidia/cudnn/physical_test.go"
+        ]
       },
       "header": {
         "path": "libcudnn/cudnn_combined.h",
@@ -869,14 +913,14 @@
         "Imported CUDA/system headers, compiler executable bytes and transitive module contents are not fully pinned.",
         "Generation equality does not establish runtime support range, all API variants or Windows native behavior."
       ],
-      "note": "Regenerated 2026-09-08 from the recorded recipe. The only change is the Linux candidate list, which no longer ends with the unversioned libcudnn.so; see the soname-pinning note in the cufft entry. Exported API is unchanged.",
+      "note": "Regenerated with cudnn-survey at libgen 56a7881b. Reproduction, package tests, multi-platform vet and API compatibility checks passed.",
       "package": "github.com/tmc/lib/nvidia/cudnn",
       "repositories": {
         "codegen": {
-          "commit": "b3dc359c9db53dea61a497ef6f5c4a305f945132",
-          "tree": "f54815ecdd777ae664e200e000db35f1e948469d",
+          "commit": "56a7881b830b54f2beb5eda0447dc6a344d6d38a",
+          "tree": "ab50bf223a03f79a231340cbe27d11d70b95da21",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants. Regenerated at libgen 80aa768: input arrays are slices, outputs are returned (more than four as a config struct), size_t is int, and Nd drops from methods taking slices. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen b3dc359c"
+          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants. Regenerated at libgen 80aa768: input arrays are slices, outputs are returned (more than four as a config struct), size_t is int, and Nd drops from methods taking slices. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen b3dc359c Final regeneration uses cudnn-survey at libgen 56a7881b after fixes for getter output configs and configured size_t results."
         },
         "headers": {
           "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
