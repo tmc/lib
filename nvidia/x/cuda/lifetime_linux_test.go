@@ -4,6 +4,7 @@ package cuda_test
 
 import (
 	"context"
+	"errors"
 	"runtime"
 	"sync"
 	"testing"
@@ -238,6 +239,57 @@ func TestContextRunRestoresCurrent(t *testing.T) {
 	}
 	if current != 0 {
 		t.Fatalf("current context after panic = %v, want none", current)
+	}
+}
+
+func TestContextRunRestoresChangedCurrent(t *testing.T) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	dev := cudatest.RequireDevice(t)
+	defer dev.Close()
+	ctx, err := dev.PrimaryContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ctx.Release()
+	previous, err := driver.CtxGetCurrent()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer previous.SetCurrent()
+	sentinel := errors.New("callback error")
+	for _, panicCallback := range []bool{false, true} {
+		if err := ctx.Raw().SetCurrent(); err != nil {
+			t.Fatal(err)
+		}
+		func() {
+			if panicCallback {
+				defer func() {
+					if got := recover(); got != sentinel {
+						t.Errorf("panic = %v, want %v", got, sentinel)
+					}
+				}()
+			}
+			err := ctx.Run(func() error {
+				if err := driver.Context(0).SetCurrent(); err != nil {
+					return err
+				}
+				if panicCallback {
+					panic(sentinel)
+				}
+				return sentinel
+			})
+			if !errors.Is(err, sentinel) {
+				t.Errorf("Run error = %v, want %v", err, sentinel)
+			}
+		}()
+		current, err := driver.CtxGetCurrent()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if current != ctx.Raw() {
+			t.Fatalf("current context = %v, want restored %v", current, ctx.Raw())
+		}
 	}
 }
 

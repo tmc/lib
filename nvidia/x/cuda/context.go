@@ -49,9 +49,12 @@ func (c *Context) Run(fn func() error) (err error) {
 	if err != nil {
 		return fmt.Errorf("cuda: get current context: %w", err)
 	}
-	if err := c.raw.SetCurrent(); err != nil {
-		return fmt.Errorf("cuda: set current context: %w", err)
+	if previous != c.raw {
+		if err := c.raw.SetCurrent(); err != nil {
+			return fmt.Errorf("cuda: set current context: %w", err)
+		}
 	}
+	// Even if our context was already current, fn may bind a different one.
 	defer func() {
 		if restoreErr := previous.SetCurrent(); restoreErr != nil {
 			err = errors.Join(err, fmt.Errorf("cuda: restore current context: %w", restoreErr))
