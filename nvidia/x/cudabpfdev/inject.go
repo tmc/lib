@@ -250,6 +250,7 @@ func inspectInjection(a *cudakernel.Artifact, policy InjectionPolicy) (injection
 			called[stubCalleeName(inst.Operands)] = true
 		}
 	}
+	definedStubs := map[string]bool{}
 	for _, k := range m.Kernels {
 		if k == entryKernel {
 			continue
@@ -269,8 +270,14 @@ func inspectInjection(a *cudakernel.Artifact, policy InjectionPolicy) (injection
 		if !k.Body {
 			return bad("stub function has no body")
 		}
+		definedStubs[k.Name] = true
 		if len(k.Instructions) > 1 || (len(k.Instructions) == 1 && k.Instructions[0].Mnemonic != "ret") {
 			return bad("stub function is not empty")
+		}
+	}
+	for name := range called {
+		if slices.Contains(policy.StubFunctions, name) && !definedStubs[name] {
+			return bad("stub function is not defined")
 		}
 	}
 	k := *entryKernel

@@ -445,6 +445,13 @@ func TestNativeInjection(t *testing.T) {
 			if err != nil || !stubSelection.Candidate {
 				t.Fatalf("stub candidate was not selected: %+v %v", stubSelection, err)
 			}
+			poison := make([]float32, n)
+			for j := range poison {
+				poison[j] = 12345
+			}
+			if err := nativeFloatTransfer(dev, candidateOut, poison, false); err != nil {
+				t.Fatal(err)
+			}
 			if err := stubOwner.Launch(ctx, in, candidateOut); err != nil {
 				t.Fatal(err)
 			}

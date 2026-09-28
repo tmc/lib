@@ -6,6 +6,10 @@
 // 2^32. Branches test nonzero; only warp-uniform values may control branches
 // or map updates. Ballot and Leader explicitly aggregate active-lane values.
 // MapAdd adds a uniform value to a uniform slot once per active warp.
+// Injected PTX samples activemask at the selected site, so after divergent
+// control flow the aggregation can cover a converged subgroup rather than the
+// whole warp. Policies that require full-warp attribution must select sites
+// that execute convergently.
 //
 // Repeat closes a single-entry bounded loop whose header is Target and whose
 // total iteration count is Imm. Loops may nest, but cannot overlap or admit

@@ -20,8 +20,10 @@ func TestBpftimeCudaCounterTransliterationRejected(t *testing.T) {
 	b := budget()
 	const wantReason = "warp-uniformity violation: lane-varying map value"
 	cases := []struct {
-		name string
-		p    Program
+		name       string
+		p          Program
+		wantPC     int
+		wantReason string
 	}{
 		{
 			name: "probe stores a per-thread timestamp at the uniform block key",
@@ -31,15 +33,32 @@ func TestBpftimeCudaCounterTransliterationRejected(t *testing.T) {
 				{Op: MapAdd, A: 0, B: 1},    // Version 1 has no MapUpdate overwrite operation.
 				{Op: Exit},
 			}},
+			wantPC:     2,
+			wantReason: wantReason,
 		},
 		{
 			name: "retprobe adds a per-thread delta to a uniform total key",
-			p: Program{Version: 1, Registers: 2, Slots: 16, Code: []Instruction{
+			p: Program{Version: 1, Registers: 3, Slots: 16, Code: []Instruction{
 				{Op: Const, Dst: 0, Imm: 0}, // process total key is uniform; use key 0 as its surrogate.
-				{Op: Lane, Dst: 1},          // Lane stands in for each thread's timestamp delta.
+				{Op: Lane, Dst: 1},          // Lane stands in for each thread's timestamp.
+				{Op: Const, Dst: 2, Imm: 1},
+				{Op: Add, Dst: 1, A: 1, B: 2}, // Retprobe computes a per-thread delta.
 				{Op: MapAdd, A: 0, B: 1},
 				{Op: Exit},
 			}},
+			wantPC:     4,
+			wantReason: wantReason,
+		},
+		{
+			name: "key variation takes precedence when value also varies",
+			p: Program{Version: 1, Registers: 2, Slots: 16, Code: []Instruction{
+				{Op: Lane, Dst: 0},
+				{Op: Lane, Dst: 1},
+				{Op: MapAdd, A: 0, B: 1},
+				{Op: Exit},
+			}},
+			wantPC:     2,
+			wantReason: "warp-uniformity violation: lane-varying map key",
 		},
 	}
 	for _, tc := range cases {
@@ -49,8 +68,8 @@ func TestBpftimeCudaCounterTransliterationRejected(t *testing.T) {
 			if !errors.As(err, &located) {
 				t.Fatalf("Verify() error = %T %v, want located VerifyError", err, err)
 			}
-			if located.PC != 2 || located.Reason != wantReason {
-				t.Fatalf("VerifyError = {PC:%d Reason:%q}, want {PC:2 Reason:%q}", located.PC, located.Reason, wantReason)
+			if located.PC != tc.wantPC || located.Reason != tc.wantReason {
+				t.Fatalf("VerifyError = {PC:%d Reason:%q}, want {PC:%d Reason:%q}", located.PC, located.Reason, tc.wantPC, tc.wantReason)
 			}
 		})
 	}
@@ -59,7 +78,7 @@ func TestBpftimeCudaCounterTransliterationRejected(t *testing.T) {
 	// representable: bytecode v1 has no lookup or delete instruction.
 }
 
-// TestBpftime_PerThreadVersusPerWarp demonstrates that thread counting requires explicit
+// TestThreadCountDiffersFromWarpCountOnPartialMask demonstrates that thread counting requires explicit
 // Ballot population count aggregation (__ballot_sync/popc) and produces different results
 // from plain per-warp increments when running on a partially active warp.
 // Reference: example/gpu/threadhist/threadhist.bpf.c (@edcc8ec).
@@ -213,7 +232,9 @@ func checkEmittedProgramBody(t *testing.T, body string, p Program, prefix string
 	for _, want := range []string{
 		"activemask.b32 " + prefix + "actual_mask;",
 		"vote.sync.ballot.b32 " + prefix + "mask, " + prefix + "pred, " + prefix + "actual_mask;",
+		"brev.b32 " + prefix + "reverse_mask, " + prefix + "mask;",
 		"bfind.u32 " + prefix + "leader, " + prefix + "reverse_mask;",
+		"sub.u32 " + prefix + "leader, 31, " + prefix + "leader;",
 		"setp.eq.u32 " + prefix + "is_leader, " + prefix + "lane, " + prefix + "leader;",
 	} {
 		if !strings.Contains(body, want) {
@@ -240,6 +261,29 @@ func checkEmittedProgramBody(t *testing.T, body string, p Program, prefix string
 	}
 	if strings.HasSuffix(strings.TrimSpace(body), "ret;") != wantReturn {
 		t.Errorf("body return terminator = %t, want %t", strings.HasSuffix(strings.TrimSpace(body), "ret;"), wantReturn)
+	}
+	firstInstruction := ""
+	for _, line := range strings.Split(body, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, ".reg ") {
+			continue
+		}
+		firstInstruction = line
+		break
+	}
+	wantPreamble := "setp.eq.u32 " + prefix + "pred, 0, 0;"
+	if firstInstruction != wantPreamble {
+		t.Errorf("first instruction = %q, want preamble %q", firstInstruction, wantPreamble)
+	}
+	retCount := strings.Count(body, "ret;")
+	if wantReturn {
+		done := strings.Index(body, "done:")
+		ret := strings.Index(body, "ret;")
+		if retCount != 1 || done < 0 || ret < done {
+			t.Errorf("return count/order = (%d, done=%d, ret=%d), want one return after done", retCount, done, ret)
+		}
+	} else if retCount != 0 {
+		t.Errorf("inline body has %d return instructions, want none", retCount)
 	}
 }
 
@@ -286,6 +330,7 @@ func TestStubCallSiteLocated(t *testing.T) {
 	candPTX := string(candidate.Raw)
 	checkEmittedProgramBody(t, emittedBody(t, emitTrampoline(p, 0), "{\n"), p, "__cudabpfdev_site0_", false)
 	checkEmittedProgramBody(t, emittedBody(t, emitProbeFunction(p, "__cudabpfdev_probe_0"), ".func __cudabpfdev_probe_0\n{\n"), p, "__cudabpfdev_probe_0_", true)
+	checkEmittedProgramBody(t, emittedBody(t, candPTX, ".func __cudabpfdev_probe_0\n{\n"), p, "__cudabpfdev_probe_0_", true)
 
 	// Verify the stub call was rewritten to point to the injected probe function.
 	if !strings.Contains(candPTX, "call.uni __cudabpfdev_probe_0;") {
@@ -330,6 +375,40 @@ func TestStubCallSiteLocated(t *testing.T) {
 	}
 	if cand, r := injNoStub.Candidate(); cand != nil || !strings.Contains(r, "instruction outside straight-line contract") {
 		t.Fatalf("expected fallback when stub not opted into, got cand=%v reason=%q", cand != nil, r)
+	}
+	if cand, r := injNoStub.Candidate(); cand != nil || r != "cudabpfdev: instruction outside straight-line contract: call" {
+		t.Fatalf("unlisted defined call fallback = (%t, %q), want exact module-level call rejection", cand != nil, r)
+	}
+
+	// A listed but absent function is not an attachable stub.
+	missingStubPTX := strings.Replace(stubPTX, ".func __bpftime_cuda__kernel_trace\n{\n    ret;\n}\n\n", "", 1)
+	if strings.Contains(missingStubPTX, ".func __bpftime_cuda__kernel_trace") {
+		t.Fatal("missing-stub fixture still defines the listed function")
+	}
+	missingSource, missingArtifact := newSource(missingStubPTX)
+	missingPolicy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{missingArtifact.Digest, missingArtifact.EntryPoint, missingArtifact.Target}}, StubFunctions: []string{"__bpftime_cuda__kernel_trace"}}
+	injMissing, err := PrepareInjection(missingSource, p, b, missingPolicy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cand, r := injMissing.Candidate(); cand != nil || r != "cudabpfdev: stub function is not defined" {
+		t.Fatalf("missing listed stub fallback = (%t, %q), want exact undefined-stub rejection", cand != nil, r)
+	}
+
+	// An undefined, unlisted callee must hit instruction-level admission.
+	missingCalleePTX := strings.Replace(stubPTX, ".func __bpftime_cuda__kernel_trace\n{\n    ret;\n}\n\n", "", 1)
+	missingCalleePTX = strings.Replace(missingCalleePTX, "call.uni __bpftime_cuda__kernel_trace;", "call.uni missing;", 1)
+	if strings.Contains(missingCalleePTX, "call.uni __bpftime_cuda__kernel_trace;") || !strings.Contains(missingCalleePTX, "call.uni missing;") {
+		t.Fatal("undefined-callee fixture does not contain only the intended call")
+	}
+	missingCalleeSource, missingCalleeArtifact := newSource(missingCalleePTX)
+	missingCalleePolicy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{missingCalleeArtifact.Digest, missingCalleeArtifact.EntryPoint, missingCalleeArtifact.Target}}, Entry: true}
+	injMissingCallee, err := PrepareInjection(missingCalleeSource, p, b, missingCalleePolicy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cand, r := injMissingCallee.Candidate(); cand != nil || r != "cudabpfdev: instruction outside straight-line contract: call.uni" {
+		t.Fatalf("undefined unlisted call fallback = (%t, %q), want exact call.uni rejection", cand != nil, r)
 	}
 
 	// 3. Fallback when stub function is not empty (contains arbitrary logic).
@@ -409,6 +488,18 @@ func TestStubCallSiteLocated(t *testing.T) {
 		t.Fatalf("expected bodiless stub fallback, got candidate=%t reason=%q", cand != nil, r)
 	}
 
+	// A secondary .entry is refused even when its name appears in StubFunctions.
+	secondEntryPTX := strings.Replace(stubPTX, ".visible .entry affine(", ".visible .entry trace_stub()\n{\n    ret;\n}\n\n.visible .entry affine(", 1)
+	secondEntrySource, secondEntryArtifact := newSource(secondEntryPTX)
+	secondEntryPolicy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{secondEntryArtifact.Digest, secondEntryArtifact.EntryPoint, secondEntryArtifact.Target}}, StubFunctions: []string{"trace_stub", "__bpftime_cuda__kernel_trace"}}
+	injSecondEntry, err := PrepareInjection(secondEntrySource, p, b, secondEntryPolicy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cand, r := injSecondEntry.Candidate(); cand != nil || r != "cudabpfdev: module outside injection contract" {
+		t.Fatalf("listed .entry fallback = (%t, %q), want exact secondary-entry rejection", cand != nil, r)
+	}
+
 	// Two calls receive distinct function definitions and both parse without duplicate names.
 	multipleCallsPTX := strings.Replace(stubPTX, "call.uni __bpftime_cuda__kernel_trace;", "call.uni __bpftime_cuda__kernel_trace;\n    call.uni __bpftime_cuda__kernel_trace;", 1)
 	multipleSource, multipleArtifact := newSource(multipleCallsPTX)
@@ -425,6 +516,10 @@ func TestStubCallSiteLocated(t *testing.T) {
 	if strings.Count(multiplePTX, "call.uni __cudabpfdev_probe_") != 2 || !strings.Contains(multiplePTX, "call.uni __cudabpfdev_probe_0;") || !strings.Contains(multiplePTX, "call.uni __cudabpfdev_probe_1;") {
 		t.Fatalf("two call sites were not routed to distinct probes:\n%s", multiplePTX)
 	}
+	for site := 0; site < 2; site++ {
+		name := "__cudabpfdev_probe_" + strconv.Itoa(site)
+		checkEmittedProgramBody(t, emittedBody(t, multiplePTX, ".func "+name+"\n{\n"), p, name+"_", true)
+	}
 	multipleModule, err := cudaptx.ParseBytes(multipleCandidate.Raw)
 	if err != nil {
 		t.Fatalf("multiple call-site candidate is not parseable by cudaptx: %v", err)
@@ -440,7 +535,8 @@ func TestStubCallSiteLocated(t *testing.T) {
 		t.Fatalf("probe functions missing from parsed module: %v", functionNames)
 	}
 
-	// The allowance fits the original kernel plus one probe, but not both stub sites.
+	// A single probe fits at the exact declaration boundary. One fewer register
+	// must fall back, proving that the live active-mask register is charged.
 	layout, err := inspectInjection(multipleArtifact, multiplePolicy)
 	if err != nil {
 		t.Fatal(err)
@@ -449,8 +545,36 @@ func TestStubCallSiteLocated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	perSite := translation.DeclaredRegisters + 1
+	oneCallPTX := strings.Replace(stubPTX, "    call.uni __bpftime_cuda__kernel_trace;\n", "", 1)
+	oneCallSource, oneCallArtifact := newSource(oneCallPTX)
+	oneCallPolicy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{oneCallArtifact.Digest, oneCallArtifact.EntryPoint, oneCallArtifact.Target}}, StubFunctions: []string{"__bpftime_cuda__kernel_trace"}, Entry: true}
+	oneCallLayout, err := inspectInjection(oneCallArtifact, oneCallPolicy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fitBudget := b
+	fitBudget.MaxRegisters = oneCallLayout.registers + perSite
+	fit, err := PrepareInjection(oneCallSource, p, fitBudget, oneCallPolicy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if candidate, reason := fit.Candidate(); candidate == nil {
+		t.Fatalf("exact per-site budget did not fit: %s", reason)
+	}
+	shortBudget := fitBudget
+	shortBudget.MaxRegisters--
+	short, err := PrepareInjection(oneCallSource, p, shortBudget, oneCallPolicy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if candidate, reason := short.Candidate(); candidate != nil || reason != "combined register declaration budget exceeded" {
+		t.Fatalf("one-register-short budget = (%t, %q), want exact register fallback", candidate != nil, reason)
+	}
+
+	// Two probes require more than one site's exact declaration budget.
 	multipleBudget := b
-	multipleBudget.MaxRegisters = layout.registers + translation.DeclaredRegisters + 1
+	multipleBudget.MaxRegisters = layout.registers + perSite
 	injOverBudget, err := PrepareInjection(multipleSource, p, multipleBudget, multiplePolicy)
 	if err != nil {
 		t.Fatal(err)
