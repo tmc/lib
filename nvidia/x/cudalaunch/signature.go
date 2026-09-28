@@ -154,6 +154,14 @@ func Validate(sig Signature, args ...any) error {
 				i, p.Name, p.Size, p.Type, info.size, arg)
 		}
 
+		// PTX bit types carry storage width, not a source-language scalar type.
+		if !p.IsPointer {
+			switch p.Type {
+			case "b8", "b16", "b32", "b64", "b128":
+				continue
+			}
+		}
+
 		// Validate pointer vs scalar.
 		if p.IsPointer {
 			if !info.isPointer {
