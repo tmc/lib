@@ -144,13 +144,12 @@ func TestCallbackSubscription(t *testing.T) {
 	}
 	// The callback runs on the calling thread inside the driver call. It must
 	// not call into the testing package, so it only records.
-	cb := purego.NewCallback(func(userdata uintptr, domain cupti.CallbackDomain, cbid uint32, cbdata uintptr) uintptr {
-		if cbdata == 0 {
+	// data addresses CUPTI's own callback record, not Go memory; purego
+	// passes it through as a typed pointer.
+	cb := purego.NewCallback(func(userdata uintptr, domain cupti.CallbackDomain, cbid uint32, data *cupti.CallbackData) uintptr {
+		if data == nil {
 			return 0
 		}
-		// cbdata addresses CUPTI's own callback record, not Go memory, so
-		// the conversion go vet flags here cannot observe a moved object.
-		data := (*cupti.CallbackData)(unsafe.Pointer(cbdata))
 		obs.mu.Lock()
 		obs.total++
 		obs.domain = domain
@@ -256,9 +255,9 @@ func TestActivityMemcpyRecord(t *testing.T) {
 
 	requested := purego.NewCallback(func(buffer **uint8, size *uint, maxRecords *uint) uintptr {
 		inUse.Lock()
-		// host is a driver allocation held for the life of the test, so the
-		// conversion go vet flags here addresses pinned native memory.
-		*buffer = (*uint8)(unsafe.Pointer(host))
+		// host is a driver allocation held for the life of the test, not Go
+		// memory; reinterpret its storage rather than convert the integer.
+		*buffer = *(**uint8)(unsafe.Pointer(&host))
 		*size = activityBufferSize
 		*maxRecords = 0
 		return 0
