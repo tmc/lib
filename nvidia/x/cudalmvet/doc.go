@@ -15,10 +15,10 @@
 // # Float Policies
 //
 // The accumulator defines explicit policies for floating-point values:
-//   - [PolicyRawBits] (default): Values are folded using their exact IEEE-754
-//     little-endian byte patterns. Under this policy, +0.0 (0x00000000) and -0.0
-//     (0x80000000) produce distinct hashes, and differing NaN payloads produce
-//     distinct hashes.
+//   - [PolicyRawBits] (default): Values supplied to the accumulator are folded
+//     using their exact IEEE-754 little-endian byte patterns. Under this policy,
+//     +0.0 (0x00000000) and -0.0 (0x80000000) produce distinct hashes, and
+//     differing NaN payloads produce distinct hashes.
 //   - [PolicyCanonicalizeNaN]: Normalizes all NaN representations to the canonical
 //     quiet-NaN bit pattern (0x7fc00000 for float32, 0x7ff8000000000000 for float64)
 //     prior to hashing. Signed zeros remain distinct.
@@ -28,6 +28,10 @@
 // Device comparison and schedule perturbations currently accept only
 // [PolicyRawBits]. Other policies remain available to the CPU accumulator and
 // are refused before compilation on the device path, with an Unmeasured result.
+// Device comparison also refuses a graph whose CPU reference trace contains a
+// NaN. cudaref may canonicalize NaN results or produce a different NaN value
+// from the emitted CUDA operation, so RawBits on the accumulator does not make
+// such a graph a valid CPU/device bitwise comparison.
 //
 // # Traversal and Fold Order
 //
@@ -39,9 +43,12 @@
 //   - Graph inputs, node metadata, and unit/empty tensors are skipped; skipped values fold
 //     zero bytes and leave the accumulator unchanged.
 //
-// Generated device kernels assign one ticket to each folded float in node-major,
-// then row-major order. A single CTA serializes those tickets before updating the
-// scalar hash. The generated harness refuses tensors or inputs above 1,024 elements.
+// Generated device kernels compute each graph node across threads in one CTA.
+// Each thread completes its node value before entering the ordered fold; one CTA
+// serializes node-major, then row-major fold tickets before updating the scalar
+// hash. This serialization does not prove that a data race remains observable;
+// that needs native measurement. The generated harness refuses tensors or inputs
+// above 1,024 elements.
 // Caller-supplied kernels do not receive the generated kernel's fold-limit argument
 // and are not localized to a graph fold index.
 //
@@ -54,9 +61,11 @@
 //     because the JIT option type uses zero to mean unset.
 //
 // Each perturbation is compiled into an independent artifact with its own cache identity.
-// A perturbation whose trace hash moves indicates miscompilation, a data race, or
-// unstable reassociation. Device results are compared bit for bit; floating-point
-// contraction such as FMA may therefore be reported as a disagreement when it
-// changes an intermediate value, even if the contracted result is mathematically
-// equivalent.
+// A perturbation whose trace hash moves records a difference; it does not identify
+// the cause. For a localized float32 mismatch, the report includes both values,
+// their ULP distance, and whether the distance is admissible under the bit-exact
+// policy (only zero ULP is admissible). Unlocalized mismatches report DiffIndex -1
+// and have no numerical interpretation. Floating-point contraction such as FMA
+// may therefore be reported as a disagreement when it changes an intermediate
+// value, even if the contracted result is mathematically equivalent.
 package cudalmvet

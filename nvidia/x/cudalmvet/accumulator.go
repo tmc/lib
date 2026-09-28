@@ -57,6 +57,7 @@ type Accumulator struct {
 	policy    FloatPolicy
 	recording bool
 	events    []TraceEvent
+	hasNaN    bool
 }
 
 // AccumulatorOption configures an Accumulator.
@@ -92,6 +93,7 @@ func NewAccumulator(opts ...AccumulatorOption) *Accumulator {
 func (a *Accumulator) Reset() {
 	a.hash = FNVOffsetBasis
 	a.count = 0
+	a.hasNaN = false
 	if a.recording {
 		a.events = a.events[:0]
 	}
@@ -205,6 +207,9 @@ func (a *Accumulator) FoldFloat32(v float32) {
 // FoldFloat32Named mixes a 32-bit float with an associated node name for triage.
 func (a *Accumulator) FoldFloat32Named(nodeName string, v float32) {
 	bits := math.Float32bits(v)
+	if math.IsNaN(float64(v)) {
+		a.hasNaN = true
+	}
 
 	switch a.policy {
 	case PolicyCanonicalizeNaN:
@@ -253,6 +258,9 @@ func (a *Accumulator) FoldFloat64(v float64) {
 // FoldFloat64Named mixes a 64-bit float with an associated node name.
 func (a *Accumulator) FoldFloat64Named(nodeName string, v float64) {
 	bits := math.Float64bits(v)
+	if math.IsNaN(v) {
+		a.hasNaN = true
+	}
 
 	switch a.policy {
 	case PolicyCanonicalizeNaN:

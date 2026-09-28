@@ -337,6 +337,30 @@ func TestTraceHash_Mutant_OneULP(t *testing.T) {
 	if report.BitsA == report.BitsB {
 		t.Errorf("triage report BitsA (%08x) equals BitsB (%08x)", report.BitsA, report.BitsB)
 	}
+	if !report.ULPKnown || report.ULPDistance != 1 || report.NumericalPolicy != "bit-exact" || report.Admissible {
+		t.Fatalf("one-ULP triage numerical assessment = %#v", report)
+	}
+	if !strings.Contains(report.String(), "ULP distance: 1") || !strings.Contains(report.String(), "admissible: no") {
+		t.Fatalf("one-ULP report omits numerical assessment: %s", report)
+	}
+
+	largeVals := append([]float32(nil), baseVals...)
+	largeVals[2] = 1000
+	large := NewAccumulator(WithRecording(true))
+	large.FoldFloat32s(largeVals)
+	largeReport := Triage(accA, large)
+	if largeReport == nil || !largeReport.ULPKnown || largeReport.ULPDistance <= 1 || largeReport.Admissible {
+		t.Fatalf("large-difference triage numerical assessment = %#v", largeReport)
+	}
+	if largeReport.String() == report.String() {
+		t.Fatalf("one-ULP and large-difference report rows are identical: %s", report)
+	}
+	rows := (&PerturbationReport{ReferenceHash: accA.Hash(), BaselineDeviceHash: accA.Hash(), Results: []PerturbationResult{
+		{Perturbation: Perturbation{Name: "one-ulp"}, Status: StatusDisagreed, Hash: accB.Hash(), Triage: report},
+	}}).String()
+	if !strings.Contains(rows, "first divergence at fold #2") || !strings.Contains(rows, "ULP distance: 1") {
+		t.Fatalf("perturbation row omits localized numerical interpretation: %s", rows)
+	}
 }
 
 // Mutant Control 2: NaN payload test asserts documented policy behavior.
@@ -520,6 +544,9 @@ func TestDevicePrefixTriageFindsFirstDifferingFold(t *testing.T) {
 	}
 	if localized.DiffIndex != 4 || localized.NodeName != "node" || localized.ValueB != 99 {
 		t.Fatalf("triage = %#v, want first difference at fold 4 with device value 99", localized)
+	}
+	if !localized.ULPKnown || localized.NumericalPolicy != "bit-exact" || localized.Admissible || !strings.Contains(localized.String(), "ULP distance:") {
+		t.Fatalf("localized numerical interpretation = %#v", localized)
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -103,6 +104,75 @@ func TestCompareRejectsNonRawDeviceFloatPolicy(t *testing.T) {
 	}
 	if compileCalls != 0 || loadCalls != 0 {
 		t.Fatalf("RunPerturbations policy refusal reached compile/load: compile=%d load=%d", compileCalls, loadCalls)
+	}
+}
+
+func TestCompareAndPerturbationsRefuseNaNTracesBeforeCompile(t *testing.T) {
+	nanPayload := math.Float32frombits(0x7fc00001)
+	type nanGraphCase struct {
+		name   string
+		graph  *cudair.Graph
+		inputs map[string][]float32
+	}
+	makeUnary := func(name, op string, value float32) nanGraphCase {
+		g := cudair.NewGraph()
+		x := g.AddInput("X", []int{1}, cudair.Float32)
+		y := g.AddUnary(op, x)
+		y.Name = "Y"
+		_ = g.SetOutputs(y)
+		return nanGraphCase{name: name, graph: g, inputs: map[string][]float32{"X": {value}}}
+	}
+	mul := cudair.NewGraph()
+	a := mul.AddInput("A", []int{1}, cudair.Float32)
+	b := mul.AddInput("B", []int{1}, cudair.Float32)
+	y := mul.AddBinary("mul", a, b)
+	y.Name = "Y"
+	_ = mul.SetOutputs(y)
+	graphs := []nanGraphCase{
+		makeUnary("neg-payload", "neg", nanPayload),
+		makeUnary("relu-nan", "relu", nanPayload),
+		{name: "mul-zero-infinity", graph: mul, inputs: map[string][]float32{"A": {0}, "B": {float32(math.Inf(1))}}},
+	}
+	for _, tc := range graphs {
+		t.Run(tc.name, func(t *testing.T) {
+			compileCalls, loadCalls := 0, 0
+			compile := func(string, []nvrtcx.Option, cudakernel.JITOptions) (*nvrtcx.CompiledModule, error) {
+				compileCalls++
+				return newFakeCompiled(cudakernel.JITOptions{}), nil
+			}
+			load := func(*nvrtcx.CompiledModule, *cuda.Device) (traceModule, error) {
+				loadCalls++
+				return &fakeTraceModule{stateHash: FNVOffsetBasis}, nil
+			}
+			res, err := Compare(context.Background(), tc.graph, WithInputs(tc.inputs), withCompileKernel(compile), withTraceModuleLoader(load))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if res.Status != StatusUnmeasured || res.Stage != StagePolicy || !errors.Is(res.Err, ErrNaNTraceUnsupported) {
+				t.Fatalf("Compare = %#v, want NaN policy refusal", res)
+			}
+			if compileCalls != 0 || loadCalls != 0 {
+				t.Fatalf("Compare reached compile/load: %d/%d", compileCalls, loadCalls)
+			}
+
+			report, err := RunPerturbations(context.Background(), tc.graph,
+				[]Perturbation{{Name: "one", JITOptLevel: 4}, {Name: "two", JITOptLevel: 2}},
+				WithInputs(tc.inputs), withCompileKernel(compile), withTraceModuleLoader(load))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(report.Results) != 2 {
+				t.Fatalf("rows = %d, want 2", len(report.Results))
+			}
+			for _, row := range report.Results {
+				if row.Status != StatusUnmeasured || row.Stage != StagePolicy || !errors.Is(row.PolicyErr, ErrNaNTraceUnsupported) || row.CompileErr != nil || row.RunErr != nil {
+					t.Errorf("row = %#v, want NaN policy refusal", row)
+				}
+			}
+			if compileCalls != 0 || loadCalls != 0 {
+				t.Fatalf("RunPerturbations reached compile/load: %d/%d", compileCalls, loadCalls)
+			}
+		})
 	}
 }
 

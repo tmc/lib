@@ -98,7 +98,9 @@ func ValidatePerturbationArtifact(pert Perturbation, art *cudakernel.Artifact) e
 type PerturbationResult struct {
 	Perturbation Perturbation
 	Status       ComparisonStatus
+	Stage        FailureStage
 	Hash         uint64
+	Triage       *TriageReport
 	ArtifactErr  error
 	PolicyErr    error
 	CompileErr   error
@@ -161,8 +163,17 @@ func (r *PerturbationReport) String() string {
 			notes = fmt.Sprintf("artifact mismatch: %v", res.ArtifactErr)
 		} else if res.RunErr != nil {
 			notes = fmt.Sprintf("run error: %v", res.RunErr)
-		} else if res.Status != StatusUnmeasured && r.BaselineDeviceHash != 0 && res.Hash != r.BaselineDeviceHash {
-			notes = "HASH MOVED vs baseline device hash"
+		} else {
+			if res.Status != StatusUnmeasured && r.BaselineDeviceHash != 0 && res.Hash != r.BaselineDeviceHash {
+				notes = "HASH MOVED vs baseline device hash"
+			}
+			if res.Triage != nil {
+				if notes == "-" {
+					notes = res.Triage.String()
+				} else {
+					notes += "; " + res.Triage.String()
+				}
+			}
 		}
 
 		sb.WriteString(fmt.Sprintf("%-18s %-10s %-8d %-12s %-20s %s\n",
@@ -203,6 +214,12 @@ func RunPerturbations(ctx context.Context, g *cudair.Graph, perts []Perturbation
 	report := &PerturbationReport{
 		ReferenceHash: refHash,
 		Results:       make([]PerturbationResult, 0, len(perts)),
+	}
+	if accCPU.hasNaN {
+		for _, p := range perts {
+			report.Results = append(report.Results, PerturbationResult{Perturbation: p, Status: StatusUnmeasured, Stage: StagePolicy, PolicyErr: ErrNaNTraceUnsupported})
+		}
+		return report, nil
 	}
 
 	for _, p := range perts {
@@ -255,7 +272,7 @@ func perturbationOutcome(p Perturbation, result *ComparisonResult, err error) Pe
 		row.RunErr = errors.New("cudalmvet: compare returned no result")
 		return row
 	}
-	row.Status, row.Hash = result.Status, result.DeviceHash
+	row.Status, row.Stage, row.Hash, row.Triage = result.Status, result.Stage, result.DeviceHash, result.Triage
 	if result.Err != nil && result.Status == StatusUnmeasured {
 		switch result.Stage {
 		case StageCompile:

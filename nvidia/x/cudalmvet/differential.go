@@ -21,6 +21,10 @@ import (
 // to FNVOffsetBasis before a launch.
 var ErrContaminatedAccumulator = errors.New("cudalmvet: device accumulator was not reset prior to launch (contaminated state)")
 
+// ErrNaNTraceUnsupported indicates that CPU reference NaN semantics cannot be
+// compared reliably with the emitted device operations under PolicyRawBits.
+var ErrNaNTraceUnsupported = errors.New("cudalmvet: device trace comparison does not support NaN values under PolicyRawBits")
+
 type stageFailure struct {
 	stage FailureStage
 	err   error
@@ -303,10 +307,11 @@ func validateAccumulatorState(hash uint64, next, last uint32) error {
 
 func deviceMismatchTriage(cpuHash, deviceHash uint64) *TriageReport {
 	return &TriageReport{
-		DiffIndex: -1,
-		HashA:     cpuHash,
-		HashB:     deviceHash,
-		Message:   fmt.Sprintf("trace hash divergence: CPU reference produced 0x%016x, device produced 0x%016x; first differing fold is unknown", cpuHash, deviceHash),
+		DiffIndex:       -1,
+		HashA:           cpuHash,
+		HashB:           deviceHash,
+		NumericalPolicy: "bit-exact",
+		Message:         fmt.Sprintf("trace hash divergence: CPU reference produced 0x%016x, device produced 0x%016x; first differing fold is unknown (DiffIndex=-1); numerical interpretation unavailable", cpuHash, deviceHash),
 	}
 }
 
@@ -338,16 +343,21 @@ func localizeDeviceMismatch(events []TraceEvent, runPrefix func(int) (deviceTrac
 	}
 	event := events[high-1]
 	value := math.Float32frombits(got.lastBits)
+	ulp, ulpKnown := float32ULPDistance(uint32(event.Bits), got.lastBits)
 	return &TriageReport{
-		DiffIndex: high - 1,
-		NodeName:  event.NodeName,
-		ValueA:    event.Value,
-		ValueB:    float64(value),
-		BitsA:     event.Bits,
-		BitsB:     uint64(got.lastBits),
-		HashA:     event.Hash,
-		HashB:     got.hash,
-		Message:   fmt.Sprintf("first divergence at fold #%d (node %q): CPU value %v (0x%08x), device value %v (0x%08x)", high-1, event.NodeName, event.Value, uint32(event.Bits), value, got.lastBits),
+		DiffIndex:       high - 1,
+		NodeName:        event.NodeName,
+		ValueA:          event.Value,
+		ValueB:          float64(value),
+		BitsA:           event.Bits,
+		BitsB:           uint64(got.lastBits),
+		HashA:           event.Hash,
+		HashB:           got.hash,
+		ULPDistance:     ulp,
+		ULPKnown:        ulpKnown,
+		NumericalPolicy: "bit-exact",
+		Admissible:      event.Bits == uint64(got.lastBits),
+		Message:         fmt.Sprintf("first divergence at fold #%d (node %q): CPU value %v (0x%08x), device value %v (0x%08x); numerical policy: bit-exact, ULP distance: %s, admissible: %t", high-1, event.NodeName, event.Value, uint32(event.Bits), value, got.lastBits, formatULP(ulp, ulpKnown), event.Bits == uint64(got.lastBits)),
 	}, nil
 }
 
@@ -373,6 +383,9 @@ func Compare(ctx context.Context, g *cudair.Graph, opts ...CompareOption) (*Comp
 		return nil, fmt.Errorf("cudalmvet.Compare: CPU reference failed: %w", err)
 	}
 	cpuHash := accCPU.Hash()
+	if accCPU.hasNaN {
+		return &ComparisonResult{Status: StatusUnmeasured, Stage: StagePolicy, CPUHash: cpuHash, Err: ErrNaNTraceUnsupported}, nil
+	}
 
 	// 2. Check Device Availability
 	if cfg.Device == nil && cfg.loadTraceModule == nil {
@@ -604,8 +617,6 @@ func synthesizeGraphKernel(g *cudair.Graph) (src string, entryPoint string, err 
 				expr = fmt.Sprintf("logf(%s)", valRef)
 			case "sqrt":
 				expr = fmt.Sprintf("sqrtf(%s)", valRef)
-			case "rsqrt":
-				expr = fmt.Sprintf("rsqrtf(%s)", valRef)
 			default:
 				return "", "", fmt.Errorf("synthesize: unsupported unary op %q", n.Op)
 			}
