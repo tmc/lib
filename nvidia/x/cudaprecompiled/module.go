@@ -54,15 +54,30 @@ func (m *Module) config() *precompile.Config {
 	}
 }
 
+// SourceHash returns the digest of the sources, headers, options and name
+// expressions. It uses the same format as Sum and excludes target architectures
+// and compiler versions. Callers can compare it with a generated binding's
+// expected inputs before loading an image. It does not authenticate Image.
+func (m *Module) SourceHash() (string, error) {
+	if m == nil || m.Files == nil {
+		return "", fmt.Errorf("cudaprecompiled: missing source files")
+	}
+	sum, err := m.config().Sum()
+	if err != nil {
+		return "", fmt.Errorf("cudaprecompiled: %w", err)
+	}
+	return sum, nil
+}
+
 // Stale reports whether Image was built from different sources or options
 // than the ones in m. A Module without an image is not stale.
 func (m *Module) Stale() (bool, error) {
 	if m.Image == nil {
 		return false, nil
 	}
-	sum, err := m.config().Sum()
+	sum, err := m.SourceHash()
 	if err != nil {
-		return false, fmt.Errorf("cudaprecompiled: %w", err)
+		return false, err
 	}
 	return sum != m.Sum, nil
 }

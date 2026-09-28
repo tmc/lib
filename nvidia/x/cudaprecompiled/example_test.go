@@ -40,3 +40,15 @@ extern "C" __global__ void scale(float* x, float a, int n) {
 	}
 	_ = scale
 }
+
+func ExampleModule_SourceHash() {
+	m := &cudaprecompiled.Module{
+		Files:   fstest.MapFS{"kernel.cu": {Data: []byte("// source")}},
+		Sources: []string{"kernel.cu"},
+	}
+	a, _ := m.SourceHash()
+	m.Options = []string{"-DCOUNT=4"}
+	b, _ := m.SourceHash()
+	fmt.Println(a == b)
+	// Output: false
+}
