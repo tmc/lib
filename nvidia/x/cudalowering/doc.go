@@ -19,9 +19,10 @@
 //   - [MissingSASS], [MissingPTX]: a kernel that exists at one level only. These
 //     are reported rather than skipped, so that a comparison run against the
 //     wrong pair of artifacts fails instead of finding nothing.
-//   - [SharedConversion]: a shared-space address conversion (e.g. cvta.shared
-//     in PTX or generic address conversions in SASS) present when direct shared
-//     access was expected. [VerifyNoSharedConversions] checks this specifically.
+//   - [SharedConversion]: a cvta.shared conversion in PTX or a recognized
+//     CVTA.SHARED instruction in SASS when direct shared access was expected.
+//     [VerifyNoSharedConversions] requires at least one inferred slot label and
+//     checks its matched kernel; labels appear in the report for traceability.
 //
 // The mapping from PTX opcodes to the SASS opcodes they lower to is
 // [DefaultLowerings], which callers replace or extend through

@@ -111,3 +111,33 @@ func TestCompileWithOptions_NilOption(t *testing.T) {
 		t.Errorf("expected nil option error, got: %v", err)
 	}
 }
+
+func TestCompileWithOptions_InferenceErrorPropagates(t *testing.T) {
+	input := Input{Name: "module", Data: []byte{'B', 'C', 0xc0, 0xde}}
+	_, err := CompileWithOptions([]Input{input}, WithAddressSpaceInference())
+	if err == nil || !strings.Contains(err.Error(), `infer address spaces for "module"`) {
+		t.Fatalf("CompileWithOptions error = %v, want inference failure", err)
+	}
+}
+
+func TestPrepareInputs_AppliesInferenceWithoutNativeCompiler(t *testing.T) {
+	ir := []byte(`@smem = internal addrspace(3) global [4 x i8] undef
+define void @kernel() {
+entry:
+  %slot = alloca ptr, align 8
+  store ptr addrspace(3) @smem, ptr %slot, align 8
+  ret void
+}
+`)
+	inputs := []Input{{Name: "module", Data: ir}}
+	prepared, err := prepareInputs(inputs, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(inputs[0].Data), "alloca ptr addrspace(3)") {
+		t.Fatal("prepareInputs changed caller input")
+	}
+	if !strings.Contains(string(prepared[0].Data), "alloca ptr addrspace(3)") {
+		t.Fatalf("prepared input did not apply inference:\n%s", prepared[0].Data)
+	}
+}

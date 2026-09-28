@@ -16,6 +16,9 @@
 // in the entry block is changed from the generic default to addrspace(3). This
 // enables LLVM/NVVM to lower memory accesses directly to ld.shared and st.shared
 // instructions, eliminating cvta.shared conversions and generic load/store overhead.
+// Inference is fail-closed: an unrecognized alias, atomic access, or escape leaves
+// the slot generic. InferenceReport.Slots keys each entry by function and slot,
+// in the form @function/%slot, so local register names cannot collide across functions.
 //
 // Inference uses a 3-element lattice over slots:
 //

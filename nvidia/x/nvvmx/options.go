@@ -27,20 +27,29 @@ func CompileWithOptions(inputs []Input, opts ...Option) (*Result, error) {
 			return nil, err
 		}
 	}
-	if o.inferAddrSpace {
-		processed := make([]Input, len(inputs))
-		for i, inp := range inputs {
-			processed[i] = inp
-			if !inp.Lazy && len(inp.Data) > 0 {
-				rewritten, _, err := InferAddressSpaces(inp.Data)
-				if err == nil {
-					processed[i].Data = rewritten
-				}
-			}
-		}
-		inputs = processed
+	prepared, err := prepareInputs(inputs, o.inferAddrSpace)
+	if err != nil {
+		return nil, err
 	}
-	return Compile(inputs, o.flags...)
+	return Compile(prepared, o.flags...)
+}
+
+func prepareInputs(inputs []Input, inferAddrSpace bool) ([]Input, error) {
+	prepared := append([]Input(nil), inputs...)
+	if !inferAddrSpace {
+		return prepared, nil
+	}
+	for i, input := range inputs {
+		if input.Lazy || len(input.Data) == 0 {
+			continue
+		}
+		rewritten, _, err := InferAddressSpaces(input.Data)
+		if err != nil {
+			return nil, fmt.Errorf("nvvmx: infer address spaces for %q: %w", input.Name, err)
+		}
+		prepared[i].Data = rewritten
+	}
+	return prepared, nil
 }
 
 // WithAddressSpaceInference enables the address-space inference pass on input IR.

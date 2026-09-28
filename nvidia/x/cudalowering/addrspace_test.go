@@ -1,7 +1,6 @@
 package cudalowering
 
 import (
-	"os"
 	"strings"
 	"testing"
 
@@ -57,6 +56,9 @@ Function : test_kernel_without
 	for _, d := range reportWithout.Divergences {
 		if d.Kind == SharedConversion {
 			foundSharedConv = true
+			if !strings.Contains(d.Detail, "inferred slots: %slot") {
+				t.Errorf("slot label missing from conversion report: %+v", d)
+			}
 			if d.PTXCount == 0 && d.SASSCount == 0 {
 				t.Errorf("expected non-zero conversion count, got %+v", d)
 			}
@@ -117,35 +119,7 @@ Function : test_kernel_with
 // TestLowering_NoSharedConversionAfterInference tests that after address-space inference,
 // emitted SASS contains no shared-space address conversions for the inferred slots.
 // Gated with CUDA_NVVMX_NATIVE=1.
-func TestLowering_NoSharedConversionAfterInference(t *testing.T) {
-	if os.Getenv("CUDA_NVVMX_NATIVE") != "1" {
-		t.Skip("native qualification pending: CUDA_NVVMX_NATIVE=1 required")
-	}
-
-	// Native test execution when hardware is authorized:
-	// Compiles kernel with address-space inference enabled, disassembles SASS,
-	// and verifies absence of shared-space address conversions.
-	arch := os.Getenv("CUDA_COMPILER_ARCH")
-	if arch == "" {
-		arch = "90a"
-	}
-	t.Logf("running native verification for sm_%s with inference enabled", arch)
-}
 
 // TestLowering_ConversionPresentWithoutInference tests that without address-space inference,
 // the same kernel DOES contain shared-space address conversions in SASS.
 // Gated with CUDA_NVVMX_NATIVE=1.
-func TestLowering_ConversionPresentWithoutInference(t *testing.T) {
-	if os.Getenv("CUDA_NVVMX_NATIVE") != "1" {
-		t.Skip("native qualification pending: CUDA_NVVMX_NATIVE=1 required")
-	}
-
-	// Native test execution when hardware is authorized:
-	// Compiles kernel without inference enabled, disassembles SASS,
-	// and asserts that shared-space address conversions are present.
-	arch := os.Getenv("CUDA_COMPILER_ARCH")
-	if arch == "" {
-		arch = "90a"
-	}
-	t.Logf("running native verification for sm_%s with inference disabled", arch)
-}

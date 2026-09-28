@@ -1,7 +1,6 @@
 package nvvmx
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"regexp"
@@ -99,16 +98,11 @@ type InferenceReport struct {
 // An explicit source declaration always wins over inference. Cluster-mapped
 // pointers (addrspace 7) are never inferred to CTA-local shared memory.
 func InferAddressSpaces(ir []byte) ([]byte, *InferenceReport, error) {
-	return inferAddressSpaces(ir, false, false)
-}
-
-// inferAddressSpaces performs address space inference with optional mutant flags
-// for test controls:
-//   - nonAbsorbing: if true, GenericRequired is non-absorbing (decays on shared write)
-//   - useSiteInference: if true, infers address space at use site without full pre-scan
-func inferAddressSpaces(ir []byte, nonAbsorbing, useSiteInference bool) ([]byte, *InferenceReport, error) {
 	if len(ir) == 0 {
 		return nil, nil, fmt.Errorf("nvvmx: empty IR")
+	}
+	if bytes.HasPrefix(ir, []byte{'B', 'C', 0xc0, 0xde}) {
+		return nil, nil, fmt.Errorf("nvvmx: bitcode input is not textual IR")
 	}
 
 	lines := splitLines(ir)
@@ -135,36 +129,53 @@ func inferAddressSpaces(ir []byte, nonAbsorbing, useSiteInference bool) ([]byte,
 			funcLines = append(funcLines, line)
 			if trimmed == "}" {
 				inFunc = false
-				rewritten, funcReport, err := analyzeAndRewriteFunc(funcLines, globals, nonAbsorbing, useSiteInference)
+				rewritten, funcReport, err := analyzeAndRewriteFunc(funcLines, globals)
 				if err != nil {
 					return nil, nil, fmt.Errorf("nvvmx: func at line %d: %w", funcStart+1, err)
 				}
+				funcName := functionName(funcLines[0])
 				for k, v := range funcReport.Slots {
-					report.Slots[k] = v
+					report.Slots[funcName+"/"+k] = v
 				}
 				if funcReport.Iterations > report.Iterations {
 					report.Iterations = funcReport.Iterations
 				}
-				report.RewrittenSlots = append(report.RewrittenSlots, funcReport.RewrittenSlots...)
+				for _, name := range funcReport.RewrittenSlots {
+					report.RewrittenSlots = append(report.RewrittenSlots, funcName+"/"+name)
+				}
 				output.WriteString(rewritten)
 				continue
 			}
 			continue
 		}
 		output.WriteString(line)
-		output.WriteString("\n")
 	}
 
 	return []byte(output.String()), report, nil
 }
 
 func splitLines(data []byte) []string {
-	var lines []string
-	scanner := bufio.NewScanner(bytes.NewReader(data))
-	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
+	if len(data) == 0 {
+		return nil
 	}
-	return lines
+	lines := bytes.SplitAfter(data, []byte{'\n'})
+	if len(lines[len(lines)-1]) == 0 {
+		lines = lines[:len(lines)-1]
+	}
+	out := make([]string, len(lines))
+	for i := range lines {
+		out[i] = string(lines[i])
+	}
+	return out
+}
+
+var reFunctionName = regexp.MustCompile(`^\s*define\b.*?@((?:"(?:\\.|[^"])*")|[^\s(]+)\s*\(`)
+
+func functionName(line string) string {
+	if m := reFunctionName.FindStringSubmatch(line); len(m) == 2 {
+		return "@" + m[1]
+	}
+	return "<unknown>"
 }
 
 func parseGlobalAddrSpaces(lines []string) map[string]AddrSpace {
@@ -192,6 +203,43 @@ var (
 	reGEP    = regexp.MustCompile(`^([%][a-zA-Z0-9_$.]+)\s*=\s*getelementptr\s+(?:inbounds\s+)?(.*?),\s*(.*?)$`)
 )
 
+var reClusterMapCall = regexp.MustCompile(`^\s*(%[a-zA-Z0-9_.$]+)\s*=\s*call\b.*@llvm\.nvvm\.mapa\.shared\.cluster\b`)
+
+func mentionsValue(line, name string) bool {
+	re := regexp.MustCompile(`(^|[^a-zA-Z0-9_.$-])` + regexp.QuoteMeta(name) + `([^a-zA-Z0-9_.$-]|$)`)
+	return re.MatchString(line)
+}
+
+func supportedSlotReference(line, name string) bool {
+	if strings.HasPrefix(line, name+" = alloca ") {
+		return true
+	}
+	if strings.HasPrefix(line, "store ") && !strings.HasPrefix(line, "store atomic ") {
+		if directSlotPointer(instructionPointer(line), name) {
+			return true
+		}
+	}
+	if strings.HasPrefix(line, "%") && strings.Contains(line, " = load ") && !strings.Contains(line, " = load atomic ") {
+		if directSlotPointer(instructionPointer(line), name) {
+			return true
+		}
+	}
+	return false
+}
+
+func instructionPointer(line string) string {
+	line = regexp.MustCompile(`,\s*align\s+[0-9]+$`).ReplaceAllString(line, "")
+	if i := strings.LastIndex(line, ","); i >= 0 {
+		return strings.TrimSpace(line[i+1:])
+	}
+	return ""
+}
+
+func directSlotPointer(pointer, name string) bool {
+	pattern := `^ptr(?: addrspace\([0-9]+\))?\s+` + regexp.QuoteMeta(name) + `(?:,\s*align\s+[0-9]+)?$`
+	return regexp.MustCompile(pattern).MatchString(pointer)
+}
+
 type slotDecl struct {
 	lineIdx     int
 	rawLine     string
@@ -202,7 +250,7 @@ type slotDecl struct {
 	explicit    bool
 }
 
-func analyzeAndRewriteFunc(lines []string, globals map[string]AddrSpace, nonAbsorbing, useSiteInference bool) (string, *InferenceReport, error) {
+func analyzeAndRewriteFunc(lines []string, globals map[string]AddrSpace) (string, *InferenceReport, error) {
 	slots := make(map[string]*slotDecl)
 	var slotOrder []string
 
@@ -231,7 +279,7 @@ func analyzeAndRewriteFunc(lines []string, globals map[string]AddrSpace, nonAbso
 	}
 
 	if len(slots) == 0 {
-		return strings.Join(lines, "\n") + "\n", report, nil
+		return strings.Join(lines, ""), report, nil
 	}
 
 	// Initialize lattice state for each slot.
@@ -261,6 +309,18 @@ func analyzeAndRewriteFunc(lines []string, globals map[string]AddrSpace, nonAbso
 		for _, line := range lines {
 			trimmed := strings.TrimSpace(line)
 
+			for name := range slots {
+				if mentionsValue(trimmed, name) && !supportedSlotReference(trimmed, name) && state[name] != StateGenericRequired {
+					state[name] = StateGenericRequired
+					changed = true
+				}
+			}
+
+			if m := reClusterMapCall.FindStringSubmatch(trimmed); len(m) == 2 {
+				valAS[m[1]] = AddrSpaceCluster
+				continue
+			}
+
 			// Track addrspacecast: %cast = addrspacecast ptr addrspace(3) %p to ptr
 			if m := reCast.FindStringSubmatch(trimmed); len(m) == 4 {
 				dst := m[1]
@@ -284,19 +344,13 @@ func analyzeAndRewriteFunc(lines []string, globals map[string]AddrSpace, nonAbso
 				dst := m[1]
 				ptrPart := strings.TrimSpace(m[3])
 				ptrReg := extractRegister(ptrPart)
-				if sDecl, ok := slots[ptrReg]; ok {
+				if _, ok := slots[ptrReg]; ok {
 					if state[ptrReg] == StateShared {
 						valAS[dst] = AddrSpaceShared
 					} else if state[ptrReg] == StateGenericRequired {
 						valAS[dst] = AddrSpaceGeneric
-					}
-					// Use-site mutant simulation: if use-site inference is enabled,
-					// evaluate at first use without whole-body pre-scan.
-					if useSiteInference && sDecl.declaredAS == AddrSpaceGeneric && !sDecl.explicit {
-						if state[ptrReg] == StateShared {
-							// Prematurely treat as shared at use site
-							valAS[dst] = AddrSpaceShared
-						}
+					} else {
+						valAS[dst] = AddrSpace(-1)
 					}
 				}
 				continue
@@ -310,6 +364,9 @@ func analyzeAndRewriteFunc(lines []string, globals map[string]AddrSpace, nonAbso
 
 				if _, ok := slots[ptrReg]; ok {
 					valASResult := parseAddrSpaceFromTypeVal(valPart, valAS)
+					if valASResult < 0 {
+						continue
+					}
 					curr := state[ptrReg]
 					var next LatticeState
 
@@ -320,12 +377,7 @@ func analyzeAndRewriteFunc(lines []string, globals map[string]AddrSpace, nonAbso
 						case StateShared:
 							next = StateShared
 						case StateGenericRequired:
-							if nonAbsorbing {
-								// Mutant: generic-required erroneously decays back to shared!
-								next = StateShared
-							} else {
-								next = StateGenericRequired
-							}
+							next = StateGenericRequired
 						}
 					} else {
 						// Any non-shared write (generic, global, constant, cluster as=7, local)
@@ -388,7 +440,6 @@ func analyzeAndRewriteFunc(lines []string, globals map[string]AddrSpace, nonAbso
 					decl := slots[name]
 					newLine := rewriteAllocaLine(line, decl)
 					rewritten.WriteString(newLine)
-					rewritten.WriteString("\n")
 					continue
 				}
 			}
@@ -402,7 +453,6 @@ func analyzeAndRewriteFunc(lines []string, globals map[string]AddrSpace, nonAbso
 				if toRewrite[ptrReg] {
 					newLine := rewriteStoreLine(line)
 					rewritten.WriteString(newLine)
-					rewritten.WriteString("\n")
 					continue
 				}
 			}
@@ -416,14 +466,12 @@ func analyzeAndRewriteFunc(lines []string, globals map[string]AddrSpace, nonAbso
 				if toRewrite[ptrReg] {
 					newLine := rewriteLoadLine(line)
 					rewritten.WriteString(newLine)
-					rewritten.WriteString("\n")
 					continue
 				}
 			}
 		}
 
 		rewritten.WriteString(line)
-		rewritten.WriteString("\n")
 	}
 
 	return rewritten.String(), report, nil
@@ -496,13 +544,18 @@ func parseAddrSpaceFromTypeVal(typeVal string, valAS map[string]AddrSpace) AddrS
 	// Check if there is an embedded addrspacecast:
 	// addrspacecast (ptr addrspace(3) @var to ptr)
 	if strings.Contains(typeVal, "addrspacecast") {
-		if strings.Contains(typeVal, "addrspace(3)") {
-			return AddrSpaceShared
-		}
 		if strings.Contains(typeVal, "addrspace(7)") {
 			return AddrSpaceCluster
 		}
+		if strings.Contains(typeVal, "addrspace(3)") {
+			return AddrSpaceShared
+		}
 		return AddrSpaceGeneric
+	}
+	if reg := extractRegister(typeVal); reg != "" {
+		if as, ok := valAS[reg]; ok {
+			return as
+		}
 	}
 
 	// Check for explicit addrspace annotation in type:

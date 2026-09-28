@@ -70,7 +70,7 @@ func ExampleReport_Err() {
 func ExampleVerifyNoSharedConversions() {
 	m, d := parse("testdata/lowering.sm90.ptx", "testdata/lowering.sm90.sass")
 
-	r, err := cudalowering.VerifyNoSharedConversions(m, d)
+	r, err := cudalowering.VerifyNoSharedConversions(m, d, "%sharedSlot")
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -48,7 +48,7 @@ entry:
 		fmt.Println("error:", err)
 		return
 	}
-	info := report.Slots["%slot"]
+	info := report.Slots["@example/%slot"]
 	fmt.Printf("%s: state=%s effective=addrspace(%d)\n", info.Name, info.State, info.Effective)
 	// Output: %slot: state=shared effective=addrspace(3)
 }

@@ -1,12 +1,19 @@
 package nvvmx
 
 import (
-	"math"
+	"bytes"
+	"os/exec"
 	"strings"
 	"testing"
 )
 
 func TestAddrSpace_InfersSharedSlot(t *testing.T) {
+	if !supportedSlotReference("store ptr addrspace(3) @smem, ptr %slot, align 8", "%slot") {
+		t.Fatal("direct store not recognized")
+	}
+	if !supportedSlotReference("%p = load ptr, ptr %slot, align 8", "%slot") {
+		t.Fatal("direct load not recognized")
+	}
 	ir := `
 target datalayout = "e-p:64:64:64-p3:32:32:32"
 target triple = "nvptx64-nvidia-cuda"
@@ -31,7 +38,7 @@ body:
 		t.Fatalf("InferAddressSpaces: %v", err)
 	}
 
-	info, ok := report.Slots["%slot"]
+	info, ok := report.Slots["@kernel_shared/%slot"]
 	if !ok {
 		t.Fatalf("slot %%slot not found in report: %+v", report.Slots)
 	}
@@ -63,12 +70,12 @@ entry:
   %slot = alloca ptr, align 8
   br i1 %cond, label %b1, label %b2
 
-b1:
-  store ptr addrspace(3) @smem, ptr %slot, align 8
-  br label %exit
-
 b2:
   store ptr addrspace(1) %gptr, ptr %slot, align 8
+  br label %exit
+
+b1:
+  store ptr addrspace(3) @smem, ptr %slot, align 8
   br label %exit
 
 exit:
@@ -80,7 +87,7 @@ exit:
 		t.Fatalf("InferAddressSpaces: %v", err)
 	}
 
-	info, ok := report.Slots["%slot"]
+	info, ok := report.Slots["@kernel_mixed/%slot"]
 	if !ok {
 		t.Fatalf("slot %%slot not found in report")
 	}
@@ -122,7 +129,7 @@ body:
 		t.Fatalf("InferAddressSpaces: %v", err)
 	}
 
-	info, ok := report.Slots["%slot"]
+	info, ok := report.Slots["@kernel_explicit/%slot"]
 	if !ok {
 		t.Fatalf("slot %%slot not found in report")
 	}
@@ -182,7 +189,7 @@ exit:
 	}
 
 	for _, name := range []string{"%slot1", "%slot2", "%slot3"} {
-		info, ok := report.Slots[name]
+		info, ok := report.Slots["@kernel_loop/"+name]
 		if !ok {
 			t.Errorf("slot %s missing from report", name)
 			continue
@@ -216,7 +223,7 @@ body:
 		t.Fatalf("InferAddressSpaces: %v", err)
 	}
 
-	info, ok := report.Slots["%slot"]
+	info, ok := report.Slots["@kernel_cluster/%slot"]
 	if !ok {
 		t.Fatalf("slot %%slot not found in report")
 	}
@@ -233,97 +240,215 @@ body:
 	}
 }
 
-// Mutant Control 1: generic-required non-absorbing fails TestAddrSpace_MixedStaysGeneric.
-func TestMutant_GenericNonAbsorbing(t *testing.T) {
-	ir := `
-target datalayout = "e-p:64:64:64-p3:32:32:32"
-target triple = "nvptx64-nvidia-cuda"
-
-@smem = internal addrspace(3) global [64 x float] undef, align 4
-
-define void @kernel_mixed(ptr addrspace(1) %gptr) {
-entry:
-  %slot = alloca ptr, align 8
-  store ptr addrspace(1) %gptr, ptr %slot, align 8
-  store ptr addrspace(3) @smem, ptr %slot, align 8
-  ret void
-}
-`
-	// 1. Correct absorbing behavior: generic write + shared write -> GenericRequired
-	_, reportCorrect, err := inferAddressSpaces([]byte(ir), false, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if reportCorrect.Slots["%slot"].State != StateGenericRequired {
-		t.Fatalf("absorbing lattice should be StateGenericRequired, got %v", reportCorrect.Slots["%slot"].State)
-	}
-
-	// 2. Mutant: non-absorbing allows GenericRequired to decay to Shared or oscillate.
-	// Either way, it fails the TestAddrSpace_MixedStaysGeneric invariant (must remain StateGenericRequired without error).
-	_, reportMutant, err := inferAddressSpaces([]byte(ir), true, false)
-	if err == nil && reportMutant.Slots["%slot"].State == StateGenericRequired {
-		t.Errorf("mutant unexpectedly succeeded with StateGenericRequired; expected failure or oscillation")
-	}
-}
-
-// Mutant Control 2: use-site inference order-dependence fails.
-// In a body where the first use precedes the disqualifying write,
-// use-site inference would order-dependently infer shared at the first use.
-func TestMutant_UseSiteOrderDependence(t *testing.T) {
-	ir := `
-target datalayout = "e-p:64:64:64-p3:32:32:32"
-target triple = "nvptx64-nvidia-cuda"
-
-@smem = internal addrspace(3) global [64 x float] undef, align 4
-
-define void @kernel_order(ptr addrspace(1) %gptr) {
+func TestAddrSpace_UseBeforeDisqualifyingWrite(t *testing.T) {
+	ir := `define void @kernel_use_first(ptr addrspace(1) %gptr) {
 entry:
   %slot = alloca ptr, align 8
   store ptr addrspace(3) @smem, ptr %slot, align 8
-  %p1 = load ptr, ptr %slot, align 8
+  %p = load ptr, ptr %slot, align 8
   store ptr addrspace(1) %gptr, ptr %slot, align 8
-  %p2 = load ptr, ptr %slot, align 8
+  ret void
+}
+@smem = internal addrspace(3) global [4 x i8] undef
+`
+	_, report, err := InferAddressSpaces([]byte(ir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := report.Slots["@kernel_use_first/%slot"].State; got != StateGenericRequired {
+		t.Fatalf("slot state = %v, want generic-required", got)
+	}
+	if got := report.Slots["@kernel_use_first/%slot"].Effective; got != AddrSpaceGeneric {
+		t.Fatalf("effective address space = %d, want generic", got)
+	}
+}
+
+func TestAddrSpace_MixedStaysGenericForUntrackedWrites(t *testing.T) {
+	base := `@smem = internal addrspace(3) global [4 x i8] undef
+define void @kernel(ptr addrspace(1) %gptr) {
+entry:
+  %slot = alloca ptr, align 8
+  %gep = getelementptr ptr, ptr %slot, i64 0
+  %cast = addrspacecast ptr %slot to ptr addrspace(3)
+  store ptr addrspace(3) @smem, ptr %slot, align 8
+  %LOAD
+  %WRITE
   ret void
 }
 `
-	// Correct pre-scan: whole body is scanned first, disqualifying write marks slot GenericRequired.
-	_, reportCorrect, err := inferAddressSpaces([]byte(ir), false, false)
-	if err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name, line string
+	}{
+		{"metadata", "store ptr addrspace(1) %gptr, ptr %slot, !tbaa !1"},
+		{"atomic store", "store atomic ptr addrspace(1) %gptr, ptr %slot seq_cst, align 8"},
+		{"store through gep", "store ptr addrspace(3) @smem, ptr %gep, align 8"},
+		{"escape to call", "call void @consume(ptr %slot)"},
+		{"atomicrmw", "%old = atomicrmw xchg ptr %slot, ptr addrspace(3) @smem seq_cst"},
+		{"cmpxchg", "%pair = cmpxchg ptr %slot, ptr addrspace(3) @smem, ptr addrspace(3) @smem seq_cst seq_cst"},
+		{"memcpy destination", "call void @llvm.memcpy.p0.p0.i64(ptr %slot, ptr %gptr, i64 8, i1 false)"},
+		{"unknown stored value", "store ptr %unknown, ptr %slot, align 8"},
 	}
-	if reportCorrect.Slots["%slot"].State != StateGenericRequired {
-		t.Fatalf("whole-body pre-scan should mark StateGenericRequired, got %v", reportCorrect.Slots["%slot"].State)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ir := strings.Replace(base, "%LOAD", "", 1)
+			ir = strings.Replace(ir, "%WRITE", tt.line, 1)
+			_, report, err := InferAddressSpaces([]byte(ir))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := report.Slots["@kernel/%slot"].State; got != StateGenericRequired {
+				t.Fatalf("slot state = %v, want generic-required", got)
+			}
+		})
 	}
-	if reportCorrect.Slots["%slot"].Effective != AddrSpaceGeneric {
-		t.Fatalf("whole-body pre-scan should have effective generic")
-	}
-
-	// Mutant: use-site inference evaluates at first use (%p1), before disqualifying write.
-	_, reportMutant, err := inferAddressSpaces([]byte(ir), false, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// Under use-site inference at first use, %slot was only seen with shared write.
-	// This proves that whole-body pre-scan prevents order-dependent use-site inference.
-	_ = reportMutant
 }
 
-// Numerical bit-identical control:
-// Address-space inference is a pointer representation optimization, not an arithmetic
-// transform. Values computed through shared slots before and after inference must be bit-identical.
-func TestAddrSpace_NumericalIdentity(t *testing.T) {
-	// Simulate memory reads/writes before and after inference on floating point values
-	data := []float32{-1.5, 0.0, 0.25, 1.0, math.MaxFloat32, float32(math.Inf(1))}
-
-	for _, val := range data {
-		// Generic memory path (before inference: generic load/store)
-		bitsGeneric := math.Float32bits(val)
-
-		// Shared memory path (after inference: direct shared load/store)
-		bitsShared := math.Float32bits(val)
-
-		if bitsGeneric != bitsShared {
-			t.Fatalf("numerical divergence for %g: bits %08x != %08x", val, bitsGeneric, bitsShared)
+func TestAddrSpace_ClusterValuesStayGeneric(t *testing.T) {
+	for _, value := range []string{
+		"store ptr addrspace(7) %cluster, ptr %slot, align 8",
+		"store ptr addrspace(3) addrspacecast (ptr addrspace(7) %cluster to ptr addrspace(3)), ptr %slot, align 8",
+		"%cluster = call ptr addrspace(3) @llvm.nvvm.mapa.shared.cluster(ptr addrspace(3) %p, i32 %rank)\n  store ptr addrspace(3) %cluster, ptr %slot, align 8",
+	} {
+		ir := `define void @kernel(ptr addrspace(7) %cluster, ptr addrspace(3) %p, i32 %rank) {
+entry:
+  %slot = alloca ptr, align 8
+  ` + value + `
+  ret void
+}
+`
+		_, report, err := InferAddressSpaces([]byte(ir))
+		if err != nil {
+			t.Fatal(err)
 		}
+		if got := report.Slots["@kernel/%slot"].State; got != StateGenericRequired {
+			t.Errorf("value %q: state = %v, want generic-required", value, got)
+		}
+	}
+}
+
+func TestAddrSpace_BlockOrderIndependent(t *testing.T) {
+	body := func(blocks string) []byte {
+		return []byte("@smem = internal addrspace(3) global [4 x i8] undef\n" +
+			"define void @kernel(ptr addrspace(1) %gptr, i1 %cond) {\n" +
+			"entry:\n  %slot = alloca ptr, align 8\n  br i1 %cond, label %init, label %use\n" + blocks + "}\n")
+	}
+	blocks := []string{
+		"init:\n  store ptr addrspace(3) @smem, ptr %slot, align 8\n  br label %exit\nuse:\n  store ptr addrspace(1) %gptr, ptr %slot, align 8\n  br label %exit\nexit:\n  ret void\n",
+		"use:\n  store ptr addrspace(1) %gptr, ptr %slot, align 8\n  br label %exit\ninit:\n  store ptr addrspace(3) @smem, ptr %slot, align 8\n  br label %exit\nexit:\n  ret void\n",
+	}
+	for i, block := range blocks {
+		_, report, err := InferAddressSpaces(body(block))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := report.Slots["@kernel/%slot"].State; got != StateGenericRequired {
+			t.Errorf("block order %d: state = %v, want generic-required", i, got)
+		}
+	}
+}
+
+func TestAddrSpace_FixedPointNeedsMultiplePasses(t *testing.T) {
+	ir := `@smem = internal addrspace(3) global [4 x i8] undef
+define void @kernel(i1 %again) {
+entry:
+  %a = alloca ptr, align 8
+  %b = alloca ptr, align 8
+  %c = alloca ptr, align 8
+  br label %loop
+loop:
+  %vc = load ptr, ptr %c, align 8
+  store ptr %vc, ptr %b, align 8
+  %vb = load ptr, ptr %b, align 8
+  store ptr %vb, ptr %a, align 8
+  store ptr addrspace(3) @smem, ptr %c, align 8
+  br i1 %again, label %loop, label %exit
+exit:
+  ret void
+}
+`
+	_, report, err := InferAddressSpaces([]byte(ir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Iterations < 3 || report.Iterations > 2*len(report.Slots)+1 {
+		t.Fatalf("iterations = %d, want >2 and <=2N+1", report.Iterations)
+	}
+	for _, name := range []string{"@kernel/%a", "@kernel/%b", "@kernel/%c"} {
+		if got := report.Slots[name].State; got != StateShared {
+			t.Errorf("%s state = %v, want shared", name, got)
+		}
+	}
+}
+
+func TestInferAddressSpaces_LongLine(t *testing.T) {
+	comment := ";" + strings.Repeat("x", 140_000) + "\r\n"
+	ir := []byte(comment + "@smem = internal addrspace(3) global i32 undef\r\n" +
+		"define void @kernel() {\r\nentry:\r\n" +
+		"  %slot = alloca ptr, align 8\r\n" +
+		"  store ptr addrspace(3) @smem, ptr %slot, align 8\r\n" +
+		"  %p = load ptr, ptr %slot, align 8\r\n  ret void\r\n}\r\n")
+	got, _, err := InferAddressSpaces(ir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.HasPrefix(got, []byte(comment)) || !bytes.Contains(got, []byte("  %slot = alloca ptr addrspace(3), align 8\r\n")) || !bytes.HasSuffix(got, []byte("}\r\n")) {
+		t.Fatalf("long line or CRLF boundaries were not preserved (got %d bytes, input %d)", len(got), len(ir))
+	}
+}
+
+func TestInferAddressSpaces_RefusesBitcode(t *testing.T) {
+	if _, _, err := InferAddressSpaces([]byte{'B', 'C', 0xc0, 0xde, 0, 0}); err == nil {
+		t.Fatal("InferAddressSpaces accepted bitcode")
+	}
+}
+
+func TestAddrSpace_ReportUsesFunctionAndSlotKey(t *testing.T) {
+	ir := `@smem = internal addrspace(3) global [4 x i8] undef
+define void @first() {
+entry:
+  %slot = alloca ptr, align 8
+  store ptr addrspace(3) @smem, ptr %slot, align 8
+  ret void
+}
+define void @second(ptr addrspace(1) %gptr) {
+entry:
+  %slot = alloca ptr, align 8
+  store ptr addrspace(1) %gptr, ptr %slot, align 8
+  ret void
+}
+`
+	_, report, err := InferAddressSpaces([]byte(ir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Slots["@first/%slot"].State != StateShared || report.Slots["@second/%slot"].State != StateGenericRequired {
+		t.Fatalf("per-function slot states = %+v", report.Slots)
+	}
+}
+
+func TestAddrSpace_OutputIsValidIR(t *testing.T) {
+	clang, err := exec.LookPath("clang")
+	if err != nil {
+		t.Skip("clang is not on PATH")
+	}
+	ir := []byte(`target datalayout = "e-p:64:64:64-p3:32:32:32"
+target triple = "nvptx64-nvidia-cuda"
+@smem = internal addrspace(3) global [4 x i8] undef
+define void @kernel() {
+entry:
+  %slot = alloca ptr, align 8
+  store ptr addrspace(3) @smem, ptr %slot, align 8
+  %p = load ptr, ptr %slot, align 8
+  ret void
+}
+`)
+	rewritten, _, err := InferAddressSpaces(ir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(clang, "-x", "ir", "-S", "-emit-llvm", "-o", "/dev/null", "-")
+	cmd.Stdin = bytes.NewReader(rewritten)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("clang rejected rewritten IR: %v\n%s\n%s", err, out, rewritten)
 	}
 }

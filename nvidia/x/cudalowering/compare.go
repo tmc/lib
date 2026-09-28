@@ -307,6 +307,9 @@ func Compare(m *cudaptx.Module, d *cudasass.Disassembly, opts *Options) (*Report
 // If any shared conversion instructions or cvta.shared opcodes are found, they are reported
 // as [SharedConversion] divergences in the returned report.
 func VerifyNoSharedConversions(m *cudaptx.Module, d *cudasass.Disassembly, slots ...string) (*Report, error) {
+	if len(slots) == 0 {
+		return nil, errors.New("cudalowering: no inferred shared slots specified")
+	}
 	opts := &Options{
 		CheckSharedConversions: true,
 		InferredSharedSlots:    slots,
@@ -321,16 +324,9 @@ func countSharedConversions(fn *cudasass.Function) int {
 	count := 0
 	for _, inst := range fn.Instructions {
 		op := strings.ToUpper(inst.Opcode)
-		if strings.HasPrefix(op, "CVTA") {
+		if op == "CVTA.SHARED" || strings.HasPrefix(op, "CVTA.SHARED.") ||
+			op == "CVTA.TO.SHARED" || strings.HasPrefix(op, "CVTA.TO.SHARED.") {
 			count++
-			continue
-		}
-		if op == "LD" || strings.HasPrefix(op, "LD.") || op == "ST" || strings.HasPrefix(op, "ST.") {
-			if !strings.HasPrefix(op, "LDG") && !strings.HasPrefix(op, "LDS") && !strings.HasPrefix(op, "LDL") &&
-				!strings.HasPrefix(op, "LDC") && !strings.HasPrefix(op, "STG") && !strings.HasPrefix(op, "STS") &&
-				!strings.HasPrefix(op, "STL") {
-				count++
-			}
 		}
 	}
 	return count
