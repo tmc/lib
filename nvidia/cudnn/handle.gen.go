@@ -1640,7 +1640,7 @@ func (h Handle) SetStream(streamId driver.Stream) error {
 //   - [ErrNotSupported]: The function does not support the provided configuration.
 //
 // Wraps cudnnSetTensor.
-func (h Handle) SetTensor(yDesc TensorDescriptor, y driver.DevicePtr, valuePtr uintptr) error {
+func (h Handle) SetTensor(yDesc TensorDescriptor, y driver.DevicePtr, valuePtr unsafe.Pointer) error {
 	return setTensor(h, yDesc, y, valuePtr)
 }
 

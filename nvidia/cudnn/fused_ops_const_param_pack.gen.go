@@ -2,6 +2,10 @@
 
 package cudnn
 
+import (
+	"unsafe"
+)
+
 // Attribute retrieves the values of the descriptor pointed to by the param pointer input.
 //
 // The type of the descriptor is indicated by the enum value of paramLabel input.
@@ -14,7 +18,7 @@ package cudnn
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnGetFusedOpsConstParamPackAttribute.
-func (f FusedOpsConstParamPack) Attribute(paramLabel FusedOpsConstParamLabel, param uintptr) (int32, error) {
+func (f FusedOpsConstParamPack) Attribute(paramLabel FusedOpsConstParamLabel, param unsafe.Pointer) (int32, error) {
 	return getFusedOpsConstParamPackAttribute(f, paramLabel, param)
 }
 
@@ -63,6 +67,6 @@ func (f FusedOpsConstParamPack) Destroy() error { return (&f).Close() }
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnSetFusedOpsConstParamPackAttribute.
-func (f FusedOpsConstParamPack) SetAttribute(paramLabel FusedOpsConstParamLabel, param uintptr) error {
+func (f FusedOpsConstParamPack) SetAttribute(paramLabel FusedOpsConstParamLabel, param unsafe.Pointer) error {
 	return setFusedOpsConstParamPackAttribute(f, paramLabel, param)
 }

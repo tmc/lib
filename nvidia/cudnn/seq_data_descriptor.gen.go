@@ -2,6 +2,10 @@
 
 package cudnn
 
+import (
+	"unsafe"
+)
+
 // Close destroys the sequence data descriptor object and releases its memory.
 //
 // This function destroys the sequence data descriptor object and releases its memory. The seqDataDesc argument can be NULL. Invoking [SeqDataDescriptor.Close] with a NULL argument is a no operation (NOP).
@@ -46,7 +50,7 @@ func (s SeqDataDescriptor) Destroy() error { return (&s).Close() }
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetSeqDataDescriptor.
-func (s SeqDataDescriptor) Get(nbDimsRequested int, seqLengthSizeRequested int, paddingFill uintptr) (DataType, []int32, []SeqDataAxis, []int32, error) {
+func (s SeqDataDescriptor) Get(nbDimsRequested int, seqLengthSizeRequested int, paddingFill unsafe.Pointer) (DataType, []int32, []SeqDataAxis, []int32, error) {
 	return getSeqDataDescriptor(s, nbDimsRequested, seqLengthSizeRequested, paddingFill)
 }
 
@@ -81,6 +85,6 @@ func (s SeqDataDescriptor) Get(nbDimsRequested int, seqLengthSizeRequested int, 
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnSetSeqDataDescriptor.
-func (s SeqDataDescriptor) Set(dataType DataType, dimA []int32, axes []SeqDataAxis, seqLengthArray []int32, paddingFill uintptr) error {
+func (s SeqDataDescriptor) Set(dataType DataType, dimA []int32, axes []SeqDataAxis, seqLengthArray []int32, paddingFill unsafe.Pointer) error {
 	return setSeqDataDescriptor(s, dataType, dimA, axes, seqLengthArray, paddingFill)
 }

@@ -2,6 +2,10 @@
 
 package cudnn
 
+import (
+	"unsafe"
+)
+
 // Close destroys a previously created RNN data descriptor object.
 //
 // Invoking [RNNDataDescriptor.Close] with the NULL argument is a no operation (NOP).
@@ -38,7 +42,7 @@ func (r RNNDataDescriptor) Destroy() error { return (&r).Close() }
 //   - [ErrBadParam]: Any one of these have occurred: Any of RNNDataDesc, dataType, layout, maxSeqLength, batchSize, vectorSize, or paddingFill is NULL. seqLengthArray is NULL while arrayLengthRequested is greater than zero. arrayLengthRequested is less than zero.
 //
 // Wraps cudnnGetRNNDataDescriptor.
-func (r RNNDataDescriptor) Get(arrayLengthRequested int, paddingFill uintptr) (RNNDataConfig, error) {
+func (r RNNDataDescriptor) Get(arrayLengthRequested int, paddingFill unsafe.Pointer) (RNNDataConfig, error) {
 	return getRNNDataDescriptor(r, arrayLengthRequested, paddingFill)
 }
 
@@ -52,6 +56,6 @@ func (r RNNDataDescriptor) Get(arrayLengthRequested int, paddingFill uintptr) (R
 //   - [ErrNotSupported]: Any one of these have occurred: dataType is not one of [DataHalf], [DataFloat], [DataDouble]. maxSeqLength is larger than 65535 (0xffff).
 //
 // Wraps cudnnSetRNNDataDescriptor.
-func (r RNNDataDescriptor) Set(dataType DataType, layout RNNDataLayout, maxSeqLength int32, vectorSize int32, seqLengthArray []int32, paddingFill uintptr) error {
+func (r RNNDataDescriptor) Set(dataType DataType, layout RNNDataLayout, maxSeqLength int32, vectorSize int32, seqLengthArray []int32, paddingFill unsafe.Pointer) error {
 	return setRNNDataDescriptor(r, dataType, layout, maxSeqLength, vectorSize, seqLengthArray, paddingFill)
 }

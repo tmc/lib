@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "generator": "github.com/tmc/libgen/cmd/cudnn-survey",
-  "upstream_version": "9.20.0.48",
-  "version_source": "explicit generator flag; not independently verified",
+  "upstream_version": "unrecorded",
+  "version_source": "unrecorded",
   "cwd": ".",
   "argv": [
     "cudnn-survey",
@@ -12,8 +12,6 @@
     "cuda-headers",
     "-docs-dir",
     "docs",
-    "-upstream-version",
-    "9.20.0.48",
     "-output",
     "${OUTPUT_DIR}"
   ],

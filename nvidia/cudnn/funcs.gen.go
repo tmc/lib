@@ -1074,7 +1074,7 @@ func fnbackendFinalize(a0 BackendDescriptor) Result {
 }
 
 // fnbackendGetAttribute calls cudnnBackendGetAttribute.
-func fnbackendGetAttribute(a0 BackendDescriptor, a1 BackendAttributeName, a2 BackendAttributeType, a3 int64, a4 *int64, a5 uintptr) Result {
+func fnbackendGetAttribute(a0 BackendDescriptor, a1 BackendAttributeName, a2 BackendAttributeType, a3 int64, a4 *int64, a5 unsafe.Pointer) Result {
 	r1, _ := ffiCallWidths6(symbackendGetAttribute, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5))
 	return Result(r1)
 }
@@ -1092,7 +1092,7 @@ func fnbackendPopulateCudaGraph(a0 Handle, a1 BackendDescriptor, a2 BackendDescr
 }
 
 // fnbackendSetAttribute calls cudnnBackendSetAttribute.
-func fnbackendSetAttribute(a0 BackendDescriptor, a1 BackendAttributeName, a2 BackendAttributeType, a3 int64, a4 uintptr) Result {
+func fnbackendSetAttribute(a0 BackendDescriptor, a1 BackendAttributeName, a2 BackendAttributeType, a3 int64, a4 unsafe.Pointer) Result {
 	r1, _ := ffiCallWidths5(symbackendSetAttribute, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
@@ -1578,7 +1578,7 @@ func fngetCTCLossWorkspaceSizeV8(a0 Handle, a1 CTCLossAlgo, a2 CTCLossDescriptor
 }
 
 // fnGetCallback calls cudnnGetCallback.
-func fnGetCallback(a0 *uint32, a1 *uintptr, a2 uintptr) Result {
+func fnGetCallback(a0 *uint32, a1 *uintptr, a2 unsafe.Pointer) Result {
 	r1, _ := ffiCall3(symGetCallback, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2))
 	return Result(r1)
 }
@@ -1716,7 +1716,7 @@ func fngetFoldedConvBackwardDataDescriptors(a0 Handle, a1 FilterDescriptor, a2 T
 }
 
 // fngetFusedOpsConstParamPackAttribute calls cudnnGetFusedOpsConstParamPackAttribute.
-func fngetFusedOpsConstParamPackAttribute(a0 FusedOpsConstParamPack, a1 FusedOpsConstParamLabel, a2 uintptr, a3 *int32) Result {
+func fngetFusedOpsConstParamPackAttribute(a0 FusedOpsConstParamPack, a1 FusedOpsConstParamLabel, a2 unsafe.Pointer, a3 *int32) Result {
 	r1, _ := ffiCallWidths4(symgetFusedOpsConstParamPackAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
@@ -1811,7 +1811,7 @@ func fnGetProperty(a0 LibraryPropertyType, a1 *int32) Result {
 }
 
 // fngetRNNDataDescriptor calls cudnnGetRNNDataDescriptor.
-func fngetRNNDataDescriptor(a0 RNNDataDescriptor, a1 *DataType, a2 *RNNDataLayout, a3 *int32, a4 *int32, a5 *int32, a6 int32, a7 *int32, a8 uintptr) Result {
+func fngetRNNDataDescriptor(a0 RNNDataDescriptor, a1 *DataType, a2 *RNNDataLayout, a3 *int32, a4 *int32, a5 *int32, a6 int32, a7 *int32, a8 unsafe.Pointer) Result {
 	r1, _ := ffiCallWidths9(symgetRNNDataDescriptor, 0, 0x3000, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8))
 	return Result(r1)
 }
@@ -1859,7 +1859,7 @@ func fngetReductionWorkspaceSize(a0 Handle, a1 ReduceTensorDescriptor, a2 Tensor
 }
 
 // fngetSeqDataDescriptor calls cudnnGetSeqDataDescriptor.
-func fngetSeqDataDescriptor(a0 SeqDataDescriptor, a1 *DataType, a2 *int32, a3 int32, a4 *int32, a5 *SeqDataAxis, a6 *uint, a7 uint, a8 *int32, a9 uintptr) Result {
+func fngetSeqDataDescriptor(a0 SeqDataDescriptor, a1 *DataType, a2 *int32, a3 int32, a4 *int32, a5 *SeqDataAxis, a6 *uint, a7 uint, a8 *int32, a9 unsafe.Pointer) Result {
 	r1, _ := ffiCallWidths10(symgetSeqDataDescriptor, 0, 0xc0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9))
 	return Result(r1)
 }
@@ -2135,7 +2135,7 @@ func fnsetFilterNdDescriptor(a0 FilterDescriptor, a1 DataType, a2 TensorFormat, 
 }
 
 // fnsetFusedOpsConstParamPackAttribute calls cudnnSetFusedOpsConstParamPackAttribute.
-func fnsetFusedOpsConstParamPackAttribute(a0 FusedOpsConstParamPack, a1 FusedOpsConstParamLabel, a2 uintptr) Result {
+func fnsetFusedOpsConstParamPackAttribute(a0 FusedOpsConstParamPack, a1 FusedOpsConstParamLabel, a2 unsafe.Pointer) Result {
 	r1, _ := ffiCallWidths3(symsetFusedOpsConstParamPackAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2))
 	return Result(r1)
 }
@@ -2171,7 +2171,7 @@ func fnsetPoolingNdDescriptor(a0 PoolingDescriptor, a1 PoolingMode, a2 NanPropag
 }
 
 // fnsetRNNDataDescriptor calls cudnnSetRNNDataDescriptor.
-func fnsetRNNDataDescriptor(a0 RNNDataDescriptor, a1 DataType, a2 RNNDataLayout, a3 int32, a4 int32, a5 int32, a6 *int32, a7 uintptr) Result {
+func fnsetRNNDataDescriptor(a0 RNNDataDescriptor, a1 DataType, a2 RNNDataLayout, a3 int32, a4 int32, a5 int32, a6 *int32, a7 unsafe.Pointer) Result {
 	r1, _ := ffiCallWidths8(symsetRNNDataDescriptor, 0, 0xffc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7))
 	return Result(r1)
 }
@@ -2189,7 +2189,7 @@ func fnsetReduceTensorDescriptor(a0 ReduceTensorDescriptor, a1 ReduceTensorOp, a
 }
 
 // fnsetSeqDataDescriptor calls cudnnSetSeqDataDescriptor.
-func fnsetSeqDataDescriptor(a0 SeqDataDescriptor, a1 DataType, a2 int32, a3 *int32, a4 *SeqDataAxis, a5 uint, a6 *int32, a7 uintptr) Result {
+func fnsetSeqDataDescriptor(a0 SeqDataDescriptor, a1 DataType, a2 int32, a3 *int32, a4 *SeqDataAxis, a5 uint, a6 *int32, a7 unsafe.Pointer) Result {
 	r1, _ := ffiCallWidths8(symsetSeqDataDescriptor, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7))
 	return Result(r1)
 }
@@ -2201,7 +2201,7 @@ func fnsetSpatialTransformerNdDescriptor(a0 SpatialTransformerDescriptor, a1 Sam
 }
 
 // fnsetTensor calls cudnnSetTensor.
-func fnsetTensor(a0 Handle, a1 TensorDescriptor, a2 uintptr, a3 uintptr) Result {
+func fnsetTensor(a0 Handle, a1 TensorDescriptor, a2 uintptr, a3 unsafe.Pointer) Result {
 	r1, _ := ffiCall4(symsetTensor, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
@@ -2506,7 +2506,7 @@ func backendFinalize(descriptor BackendDescriptor) error {
 //   - [ErrNotInitialized]: The descriptor has not been successfully finalized using [BackendDescriptor.Finalize].
 //
 // Wraps cudnnBackendGetAttribute.
-func backendGetAttribute(descriptor BackendDescriptor, attributeName BackendAttributeName, attributeType BackendAttributeType, requestedElementCount int64, arrayOfElements uintptr) (int64, error) {
+func backendGetAttribute(descriptor BackendDescriptor, attributeName BackendAttributeName, attributeType BackendAttributeType, requestedElementCount int64, arrayOfElements unsafe.Pointer) (int64, error) {
 	if err := checkLibSym("cudnnBackendGetAttribute"); err != nil {
 		return 0, err
 	}
@@ -2567,7 +2567,7 @@ func backendPopulateCudaGraph(handle Handle, executionPlan BackendDescriptor, va
 //   - [ErrNotSupported]: The values to which the attributes are being set are not supported by the current version of cuDNN.
 //
 // Wraps cudnnBackendSetAttribute.
-func backendSetAttribute(descriptor BackendDescriptor, attributeName BackendAttributeName, attributeType BackendAttributeType, elementCount int64, arrayOfElements uintptr) error {
+func backendSetAttribute(descriptor BackendDescriptor, attributeName BackendAttributeName, attributeType BackendAttributeType, elementCount int64, arrayOfElements unsafe.Pointer) error {
 	if err := checkLibSym("cudnnBackendSetAttribute"); err != nil {
 		return err
 	}
@@ -4837,7 +4837,7 @@ var slotGetCTCLossWorkspaceSizeV8 outSlot[struct{ v0 uint }]
 //   - [ErrBadParam]: If any of the input parameters are NULL.
 //
 // Wraps cudnnGetCallback.
-func GetCallback(fptr uintptr) (uint32, uintptr, error) {
+func GetCallback(fptr unsafe.Pointer) (uint32, uintptr, error) {
 	if err := checkLibSym("cudnnGetCallback"); err != nil {
 		return 0, 0, err
 	}
@@ -5563,7 +5563,7 @@ func getFoldedConvBackwardDataDescriptors(handle Handle, filterDesc FilterDescri
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnGetFusedOpsConstParamPackAttribute.
-func getFusedOpsConstParamPackAttribute(constPack FusedOpsConstParamPack, paramLabel FusedOpsConstParamLabel, param uintptr) (int32, error) {
+func getFusedOpsConstParamPackAttribute(constPack FusedOpsConstParamPack, paramLabel FusedOpsConstParamLabel, param unsafe.Pointer) (int32, error) {
 	if err := checkLibSym("cudnnGetFusedOpsConstParamPackAttribute"); err != nil {
 		return 0, err
 	}
@@ -6068,7 +6068,7 @@ type RNNDataConfig struct {
 //   - [ErrBadParam]: Any one of these have occurred: Any of RNNDataDesc, dataType, layout, maxSeqLength, batchSize, vectorSize, or paddingFill is NULL. seqLengthArray is NULL while arrayLengthRequested is greater than zero. arrayLengthRequested is less than zero.
 //
 // Wraps cudnnGetRNNDataDescriptor.
-func getRNNDataDescriptor(rnnDataDesc RNNDataDescriptor, arrayLengthRequested int, paddingFill uintptr) (RNNDataConfig, error) {
+func getRNNDataDescriptor(rnnDataDesc RNNDataDescriptor, arrayLengthRequested int, paddingFill unsafe.Pointer) (RNNDataConfig, error) {
 	if err := checkLibSym("cudnnGetRNNDataDescriptor"); err != nil {
 		return RNNDataConfig{}, err
 	}
@@ -6382,7 +6382,7 @@ var slotGetReductionWorkspaceSize outSlot[struct{ v0 uint }]
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetSeqDataDescriptor.
-func getSeqDataDescriptor(seqDataDesc SeqDataDescriptor, nbDimsRequested int, seqLengthSizeRequested int, paddingFill uintptr) (DataType, []int32, []SeqDataAxis, []int32, error) {
+func getSeqDataDescriptor(seqDataDesc SeqDataDescriptor, nbDimsRequested int, seqLengthSizeRequested int, paddingFill unsafe.Pointer) (DataType, []int32, []SeqDataAxis, []int32, error) {
 	if err := checkLibSym("cudnnGetSeqDataDescriptor"); err != nil {
 		return *new(DataType), *new([]int32), *new([]SeqDataAxis), *new([]int32), err
 	}
@@ -7977,7 +7977,7 @@ func setFilterNdDescriptor(filterDesc FilterDescriptor, dataType DataType, forma
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnSetFusedOpsConstParamPackAttribute.
-func setFusedOpsConstParamPackAttribute(constPack FusedOpsConstParamPack, paramLabel FusedOpsConstParamLabel, param uintptr) error {
+func setFusedOpsConstParamPackAttribute(constPack FusedOpsConstParamPack, paramLabel FusedOpsConstParamLabel, param unsafe.Pointer) error {
 	if err := checkLibSym("cudnnSetFusedOpsConstParamPackAttribute"); err != nil {
 		return err
 	}
@@ -8121,7 +8121,7 @@ func setPoolingNdDescriptor(poolingDesc PoolingDescriptor, mode PoolingMode, max
 //   - [ErrNotSupported]: Any one of these have occurred: dataType is not one of [DataHalf], [DataFloat], [DataDouble]. maxSeqLength is larger than 65535 (0xffff).
 //
 // Wraps cudnnSetRNNDataDescriptor.
-func setRNNDataDescriptor(rnnDataDesc RNNDataDescriptor, dataType DataType, layout RNNDataLayout, maxSeqLength int32, vectorSize int32, seqLengthArray []int32, paddingFill uintptr) error {
+func setRNNDataDescriptor(rnnDataDesc RNNDataDescriptor, dataType DataType, layout RNNDataLayout, maxSeqLength int32, vectorSize int32, seqLengthArray []int32, paddingFill unsafe.Pointer) error {
 	if err := checkLibSym("cudnnSetRNNDataDescriptor"); err != nil {
 		return err
 	}
@@ -8225,7 +8225,7 @@ func setReduceTensorDescriptor(reduceTensorDesc ReduceTensorDescriptor, reduceTe
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnSetSeqDataDescriptor.
-func setSeqDataDescriptor(seqDataDesc SeqDataDescriptor, dataType DataType, dimA []int32, axes []SeqDataAxis, seqLengthArray []int32, paddingFill uintptr) error {
+func setSeqDataDescriptor(seqDataDesc SeqDataDescriptor, dataType DataType, dimA []int32, axes []SeqDataAxis, seqLengthArray []int32, paddingFill unsafe.Pointer) error {
 	if err := checkLibSym("cudnnSetSeqDataDescriptor"); err != nil {
 		return err
 	}
@@ -8298,7 +8298,7 @@ func setStream(handle Handle, streamId driver.Stream) error {
 //   - [ErrNotSupported]: The function does not support the provided configuration.
 //
 // Wraps cudnnSetTensor.
-func setTensor(handle Handle, yDesc TensorDescriptor, y driver.DevicePtr, valuePtr uintptr) error {
+func setTensor(handle Handle, yDesc TensorDescriptor, y driver.DevicePtr, valuePtr unsafe.Pointer) error {
 	if err := checkLibSym("cudnnSetTensor"); err != nil {
 		return err
 	}

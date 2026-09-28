@@ -2,6 +2,10 @@
 
 package cudnn
 
+import (
+	"unsafe"
+)
+
 // NewBackendDescriptor allocates memory in the descriptor for a given descriptor type and at the location pointed by the descriptor.
 //
 //   - descriptorType: Input. One among the enumerated [BackendDescriptorType]
@@ -28,7 +32,7 @@ func NewBackendDescriptor(descriptorType BackendDescriptorType) (BackendDescript
 //   - [ErrNotInitialized]: The descriptor has not been successfully finalized using [BackendDescriptor.Finalize].
 //
 // Wraps cudnnBackendGetAttribute.
-func (b BackendDescriptor) Attribute(attributeName BackendAttributeName, attributeType BackendAttributeType, requestedElementCount int64, arrayOfElements uintptr) (int64, error) {
+func (b BackendDescriptor) Attribute(attributeName BackendAttributeName, attributeType BackendAttributeType, requestedElementCount int64, arrayOfElements unsafe.Pointer) (int64, error) {
 	return backendGetAttribute(b, attributeName, attributeType, requestedElementCount, arrayOfElements)
 }
 
@@ -133,7 +137,7 @@ func (b BackendDescriptor) PopulateCudaGraph(handle Handle, variantPack BackendD
 //   - [ErrNotSupported]: The values to which the attributes are being set are not supported by the current version of cuDNN.
 //
 // Wraps cudnnBackendSetAttribute.
-func (b BackendDescriptor) SetAttribute(attributeName BackendAttributeName, attributeType BackendAttributeType, elementCount int64, arrayOfElements uintptr) error {
+func (b BackendDescriptor) SetAttribute(attributeName BackendAttributeName, attributeType BackendAttributeType, elementCount int64, arrayOfElements unsafe.Pointer) error {
 	return backendSetAttribute(b, attributeName, attributeType, elementCount, arrayOfElements)
 }
 
