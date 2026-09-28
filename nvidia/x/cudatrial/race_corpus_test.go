@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudaerrors"
-	"github.com/tmc/lib/nvidia/x/cudaliveness"
 	"github.com/tmc/lib/nvidia/x/cudashared"
+	"github.com/tmc/lib/nvidia/x/cudatma"
 )
 
 func TestCorpus_AsyncCopyPipelineRace(t *testing.T) {
@@ -103,7 +103,7 @@ func TestCorpus_ByteIndependenceFalsePositive(t *testing.T) {
 		t.Errorf("expected false positive test case to pass validation")
 	}
 	tc, _ := corpus.Lookup("false_positives/shared_bytewise_readwrite")
-	accesses, err := caseAccesses(tc, false)
+	accesses, err := caseAccesses(tc.Name, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,7 +190,7 @@ func TestControl_HardwarePendingFalsifier(t *testing.T) {
 	}
 }
 
-func TestControl_DetectorNeverReachedIsNotACleanSweep(t *testing.T) {
+func TestControl_NeverReachedRunHasNoRate(t *testing.T) {
 	// Point the runner at a stub RUN_CMD that always exits 0 and never invokes any detector.
 	// The run must FAIL. Without this control a 27/27 clean sweep is unfalsifiable.
 	corpus := NewRaceCorpus()
@@ -206,17 +206,15 @@ func TestControl_DetectorNeverReachedIsNotACleanSweep(t *testing.T) {
 		t.Fatalf("stub RUN_CMD exiting 0 on FIXED=0 must FAIL, but returned nil error")
 	}
 
-	if !errors.Is(err, ErrDetectorNeverReached) && !errors.Is(err, cudaliveness.ErrNotLive) {
-		t.Errorf("expected ErrDetectorNeverReached or ErrNotLive, got %v", err)
+	if !errors.Is(err, ErrDetectorNeverReached) {
+		t.Errorf("expected ErrDetectorNeverReached, got %v", err)
 	}
 
-	// Verify that the conformance rate for a 0-exit stub on FIXED=0 is NOT 100%.
-	passed, total, rate, rateErr := corpus.ConformanceRate(results)
+	// Matching lane 52 evidence cannot excuse the failed planted-race control.
+	control := makeExecControl(t, "FIXED=0;ARCH=sm_90")
+	_, rateErr := corpus.ConformanceRate(results, control)
 	if rateErr == nil {
-		t.Fatal("ConformanceRate without lane 52 exec-control succeeded")
-	}
-	if total != 0 || rate != 0 || passed != 0 {
-		t.Errorf("rate reported without exec-control: %d/%d, rate=%.2f", passed, total, rate)
+		t.Fatal("ConformanceRate accepted a run whose planted race was not detected")
 	}
 }
 
@@ -241,12 +239,12 @@ func TestCorpus_EveryCaseEvaluatedByModel(t *testing.T) {
 		for _, fixed := range []bool{false, true} {
 			res, err := c.EvaluateCase(tc.Name, fixed, "sm_90")
 			if tc.Scope == cudashared.ScopeMultiGPU {
-				if err == nil || res.Passed() {
+				if err == nil || res.Passed() || !res.Unmodelled {
 					t.Errorf("%s fixed=%v was not refused as unmodelled", tc.Name, fixed)
 				}
 				continue
 			}
-			if err != nil || res.EvaluatedPairs < 1 {
+			if err != nil {
 				t.Errorf("%s fixed=%v: pairs=%d err=%v", tc.Name, fixed, res.EvaluatedPairs, err)
 			}
 			if tc.FixedSupported && !fixed && !res.HasRace {
@@ -255,7 +253,7 @@ func TestCorpus_EveryCaseEvaluatedByModel(t *testing.T) {
 			if !tc.FixedSupported && res.HasRace {
 				t.Errorf("false-positive case %s reports a race", tc.Name)
 			}
-			accesses, err := caseAccesses(tc, fixed)
+			accesses, err := caseAccesses(tc.Name, fixed)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -267,6 +265,20 @@ func TestCorpus_EveryCaseEvaluatedByModel(t *testing.T) {
 				if err := m.AddAccess(a); err != nil {
 					t.Fatal(err)
 				}
+			}
+			records, err := m.Evaluate()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(records) != res.EvaluatedPairs {
+				t.Errorf("%s fixed=%v evaluated %d pairs, matrix returned %d records", tc.Name, fixed, res.EvaluatedPairs, len(records))
+			}
+			wantRace := false
+			for _, record := range records {
+				wantRace = wantRace || record.IsRace
+			}
+			if res.HasRace != wantRace {
+				t.Errorf("%s fixed=%v verdict=%v, hazard records imply %v", tc.Name, fixed, res.HasRace, wantRace)
 			}
 			gotHazard := cudashared.HazardNone
 			if accesses[0].IsWrite && accesses[1].IsWrite {
@@ -281,6 +293,244 @@ func TestCorpus_EveryCaseEvaluatedByModel(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestCasewiseModelTracksUpstreamFixMechanisms(t *testing.T) {
+	c := NewRaceCorpus()
+	disjoint := []string{
+		"interkernel/global_writewrite_race",
+		"interwave/global_writewrite_race",
+		"bulkcpy/global_writewrite_race",
+		"memcpy/shared_writewrite_race",
+	}
+	for _, name := range disjoint {
+		accesses, err := caseAccesses(name, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		matrix := cudashared.NewHazardMatrix("sm_121a")
+		for _, access := range accesses {
+			if err := matrix.AddAccess(access); err != nil {
+				t.Fatal(err)
+			}
+		}
+		records, err := matrix.Evaluate()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(records) != 0 {
+			t.Errorf("%s FIXED=1 records = %+v, want disjoint accesses", name, records)
+		}
+	}
+	for name, model := range accessModels {
+		if model.fix != "sync" {
+			continue
+		}
+		accesses, err := caseAccesses(name, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		matrix := cudashared.NewHazardMatrix("sm_121a")
+		for _, access := range accesses {
+			if err := matrix.AddAccess(access); err != nil {
+				t.Fatal(err)
+			}
+		}
+		records, err := matrix.Evaluate()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(records) != 1 || records[0].AccessA.Stage == records[0].AccessB.Stage || !records[0].WordConflict {
+			t.Errorf("%s FIXED=1 records = %+v, want overlapping accesses in different stages", name, records)
+		}
+	}
+	for _, name := range []string{"bulkcpy/global_writewrite_race", "interwave/global_writewrite_race"} {
+		accesses, err := caseAccesses(name, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if accesses[0].BlockID == accesses[1].BlockID {
+			t.Errorf("%s did not model distinct blocks", name)
+		}
+	}
+	interkernel, err := caseAccesses("interkernel/global_writewrite_race", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if interkernel[0].AgentID == interkernel[1].AgentID || interkernel[0].StreamID == interkernel[1].StreamID {
+		t.Fatal("interkernel accesses do not model different agents on different streams")
+	}
+	dsmem, err := caseAccesses("dsmem/shared_readwrite_race", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dsmem[0].BlockID == dsmem[1].BlockID || dsmem[0].ClusterID != dsmem[1].ClusterID {
+		t.Fatal("DSMEM case does not model two CTAs in one cluster")
+	}
+	war, err := caseAccesses("bulkcpy/shared_readwrite_race", false)
+	if err != nil || !war[0].IsWrite || war[1].IsWrite {
+		t.Fatalf("bulkcpy shared-source case is not read-after-write: accesses=%+v err=%v", war, err)
+	}
+	if len(accessModels) != len(c.TestCases()) {
+		t.Fatalf("case model table has %d entries for %d corpus cases", len(accessModels), len(c.TestCases()))
+	}
+}
+
+func TestBulkcpySharedReadWriteUsesWARGenerator(t *testing.T) {
+	bad, err := cudatma.GenerateTMASharedReadWriteScenario(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bad.Hazards) != 1 || bad.Hazards[0].Kind != "WAR" {
+		t.Fatalf("bulkcpy/shared_readwrite_race generator has hazards %+v, want WAR", bad.Hazards)
+	}
+	wrong, err := cudatma.GenerateTMAScenario(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(wrong.Hazards) == 0 || wrong.Hazards[0].Kind != "RAW" {
+		t.Fatalf("negative control has hazards %+v, want RAW", wrong.Hazards)
+	}
+}
+
+func TestConformanceRateValidatesExactCorpusAndControls(t *testing.T) {
+	c := NewRaceCorpus()
+	control := makeExecControl(t, "FIXED=1;ARCH=sm_90")
+	good := validConformanceResults(c, control.Configuration())
+	tests := []struct {
+		name   string
+		mutate func([]EvaluationResult) []EvaluationResult
+	}{
+		{"duplicate case", func(r []EvaluationResult) []EvaluationResult { return append(r, r[1]) }},
+		{"unknown case", func(r []EvaluationResult) []EvaluationResult {
+			return append(r, EvaluationResult{TestCase: "not/in/corpus", Configuration: control.Configuration()})
+		}},
+		{"missing case", func(r []EvaluationResult) []EvaluationResult { return append(r[:1], r[2:]...) }},
+		{"failing row renamed to control", func(r []EvaluationResult) []EvaluationResult {
+			r[1].TestCase = "cudatrial/planted-race-control"
+			r[1].Error = errors.New("candidate failed")
+			return r
+		}},
+		{"only exec control", func([]EvaluationResult) []EvaluationResult { return nil }},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := c.ConformanceRate(tc.mutate(append([]EvaluationResult(nil), good...)), control); err == nil {
+				t.Fatal("invalid corpus/control results were accepted")
+			}
+		})
+	}
+	if _, err := (&RaceCorpus{}).ConformanceRate(nil, control); err == nil {
+		t.Fatal("empty corpus was accepted")
+	}
+}
+
+func TestConformanceRateReportsDisjointCounts(t *testing.T) {
+	c := NewRaceCorpus()
+	configuration := "FIXED=1;ARCH=sm_90"
+	control := makeExecControl(t, configuration)
+	results := validConformanceResults(c, configuration)
+	results[1].HardwarePending = true
+	results[2].Unmodelled = true
+	results[3].UnknownExit = true
+	results[3].ExitCode = 2
+	results[3].Error = errors.New("unknown detector exit")
+	results[4].Error = errors.New("ordinary failure")
+	summary, err := c.ConformanceRate(results, control)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if summary.Total != 27 || summary.Passed != 23 || summary.HardwarePending != 1 || summary.Unmodelled != 1 || summary.UnknownExit != 1 || summary.Failed != 1 {
+		t.Fatalf("disjoint conformance counts = %+v", summary)
+	}
+	if summary.Passed+summary.Failed+summary.HardwarePending+summary.Unmodelled+summary.UnknownExit != summary.Total {
+		t.Fatalf("counts do not sum to total: %+v", summary)
+	}
+}
+
+func TestRunExternalPendingRowsCoverEveryUnsupportedCase(t *testing.T) {
+	c := NewRaceCorpus()
+	root := makeCorpusBinaries(t, c, "sm_80")
+	t.Setenv("CUHADRON_BINARY_ROOT", root)
+	cmd := `sh -c 'case "$1" in */FIXED=0/*) exit 1;; *) exit 0;; esac' sh`
+	results, err := c.RunExternal(context.Background(), cmd, false, "sm_80")
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := make(map[string]int)
+	pending := 0
+	for _, result := range results {
+		if result.TestCase == "cudatrial/planted-race-control" {
+			continue
+		}
+		seen[result.TestCase]++
+		if result.HardwarePending {
+			pending++
+			if !errors.Is(result.Error, cudaerrors.ErrHardwarePending) {
+				t.Errorf("pending row %s has error %v", result.TestCase, result.Error)
+			}
+		}
+	}
+	if pending != 8 || len(seen) != 27 {
+		t.Fatalf("sm_80 sweep has %d pending rows and %d case names, want 8 and 27", pending, len(seen))
+	}
+	for _, tc := range c.TestCases() {
+		if seen[tc.Name] != 1 {
+			t.Errorf("sm_80 sweep has %d rows for %s", seen[tc.Name], tc.Name)
+		}
+		if tc.MinArch == "sm_90" {
+			foundPending := false
+			for _, result := range results {
+				if result.TestCase == tc.Name {
+					foundPending = result.HardwarePending
+				}
+			}
+			if !foundPending {
+				t.Errorf("sm_90 case %s was not reported pending", tc.Name)
+			}
+		}
+	}
+	control := makeExecControl(t, "FIXED=0;ARCH=sm_80")
+	summary, err := c.ConformanceRate(results, control)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if summary.Total != 27 || summary.HardwarePending != 8 || summary.Passed+summary.Failed+summary.HardwarePending+summary.Unmodelled+summary.UnknownExit != 27 {
+		t.Fatalf("sm_80 conformance counts = %+v", summary)
+	}
+}
+
+func TestMinArchValueGatesEvaluationAndExternalSweep(t *testing.T) {
+	c := NewRaceCorpus()
+	c.cases[0].MinArch = "sm_100"
+	if result, err := c.EvaluateCase(c.cases[0].Name, false, "sm_90"); err == nil || !result.HardwarePending {
+		t.Fatalf("sm_100 case on sm_90 = (%+v, %v), want pending", result, err)
+	}
+	root := makeCorpusBinaries(t, c, "sm_90")
+	t.Setenv("CUHADRON_BINARY_ROOT", root)
+	cmd := `sh -c 'case "$1" in */FIXED=0/*) exit 1;; *) exit 0;; esac' sh`
+	results, err := c.RunExternal(context.Background(), cmd, false, "sm_90")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, result := range results {
+		if result.TestCase == c.cases[0].Name {
+			if !result.HardwarePending {
+				t.Fatalf("sm_100 case on sm_90 was not pending: %+v", result)
+			}
+			return
+		}
+	}
+	t.Fatal("RunExternal omitted the sm_100 case")
+}
+
+func validConformanceResults(c *RaceCorpus, configuration string) []EvaluationResult {
+	results := []EvaluationResult{{TestCase: "cudatrial/planted-race-control", IsLivenessControl: true, HasRace: true, ExitCode: 1, Category: CategoryMemcpy, Configuration: configuration}}
+	for _, tc := range c.TestCases() {
+		result := EvaluationResult{TestCase: tc.Name, Category: tc.Category, Fixed: true, Configuration: configuration}
+		results = append(results, result)
+	}
+	return results
 }
 
 func TestRunExternalUsesFixedBinaryAndKnownRaceControl(t *testing.T) {
@@ -304,9 +554,13 @@ func TestRunExternalUsesFixedBinaryAndKnownRaceControl(t *testing.T) {
 	if sample.BinaryFixed != true || !strings.Contains(sample.BinaryPath, "FIXED=1") {
 		t.Fatalf("candidate path lacks FIXED=1 provenance: %+v", sample)
 	}
-	results = append(results, EvaluationResult{TestCase: "lane52/exec-control", IsExecControl: true, ExecControlPass: true, Configuration: "FIXED=1;ARCH=sm_90"})
-	if _, _, _, err := c.ConformanceRate(results); err != nil {
+	control := makeExecControl(t, "FIXED=1;ARCH=sm_90")
+	summary, err := c.ConformanceRate(results, control)
+	if err != nil {
 		t.Fatalf("matching lane52 exec-control rejected: %v", err)
+	}
+	if summary.Total != 27 || summary.Passed+summary.Failed+summary.HardwarePending+summary.Unmodelled+summary.UnknownExit != summary.Total {
+		t.Fatalf("conformance counts do not partition 27 cases: %+v", summary)
 	}
 }
 
@@ -324,7 +578,7 @@ func TestHazardMatrix_SubwarpAndHostDeviceControls(t *testing.T) {
 	for _, name := range []string{"intersubwarp/shared_readwrite_race", "hostdevice/global_readwrite_race"} {
 		tc, _ := c.Lookup(name)
 		for _, fixed := range []bool{false, true} {
-			accesses, err := caseAccesses(tc, fixed)
+			accesses, err := caseAccesses(tc.Name, fixed)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -365,12 +619,26 @@ func TestControl_NonOneExitIsNotDetection(t *testing.T) {
 func TestConformanceRateRejectsMismatchedExecConfiguration(t *testing.T) {
 	c := NewRaceCorpus()
 	results := []EvaluationResult{
-		{TestCase: "lane52/exec-control", IsExecControl: true, ExecControlPass: true, Configuration: "FIXED=0;ARCH=sm_90"},
+		{TestCase: "cudatrial/planted-race-control", IsLivenessControl: true, HasRace: true, ExitCode: 1, Configuration: "FIXED=0;ARCH=sm_90"},
 		{TestCase: "memcpy/shared_readwrite_race", Category: CategoryMemcpy, Fixed: true, Configuration: "FIXED=1;ARCH=sm_90"},
 	}
-	if _, _, _, err := c.ConformanceRate(results); err == nil {
+	if _, err := c.ConformanceRate(results, makeExecControl(t, "FIXED=0;ARCH=sm_90")); err == nil {
 		t.Fatal("mismatched exec-control configuration accepted")
 	}
+}
+
+func makeExecControl(t *testing.T, configuration string) ExecControl {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "exec-control.json")
+	data := `{"configuration":"` + configuration + `","passed":true}`
+	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	control, err := ReadExecControl(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return control
 }
 
 func makeCorpusBinaries(t *testing.T, c *RaceCorpus, arch string) string {
@@ -378,7 +646,7 @@ func makeCorpusBinaries(t *testing.T, c *RaceCorpus, arch string) string {
 	root := t.TempDir()
 	for _, fixed := range []string{"FIXED=0", "FIXED=1"} {
 		for _, tc := range c.TestCases() {
-			path := filepath.Join(root, fixed, tc.Name+"."+arch+".out")
+			path := filepath.Join(root, fixed, tc.Name+"."+binaryArchSuffix(arch)+".out")
 			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 				t.Fatal(err)
 			}

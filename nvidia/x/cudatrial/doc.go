@@ -51,7 +51,9 @@
 // github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 //
 // RaceCorpus evaluates cuHadron race cases with per-case access models. It
-// reports unsupported hardware as pending and requires a passing lane 52
-// exec-control result for the same configuration before computing a rate.
+// reports unsupported hardware as pending. ConformanceRate requires a
+// separately validated [ExecControl] for the same configuration. Lane 52
+// writes a JSON receipt with `configuration` and `passed` fields; callers load
+// it with [ReadExecControl] and pass the result to ConformanceRate.
 // Cases derive from NVlabs/cuHadron commit 0a6c6d5 (Apache-2.0).
 package cudatrial
