@@ -2744,13 +2744,13 @@ func fnxsyevdBufferSize(a0 Handle, a1 Params, a2 EigMode, a3 FillMode, a4 int64,
 }
 
 // fnxsyevdx calls cusolverDnXsyevdx.
-func fnxsyevdx(a0 Handle, a1 Params, a2 EigMode, a3 EigRange, a4 FillMode, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 uintptr, a10 uintptr, a11 int64, a12 int64, a13 *int64, a14 DataType, a15 uintptr, a16 DataType, a17 uintptr, a18 uint, a19 uintptr, a20 uint, a21 uintptr) Result {
+func fnxsyevdx(a0 Handle, a1 Params, a2 EigMode, a3 EigRange, a4 FillMode, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 unsafe.Pointer, a10 unsafe.Pointer, a11 int64, a12 int64, a13 *int64, a14 DataType, a15 uintptr, a16 DataType, a17 uintptr, a18 uint, a19 uintptr, a20 uint, a21 uintptr) Result {
 	r1, _ := ffiCallWidths22(symxsyevdx, 0, 0x3300033f0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21))
 	return Result(r1)
 }
 
 // fnxsyevdxBufferSize calls cusolverDnXsyevdx_bufferSize.
-func fnxsyevdxBufferSize(a0 Handle, a1 Params, a2 EigMode, a3 EigRange, a4 FillMode, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 uintptr, a10 uintptr, a11 int64, a12 int64, a13 *int64, a14 DataType, a15 uintptr, a16 DataType, a17 *uint, a18 *uint) Result {
+func fnxsyevdxBufferSize(a0 Handle, a1 Params, a2 EigMode, a3 EigRange, a4 FillMode, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 unsafe.Pointer, a10 unsafe.Pointer, a11 int64, a12 int64, a13 *int64, a14 DataType, a15 uintptr, a16 DataType, a17 *uint, a18 *uint) Result {
 	r1, _ := ffiCallWidths19(symxsyevdxBufferSize, 0, 0x3300033f0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(unsafe.Pointer(a17)), uintptr(unsafe.Pointer(a18)))
 	return Result(r1)
 }
@@ -2798,13 +2798,13 @@ func fnxsygvdBufferSize(a0 Handle, a1 Params, a2 EigType, a3 EigMode, a4 FillMod
 }
 
 // fnxsygvdx calls cusolverDnXsygvdx.
-func fnxsygvdx(a0 Handle, a1 Params, a2 EigType, a3 EigMode, a4 EigRange, a5 FillMode, a6 int64, a7 DataType, a8 uintptr, a9 int64, a10 DataType, a11 uintptr, a12 int64, a13 uintptr, a14 uintptr, a15 int64, a16 int64, a17 *int64, a18 DataType, a19 uintptr, a20 DataType, a21 uintptr, a22 uint, a23 uintptr, a24 uint, a25 uintptr) Result {
+func fnxsygvdx(a0 Handle, a1 Params, a2 EigType, a3 EigMode, a4 EigRange, a5 FillMode, a6 int64, a7 DataType, a8 uintptr, a9 int64, a10 DataType, a11 uintptr, a12 int64, a13 unsafe.Pointer, a14 unsafe.Pointer, a15 int64, a16 int64, a17 *int64, a18 DataType, a19 uintptr, a20 DataType, a21 uintptr, a22 uint, a23 uintptr, a24 uint, a25 uintptr) Result {
 	r1, _ := ffiCallWidths26(symxsygvdx, 0, 0x3300030cff0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(unsafe.Pointer(a17)), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21), uintptr(a22), uintptr(a23), uintptr(a24), uintptr(a25))
 	return Result(r1)
 }
 
 // fnxsygvdxBufferSize calls cusolverDnXsygvdx_bufferSize.
-func fnxsygvdxBufferSize(a0 Handle, a1 Params, a2 EigType, a3 EigMode, a4 FillMode, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 DataType, a10 uintptr, a11 int64, a12 uintptr, a13 uintptr, a14 int64, a15 int64, a16 *int64, a17 DataType, a18 uintptr, a19 DataType, a20 *uint, a21 *uint) Result {
+func fnxsygvdxBufferSize(a0 Handle, a1 Params, a2 EigType, a3 EigMode, a4 FillMode, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 DataType, a10 uintptr, a11 int64, a12 unsafe.Pointer, a13 unsafe.Pointer, a14 int64, a15 int64, a16 *int64, a17 DataType, a18 uintptr, a19 DataType, a20 *uint, a21 *uint) Result {
 	r1, _ := ffiCallWidths22(symxsygvdxBufferSize, 0, 0xcc000c33f0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(unsafe.Pointer(a16)), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(unsafe.Pointer(a20)), uintptr(unsafe.Pointer(a21)))
 	return Result(r1)
 }
@@ -3361,11 +3361,11 @@ func cCgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
 //   - n: Number of columns of the matrix A. Should be non-negative and n<=m
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size m-by-n. Can’t be NULL. On return - unchanged if the lowest precision is not equal to the main precision and the iterative refinement solver converged, - garbage otherwise
+//   - dA: Matrix A with size m-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. ldda >= m
-//   - dB: Set of right hand sides B of size m-by-nrhs. Can’t be NULL
+//   - dB: Set of right hand sides B of size m-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -3470,12 +3470,12 @@ func cCgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
+//   - dA: Matrix A with size n-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
-//   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
+//   - dipiv: Pivoting sequence. Not used and can be NULL
+//   - dB: Set of right hand sides B of size n-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -3582,11 +3582,11 @@ func cEgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
 //   - n: Number of columns of the matrix A. Should be non-negative and n<=m
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size m-by-n. Can’t be NULL. On return - unchanged if the lowest precision is not equal to the main precision and the iterative refinement solver converged, - garbage otherwise
+//   - dA: Matrix A with size m-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. ldda >= m
-//   - dB: Set of right hand sides B of size m-by-nrhs. Can’t be NULL
+//   - dB: Set of right hand sides B of size m-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -3691,12 +3691,12 @@ func cEgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
+//   - dA: Matrix A with size n-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
-//   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
+//   - dipiv: Pivoting sequence. Not used and can be NULL
+//   - dB: Set of right hand sides B of size n-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -3803,11 +3803,11 @@ func cKgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
 //   - n: Number of columns of the matrix A. Should be non-negative and n<=m
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size m-by-n. Can’t be NULL. On return - unchanged if the lowest precision is not equal to the main precision and the iterative refinement solver converged, - garbage otherwise
+//   - dA: Matrix A with size m-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. ldda >= m
-//   - dB: Set of right hand sides B of size m-by-nrhs. Can’t be NULL
+//   - dB: Set of right hand sides B of size m-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -3912,12 +3912,12 @@ func cKgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
+//   - dA: Matrix A with size n-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
-//   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
+//   - dipiv: Pivoting sequence. Not used and can be NULL
+//   - dB: Set of right hand sides B of size n-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -4024,11 +4024,11 @@ func cYgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
 //   - n: Number of columns of the matrix A. Should be non-negative and n<=m
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size m-by-n. Can’t be NULL. On return - unchanged if the lowest precision is not equal to the main precision and the iterative refinement solver converged, - garbage otherwise
+//   - dA: Matrix A with size m-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. ldda >= m
-//   - dB: Set of right hand sides B of size m-by-nrhs. Can’t be NULL
+//   - dB: Set of right hand sides B of size m-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -4133,12 +4133,12 @@ func cYgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
+//   - dA: Matrix A with size n-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
-//   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
+//   - dipiv: Pivoting sequence. Not used and can be NULL
+//   - dB: Set of right hand sides B of size n-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -6143,11 +6143,11 @@ func dBgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
 //   - n: Number of columns of the matrix A. Should be non-negative and n<=m
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size m-by-n. Can’t be NULL. On return - unchanged if the lowest precision is not equal to the main precision and the iterative refinement solver converged, - garbage otherwise
+//   - dA: Matrix A with size m-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. ldda >= m
-//   - dB: Set of right hand sides B of size m-by-nrhs. Can’t be NULL
+//   - dB: Set of right hand sides B of size m-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -6252,12 +6252,12 @@ func dBgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
+//   - dA: Matrix A with size n-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
-//   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
+//   - dipiv: Pivoting sequence. Not used and can be NULL
+//   - dB: Set of right hand sides B of size n-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -6364,11 +6364,11 @@ func dDgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
 //   - n: Number of columns of the matrix A. Should be non-negative and n<=m
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size m-by-n. Can’t be NULL. On return - unchanged if the lowest precision is not equal to the main precision and the iterative refinement solver converged, - garbage otherwise
+//   - dA: Matrix A with size m-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. ldda >= m
-//   - dB: Set of right hand sides B of size m-by-nrhs. Can’t be NULL
+//   - dB: Set of right hand sides B of size m-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -6473,12 +6473,12 @@ func dDgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
+//   - dA: Matrix A with size n-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
-//   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
+//   - dipiv: Pivoting sequence. Not used and can be NULL
+//   - dB: Set of right hand sides B of size n-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -6585,11 +6585,11 @@ func dHgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
 //   - n: Number of columns of the matrix A. Should be non-negative and n<=m
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size m-by-n. Can’t be NULL. On return - unchanged if the lowest precision is not equal to the main precision and the iterative refinement solver converged, - garbage otherwise
+//   - dA: Matrix A with size m-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. ldda >= m
-//   - dB: Set of right hand sides B of size m-by-nrhs. Can’t be NULL
+//   - dB: Set of right hand sides B of size m-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -6694,12 +6694,12 @@ func dHgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
+//   - dA: Matrix A with size n-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
-//   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
+//   - dipiv: Pivoting sequence. Not used and can be NULL
+//   - dB: Set of right hand sides B of size n-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -6806,11 +6806,11 @@ func dSgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
 //   - n: Number of columns of the matrix A. Should be non-negative and n<=m
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size m-by-n. Can’t be NULL. On return - unchanged if the lowest precision is not equal to the main precision and the iterative refinement solver converged, - garbage otherwise
+//   - dA: Matrix A with size m-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. ldda >= m
-//   - dB: Set of right hand sides B of size m-by-nrhs. Can’t be NULL
+//   - dB: Set of right hand sides B of size m-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -6915,12 +6915,12 @@ func dSgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
+//   - dA: Matrix A with size n-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
-//   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
+//   - dipiv: Pivoting sequence. Not used and can be NULL
+//   - dB: Set of right hand sides B of size n-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -7027,11 +7027,11 @@ func dXgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
 //   - n: Number of columns of the matrix A. Should be non-negative and n<=m
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size m-by-n. Can’t be NULL. On return - unchanged if the lowest precision is not equal to the main precision and the iterative refinement solver converged, - garbage otherwise
+//   - dA: Matrix A with size m-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. ldda >= m
-//   - dB: Set of right hand sides B of size m-by-nrhs. Can’t be NULL
+//   - dB: Set of right hand sides B of size m-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -7136,12 +7136,12 @@ func dXgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
+//   - dA: Matrix A with size n-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
-//   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
+//   - dipiv: Pivoting sequence. Not used and can be NULL
+//   - dB: Set of right hand sides B of size n-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -9900,8 +9900,8 @@ func iRSXgesv(handle Handle, gesvIrsParams IRSParams, gesvIrsInfos IRSInfos, n C
 // iRSXgesvBufferSize returns the workspace size, in bytes, for [Handle.IRSXgesv].
 //
 //   - handle: Handle to the cusolverDn library context
-//   - n: Number of rows and columns of square matrix A. Should be non-negative
-//   - nrhs: Number of right hand sides to solve. Should be non-negative. Note that, nrhs is limited to 1 if the selected IRS refinement solver is [IrsRefineGmres], [IrsRefineGmresGmres], [IrsRefineClassicalGmres]
+//   - n: Number of rows and columns of the square matrix A. Should be non-negative
+//   - nrhs: Number of right hand sides to solve. Should be non-negative. Note that nrhs is limited to 1 if the selected IRS refinement solver is [IrsRefineGmres], [IrsRefineGmresGmres], [IrsRefineClassicalGmres]
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Errors:
@@ -10102,11 +10102,11 @@ func sBgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
 //   - n: Number of columns of the matrix A. Should be non-negative and n<=m
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size m-by-n. Can’t be NULL. On return - unchanged if the lowest precision is not equal to the main precision and the iterative refinement solver converged, - garbage otherwise
+//   - dA: Matrix A with size m-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. ldda >= m
-//   - dB: Set of right hand sides B of size m-by-nrhs. Can’t be NULL
+//   - dB: Set of right hand sides B of size m-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -10211,12 +10211,12 @@ func sBgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
+//   - dA: Matrix A with size n-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
-//   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
+//   - dipiv: Pivoting sequence. Not used and can be NULL
+//   - dB: Set of right hand sides B of size n-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -10323,11 +10323,11 @@ func sHgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
 //   - n: Number of columns of the matrix A. Should be non-negative and n<=m
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size m-by-n. Can’t be NULL. On return - unchanged if the lowest precision is not equal to the main precision and the iterative refinement solver converged, - garbage otherwise
+//   - dA: Matrix A with size m-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. ldda >= m
-//   - dB: Set of right hand sides B of size m-by-nrhs. Can’t be NULL
+//   - dB: Set of right hand sides B of size m-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -10432,12 +10432,12 @@ func sHgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
+//   - dA: Matrix A with size n-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
-//   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
+//   - dipiv: Pivoting sequence. Not used and can be NULL
+//   - dB: Set of right hand sides B of size n-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -10544,11 +10544,11 @@ func sSgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
 //   - n: Number of columns of the matrix A. Should be non-negative and n<=m
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size m-by-n. Can’t be NULL. On return - unchanged if the lowest precision is not equal to the main precision and the iterative refinement solver converged, - garbage otherwise
+//   - dA: Matrix A with size m-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. ldda >= m
-//   - dB: Set of right hand sides B of size m-by-nrhs. Can’t be NULL
+//   - dB: Set of right hand sides B of size m-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -10653,12 +10653,12 @@ func sSgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
+//   - dA: Matrix A with size n-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
-//   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
+//   - dipiv: Pivoting sequence. Not used and can be NULL
+//   - dB: Set of right hand sides B of size n-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -10765,11 +10765,11 @@ func sXgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
 //   - n: Number of columns of the matrix A. Should be non-negative and n<=m
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size m-by-n. Can’t be NULL. On return - unchanged if the lowest precision is not equal to the main precision and the iterative refinement solver converged, - garbage otherwise
+//   - dA: Matrix A with size m-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. ldda >= m
-//   - dB: Set of right hand sides B of size m-by-nrhs. Can’t be NULL
+//   - dB: Set of right hand sides B of size m-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -10874,12 +10874,12 @@ func sXgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
+//   - dA: Matrix A with size n-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
-//   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
+//   - dipiv: Pivoting sequence. Not used and can be NULL
+//   - dB: Set of right hand sides B of size n-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -12934,6 +12934,15 @@ var slotSsytriBufferSize outSlot[int32]
 // The generic API has five different types, dataTypeA is the data type of the matrix A, dataTypeW is the data type of the array W, dataTypeVL is the data type of the matrix VL, dataTypeVR is the data type of the matrix VR and computeType is compute type of the operation. [Handle.Xgeev] only supports the following four combinations:
 // Valid combination of data type and compute type
 //
+//	DataTypeA   DataTypeW   DataTypeVL  DataTypeVR  ComputeType  Meaning
+//	CUDA_R_32F  CUDA_R_32F  CUDA_R_32F  CUDA_R_32F  CUDA_R_32F   SGEEV
+//	CUDA_R_32F  CUDA_C_32F  CUDA_R_32F  CUDA_R_32F  CUDA_R_32F   32F mixed real-complex
+//	CUDA_R_64F  CUDA_R_64F  CUDA_R_64F  CUDA_R_64F  CUDA_R_64F   DGEEV
+//	CUDA_R_64F  CUDA_C_64F  CUDA_R_64F  CUDA_R_64F  CUDA_R_64F   64F mixed real-complex
+//	CUDA_C_32F  CUDA_C_32F  CUDA_C_32F  CUDA_C_32F  CUDA_C_32F   CGEEV
+//	CUDA_C_64F  CUDA_C_64F  CUDA_C_64F  CUDA_C_64F  CUDA_C_64F   ZGEEV
+//
+// Parameters:
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
 //   - jobvl: Specifies whether or not to compute left eigenvectors. jobvl = [EigModeNovector]: Do not compute left eigenvectors of A; jobvl = [EigModeVector]: Compute left eigenvectors of A
@@ -13030,10 +13039,12 @@ var slotXgeevBufferSize outSlot[struct {
 //
 // The generic API has two different types, dataTypeA is data type of the matrix A, dataTypeTau is data type of the array tau and computeType is compute type of the operation. [Handle.Xgeqrf] only supports the following four combinations.
 // Valid combination of data type and compute type
-//   - DataTypeA: CUDA_R_32F; ComputeType: CUDA_R_32F; Meaning: SGEQRF
-//   - DataTypeA: CUDA_R_64F; ComputeType: CUDA_R_64F; Meaning: DGEQRF
-//   - DataTypeA: CUDA_C_32F; ComputeType: CUDA_C_32F; Meaning: CGEQRF
-//   - DataTypeA: CUDA_C_64F; ComputeType: CUDA_C_64F; Meaning: ZGEQRF
+//
+//	DataTypeA   ComputeType  Meaning
+//	CUDA_R_32F  CUDA_R_32F   SGEQRF
+//	CUDA_R_64F  CUDA_R_64F   DGEQRF
+//	CUDA_C_32F  CUDA_C_32F   CGEQRF
+//	CUDA_C_64F  CUDA_C_64F   ZGEQRF
 //
 // Parameters:
 //   - handle: Handle to the cuSolverDN library context
@@ -13118,6 +13129,13 @@ var slotXgeqrfBufferSize outSlot[struct {
 // The generic API has three different types, dataTypeA is data type of the matrix A, dataTypeS is data type of the vector S and dataTypeU is data type of the matrix U, dataTypeVT is data type of the matrix VT, computeType is compute type of the operation. [Handle.Xgesvd] only supports the following four combinations.
 // Valid combination of data type and compute type
 //
+//	DataTypeA   DataTypeS   DataTypeU   DataTypeVT  ComputeType  Meaning
+//	CUDA_R_32F  CUDA_R_32F  CUDA_R_32F  CUDA_R_32F  CUDA_R_32F   SGESVD
+//	CUDA_R_64F  CUDA_R_64F  CUDA_R_64F  CUDA_R_64F  CUDA_R_64F   DGESVD
+//	CUDA_C_32F  CUDA_R_32F  CUDA_C_32F  CUDA_C_32F  CUDA_C_32F   CGESVD
+//	CUDA_C_64F  CUDA_R_64F  CUDA_C_64F  CUDA_C_64F  CUDA_C_64F   ZGESVD
+//
+// Parameters:
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
 //   - jobu: Specifies options for computing all or part of the matrix U: = ‘A’: all m columns of U are returned in array U: = ‘S’: the first min(m,n) columns of U (the left singular vectors) are returned in the array U; = ‘O’: the first min(m,n) columns of U (the left singular vectors) are overwritten on the array A; = ‘N’: no columns of U (no left singular vectors) are computed
@@ -13320,6 +13338,13 @@ func xgesvdjSetTolerance(info GesvdjInfo, tolerance float64) error {
 // The generic API has three different types, dataTypeA is data type of the matrix A, dataTypeS is data type of the vector S and dataTypeU is data type of the matrix U, dataTypeV is data type of the matrix V, computeType is compute type of the operation. [Handle.Xgesvdp] only supports the following four combinations:
 // Valid combination of data type and compute type
 //
+//	DataTypeA   DataTypeS   DataTypeU   DataTypeV   ComputeType  Meaning
+//	CUDA_R_32F  CUDA_R_32F  CUDA_R_32F  CUDA_R_32F  CUDA_R_32F   SGESVDP
+//	CUDA_R_64F  CUDA_R_64F  CUDA_R_64F  CUDA_R_64F  CUDA_R_64F   DGESVDP
+//	CUDA_C_32F  CUDA_R_32F  CUDA_C_32F  CUDA_C_32F  CUDA_C_32F   CGESVDP
+//	CUDA_C_64F  CUDA_R_64F  CUDA_C_64F  CUDA_C_64F  CUDA_C_64F   ZGESVDP
+//
+// Parameters:
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
 //   - jobz: Specifies options to either compute singular values only or compute singular vectors as well: jobz = [EigModeNovector] : Compute singular values only. jobz = [EigModeVector] : Compute singular values and singular vectors
@@ -13421,6 +13446,13 @@ var slotXgesvdpBufferSize outSlot[struct {
 // The generic API has five different types, dataTypeA is data type of the matrix A, dataTypeS is data type of the vector S and dataTypeU is data type of the matrix U, dataTypeV is data type of the matrix V, computeType is compute type of the operation. [Handle.Xgesvdr] only supports the following four combinations.
 // Valid combination of data type and compute type
 //
+//	DataTypeA   DataTypeS   DataTypeU   DataTypeV   ComputeType  Meaning
+//	CUDA_R_32F  CUDA_R_32F  CUDA_R_32F  CUDA_R_32F  CUDA_R_32F   SGESVDR
+//	CUDA_R_64F  CUDA_R_64F  CUDA_R_64F  CUDA_R_64F  CUDA_R_64F   DGESVDR
+//	CUDA_C_32F  CUDA_R_32F  CUDA_C_32F  CUDA_C_32F  CUDA_C_32F   CGESVDR
+//	CUDA_C_64F  CUDA_R_64F  CUDA_C_64F  CUDA_C_64F  CUDA_C_64F   ZGESVDR
+//
+// Parameters:
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
 //   - jobu: Specifies options for computing all or part of the matrix U: = ‘S’: the first k columns of U (the left singular vectors) are returned in the array U; = ‘N’: no columns of U (no left singular vectors) are computed
@@ -13511,10 +13543,12 @@ var slotXgesvdrBufferSize outSlot[struct {
 //
 // The generic API has two different types, dataTypeA is data type of the matrix A, computeType is compute type of the operation. [Handle.Xgetrf] only supports the following four combinations.
 // Valid combination of data type and compute type
-//   - DataTypeA: CUDA_R_32F; ComputeType: CUDA_R_32F; Meaning: SGETRF
-//   - DataTypeA: CUDA_R_64F; ComputeType: CUDA_R_64F; Meaning: DGETRF
-//   - DataTypeA: CUDA_C_32F; ComputeType: CUDA_C_32F; Meaning: CGETRF
-//   - DataTypeA: CUDA_C_64F; ComputeType: CUDA_C_64F; Meaning: ZGETRF
+//
+//	DataTypeA   ComputeType  Meaning
+//	CUDA_R_32F  CUDA_R_32F   SGETRF
+//	CUDA_R_64F  CUDA_R_64F   DGETRF
+//	CUDA_C_32F  CUDA_C_32F   CGETRF
+//	CUDA_C_64F  CUDA_C_64F   ZGETRF
 //
 // Parameters:
 //   - handle: Handle to the cuSolverDN library context
@@ -13595,10 +13629,12 @@ var slotXgetrfBufferSize outSlot[struct {
 //
 // The generic API has two different types: dataTypeA is data type of the matrix A and dataTypeB is data type of the matrix B. [Handle.Xgetrs] only supports the following four combinations:
 // Valid combination of data type and compute type
-//   - DataTypeA: CUDA_R_32F; dataTypeB: CUDA_R_32F; Meaning: SGETRS
-//   - DataTypeA: CUDA_R_64F; dataTypeB: CUDA_R_64F; Meaning: DGETRS
-//   - DataTypeA: CUDA_C_32F; dataTypeB: CUDA_C_32F; Meaning: CGETRS
-//   - DataTypeA: CUDA_C_64F; dataTypeB: CUDA_C_64F; Meaning: ZGETRS
+//
+//	DataTypeA   dataTypeB   Meaning
+//	CUDA_R_32F  CUDA_R_32F  SGETRS
+//	CUDA_R_64F  CUDA_R_64F  DGETRS
+//	CUDA_C_32F  CUDA_C_32F  CGETRS
+//	CUDA_C_64F  CUDA_C_64F  ZGETRS
 //
 // Parameters:
 //   - handle: Handle to the cuSolverDN library context
@@ -13638,6 +13674,13 @@ func xgetrs(handle Handle, params Params, trans Operation, n int64, nrhs int64, 
 // [Handle.Xlarft] only supports the following four combinations.
 // Valid combinations of data types and compute types
 //
+//	DataTypeV   DataTypeTau  DataTypeT   ComputeType  Meaning
+//	CUDA_R_32F  CUDA_R_32F   CUDA_R_32F  CUDA_R_32F   SLARFT
+//	CUDA_R_64F  CUDA_R_64F   CUDA_R_64F  CUDA_R_64F   DLARFT
+//	CUDA_C_32F  CUDA_C_32F   CUDA_C_32F  CUDA_C_32F   CLARFT
+//	CUDA_C_64F  CUDA_C_64F   CUDA_C_64F  CUDA_C_64F   ZLARFT
+//
+// Parameters:
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
 //   - direct: Specifies the order in which the elementary reflectors are multiplied to form the block reflector
@@ -13731,10 +13774,12 @@ var slotXlarftBufferSize outSlot[struct {
 //
 // The generic API has two different types, dataTypeA is data type of the matrix A, computeType is compute type of the operation. [Handle.Xpotrf] only supports the following four combinations.
 // Valid combination of data type and compute type
-//   - DataTypeA: CUDA_R_32F; ComputeType: CUDA_R_32F; Meaning: SPOTRF
-//   - DataTypeA: CUDA_R_64F; ComputeType: CUDA_R_64F; Meaning: DPOTRF
-//   - DataTypeA: CUDA_C_32F; ComputeType: CUDA_C_32F; Meaning: CPOTRF
-//   - DataTypeA: CUDA_C_64F; ComputeType: CUDA_C_64F; Meaning: ZPOTRF
+//
+//	DataTypeA   ComputeType  Meaning
+//	CUDA_R_32F  CUDA_R_32F   SPOTRF
+//	CUDA_R_64F  CUDA_R_64F   DPOTRF
+//	CUDA_C_32F  CUDA_C_32F   CPOTRF
+//	CUDA_C_64F  CUDA_C_64F   ZPOTRF
 //
 // Parameters:
 //   - handle: Handle to the cuSolverDN library context
@@ -13813,10 +13858,12 @@ var slotXpotrfBufferSize outSlot[struct {
 //
 // The generic API has two different types, dataTypeA is data type of the matrix A, dataTypeB is data type of the matrix B. [Handle.Xpotrs] only supports the following four combinations.
 // Valid combination of data type and compute type
-//   - dataTypeA: CUDA_R_32F; dataTypeB: CUDA_R_32F; Meaning: SPOTRS
-//   - dataTypeA: CUDA_R_64F; dataTypeB: CUDA_R_64F; Meaning: DPOTRS
-//   - dataTypeA: CUDA_C_32F; dataTypeB: CUDA_C_32F; Meaning: CPOTRS
-//   - dataTypeA: CUDA_C_64F; dataTypeB: CUDA_C_64F; Meaning: ZPOTRS
+//
+//	dataTypeA   dataTypeB   Meaning
+//	CUDA_R_32F  CUDA_R_32F  SPOTRS
+//	CUDA_R_64F  CUDA_R_64F  DPOTRS
+//	CUDA_C_32F  CUDA_C_32F  CPOTRS
+//	CUDA_C_64F  CUDA_C_64F  ZPOTRS
 //
 // Parameters:
 //   - handle: Handle to the cuSolverDN library context
@@ -13862,10 +13909,12 @@ func xpotrs(handle Handle, params Params, uplo FillMode, n int64, nrhs int64, da
 //
 // The generic API has three different types, dataTypeA is data type of the matrix A, dataTypeW is data type of the array W and computeType is compute type of the operation. [Handle.XsyevBatched] only supports the following four combinations:
 // Valid combination of data type and compute type
-//   - DataTypeA: CUDA_R_32F; DataTypeW: CUDA_R_32F; ComputeType: CUDA_R_32F; Meaning: SSYEVBATCHED
-//   - DataTypeA: CUDA_R_64F; DataTypeW: CUDA_R_64F; ComputeType: CUDA_R_64F; Meaning: DSYEVBATCHED
-//   - DataTypeA: CUDA_C_32F; DataTypeW: CUDA_R_32F; ComputeType: CUDA_C_32F; Meaning: CSYEVBATCHED
-//   - DataTypeA: CUDA_C_64F; DataTypeW: CUDA_R_64F; ComputeType: CUDA_C_64F; Meaning: ZSYEVBATCHED
+//
+//	DataTypeA   DataTypeW   ComputeType  Meaning
+//	CUDA_R_32F  CUDA_R_32F  CUDA_R_32F   SSYEVBATCHED
+//	CUDA_R_64F  CUDA_R_64F  CUDA_R_64F   DSYEVBATCHED
+//	CUDA_C_32F  CUDA_R_32F  CUDA_C_32F   CSYEVBATCHED
+//	CUDA_C_64F  CUDA_R_64F  CUDA_C_64F   ZSYEVBATCHED
 //
 // Parameters:
 //   - handle: Handle to the cuSolverDN library context
@@ -13942,10 +13991,12 @@ func xsyevBatchedBufferSize(handle Handle, params Params, jobz EigMode, uplo Fil
 //
 // The generic API has three different types, dataTypeA is data type of the matrix A, dataTypeW is data type of the matrix W and computeType is compute type of the operation. [Handle.Xsyevd] only supports the following four combinations.
 // Valid combination of data type and compute type
-//   - DataTypeA: CUDA_R_32F; DataTypeW: CUDA_R_32F; ComputeType: CUDA_R_32F; Meaning: SSYEVD
-//   - DataTypeA: CUDA_R_64F; DataTypeW: CUDA_R_64F; ComputeType: CUDA_R_64F; Meaning: DSYEVD
-//   - DataTypeA: CUDA_C_32F; DataTypeW: CUDA_R_32F; ComputeType: CUDA_C_32F; Meaning: CHEEVD
-//   - DataTypeA: CUDA_C_64F; DataTypeW: CUDA_R_64F; ComputeType: CUDA_C_64F; Meaning: ZHEEVD
+//
+//	DataTypeA   DataTypeW   ComputeType  Meaning
+//	CUDA_R_32F  CUDA_R_32F  CUDA_R_32F   SSYEVD
+//	CUDA_R_64F  CUDA_R_64F  CUDA_R_64F   DSYEVD
+//	CUDA_C_32F  CUDA_R_32F  CUDA_C_32F   CHEEVD
+//	CUDA_C_64F  CUDA_R_64F  CUDA_C_64F   ZHEEVD
 //
 // Parameters:
 //   - handle: Handle to the cuSolverDN library context
@@ -14030,10 +14081,12 @@ var slotXsyevdBufferSize outSlot[struct {
 //
 // The generic API has three different types, dataTypeA is data type of the matrix A, dataTypeW is data type of the matrix W and computeType is compute type of the operation. [Handle.Xsyevdx] only supports the following four combinations:
 // Valid combination of data type and compute type
-//   - DataTypeA: CUDA_R_32F; DataTypeW: CUDA_R_32F; ComputeType: CUDA_R_32F; Meaning: SSYEVDX
-//   - DataTypeA: CUDA_R_64F; DataTypeW: CUDA_R_64F; ComputeType: CUDA_R_64F; Meaning: DSYEVDX
-//   - DataTypeA: CUDA_C_32F; DataTypeW: CUDA_R_32F; ComputeType: CUDA_C_32F; Meaning: CHEEVDX
-//   - DataTypeA: CUDA_C_64F; DataTypeW: CUDA_R_64F; ComputeType: CUDA_C_64F; Meaning: ZHEEVDX
+//
+//	DataTypeA   DataTypeW   ComputeType  Meaning
+//	CUDA_R_32F  CUDA_R_32F  CUDA_R_32F   SSYEVDX
+//	CUDA_R_64F  CUDA_R_64F  CUDA_R_64F   DSYEVDX
+//	CUDA_C_32F  CUDA_R_32F  CUDA_C_32F   CHEEVDX
+//	CUDA_C_64F  CUDA_R_64F  CUDA_C_64F   ZHEEVDX
 //
 // Parameters:
 //   - handle: Handle to the cuSolverDN library context
@@ -14064,7 +14117,7 @@ var slotXsyevdBufferSize outSlot[struct {
 //   - [ErrNotInitialized]: The library was not initialized.
 //
 // Wraps cusolverDnXsyevdx.
-func xsyevdx(handle Handle, params Params, jobz EigMode, range_ EigRange, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, vl uintptr, vu uintptr, il int64, iu int64, meig64 *int64, dataTypeW DataType, w driver.DevicePtr, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr) error {
+func xsyevdx(handle Handle, params Params, jobz EigMode, range_ EigRange, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, vl unsafe.Pointer, vu unsafe.Pointer, il int64, iu int64, meig64 *int64, dataTypeW DataType, w driver.DevicePtr, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnXsyevdx"); err != nil {
 		return err
 	}
@@ -14099,7 +14152,7 @@ func xsyevdx(handle Handle, params Params, jobz EigMode, range_ EigRange, uplo F
 //   - [ErrNotInitialized]: The library was not initialized.
 //
 // Wraps cusolverDnXsyevdxBufferSize, bound as cusolverDnXsyevdx_bufferSize.
-func xsyevdxBufferSize(handle Handle, params Params, jobz EigMode, range_ EigRange, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, vl uintptr, vu uintptr, il int64, iu int64, dataTypeW DataType, w driver.DevicePtr, computeType DataType) (hMeig int64, workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func xsyevdxBufferSize(handle Handle, params Params, jobz EigMode, range_ EigRange, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, vl unsafe.Pointer, vu unsafe.Pointer, il int64, iu int64, dataTypeW DataType, w driver.DevicePtr, computeType DataType) (hMeig int64, workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	if err := checkLibSym("cusolverDnXsyevdx_bufferSize"); err != nil {
 		return 0, 0, 0, err
 	}
@@ -14233,6 +14286,13 @@ func xsyevjSetTolerance(info SyevjInfo, tolerance float64) error {
 // The generic API has four different data types, dataTypeA is data type of the matrix A, dataTypeB is data type of the matrix B, dataTypeW is data type of the matrix W and computeType is compute type of the operation. [Handle.Xsygvd] only supports the following four combinations.
 // Valid combination of data type and compute type
 //
+//	DataTypeA   DataTypeB   DataTypeW   ComputeType  Meaning
+//	CUDA_R_32F  CUDA_R_32F  CUDA_R_32F  CUDA_R_32F   SSYGVD
+//	CUDA_R_64F  CUDA_R_64F  CUDA_R_64F  CUDA_R_64F   DSYGVD
+//	CUDA_C_32F  CUDA_C_32F  CUDA_R_32F  CUDA_C_32F   CHEGVD
+//	CUDA_C_64F  CUDA_C_64F  CUDA_R_64F  CUDA_C_64F   ZHEGVD
+//
+// Parameters:
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
 //   - itype: Specifies the problem type to be solved: itype =[EigType1]: A*x = (lambda)*B*x. itype =[EigType2]: A*B*x = (lambda)*x. itype =[EigType3]: B*A*x = (lambda)*x
@@ -14317,6 +14377,13 @@ var slotXsygvdBufferSize outSlot[struct {
 // The generic API has four different types, dataTypeA is data type of the matrix A, dataTypeB is data type of the matrix B, dataTypeW is data type of the matrix W and computeType is compute type of the operation. [Handle.Xsygvdx] only supports the following four combinations:
 // Valid combination of data type and compute type
 //
+//	DataTypeA   DataTypeB   DataTypeW   ComputeType  Meaning
+//	CUDA_R_32F  CUDA_R_32F  CUDA_R_32F  CUDA_R_32F   SSYGVDX
+//	CUDA_R_64F  CUDA_R_64F  CUDA_R_64F  CUDA_R_64F   DSYGVDX
+//	CUDA_C_32F  CUDA_C_32F  CUDA_R_32F  CUDA_C_32F   CHEGVDX
+//	CUDA_C_64F  CUDA_C_64F  CUDA_R_64F  CUDA_C_64F   ZHEGVDX
+//
+// Parameters:
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
 //   - itype: Specifies the problem type to be solved: itype =[EigType1]: A*x = (lambda)*B*x. itype =[EigType2]: A*B*x = (lambda)*x. itype =[EigType3]: B*A*x = (lambda)*x
@@ -14345,7 +14412,7 @@ var slotXsygvdBufferSize outSlot[struct {
 //   - [ErrNotInitialized]: The library was not initialized.
 //
 // Wraps cusolverDnXsygvdx.
-func xsygvdx(handle Handle, params Params, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int64, dataTypeA DataType, dA driver.DevicePtr, lda int64, dataTypeB DataType, dB driver.DevicePtr, ldb int64, vl uintptr, vu uintptr, il int64, iu int64, meig *int64, dataTypeW DataType, dW driver.DevicePtr, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, dInfo driver.DevicePtr) error {
+func xsygvdx(handle Handle, params Params, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int64, dataTypeA DataType, dA driver.DevicePtr, lda int64, dataTypeB DataType, dB driver.DevicePtr, ldb int64, vl unsafe.Pointer, vu unsafe.Pointer, il int64, iu int64, meig *int64, dataTypeW DataType, dW driver.DevicePtr, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnXsygvdx"); err != nil {
 		return err
 	}
@@ -14379,7 +14446,7 @@ func xsygvdx(handle Handle, params Params, itype EigType, jobz EigMode, range_ E
 //   - [ErrNotInitialized]: The library was not initialized.
 //
 // Wraps cusolverDnXsygvdxBufferSize, bound as cusolverDnXsygvdx_bufferSize.
-func xsygvdxBufferSize(handle Handle, params Params, itype EigType, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, dA driver.DevicePtr, lda int64, dataTypeB DataType, dB driver.DevicePtr, ldb int64, vl uintptr, vu uintptr, il int64, iu int64, dataTypeW DataType, dW driver.DevicePtr, computeType DataType) (meig int64, workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func xsygvdxBufferSize(handle Handle, params Params, itype EigType, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, dA driver.DevicePtr, lda int64, dataTypeB DataType, dB driver.DevicePtr, ldb int64, vl unsafe.Pointer, vu unsafe.Pointer, il int64, iu int64, dataTypeW DataType, dW driver.DevicePtr, computeType DataType) (meig int64, workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	if err := checkLibSym("cusolverDnXsygvdx_bufferSize"); err != nil {
 		return 0, 0, 0, err
 	}
@@ -14407,10 +14474,12 @@ var slotXsygvdxBufferSize outSlot[struct {
 // The user has to provide the pivot indices that can be obtained by cusolverDn<t>sytrf() as well as device and host work spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice and workspaceInBytesOnHost are sizes in bytes of the device and host work spaces, and they are returned by [Handle.XsytrsBufferSize]. To factorize and solve the symmetric system without pivoting, the user should set devIpiv = NULL when calling cusolverDn<t>sytrf and [Handle.Xsytrs].
 // The generic API has two different types: dataTypeA is data type of the matrix A, dataTypeB is data type of the matrix A. [Handle.Xsytrs] only supports the following four combinations:
 // Valid combination of data type and compute type
-//   - DataTypeA: CUDA_R_32F; DataTypeB: CUDA_R_32F; Meaning: SSYTRS
-//   - DataTypeA: CUDA_R_64F; DataTypeB: CUDA_R_64F; Meaning: DSYTRS
-//   - DataTypeA: CUDA_C_32F; DataTypeB: CUDA_C_32F; Meaning: CSYTRS
-//   - DataTypeA: CUDA_C_64F; DataTypeB: CUDA_C_64F; Meaning: ZSYTRS
+//
+//	DataTypeA   DataTypeB   Meaning
+//	CUDA_R_32F  CUDA_R_32F  SSYTRS
+//	CUDA_R_64F  CUDA_R_64F  DSYTRS
+//	CUDA_C_32F  CUDA_C_32F  CSYTRS
+//	CUDA_C_64F  CUDA_C_64F  ZSYTRS
 //
 // Parameters:
 //   - handle: Handle to the cuSolverDN library context
@@ -14638,11 +14707,11 @@ func zCgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
 //   - n: Number of columns of the matrix A. Should be non-negative and n<=m
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size m-by-n. Can’t be NULL. On return - unchanged if the lowest precision is not equal to the main precision and the iterative refinement solver converged, - garbage otherwise
+//   - dA: Matrix A with size m-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. ldda >= m
-//   - dB: Set of right hand sides B of size m-by-nrhs. Can’t be NULL
+//   - dB: Set of right hand sides B of size m-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -14747,12 +14816,12 @@ func zCgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
+//   - dA: Matrix A with size n-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
-//   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
+//   - dipiv: Pivoting sequence. Not used and can be NULL
+//   - dB: Set of right hand sides B of size n-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -14859,11 +14928,11 @@ func zEgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
 //   - n: Number of columns of the matrix A. Should be non-negative and n<=m
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size m-by-n. Can’t be NULL. On return - unchanged if the lowest precision is not equal to the main precision and the iterative refinement solver converged, - garbage otherwise
+//   - dA: Matrix A with size m-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. ldda >= m
-//   - dB: Set of right hand sides B of size m-by-nrhs. Can’t be NULL
+//   - dB: Set of right hand sides B of size m-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -14968,12 +15037,12 @@ func zEgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
+//   - dA: Matrix A with size n-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
-//   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
+//   - dipiv: Pivoting sequence. Not used and can be NULL
+//   - dB: Set of right hand sides B of size n-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -15080,11 +15149,11 @@ func zKgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
 //   - n: Number of columns of the matrix A. Should be non-negative and n<=m
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size m-by-n. Can’t be NULL. On return - unchanged if the lowest precision is not equal to the main precision and the iterative refinement solver converged, - garbage otherwise
+//   - dA: Matrix A with size m-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. ldda >= m
-//   - dB: Set of right hand sides B of size m-by-nrhs. Can’t be NULL
+//   - dB: Set of right hand sides B of size m-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -15189,12 +15258,12 @@ func zKgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
+//   - dA: Matrix A with size n-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
-//   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
+//   - dipiv: Pivoting sequence. Not used and can be NULL
+//   - dB: Set of right hand sides B of size n-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -15301,11 +15370,11 @@ func zYgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
 //   - n: Number of columns of the matrix A. Should be non-negative and n<=m
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size m-by-n. Can’t be NULL. On return - unchanged if the lowest precision is not equal to the main precision and the iterative refinement solver converged, - garbage otherwise
+//   - dA: Matrix A with size m-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. ldda >= m
-//   - dB: Set of right hand sides B of size m-by-nrhs. Can’t be NULL
+//   - dB: Set of right hand sides B of size m-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -15410,12 +15479,12 @@ func zYgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
+//   - dA: Matrix A with size n-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
-//   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
+//   - dipiv: Pivoting sequence. Not used and can be NULL
+//   - dB: Set of right hand sides B of size n-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -15522,11 +15591,11 @@ func zZgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
 //   - n: Number of columns of the matrix A. Should be non-negative and n<=m
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size m-by-n. Can’t be NULL. On return - unchanged if the lowest precision is not equal to the main precision and the iterative refinement solver converged, - garbage otherwise
+//   - dA: Matrix A with size m-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. ldda >= m
-//   - dB: Set of right hand sides B of size m-by-nrhs. Can’t be NULL
+//   - dB: Set of right hand sides B of size m-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - lworkBytes: Size of dWorkspace, in bytes
 //
@@ -15631,12 +15700,12 @@ func zZgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
 //   - nrhs: Number of right hand sides to solve. Should be non-negative
-//   - dA: Matrix A with size n-by-n. Can’t be NULL. On return - unchanged if the iterative refinement process converged. If not - will contains the factorization of the matrix A in the main precision ( A = P * L * U, where P - permutation matrix defined by vector ipiv, L and U - lower and upper triangular matrices)
+//   - dA: Matrix A with size n-by-n. Can be NULL
 //   - ldda: Leading dimension of two-dimensional array used to store matrix A. lda >= n
-//   - dipiv: Vector that defines permutation for the factorization - row i was interchanged with row ipiv[i]
-//   - dB: Set of right hand sides B of size n-by-nrhs. Can’t be NULL
+//   - dipiv: Pivoting sequence. Not used and can be NULL
+//   - dB: Set of right hand sides B of size n-by-nrhs. Can be NULL
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
-//   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
+//   - dX: Set of solution vectors X of size n-by-nrhs. Can be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - lworkBytes: Size of dWorkspace, in bytes
 //

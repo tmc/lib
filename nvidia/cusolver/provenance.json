@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "generator": "github.com/tmc/libgen/cmd/cusolver-survey",
+  "upstream_version": "unrecorded",
+  "version_source": "unrecorded",
+  "cwd": ".",
+  "argv": [
+    "cusolver-survey",
+    "-header",
+    "cusolverDn.h",
+    "-headers-dir",
+    "cuda-headers",
+    "-output",
+    "${OUTPUT_DIR}"
+  ],
+  "inputs": [
+    {
+      "path": "cusolverDn.h",
+      "sha256": "8d620eab0a3433baa9ee6309bec968633647a743c970bdc00a469eefab07f0e9"
+    },
+    {
+      "path": "cusolver_common.h",
+      "sha256": "42228fa7282c24c21f1844a9bcc43212f171b083afe10e8f232a24110b1c61b0"
+    }
+  ],
+  "source_hash": "37bc5695d9deb885c5b7edd0e2267e52ecdaa57cd41e8892c2c1e97345f9a0b4",
+  "limitations": [
+    "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
+    "argv records portable argument names; host-specific paths are intentionally redacted.",
+    "cwd is recorded as . to avoid embedding the generator host path."
+  ]
+}

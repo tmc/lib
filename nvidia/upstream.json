@@ -4413,10 +4413,11 @@
           "-output",
           "${OUTPUT_DIR}"
         ],
-        "comparison": "All 16 outputs regenerated into the committed package from the recorded recipe and pinned header. gen.CheckAPIRemoval dropped no exported declaration.",
+        "comparison": "All recorded outputs regenerated with the recorded recipe; package compile and API review recorded in the release receipt. GPU qualification is separate.",
         "cwd": "${CODEGEN_REPO}",
         "environment": {
-          "GOWORK": "off"
+          "GOWORK": "off",
+          "GOTOOLCHAIN": "go1.27.0"
         },
         "outputs": [
           {
@@ -4433,7 +4434,7 @@
           },
           {
             "path": "nvidia/cusolver/funcs.gen.go",
-            "sha256": "fcef19221816f095de7822548c6b871171b7ceb31ebbe517cd5ca83dbdc718cf"
+            "sha256": "5a4e2b7ddb69055ec514a331a8eb3520556bbda1383ecb5e496bf74e1eefda4e"
           },
           {
             "path": "nvidia/cusolver/gesvdj_info.gen.go",
@@ -4441,7 +4442,7 @@
           },
           {
             "path": "nvidia/cusolver/handle.gen.go",
-            "sha256": "85be6a9d567db1fca4ab7e4df92c3cb9814183173ac36d34a38769e94784dd19"
+            "sha256": "dc5d4916812b76b2f5af93be4f5d2bb428d1886b7539189e1b6993484bd59def"
           },
           {
             "path": "nvidia/cusolver/handles.gen.go",
@@ -4476,6 +4477,14 @@
             "sha256": "181b1a80f53d360b8b4866b75ef82b81e59527c587a226d9c6274ba432ae0b0d"
           },
           {
+            "path": "nvidia/cusolver/provenance.gen.go",
+            "sha256": "179986ba97b9609b846415bf1417652d3801a839729909eaecc7bef04da96373"
+          },
+          {
+            "path": "nvidia/cusolver/provenance.json",
+            "sha256": "1457859fd89299612a135bc3e0785da056df7c5d72ed1b8468396890e87451c9"
+          },
+          {
             "path": "nvidia/cusolver/result.gen.go",
             "sha256": "4d165685bcb54ecb8ccd83a85b43f3409c1585ae5b67232b468615f9bddfb972"
           },
@@ -4490,7 +4499,8 @@
         ],
         "toolchain": {
           "go": "go version go1.27.0 darwin/arm64"
-        }
+        },
+        "source_state": "clean tracked libgen sources at 3005ecfdb35134468c9a9d93532ee08f6c7c53cf"
       },
       "header": {
         "path": "cusolver/cusolverDn.h",
@@ -4501,9 +4511,9 @@
       "package": "github.com/tmc/lib/nvidia/cusolver",
       "repositories": {
         "codegen": {
-          "commit": "b3dc359c9db53dea61a497ef6f5c4a305f945132",
+          "commit": "3005ecfdb35134468c9a9d93532ee08f6c7c53cf",
           "note": "Unpublished at the time of recording; it is the commit this generation was taken from. The later commit a96f510 fixes the cublas and cublaslt surveys and does not affect this package. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen a8270fa regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c",
-          "tree": "f54815ecdd777ae664e200e000db35f1e948469d",
+          "tree": "c4c5a286244f546c9503a20d3b38bb8c46acbdb2",
           "url": "https://github.com/tmc/libgen.git"
         },
         "headers": {
