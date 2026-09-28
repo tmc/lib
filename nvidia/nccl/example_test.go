@@ -93,3 +93,62 @@ func Example_allReduce() {
 	}
 	fmt.Println("all-reduce =", values)
 }
+
+// ExampleParamBind reads an NCCL parameter by its environment variable name.
+// The key is a NUL-terminated C string.
+func ExampleParamBind() {
+	key := []byte("NCCL_IB_ROCE_VERSION_NUM\x00")
+	var p nccl.ParamHandle
+	if err := nccl.ParamBind(&p, &key[0]); err != nil {
+		fmt.Println("bind:", err)
+		return
+	}
+	v, err := p.I32()
+	if err != nil {
+		fmt.Println("get:", err)
+		return
+	}
+	fmt.Println("NCCL_IB_ROCE_VERSION_NUM =", v)
+}
+
+// ExampleWindow_PeerDevicePointer registers a symmetric window and prints,
+// for each rank, a device pointer this rank can load from and store to. A
+// zero pointer means the peer is not reachable by load/store.
+func ExampleWindow_PeerDevicePointer() {
+	var comm nccl.Comm // this rank's communicator, e.g. from CommInitRank
+
+	const size = 1 << 20
+	buf, err := nccl.MemAlloc(size)
+	if err != nil {
+		fmt.Println("alloc:", err)
+		return
+	}
+	defer nccl.MemFree(buf)
+
+	// WindowRegister is collective: every rank registers its own buffer.
+	const winCollSymmetric = 0x01 // NCCL_WIN_COLL_SYMMETRIC
+	win, err := comm.WindowRegister(buf, size, winCollSymmetric)
+	if err != nil {
+		fmt.Println("register:", err)
+		return
+	}
+	defer comm.WindowDeregister(win)
+
+	n, err := comm.Count()
+	if err != nil {
+		fmt.Println("count:", err)
+		return
+	}
+	for peer := range n {
+		p, err := win.PeerDevicePointer(0, peer)
+		if err != nil {
+			fmt.Println("peer pointer:", err)
+			return
+		}
+		if p == 0 {
+			fmt.Printf("rank %d: not load/store accessible\n", peer)
+			continue
+		}
+		fmt.Printf("rank %d: %#x\n", peer, p)
+	}
+}

@@ -101,3 +101,68 @@ func ExampleDeviceGetCount() {
 		fmt.Printf("CUDA %d: device %d: %s (sm_%d%d)\n", version, i, name, major, minor)
 	}
 }
+
+// ExampleThreadExchangeStreamCaptureMode relaxes the calling thread's stream
+// capture mode around a call that capture would otherwise prohibit, such as
+// MemAllocBytes, and restores the previous mode on return. The mode belongs
+// to the OS thread, so the goroutine stays locked to it throughout.
+func ExampleThreadExchangeStreamCaptureMode() {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	mode := driver.StreamCaptureModeRelaxed
+	if err := driver.ThreadExchangeStreamCaptureMode(&mode); err != nil {
+		fmt.Println("capture mode:", err)
+		return
+	}
+	// mode now holds the previous mode; exchanging again restores it.
+	defer driver.ThreadExchangeStreamCaptureMode(&mode)
+
+	p, err := driver.MemAllocBytes(1 << 20)
+	if err != nil {
+		fmt.Println("alloc:", err)
+		return
+	}
+	defer p.Free()
+}
+
+// ExampleFunction_LaunchKernel loads a module and launches
+//
+//	extern "C" __global__ void scale(float *x, float a, int n)
+//
+// over n elements. Each kernel parameter is a pointer to the argument's
+// value, in declaration order. It needs a current CUDA context.
+func ExampleFunction_LaunchKernel() {
+	var image []byte // PTX or cubin, e.g. compiled with the nvrtc package
+
+	mod, err := driver.ModuleLoadData(image)
+	if err != nil {
+		fmt.Println("load module:", err)
+		return
+	}
+	defer mod.Close()
+	scale, err := mod.Function("scale")
+	if err != nil {
+		fmt.Println("function:", err)
+		return
+	}
+
+	const n, block = 1 << 20, 256
+	x, err := driver.MemAllocBytes(n * 4)
+	if err != nil {
+		fmt.Println("alloc:", err)
+		return
+	}
+	defer x.Free()
+
+	a, count := float32(2), int32(n)
+	params := []unsafe.Pointer{unsafe.Pointer(&x), unsafe.Pointer(&a), unsafe.Pointer(&count)}
+	err = scale.LaunchKernel(driver.Dims((n+block-1)/block, 1, 1), driver.Dims(block, 1, 1), 0, 0, params)
+	if err != nil {
+		fmt.Println("launch:", err)
+		return
+	}
+	if err := driver.CtxSynchronize(); err != nil {
+		fmt.Println("synchronize:", err)
+	}
+}

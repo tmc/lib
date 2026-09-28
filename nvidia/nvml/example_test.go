@@ -57,3 +57,25 @@ func ExampleDevice_ComputeRunningProcesses() {
 		fmt.Println("processes:", len(procs))
 	}
 }
+
+// ExampleDevice_GpuFabricInfoV queries a device's NVLink fabric state. The
+// caller stamps Version with the layout it was compiled against.
+func ExampleDevice_GpuFabricInfoV() {
+	if err := nvml.Init(); err != nil {
+		fmt.Println("NVML unavailable:", err)
+		return
+	}
+	defer nvml.Shutdown()
+
+	dev, err := nvml.NewDeviceByIndex(0)
+	if err != nil {
+		fmt.Println("no device:", err)
+		return
+	}
+	info := nvml.GpuFabricInfoV{Version: nvml.GpuFabricInfoV3Version}
+	if err := dev.GpuFabricInfoV(&info); err != nil {
+		fmt.Println("fabric info:", err)
+		return
+	}
+	fmt.Println("fabric:", info.State, "clique:", info.CliqueId)
+}

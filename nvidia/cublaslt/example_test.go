@@ -2,6 +2,7 @@ package cublaslt_test
 
 import (
 	"fmt"
+	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cublaslt"
 	"github.com/tmc/lib/nvidia/driver"
@@ -46,4 +47,37 @@ func Example() {
 		return
 	}
 	fmt.Println("matmul enqueued")
+}
+
+// ExampleMatmulAlgoCapGetAttribute lists the tile shapes each single-precision
+// matmul algorithm supports.
+func ExampleMatmulAlgoCapGetAttribute() {
+	h, err := cublaslt.Create()
+	if err != nil {
+		fmt.Println("cuBLASLt unavailable:", err)
+		return
+	}
+	defer h.Close()
+
+	const f32 = cublaslt.R32F
+	ids := make([]int32, 16)
+	n, err := h.MatmulAlgoGetIds(cublaslt.Compute32F, f32, f32, f32, f32, f32, int32(len(ids)), &ids[0])
+	if err != nil {
+		fmt.Println("algo ids:", err)
+		return
+	}
+	for _, id := range ids[:n] {
+		var algo cublaslt.MatmulAlgo
+		if err := h.MatmulAlgoInit(cublaslt.Compute32F, f32, f32, f32, f32, f32, id, &algo); err != nil {
+			fmt.Println("algo init:", err)
+			return
+		}
+		var tiles [cublaslt.MatmulTileEnd]cublaslt.MatmulTile
+		written, err := cublaslt.MatmulAlgoCapGetAttribute(&algo, cublaslt.AlgoCapTileIds, unsafe.Pointer(&tiles), uint(unsafe.Sizeof(tiles)))
+		if err != nil {
+			fmt.Println("tile ids:", err)
+			return
+		}
+		fmt.Println("algo", id, tiles[:written/uint(unsafe.Sizeof(tiles[0]))])
+	}
 }
