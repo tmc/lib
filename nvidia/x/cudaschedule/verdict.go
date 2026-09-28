@@ -33,6 +33,9 @@ const (
 
 	// VerdictHarnessError indicates the test harness failed before or during execution.
 	VerdictHarnessError
+
+	// VerdictEmptyDraw indicates the seed selected no perturbation and no run occurred.
+	VerdictEmptyDraw
 )
 
 // String returns the canonical name of the verdict.
@@ -54,13 +57,15 @@ func (v Verdict) String() string {
 		return "GpuWedged"
 	case VerdictHarnessError:
 		return "HarnessError"
+	case VerdictEmptyDraw:
+		return "EmptyDraw"
 	default:
 		return fmt.Sprintf("Verdict(%d)", int(v))
 	}
 }
 
 // IsFinding reports whether the verdict represents a schedule finding.
-// Exactly five of the eight verdicts are findings. Pass, Skipped, and HarnessError are not.
+// Exactly five verdicts are findings. Pass, Skipped, HarnessError, and EmptyDraw are not.
 func (v Verdict) IsFinding() bool {
 	return v.FindingLabel() != ""
 }

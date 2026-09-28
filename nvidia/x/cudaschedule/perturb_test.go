@@ -221,6 +221,9 @@ func TestPerturb_FocusMatching(t *testing.T) {
 }
 
 func TestPerturb_TouchRatesAndSleepBounds(t *testing.T) {
+	if cudaschedule.DefaultMaxSleepNs != 64000 {
+		t.Fatalf("DefaultMaxSleepNs = %d, want 64000", cudaschedule.DefaultMaxSleepNs)
+	}
 	const twoSites = `.version 8.7
 .target sm_90
 .address_size 64
@@ -279,8 +282,8 @@ func TestPerturb_TouchRatesAndSleepBounds(t *testing.T) {
 		}
 		for _, d := range r.Report.Decisions {
 			for _, ns := range []uint32{d.BeforeNs, d.AfterNs} {
-				if ns > cudaschedule.DefaultMaxSleepNs {
-					t.Fatalf("default sleep %d exceeds %d", ns, cudaschedule.DefaultMaxSleepNs)
+				if ns > 64000 {
+					t.Fatalf("default sleep %d exceeds 64000", ns)
 				}
 				if ns > 2000 {
 					sawLargeDefault = true

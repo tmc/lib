@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -91,7 +92,7 @@ func TestCampaign_PluggableRunnerSweep(t *testing.T) {
 	ctx := context.Background()
 
 	// Seed 2 causes Mismatch; others Pass
-	runner := func(ctx context.Context, seed uint64, ptx string) (cudaschedule.RunRecord, error) {
+	runner := func(ctx context.Context, seed uint64, _ bool, ptx string) (cudaschedule.RunRecord, error) {
 		if strings.Contains(ptx, "nanosleep.u32") && strings.Contains(ptx, "seed=2") {
 			return cudaschedule.RunRecord{
 				Exited:   true,
@@ -152,7 +153,7 @@ func TestCampaign_DefaultRunnerUsesVariant(t *testing.T) {
 		PTXSource: CAMPAIGN_PTX,
 		SeedStart: 1, SeedEnd: 4, Intensity: 2, ConfirmRuns: 1,
 		DeviceProbe: func() bool { return true },
-		BuildVariant: func(_ context.Context, _ uint64, ptxPath string) (string, []string, error) {
+		BuildVariant: func(_ context.Context, _ uint64, _ bool, ptxPath string) (string, []string, error) {
 			builds++
 			return "/bin/sh", []string{"-c", `cksum "$1"`, "variant-hash"}, nil
 		},
@@ -171,6 +172,114 @@ func TestCampaign_DefaultRunnerUsesVariant(t *testing.T) {
 	}
 }
 
+func TestCampaign_BuildTimeIsOutsideRunTimeout(t *testing.T) {
+	var variantBuilds int
+	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
+		PTXSource: CAMPAIGN_PTX, SeedStart: 20, SeedEnd: 21, Intensity: 2,
+		ConfirmRuns: 1, Timeout: 300 * time.Millisecond, BuildTimeout: time.Second,
+		DeviceProbe: func() bool { return true },
+		Executable:  "/bin/sh",
+		Args:        []string{"-c", "echo PASS"},
+		BuildVariant: func(_ context.Context, _ uint64, pristine bool, _ string) (string, []string, error) {
+			if !pristine {
+				variantBuilds++
+				time.Sleep(400 * time.Millisecond)
+			}
+			return "/bin/sh", []string{"-c", "echo PASS"}, nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if variantBuilds != 1 || report.BaselineVerdict != cudaschedule.VerdictPass || len(report.Seeds) != 1 || report.Seeds[0].Verdict != cudaschedule.VerdictPass {
+		t.Fatalf("slow build was included in run timeout: builds=%d report=%+v", variantBuilds, report)
+	}
+}
+
+func TestCampaign_BuildFailureIsHarnessErrorAndSweepContinues(t *testing.T) {
+	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
+		PTXSource: CAMPAIGN_PTX, SeedStart: 30, SeedEnd: 32, Intensity: 2,
+		ConfirmRuns: 1, Timeout: time.Second, DeviceProbe: func() bool { return true },
+		BuildVariant: func(_ context.Context, seed uint64, pristine bool, _ string) (string, []string, error) {
+			if !pristine && seed == 30 {
+				return "", nil, fmt.Errorf("compiler rejected variant")
+			}
+			return "/bin/sh", []string{"-c", "echo PASS"}, nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Seeds) != 2 || report.Seeds[0].Status != cudaschedule.SeedHarnessError || report.Seeds[0].Verdict != cudaschedule.VerdictHarnessError || report.Seeds[0].Verdict.IsFinding() {
+		t.Fatalf("build failure seed = %+v", report.Seeds)
+	}
+	if report.Seeds[1].Verdict != cudaschedule.VerdictPass || report.FindingCount() != 0 {
+		t.Fatalf("sweep did not continue after build error: %+v", report.Seeds)
+	}
+	if report.SeedsDrawn != 2 || report.HarnessErrors != 1 || report.VariantsExecuted != 1 || report.EmptyDraws != 0 {
+		t.Fatalf("seed partition counters = %+v", report)
+	}
+}
+
+func TestCampaign_BuildWithoutRunnableArtifactIsHarnessError(t *testing.T) {
+	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
+		PTXSource: CAMPAIGN_PTX, SeedStart: 40, SeedEnd: 41, Intensity: 2,
+		ConfirmRuns: 1, Timeout: time.Second, DeviceProbe: func() bool { return true },
+		BuildVariant: func(_ context.Context, _ uint64, pristine bool, _ string) (string, []string, error) {
+			if pristine {
+				return "/bin/sh", []string{"-c", "echo PASS"}, nil
+			}
+			return "/path/that/does/not/exist/cudaschedule-runner", nil, nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Seeds) != 1 || report.Seeds[0].Status != cudaschedule.SeedHarnessError || report.Seeds[0].Verdict != cudaschedule.VerdictHarnessError || report.VariantsExecuted != 0 {
+		t.Fatalf("missing runnable artifact was counted as execution: %+v", report)
+	}
+}
+
+func TestCampaign_BuildHookSeesPristineAndDistinctImages(t *testing.T) {
+	type build struct {
+		seed     uint64
+		pristine bool
+		path     string
+		ptx      string
+	}
+	var builds []build
+	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
+		PTXSource: CAMPAIGN_PTX, SeedStart: 50, SeedEnd: 51, Intensity: 2,
+		ConfirmRuns: 1, Timeout: 30 * time.Millisecond, DeviceProbe: func() bool { return true },
+		BuildVariant: func(_ context.Context, seed uint64, pristine bool, path string) (string, []string, error) {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return "", nil, err
+			}
+			builds = append(builds, build{seed: seed, pristine: pristine, path: path, ptx: string(data)})
+			return "/bin/sh", []string{"-c", `grep -q nanosleep "$1" && exec sleep 1 || echo PASS`, "image-check"}, nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(builds) != 3 || len(report.Seeds) != 1 || report.Seeds[0].Run == nil || report.Seeds[0].Run.Pristine == nil {
+		t.Fatalf("build/run records = %+v / %+v", builds, report.Seeds)
+	}
+	if !builds[0].pristine || builds[0].ptx != CAMPAIGN_PTX {
+		t.Fatalf("baseline build was not marked pristine: %+v", builds[0])
+	}
+	if builds[1].pristine || !strings.Contains(builds[1].ptx, "nanosleep.u32") {
+		t.Fatalf("variant build flag/content disagree: %+v", builds[1])
+	}
+	if !builds[2].pristine || builds[2].ptx != CAMPAIGN_PTX {
+		t.Fatalf("health build was not marked pristine: %+v", builds[2])
+	}
+	if builds[0].path == builds[1].path || builds[1].path == builds[2].path {
+		t.Fatalf("pristine and variant paths collide: %+v", builds)
+	}
+}
+
 func TestCampaign_RunnerReceivesSeed(t *testing.T) {
 	type call struct {
 		seed uint64
@@ -178,7 +287,7 @@ func TestCampaign_RunnerReceivesSeed(t *testing.T) {
 	}
 	var calls []call
 	firstVariant := true
-	runner := func(_ context.Context, seed uint64, ptx string) (cudaschedule.RunRecord, error) {
+	runner := func(_ context.Context, seed uint64, _ bool, ptx string) (cudaschedule.RunRecord, error) {
 		calls = append(calls, call{seed, ptx})
 		if ptx != CAMPAIGN_PTX && seed == 5 && firstVariant {
 			firstVariant = false
@@ -234,7 +343,7 @@ func TestCampaign_BrokenBaselineRunsNoVariants(t *testing.T) {
 	var variantRuns int
 	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
 		PTXSource: CAMPAIGN_PTX, SeedStart: 1, SeedEnd: 4, Intensity: 2, ConfirmRuns: 1,
-		RunVariant: func(_ context.Context, _ uint64, _ string) (cudaschedule.RunRecord, error) {
+		RunVariant: func(_ context.Context, _ uint64, _ bool, _ string) (cudaschedule.RunRecord, error) {
 			variantRuns++
 			return cudaschedule.RunRecord{Exited: true, Stdout: "MISMATCH"}, nil
 		},
@@ -250,7 +359,7 @@ func TestCampaign_BrokenBaselineRunsNoVariants(t *testing.T) {
 func TestCampaign_BrokenBaselinePrecedesAnalysis(t *testing.T) {
 	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
 		PTXSource: "not valid PTX", SeedStart: 1, SeedEnd: 2, ConfirmRuns: 1,
-		RunVariant: func(_ context.Context, _ uint64, _ string) (cudaschedule.RunRecord, error) {
+		RunVariant: func(_ context.Context, _ uint64, _ bool, _ string) (cudaschedule.RunRecord, error) {
 			return cudaschedule.RunRecord{Exited: true, Stdout: "MISMATCH"}, nil
 		},
 	})
@@ -265,7 +374,7 @@ func TestCampaign_BrokenBaselinePrecedesAnalysis(t *testing.T) {
 func TestCampaign_SkippedBaselineIsDeclined(t *testing.T) {
 	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
 		PTXSource: CAMPAIGN_PTX, SeedStart: 1, SeedEnd: 2, ConfirmRuns: 1,
-		RunVariant: func(_ context.Context, _ uint64, _ string) (cudaschedule.RunRecord, error) {
+		RunVariant: func(_ context.Context, _ uint64, _ bool, _ string) (cudaschedule.RunRecord, error) {
 			return cudaschedule.RunRecord{Exited: true, Stdout: "skipping: unsupported target"}, nil
 		},
 	})
@@ -299,7 +408,7 @@ func TestCampaign_EmptyDrawNotAFinding(t *testing.T) {
 	var variantRuns int
 	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
 		PTXSource: oneSite, SeedStart: seed, SeedEnd: seed + 1, Intensity: 0.5, ConfirmRuns: 1,
-		RunVariant: func(_ context.Context, _ uint64, _ string) (cudaschedule.RunRecord, error) {
+		RunVariant: func(_ context.Context, _ uint64, _ bool, _ string) (cudaschedule.RunRecord, error) {
 			variantRuns++
 			return cudaschedule.RunRecord{Exited: true}, nil
 		},
@@ -307,11 +416,14 @@ func TestCampaign_EmptyDrawNotAFinding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(report.Seeds) != 1 || report.Seeds[0].Report.SitesInjected != 0 || report.Seeds[0].Verdict.IsFinding() || variantRuns != 1 {
+	if len(report.Seeds) != 1 || report.Seeds[0].Report.SitesInjected != 0 || report.Seeds[0].Verdict != cudaschedule.VerdictEmptyDraw || variantRuns != 1 {
 		t.Fatalf("empty draw result=%+v variant calls=%d, want recorded non-finding and baseline only", report.Seeds, variantRuns)
 	}
-	if report.Seeds[0].Report.SitesInjected != 0 || report.Seeds[0].Run.Exited {
+	if report.Seeds[0].Run != nil || report.Seeds[0].Status != cudaschedule.SeedEmptyDraw {
 		t.Fatalf("empty draw unexpectedly ran: %+v", report.Seeds[0])
+	}
+	if report.SeedsDrawn != 1 || report.EmptyDraws != 1 || report.VariantsExecuted != 0 || report.HarnessErrors != 0 {
+		t.Fatalf("empty draw counters = %+v", report)
 	}
 }
 
@@ -319,7 +431,7 @@ func TestCampaign_OneOffReported(t *testing.T) {
 	variantRuns := 0
 	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
 		PTXSource: CAMPAIGN_PTX, SeedStart: 2, SeedEnd: 3, Intensity: 2, ConfirmRuns: 5,
-		RunVariant: func(_ context.Context, _ uint64, ptx string) (cudaschedule.RunRecord, error) {
+		RunVariant: func(_ context.Context, _ uint64, _ bool, ptx string) (cudaschedule.RunRecord, error) {
 			if ptx == CAMPAIGN_PTX {
 				return cudaschedule.RunRecord{Exited: true, Stdout: "PASS"}, nil
 			}
@@ -342,7 +454,7 @@ func TestCampaign_OneOffReported(t *testing.T) {
 func TestCampaign_HarnessErrorNotFinding(t *testing.T) {
 	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
 		PTXSource: CAMPAIGN_PTX, SeedStart: 3, SeedEnd: 6, Intensity: 2, ConfirmRuns: 1,
-		RunVariant: func(_ context.Context, seed uint64, ptx string) (cudaschedule.RunRecord, error) {
+		RunVariant: func(_ context.Context, seed uint64, _ bool, ptx string) (cudaschedule.RunRecord, error) {
 			if ptx == CAMPAIGN_PTX {
 				return cudaschedule.RunRecord{Exited: true, Stdout: "PASS"}, nil
 			}
@@ -365,7 +477,7 @@ func TestCampaign_WedgeAndKeepGoing(t *testing.T) {
 		report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
 			PTXSource: CAMPAIGN_PTX, SeedStart: 0, SeedEnd: 3, Intensity: 2,
 			ConfirmRuns: 1, KeepGoing: keepGoing,
-			RunVariant: func(_ context.Context, seed uint64, ptx string) (cudaschedule.RunRecord, error) {
+			RunVariant: func(_ context.Context, seed uint64, _ bool, ptx string) (cudaschedule.RunRecord, error) {
 				if ptx == CAMPAIGN_PTX {
 					if seed == 0 {
 						return cudaschedule.RunRecord{Exited: true, Stdout: "PASS"}, nil
@@ -397,7 +509,7 @@ func TestCampaign_CancellationHasNoSeedVerdict(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	report, err := cudaschedule.RunCampaign(ctx, cudaschedule.CampaignOptions{
 		PTXSource: CAMPAIGN_PTX, SeedStart: 2, SeedEnd: 3, Intensity: 2, ConfirmRuns: 1,
-		RunVariant: func(_ context.Context, _ uint64, ptx string) (cudaschedule.RunRecord, error) {
+		RunVariant: func(_ context.Context, _ uint64, _ bool, ptx string) (cudaschedule.RunRecord, error) {
 			if ptx == CAMPAIGN_PTX {
 				return cudaschedule.RunRecord{Exited: true, Stdout: "PASS"}, nil
 			}
@@ -418,7 +530,7 @@ func TestCampaign_DeadlineHasNoSeedVerdict(t *testing.T) {
 	defer cancel()
 	report, err := cudaschedule.RunCampaign(ctx, cudaschedule.CampaignOptions{
 		PTXSource: CAMPAIGN_PTX, SeedStart: 4, SeedEnd: 5, Intensity: 2, ConfirmRuns: 1,
-		RunVariant: func(ctx context.Context, _ uint64, ptx string) (cudaschedule.RunRecord, error) {
+		RunVariant: func(ctx context.Context, _ uint64, _ bool, ptx string) (cudaschedule.RunRecord, error) {
 			if ptx == CAMPAIGN_PTX {
 				return cudaschedule.RunRecord{Exited: true, Stdout: "PASS"}, nil
 			}
@@ -453,26 +565,41 @@ func TestCampaign_ParentDeadlineIsNotWatchdog(t *testing.T) {
 
 func TestCampaign_WaitDelayClosesInheritedPipe(t *testing.T) {
 	start := time.Now()
-	var pidFile string
-	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
-		PTXSource: CAMPAIGN_PTX,
-		SeedStart: 9, SeedEnd: 10, Intensity: 2, ConfirmRuns: 1, Timeout: 100 * time.Millisecond,
-		DeviceProbe: func() bool { return true },
-		BuildVariant: func(_ context.Context, _ uint64, ptxPath string) (string, []string, error) {
-			pidFile = ptxPath + ".childpid"
-			return "/bin/sh", []string{"-c", `grep -q nanosleep "$2" && { sleep 2 & echo $! > "$1"; wait; } || echo PASS`, "wait-delay", pidFile}, nil
-		},
-	})
-	elapsed := time.Since(start)
-	if pidFile != "" && elapsed < time.Second {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmp := filepath.Join(home, "tmp")
+	if err := os.MkdirAll(tmp, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	pid, err := os.CreateTemp(tmp, "cudaschedule-child-*.pid")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pidFile := pid.Name()
+	if err := pid.Close(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
 		if data, readErr := os.ReadFile(pidFile); readErr == nil {
-			if pid, parseErr := strconv.Atoi(strings.TrimSpace(string(data))); parseErr == nil {
-				if child, findErr := os.FindProcess(pid); findErr == nil {
+			if childPID, parseErr := strconv.Atoi(strings.TrimSpace(string(data))); parseErr == nil {
+				if child, findErr := os.FindProcess(childPID); findErr == nil {
 					_ = child.Kill()
 				}
 			}
 		}
-	}
+		_ = os.Remove(pidFile)
+	})
+	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
+		PTXSource: CAMPAIGN_PTX,
+		SeedStart: 9, SeedEnd: 10, Intensity: 2, ConfirmRuns: 1, Timeout: 100 * time.Millisecond,
+		DeviceProbe: func() bool { return true },
+		BuildVariant: func(_ context.Context, _ uint64, _ bool, _ string) (string, []string, error) {
+			return "/bin/sh", []string{"-c", `grep -q nanosleep "$2" && { sleep 30 & echo $! > "$1"; wait; } || echo PASS`, "wait-delay", pidFile}, nil
+		},
+	})
+	elapsed := time.Since(start)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -484,5 +611,8 @@ func TestCampaign_WaitDelayClosesInheritedPipe(t *testing.T) {
 	}
 	if elapsed > 900*time.Millisecond {
 		t.Fatalf("watchdog plus WaitDelay took %s", elapsed)
+	}
+	if data, err := os.ReadFile(pidFile); err != nil || len(strings.TrimSpace(string(data))) == 0 {
+		t.Fatalf("grandchild pid file outside campaign directory is missing: %q, %v", data, err)
 	}
 }

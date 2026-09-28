@@ -26,11 +26,21 @@ type ConfirmationSummary struct {
 // SeedResult records the outcome of a single seed in a campaign.
 type SeedResult struct {
 	Seed         uint64               `json:"seed"`
+	Status       SeedStatus           `json:"status"`
 	Verdict      Verdict              `json:"verdict"`
-	Run          RunRecord            `json:"run"`
+	Run          *RunRecord           `json:"run,omitempty"`
 	Report       RewriteReport        `json:"report"`
 	Confirmation *ConfirmationSummary `json:"confirmation,omitempty"`
 }
+
+// SeedStatus distinguishes a drawn seed from an executed variant.
+type SeedStatus string
+
+const (
+	SeedExecuted     SeedStatus = "executed"
+	SeedEmptyDraw    SeedStatus = "empty_draw"
+	SeedHarnessError SeedStatus = "harness_error"
+)
 
 // CampaignOptions configures a perturbation sweep over a seed range.
 type CampaignOptions struct {
@@ -78,27 +88,36 @@ type CampaignOptions struct {
 	DeviceProbe func() bool
 
 	// BuildVariant prepares a runnable artifact from a seed-specific PTX file.
-	// It returns the executable and arguments used for that run. The campaign
-	// appends ptxPath as the executable's final argument.
-	BuildVariant func(ctx context.Context, seed uint64, ptxPath string) (string, []string, error)
+	// It receives an explicit pristine flag and returns the executable and
+	// arguments used for that run. The campaign appends ptxPath as the final
+	// argument. Builds have their own BuildTimeout, separate from Timeout.
+	BuildVariant func(ctx context.Context, seed uint64, pristine bool, ptxPath string) (string, []string, error)
 
 	// RunVariant is an optional runner hook for testing or external perturbation layers.
-	RunVariant func(ctx context.Context, seed uint64, ptx string) (RunRecord, error)
+	RunVariant func(ctx context.Context, seed uint64, pristine bool, ptx string) (RunRecord, error)
+
+	// BuildTimeout bounds artifact preparation separately from executable runtime.
+	// The default is five minutes.
+	BuildTimeout time.Duration
 }
 
 // CampaignReport summarizes the results of a schedule perturbation campaign.
 type CampaignReport struct {
-	SeedStart       uint64       `json:"seed_start"`
-	SeedEnd         uint64       `json:"seed_end"`
-	Intensity       float64      `json:"intensity"`
-	MaxSleepNs      uint32       `json:"max_sleep_ns"`
-	Focus           string       `json:"focus,omitempty"`
-	ConfirmRuns     int          `json:"confirm_runs"`
-	SitesTotal      int          `json:"sites_total"`
-	Baseline        RunRecord    `json:"baseline"`
-	BaselineVerdict Verdict      `json:"baseline_verdict"`
-	BaselineStatus  string       `json:"baseline_status"`
-	Seeds           []SeedResult `json:"seeds"`
+	SeedStart        uint64       `json:"seed_start"`
+	SeedEnd          uint64       `json:"seed_end"`
+	Intensity        float64      `json:"intensity"`
+	MaxSleepNs       uint32       `json:"max_sleep_ns"`
+	Focus            string       `json:"focus,omitempty"`
+	ConfirmRuns      int          `json:"confirm_runs"`
+	SitesTotal       int          `json:"sites_total"`
+	SeedsDrawn       int          `json:"seeds_drawn"`
+	VariantsExecuted int          `json:"variants_executed"`
+	EmptyDraws       int          `json:"empty_draws"`
+	HarnessErrors    int          `json:"harness_errors"`
+	Baseline         RunRecord    `json:"baseline"`
+	BaselineVerdict  Verdict      `json:"baseline_verdict"`
+	BaselineStatus   string       `json:"baseline_status"`
+	Seeds            []SeedResult `json:"seeds"`
 }
 
 // FindingCount returns the total number of seeds that produced a schedule finding.
@@ -192,10 +211,11 @@ func RunCampaign(ctx context.Context, opts CampaignOptions) (*CampaignReport, er
 		}
 		rewrite, err := Perturb(opts.PTXSource, perturbOpts)
 		if err != nil {
-			report.Seeds = append(report.Seeds, SeedResult{
+			recordSeed(report, SeedResult{
 				Seed:    seed,
+				Status:  SeedHarnessError,
 				Verdict: VerdictHarnessError,
-				Run:     RunRecord{HarnessErr: err.Error()},
+				Run:     &RunRecord{HarnessErr: err.Error()},
 				Report: RewriteReport{
 					Seed:      seed,
 					Intensity: opts.Intensity,
@@ -204,8 +224,8 @@ func RunCampaign(ctx context.Context, opts CampaignOptions) (*CampaignReport, er
 			continue
 		}
 		if rewrite.Report.SitesInjected == 0 {
-			report.Seeds = append(report.Seeds, SeedResult{
-				Seed: seed, Verdict: VerdictPass, Report: rewrite.Report,
+			recordSeed(report, SeedResult{
+				Seed: seed, Status: SeedEmptyDraw, Verdict: VerdictEmptyDraw, Report: rewrite.Report,
 			})
 			continue
 		}
@@ -232,8 +252,13 @@ func RunCampaign(ctx context.Context, opts CampaignOptions) (*CampaignReport, er
 		seedRes := SeedResult{
 			Seed:    seed,
 			Verdict: verdict,
-			Run:     runRec,
+			Run:     &runRec,
 			Report:  rewrite.Report,
+		}
+		if verdict == VerdictHarnessError {
+			seedRes.Status = SeedHarnessError
+		} else {
+			seedRes.Status = SeedExecuted
 		}
 
 		if verdict.IsFinding() {
@@ -269,7 +294,7 @@ func RunCampaign(ctx context.Context, opts CampaignOptions) (*CampaignReport, er
 			}
 		}
 
-		report.Seeds = append(report.Seeds, seedRes)
+		recordSeed(report, seedRes)
 
 		if verdict == VerdictGpuWedged && !opts.KeepGoing {
 			break
@@ -279,11 +304,24 @@ func RunCampaign(ctx context.Context, opts CampaignOptions) (*CampaignReport, er
 	return report, nil
 }
 
+func recordSeed(report *CampaignReport, seed SeedResult) {
+	report.SeedsDrawn++
+	switch seed.Status {
+	case SeedEmptyDraw:
+		report.EmptyDraws++
+	case SeedHarnessError:
+		report.HarnessErrors++
+	default:
+		report.VariantsExecuted++
+	}
+	report.Seeds = append(report.Seeds, seed)
+}
+
 func executeRun(ctx context.Context, opts CampaignOptions, seed uint64, ptx string, pristine bool, timeout time.Duration, variantRoot string) (RunRecord, error) {
 	if opts.RunVariant != nil {
 		runCtx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
-		rec, err := opts.RunVariant(runCtx, seed, ptx)
+		rec, err := opts.RunVariant(runCtx, seed, pristine, ptx)
 		if ctx.Err() != nil {
 			return RunRecord{}, ctx.Err()
 		}
@@ -300,7 +338,11 @@ func executeRun(ctx context.Context, opts CampaignOptions, seed uint64, ptx stri
 	if variantRoot == "" {
 		return RunRecord{HarnessErr: "no variant directory specified", PristineRun: pristine}, nil
 	}
-	variantPath := filepath.Join(variantRoot, fmt.Sprintf("seed-%d", seed), "module.ptx")
+	role := "variant"
+	if pristine {
+		role = "pristine"
+	}
+	variantPath := filepath.Join(variantRoot, role, fmt.Sprintf("seed-%d", seed), "module.ptx")
 	if err := os.MkdirAll(filepath.Dir(variantPath), 0o755); err != nil {
 		return RunRecord{HarnessErr: err.Error(), PristineRun: pristine}, nil
 	}
@@ -308,15 +350,21 @@ func executeRun(ctx context.Context, opts CampaignOptions, seed uint64, ptx stri
 		return RunRecord{HarnessErr: err.Error(), PristineRun: pristine}, nil
 	}
 
-	runCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
 	executable, args := opts.Executable, opts.Args
 	if opts.BuildVariant != nil {
+		buildTimeout := opts.BuildTimeout
+		if buildTimeout <= 0 {
+			buildTimeout = 5 * time.Minute
+		}
+		buildCtx, buildCancel := context.WithTimeout(ctx, buildTimeout)
 		var err error
-		executable, args, err = opts.BuildVariant(runCtx, seed, variantPath)
+		executable, args, err = opts.BuildVariant(buildCtx, seed, pristine, variantPath)
+		buildCancel()
 		if ctx.Err() != nil {
 			return RunRecord{}, ctx.Err()
+		}
+		if errors.Is(buildCtx.Err(), context.DeadlineExceeded) {
+			return RunRecord{HarnessErr: "build timeout", PristineRun: pristine}, nil
 		}
 		if err != nil {
 			return RunRecord{HarnessErr: err.Error(), PristineRun: pristine}, nil
@@ -325,6 +373,9 @@ func executeRun(ctx context.Context, opts CampaignOptions, seed uint64, ptx stri
 	if executable == "" {
 		return RunRecord{HarnessErr: "no executable specified", PristineRun: pristine}, nil
 	}
+
+	runCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	cmd := exec.CommandContext(runCtx, executable, args...)
 	cmd.Args = append(cmd.Args, variantPath)
 	cmd.WaitDelay = 250 * time.Millisecond

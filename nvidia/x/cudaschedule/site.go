@@ -95,11 +95,22 @@ type Site struct {
 // Control-flow recovery is fail-closed: malformed branches are reported instead of
 // being silently treated as non-loops.
 func Analyze(src string) ([]Site, error) {
+	if !strings.Contains(src, ".version") || !strings.Contains(src, ".target") {
+		return nil, fmt.Errorf("cudaschedule: PTX requires .version and .target directives")
+	}
 	mod, err := cudaptx.ParseString(src)
 	if err != nil {
 		return nil, fmt.Errorf("cudaschedule: parse ptx: %w", err)
 	}
 
+	if len(mod.Kernels) == 0 {
+		return nil, fmt.Errorf("cudaschedule: PTX has no callable body")
+	}
+	for _, k := range mod.Kernels {
+		if k.Body && k.EndLine == 0 {
+			return nil, fmt.Errorf("cudaschedule: callable %q has unterminated body", k.Name)
+		}
+	}
 	lines := splitLines(src)
 	lineOffsets := make([]int, len(lines)+1)
 	curr := 0
@@ -226,8 +237,7 @@ func classifyInstruction(opcode, mnemonic string, line int) (SiteKind, bool, err
 	for _, prefix := range []string{
 		"bar.sync",
 		"bar.arrive",
-		"bar.cta.sync",
-		"bar.cta.arrive",
+		"bar.cta.",
 		"bar.red",
 		"bar.warp",
 		"barrier.",
@@ -486,13 +496,15 @@ func findBranchTables(src string, startOffset, endOffset int) (map[string][]stri
 		if semi < 0 {
 			return nil, fmt.Errorf("malformed .branchtargets: missing terminating semicolon")
 		}
-		clause := sub[actualPos+len(kw) : actualPos+semi]
-		fields := strings.Fields(clause)
-		if len(fields) < 2 {
+		clause := strings.TrimSpace(sub[actualPos+len(kw) : actualPos+semi])
+		// PTX writes a table as `name: .branchtargets L1, L2;`.
+		lineStart := strings.LastIndex(sub[:actualPos], "\n") + 1
+		prefix := strings.TrimSpace(sub[lineStart:actualPos])
+		if !strings.HasSuffix(prefix, ":") {
 			return nil, fmt.Errorf("malformed .branchtargets declaration")
 		}
-		tableName := strings.TrimSuffix(fields[0], ",")
-		targetStr := strings.Join(fields[1:], " ")
+		tableName := strings.TrimSuffix(strings.TrimSpace(prefix), ":")
+		targetStr := clause
 		var targets []string
 		for _, t := range strings.Split(targetStr, ",") {
 			t = strings.TrimSpace(t)

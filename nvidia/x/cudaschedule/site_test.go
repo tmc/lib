@@ -1,11 +1,36 @@
 package cudaschedule_test
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudaschedule"
 )
+
+func TestNativeScheduleFixtureAnalyzes(t *testing.T) {
+	ptx, err := os.ReadFile(filepath.Join("testdata", "schedule_hang.ptx"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sites, err := cudaschedule.Analyze(string(ptx))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sites) != 1 || sites[0].Kind != cudaschedule.SiteBackedge {
+		t.Fatalf("native schedule fixture sites = %+v, want one backedge", sites)
+	}
+	for seed := uint64(17); seed < 21; seed++ {
+		rewrite, err := cudaschedule.Perturb(string(ptx), cudaschedule.Options{Seed: seed, Intensity: 2})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if rewrite.Report.SitesInjected != 1 || !strings.Contains(rewrite.PTX, "nanosleep.u32") {
+			t.Fatalf("native fixture seed %d was not perturbed: %+v", seed, rewrite.Report)
+		}
+	}
+}
 
 // ALL_TEN_KINDS_PTX contains at least one instruction for each of the 10 site kinds in source order.
 const ALL_TEN_KINDS_PTX = `.version 8.7
@@ -128,12 +153,12 @@ func TestAnalyze_BrxIndexBackedge(t *testing.T) {
 .target sm_90
 .address_size 64
 .visible .entry brx_loop(){
-.branchtargets table, L_loop, L_exit;
 L_loop:
     atom.global.add.u32 %r, [%rd], 1;
     brx.idx %r, table;
 L_exit:
     ret;
+table: .branchtargets L_loop, L_exit;
 }
 `
 	sites, err := cudaschedule.Analyze(ptx)
@@ -150,13 +175,56 @@ func TestAnalyze_BrxUnknownTargetLabelFailsClosed(t *testing.T) {
 .target sm_90
 .address_size 64
 .visible .entry brx_bad(){
-.branchtargets table, L_missing;
     brx.idx %r, table;
     ret;
+table: .branchtargets L_missing;
 }
 `
 	if _, err := cudaschedule.Analyze(ptx); err == nil || !strings.Contains(err.Error(), `branch table "table" targets unknown label "L_missing"`) {
 		t.Fatalf("Analyze unknown branch-table label error = %v", err)
+	}
+}
+
+func TestAnalyze_BrxForwardOnlyAndForwardDeclaration(t *testing.T) {
+	const ptx = `.version 8.7
+.target sm_90
+.address_size 64
+.visible .entry brx_forward(){
+    brx.idx %r, table;
+L_next:
+    ret;
+table: .branchtargets L_next;
+}
+`
+	sites, err := cudaschedule.Analyze(ptx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sites) != 0 {
+		t.Fatalf("forward-only branch table sites = %+v, want none", sites)
+	}
+}
+
+func TestAnalyze_RejectsMalformedModules(t *testing.T) {
+	tests := []struct {
+		name string
+		ptx  string
+	}{
+		{"empty", ""},
+		{"not ptx", "this is not ptx {{{"},
+		{"unterminated", `.version 8.7
+.target sm_90
+.visible .entry broken(){ atom.global.add.u32 %r,[%rd],1;`},
+		{"no callable", `.version 8.7
+.target sm_90
+.address_size 64`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if sites, err := cudaschedule.Analyze(tt.ptx); err == nil {
+				t.Fatalf("Analyze = %v, %v; want error", sites, err)
+			}
+		})
 	}
 }
 
@@ -205,6 +273,7 @@ func TestAnalyze_OrderingOpcodeClassesAreClosed(t *testing.T) {
 	}{
 		{"bar.cta.sync", "bar.cta.sync 0;", cudaschedule.SiteBarrier, false},
 		{"bar.cta.arrive", "bar.cta.arrive 0;", cudaschedule.SiteBarrier, false},
+		{"bar.cta.red", "bar.cta.red.popc.u32 %r, 0, %p;", cudaschedule.SiteBarrier, false},
 		{"multimem.ld_reduce.global.add.u32", "multimem.ld_reduce.global.add.u32 %r, [%rd], %r;", 0, true},
 		{"st.async.shared::cta.b32", "st.async.shared::cta.b32 [%rd], %r;", cudaschedule.SiteAsyncProxy, false},
 		{"red.async.global.add.u32", "red.async.global.add.u32 [%rd], %r;", cudaschedule.SiteReduction, false},

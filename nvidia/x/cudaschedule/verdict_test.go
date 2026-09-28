@@ -152,8 +152,9 @@ func TestControl_HarnessErrorNotFinding(t *testing.T) {
 		Seeds: []cudaschedule.SeedResult{
 			{
 				Seed:    1,
+				Status:  cudaschedule.SeedHarnessError,
 				Verdict: cudaschedule.VerdictHarnessError,
-				Run:     harnessErr,
+				Run:     &harnessErr,
 			},
 		},
 	}
@@ -174,6 +175,7 @@ func TestVerdict_FindingTaxonomyPartition(t *testing.T) {
 		cudaschedule.VerdictPass:         true,
 		cudaschedule.VerdictSkipped:      true,
 		cudaschedule.VerdictHarnessError: true,
+		cudaschedule.VerdictEmptyDraw:    true,
 	}
 
 	for v := range findings {
