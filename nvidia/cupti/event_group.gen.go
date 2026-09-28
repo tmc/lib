@@ -190,9 +190,7 @@ func (e EventGroup) Enable() error {
 // values are undefined.
 //
 //   - flags: Flags controlling the reading mode
-//   - eventValueBufferSizeBytes: The size of eventValueBuffer in bytes, and returns the number of bytes written to eventValueBuffer
 //   - eventValueBuffer: Returns the event values
-//   - eventIdArraySizeBytes: The size of eventIdArray in bytes, and returns the number of bytes written to eventIdArray
 //   - eventIdArray: Returns the IDs of the events in the same order as the values return in eventValueBuffer
 //   - numEventIdsRead: Returns the number of event IDs returned in eventIdArray
 //

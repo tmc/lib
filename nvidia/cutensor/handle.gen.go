@@ -458,7 +458,6 @@ func (h Handle) CreateReduction(descA TensorDescriptor, modeA []int32, opA Opera
 // The user is responsible for calling [TensorDescriptor.Close] to free the associated resources once the tensor descriptor is no longer used.
 //
 //   - desc: Pointer to the address where the allocated tensor descriptor object will be stored
-//   - numModes: Number of modes
 //   - extent: Extent of each mode (must be larger than zero)
 //   - stride: stride[i] denotes the displacement (a.k.a. stride)—in elements of the base type—between two consecutive elements in the ith-mode. If stride is NULL, a packed generalized column-major memory layout is assumed (i.e., the strides increase monotonically from left to right). Each stride must be larger than zero; to be precise, a stride of zero can be achieved by omitting this mode entirely; for instance instead of writing C[a,b] = A[b,a] with strideA(a) = 0, you can write C[a,b] = A[b] directly; cuTENSOR will then automatically infer that the a-mode in A should be broadcasted
 //   - dataType: Data type of the stored entries

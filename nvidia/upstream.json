@@ -359,11 +359,11 @@
           },
           {
             "path": "nvidia/cublaslt/funcs.gen.go",
-            "sha256": "f139dd99ae9623e876af0a3775e0693476246bb9fdd784a9813bcce227115cb0"
+            "sha256": "678364f6c93af2e0a360f8ea2c5a7b031553e3cd2e91ca9a8653d8f83d5e86d7"
           },
           {
             "path": "nvidia/cublaslt/handle.gen.go",
-            "sha256": "f505abbd7b7e845b3511d2506b8932d7abb1e4631ee0fd73398398b5b0a77079"
+            "sha256": "e6883b127621f1e1907f2704c7b7a20bcd6a2a82e405d8ece68e396638a78cc6"
           },
           {
             "path": "nvidia/cublaslt/handles.gen.go",
@@ -441,10 +441,10 @@
       "package": "github.com/tmc/lib/nvidia/cublaslt",
       "repositories": {
         "codegen": {
-          "commit": "4029439a681adda1655270cb8605321dbf068988",
-          "note": "Unpublished at the time of recording; it is the commit this generation was taken from. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 8cdab9e: cublasLtNumericalImplFlags_t, spelled as macros above a uint64_t typedef, is now the NumericalImplFlags type with typed constants. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen fc6bb16 regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c Regenerated at libgen 4029439a: C source dropped from scraped docs.",
+          "commit": "1c7003cbf712995721ce677084aad5b9c383299a",
+          "note": "Unpublished at the time of recording; it is the commit this generation was taken from. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 8cdab9e: cublasLtNumericalImplFlags_t, spelled as macros above a uint64_t typedef, is now the NumericalImplFlags type with typed constants. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen fc6bb16 regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c Regenerated at libgen 4029439a: C source dropped from scraped docs. Regenerated at libgen 1c7003cb: requested-count arrays bind as slices.",
           "url": "https://github.com/tmc/libgen.git",
-          "tree": "d059eb3eaa489833308e1a99d9f49be549ee7db6"
+          "tree": "94d1a7189a8987d45273add13571c3baefbba798"
         },
         "headers": {
           "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",
@@ -3482,7 +3482,7 @@
           },
           {
             "path": "nvidia/cupti/event_group.gen.go",
-            "sha256": "954f0657987aa45b7a0bb5cb08fa2dcaa89fbe9bf419638c9338e52002e422ea"
+            "sha256": "8cf529621a03e7dae3b63687a76bd9a128df8a0f6db6352663ffb64d2ae1be8d"
           },
           {
             "path": "nvidia/cupti/funcs.gen.go",
@@ -3656,10 +3656,10 @@
       "package": "github.com/tmc/lib/nvidia/cupti",
       "repositories": {
         "codegen": {
-          "commit": "4029439a681adda1655270cb8605321dbf068988",
-          "tree": "d059eb3eaa489833308e1a99d9f49be549ee7db6",
+          "commit": "1c7003cbf712995721ce677084aad5b9c383299a",
+          "tree": "94d1a7189a8987d45273add13571c3baefbba798",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Private local generator commit used for this reproduction; not published. Regenerated at libgen 4029439a: C source dropped from scraped docs."
+          "note": "Private local generator commit used for this reproduction; not published. Regenerated at libgen 4029439a: C source dropped from scraped docs. Regenerated at libgen 1c7003cb: requested-count arrays bind as slices."
         },
         "headers": {
           "commit": "0187274c798507606df855dfe4ec17f99d8ffe97",
@@ -6657,7 +6657,7 @@
           },
           {
             "path": "nvidia/cutensor/handle.gen.go",
-            "sha256": "7c968187c1e2d97f2e0b4b57fc244365e1b7eadbc18fe4136933dcb0dbf65e9b"
+            "sha256": "07f2839eb25b7e9abd511de603d1f915ef7b01be8e5186c85dc24508341b1b93"
           },
           {
             "path": "nvidia/cutensor/handles.gen.go",
@@ -6726,10 +6726,10 @@
       "package": "github.com/tmc/lib/nvidia/cutensor",
       "repositories": {
         "codegen": {
-          "commit": "3005ecfdb35134468c9a9d93532ee08f6c7c53cf",
-          "note": "Unpublished at the time of recording; it is the commit this generation was taken from. The later commit a96f510 fixes the cublas and cublaslt surveys and does not affect this package. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c; regenerate at libgen f3b353d8, dropping the header's claim that descCompute sets the alpha and beta type",
+          "commit": "1c7003cbf712995721ce677084aad5b9c383299a",
+          "note": "Unpublished at the time of recording; it is the commit this generation was taken from. The later commit a96f510 fixes the cublas and cublaslt surveys and does not affect this package. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c; regenerate at libgen f3b353d8, dropping the header's claim that descCompute sets the alpha and beta type Regenerated at libgen 1c7003cb: requested-count arrays bind as slices.",
           "url": "https://github.com/tmc/libgen.git",
-          "tree": "c4c5a286244f546c9503a20d3b38bb8c46acbdb2"
+          "tree": "94d1a7189a8987d45273add13571c3baefbba798"
         },
         "headers": {
           "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",

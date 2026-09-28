@@ -1280,7 +1280,6 @@ func MatmulAlgoConfigSetAttribute(algo *MatmulAlgo, attr MatmulAlgoConfigAttribu
 //   - cdesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
 //   - ddesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
 //   - preference: Pointer to the structure holding the heuristic search preferences descriptor. See [MatmulPreference]
-//   - requestedAlgoCount: Size of the heuristicResultsArray (in elements). This is the requested maximum number of algorithms to return
 //   - heuristicResultsArray: Array containing the algorithm heuristics and associated runtime characteristics, returned by this function, in the order of increasing estimated compute time
 //   - returnAlgoCount: Number of algorithms returned by this function. This is the number of heuristicResultsArray elements written
 //
@@ -1291,25 +1290,28 @@ func MatmulAlgoConfigSetAttribute(algo *MatmulAlgo, attr MatmulAlgoConfigAttribu
 //   - [ErrNotSupported]: If no heuristic function available for current configuration.
 //
 // Wraps cublasLtMatmulAlgoGetHeuristic.
-func matmulAlgoGetHeuristic(lightHandle Handle, operationDesc MatmulDesc, adesc MatrixLayout, bdesc MatrixLayout, cdesc MatrixLayout, ddesc MatrixLayout, preference MatmulPreference, requestedAlgoCount int32, heuristicResultsArray *MatmulHeuristicResult) (int32, error) {
+func matmulAlgoGetHeuristic(lightHandle Handle, operationDesc MatmulDesc, adesc MatrixLayout, bdesc MatrixLayout, cdesc MatrixLayout, ddesc MatrixLayout, preference MatmulPreference, heuristicResultsArray []MatmulHeuristicResult) (int, error) {
 	if err := checkLibSym("cublasLtMatmulAlgoGetHeuristic"); err != nil {
-		var zero int32
+		var zero int
 		return zero, err
 	}
 	out := slotMatmulAlgoGetHeuristic.get()
 	defer slotMatmulAlgoGetHeuristic.put(out)
-	if err := toError(fnmatmulAlgoGetHeuristic(lightHandle, operationDesc, adesc, bdesc, cdesc, ddesc, preference, requestedAlgoCount, heuristicResultsArray, out), "cublasLtMatmulAlgoGetHeuristic"); err != nil {
-		var zero int32
+	if len(heuristicResultsArray) == 0 {
+		heuristicResultsArray = nil
+	}
+	if err := toError(fnmatmulAlgoGetHeuristic(lightHandle, operationDesc, adesc, bdesc, cdesc, ddesc, preference, int32(len(heuristicResultsArray)), unsafe.SliceData(heuristicResultsArray), out), "cublasLtMatmulAlgoGetHeuristic"); err != nil {
+		var zero int
 		return zero, err
 	}
-	return *out, nil
+	return int(*out), nil
 }
 
 var slotMatmulAlgoGetHeuristic outSlot[int32]
 
 // matmulAlgoGetIds retrieves the IDs of all the matrix multiply algorithms that are valid, and can potentially be run by the [Handle.Matmul] function, for given types of the input matrices A, B and C, and of the output matrix D.
 //
-// Note: The IDs are returned in no particular order. To make sure the best possible algo is contained in the list, make requestedAlgoCount large enough to receive the full list. The list is guaranteed to be full if returnAlgoCount < requestedAlgoCount.
+// Note: The IDs are returned in no particular order.
 //
 //   - lightHandle: Pointer to the allocated cuBLASLt handle for the cuBLASLt context. See [Handle]
 //   - computeType: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
@@ -1318,7 +1320,6 @@ var slotMatmulAlgoGetHeuristic outSlot[int32]
 //   - btype: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
 //   - ctype: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
 //   - dtype: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
-//   - requestedAlgoCount: Number of algorithms requested. Must be > 0
 //   - algoIdsArray: Array containing the algorithm IDs returned by this function
 //   - returnAlgoCount: Number of algorithms actually returned by this function
 //
@@ -1328,18 +1329,21 @@ var slotMatmulAlgoGetHeuristic outSlot[int32]
 //   - [ErrInvalidValue]: If requestedAlgoCount is less or equal to zero.
 //
 // Wraps cublasLtMatmulAlgoGetIds.
-func matmulAlgoGetIds(lightHandle Handle, computeType ComputeType, scaleType DataType, atype DataType, btype DataType, ctype DataType, dtype DataType, requestedAlgoCount int32, algoIdsArray *int32) (int32, error) {
+func matmulAlgoGetIds(lightHandle Handle, computeType ComputeType, scaleType DataType, atype DataType, btype DataType, ctype DataType, dtype DataType, algoIdsArray []int32) (int, error) {
 	if err := checkLibSym("cublasLtMatmulAlgoGetIds"); err != nil {
-		var zero int32
+		var zero int
 		return zero, err
 	}
 	out := slotMatmulAlgoGetIds.get()
 	defer slotMatmulAlgoGetIds.put(out)
-	if err := toError(fnmatmulAlgoGetIds(lightHandle, computeType, scaleType, atype, btype, ctype, dtype, requestedAlgoCount, algoIdsArray, out), "cublasLtMatmulAlgoGetIds"); err != nil {
-		var zero int32
+	if len(algoIdsArray) == 0 {
+		algoIdsArray = nil
+	}
+	if err := toError(fnmatmulAlgoGetIds(lightHandle, computeType, scaleType, atype, btype, ctype, dtype, int32(len(algoIdsArray)), unsafe.SliceData(algoIdsArray), out), "cublasLtMatmulAlgoGetIds"); err != nil {
+		var zero int
 		return zero, err
 	}
-	return *out, nil
+	return int(*out), nil
 }
 
 var slotMatmulAlgoGetIds outSlot[int32]

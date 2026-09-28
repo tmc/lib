@@ -398,12 +398,12 @@ func (e *Engine) execute(
 			_ = pref.SetAttribute(cublaslt.MatmulPrefMaxWorkspaceBytes, unsafe.Pointer(&wsBytes), uint(unsafe.Sizeof(wsBytes)))
 		}
 
-		var heuristicResult cublaslt.MatmulHeuristicResult
+		var heuristicResults [1]cublaslt.MatmulHeuristicResult
 		var algoPtr *cublaslt.MatmulAlgo
 
-		returnedCount, err := e.handle.MatmulAlgoGetHeuristic(opDesc, layoutA, layoutB, layoutD, layoutD, pref, 1, &heuristicResult)
-		if err == nil && returnedCount > 0 && heuristicResult.State == cublaslt.Success {
-			algoPtr = &heuristicResult.Algo
+		returnedCount, err := e.handle.MatmulAlgoGetHeuristic(opDesc, layoutA, layoutB, layoutD, layoutD, pref, heuristicResults[:])
+		if err == nil && returnedCount > 0 && heuristicResults[0].State == cublaslt.Success {
+			algoPtr = &heuristicResults[0].Algo
 		}
 
 		alpha, beta := cublaslt.Float32Scalar(cfg.Alpha), cublaslt.Float32Scalar(cfg.Beta)

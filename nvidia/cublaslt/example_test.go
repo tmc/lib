@@ -61,7 +61,7 @@ func ExampleMatmulAlgoCapGetAttribute() {
 
 	const f32 = cublaslt.R32F
 	ids := make([]int32, 16)
-	n, err := h.MatmulAlgoGetIds(cublaslt.Compute32F, f32, f32, f32, f32, f32, int32(len(ids)), &ids[0])
+	n, err := h.MatmulAlgoGetIds(cublaslt.Compute32F, f32, f32, f32, f32, f32, ids)
 	if err != nil {
 		fmt.Println("algo ids:", err)
 		return

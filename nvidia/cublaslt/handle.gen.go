@@ -217,7 +217,6 @@ func (h Handle) MatmulAlgoCheck(operationDesc MatmulDesc, adesc MatrixLayout, bd
 //   - cdesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
 //   - ddesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
 //   - preference: Pointer to the structure holding the heuristic search preferences descriptor. See [MatmulPreference]
-//   - requestedAlgoCount: Size of the heuristicResultsArray (in elements). This is the requested maximum number of algorithms to return
 //   - heuristicResultsArray: Array containing the algorithm heuristics and associated runtime characteristics, returned by this function, in the order of increasing estimated compute time
 //   - returnAlgoCount: Number of algorithms returned by this function. This is the number of heuristicResultsArray elements written
 //
@@ -228,13 +227,13 @@ func (h Handle) MatmulAlgoCheck(operationDesc MatmulDesc, adesc MatrixLayout, bd
 //   - [ErrNotSupported]: If no heuristic function available for current configuration.
 //
 // Wraps cublasLtMatmulAlgoGetHeuristic.
-func (h Handle) MatmulAlgoGetHeuristic(operationDesc MatmulDesc, adesc MatrixLayout, bdesc MatrixLayout, cdesc MatrixLayout, ddesc MatrixLayout, preference MatmulPreference, requestedAlgoCount int32, heuristicResultsArray *MatmulHeuristicResult) (int32, error) {
-	return matmulAlgoGetHeuristic(h, operationDesc, adesc, bdesc, cdesc, ddesc, preference, requestedAlgoCount, heuristicResultsArray)
+func (h Handle) MatmulAlgoGetHeuristic(operationDesc MatmulDesc, adesc MatrixLayout, bdesc MatrixLayout, cdesc MatrixLayout, ddesc MatrixLayout, preference MatmulPreference, heuristicResultsArray []MatmulHeuristicResult) (int, error) {
+	return matmulAlgoGetHeuristic(h, operationDesc, adesc, bdesc, cdesc, ddesc, preference, heuristicResultsArray)
 }
 
 // MatmulAlgoGetIds retrieves the IDs of all the matrix multiply algorithms that are valid, and can potentially be run by the [Handle.Matmul] function, for given types of the input matrices A, B and C, and of the output matrix D.
 //
-// Note: The IDs are returned in no particular order. To make sure the best possible algo is contained in the list, make requestedAlgoCount large enough to receive the full list. The list is guaranteed to be full if returnAlgoCount < requestedAlgoCount.
+// Note: The IDs are returned in no particular order.
 //
 //   - computeType: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
 //   - scaleType: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
@@ -242,7 +241,6 @@ func (h Handle) MatmulAlgoGetHeuristic(operationDesc MatmulDesc, adesc MatrixLay
 //   - btype: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
 //   - ctype: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
 //   - dtype: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
-//   - requestedAlgoCount: Number of algorithms requested. Must be > 0
 //   - algoIdsArray: Array containing the algorithm IDs returned by this function
 //   - returnAlgoCount: Number of algorithms actually returned by this function
 //
@@ -252,8 +250,8 @@ func (h Handle) MatmulAlgoGetHeuristic(operationDesc MatmulDesc, adesc MatrixLay
 //   - [ErrInvalidValue]: If requestedAlgoCount is less or equal to zero.
 //
 // Wraps cublasLtMatmulAlgoGetIds.
-func (h Handle) MatmulAlgoGetIds(computeType ComputeType, scaleType DataType, atype DataType, btype DataType, ctype DataType, dtype DataType, requestedAlgoCount int32, algoIdsArray *int32) (int32, error) {
-	return matmulAlgoGetIds(h, computeType, scaleType, atype, btype, ctype, dtype, requestedAlgoCount, algoIdsArray)
+func (h Handle) MatmulAlgoGetIds(computeType ComputeType, scaleType DataType, atype DataType, btype DataType, ctype DataType, dtype DataType, algoIdsArray []int32) (int, error) {
+	return matmulAlgoGetIds(h, computeType, scaleType, atype, btype, ctype, dtype, algoIdsArray)
 }
 
 // MatmulAlgoInit initializes the matrix multiply algorithm structure for the [Handle.Matmul] , for a specified matrix multiply algorithm and input matrices A, B and C, and the output matrix D.

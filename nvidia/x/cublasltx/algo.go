@@ -25,7 +25,7 @@ func Heuristic(h cublaslt.Handle, desc cublaslt.MatmulDesc, a, b, c, d cublaslt.
 		return nil, fmt.Errorf("cublasltx: candidate count %d out of range", n)
 	}
 	rs := make([]cublaslt.MatmulHeuristicResult, n)
-	got, err := h.MatmulAlgoGetHeuristic(desc, a, b, c, d, pref, int32(n), &rs[0])
+	got, err := h.MatmulAlgoGetHeuristic(desc, a, b, c, d, pref, rs)
 	if err != nil {
 		return nil, fmt.Errorf("cublasltx: get heuristic: %w", err)
 	}
