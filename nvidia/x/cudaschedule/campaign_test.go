@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -451,13 +453,26 @@ func TestCampaign_ParentDeadlineIsNotWatchdog(t *testing.T) {
 
 func TestCampaign_WaitDelayClosesInheritedPipe(t *testing.T) {
 	start := time.Now()
+	var pidFile string
 	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
-		PTXSource: CAMPAIGN_PTX, Executable: "/bin/sh",
-		Args:      []string{"-c", `grep -q nanosleep "$1" && { sleep 0.6 & wait; } || echo PASS`, "wait-delay"},
+		PTXSource: CAMPAIGN_PTX,
 		SeedStart: 9, SeedEnd: 10, Intensity: 2, ConfirmRuns: 1, Timeout: 100 * time.Millisecond,
 		DeviceProbe: func() bool { return true },
+		BuildVariant: func(_ context.Context, _ uint64, ptxPath string) (string, []string, error) {
+			pidFile = ptxPath + ".childpid"
+			return "/bin/sh", []string{"-c", `grep -q nanosleep "$2" && { sleep 2 & echo $! > "$1"; wait; } || echo PASS`, "wait-delay", pidFile}, nil
+		},
 	})
 	elapsed := time.Since(start)
+	if pidFile != "" && elapsed < time.Second {
+		if data, readErr := os.ReadFile(pidFile); readErr == nil {
+			if pid, parseErr := strconv.Atoi(strings.TrimSpace(string(data))); parseErr == nil {
+				if child, findErr := os.FindProcess(pid); findErr == nil {
+					_ = child.Kill()
+				}
+			}
+		}
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -467,7 +482,7 @@ func TestCampaign_WaitDelayClosesInheritedPipe(t *testing.T) {
 	if report.Seeds[0].Run.Pristine == nil || !report.Seeds[0].Run.Pristine.PristineRun {
 		t.Fatalf("timeout health check is not marked pristine: %+v", report.Seeds[0].Run)
 	}
-	if elapsed > 500*time.Millisecond {
+	if elapsed > 900*time.Millisecond {
 		t.Fatalf("watchdog plus WaitDelay took %s", elapsed)
 	}
 }
