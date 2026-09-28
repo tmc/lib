@@ -1037,9 +1037,9 @@
         ]
       },
       "header": {
-        "path": "libcudnn/cudnn_combined.h",
-        "repository": "headers",
-        "sha256": "b62a86b7e43495cc7829cc2d26983993e289bc20a6d092fa8c1c91c07d4789b1"
+        "path": "libcudnn/cudnn.h",
+        "sha256": "1082d51d3b564bace8ef6fc6ee335b668b2bfa517f57c06efd428263e5c21855",
+        "repository": "headers"
       },
       "header_derivation": {
         "equal": true,
@@ -1281,6 +1281,58 @@
           "vendor_member": "cudnn-linux-x86_64-9.20.0.48_cuda13-archive/include/cudnn_version_v9.h",
           "vendor_sha256": "8d79398cefba20da6ca84b9b9c3160490373709b4bc940893695a2b7bc2a9528",
           "vendor_symlink": null
+        }
+      ],
+      "headers": [
+        {
+          "path": "cuda_cudart/driver_types.h",
+          "sha256": "b37eb334124c5e43cfa2baa087aa128b44ddd8913da476ca0e92358d5d1be9c4",
+          "repository": "headers"
+        },
+        {
+          "path": "cuda_cudart/library_types.h",
+          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d",
+          "repository": "headers"
+        },
+        {
+          "path": "libcudnn/cudnn.h",
+          "sha256": "1082d51d3b564bace8ef6fc6ee335b668b2bfa517f57c06efd428263e5c21855",
+          "repository": "headers"
+        },
+        {
+          "path": "libcudnn/cudnn_adv.h",
+          "sha256": "f74ee54b3fa51bbe10526f32fe2f34414530a790d0129462ed76254eab4f3f8e",
+          "repository": "headers"
+        },
+        {
+          "path": "libcudnn/cudnn_cnn.h",
+          "sha256": "86fe44b28e2c356cb0099a470e9894fe2fbdb231fdea144c35b1266e907f260a",
+          "repository": "headers"
+        },
+        {
+          "path": "libcudnn/cudnn_graph.h",
+          "sha256": "75a70552a07660d25ad900dd45f180ec557965fd41433be8723bbd4c64337308",
+          "repository": "headers"
+        },
+        {
+          "path": "libcudnn/cudnn_ops.h",
+          "sha256": "906942f64d5542c122101423d1a0e8d8711ee836c4cb61c9836c012bcb5f38c8",
+          "repository": "headers"
+        },
+        {
+          "path": "libcudnn/cudnn_version.h",
+          "sha256": "8d79398cefba20da6ca84b9b9c3160490373709b4bc940893695a2b7bc2a9528",
+          "repository": "headers"
+        },
+        {
+          "path": "runtime/driver_types.h",
+          "sha256": "915f0a66b668944cf34f6e2c1f88b4507789ffdc7905c98ec792e7c184cd12f2",
+          "repository": "headers"
+        },
+        {
+          "path": "types/library_types.h",
+          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d",
+          "repository": "headers"
         }
       ]
     },
