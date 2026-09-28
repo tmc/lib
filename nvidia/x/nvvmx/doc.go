@@ -24,8 +24,14 @@
 // direct loads and stores of the slot's declared pointer type; shared values
 // from a global declared in addrspace(3), an addrspace(3) parameter, a scalar
 // getelementptr with simple integer indices whose base is known shared, or an
-// addrspacecast from a known shared value to generic. A loaded pointer may only
-// be used as a load's pointer operand or stored into another proven-shared slot.
+// addrspacecast from a known shared value to generic. A stored value must
+// already have a shared pointer type, come from a dependent slot that narrows
+// with its destination, or be a supported inline constant addrspacecast that
+// can be removed during rewriting. A generic SSA cast result does not prove
+// that its value can be stored in a narrowed slot. Parameter attributes do not
+// change the address space of the parameter's leading pointer type. A loaded
+// pointer may only be used as a load or store pointer operand, or stored into
+// another proven-shared slot; dependent slots narrow or remain generic together.
 // Typed-pointer slots are limited to simple scalar pointer types. Volatile,
 // atomic, metadata-bearing, indirect, malformed, or otherwise unlisted uses
 // keep the slot generic. The parser checks complete LLVM identifiers and all

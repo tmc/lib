@@ -473,7 +473,8 @@ func verifyIRWithClang(t *testing.T, ir []byte) {
 	t.Helper()
 	clang, err := exec.LookPath("clang")
 	if err != nil {
-		t.Skip("clang is not on PATH")
+		t.Log("clang is not on PATH; skipping only IR verification")
+		return
 	}
 	cmd := exec.Command(clang, "-x", "ir", "-S", "-emit-llvm", "-o", "/dev/null", "-")
 	cmd.Stdin = bytes.NewReader(ir)

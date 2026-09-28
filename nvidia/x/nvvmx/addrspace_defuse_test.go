@@ -56,13 +56,18 @@ func TestAddrSpace_AddressSpaceABFixtureHasIndependentTypes(t *testing.T) {
 }
 
 func TestAddrSpace_LoadedValuesEscapeFailClosed(t *testing.T) {
-	tests := []struct{ name, tail string }{
-		{"caller memory", `  store ptr %p, ptr %out, align 8`},
+	tests := []struct {
+		name       string
+		tail       string
+		wantShared bool
+	}{
+		{"supported load", `  %value = load i8, ptr %p, align 1`, true},
+		{"caller memory", `  store ptr %p, ptr %out, align 8`, false},
 		{"generic slot", `  store ptr %unknown, ptr %other, align 8
   store ptr %p, ptr %other, align 8
-  %q = load ptr, ptr %other, align 8`},
-		{"call", `  call void @consume(ptr %p)`},
-		{"GEP", `  %q = getelementptr i8, ptr %p, i64 1`},
+		%q = load ptr, ptr %other, align 8`, false},
+		{"call", `  call void @consume(ptr %p)`, false},
+		{"GEP", `  %q = getelementptr i8, ptr %p, i64 1`, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -84,8 +89,12 @@ entry:
 			if err != nil {
 				t.Fatal(err)
 			}
-			if report.Slots["@kernel/%slot"].Effective != AddrSpaceGeneric {
-				t.Fatalf("escaping value narrowed its source slot: %+v", report.Slots["@kernel/%slot"])
+			want := AddrSpaceGeneric
+			if tt.wantShared {
+				want = AddrSpaceShared
+			}
+			if got := report.Slots["@kernel/%slot"].Effective; got != want {
+				t.Fatalf("effective address space=%v, want %v: %+v", got, want, report.Slots["@kernel/%slot"])
 			}
 			verifyIRWithClang(t, got)
 		})
@@ -110,6 +119,158 @@ entry:
 		t.Fatalf("typed escape narrowed: %+v", report.Slots["@kernel/%slot"])
 	}
 	verifyIRWithClang(t, got)
+}
+
+func TestAddrSpace_GenericRegisterCastsDoNotNarrowSlots(t *testing.T) {
+	tests := []struct {
+		name string
+		ir   string
+	}{
+		{"cast result", `@smem = internal addrspace(3) global i8 0
+define void @kernel() {
+entry:
+  %slot = alloca ptr, align 8
+  %c = addrspacecast ptr addrspace(3) @smem to ptr
+  store ptr %c, ptr %slot, align 8
+  ret void
+}`},
+		{"cast GEP result", `@smem = internal addrspace(3) global [8 x i8] undef
+define void @kernel() {
+entry:
+  %slot = alloca ptr, align 8
+  %c = addrspacecast ptr addrspace(3) @smem to ptr
+  %g = getelementptr i8, ptr %c, i64 4
+  store ptr %g, ptr %slot, align 8
+  ret void
+}`},
+		{"parameter cast result", `define void @kernel(ptr addrspace(3) %s) {
+entry:
+  %slot = alloca ptr, align 8
+  %c = addrspacecast ptr addrspace(3) %s to ptr
+  store ptr %c, ptr %slot, align 8
+  ret void
+}`},
+		{"typed pointer cast result", `@smem = internal addrspace(3) global i8 0
+define void @kernel() {
+entry:
+  %slot = alloca i8*, align 8
+  %c = addrspacecast i8 addrspace(3)* @smem to i8*
+  store i8* %c, i8** %slot, align 8
+  ret void
+}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ir := []byte(tt.ir + "\n")
+			verifyIRWithClang(t, ir)
+			got, report, err := InferAddressSpaces(ir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if report.Slots["@kernel/%slot"].Effective != AddrSpaceGeneric {
+				t.Fatalf("generic register cast narrowed the slot: %+v", report.Slots["@kernel/%slot"])
+			}
+			if bytes.Contains(got, []byte("alloca ptr addrspace(3)")) || bytes.Contains(got, []byte("alloca i8 addrspace(3)*")) {
+				t.Fatalf("generic register cast produced a narrowed slot:\n%s", got)
+			}
+			verifyIRWithClang(t, got)
+		})
+	}
+}
+
+func TestAddrSpace_ParameterAddressSpaceIgnoresTypeAttributes(t *testing.T) {
+	tests := []struct{ name, attribute string }{
+		{"byval", `byval({ ptr addrspace(3), i32 }) align 8`},
+		{"sret", `sret(ptr addrspace(3))`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ir := []byte(`define void @kernel(ptr ` + tt.attribute + ` %params) {
+entry:
+  %slot = alloca ptr, align 8
+  store ptr %params, ptr %slot, align 8
+  %p = load ptr, ptr %slot, align 8
+  %value = load i8, ptr %p, align 1
+  ret void
+}
+`)
+			verifyIRWithClang(t, ir)
+			got, report, err := InferAddressSpaces(ir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if report.Slots["@kernel/%slot"].Effective != AddrSpaceGeneric {
+				t.Fatalf("nested attribute type narrowed generic parameter: %+v", report.Slots["@kernel/%slot"])
+			}
+			verifyIRWithClang(t, got)
+		})
+	}
+}
+
+func TestAddrSpace_DependencySlotsDemoteTogether(t *testing.T) {
+	storeOrders := []struct{ name, stores string }{
+		{"shared then generic", `  store ptr %va, ptr %d, align 8
+  store ptr %vb, ptr %d, align 8`},
+		{"generic then shared", `  store ptr %vb, ptr %d, align 8
+  store ptr %va, ptr %d, align 8`},
+	}
+	for _, tt := range storeOrders {
+		t.Run(tt.name, func(t *testing.T) {
+			ir := []byte(`@smem = internal addrspace(3) global i8 0
+define void @kernel() {
+entry:
+  %a = alloca ptr, align 8
+  %b = alloca ptr, align 8
+  %d = alloca ptr, align 8
+  store ptr addrspace(3) @smem, ptr %a, align 8
+  %va = load ptr, ptr %a, align 8
+  %vb = load ptr, ptr %b, align 8
+` + tt.stores + `
+  ret void
+}
+`)
+			verifyIRWithClang(t, ir)
+			got, report, err := InferAddressSpaces(ir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, name := range []string{"%a", "%b", "%d"} {
+				if info := report.Slots["@kernel/"+name]; info.Effective != AddrSpaceGeneric {
+					t.Errorf("%s was partially narrowed: %+v", name, info)
+				}
+			}
+			if strings.Contains(string(got), "alloca ptr addrspace(3)") || strings.Contains(string(got), "store ptr addrspace(3) %v") {
+				t.Fatalf("partial slot demotion left mismatched types:\n%s", got)
+			}
+			verifyIRWithClang(t, got)
+		})
+	}
+}
+
+func TestAddrSpace_StoreThroughLoadedValueRewritesPointerType(t *testing.T) {
+	ir := []byte(`@smem = internal addrspace(3) global i8 0
+define void @kernel() {
+entry:
+  %slot = alloca ptr, align 8
+  store ptr addrspace(3) @smem, ptr %slot, align 8
+  %p = load ptr, ptr %slot, align 8
+  store i8 0, ptr %p, align 1
+  ret void
+}
+`)
+	verifyIRWithClang(t, ir)
+	got, report, err := InferAddressSpaces(ir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Slots["@kernel/%slot"].Effective != AddrSpaceShared {
+		t.Fatalf("supported store through loaded value did not narrow slot: %+v", report.Slots["@kernel/%slot"])
+	}
+	if !bytes.Contains(got, []byte("store i8 0, ptr addrspace(3) %p, align 1")) {
+		t.Fatalf("store pointer type was not rewritten:\n%s", got)
+	}
+	verifyIRWithClang(t, got)
+	assertIndependentSlotTypes(t, got, report)
 }
 
 func TestAddrSpace_LoadedUsesAreCollectedAcrossTextOrder(t *testing.T) {

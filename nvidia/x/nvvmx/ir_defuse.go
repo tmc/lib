@@ -725,8 +725,9 @@ func inferFunctionAndRewrite(lines []string, globals map[string]AddrSpace) (stri
 					continue
 				}
 				as := valueASForOperand(p.mem.valueType, p.mem.value, valAS, globals)
+				inlineCast := strings.HasPrefix(strings.TrimSpace(p.mem.value), "addrspacecast (")
 				storeSources[name] = append(storeSources[name], as)
-				if as != AddrSpaceShared {
+				if as != AddrSpaceShared || llvmTypeAS(p.mem.valueType) != AddrSpaceShared && !inlineCast {
 					bad[name] = true
 				}
 			}
@@ -743,6 +744,9 @@ func inferFunctionAndRewrite(lines []string, globals map[string]AddrSpace) (stri
 		for _, useLine := range f.uses[value] {
 			p := f.lines[useLine]
 			if p.hasMem && p.mem.kind == "load" && p.mem.ptrID == value && llvmTypeAS(p.mem.ptrType) == AddrSpaceGeneric {
+				continue
+			}
+			if p.hasMem && p.mem.kind == "store" && p.mem.ptrID == value && llvmTypeAS(p.mem.ptrType) == AddrSpaceGeneric {
 				continue
 			}
 			if p.hasMem && p.mem.kind == "store" && p.mem.valueID == value && candidates[p.mem.ptrID] && slots[p.mem.ptrID] != nil && p.mem.valueType == slots[p.mem.ptrID].allocType && slots[src].allocType == slots[p.mem.ptrID].allocType {
@@ -819,6 +823,14 @@ func inferFunctionAndRewrite(lines []string, globals map[string]AddrSpace) (stri
 					state[src] = StateGenericRequired
 					changed = true
 				}
+				if state[dst] == StateShared && state[src] != StateShared {
+					state[dst], state[src] = StateGenericRequired, StateGenericRequired
+					changed = true
+				}
+				if state[src] == StateShared && state[dst] != StateShared {
+					state[src], state[dst] = StateGenericRequired, StateGenericRequired
+					changed = true
+				}
 			}
 		}
 		if !changed {
@@ -862,6 +874,12 @@ func inferFunctionAndRewrite(lines []string, globals map[string]AddrSpace) (stri
 				line = rewriteSlotPointerOperand(line, slots[p.mem.ptrID])
 			}
 			if p.mem.kind == "load" && p.mem.ptrID != "" {
+				if src, ok := loadedFrom[p.mem.ptrID]; ok && toRewrite[src] {
+					oldType, newType := inferredPointerType(slots[src].allocType)
+					line = rewriteMemoryPointerType(line, p.mem.ptrID, oldType, newType)
+				}
+			}
+			if p.mem.kind == "store" && p.mem.ptrID != "" {
 				if src, ok := loadedFrom[p.mem.ptrID]; ok && toRewrite[src] {
 					oldType, newType := inferredPointerType(slots[src].allocType)
 					line = rewriteMemoryPointerType(line, p.mem.ptrID, oldType, newType)
@@ -955,7 +973,30 @@ func parameterAddressSpace(header, name string) AddrSpace {
 	for _, arg := range splitLLVMTopLevel(header[start+1 : end]) {
 		ids := llvmIDs(arg)
 		if len(ids) > 0 && ids[len(ids)-1].text == name {
-			return llvmTypeAS(strings.TrimSpace(strings.TrimSuffix(arg, name)))
+			return parameterPointerAddressSpace(strings.TrimSpace(strings.TrimSuffix(arg, name)))
+		}
+	}
+	return AddrSpaceGeneric
+}
+
+func parameterPointerAddressSpace(arg string) AddrSpace {
+	fields := strings.Fields(arg)
+	if len(fields) == 0 {
+		return AddrSpaceGeneric
+	}
+	if fields[0] == "ptr" {
+		if len(fields) > 1 && strings.HasPrefix(fields[1], "addrspace(") && strings.HasSuffix(fields[1], ")") {
+			return parseAddrSpaceType(fields[1])
+		}
+		return AddrSpaceGeneric
+	}
+	for end := 1; end <= len(fields); end++ {
+		typ := strings.Join(fields[:end], " ")
+		if supportedSlotPointer.MatchString(typ) {
+			return llvmTypeAS(typ)
+		}
+		if strings.HasSuffix(fields[end-1], "*") {
+			return AddrSpaceGeneric
 		}
 	}
 	return AddrSpaceGeneric
