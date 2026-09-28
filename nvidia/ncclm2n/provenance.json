@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "generator": "github.com/tmc/libgen/cmd/gen-nccl-extensions",
+  "upstream_version": "unrecorded",
+  "version_source": "unrecorded",
+  "cwd": ".",
+  "argv": [
+    "gen-nccl-extensions",
+    "-api",
+    "ncclm2n",
+    "-output",
+    "${OUTPUT_DIR}"
+  ],
+  "inputs": [
+    {
+      "path": "nccl_m2n.h",
+      "sha256": "2ea1e425de4a2a4698407341d476771c2049882a624d5ae567a36c119d8c6e58"
+    }
+  ],
+  "source_hash": "c051407b687045766697be70e2407f528939d3642100c7e53f19d244c6a706fc",
+  "limitations": [
+    "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
+    "argv records portable argument names; host-specific paths are intentionally redacted.",
+    "cwd is recorded as . to avoid embedding the generator host path."
+  ]
+}

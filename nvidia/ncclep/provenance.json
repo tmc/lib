@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "generator": "github.com/tmc/libgen/cmd/gen-nccl-extensions",
+  "upstream_version": "unrecorded",
+  "version_source": "unrecorded",
+  "cwd": ".",
+  "argv": [
+    "gen-nccl-extensions",
+    "-api",
+    "ncclep",
+    "-output",
+    "${OUTPUT_DIR}"
+  ],
+  "inputs": [
+    {
+      "path": "ep_enums.h",
+      "sha256": "8c0ed44272623923a8bc018423ca93fdb9e27cb5da3ca2c345a5ce7c9bfb32fe"
+    },
+    {
+      "path": "nccl_ep.h",
+      "sha256": "a9b23b78db72c5973b3ff79be2658f95c000cf31aa759e94599a1b349e09b208"
+    }
+  ],
+  "source_hash": "eaf8f81fea4948bd9009931ce8fe62298fda8be4a02bf1bb501f60e24a93b94f",
+  "limitations": [
+    "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
+    "argv records portable argument names; host-specific paths are intentionally redacted.",
+    "cwd is recorded as . to avoid embedding the generator host path."
+  ]
+}
