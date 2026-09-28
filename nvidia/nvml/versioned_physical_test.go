@@ -114,11 +114,8 @@ func TestPhysicalVersionedSymbols(t *testing.T) {
 			v2.UncInactiveRemaps, v2.BPending, v2.BFailureOccurred)
 		// These two fields are the same field in both structs, so they are the
 		// part a disagreement would be a real disagreement about.
-		if v2.BPending != pending {
-			t.Errorf("pending: v1=%d v2=%d", pending, v2.BPending)
-		}
-		if v2.BFailureOccurred != failure {
-			t.Errorf("failure occurred: v1=%d v2=%d", failure, v2.BFailureOccurred)
+		if err := compareRemappedRows(pending, failure, v2); err != nil {
+			t.Error(err)
 		}
 		// Not asserted: the header does not say that v1's corrRows is v2's
 		// active plus inactive counts. It is the obvious reading and it is
@@ -172,8 +169,8 @@ func TestPhysicalVersionedSymbols(t *testing.T) {
 				v2.StartTime, v2.IsRunning, v2.SampleCount, v2.SumGpuUtil, v2.SumFbUtil)
 			// Start time cannot move, whatever the process does between the two
 			// calls, so it is the one field a mismatch cannot be excused.
-			if v1.StartTime != v2.StartTime {
-				t.Errorf("pid %d: start time v1=%d v2=%d", pid, v1.StartTime, v2.StartTime)
+			if err := compareAccountingStats(v1, v2); err != nil {
+				t.Errorf("pid %d: %v", pid, err)
 			}
 			if v1.IsRunning != v2.IsRunning {
 				t.Logf("pid %d: running flag changed between the two calls (v1=%d v2=%d);"+
@@ -185,20 +182,7 @@ func TestPhysicalVersionedSymbols(t *testing.T) {
 					" the two calls; only start time is checked", pid)
 				continue
 			}
-			// Terminated: the counters are final and the two forms must agree.
-			for _, f := range []struct {
-				name   string
-				v1, v2 uint64
-			}{
-				{"gpu utilization", uint64(v1.GpuUtilization), uint64(v2.GpuUtilization)},
-				{"memory utilization", uint64(v1.MemoryUtilization), uint64(v2.MemoryUtilization)},
-				{"max memory usage", v1.MaxMemoryUsage, v2.MaxMemoryUsage},
-				{"time", v1.Time, v2.Time},
-			} {
-				if f.v1 != f.v2 {
-					t.Errorf("pid %d terminated: %s v1=%d v2=%d", pid, f.name, f.v1, f.v2)
-				}
-			}
+
 		}
 		if compared == 0 {
 			t.Skip("no pid produced both forms; nothing was compared")

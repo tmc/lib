@@ -5,10 +5,8 @@ import (
 	"unsafe"
 )
 
-// remappedRowsInfoV2 is nvmlRemappedRowsInfo_v2_t from the pinned cuda-13.3
-// header. It is written out here rather than bound because this package is
-// generated from the unpinned header, which does not declare it; moving the pin
-// is the decision TestPhysicalVersionedSymbols exists to inform.
+// remappedRowsInfoV2 is an independent transcription of
+// nvmlRemappedRowsInfo_v2_t from the pinned CUDA 13.3 header.
 type remappedRowsInfoV2 struct {
 	CorrActiveRemaps   uint32
 	CorrInactiveRemaps uint32
