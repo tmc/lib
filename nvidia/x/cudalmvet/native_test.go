@@ -25,22 +25,28 @@ func TestTraceFoldPreservesConcurrentRaceSignal(t *testing.T) {
 	}
 	defer dev.Close()
 	source := nvrtcx.TraceHeader() + `
-__device__ volatile unsigned int race_cells[1024];
-__device__ inline float value_for(int idx, int racing) {
-    if (!racing) return (float)idx;
-    race_cells[idx] = (unsigned int)(idx + 1);
-    __threadfence();
-    for (volatile int delay = 0; delay < 512; ++delay) { }
-    return (float)race_cells[(idx + 1) % 512];
-}
-extern "C" __global__ void output_only(int n, float *out, int racing) {
+__device__ volatile unsigned int race_cells[512];
+extern "C" __global__ void reset_race_cells() {
     int idx = threadIdx.x;
-    if (idx < n) out[idx] = value_for(idx, racing);
+    if (idx < 512) race_cells[idx] = 0xdeadbeefU;
 }
-extern "C" __global__ void output_and_trace(int n, float *out, int racing) {
+__device__ inline float value_for(int idx, int racing, unsigned int schedule_seed) {
+    unsigned int delay = ((unsigned int)idx * 1103515245U + schedule_seed * 12345U) & 2047U;
+    for (volatile unsigned int i = 0; i < delay; ++i) { }
+    int target = racing ? ((idx + 1) % 512) : idx;
+    unsigned int value = race_cells[target];
+    for (volatile int i = 0; i < ((idx + (int)schedule_seed) & 127); ++i) { }
+    race_cells[idx] = (unsigned int)(idx + 1);
+    return (float)value;
+}
+extern "C" __global__ void output_only(int n, float *out, int racing, unsigned int schedule_seed) {
+    int idx = threadIdx.x;
+    if (idx < n) out[idx] = value_for(idx, racing, schedule_seed);
+}
+extern "C" __global__ void output_and_trace(int n, float *out, int racing, unsigned int schedule_seed) {
     int idx = threadIdx.x;
     if (idx < n) {
-        float value = value_for(idx, racing);
+        float value = value_for(idx, racing, schedule_seed);
         out[idx] = value;
         trace_ordered_float(value, (unsigned int)idx, 0xffffffffU);
     }
@@ -56,40 +62,64 @@ extern "C" __global__ void output_and_trace(int n, float *out, int racing) {
 	defer mod.Close()
 
 	const n, runs = 512, 64
-	observed := map[bool]map[string]bool{false: {}, true: {}}
-	traceHashes := map[bool]map[uint64]bool{false: {}, true: {}}
-	for _, instrumented := range []bool{false, true} {
-		for _, racing := range []bool{false, true} {
-			for run := 0; run < runs; run++ {
-				output, trace, err := runRaceProbe(dev, mod, n, racing, instrumented)
-				if err != nil {
-					t.Fatalf("instrumented=%t racing=%t run=%d: %v", instrumented, racing, run, err)
-				}
-				if instrumented {
-					traceHashes[racing][trace] = true
-				} else {
-					observed[racing][output] = true
-				}
+	type arm struct{ racing, instrumented bool }
+	arms := []arm{{true, false}, {true, true}, {false, false}, {false, true}}
+	outputs := make(map[arm]map[string]bool, len(arms))
+	hashes := make(map[arm]map[uint64]bool, len(arms))
+	for _, a := range arms {
+		outputs[a] = make(map[string]bool)
+		hashes[a] = make(map[uint64]bool)
+	}
+	for run := 0; run < runs; run++ {
+		start := run % len(arms)
+		for step := 0; step < len(arms); step++ {
+			a := arms[(start+step)%len(arms)]
+			output, trace, err := runRaceProbe(dev, mod, n, a.racing, a.instrumented, uint32(run))
+			if err != nil {
+				t.Fatalf("racing=%t instrumented=%t run=%d: %v", a.racing, a.instrumented, run, err)
+			}
+			outputs[a][output] = true
+			if a.instrumented {
+				hashes[a][trace] = true
 			}
 		}
 	}
-	t.Logf("race output: %d distinct outputs in %d uninstrumented runs; %d trace hashes in %d instrumented runs", len(observed[true]), runs, len(traceHashes[true]), runs)
-	t.Logf("race-free output: %d distinct outputs in %d uninstrumented runs; %d trace hashes in %d instrumented runs", len(observed[false]), runs, len(traceHashes[false]), runs)
-	if len(observed[true]) <= 1 {
-		t.Fatalf("planted race did not vary uninstrumented output; cannot measure preservation")
+	for _, a := range arms {
+		label := "race-free"
+		if a.racing {
+			label = "race"
+		}
+		mode := "uninstrumented"
+		if a.instrumented {
+			mode = "instrumented"
+		}
+		t.Logf("%s %s: %d distinct outputs and %d distinct trace hashes in %d runs", label, mode, len(outputs[a]), len(hashes[a]), runs)
 	}
-	if len(traceHashes[true]) <= 1 {
-		t.Fatalf("instrumented trace suppressed observed race: %d output vectors but one trace hash", len(observed[true]))
+	if len(outputs[arm{racing: true}]) <= 1 {
+		t.Fatalf("race did not vary uninstrumented (inconclusive): %d distinct outputs in %d runs", len(outputs[arm{racing: true}]), runs)
 	}
-	if len(observed[false]) != 1 || len(traceHashes[false]) != 1 {
-		t.Fatalf("race-free control varied: outputs=%d traces=%d", len(observed[false]), len(traceHashes[false]))
+	if len(hashes[arm{racing: true, instrumented: true}]) <= 1 {
+		t.Fatalf("race varied uninstrumented but gave one hash instrumented (suppressed): %d distinct outputs and %d hashes", len(outputs[arm{racing: true}]), len(hashes[arm{racing: true, instrumented: true}]))
+	}
+	if len(outputs[arm{racing: false}]) != 1 || len(outputs[arm{racing: false, instrumented: true}]) != 1 || len(hashes[arm{racing: false, instrumented: true}]) != 1 {
+		t.Fatalf("race-free control varied (broken control): uninstrumented outputs=%d instrumented outputs=%d instrumented hashes=%d", len(outputs[arm{racing: false}]), len(outputs[arm{racing: false, instrumented: true}]), len(hashes[arm{racing: false, instrumented: true}]))
 	}
 }
 
-func runRaceProbe(dev *cuda.Device, mod driver.Module, n int, racing, instrumented bool) (string, uint64, error) {
+func runRaceProbe(dev *cuda.Device, mod driver.Module, n int, racing, instrumented bool, scheduleSeed uint32) (string, uint64, error) {
 	var key string
 	var hash uint64
 	err := dev.WithContext(func() error {
+		reset, err := mod.Function("reset_race_cells")
+		if err != nil {
+			return err
+		}
+		if err := reset.LaunchKernel(driver.Dim3{X: 1, Y: 1, Z: 1}, driver.Dim3{X: 512, Y: 1, Z: 1}, 0, 0, nil); err != nil {
+			return err
+		}
+		if err := driver.CtxSynchronize(); err != nil {
+			return err
+		}
 		if instrumented {
 			if err := nvrtcx.ResetDeviceTrace(mod); err != nil {
 				return err
@@ -113,7 +143,7 @@ func runRaceProbe(dev *cuda.Device, mod driver.Module, n int, racing, instrument
 		if racing {
 			raceValue = 1
 		}
-		args := []unsafe.Pointer{unsafe.Pointer(&nValue), unsafe.Pointer(&out), unsafe.Pointer(&raceValue)}
+		args := []unsafe.Pointer{unsafe.Pointer(&nValue), unsafe.Pointer(&out), unsafe.Pointer(&raceValue), unsafe.Pointer(&scheduleSeed)}
 		if err := fn.LaunchKernel(driver.Dim3{X: 1, Y: 1, Z: 1}, driver.Dim3{X: uint32(n), Y: 1, Z: 1}, 0, 0, args); err != nil {
 			return err
 		}
