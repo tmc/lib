@@ -6,14 +6,15 @@ import (
 	"debug/elf"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"runtime"
-	"strconv"
+	"sort"
 	"strings"
 	"testing"
+	"unsafe"
 
 	"github.com/ebitengine/purego"
 	"github.com/tmc/lib/nvidia/cupti"
@@ -52,16 +53,20 @@ func TestNativeStartStopMatchesReferenceSample(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(work) })
-	cmd := exec.Command(sample)
-	cmd.Dir = work
-	cmd.Env = pcWithLibraryPath(os.Environ(), filepath.Join(cudaRoot, "lib64"))
-	refOutput, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("reference sample %s: %v\n%s", sample, err, refOutput)
-	}
-	refTotal, err := parsePCReferenceTotal(string(refOutput))
-	if err != nil {
-		t.Fatalf("parse reference output: %v\n%s", err, refOutput)
+	var referenceRuns []pcReferenceReport
+	for i := 0; i < 3; i++ {
+		cmd := exec.Command(sample)
+		cmd.Dir = work
+		cmd.Env = pcWithLibraryPath(os.Environ(), filepath.Join(cudaRoot, "lib64"))
+		out, runErr := cmd.CombinedOutput()
+		if runErr != nil {
+			t.Fatalf("reference sample run %d %s: %v\n%s", i+1, sample, runErr, out)
+		}
+		report, parseErr := parsePCReferenceOutput(string(out))
+		if parseErr != nil {
+			t.Fatalf("parse reference run %d: %v\n%s", i+1, parseErr, out)
+		}
+		referenceRuns = append(referenceRuns, report)
 	}
 	sampleLib, err := pcSampleCUPTILibrary(sample)
 	if err != nil {
@@ -87,18 +92,45 @@ func TestNativeStartStopMatchesReferenceSample(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	got, err := captureTutorialPCWorkload(dev)
+	period, err := pcSamplingDefaultPeriod(dev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, packageKernels, packageReasons, err := captureTutorialPCWorkload(dev, period)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("reference build command: make -B -C %s CUDA_INSTALL_PATH=%s", filepath.Join(root, "pc_sampling_start_stop"), cudaRoot)
-	t.Logf("reference total samples=%d package total samples=%d sample-CUPTI=%d package-CUPTI=%d library=%s", refTotal, got, sampleVersion, packageVersion, sampleLib)
-	if got != refTotal {
-		t.Fatalf("PC sampling result disagrees with independent start/stop sample: package=%d reference=%d", got, refTotal)
+	var minRef, maxRef uint64 = ^uint64(0), 0
+	var sumRef uint64
+	for i, reference := range referenceRuns {
+		t.Logf("reference run %d user samples=%d range samples=%v kernels=%v reasons=%v", i+1, reference.Total, reference.Counts, reference.Kernels, reference.Reasons)
+		if reference.Total < minRef {
+			minRef = reference.Total
+		}
+		if reference.Total > maxRef {
+			maxRef = reference.Total
+		}
+		sumRef += reference.Total
+		if i > 0 && (!equalStrings(reference.Kernels, referenceRuns[0].Kernels) || !equalStrings(reference.Reasons, referenceRuns[0].Reasons)) {
+			t.Fatalf("reference deterministic inventory changed: first=(%v,%v) run%d=(%v,%v)", referenceRuns[0].Kernels, referenceRuns[0].Reasons, i+1, reference.Kernels, reference.Reasons)
+		}
+	}
+	mean := float64(sumRef) / float64(len(referenceRuns))
+	spread := maxRef - minRef
+	// PC samples are discrete stochastic counts. Use the measured three-run
+	// envelope when wider, with a 3-sigma Poisson counting bound as a floor.
+	tolerance := max(float64(spread), 3*math.Sqrt(mean))
+	t.Logf("package user samples=%d kernels=%v reasons=%v period=2^%d cycles; reference period=CUPTI default=2^%d cycles; reference mean=%g spread=%d comparison_tolerance=%g CUPTI sample=%d package=%d library=%s", got, packageKernels, packageReasons, period, period, mean, spread, tolerance, sampleVersion, packageVersion, sampleLib)
+	if !equalStrings(packageKernels, referenceRuns[0].Kernels) || !equalStrings(packageReasons, referenceRuns[0].Reasons) {
+		t.Fatalf("deterministic inventory mismatch: package kernels=%v reasons=%v reference kernels=%v reasons=%v", packageKernels, packageReasons, referenceRuns[0].Kernels, referenceRuns[0].Reasons)
+	}
+	if math.Abs(float64(got)-mean) > tolerance {
+		t.Fatalf("package user total %d outside reference spread tolerance around mean %g (spread=%d tolerance=%g)", got, mean, spread, tolerance)
 	}
 }
 
-func captureTutorialPCWorkload(dev *cuda.Device) (uint64, error) {
+func captureTutorialPCWorkload(dev *cuda.Device, period uint32) (uint64, []string, []string, error) {
 	const source = `
 extern "C" __global__ void VectorAdd(const int *a, const int *b, int *c, int n) {
   int i = blockDim.x * blockIdx.x + threadIdx.x;
@@ -114,11 +146,11 @@ extern "C" __global__ void VectorMultiply(const int *a, const int *b, int *c, in
 }`
 	cm, err := nvrtcx.Compile(source, nvrtcx.WithDeviceArch(dev), nvrtcx.WithNoCache())
 	if err != nil {
-		return 0, err
+		return 0, nil, nil, err
 	}
 	module, err := cm.Load(dev)
 	if err != nil {
-		return 0, err
+		return 0, nil, nil, err
 	}
 	defer func() { _ = dev.WithContext(module.Close) }()
 	var add, sub, mul driver.Function
@@ -133,22 +165,22 @@ extern "C" __global__ void VectorMultiply(const int *a, const int *b, int *c, in
 		mul, err = module.Function("VectorMultiply")
 		return err
 	}); err != nil {
-		return 0, err
+		return 0, nil, nil, err
 	}
 	const n = 32000
 	a, err := cudamem.Alloc[int32](dev, n)
 	if err != nil {
-		return 0, err
+		return 0, nil, nil, err
 	}
 	defer a.Free()
 	b, err := cudamem.Alloc[int32](dev, n)
 	if err != nil {
-		return 0, err
+		return 0, nil, nil, err
 	}
 	defer b.Free()
 	c, err := cudamem.Alloc[int32](dev, n)
 	if err != nil {
-		return 0, err
+		return 0, nil, nil, err
 	}
 	defer c.Free()
 	input := make([]int32, n)
@@ -156,12 +188,13 @@ extern "C" __global__ void VectorMultiply(const int *a, const int *b, int *c, in
 		input[i] = int32(i)
 	}
 	if err := a.CopyFromHost(input); err != nil {
-		return 0, err
+		return 0, nil, nil, err
 	}
 	if err := b.CopyFromHost(input); err != nil {
-		return 0, err
+		return 0, nil, nil, err
 	}
 	var total uint64
+	kernels, reasons := map[string]bool{}, map[string]bool{}
 	err = dev.WithContext(func() error {
 		ctx, err := driver.CtxGetCurrent()
 		if err != nil {
@@ -172,7 +205,7 @@ extern "C" __global__ void VectorMultiply(const int *a, const int *b, int *c, in
 			return err
 		}
 		config := cuptipcsampling.Config{
-			Period: 10, WorkerSleepMS: 10,
+			Period: period, WorkerSleepMS: 10,
 			MaxReasons:   len(inv.Reasons),
 			ScratchBytes: 8 << 20, HardwareBytes: 8 << 20, MaxNativeBytes: 64 << 20,
 			PCsPerBuffer: 512, MaxOutputBytes: 8 << 20, MaxReads: 16,
@@ -195,7 +228,8 @@ extern "C" __global__ void VectorMultiply(const int *a, const int *b, int *c, in
 			}
 		}()
 		launch := func(fn driver.Function) error {
-			return cudalaunch.Kernel(fn).Launch(a, b, c, n)
+			blocks := uint32((n + 255) / 256)
+			return cudalaunch.Kernel(fn).Grid(blocks, 1, 1).Block(256, 1, 1).Launch(a, b, c, n)
 		}
 		for _, fn := range []driver.Function{add, sub, mul, add, sub} {
 			if err := launch(fn); err != nil {
@@ -222,12 +256,46 @@ extern "C" __global__ void VectorMultiply(const int *a, const int *b, int *c, in
 			return fmt.Errorf("package final sampling batch unavailable or invalid")
 		}
 		total = batch.TotalSamples + final.TotalSamples
+		for _, sampledBatch := range []cuptipcsampling.Batch{batch, final} {
+			for _, pc := range sampledBatch.PCs {
+				if pc.Name == "" {
+					continue
+				}
+				kernels[pc.Name] = true
+				for _, reason := range pc.Reasons {
+					if reason.Samples > 0 {
+						reasons[inv.Lookup(reason.Index)] = true
+					}
+				}
+			}
+		}
 		if total == 0 {
 			return fmt.Errorf("package recorded no PC samples")
 		}
 		return nil
 	})
-	return total, err
+	return total, sortedKeys(kernels), sortedKeys(reasons), err
+}
+
+func sortedKeys(set map[string]bool) []string {
+	keys := make([]string, 0, len(set))
+	for key := range set {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func equalStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func referenceReasonInventory(ctx driver.Context) (cuptipcsampling.ReasonInventory, error) {
@@ -239,35 +307,37 @@ func referenceReasonInventory(ctx driver.Context) (cuptipcsampling.ReasonInvento
 	return inv, errors.Join(queryErr, disable())
 }
 
-var pcTotalLine = regexp.MustCompile(`total samples:\s*([0-9]+)`)
-
-func parsePCReferenceTotal(output string) (uint64, error) {
-	matches := pcTotalLine.FindAllStringSubmatch(output, -1)
-	if len(matches) == 0 {
-		return 0, fmt.Errorf("reference output has no total samples lines")
-	}
-	var total uint64
-	for _, match := range matches {
-		value, err := strconv.ParseUint(match[1], 10, 64)
+func pcSamplingDefaultPeriod(dev *cuda.Device) (uint32, error) {
+	var period uint32
+	err := dev.WithContext(func() error {
+		ctx, err := driver.CtxGetCurrent()
 		if err != nil {
-			return 0, fmt.Errorf("parse total samples %q: %w", match[1], err)
+			return err
 		}
-		if ^uint64(0)-total < value {
-			return 0, fmt.Errorf("reference total samples overflow")
+		disable, err := cuptipcsampling.Enable(ctx)
+		if err != nil {
+			return err
 		}
-		total += value
-	}
-	if total == 0 {
-		return 0, fmt.Errorf("reference total samples is zero")
-	}
-	return total, nil
-}
-
-func TestParsePCReferenceTotal(t *testing.T) {
-	got, err := parsePCReferenceTotal("total samples: 17, dropped samples: 0\ntotal samples: 29, dropped samples: 1\n")
-	if err != nil || got != 46 {
-		t.Fatalf("parsePCReferenceTotal = %d, %v; want 46", got, err)
-	}
+		defer disable()
+		info := cupti.PCSamplingConfigurationInfo{
+			AttributeType:   cupti.PcSamplingConfigurationAttrTypeSamplingPeriod,
+			AttributeStatus: cupti.Result(-1),
+		}
+		params := cupti.PCSamplingConfigurationInfoParams{
+			Size: uint(unsafe.Sizeof(cupti.PCSamplingConfigurationInfoParams{})),
+			Ctx:  ctx, NumAttributes: 1,
+			PPCSamplingConfigurationInfo: uintptr(unsafe.Pointer(&info)),
+		}
+		if err := cupti.PCSamplingGetConfigurationAttribute(&params); err != nil {
+			return err
+		}
+		if info.AttributeStatus != 0 || info.AttributeData[0] < 5 || info.AttributeData[0] > 31 {
+			return fmt.Errorf("CUPTI default sampling period is invalid: status=%v data=%v", info.AttributeStatus, info.AttributeData)
+		}
+		period = uint32(info.AttributeData[0])
+		return nil
+	})
+	return period, err
 }
 
 func checkPCReferenceBinary(path string) error {

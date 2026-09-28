@@ -20,6 +20,9 @@
 // with explicit limits, workload completion and device synchronization, final
 // draining, and cleanup, reporting loss, remaining samples, consumer failure,
 // and cancellation separately.
+// ProfileBridge exposes named-PC, dropped, and unattributed sample counts.
+// Its stall coverage uses all three counts in the denominator, so CUPTI loss
+// and empty kernel names lower coverage rather than disappearing from it.
 //
 // Collection is restricted to Linux amd64/arm64 and CUPTI 13.x layouts. A 13.x
 // release newer than the newest qualified one uses that release's layout.

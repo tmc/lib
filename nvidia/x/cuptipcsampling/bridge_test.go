@@ -1134,11 +1134,59 @@ func TestStallCoverageAccumulatesNamedPCsAcrossBatches(t *testing.T) {
 	if bridge.StallOther != 0 {
 		t.Fatalf("StallOther = %d, want 0", bridge.StallOther)
 	}
-	if bridge.StallCoverage == nil || *bridge.StallCoverage != 1 {
-		t.Fatalf("StallCoverage = %v, want present 1", bridge.StallCoverage)
+	wantCoverage := float64(31) / 331 // 31 named + 100 unattributed + 200 dropped.
+	if bridge.StallCoverage == nil || math.Abs(*bridge.StallCoverage-wantCoverage) > 1e-12 {
+		t.Fatalf("StallCoverage = %v, want %0.16f", bridge.StallCoverage, wantCoverage)
 	}
 	if bridge.StallOtherShare == nil || *bridge.StallOtherShare != 0 {
 		t.Fatalf("StallOtherShare = %v, want present 0", bridge.StallOtherShare)
+	}
+	if bridge.DroppedSamples != 200 || bridge.UnattributedSamples != 100 {
+		t.Fatalf("loss counters = dropped %d unattributed %d, want 200 and 100", bridge.DroppedSamples, bridge.UnattributedSamples)
+	}
+}
+
+func TestStallCoverageRetainsFullPrecision(t *testing.T) {
+	var buf bytes.Buffer
+	bridge := &cuptipcsampling.ProfileBridge{
+		Session: cudaprof.NewSession(&buf),
+		Inventory: cuptipcsampling.ReasonInventory{Reasons: []cuptipcsampling.StallReason{
+			{Index: 1, Name: "selected"}, {Index: 2, Name: "sleeping"},
+		}},
+	}
+	batch := cuptipcsampling.Batch{Valid: true, PCs: []cuptipcsampling.PC{{Name: "kernel", Reasons: []cuptipcsampling.StallSamples{
+		{Index: 1, Samples: 7}, {Index: 2, Samples: 2},
+	}}}}
+	if err := bridge.RecordBatch(context.Background(), batch); err != nil {
+		t.Fatal(err)
+	}
+	want := float64(7) / 9
+	if bridge.StallCoverage == nil || *bridge.StallCoverage != want {
+		t.Fatalf("coverage = %.17g, want %.17g", *bridge.StallCoverage, want)
+	}
+}
+
+func TestStallCoverageIncludesDroppedAndUnnamedSamples(t *testing.T) {
+	var buf bytes.Buffer
+	bridge := &cuptipcsampling.ProfileBridge{
+		Session:   cudaprof.NewSession(&buf),
+		Inventory: cuptipcsampling.ReasonInventory{Reasons: []cuptipcsampling.StallReason{{Index: 1, Name: "selected"}}},
+	}
+	batch := cuptipcsampling.Batch{
+		Valid: true, TotalSamples: 1000, DroppedSamples: 900,
+		PCs: []cuptipcsampling.PC{
+			{Name: "kernel", Reasons: []cuptipcsampling.StallSamples{{Index: 1, Samples: 10}}},
+			{Name: "", Reasons: []cuptipcsampling.StallSamples{{Index: 1, Samples: 90}}},
+		},
+	}
+	if err := bridge.RecordBatch(context.Background(), batch); err != nil {
+		t.Fatal(err)
+	}
+	if bridge.TotalSamples != 10 || bridge.DroppedSamples != 900 || bridge.UnattributedSamples != 90 {
+		t.Fatalf("sample accounting named=%d dropped=%d unattributed=%d", bridge.TotalSamples, bridge.DroppedSamples, bridge.UnattributedSamples)
+	}
+	if bridge.StallCoverage == nil || *bridge.StallCoverage != 0.01 {
+		t.Fatalf("coverage = %v, want 0.01", bridge.StallCoverage)
 	}
 }
 

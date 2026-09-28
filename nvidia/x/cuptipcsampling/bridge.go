@@ -81,19 +81,25 @@ type ProfileBridge struct {
 	ReasonSamples map[string]int64
 
 	// TotalSamples is the sum of non-companion sample counts attached to named
-	// PCs that RecordBatch accepted across all recorded batches. Empty-name PCs,
-	// Batch.DroppedSamples and Batch.TotalSamples are not included; this is the
-	// denominator for the recorded, named-PC stall breakdown, not CUPTI's total.
+	// PCs that RecordBatch accepted across all recorded batches. It excludes
+	// empty-name PCs and dropped samples. Use DroppedSamples and
+	// UnattributedSamples with TotalSamples to understand samples that are not
+	// represented by the named-PC breakdown.
 	TotalSamples int64
+	// DroppedSamples sums samples CUPTI or its buffers reported as lost.
+	DroppedSamples uint64
+	// UnattributedSamples sums non-companion counts attached to PCs without a
+	// kernel name. These cannot be assigned to a named profile stack.
+	UnattributedSamples uint64
 	// StallOther is the sum of unmapped stall samples across all recorded batches.
 	StallOther int64
-	// StallCoverage reports the share of samples covered by modelled stall reasons
-	// (1 - StallOther / TotalSamples). It is nil when TotalSamples is zero (absent,
-	// never false zero).
+	// StallCoverage reports modelled named-PC samples divided by named,
+	// unattributed, and dropped samples. A value below one includes incomplete
+	// coverage caused by either unmapped stalls or samples not assigned to a
+	// named kernel. It is nil when no named-PC samples were recorded.
 	StallCoverage *float64
-	// StallOtherShare reports the share of samples falling into stall_other
-	// (StallOther / TotalSamples). It is nil when TotalSamples is zero (absent,
-	// never false zero).
+	// StallOtherShare reports StallOther divided by named, unattributed, and
+	// dropped samples. It is nil when no named-PC samples were recorded.
 	StallOtherShare *float64
 }
 
@@ -111,9 +117,27 @@ func (b *ProfileBridge) RecordBatch(ctx context.Context, batch Batch) error {
 	if !batch.Valid {
 		return errors.New("cuptipcsampling: invalid sampling batch")
 	}
+	if ^uint64(0)-b.DroppedSamples < batch.DroppedSamples {
+		return errors.New("cuptipcsampling: dropped sample count overflow")
+	}
+	b.DroppedSamples += batch.DroppedSamples
 
 	for _, pc := range batch.PCs {
 		if pc.Name == "" {
+			var n uint64
+			for _, r := range pc.Reasons {
+				if isCompanion(b.Inventory.Lookup(r.Index)) {
+					continue
+				}
+				if ^uint64(0)-n < uint64(r.Samples) {
+					return errors.New("cuptipcsampling: unattributed sample count overflow")
+				}
+				n += uint64(r.Samples)
+			}
+			if ^uint64(0)-b.UnattributedSamples < n {
+				return errors.New("cuptipcsampling: unattributed sample count overflow")
+			}
+			b.UnattributedSamples += n
 			continue
 		}
 
@@ -295,10 +319,15 @@ func (b *ProfileBridge) RecordBatch(ctx context.Context, batch Batch) error {
 		b.Session.RecordStackSample(sampleCtx, vals, frames)
 	}
 
+	coverageDenominator := uint64(b.TotalSamples)
+	if ^uint64(0)-coverageDenominator < b.DroppedSamples || ^uint64(0)-coverageDenominator-b.DroppedSamples < b.UnattributedSamples {
+		return errors.New("cuptipcsampling: coverage sample count overflow")
+	}
+	coverageDenominator += b.DroppedSamples + b.UnattributedSamples
 	if b.TotalSamples > 0 {
-		cov := 1.0 - float64(b.StallOther)/float64(b.TotalSamples)
+		cov := float64(b.TotalSamples-b.StallOther) / float64(coverageDenominator)
 		b.StallCoverage = &cov
-		share := float64(b.StallOther) / float64(b.TotalSamples)
+		share := float64(b.StallOther) / float64(coverageDenominator)
 		b.StallOtherShare = &share
 	} else {
 		b.StallCoverage = nil
