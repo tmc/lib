@@ -76,3 +76,22 @@ func TestCheckIsolationRejectsInvalidBounds(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckIsolationRejectsEachInputGuardAlone(t *testing.T) {
+	tests := []struct {
+		name           string
+		h1, l1, h2, l2 float64
+		trips1, trips2 uint32
+	}{
+		{"negative", 130, -1, 160, -1, 10, 20},
+		{"infinite", math.Inf(1), 100, math.Inf(1), 100, 10, 20},
+		{"zero-trips1", 130, 100, 190, 100, 0, 20},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := checkIsolation(tt.h1, tt.l1, tt.h2, tt.l2, 3, tt.trips1, tt.trips2); err == nil {
+				t.Fatal("checkIsolation accepted isolated invalid input")
+			}
+		})
+	}
+}

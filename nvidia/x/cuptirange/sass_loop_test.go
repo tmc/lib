@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cuda"
@@ -81,13 +82,29 @@ func countBackedgeBlockInstructions(fn *cudasass.Function) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("build SASS control-flow graph: %w", err)
 	}
+	if len(graph.Blocks) == 0 {
+		return 0, fmt.Errorf("SASS function has no basic blocks")
+	}
+	reachable := make([]bool, len(graph.Blocks))
+	reachable[0] = true
+	work := []int{0}
+	for len(work) != 0 {
+		block := work[0]
+		work = work[1:]
+		for _, successor := range graph.Successors(block) {
+			if !reachable[successor] {
+				reachable[successor] = true
+				work = append(work, successor)
+			}
+		}
+	}
 	count := 0
 	for _, edge := range graph.Edges {
-		if edge.Kind != cudasass.Taken || edge.To > edge.From {
+		if !reachable[edge.From] || edge.Kind != cudasass.Taken || edge.To > edge.From {
 			continue
 		}
 		block := graph.Blocks[edge.From]
-		if block.Instructions[len(block.Instructions)-1].Opcode == "" {
+		if len(block.Instructions) == 0 || block.Instructions[len(block.Instructions)-1].Opcode == "" {
 			return 0, fmt.Errorf("backedge block has no terminating instruction")
 		}
 		if count != 0 {
@@ -117,6 +134,9 @@ func TestCountBackedgeBlockInstructions(t *testing.T) {
 /*0020*/ IMAD R1, R1, 0x3, R0 ;
 /*0030*/ @P0 BRA ` + "`" + `(.L_loop) ;
 /*0040*/ EXIT ;
+.L_trap:
+/*0050*/ BRA ` + "`" + `(.L_trap) ;
+/*0060*/ NOP ;
 `,
 			want: 3,
 		},
@@ -130,6 +150,9 @@ func TestCountBackedgeBlockInstructions(t *testing.T) {
 /*0020*/ IADD R0, R0, 0x1 ;
 /*0030*/ @P0 BRA ` + "`" + `(.L_loop) ;
 /*0040*/ EXIT ;
+.L_trap:
+/*0050*/ BRA ` + "`" + `(.L_trap) ;
+/*0060*/ NOP ;
 `,
 			want: 3,
 		},
@@ -152,11 +175,88 @@ func TestCountBackedgeBlockInstructionsFailsClosed(t *testing.T) {
 	dis, err := cudasass.ParseString(`.section .text.heavy_kernel,"ax",@progbits
 .text.heavy_kernel:
 /*0000*/ EXIT ;
+.L_trap:
+/*0010*/ BRA ` + "`" + `(.L_trap) ;
+/*0020*/ NOP ;
 `)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := countBackedgeBlockInstructions(dis.Function("heavy_kernel")); err == nil {
 		t.Fatal("SASS without a loop backedge was accepted")
+	}
+}
+
+func TestCountBackedgeBlockInstructionsRejectsMultipleReachableLoops(t *testing.T) {
+	dis, err := cudasass.ParseString(`.section .text.heavy_kernel,"ax",@progbits
+.text.heavy_kernel:
+/*0000*/ IADD R0, R0, 0x1 ;
+.L_loop_a:
+/*0010*/ ISETP.LT.AND P0, PT, R0, 0x10, PT ;
+/*0020*/ @P0 BRA ` + "`" + `(.L_loop_a) ;
+.L_loop_b:
+/*0030*/ ISETP.LT.AND P1, PT, R1, 0x20, PT ;
+/*0040*/ @P1 BRA ` + "`" + `(.L_loop_b) ;
+/*0050*/ EXIT ;
+.L_trap:
+/*0060*/ BRA ` + "`" + `(.L_trap) ;
+/*0070*/ NOP ;
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := countBackedgeBlockInstructions(dis.Function("heavy_kernel")); err == nil || !strings.Contains(err.Error(), "multiple SASS backedge blocks") {
+		t.Fatalf("multiple reachable loops error = %v, want ambiguous-loop error", err)
+	}
+}
+
+func TestCountBackedgeBlockInstructionsMatchesNvdisasmFixtures(t *testing.T) {
+	tests := []struct {
+		path, function, wantError string
+	}{
+		{"../cudasass/testdata/sm121a-encoding.sass", "addk", "no identifiable loop backedge"},
+		{"../cudasass/testdata/sm121a-loop-13.4.sass", "k4", "multiple SASS backedge blocks"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.function, func(t *testing.T) {
+			data, err := os.ReadFile(tt.path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			dis, err := cudasass.Parse(bytes.NewReader(data))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := countBackedgeBlockInstructions(dis.Function(tt.function)); err == nil || !strings.Contains(err.Error(), tt.wantError) {
+				t.Fatalf("countBackedgeBlockInstructions error = %v, want %q", err, tt.wantError)
+			}
+		})
+	}
+}
+
+func TestCountBackedgeBlockInstructionsHeavyKernelWithTrapBlock(t *testing.T) {
+	dis, err := cudasass.ParseString(`.section .text.heavy_kernel,"ax",@progbits
+.text.heavy_kernel:
+/*0000*/ LDC R1, c[0x0][0x37c] ;
+/*0010*/ S2R R0, SR_TID.X ;
+/*0020*/ MOV R2, RZ ;
+.L_x_0:
+/*0030*/ ISETP.LT.AND P0, PT, R0, R1, PT ;
+/*0040*/ IMAD R2, R2, 0x19660d, 0x3c6ef35f ;
+/*0050*/ IADD R0, R0, 0x1 ;
+/*0060*/ @P0 BRA ` + "`" + `(.L_x_0) ;
+/*0070*/ STG.E [R4], R2 ;
+/*0080*/ EXIT ;
+.L_x_6:
+/*0090*/ BRA ` + "`" + `(.L_x_6) ;
+/*00a0*/ NOP ;
+/*00b0*/ NOP ;
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := countBackedgeBlockInstructions(dis.Function("heavy_kernel"))
+	if err != nil || got != 4 {
+		t.Fatalf("heavy_kernel loop block size = %d, %v; want 4", got, err)
 	}
 }
