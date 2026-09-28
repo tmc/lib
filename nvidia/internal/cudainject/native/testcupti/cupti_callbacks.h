@@ -32,6 +32,12 @@ typedef enum {
    covers cudaProfilerStart/Stop; the driver pair covers a target that calls
    cuProfilerStart/Stop directly, which the runtime pair never sees. */
 typedef enum {
+	CUPTI_RUNTIME_TRACE_CBID_cudaGraphKernelNodeSetParams_v10000 = 288,
+	CUPTI_RUNTIME_TRACE_CBID_cudaGraphExecKernelNodeSetParams_v10010 = 326,
+	CUPTI_RUNTIME_TRACE_CBID_cudaGraphExecUpdate_v10020 = 335,
+	CUPTI_RUNTIME_TRACE_CBID_cudaGraphExecChildGraphNodeSetParams_v11010 = 361,
+	CUPTI_RUNTIME_TRACE_CBID_cudaGraphNodeSetParams_v12020 = 446,
+	CUPTI_RUNTIME_TRACE_CBID_cudaGraphExecNodeSetParams_v12020 = 447,
 	CUPTI_RUNTIME_TRACE_CBID_cudaProfilerStart_v4000 = 171,
 	CUPTI_RUNTIME_TRACE_CBID_cudaProfilerStop_v4000 = 172,
 	CUPTI_RUNTIME_TRACE_CBID_cudaLaunchKernel_v7000 = 211,
@@ -43,6 +49,17 @@ typedef enum {
 } CUpti_runtime_api_trace_cbid_subset;
 
 typedef enum {
+	CUPTI_DRIVER_TRACE_CBID_cuGraphAddKernelNode = 502,
+	CUPTI_DRIVER_TRACE_CBID_cuGraphAddKernelNode_v2 = 689,
+	CUPTI_DRIVER_TRACE_CBID_cuGraphExecChildGraphNodeSetParams = 586,
+	CUPTI_DRIVER_TRACE_CBID_cuGraphExecKernelNodeSetParams = 538,
+	CUPTI_DRIVER_TRACE_CBID_cuGraphExecKernelNodeSetParams_v2 = 692,
+	CUPTI_DRIVER_TRACE_CBID_cuGraphExecNodeSetParams = 714,
+	CUPTI_DRIVER_TRACE_CBID_cuGraphExecUpdate = 561,
+	CUPTI_DRIVER_TRACE_CBID_cuGraphExecUpdate_v2 = 696,
+	CUPTI_DRIVER_TRACE_CBID_cuGraphKernelNodeSetParams = 521,
+	CUPTI_DRIVER_TRACE_CBID_cuGraphKernelNodeSetParams_v2 = 691,
+	CUPTI_DRIVER_TRACE_CBID_cuGraphNodeSetParams = 713,
 	CUPTI_DRIVER_TRACE_CBID_cuModuleLoad = 18,
 	CUPTI_DRIVER_TRACE_CBID_cuModuleLoadData = 19,
 	CUPTI_DRIVER_TRACE_CBID_cuModuleLoadDataEx = 20,
@@ -67,6 +84,7 @@ typedef enum {
    not the image it was loaded from. */
 typedef enum {
 	CUPTI_CBID_RESOURCE_CONTEXT_CREATED = 1,
+	CUPTI_CBID_RESOURCE_GRAPHNODE_CLONED = 20,
 	CUPTI_CBID_RESOURCE_MODULE_LOADED = 6
 } CUpti_CallbackIdResource;
 
@@ -195,4 +213,30 @@ CUptiResult cuptiUnsubscribe(CUpti_SubscriberHandle subscriber);
 CUptiResult cuptiEnableCallback(uint32_t enable, CUpti_SubscriberHandle subscriber, CUpti_CallbackDomain domain, CUpti_CallbackId cbid);
 CUptiResult cuptiEnableDomain(uint32_t enable, CUpti_SubscriberHandle subscriber, CUpti_CallbackDomain domain);
 
+/* Graph identity declarations read by the producer. The stub treats a
+   non-null node handle as its stable CUPTI id. */
+typedef struct CUgraph_st *CUgraph;
+typedef struct CUgraphNode_st *CUgraphNode;
+typedef struct CUgraphExec_st *CUgraphExec;
+typedef int CUresult;
+#define CUDA_SUCCESS 0
+typedef struct {
+	CUgraph graph;
+	CUgraph originalGraph;
+	CUgraphNode node;
+	CUgraphNode originalNode;
+	int nodeType;
+	CUgraphNode dependency;
+	CUgraphExec graphExec;
+} CUpti_GraphData;
+typedef struct { CUfunction func; } test_kernel_node_params;
+typedef struct {
+	CUgraphNode *phGraphNode;
+	CUgraph hGraph;
+	const CUgraphNode *dependencies;
+	size_t numDependencies;
+	const test_kernel_node_params *nodeParams;
+} cuGraphAddKernelNode_params;
+typedef cuGraphAddKernelNode_params cuGraphAddKernelNode_v2_params;
+CUptiResult cuptiGetGraphNodeId(CUgraphNode node, uint64_t *id);
 #endif
