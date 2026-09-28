@@ -83,3 +83,41 @@ Function : global_only
 		t.Fatalf("global traffic reported as a shared conversion: %v", report.Err())
 	}
 }
+
+func TestVerifyNoSharedConversionsPTXOnly(t *testing.T) {
+	for _, opcode := range []string{"cvta.shared.u64", "cvta.to.shared.u64"} {
+		t.Run(opcode, func(t *testing.T) {
+			ptx, err := cudaptx.Parse(strings.NewReader(`.version 8.0
+.target sm_90
+.address_size 64
+.entry ptx_only() {
+  .reg .b64 %rd<2>;
+  ` + opcode + ` %rd1, %rd0;
+  ret;
+}`))
+			if err != nil {
+				t.Fatal(err)
+			}
+			sass, err := cudasass.Parse(strings.NewReader(`code for sm_90
+Function : ptx_only
+/*0000*/ RET ;
+`))
+			if err != nil {
+				t.Fatal(err)
+			}
+			report, err := VerifyNoSharedConversions(ptx, sass, "@ptx_only/%slot")
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, div := range report.Divergences {
+				if div.Kind == SharedConversion {
+					if div.PTXCount == 0 || div.SASSCount != 0 {
+						t.Fatalf("PTX-only conversion counts = PTX %d SASS %d", div.PTXCount, div.SASSCount)
+					}
+					return
+				}
+			}
+			t.Fatal("PTX-only shared conversion was not reported")
+		})
+	}
+}

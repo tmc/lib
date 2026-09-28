@@ -115,11 +115,3 @@ Function : test_kernel_with
 		t.Errorf("unexpected error for inferred kernel: %v", reportWith.Err())
 	}
 }
-
-// TestLowering_NoSharedConversionAfterInference tests that after address-space inference,
-// emitted SASS contains no shared-space address conversions for the inferred slots.
-// Gated with CUDA_NVVMX_NATIVE=1.
-
-// TestLowering_ConversionPresentWithoutInference tests that without address-space inference,
-// the same kernel DOES contain shared-space address conversions in SASS.
-// Gated with CUDA_NVVMX_NATIVE=1.
