@@ -147,6 +147,33 @@ func (m *Module) Function(name string) (*Kernel, error) {
 	return &Kernel{module: m, raw: fn}, nil
 }
 
+// WithGlobal calls fn with a device global's address and byte size, in the
+// module's context and while excluding Close. The address must not escape the
+// call. The callback must not call methods on m.
+func (m *Module) WithGlobal(name string, fn func(driver.DevicePtr, uint) error) error {
+	if m == nil {
+		return fmt.Errorf("cuda: closed module")
+	}
+	if name == "" || strings.ContainsRune(name, 0) {
+		return fmt.Errorf("cuda: invalid global name")
+	}
+	if fn == nil {
+		return fmt.Errorf("cuda: nil global function")
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.raw == 0 {
+		return fmt.Errorf("cuda: closed module")
+	}
+	return m.ctx.Run(func() error {
+		ptr, size, err := m.raw.Global(name)
+		if err != nil {
+			return fmt.Errorf("cuda: find global %q: %w", name, err)
+		}
+		return fn(ptr, size)
+	})
+}
+
 // Attribute queries an integer attribute of the kernel, such as its static
 // shared-memory size or register count.
 func (k *Kernel) Attribute(attrib driver.FunctionAttribute) (int, error) {
