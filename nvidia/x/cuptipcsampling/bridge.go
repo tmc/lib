@@ -80,7 +80,10 @@ type ProfileBridge struct {
 	// stall_mem alone cannot tell apart though they call for opposite fixes.
 	ReasonSamples map[string]int64
 
-	// TotalSamples is the sum of non-companion PC samples across all recorded batches.
+	// TotalSamples is the sum of non-companion sample counts attached to named
+	// PCs that RecordBatch accepted across all recorded batches. Empty-name PCs,
+	// Batch.DroppedSamples and Batch.TotalSamples are not included; this is the
+	// denominator for the recorded, named-PC stall breakdown, not CUPTI's total.
 	TotalSamples int64
 	// StallOther is the sum of unmapped stall samples across all recorded batches.
 	StallOther int64

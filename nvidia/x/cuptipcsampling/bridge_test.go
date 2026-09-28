@@ -1098,6 +1098,50 @@ func TestStallCoverageReported(t *testing.T) {
 	}
 }
 
+func TestStallCoverageAccumulatesNamedPCsAcrossBatches(t *testing.T) {
+	var buf bytes.Buffer
+	bridge := &cuptipcsampling.ProfileBridge{
+		Session: cudaprof.NewSession(&buf),
+		Inventory: cuptipcsampling.ReasonInventory{Reasons: []cuptipcsampling.StallReason{
+			{Index: 1, Name: "smsp__pcsamp_warps_issue_stalled_long_scoreboard"},
+			{Index: 2, Name: "smsp__pcsamp_warps_issue_stalled_selected"},
+		}},
+	}
+	batches := []cuptipcsampling.Batch{
+		{
+			Valid: true, TotalSamples: 400, DroppedSamples: 70,
+			PCs: []cuptipcsampling.PC{
+				{Name: "kernel", Reasons: []cuptipcsampling.StallSamples{{Index: 1, Samples: 7}}},
+				{Name: "kernel", Reasons: []cuptipcsampling.StallSamples{{Index: 2, Samples: 11}}},
+				{Name: "", Reasons: []cuptipcsampling.StallSamples{{Index: 1, Samples: 100}}},
+			},
+		},
+		{
+			Valid: true, TotalSamples: 900, DroppedSamples: 130,
+			PCs: []cuptipcsampling.PC{
+				{Name: "kernel", Reasons: []cuptipcsampling.StallSamples{{Index: 1, Samples: 13}}},
+			},
+		},
+	}
+	for _, batch := range batches {
+		if err := bridge.RecordBatch(context.Background(), batch); err != nil {
+			t.Fatalf("RecordBatch: %v", err)
+		}
+	}
+	if bridge.TotalSamples != 31 {
+		t.Fatalf("TotalSamples = %d, want 31 named-PC samples across both batches", bridge.TotalSamples)
+	}
+	if bridge.StallOther != 0 {
+		t.Fatalf("StallOther = %d, want 0", bridge.StallOther)
+	}
+	if bridge.StallCoverage == nil || *bridge.StallCoverage != 1 {
+		t.Fatalf("StallCoverage = %v, want present 1", bridge.StallCoverage)
+	}
+	if bridge.StallOtherShare == nil || *bridge.StallOtherShare != 0 {
+		t.Fatalf("StallOtherShare = %v, want present 0", bridge.StallOtherShare)
+	}
+}
+
 func TestStallCoverageAbsentWithNoSamples(t *testing.T) {
 	var buf bytes.Buffer
 	session := cudaprof.NewSession(&buf)
