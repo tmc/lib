@@ -26,7 +26,7 @@ func allocChunk(dev driver.Device, size uintptr) (handle uint64, fd int, err err
 	var pin runtime.Pinner
 	pin.Pin(&fd32)
 	if err := driver.MemExportToShareableHandle(
-		uintptr(unsafe.Pointer(&fd32)), handle, driver.MemHandleTypePosixFileDescriptor, 0,
+		unsafe.Pointer(&fd32), handle, driver.MemHandleTypePosixFileDescriptor, 0,
 	); err != nil {
 		pin.Unpin()
 		driver.MemRelease(handle)

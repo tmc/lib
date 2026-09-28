@@ -63,7 +63,7 @@ func AlgoConfigOf(algo *cublaslt.MatmulAlgo) (AlgoConfig, error) {
 		{cublaslt.AlgoConfigSplitkNum, unsafe.Pointer(&c.SplitK)},
 		{cublaslt.AlgoConfigReductionScheme, unsafe.Pointer(&c.ReductionScheme)},
 	} {
-		if _, err := cublaslt.MatmulAlgoConfigGetAttribute(algo, f.attr, uintptr(f.v), 4); err != nil {
+		if _, err := cublaslt.MatmulAlgoConfigGetAttribute(algo, f.attr, f.v, 4); err != nil {
 			return AlgoConfig{}, fmt.Errorf("cublasltx: get algorithm attribute %v: %w", f.attr, err)
 		}
 	}

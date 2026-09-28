@@ -73,7 +73,7 @@ func TestHeuristicPick(t *testing.T) {
 		}
 		defer pref.Close()
 		ws := uint64(32 << 20)
-		if err := pref.SetAttribute(cublaslt.MatmulPrefMaxWorkspaceBytes, uintptr(unsafe.Pointer(&ws)), 8); err != nil {
+		if err := pref.SetAttribute(cublaslt.MatmulPrefMaxWorkspaceBytes, unsafe.Pointer(&ws), 8); err != nil {
 			t.Fatalf("set workspace: %v", err)
 		}
 		for i := range configs {

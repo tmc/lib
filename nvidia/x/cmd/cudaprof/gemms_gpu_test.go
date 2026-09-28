@@ -49,7 +49,7 @@ func TestGEMMHelper(t *testing.T) {
 	desc, err := cublaslt.NewMatmulDesc(cublaslt.Compute32F, cublaslt.R32F)
 	check("matmul desc", err)
 	op := cublaslt.CublasOpT
-	check("transa", desc.SetAttribute(cublaslt.MatmulDescTransa, uintptr(unsafe.Pointer(&op)), uint(unsafe.Sizeof(op))))
+	check("transa", desc.SetAttribute(cublaslt.MatmulDescTransa, unsafe.Pointer(&op), uint(unsafe.Sizeof(op))))
 	layout := func(rows, cols int) cublaslt.MatrixLayout {
 		l, err := cublaslt.NewMatrixLayout(cublaslt.R32F, uint64(rows), uint64(cols), int64(rows))
 		check("layout", err)

@@ -47,7 +47,7 @@ func (buf *DistBuffer) attachMulticast(b Bootstrap, ownedHandle uint64) error {
 		var pin runtime.Pinner
 		pin.Pin(&fd32)
 		if err := driver.MemExportToShareableHandle(
-			uintptr(unsafe.Pointer(&fd32)), mcHandle, driver.MemHandleTypePosixFileDescriptor, 0,
+			unsafe.Pointer(&fd32), mcHandle, driver.MemHandleTypePosixFileDescriptor, 0,
 		); err != nil {
 			pin.Unpin()
 			driver.MemRelease(mcHandle)

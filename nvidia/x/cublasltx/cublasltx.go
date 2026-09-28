@@ -329,45 +329,45 @@ func (e *Engine) execute(
 		if cfg.TransA {
 			op := cublaslt.CublasOpT
 			pin.Pin(&op)
-			if err := opDesc.SetAttribute(cublaslt.MatmulDescTransa, uintptr(unsafe.Pointer(&op)), uint(unsafe.Sizeof(op))); err != nil {
+			if err := opDesc.SetAttribute(cublaslt.MatmulDescTransa, unsafe.Pointer(&op), uint(unsafe.Sizeof(op))); err != nil {
 				return fmt.Errorf("set transa: %w", err)
 			}
 		}
 		if cfg.TransB {
 			op := cublaslt.CublasOpT
 			pin.Pin(&op)
-			if err := opDesc.SetAttribute(cublaslt.MatmulDescTransb, uintptr(unsafe.Pointer(&op)), uint(unsafe.Sizeof(op))); err != nil {
+			if err := opDesc.SetAttribute(cublaslt.MatmulDescTransb, unsafe.Pointer(&op), uint(unsafe.Sizeof(op))); err != nil {
 				return fmt.Errorf("set transb: %w", err)
 			}
 		}
 		if cfg.Epilogue != 0 {
 			ep := cfg.Epilogue
 			pin.Pin(&ep)
-			if err := opDesc.SetAttribute(cublaslt.MatmulDescEpilogue, uintptr(unsafe.Pointer(&ep)), uint(unsafe.Sizeof(ep))); err != nil {
+			if err := opDesc.SetAttribute(cublaslt.MatmulDescEpilogue, unsafe.Pointer(&ep), uint(unsafe.Sizeof(ep))); err != nil {
 				return fmt.Errorf("set epilogue: %w", err)
 			}
 		}
 		if cfg.Bias != 0 {
 			biasPtr := cfg.Bias
 			pin.Pin(&biasPtr)
-			if err := opDesc.SetAttribute(cublaslt.MatmulDescBiasPointer, uintptr(unsafe.Pointer(&biasPtr)), uint(unsafe.Sizeof(biasPtr))); err != nil {
+			if err := opDesc.SetAttribute(cublaslt.MatmulDescBiasPointer, unsafe.Pointer(&biasPtr), uint(unsafe.Sizeof(biasPtr))); err != nil {
 				return fmt.Errorf("set bias pointer: %w", err)
 			}
 			biasType := cfg.BiasType
 			pin.Pin(&biasType)
-			if err := opDesc.SetAttribute(cublaslt.MatmulDescBiasDataType, uintptr(unsafe.Pointer(&biasType)), uint(unsafe.Sizeof(biasType))); err != nil {
+			if err := opDesc.SetAttribute(cublaslt.MatmulDescBiasDataType, unsafe.Pointer(&biasType), uint(unsafe.Sizeof(biasType))); err != nil {
 				return fmt.Errorf("set bias data type: %w", err)
 			}
 		}
 		if cfg.Aux != 0 {
 			auxPtr := cfg.Aux
 			pin.Pin(&auxPtr)
-			if err := opDesc.SetAttribute(cublaslt.MatmulDescEpilogueAuxPointer, uintptr(unsafe.Pointer(&auxPtr)), uint(unsafe.Sizeof(auxPtr))); err != nil {
+			if err := opDesc.SetAttribute(cublaslt.MatmulDescEpilogueAuxPointer, unsafe.Pointer(&auxPtr), uint(unsafe.Sizeof(auxPtr))); err != nil {
 				return fmt.Errorf("set epilogue aux pointer: %w", err)
 			}
 			auxLd := int64(cfg.AuxLd)
 			pin.Pin(&auxLd)
-			if err := opDesc.SetAttribute(cublaslt.MatmulDescEpilogueAuxLd, uintptr(unsafe.Pointer(&auxLd)), uint(unsafe.Sizeof(auxLd))); err != nil {
+			if err := opDesc.SetAttribute(cublaslt.MatmulDescEpilogueAuxLd, unsafe.Pointer(&auxLd), uint(unsafe.Sizeof(auxLd))); err != nil {
 				return fmt.Errorf("set epilogue aux ld: %w", err)
 			}
 		}
@@ -395,7 +395,7 @@ func (e *Engine) execute(
 			defer pref.Close()
 			wsBytes := uint64(wsSize)
 			pin.Pin(&wsBytes)
-			_ = pref.SetAttribute(cublaslt.MatmulPrefMaxWorkspaceBytes, uintptr(unsafe.Pointer(&wsBytes)), uint(unsafe.Sizeof(wsBytes)))
+			_ = pref.SetAttribute(cublaslt.MatmulPrefMaxWorkspaceBytes, unsafe.Pointer(&wsBytes), uint(unsafe.Sizeof(wsBytes)))
 		}
 
 		var heuristicResult cublaslt.MatmulHeuristicResult
