@@ -9519,7 +9519,7 @@
           "-headers-dir",
           "${HEADERS_REPO}",
           "-header",
-          "${HEADERS_REPO}/nvml/nvml.h",
+          "${HEADERS_REPO}/pinned/nvml/cuda-13.3/nvml.h",
           "-docs-dir",
           "docs",
           "-output",
@@ -9530,7 +9530,7 @@
           "GOWORK": "off",
           "TMPDIR": "${SCRATCH_DIR}"
         },
-        "note": "Regenerated 2026-09-18 by the recorded recipe, which closes the last of the lib 180ba308 absolute-path residue: provenance.gen.go and provenance.json held paths from the machine that wrote them and now hold the redacted portable form. No binding output changed; the full run reproduces all of them byte for byte from the unpinned header.\n\nThe same run deleted nvidia/nvml/constants.provenance.json, and the supplemental -constants-only run that was its only producer has been removed from this record. That receipt exists to say constants.gen.go came from a different header than the rest of the package, which is the state -constants-only creates and a full run ends; cmd/nvml-survey removes it for exactly that reason (clearConstantsReceipt). The divergence it described was already gone -- the full unpinned run reproduces constants.gen.go byte for byte -- so the file survived only because the run that should have swept it wrote to a scratch directory and was hand-applied. It also could not be reproduced anywhere: its inputs entry is an absolute path inside $TMPDIR/work/nvml, a tree that no longer exists, and internal/nvidiaprovenance digests the path along with the bytes, so its source_hash is a digest over that spelling and no other machine can recompute it.\n\nThe deleted receipt remains citable by content: git blob c00343a6c623768daa24228c0b93998a83930ba4, introduced by commit 391c6f4b \"nvidia/nvml: add public macro constants\", retrievable with git show 391c6f4b:nvidia/nvml/constants.provenance.json. The blob hash is the primary citation and the prose above is the belt to its braces: if that commit is ever rewritten out from under the reference, the hash still identifies the content and this note still says what it said.\n\nEarlier history, retained: the lazy loader was refined in the generator after this generation was first recorded, so the pinned codegen commit predates it. A second supplemental run was recorded here until 2026-09-18 and was removed then. Its argv was the main argv plus -upstream-version 13.3.29 -- the full binding generation, recorded as a partial one -- and it claimed device.gen.go, unit.gen.go and vgpu_instance.gen.go, which the main recipe reproduces byte for byte from the unpinned header. Its output_selection named a patch and a promote.py inside a scratch directory that no longer exists, so the selection it describes cannot be re-derived. It produced no file this package carries, and a run that owns nothing is not a supplemental run.",
+        "note": "Regenerated from the pinned CUDA 13.3 NVML header. Previous header SHA256: 3f2b1619b009e70a99751fb0b4f1119c0c9a91e7e042bd024737fab1524729ca; new header SHA256: 31a26e3ce6f0b98a76cea38a3cf28aa112a20cfb37e9057786c768712d6a487f. This restores all 72 L18-L35 RX/TX and per-second metrics. Generated files were copied from the complete generator output without manual edits.",
         "outputs": [
           {
             "path": "nvidia/nvml/compute_instance.gen.go",
@@ -9538,29 +9538,27 @@
           },
           {
             "path": "nvidia/nvml/constants.gen.go",
-            "sha256": "191028055756b36da327335a24c88e00e49099314be5bed9a0a3a2cb524c8a06"
+            "sha256": "dcdc93e15dbbaca894e30f1e8a2a15b0c37c9491b9d6c4fff412266b8615ea60"
           },
           {
             "path": "nvidia/nvml/device.gen.go",
-            "sha256": "e40a33f0c1f913deca0d67944cd7c7d6950af8d431a06ab8e329bdad5a549b27"
+            "sha256": "72ac11e269eac91d01c0b1bdf0ff6793f0a0bc30e84a8e24e4c0210769713d4e"
           },
           {
-            "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/nvml/doc.gen.go",
-            "sha256": "996bbb245d57cf5556230b4bfa032c9b583f7afc8093950ed34e6649c9436982"
+            "sha256": "e192403f6f8a2c43fb30429908140781306348d6fe8b5adc9e5de84a4b2a799b"
           },
           {
             "path": "nvidia/nvml/enums.gen.go",
-            "sha256": "8bce98cc4363413f32605f7ff70348e57b07ff49f6790185f5cd6a93301ed6f3"
+            "sha256": "3d8e756c7911bac8128e780d06f81e1acbcf8f7b7b04213ee94834031d2d851e"
           },
           {
             "path": "nvidia/nvml/event_set.gen.go",
             "sha256": "b3260ebd5984fc196f917e724b6722b6774c5a0f76097155de578549014d950c"
           },
           {
-            "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/nvml/funcs.gen.go",
-            "sha256": "ca4b6a71cfc91dde3eda8a0c4a7f9ca418f6cb65efeeefa7f86931240c0942ef"
+            "sha256": "a48f64c7bfbe47818681c6e1fb00562b6a0cacd5c41e3008ccad6ece86257a95"
           },
           {
             "path": "nvidia/nvml/gpm_sample.gen.go",
@@ -9576,11 +9574,11 @@
           },
           {
             "path": "nvidia/nvml/init.gen.go",
-            "sha256": "dc4665f474e5bb86db92bdbf1a107ca1c974fcdacc452bd72ba334d105fad496"
+            "sha256": "c22eb924b4b987944d27bf9fee23d6f48ee37c422e52b8e61cb9080d3f6c898b"
           },
           {
             "path": "nvidia/nvml/layout.gen_test.go",
-            "sha256": "fe94fce1ecea72443d25b73a1657d3f6020d8c12861cb0b1779368da4b87453f"
+            "sha256": "b53c1ed0ca5610323728ac26fdbe0d448947575285ca1366a11ca5d068a34c7e"
           },
           {
             "path": "nvidia/nvml/loader.gen_test.go",
@@ -9596,16 +9594,19 @@
           },
           {
             "path": "nvidia/nvml/provenance.gen.go",
-            "sha256": "1ae1a5875c638e42a2d40609ccd50898228fa220761e4284ae22de800e28277e"
+            "sha256": "e927dccda3c7cf4dceb9d47c5b66fd451cd1cecc045d1d77929544da3bebd160"
+          },
+          {
+            "path": "nvidia/nvml/provenance.json",
+            "sha256": "3f4904f1960a187c65e3d12a09f763f7a1a6cdab4f861822e7797bda3e8a603b"
           },
           {
             "path": "nvidia/nvml/result.gen.go",
             "sha256": "0c94862f1c603ac401ece24415c65ed442a9ae41085009813517414b1d9ddfcc"
           },
           {
-            "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/nvml/structs.gen.go",
-            "sha256": "66b3ac7704f9f39c4f7b63a263d970b1932622b4881de0c009329f0b959622de"
+            "sha256": "aec9915f4f32bea9a491d818bc8ad3bb261e1d323877634f1746af555af446f0"
           },
           {
             "path": "nvidia/nvml/unit.gen.go",
@@ -9630,26 +9631,26 @@
         }
       },
       "header": {
-        "path": "nvml/nvml.h",
+        "path": "pinned/nvml/cuda-13.3/nvml.h",
         "repository": "headers",
-        "sha256": "3f2b1619b009e70a99751fb0b4f1119c0c9a91e7e042bd024737fab1524729ca"
+        "sha256": "31a26e3ce6f0b98a76cea38a3cf28aa112a20cfb37e9057786c768712d6a487f"
       },
       "maintained_files_excluded": [
         "example_test.go",
         "physical_test.go"
       ],
-      "note": "The generator is cmd/nvml-survey, which is built on internal/ffigen and sets ExportLazyPredicates. It is NOT cmd/gen-nvidia -api nvml: that routes to the legacy contrib/cuda generator, loses 433 declarations against the committed package (it no longer differs in the predicate spelling: both generators now capitalize). The header is cuda-headers nvml/nvml.h at 3f2b1619, which is what produced every file in this package: replaying the recorded argv reproduces 22 of the 23 outputs byte for byte, provenance.gen.go alone excepted. This record named the pinned 13.3 nvml.h until 2026-09-18. No file here was generated from the pin, and nvml-survey's -header default is not evidence about what ran. Moving nvml to the pin is a separate change: the pin adds nine symbols, among them nvmlDeviceGetAccountingStats_v2 and nvmlDeviceGetRemappedRows_v2, which are different exported entry points filling differently shaped structs, so whether the move is an upgrade depends on the driver on the target host and is being verified there. Reproduction at the recorded codegen commit: 16 of the 20 generated files are byte-identical; device.gen.go, enums.gen.go, funcs.gen.go and result.gen.go differ only in doc comments the generator gained after the committed bytes were written -- with comments and blank lines removed the four files are identical, and the declaration set matches exactly, none lost and none gained. The recorded output digests are the committed files.",
+      "note": "The recipe uses nvml-survey and the pinned CUDA 13.3 header. Header provenance and output digests record this regeneration; runtime support is not established.",
       "package": "github.com/tmc/lib/nvidia/nvml",
       "repositories": {
         "codegen": {
-          "commit": "b3dc359c9db53dea61a497ef6f5c4a305f945132",
-          "tree": "f54815ecdd777ae664e200e000db35f1e948469d",
+          "commit": "be47898cf4f69fb13b19d2fd2a1ab3975f0c87fa",
+          "tree": "10761622a68dae2adec74c4ed37086de6dadc549",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 8d0f6db: doc prose naming a deprecated function now links it. Regenerated at libgen 8cdab9e: the seven enumerations nvml.h spells as macros above a scalar typedef (DeviceArchitecture, BusType, FanControlPolicy, PowerSource, PowerScopeType, GpuFabricState, AffinityScope) are now Go types with typed constants and String methods, used by the functions and struct fields that take them; the untyped DeviceArch* constants moved into DeviceArchitecture. Regenerated at libgen d99589a: every numeric NVML constant macro is bound, aliases name their Go constants, and doc references to the macros are links. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 9c31466 (docs refetch d0f7ef1) regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c"
+          "note": "Regenerated with the pinned NVML header; nvgen defaults to the same pin."
         },
         "headers": {
-          "commit": "3d5d12b9ef20eb38a4570a872b77cd85b171545b",
-          "tree": "a6bc9eaa9832edf648b877dfa29b01750879bf9c",
+          "commit": "0187274c798507606df855dfe4ec17f99d8ffe97",
+          "tree": "a0f908326987d7f60dcb9ab05d5c0566927d159b",
           "url": "https://github.com/tmc/cuda-headers.git"
         },
         "lib": {

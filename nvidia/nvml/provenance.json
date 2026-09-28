@@ -13,15 +13,15 @@
     "-docs-dir",
     "docs",
     "-output",
-    "nvml"
+    "${OUTPUT_DIR}"
   ],
   "inputs": [
     {
       "path": "nvml.h",
-      "sha256": "3f2b1619b009e70a99751fb0b4f1119c0c9a91e7e042bd024737fab1524729ca"
+      "sha256": "31a26e3ce6f0b98a76cea38a3cf28aa112a20cfb37e9057786c768712d6a487f"
     }
   ],
-  "source_hash": "c1299090e4f22933fab48207b19a1d359dda536188a4e41737a8feecaed9eb73",
+  "source_hash": "80f737d85a9ed30cadc6eb9fbca5ef701baef67ca276ab130b6c0b9decbf5e38",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records portable argument names; host-specific paths are intentionally redacted.",

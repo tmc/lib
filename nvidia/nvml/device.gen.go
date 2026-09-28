@@ -281,11 +281,11 @@ func (d Device) AccountingPids(buf []uint32) ([]uint32, error) {
 	}
 }
 
-// AccountingStats queries process’s accounting stats.
+// AccountingStats queries process’s accounting stats (v2).
 //
 // For Kepler or newer fully supported devices.
-// Accounting stats capture GPU utilization and other statistics across the lifetime of a process. Accounting stats can be queried during life time of the process and after its termination. The time field in [AccountingStats] is reported as 0 during the lifetime of the process and updated to actual running time after its termination. Accounting stats are kept in a circular buffer, newly created processes overwrite information about old processes.
-// See [AccountingStats] for description of each returned metric. List of processes that can be queried can be retrieved from [Device.AccountingPids].
+// Accounting stats (v2) capture GPU utilization and other statistics across the lifetime of a process. Accounting stats (v2) can be queried during life time of the process and after its termination. The time field in [AccountingStatsV2] is reported as 0 during the lifetime of the process and updated to actual running time after its termination. Accounting stats (v2) are kept in a circular buffer, newly created processes overwrite information about old processes.
+// See [AccountingStatsV2] for description of each returned metric. List of processes that can be queried can be retrieved from [Device.AccountingPids].
 //
 // Note: Accounting Mode needs to be on. See [Device.AccountingMode].
 //
@@ -297,10 +297,9 @@ func (d Device) AccountingPids(buf []uint32) ([]uint32, error) {
 //
 // See also: [Device.AccountingBufferSize]
 //
-//   - pid: Process Id of the target process to query stats for
-//   - stats: Reference in which to return the process’s accounting stats
+//   - stats: Reference in which to return the process’s accounting stats (v2)
 //
-// A nil error means stats have been successfully retrieved.
+// A nil error means stats (v2) have been successfully retrieved.
 //
 // Errors:
 //   - [ErrInvalidArgument]: if device is invalid or stats are NULL
@@ -309,11 +308,11 @@ func (d Device) AccountingPids(buf []uint32) ([]uint32, error) {
 //   - [ErrUninitialized]: if the library has not been successfully initialized
 //   - [ErrUnknown]: on any unexpected error
 //
-// Wraps [nvmlDeviceGetAccountingStats].
+// Wraps [nvmlDeviceGetAccountingStats_v2].
 //
-// [nvmlDeviceGetAccountingStats]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAccountingStats.html#_CPPv428nvmlDeviceGetAccountingStats12nvmlDevice_tjP21nvmlAccountingStats_t
-func (d Device) AccountingStats(pid uint32, stats *AccountingStats) error {
-	return deviceGetAccountingStats(d, pid, stats)
+// [nvmlDeviceGetAccountingStats_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAccountingStats.html#_CPPv431nvmlDeviceGetAccountingStats_v212nvmlDevice_tP24nvmlAccountingStats_v2_t
+func (d Device) AccountingStats(stats *AccountingStatsV2) error {
+	return deviceGetAccountingStats(d, stats)
 }
 
 // ActiveVgpus retrieves the active vGPU instances on a device.
@@ -500,6 +499,27 @@ func (d Device) AutoBoostedClocksEnabled(isEnabled *EnableState, defaultIsEnable
 // [nvmlDeviceGetBAR1MemoryInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetBAR1MemoryInfo12nvmlDevice_tP16nvmlBAR1Memory_t
 func (d Device) BAR1MemoryInfo() (BAR1Memory, error) {
 	return deviceGetBAR1MemoryInfo(d)
+}
+
+// BBXTimeData retrieves the cumulative number of seconds the GPU has had the driver loaded.
+//
+// For all products with an inforom.
+//
+//   - timeData: Reference in which to return the cumulative number of seconds the GPU has had the driver loaded
+//
+// A nil error means timeData has been set.
+//
+// Errors:
+//   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
+//   - [ErrInvalidArgument]: if device is invalid or timeData is NULL
+//   - [ErrNotSupported]: if the device does not support this feature
+//   - [ErrUnknown]: on any unexpected error
+//
+// Wraps [nvmlDeviceGetBBXTimeData_v1].
+//
+// [nvmlDeviceGetBBXTimeData_v1]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetBBXTimeData_v112nvmlDevice_tP20nvmlBBXTimeData_v1_t
+func (d Device) BBXTimeData(timeData *BBXTimeDataV1) error {
+	return deviceGetBBXTimeData(d, timeData)
 }
 
 // BoardId retrieves the device boardId from 0-N.
@@ -4215,27 +4235,23 @@ func (d Device) RegisterEvents(eventTypes uint64, set EventSet) error {
 	return deviceRegisterEvents(d, eventTypes, set)
 }
 
-// RemappedRows gets number of remapped rows.
+// RemappedRows gets the status of row remapper.
 //
-// The number of rows reported will be based on the cause of the remapping. isPending indicates whether or not there are pending remappings. A reset will be required to actually remap the row. failureOccurred will be set if a row remapping ever failed in the past. A pending remapping won’t affect future work on the GPU since error-containment and dynamic page blacklisting will take care of that.
 // For Ampere or newer fully supported devices.
 //
 // Note: On MIG-enabled GPUs with active instances, querying the number of remapped rows is not supported
 //
-//   - corrRows: Reference for number of rows remapped due to correctable errors
-//   - uncRows: Reference for number of rows remapped due to uncorrectable errors
-//   - isPending: Reference for whether or not remappings are pending
-//   - failureOccurred: Reference that is set when a remapping has failed in the past
+//   - info: Reference for [RemappedRowsInfoV2]
 //
 // Errors:
-//   - [ErrInvalidArgument]: If corrRows, uncRows, isPending or failureOccurred is invalid
+//   - [ErrInvalidArgument]: If info is invalid
 //   - [ErrNotSupported]: If MIG is enabled or if the device doesn’t support this feature
 //   - [ErrUnknown]: Unexpected error
 //
-// Wraps [nvmlDeviceGetRemappedRows].
+// Wraps [nvmlDeviceGetRemappedRows_v2].
 //
-// [nvmlDeviceGetRemappedRows]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceGetRemappedRows12nvmlDevice_tPjPjPjPj
-func (d Device) RemappedRows() (uint32, uint32, uint32, uint32, error) {
+// [nvmlDeviceGetRemappedRows_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv428nvmlDeviceGetRemappedRows_v212nvmlDevice_tP25nvmlRemappedRowsInfo_v2_t
+func (d Device) RemappedRows() (RemappedRowsInfoV2, error) {
 	return deviceGetRemappedRows(d)
 }
 

@@ -440,7 +440,7 @@ func registerFuncs() {
 	symdeviceGetAccountingBufferSize = registerSym("nvmlDeviceGetAccountingBufferSize")
 	symdeviceGetAccountingMode = registerSym("nvmlDeviceGetAccountingMode")
 	symdeviceGetAccountingPids = registerSym("nvmlDeviceGetAccountingPids")
-	symdeviceGetAccountingStats = registerSym("nvmlDeviceGetAccountingStats")
+	symdeviceGetAccountingStats = registerSym("nvmlDeviceGetAccountingStats_v2")
 	symdeviceGetActiveVgpus = registerSym("nvmlDeviceGetActiveVgpus")
 	symdeviceGetAdaptiveClockInfoStatus = registerSym("nvmlDeviceGetAdaptiveClockInfoStatus")
 	symdeviceGetAddressingMode = registerSym("nvmlDeviceGetAddressingMode")
@@ -449,6 +449,7 @@ func registerFuncs() {
 	symdeviceGetAttributes = registerSym("nvmlDeviceGetAttributes_v2")
 	symdeviceGetAutoBoostedClocksEnabled = registerSym("nvmlDeviceGetAutoBoostedClocksEnabled")
 	symdeviceGetBAR1MemoryInfo = registerSym("nvmlDeviceGetBAR1MemoryInfo")
+	symdeviceGetBBXTimeData = registerSym("nvmlDeviceGetBBXTimeData_v1")
 	symdeviceGetBoardId = registerSym("nvmlDeviceGetBoardId")
 	symdeviceGetBoardPartNumber = registerSym("nvmlDeviceGetBoardPartNumber")
 	symdeviceGetBrand = registerSym("nvmlDeviceGetBrand")
@@ -591,7 +592,7 @@ func registerFuncs() {
 	symdeviceGetPowerUsage = registerSym("nvmlDeviceGetPowerUsage")
 	symdeviceGetProcessUtilization = registerSym("nvmlDeviceGetProcessUtilization")
 	symdeviceGetProcessesUtilizationInfo = registerSym("nvmlDeviceGetProcessesUtilizationInfo")
-	symdeviceGetRemappedRows = registerSym("nvmlDeviceGetRemappedRows")
+	symdeviceGetRemappedRows = registerSym("nvmlDeviceGetRemappedRows_v2")
 	symdeviceGetRepairStatus = registerSym("nvmlDeviceGetRepairStatus")
 	symdeviceGetRetiredPagesPendingStatus = registerSym("nvmlDeviceGetRetiredPagesPendingStatus")
 	symdeviceGetRetiredPages = registerSym("nvmlDeviceGetRetiredPages_v2")
@@ -733,6 +734,7 @@ func registerFuncs() {
 	symSystemEventSetCreate = registerSym("nvmlSystemEventSetCreate")
 	symSystemEventSetFree = registerSym("nvmlSystemEventSetFree")
 	symSystemEventSetWait = registerSym("nvmlSystemEventSetWait")
+	symSystemGetCPER = registerSym("nvmlSystemGetCPER_v1")
 	symSystemGetConfComputeCapabilities = registerSym("nvmlSystemGetConfComputeCapabilities")
 	symSystemGetConfComputeGpusReadyState = registerSym("nvmlSystemGetConfComputeGpusReadyState")
 	symSystemGetConfComputeKeyRotationThresholdInfo = registerSym("nvmlSystemGetConfComputeKeyRotationThresholdInfo")
@@ -828,6 +830,7 @@ func clearFuncs() {
 	symdeviceGetAttributes = 0
 	symdeviceGetAutoBoostedClocksEnabled = 0
 	symdeviceGetBAR1MemoryInfo = 0
+	symdeviceGetBBXTimeData = 0
 	symdeviceGetBoardId = 0
 	symdeviceGetBoardPartNumber = 0
 	symdeviceGetBrand = 0
@@ -1112,6 +1115,7 @@ func clearFuncs() {
 	symSystemEventSetCreate = 0
 	symSystemEventSetFree = 0
 	symSystemEventSetWait = 0
+	symSystemGetCPER = 0
 	symSystemGetConfComputeCapabilities = 0
 	symSystemGetConfComputeGpusReadyState = 0
 	symSystemGetConfComputeKeyRotationThresholdInfo = 0
@@ -1256,9 +1260,9 @@ func HasDeviceGetAccountingPids() bool {
 	return Has("nvmlDeviceGetAccountingPids")
 }
 
-// HasDeviceGetAccountingStats reports whether nvmlDeviceGetAccountingStats resolved in the loaded library.
+// HasDeviceGetAccountingStats reports whether nvmlDeviceGetAccountingStats_v2 resolved in the loaded library.
 func HasDeviceGetAccountingStats() bool {
-	return Has("nvmlDeviceGetAccountingStats")
+	return Has("nvmlDeviceGetAccountingStats_v2")
 }
 
 // HasDeviceGetActiveVgpus reports whether nvmlDeviceGetActiveVgpus resolved in the loaded library.
@@ -1299,6 +1303,11 @@ func HasDeviceGetAutoBoostedClocksEnabled() bool {
 // HasDeviceGetBAR1MemoryInfo reports whether nvmlDeviceGetBAR1MemoryInfo resolved in the loaded library.
 func HasDeviceGetBAR1MemoryInfo() bool {
 	return Has("nvmlDeviceGetBAR1MemoryInfo")
+}
+
+// HasDeviceGetBBXTimeData reports whether nvmlDeviceGetBBXTimeData_v1 resolved in the loaded library.
+func HasDeviceGetBBXTimeData() bool {
+	return Has("nvmlDeviceGetBBXTimeData_v1")
 }
 
 // HasDeviceGetBoardId reports whether nvmlDeviceGetBoardId resolved in the loaded library.
@@ -2011,9 +2020,9 @@ func HasDeviceGetProcessesUtilizationInfo() bool {
 	return Has("nvmlDeviceGetProcessesUtilizationInfo")
 }
 
-// HasDeviceGetRemappedRows reports whether nvmlDeviceGetRemappedRows resolved in the loaded library.
+// HasDeviceGetRemappedRows reports whether nvmlDeviceGetRemappedRows_v2 resolved in the loaded library.
 func HasDeviceGetRemappedRows() bool {
-	return Has("nvmlDeviceGetRemappedRows")
+	return Has("nvmlDeviceGetRemappedRows_v2")
 }
 
 // HasDeviceGetRepairStatus reports whether nvmlDeviceGetRepairStatus resolved in the loaded library.
@@ -2719,6 +2728,11 @@ func HasSystemEventSetFree() bool {
 // HasSystemEventSetWait reports whether nvmlSystemEventSetWait resolved in the loaded library.
 func HasSystemEventSetWait() bool {
 	return Has("nvmlSystemEventSetWait")
+}
+
+// HasSystemGetCPER reports whether nvmlSystemGetCPER_v1 resolved in the loaded library.
+func HasSystemGetCPER() bool {
+	return Has("nvmlSystemGetCPER_v1")
 }
 
 // HasSystemGetConfComputeCapabilities reports whether nvmlSystemGetConfComputeCapabilities resolved in the loaded library.

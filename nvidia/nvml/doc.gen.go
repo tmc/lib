@@ -56,7 +56,7 @@
 //   - [Device.AccountingBufferSize]: Returns the number of processes that the circular buffer with accounting pids can hold.
 //   - [Device.AccountingMode]: Queries the state of per process accounting mode.
 //   - [Device.AccountingPids]: Queries list of processes that can be queried for accounting stats.
-//   - [Device.AccountingStats]: Queries process’s accounting stats.
+//   - [Device.AccountingStats]: Queries process’s accounting stats (v2).
 //   - [Device.ActiveVgpus]: Retrieve the active vGPU instances on a device.
 //   - [Device.AdaptiveClockInfoStatus]: Gets the device’s Adaptive Clock status.
 //   - [Device.AddressingMode]: Get the addressing mode for a given GPU.
@@ -64,6 +64,7 @@
 //   - [Device.Attributes]: Get attributes (engine counts etc.) for the given NVML device handle.
 //   - [Device.AutoBoostedClocksEnabled]: Retrieve the current state of Auto Boosted clocks on a device and store it in isEnabled.
 //   - [Device.BAR1MemoryInfo]: Gets Total, Available and Used size of BAR1 memory.
+//   - [Device.BBXTimeData]: Retrieves the cumulative number of seconds the GPU has had the driver loaded.
 //   - [Device.BoardId]: Retrieves the device boardId from 0-N.
 //   - [Device.BoardPartNumber]: Retrieves the the device board part number which is programmed into the board’s InfoROM.
 //   - [Device.Brand]: Retrieves the brand of this device.
@@ -196,7 +197,7 @@
 //   - [Device.PowerUsage]: Retrieves power usage for this GPU in milliwatts and its associated circuitry (e.g.
 //   - [Device.ProcessUtilization]: Retrieves the current utilization and process ID.
 //   - [Device.ProcessesUtilizationInfo]: Retrieves the recent utilization and process ID for all running processes.
-//   - [Device.RemappedRows]: Get number of remapped rows.
+//   - [Device.RemappedRows]: Get the status of row remapper.
 //   - [Device.RepairStatus]: Get the repair status for TPC/Channel repair.
 //   - [Device.RetiredPagesPendingStatus]: Check if any pages are pending retirement and need a reboot to fully retire.
 //   - [Device.RetiredPages]: Returns the list of retired pages by source, including pages that are pending retirement The address information provided from this API is the hardware address of the page that was retired.
@@ -390,6 +391,7 @@
 //
 // # System Queries
 //
+//   - [SystemGetCPER]: Retrieves Common Platform Error Record (CPER) data.
 //   - [SystemGetConfComputeCapabilities]: Get Conf Computing System capabilities.
 //   - [SystemGetConfComputeGpusReadyState]: Get Conf Computing GPUs ready state.
 //   - [SystemGetConfComputeKeyRotationThresholdInfo]: Get Conf Computing key rotation threshold detail.
