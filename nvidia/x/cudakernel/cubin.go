@@ -11,7 +11,7 @@ import (
 
 // CUBINInfo contains metadata parsed from an NVIDIA CUBIN ELF binary.
 type CUBINInfo struct {
-	Arch               string            // e.g. "sm_90", "sm_121"
+	Arch               string            // Base SM (e.g. "sm_121"), without a/f suffix; empty for unknown ABI.
 	Symbols            []string          // Kernel entry point symbols
 	AllocatedRegisters map[string]uint32 // Symbol -> register count
 	StaticSharedMemory map[string]uint32 // Symbol -> static shared memory in bytes
@@ -36,31 +36,54 @@ func ParseCUBIN(cubin []byte) (*CUBINInfo, error) {
 		return nil, errors.New("cudakernel: invalid ELF magic header")
 	}
 
-	reader := bytes.NewReader(cubin)
+	// Legacy NVIDIA ELF uses e_version for the toolkit version (for example,
+	// nvcc 12.6 emits 126), unlike the ELF version in e_ident. debug/elf
+	// requires both to be EV_CURRENT. Normalize only that legacy CUDA header
+	// in a private copy; code bytes and the caller's artifact stay unchanged.
+	elfData := cubin
+	if len(cubin) >= 24 && cubin[elf.EI_DATA] == byte(elf.ELFDATA2LSB) &&
+		cubin[elf.EI_OSABI] == 0x33 && cubin[elf.EI_ABIVERSION] == 7 &&
+		binary.LittleEndian.Uint16(cubin[18:20]) == uint16(elf.EM_CUDA) {
+		version := binary.LittleEndian.Uint32(cubin[20:24])
+		if version > uint32(elf.EV_CURRENT) {
+			elfData = bytes.Clone(cubin)
+			binary.LittleEndian.PutUint32(elfData[20:24], uint32(elf.EV_CURRENT))
+		}
+	}
+	reader := bytes.NewReader(elfData)
 	file, err := elf.NewFile(reader)
 	if err != nil {
 		return nil, fmt.Errorf("cudakernel: parse ELF: %w", err)
 	}
 	defer file.Close()
+	if file.Machine != elf.EM_CUDA {
+		return nil, errors.New("cudakernel: ELF is not a CUDA image")
+	}
 
 	info := &CUBINInfo{
 		AllocatedRegisters: make(map[string]uint32),
 		StaticSharedMemory: make(map[string]uint32),
 	}
 
-	// Extract target SM from ELF flags if encoded.
-	// NVIDIA flags encode SM architecture in the lower bits (e.g. flags & 0xff).
-	var elfFlags uint32
-	if len(cubin) >= 52 && cubin[4] == 2 { // ELFCLASS64
-		elfFlags = binary.LittleEndian.Uint32(cubin[48:52])
-	} else if len(cubin) >= 40 && cubin[4] == 1 { // ELFCLASS32
-		elfFlags = binary.LittleEndian.Uint32(cubin[36:40])
+	// CUDA ABI 7 stores the base SM in bits 0..7; ABI 8 moved it to
+	// bits 8..15. This depends on the ELF ABI, not the GPU generation:
+	// CUDA 13 also emits ABI 8 for sm_80. See LLVM BinaryFormat/ELF.h
+	// (EF_CUDA_SM, EF_CUDA_SM_MASK) and Object/ELFObjectFile.cpp.
+	// Architecture-specific suffixes require metadata beyond these bits.
+	offset := 36 // ELF32 e_flags
+	if file.Class == elf.ELFCLASS64 {
+		offset = 48
 	}
-	if elfFlags > 0 {
-		sm := elfFlags & 0xff
-		if sm > 0 {
-			info.Arch = fmt.Sprintf("sm_%d", sm)
-		}
+	flags := file.ByteOrder.Uint32(cubin[offset : offset+4])
+	var sm uint32
+	switch file.ABIVersion {
+	case 7:
+		sm = flags & 0xff
+	case 8:
+		sm = (flags >> 8) & 0xff
+	}
+	if sm != 0 {
+		info.Arch = fmt.Sprintf("sm_%d", sm)
 	}
 
 	// Read symbols from ELF symbol table.
