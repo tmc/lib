@@ -7,6 +7,7 @@ import (
 	"go/parser"
 	"go/token"
 	"maps"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -993,5 +994,192 @@ func TestSASSAndPCSamplingAgreeOnStallType(t *testing.T) {
 					canonical, got, r, wantType)
 			}
 		})
+	}
+}
+
+func TestStallCoverageReported(t *testing.T) {
+	inv := cuptipcsampling.ReasonInventory{
+		CUPTIVersion: 130001,
+		Reasons: []cuptipcsampling.StallReason{
+			{Index: 1, Name: "smsp__pcsamp_warps_issue_stalled_long_scoreboard"},
+			{Index: 2, Name: "smsp__pcsamp_warps_issue_stalled_long_scoreboard_not_issued"},
+			{Index: 3, Name: "smsp__pcsamp_warps_issue_stalled_misc"},
+			{Index: 4, Name: "smsp__pcsamp_warps_issue_stalled_misc_not_issued"},
+		},
+	}
+	var buf bytes.Buffer
+	session := cudaprof.NewSession(&buf)
+	bridge := &cuptipcsampling.ProfileBridge{
+		Session:   session,
+		Inventory: inv,
+	}
+
+	// 120 long_scoreboard (mapped to stall_mem)
+	// 100 long_scoreboard_not_issued (companion, excluded from total)
+	// 30 misc (unmapped reason -> stall_other)
+	// 25 misc_not_issued (unmapped companion, excluded from total)
+	batch := cuptipcsampling.Batch{
+		Valid:        true,
+		TotalSamples: 150,
+		PCs: []cuptipcsampling.PC{
+			{
+				Name:   "kernel_a",
+				Offset: 0x10,
+				Reasons: []cuptipcsampling.StallSamples{
+					{Index: 1, Samples: 120},
+					{Index: 2, Samples: 100},
+					{Index: 3, Samples: 30},
+					{Index: 4, Samples: 25},
+				},
+			},
+		},
+	}
+
+	if err := bridge.RecordBatch(context.Background(), batch); err != nil {
+		t.Fatalf("RecordBatch: %v", err)
+	}
+
+	// Companions must stay out of the total: 120 + 30 = 150, not 150 + 125 = 275.
+	if bridge.TotalSamples != 150 {
+		t.Fatalf("TotalSamples = %d, want 150 (companions must not be counted in total)", bridge.TotalSamples)
+	}
+	if bridge.StallOther != 30 {
+		t.Fatalf("StallOther = %d, want 30", bridge.StallOther)
+	}
+	if bridge.StallCoverage == nil {
+		t.Fatal("StallCoverage is nil, want reported value")
+	}
+	wantCoverage := 1.0 - 30.0/150.0 // 0.8
+	if math.Abs(*bridge.StallCoverage-wantCoverage) > 1e-9 {
+		t.Errorf("StallCoverage = %v, want %v", *bridge.StallCoverage, wantCoverage)
+	}
+	if bridge.StallOtherShare == nil {
+		t.Fatal("StallOtherShare is nil, want reported value")
+	}
+	wantShare := 30.0 / 150.0 // 0.2
+	if math.Abs(*bridge.StallOtherShare-wantShare) > 1e-9 {
+		t.Errorf("StallOtherShare = %v, want %v", *bridge.StallOtherShare, wantShare)
+	}
+
+	// Mutant control: unmapped reasons stay visible.
+	// If an additional unmapped reason (e.g. 50 unmapped samples) arrives,
+	// StallOther must increase and StallCoverage must drop.
+	invMutant := cuptipcsampling.ReasonInventory{
+		CUPTIVersion: 130001,
+		Reasons: []cuptipcsampling.StallReason{
+			{Index: 1, Name: "smsp__pcsamp_warps_issue_stalled_long_scoreboard"},
+			{Index: 2, Name: "smsp__pcsamp_warps_issue_stalled_sleeping"}, // unmapped
+		},
+	}
+	var bufMutant bytes.Buffer
+	bridgeMutant := &cuptipcsampling.ProfileBridge{
+		Session:   cudaprof.NewSession(&bufMutant),
+		Inventory: invMutant,
+	}
+	batchMutant := cuptipcsampling.Batch{
+		Valid: true,
+		PCs: []cuptipcsampling.PC{
+			{
+				Name:   "kernel_b",
+				Offset: 0x20,
+				Reasons: []cuptipcsampling.StallSamples{
+					{Index: 1, Samples: 100},
+					{Index: 2, Samples: 100},
+				},
+			},
+		},
+	}
+	if err := bridgeMutant.RecordBatch(context.Background(), batchMutant); err != nil {
+		t.Fatalf("RecordBatch mutant: %v", err)
+	}
+	// 100 mapped + 100 unmapped = 200 total, 100 other => coverage = 0.5
+	if bridgeMutant.StallCoverage == nil || math.Abs(*bridgeMutant.StallCoverage-0.5) > 1e-9 {
+		t.Errorf("Mutant StallCoverage = %v, want 0.5", bridgeMutant.StallCoverage)
+	}
+}
+
+func TestStallCoverageAbsentWithNoSamples(t *testing.T) {
+	var buf bytes.Buffer
+	session := cudaprof.NewSession(&buf)
+	bridge := &cuptipcsampling.ProfileBridge{
+		Session: session,
+	}
+
+	// 1. Fresh bridge before any batch
+	if bridge.TotalSamples != 0 {
+		t.Errorf("initial TotalSamples = %d, want 0", bridge.TotalSamples)
+	}
+	if bridge.StallCoverage != nil {
+		t.Errorf("initial StallCoverage = %v, want nil (absent, not false zero)", *bridge.StallCoverage)
+	}
+	if bridge.StallOtherShare != nil {
+		t.Errorf("initial StallOtherShare = %v, want nil (absent, not false zero)", *bridge.StallOtherShare)
+	}
+
+	// 2. Empty batch with no PCs
+	if err := bridge.RecordBatch(context.Background(), cuptipcsampling.Batch{Valid: true}); err != nil {
+		t.Fatalf("RecordBatch: %v", err)
+	}
+	if bridge.TotalSamples != 0 {
+		t.Errorf("TotalSamples after empty batch = %d, want 0", bridge.TotalSamples)
+	}
+	if bridge.StallCoverage != nil {
+		t.Errorf("StallCoverage after empty batch = %v, want nil (absent)", *bridge.StallCoverage)
+	}
+
+	// 3. Batch with zero-sample PC
+	zeroBatch := cuptipcsampling.Batch{
+		Valid: true,
+		PCs: []cuptipcsampling.PC{
+			{
+				Name:   "kernel_zero",
+				Offset: 0,
+				Reasons: []cuptipcsampling.StallSamples{
+					{Index: 1, Samples: 0},
+				},
+			},
+		},
+	}
+	if err := bridge.RecordBatch(context.Background(), zeroBatch); err != nil {
+		t.Fatalf("RecordBatch: %v", err)
+	}
+	if bridge.TotalSamples != 0 {
+		t.Errorf("TotalSamples after zero batch = %d, want 0", bridge.TotalSamples)
+	}
+	if bridge.StallCoverage != nil {
+		t.Errorf("StallCoverage after zero batch = %v, want nil (absent)", *bridge.StallCoverage)
+	}
+
+	// 4. Batch with only companion reasons (base total = 0)
+	inv := cuptipcsampling.ReasonInventory{
+		CUPTIVersion: 130001,
+		Reasons: []cuptipcsampling.StallReason{
+			{Index: 1, Name: "smsp__pcsamp_warps_issue_stalled_long_scoreboard_not_issued"},
+		},
+	}
+	bridgeCompanion := &cuptipcsampling.ProfileBridge{
+		Session:   session,
+		Inventory: inv,
+	}
+	companionBatch := cuptipcsampling.Batch{
+		Valid: true,
+		PCs: []cuptipcsampling.PC{
+			{
+				Name:   "kernel_comp",
+				Offset: 0,
+				Reasons: []cuptipcsampling.StallSamples{
+					{Index: 1, Samples: 50},
+				},
+			},
+		},
+	}
+	if err := bridgeCompanion.RecordBatch(context.Background(), companionBatch); err != nil {
+		t.Fatalf("RecordBatch companion: %v", err)
+	}
+	if bridgeCompanion.TotalSamples != 0 {
+		t.Errorf("TotalSamples with only companions = %d, want 0", bridgeCompanion.TotalSamples)
+	}
+	if bridgeCompanion.StallCoverage != nil {
+		t.Errorf("StallCoverage with only companions = %v, want nil (absent)", *bridgeCompanion.StallCoverage)
 	}
 }

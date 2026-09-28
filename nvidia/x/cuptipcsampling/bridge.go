@@ -79,6 +79,19 @@ type ProfileBridge struct {
 	// difference between waiting on load data and a full memory queue, which
 	// stall_mem alone cannot tell apart though they call for opposite fixes.
 	ReasonSamples map[string]int64
+
+	// TotalSamples is the sum of non-companion PC samples across all recorded batches.
+	TotalSamples int64
+	// StallOther is the sum of unmapped stall samples across all recorded batches.
+	StallOther int64
+	// StallCoverage reports the share of samples covered by modelled stall reasons
+	// (1 - StallOther / TotalSamples). It is nil when TotalSamples is zero (absent,
+	// never false zero).
+	StallCoverage *float64
+	// StallOtherShare reports the share of samples falling into stall_other
+	// (StallOther / TotalSamples). It is nil when TotalSamples is zero (absent,
+	// never false zero).
+	StallOtherShare *float64
 }
 
 // RecordBatch records all valid PC samples and stall reasons in batch into the profile session.
@@ -145,7 +158,9 @@ func (b *ProfileBridge) RecordBatch(ctx context.Context, batch Batch) error {
 				// on which API produced the capture -- the SASS path counted it
 				// and this one did not -- which is the asymmetry the routing
 				// was supposed to have removed.
-				vals.StallOther += count
+				if !isCompanion(name) {
+					vals.StallOther += count
+				}
 				if b.UnmappedStalls == nil {
 					b.UnmappedStalls = make(map[string]int64)
 				}
@@ -156,6 +171,8 @@ func (b *ProfileBridge) RecordBatch(ctx context.Context, batch Batch) error {
 		if totalSamples == 0 {
 			continue
 		}
+		b.TotalSamples += totalSamples
+		b.StallOther += vals.StallOther
 		// PC samples count occurrences at an address, which is a different
 		// thing from the launch counts the samples type carries; summing the
 		// two would make neither readable.
@@ -273,6 +290,16 @@ func (b *ProfileBridge) RecordBatch(ctx context.Context, batch Batch) error {
 
 		b.note(vals)
 		b.Session.RecordStackSample(sampleCtx, vals, frames)
+	}
+
+	if b.TotalSamples > 0 {
+		cov := 1.0 - float64(b.StallOther)/float64(b.TotalSamples)
+		b.StallCoverage = &cov
+		share := float64(b.StallOther) / float64(b.TotalSamples)
+		b.StallOtherShare = &share
+	} else {
+		b.StallCoverage = nil
+		b.StallOtherShare = nil
 	}
 
 	return nil
