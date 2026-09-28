@@ -16,6 +16,7 @@ type sessionAPI struct {
 	version    func() error
 	initialize func() error
 	device     func(uintptr) (uint32, error)
+	context    func(uintptr, func() error) error
 	config     func(*cupti.SassMetricsSetConfigParams) error
 	unset      func(*cupti.SassMetricsUnsetConfigParams) error
 	enable     func(*cupti.SassMetricsEnableParams) error
@@ -51,7 +52,7 @@ var configuredDevices sync.Map
 // after a successful Close. To measure several launches, keep one session
 // open and call Flush after each.
 func NewSession(ctx uintptr, cfg Config) (*Session, error) {
-	return newSession(ctx, cfg, sessionAPI{CheckVersion, initProfiler, contextDevice, cupti.SassMetricsSetConfig, cupti.SassMetricsUnsetConfig, cupti.SassMetricsEnable, cupti.SassMetricsDisable})
+	return newSession(ctx, cfg, sessionAPI{CheckVersion, initProfiler, contextDevice, withContext, cupti.SassMetricsSetConfig, cupti.SassMetricsUnsetConfig, cupti.SassMetricsEnable, cupti.SassMetricsDisable})
 }
 func newSession(ctx uintptr, cfg Config, api sessionAPI) (result *Session, err error) {
 	if ctx == 0 {
@@ -112,7 +113,14 @@ func newSession(ctx uintptr, cfg Config, api sessionAPI) (result *Session, err e
 	setParams.PConfigs = uintptr(unsafe.Pointer(&pConfigs[0]))
 	setParams.DeviceIndex = cfg.DeviceIndex
 
-	if err := api.config(&setParams); err != nil {
+	if err := api.context(ctx, func() error {
+		if err := api.config(&setParams); err != nil {
+			return err
+		}
+		sess.configured = true
+		configuredDevices.Store(device, true)
+		return nil
+	}); err != nil {
 		runtime.KeepAlive(pConfigs)
 		if _, ok := configuredDevices.Load(device); ok && errors.Is(err, cupti.ErrOutOfMemory) {
 			return nil, fmt.Errorf("cuptisass: set config: device %d was already configured in this process; CUPTI allows one configuration per device per process: %w", device, err)
@@ -120,9 +128,6 @@ func newSession(ctx uintptr, cfg Config, api sessionAPI) (result *Session, err e
 		return nil, fmt.Errorf("cuptisass: set config: %w", err)
 	}
 	runtime.KeepAlive(pConfigs)
-	configuredDevices.Store(device, true)
-
-	sess.configured = true
 	return sess, nil
 }
 
@@ -294,10 +299,15 @@ func (s *Session) Close() error {
 	if s.configured {
 		p := cupti.SassMetricsUnsetConfigParams{DeviceIndex: s.device}
 		p.StructSize = uint(unsafe.Offsetof(p.DeviceIndex) + unsafe.Sizeof(p.DeviceIndex))
-		if err := s.api.unset(&p); err != nil {
+		if err := s.api.context(s.ctx, func() error {
+			if err := s.api.unset(&p); err != nil {
+				return err
+			}
+			s.configured = false
+			return nil
+		}); err != nil {
 			return fmt.Errorf("cuptisass: close unset config: %w", err)
 		}
-		s.configured = false
 	}
 	s.lease.Release()
 	s.lease = nil
@@ -308,19 +318,26 @@ func (s *Session) Close() error {
 // contextDevice verifies the configured ordinal against the actual context,
 // using the longstanding current-context API without requiring cuCtxGetDevice_v2.
 func contextDevice(ctx uintptr) (device uint32, err error) {
+	err = withContext(ctx, func() error {
+		raw, err := driver.CtxGetDevice()
+		device = uint32(raw)
+		return err
+	})
+	return device, err
+}
+
+// Device-wide configuration still requires a current CUDA context. Establish it
+// on a locked OS thread without imposing thread affinity on callers.
+func withContext(ctx uintptr, fn func() error) (err error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 	previous, err := driver.CtxGetCurrent()
 	if err != nil {
-		return 0, err
+		return err
 	}
 	if err := driver.Context(ctx).SetCurrent(); err != nil {
-		return 0, err
+		return err
 	}
 	defer func() { err = errors.Join(err, previous.SetCurrent()) }()
-	raw, err := driver.CtxGetDevice()
-	if err != nil {
-		return 0, err
-	}
-	return uint32(raw), nil
+	return fn()
 }

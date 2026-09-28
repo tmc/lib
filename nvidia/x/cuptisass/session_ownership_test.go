@@ -9,7 +9,7 @@ import (
 )
 
 func mockSessionAPI() sessionAPI {
-	return sessionAPI{version: func() error { return nil }, initialize: func() error { return nil }, device: func(uintptr) (uint32, error) { return 74001, nil }, config: func(*cupti.SassMetricsSetConfigParams) error { return nil }, unset: func(*cupti.SassMetricsUnsetConfigParams) error { return nil }, enable: func(*cupti.SassMetricsEnableParams) error { return nil }, disable: func(*cupti.SassMetricsDisableParams) error { return nil }}
+	return sessionAPI{context: func(_ uintptr, fn func() error) error { return fn() }, version: func() error { return nil }, initialize: func() error { return nil }, device: func(uintptr) (uint32, error) { return 74001, nil }, config: func(*cupti.SassMetricsSetConfigParams) error { return nil }, unset: func(*cupti.SassMetricsUnsetConfigParams) error { return nil }, enable: func(*cupti.SassMetricsEnableParams) error { return nil }, disable: func(*cupti.SassMetricsDisableParams) error { return nil }}
 }
 func mockSessionConfig() Config {
 	return Config{DeviceIndex: 74001, Metrics: []MetricConfig{{MetricID: 1, Granularity: GranularityGPU}}}
@@ -190,5 +190,73 @@ func TestSessionReconfigure(t *testing.T) {
 	}
 	if !errors.Is(err, cupti.ErrOutOfMemory) || !strings.Contains(err.Error(), "already configured") {
 		t.Errorf("second session error = %v, want the one-configuration explanation wrapping ErrOutOfMemory", err)
+	}
+}
+
+func TestSessionConfigurationContext(t *testing.T) {
+	for _, failAt := range []string{"", "restore config", "restore unset"} {
+		t.Run(failAt, func(t *testing.T) {
+			api := mockSessionAPI()
+			active := false
+			restores := 0
+			configures, unsets := 0, 0
+			failure := errors.New("restore context")
+			api.context = func(ctx uintptr, fn func() error) error {
+				if ctx != 17 || active {
+					t.Fatalf("invalid context entry %d active=%v", ctx, active)
+				}
+				active = true
+				err := fn()
+				active = false
+				restores++
+				if failAt == "restore config" && restores == 1 || failAt == "restore unset" && restores == 2 {
+					return errors.Join(err, failure)
+				}
+				return err
+			}
+			api.config = func(*cupti.SassMetricsSetConfigParams) error {
+				if !active {
+					t.Fatal("config outside context")
+				}
+				configures++
+				return nil
+			}
+			api.unset = func(*cupti.SassMetricsUnsetConfigParams) error {
+				if !active {
+					t.Fatal("unset outside context")
+				}
+				unsets++
+				return nil
+			}
+			s, err := newSession(17, mockSessionConfig(), api)
+			if failAt == "restore config" {
+				if !errors.Is(err, failure) || s != nil || configures != 1 || unsets != 1 {
+					t.Fatalf("session=%v error=%v config=%d unset=%d", s, err, configures, unsets)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() {
+				if err := s.Close(); err != nil {
+					t.Error(err)
+				}
+			})
+			err = s.Close()
+			if failAt == "restore unset" {
+				if !errors.Is(err, failure) || s.lease == nil || s.configured {
+					t.Fatalf("lost cleanup state: error=%v configured=%v", err, s.configured)
+				}
+				if err := s.Close(); err != nil {
+					t.Fatal(err)
+				}
+			} else if err != nil {
+				t.Fatal(err)
+			}
+			if configures != 1 || unsets != 1 {
+				t.Fatalf("config=%d unset=%d", configures, unsets)
+			}
+		})
 	}
 }
