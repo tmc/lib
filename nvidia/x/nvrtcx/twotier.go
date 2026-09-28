@@ -1,7 +1,6 @@
 package nvrtcx
 
 import (
-	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -165,10 +164,8 @@ func resolveExternalDependencies(src string, flags []string, inMemoryHeaders map
 // Over-reporting costs a cache miss; under-reporting would cost a stale hit.
 func scanIncludes(src string) []string {
 	var names []string
-	scanner := bufio.NewScanner(strings.NewReader(src))
-	scanner.Buffer(make([]byte, 0, 64*1024), maxIncludeLineSize)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
+	for line := range strings.Lines(src) {
+		line = strings.TrimSpace(line)
 		if !strings.HasPrefix(line, "#include") {
 			continue
 		}
@@ -191,11 +188,6 @@ func scanIncludes(src string) []string {
 	}
 	return names
 }
-
-// maxIncludeLineSize bounds a single line during the include scan. Generated
-// CUDA sources can carry lines far longer than bufio.Scanner allows by default,
-// and a scan that stops early silently under-reports dependencies.
-const maxIncludeLineSize = 1 << 20
 
 func computeDependencyKey(deps []cudakernel.Dependency) string {
 	var sb strings.Builder
