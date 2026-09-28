@@ -2,6 +2,8 @@
 
 package driver
 
+import "unsafe"
+
 // Close destroys the specified memory pool.
 //
 // If any pointers obtained from this pool haven’t been freed or the pool has free operations that haven’t completed when [MemoryPool.Close] is invoked, the function will return immediately and the resources associated with the pool will be released automatically once there are no more outstanding allocations.
@@ -48,7 +50,7 @@ func (m *MemoryPool) Close() error {
 //   - [ErrOutOfMemory]
 //
 // Wraps cuMemPoolExportToShareableHandle.
-func (m MemoryPool) ExportToShareableHandle(handleOut uintptr, handleType MemAllocationHandleType, flags uint64) error {
+func (m MemoryPool) ExportToShareableHandle(handleOut unsafe.Pointer, handleType MemAllocationHandleType, flags uint64) error {
 	return memPoolExportToShareableHandle(handleOut, m, handleType, flags)
 }
 
@@ -98,7 +100,7 @@ func (m MemoryPool) Access(location *MemLocation) (MemaccessFlags, error) {
 //   - [ErrNotInitialized]
 //
 // Wraps cuMemPoolGetAttribute.
-func (m MemoryPool) Attribute(attr MempoolAttribute, value uintptr) error {
+func (m MemoryPool) Attribute(attr MempoolAttribute, value unsafe.Pointer) error {
 	return memPoolGetAttribute(m, attr, value)
 }
 
@@ -158,7 +160,7 @@ func (m MemoryPool) SetAccess(map_ *MemAccessDesc, count uint) error {
 //   - [ErrInvalidValue]
 //
 // Wraps cuMemPoolSetAttribute.
-func (m MemoryPool) SetAttribute(attr MempoolAttribute, value uintptr) error {
+func (m MemoryPool) SetAttribute(attr MempoolAttribute, value unsafe.Pointer) error {
 	return memPoolSetAttribute(m, attr, value)
 }
 

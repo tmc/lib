@@ -964,8 +964,17 @@ func (s Stream) MemPrefetchBatchAsync(dptrs *DevicePtr, sizes *uint, count uint,
 //	} CUDA_MEMCPY2D;
 //
 // where:
-//   - srcMemoryType and dstMemoryType specify the type of memory of the source and destination, respectively; CUmemorytype_enum is defined as:
-//   - srcXInBytes and srcY specify the base address of the source data for the copy.
+//
+// srcMemoryType and dstMemoryType specify the type of memory of the source and destination, respectively; CUmemorytype_enum is defined as:
+//
+//	typedef enum CUmemorytype_enum {
+//	   CU_MEMORYTYPE_HOST = 0x01,
+//	   CU_MEMORYTYPE_DEVICE = 0x02,
+//	   CU_MEMORYTYPE_ARRAY = 0x03,
+//	   CU_MEMORYTYPE_UNIFIED = 0x04
+//	} CUmemorytype;
+//
+// srcXInBytes and srcY specify the base address of the source data for the copy.
 //
 // If srcMemoryType is [MemoryTypeHost], srcHost and srcPitch specify the (host) base address of the source data and the bytes per row to apply. srcArray is ignored.
 // If srcMemoryType is [MemoryTypeUnified], srcDevice and srcPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. srcArray is ignored. This value may be used only if unified addressing is supported in the calling context.
@@ -1053,8 +1062,17 @@ func (s Stream) Memcpy2DAsync(pCopy *Memcpy2d) error {
 //	} CUDA_MEMCPY3D;
 //
 // where:
-//   - srcMemoryType and dstMemoryType specify the type of memory of the source and destination, respectively; CUmemorytype_enum is defined as:
-//   - srcXInBytes, srcY and srcZ specify the base address of the source data for the copy.
+//
+// srcMemoryType and dstMemoryType specify the type of memory of the source and destination, respectively; CUmemorytype_enum is defined as:
+//
+//	typedef enum CUmemorytype_enum {
+//	   CU_MEMORYTYPE_HOST = 0x01,
+//	   CU_MEMORYTYPE_DEVICE = 0x02,
+//	   CU_MEMORYTYPE_ARRAY = 0x03,
+//	   CU_MEMORYTYPE_UNIFIED = 0x04
+//	} CUmemorytype;
+//
+// srcXInBytes, srcY and srcZ specify the base address of the source data for the copy.
 //
 // If srcMemoryType is [MemoryTypeUnified], srcDevice and srcPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. srcArray is ignored. This value may be used only if unified addressing is supported in the calling context.
 // If srcMemoryType is [MemoryTypeHost], srcHost, srcPitch and srcHeight specify the (host) base address of the source data, the bytes per row, and the height of each 2D slice of the 3D array. srcArray is ignored.

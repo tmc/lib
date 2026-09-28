@@ -592,8 +592,22 @@ func (f Function) LaunchGridAsync(gridWidth int32, gridHeight int32, hStream Str
 // Invokes the function [Function] or the kernel [Kernel] f on a gridDimX x gridDimY x gridDimZ grid of blocks. Each block contains blockDimX x blockDimY x blockDimZ threads.
 // sharedMemBytes sets the amount of dynamic shared memory that will be available to each thread block.
 // Kernel parameters to f can be specified in one of two ways:
-//   - Kernel parameters can be specified via kernelParams. If f has N parameters, then kernelParams needs to be an array of N pointers. Each of kernelParams[0] through kernelParams[N-1] must point to a region of memory from which the actual kernel parameter will be copied. The number of kernel parameters and their offsets and sizes do not need to be specified as that information is retrieved directly from the kernel’s image.
-//   - Kernel parameters can also be packaged by the application into a single buffer that is passed in via the extra parameter. This places the burden on the application of knowing each kernel parameter’s size and alignment/padding within the buffer. Here is an example of using the extra parameter in this manner:
+//
+// Kernel parameters can be specified via kernelParams. If f has N parameters, then kernelParams needs to be an array of N pointers. Each of kernelParams[0] through kernelParams[N-1] must point to a region of memory from which the actual kernel parameter will be copied. The number of kernel parameters and their offsets and sizes do not need to be specified as that information is retrieved directly from the kernel’s image.
+//
+// Kernel parameters can also be packaged by the application into a single buffer that is passed in via the extra parameter. This places the burden on the application of knowing each kernel parameter’s size and alignment/padding within the buffer. Here is an example of using the extra parameter in this manner:
+//
+//	size_t argBufferSize;
+//	char argBuffer[256];
+//
+//	// populate argBuffer and argBufferSize
+//
+//	void *config[] = {
+//	    CU_LAUNCH_PARAM_BUFFER_POINTER, argBuffer,
+//	    CU_LAUNCH_PARAM_BUFFER_SIZE,    &argBufferSize,
+//	    CU_LAUNCH_PARAM_END
+//	};
+//	status = cuLaunchKernel(f, gx, gy, gz, bx, by, bz, sh, s, NULL, config);
 //
 // The extra parameter exists to allow [Function.LaunchKernel] to take additional less commonly used arguments. extra specifies a list of names of extra settings and their corresponding values. Each extra setting name is immediately followed by the corresponding value. The list must be terminated with either NULL or CU_LAUNCH_PARAM_END.
 //   - CU_LAUNCH_PARAM_END, which indicates the end of the extra array;

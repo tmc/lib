@@ -217,7 +217,7 @@ func (d DevicePtr) MemGetAddressRange() (pbase DevicePtr, psize uint, err error)
 //   - [ErrNotSupported]
 //
 // Wraps cuMemGetHandleForAddressRange.
-func (d DevicePtr) MemGetHandleForAddressRange(handle uintptr, size uint, handleType MemRangeHandleType, flags MemRangeFlags) error {
+func (d DevicePtr) MemGetHandleForAddressRange(handle unsafe.Pointer, size uint, handleType MemRangeHandleType, flags MemRangeFlags) error {
 	return memGetHandleForAddressRange(handle, d, size, handleType, flags)
 }
 
@@ -361,7 +361,7 @@ func (d DevicePtr) MemRangeGetAttribute(data unsafe.Pointer, dataSize uint, attr
 //   - [ErrInvalidValue]
 //
 // Wraps cuMemRangeGetAttributes.
-func (d DevicePtr) MemRangeGetAttributes(data *uintptr, dataSizes *uint, attributes *MemRangeAttribute, numAttributes uint, count uint) error {
+func (d DevicePtr) MemRangeGetAttributes(data []unsafe.Pointer, dataSizes *uint, attributes *MemRangeAttribute, numAttributes uint, count uint) error {
 	return memRangeGetAttributes(data, dataSizes, attributes, numAttributes, d, count)
 }
 
@@ -590,12 +590,11 @@ func (d DevicePtr) CopyToHostPtr(dstHost unsafe.Pointer, byteCount uint) error {
 //   - [ErrInvalidValue]
 //   - [ErrNotInitialized]
 //
+// dstHost must remain valid, unmoved, and neither read nor modified until the stream work completes.
+// The memory must be pinned (page-locked, or a Go value pinned with runtime.Pinner)
+// and kept alive until the stream work completes. Do not pass stack memory.
+//
 // The copy covers all of dstHost: len(dstHost) values of type T.
-// The copy may still be in progress when the call returns: dstHost must
-// stay reachable and neither read nor modified until the stream is synchronized.
-// The copy is asynchronous with respect to the host only when dstHost is
-// page-locked (pinned or registered) memory; otherwise it is staged
-// through a pinned buffer or completes before the call returns.
 //
 // Wraps cuMemcpyDtoHAsync, bound as cuMemcpyDtoHAsync_v2.
 func (d DevicePtr) CopyToHostAsync[T any](dstHost []T, hStream Stream) error {
@@ -606,6 +605,10 @@ func (d DevicePtr) CopyToHostAsync[T any](dstHost []T, hStream Stream) error {
 // and a byte count, for memory Go does not own.
 //
 //   - byteCount: Size of memory copy in bytes
+//
+// dstHost must remain valid, unmoved, and neither read nor modified until the stream work completes.
+// The memory must be pinned (page-locked, or a Go value pinned with runtime.Pinner)
+// and kept alive until the stream work completes. Do not pass stack memory.
 //
 // Wraps cuMemcpyDtoHAsync, bound as cuMemcpyDtoHAsync_v2.
 func (d DevicePtr) CopyToHostAsyncPtr(dstHost unsafe.Pointer, byteCount uint, hStream Stream) error {
@@ -669,12 +672,11 @@ func (d DevicePtr) CopyFromHostPtr(srcHost unsafe.Pointer, byteCount uint) error
 //   - [ErrInvalidValue]
 //   - [ErrNotInitialized]
 //
+// srcHost must remain valid, unmoved, and unmodified until the stream work completes.
+// The memory must be pinned (page-locked, or a Go value pinned with runtime.Pinner)
+// and kept alive until the stream work completes. Do not pass stack memory.
+//
 // The copy covers all of srcHost: len(srcHost) values of type T.
-// The copy may still be in progress when the call returns: srcHost must
-// stay reachable and unmodified until the stream is synchronized.
-// The copy is asynchronous with respect to the host only when srcHost is
-// page-locked (pinned or registered) memory; otherwise it is staged
-// through a pinned buffer or completes before the call returns.
 //
 // Wraps cuMemcpyHtoDAsync, bound as cuMemcpyHtoDAsync_v2.
 func (d DevicePtr) CopyFromHostAsync[T any](srcHost []T, hStream Stream) error {
@@ -685,6 +687,10 @@ func (d DevicePtr) CopyFromHostAsync[T any](srcHost []T, hStream Stream) error {
 // and a byte count, for memory Go does not own.
 //
 //   - byteCount: Size of memory copy in bytes
+//
+// srcHost must remain valid, unmoved, and unmodified until the stream work completes.
+// The memory must be pinned (page-locked, or a Go value pinned with runtime.Pinner)
+// and kept alive until the stream work completes. Do not pass stack memory.
 //
 // Wraps cuMemcpyHtoDAsync, bound as cuMemcpyHtoDAsync_v2.
 func (d DevicePtr) CopyFromHostAsyncPtr(srcHost unsafe.Pointer, byteCount uint, hStream Stream) error {
@@ -1225,7 +1231,7 @@ func (d DevicePtr) PointerGetAttribute(data unsafe.Pointer, attribute PointerAtt
 //   - [ErrInvalidValue]
 //
 // Wraps cuPointerGetAttributes.
-func (d DevicePtr) PointerGetAttributes(numAttributes uint32, attributes *PointerAttribute, data *uintptr) error {
+func (d DevicePtr) PointerGetAttributes(numAttributes uint32, attributes *PointerAttribute, data []unsafe.Pointer) error {
 	return pointerGetAttributes(numAttributes, attributes, data, d)
 }
 
@@ -1249,6 +1255,6 @@ func (d DevicePtr) PointerGetAttributes(numAttributes uint32, attributes *Pointe
 //   - [ErrNotInitialized]
 //
 // Wraps cuPointerSetAttribute.
-func (d DevicePtr) PointerSetAttribute(value uintptr, attribute PointerAttribute) error {
+func (d DevicePtr) PointerSetAttribute(value unsafe.Pointer, attribute PointerAttribute) error {
 	return pointerSetAttribute(value, attribute, d)
 }

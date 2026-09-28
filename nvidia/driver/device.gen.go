@@ -554,7 +554,7 @@ func (d Device) RegisterAsyncNotification(callbackFunc uintptr, userData uintptr
 //   - [ErrInvalidDevice]
 //
 // Wraps cuDeviceSetGraphMemAttribute.
-func (d Device) SetGraphMemAttribute(attr GraphmemAttribute, value uintptr) error {
+func (d Device) SetGraphMemAttribute(attr GraphmemAttribute, value unsafe.Pointer) error {
 	return deviceSetGraphMemAttribute(d, attr, value)
 }
 
