@@ -84,15 +84,22 @@ func CapabilityOf(target string) (Capability, error) {
 // recorded as accepting clusters. A nil result is permission to attempt a run,
 // not evidence that a run succeeded.
 func Check(target string) error {
+	return check(target, cudadevicetable.LookupTarget)
+}
+
+func check(target string, lookup func(string) (cudadevicetable.Target, bool)) error {
 	cap, err := CapabilityOf(target)
 	if err != nil {
 		return err
 	}
 	if cap < minClusterCapability {
+		if cap == 86 {
+			return fmt.Errorf("cudacluster: %s is below the cluster capability fence, but has no recorded refusal: %w", target, ErrHardwarePending)
+		}
 		return fmt.Errorf("cudacluster: %s is compute capability %s, below %s: %w",
 			target, cap, Capability(minClusterCapability), ErrUnsupported)
 	}
-	rec, ok := cudadevicetable.LookupTarget(target)
+	rec, ok := lookup(target)
 	if !ok {
 		return fmt.Errorf("cudacluster: no feature record for %s: %w", target, ErrHardwarePending)
 	}

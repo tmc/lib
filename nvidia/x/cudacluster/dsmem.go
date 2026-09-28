@@ -6,6 +6,18 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudashared"
 )
 
+// Cluster is a capability scope for emitting cluster-window operations.
+// Obtain one with Open after the target has passed Check.
+type Cluster struct{ target string }
+
+// Open returns a scope for a target whose cluster support was measured.
+func Open(target string) (*Cluster, error) {
+	if err := Check(target); err != nil {
+		return nil, err
+	}
+	return &Cluster{target: target}, nil
+}
+
 // ClusterPtr names a PTX register holding a pointer into another CTA's shared
 // memory, together with the provenance that makes it checkable.
 //
@@ -16,9 +28,9 @@ import (
 // type error here. The zero value is unusable.
 type ClusterPtr struct {
 	reg    string
-	rank   string
 	region cudashared.Region
 	mut    bool
+	scope  *Cluster
 }
 
 // Reg returns the PTX register holding the mapped address.
@@ -26,9 +38,6 @@ type ClusterPtr struct {
 // On the zero value it returns ""; [ClusterPtr.Valid] reports whether p came
 // from a mapping call.
 func (p ClusterPtr) Reg() string {
-	if p.reg == "" {
-		return "" // unreachable for values from MapSharedRank; see Valid.
-	}
 	return p.reg
 }
 
@@ -63,19 +72,22 @@ func (p ClusterPtr) Mutable() bool { return p.mut }
 // -- see [EmitClusterSync]. This package does not insert it, because the
 // required placement depends on the dependency and a library that guesses
 // produces either a silent race or a barrier the caller cannot remove.
-func MapSharedRank(dst, base string, plan *cudashared.Plan, region cudashared.Region, rank string) (string, ClusterPtr, error) {
-	return mapShared(dst, base, plan, region, rank, false)
+func (c *Cluster) MapSharedRank(dst, base string, plan *cudashared.Plan, region cudashared.Region, rank string) (string, ClusterPtr, error) {
+	return c.mapShared(dst, base, plan, region, rank, false)
 }
 
 // MapSharedRankMut is [MapSharedRank] for a mapping that will be written
 // through. The emitted instruction is identical; the distinction is carried in
 // the returned pointer so that a store through a read-only mapping is caught
 // before it is emitted.
-func MapSharedRankMut(dst, base string, plan *cudashared.Plan, region cudashared.Region, rank string) (string, ClusterPtr, error) {
-	return mapShared(dst, base, plan, region, rank, true)
+func (c *Cluster) MapSharedRankMut(dst, base string, plan *cudashared.Plan, region cudashared.Region, rank string) (string, ClusterPtr, error) {
+	return c.mapShared(dst, base, plan, region, rank, true)
 }
 
-func mapShared(dst, base string, plan *cudashared.Plan, region cudashared.Region, rank string, mut bool) (string, ClusterPtr, error) {
+func (c *Cluster) mapShared(dst, base string, plan *cudashared.Plan, region cudashared.Region, rank string, mut bool) (string, ClusterPtr, error) {
+	if c == nil {
+		return "", ClusterPtr{}, fmt.Errorf("cudacluster: nil cluster scope")
+	}
 	if plan == nil {
 		return "", ClusterPtr{}, fmt.Errorf("cudacluster: nil shared plan")
 	}
@@ -86,12 +98,12 @@ func mapShared(dst, base string, plan *cudashared.Plan, region cudashared.Region
 		return "", ClusterPtr{}, fmt.Errorf("cudacluster: region %q is not in the shared plan", region.Name)
 	}
 	ptx := fmt.Sprintf("mapa.shared::cluster.u32 %s, %s, %s;", dst, base, rank)
-	return ptx, ClusterPtr{reg: dst, rank: rank, region: region, mut: mut}, nil
+	return ptx, ClusterPtr{reg: dst, region: region, mut: mut, scope: c}, nil
 }
 
 func planHas(plan *cudashared.Plan, region cudashared.Region) bool {
 	for _, r := range plan.Regions() {
-		if r.Name == region.Name && r.Offset == region.Offset {
+		if r == region {
 			return true
 		}
 	}
@@ -100,9 +112,13 @@ func planHas(plan *cudashared.Plan, region cudashared.Region) bool {
 
 // EmitLoadU32 returns PTX loading a 32-bit word from a mapped cluster pointer
 // into dst, a .u32 register.
-func EmitLoadU32(dst string, p ClusterPtr) (string, error) {
+
+func (c *Cluster) EmitLoadU32(dst string, p ClusterPtr) (string, error) {
 	if !p.Valid() {
 		return "", fmt.Errorf("cudacluster: load through an unmapped cluster pointer")
+	}
+	if c == nil || p.scope != c {
+		return "", fmt.Errorf("cudacluster: cluster pointer belongs to another scope")
 	}
 	return fmt.Sprintf("ld.shared::cluster.u32 %s, [%s];", dst, p.Reg()), nil
 }
@@ -112,9 +128,12 @@ func EmitLoadU32(dst string, p ClusterPtr) (string, error) {
 //
 // It fails on a pointer from [MapSharedRank]. The read-only form exists so that
 // this check is possible.
-func EmitStoreU32(p ClusterPtr, src string) (string, error) {
+func (c *Cluster) EmitStoreU32(p ClusterPtr, src string) (string, error) {
 	if !p.Valid() {
 		return "", fmt.Errorf("cudacluster: store through an unmapped cluster pointer")
+	}
+	if c == nil || p.scope != c {
+		return "", fmt.Errorf("cudacluster: cluster pointer belongs to another scope")
 	}
 	if !p.Mutable() {
 		return "", fmt.Errorf("cudacluster: store through a read-only mapping of region %q", p.region.Name)
@@ -129,12 +148,12 @@ func EmitStoreU32(p ClusterPtr, src string) (string, error) {
 // separate mechanism: it emits exactly those two instructions, using addr as a
 // scratch .u32 register for the mapped address. Reach for it when a single word
 // is wanted and the mapping is not reused; reach for the pair when it is.
-func EmitReadU32(dst, addr, base string, plan *cudashared.Plan, region cudashared.Region, rank string) ([]string, error) {
-	mapPTX, p, err := MapSharedRank(addr, base, plan, region, rank)
+func (c *Cluster) EmitReadU32(dst, addr, base string, plan *cudashared.Plan, region cudashared.Region, rank string) ([]string, error) {
+	mapPTX, p, err := c.MapSharedRank(addr, base, plan, region, rank)
 	if err != nil {
 		return nil, err
 	}
-	ldPTX, err := EmitLoadU32(dst, p)
+	ldPTX, err := c.EmitLoadU32(dst, p)
 	if err != nil {
 		return nil, err
 	}

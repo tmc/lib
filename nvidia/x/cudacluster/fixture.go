@@ -3,6 +3,8 @@ package cudacluster
 import (
 	"fmt"
 	"strings"
+
+	"github.com/tmc/lib/nvidia/x/cudashared"
 )
 
 // Mutant names a deliberate defect injected into the reduction fixture.
@@ -50,16 +52,41 @@ func ReductionFixture(clusterSize int, mut Mutant) (string, error) {
 		return "", fmt.Errorf("cudacluster: unknown mutant %q", mut)
 	}
 
-	rankExpr := "r"
+	plan, err := cudashared.NewPlan(cudashared.Limits{StaticMax: 49152, DynamicMax: 102400, TotalMax: 102400, Source: "fixture"})
+	if err != nil {
+		return "", err
+	}
+	region, err := plan.Add(cudashared.Request{Name: "window", Size: 4, Alignment: 4})
+	if err != nil {
+		return "", err
+	}
+	c, err := Open("sm_121a")
+	if err != nil {
+		return "", err
+	}
+	sharedAddr, err := EmitSharedAddr("%0", "smem", plan, region)
+	if err != nil {
+		return "", err
+	}
+	rank := "%3"
 	if mut == MutantLocalWindow {
-		rankExpr = "cluster.block_rank()"
+		rank = "%4"
 	}
-	sync := "    cluster.sync();"
+	read, err := c.EmitReadU32("%0", "%1", "%2", plan, region, rank)
+	if err != nil {
+		return "", err
+	}
+	sync := strings.Join(EmitClusterSync(), "\\n")
 	if mut == MutantNoSync {
-		sync = "    // MutantNoSync: cluster.sync() removed"
+		sync = ""
 	}
+	readAsm := strings.Join(read, "\\n")
 
 	var b strings.Builder
+	rankArg := ""
+	if mut == MutantLocalWindow {
+		rankArg = ", \"r\"(rank)"
+	}
 	fmt.Fprintf(&b, `#include <cooperative_groups.h>
 namespace cg = cooperative_groups;
 
@@ -71,21 +98,24 @@ __device__ __forceinline__ unsigned seed_for(unsigned rank) { return rank * 100u
 __global__ void __cluster_dims__(%d, 1, 1) dsmem_reduce(unsigned *out) {
     __shared__ unsigned window;
     cg::cluster_group cluster = cg::this_cluster();
-
-    if (threadIdx.x == 0) window = seed_for(cluster.block_rank());
+	unsigned rank = cluster.block_rank();
+	if (threadIdx.x == 0) window = seed_for(rank);
+	unsigned base = 0;
+	asm volatile("%s" : "=r"(base) : "r"(__cvta_generic_to_shared(&window)));
 %s
 
     if (cluster.block_rank() == 0 && threadIdx.x == 0) {
         unsigned total = 0;
         for (unsigned r = 0; r < cluster.num_blocks(); ++r) {
-            unsigned *peer = cluster.map_shared_rank(&window, %s);
-            total += *peer;
+            unsigned value = 0;
+            unsigned mapped = 0;
+            asm volatile("%s" : "=r"(value), "=&r"(mapped) : "r"(base), "r"(r)%s);
+            total += value;
         }
         *out = total;
     }
-%s
 }
-`, clusterSize, sync, rankExpr, sync)
+	`, clusterSize, sharedAddr, sync, readAsm, rankArg)
 	return b.String(), nil
 }
 
@@ -97,4 +127,34 @@ func ExpectedReduction(clusterSize int) uint32 {
 		total += uint32(r)*100 + 7
 	}
 	return total
+}
+
+// cooperativeReductionFixture is an independent CUDA C++ oracle for the
+// emitted-PTX fixture. It uses cooperative_groups for mapping and sync.
+func cooperativeReductionFixture(clusterSize int) string {
+	return fmt.Sprintf(`#include <cooperative_groups.h>
+#include <cuda_runtime.h>
+#include <stdio.h>
+namespace cg = cooperative_groups;
+__global__ void __cluster_dims__(%d,1,1) oracle(unsigned *out) {
+  __shared__ unsigned window;
+  cg::cluster_group c = cg::this_cluster();
+  if (threadIdx.x == 0) window = c.block_rank() * 100u + 7u;
+  c.sync();
+  if (threadIdx.x == 0 && c.block_rank() == 0) {
+    unsigned total = 0;
+    for (unsigned r = 0; r < c.num_blocks(); ++r) total += *c.map_shared_rank(&window, r);
+    *out = total;
+  }
+}
+int main() {
+  unsigned *d = 0, h = 0;
+  if (cudaMalloc(&d, sizeof h) != cudaSuccess) return 2;
+  if (cudaMemset(d, 0, sizeof h) != cudaSuccess) return 3;
+  oracle<<<%d,32>>>(d);
+  if (cudaDeviceSynchronize() != cudaSuccess) return 4;
+  if (cudaMemcpy(&h,d,sizeof h,cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
+  printf("total %%u\n", h); cudaFree(d); return 0;
+}
+`, clusterSize, clusterSize)
 }

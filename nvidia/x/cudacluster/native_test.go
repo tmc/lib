@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tmc/lib/nvidia/x/cudalock"
 	"github.com/tmc/lib/nvidia/x/internal/cudatest"
 )
 
@@ -31,10 +32,8 @@ func runReduction(t *testing.T, clusterSize int, mut Mutant) (uint32, error) {
 	if os.Getenv("CUDA_CLUSTER_NATIVE") != "1" {
 		t.Skip("native qualification pending: CUDA_CLUSTER_NATIVE=1 required")
 	}
-	// gpu-lock exports GPU_LOCK_HELD=$$, the holder's pid, so it is never the
-	// literal "1". Test for a value, as cudashared and cudatrial do.
-	if os.Getenv("GPU_LOCK_HELD") == "" {
-		t.Fatal("native gate enabled but no GPU_LOCK_HELD: run under gpu-lock")
+	if err := requireNativeLock(os.Getenv); err != nil {
+		t.Fatalf("native gate enabled without inherited GPU lock: %v", err)
 	}
 	target := clusterTarget()
 	if err := Check(target); err != nil {
@@ -56,8 +55,10 @@ int main() {
   if (cudaDeviceSynchronize() != cudaSuccess) return 4;
   if (cudaMemcpy(&h, d, sizeof h, cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
   cudaFree(d);
-  return (int)h;
+  printf("total %%u\n", h);
+  return 0;
 }
+
 `, clusterSize)
 
 	home, err := os.UserHomeDir()
@@ -70,11 +71,39 @@ int main() {
 	}
 	defer os.RemoveAll(dir)
 
-	file := filepath.Join(dir, "reduce.cu")
+	got, err := compileRunTotal(t, nvcc, target, dir, "reduce", src)
+	if err != nil {
+		return 0, err
+	}
+	if mut == MutantNone {
+		oracle := cooperativeReductionFixture(clusterSize)
+		want, err := compileRunTotal(t, nvcc, target, dir, "oracle", oracle)
+		if err != nil {
+			return 0, fmt.Errorf("cooperative-groups oracle: %w", err)
+		}
+		if got != want {
+			return 0, fmt.Errorf("emitted PTX total %d differs from cooperative-groups oracle %d", got, want)
+		}
+	}
+	return got, nil
+}
+
+func requireNativeLock(getenv func(string) string) error {
+	if getenv("CUDA_CLUSTER_NATIVE") != "1" {
+		return fmt.Errorf("cudacluster: native gate is closed")
+	}
+	_, err := cudalock.Inherited(getenv)
+	return err
+}
+
+func compileRunTotal(t *testing.T, nvcc, target, dir, name, src string) (uint32, error) {
+	t.Helper()
+	src += "\n#include <cuda_runtime.h>\n#include <stdio.h>\n"
+	file := filepath.Join(dir, name+".cu")
 	if err := os.WriteFile(file, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	bin := filepath.Join(dir, "reduce")
+	bin := filepath.Join(dir, name)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
@@ -87,6 +116,9 @@ int main() {
 	defer runCancel()
 	run := exec.CommandContext(runCtx, bin)
 	out, err := run.CombinedOutput()
+	if run.ProcessState == nil {
+		return 0, fmt.Errorf("fixture process has no exit status: %s", out)
+	}
 	code := run.ProcessState.ExitCode()
 	if runCtx.Err() != nil {
 		return 0, fmt.Errorf("fixture did not finish: a cluster barrier in divergent flow hangs: %s", out)
@@ -94,8 +126,56 @@ int main() {
 	switch code {
 	case 2, 3, 4, 5:
 		return 0, fmt.Errorf("fixture failed at CUDA stage %d: %v: %s", code, err, out)
+	case 0:
+		return parseTotal(string(out))
+	default:
+		return 0, fmt.Errorf("fixture exited %d: %v: %s", code, err, out)
 	}
-	return uint32(code), nil
+}
+
+func parseTotal(out string) (uint32, error) {
+	fields := strings.Fields(out)
+	for i := 0; i+1 < len(fields); i++ {
+		if fields[i] != "total" {
+			continue
+		}
+		n, err := strconv.ParseUint(fields[i+1], 10, 32)
+		if err != nil {
+			return 0, fmt.Errorf("parse total: %w", err)
+		}
+		return uint32(n), nil
+	}
+	return 0, fmt.Errorf("fixture output has no total: %q", out)
+}
+
+func TestParseTotal(t *testing.T) {
+	for _, tc := range []struct {
+		out  string
+		want uint32
+		bad  bool
+	}{
+		{"total 628\n", 628, false}, {"", 0, true}, {"total -1", 0, true}, {"total 4294967296", 0, true},
+	} {
+		got, err := parseTotal(tc.out)
+		if (err != nil) != tc.bad || (!tc.bad && got != tc.want) {
+			t.Errorf("parseTotal(%q) = %d, %v", tc.out, got, err)
+		}
+	}
+}
+
+func TestNativeGateRejectsPresenceOnlyLockBeforeToolLookup(t *testing.T) {
+	env := func(k string) string {
+		switch k {
+		case "CUDA_CLUSTER_NATIVE":
+			return "1"
+		case "GPU_LOCK_HELD":
+			return "1"
+		}
+		return ""
+	}
+	if err := requireNativeLock(env); err == nil {
+		t.Fatal("native gate accepted GPU_LOCK_HELD=1")
+	}
 }
 
 // TestNativeClusterAllToOneReduction is lane 56 slice 6.
@@ -159,6 +239,9 @@ func TestNativeControlNoSyncMutantIsNotDeterministicallyCorrect(t *testing.T) {
 	for i := 0; i < reps; i++ {
 		got, err := runReduction(t, size, MutantNoSync)
 		if err != nil {
+			if !strings.Contains(err.Error(), "fixture did not finish") {
+				t.Fatalf("rep %d failed outside runtime timeout: %v", i, err)
+			}
 			t.Logf("rep %d: %v (a failure here also falsifies determinism)", i, err)
 			return
 		}
@@ -199,13 +282,11 @@ func TestCluster_RankGeometry(t *testing.T) {
 	if os.Getenv("CUDA_CLUSTER_NATIVE") != "1" {
 		t.Skip("native qualification pending: CUDA_CLUSTER_NATIVE=1 required")
 	}
-	if os.Getenv("GPU_LOCK_HELD") == "" {
-		t.Fatal("native gate enabled but no GPU_LOCK_HELD: run under gpu-lock")
+	if _, err := cudalock.Inherited(os.Getenv); err != nil {
+		t.Fatalf("native gate enabled without inherited GPU lock: %v", err)
 	}
-	for _, size := range []int{2, 4} {
-		if err := runRankGeometry(t, size); err != nil {
-			t.Fatalf("cluster size %d: %v", size, err)
-		}
+	if err := runRankGeometry(t, 4); err != nil {
+		t.Fatalf("cluster size 4: %v", err)
 	}
 }
 
@@ -217,33 +298,47 @@ namespace cg = cooperative_groups;
 
 __device__ __forceinline__ unsigned ptx_block_rank() {
     unsigned r;
-    asm("mov.u32 %0, %%cluster_ctarank;" : "=r"(r));
+    asm("{{BLOCK_RANK}}" : "=r"(r));
     return r;
 }
 
 __device__ __forceinline__ unsigned ptx_cluster_size() {
     unsigned s;
-    asm("mov.u32 %0, %%cluster_nctarank;" : "=r"(s));
+    asm("{{CLUSTER_SIZE}}" : "=r"(s));
     return s;
 }
 
-__global__ void __cluster_dims__({{CLUSTER_SIZE}}, 1, 1) rank_geometry_kernel(unsigned *ranks, unsigned *err) {
+__device__ __forceinline__ unsigned ptx_cluster_ctaid_x() {
+    unsigned id; asm("{{CTAID_X}}" : "=r"(id)); return id;
+}
+__device__ __forceinline__ unsigned ptx_cluster_nctaid_x() {
+    unsigned n; asm("{{NCTAID_X}}" : "=r"(n)); return n;
+}
+__device__ __forceinline__ unsigned ptx_cluster_nctaid_y() {
+    unsigned n; asm("{{NCTAID_Y}}" : "=r"(n)); return n;
+}
+
+__global__ void __cluster_dims__(2, 2, 1) rank_geometry_kernel(unsigned *ranks, unsigned *err) {
     if (threadIdx.x == 0) {
         cg::cluster_group cluster = cg::this_cluster();
         unsigned cg_rank = cluster.block_rank();
         unsigned cg_size = cluster.num_blocks();
         unsigned ptx_rank = ptx_block_rank();
         unsigned ptx_size = ptx_cluster_size();
+		unsigned cta_x = ptx_cluster_ctaid_x();
+		unsigned ncta_x = ptx_cluster_nctaid_x();
+		unsigned ncta_y = ptx_cluster_nctaid_y();
 
-        if (cg_size != {{CLUSTER_SIZE}} || ptx_size != {{CLUSTER_SIZE}}) {
+        if (cg_size != 4 || ptx_size != 4) {
             atomicExch(err, 1);
             return;
         }
+		if (ncta_x != 2 || ncta_y != 2 || cta_x >= ncta_x) { atomicExch(err, 4); return; }
         if (cg_rank != ptx_rank) {
             atomicExch(err, 2);
             return;
         }
-        if (ptx_rank >= {{CLUSTER_SIZE}}) {
+        if (ptx_rank >= {{EXPECTED_SIZE}}) {
             atomicExch(err, 3);
             return;
         }
@@ -252,7 +347,7 @@ __global__ void __cluster_dims__({{CLUSTER_SIZE}}, 1, 1) rank_geometry_kernel(un
 }
 
 int main() {
-    const int cluster_size = {{CLUSTER_SIZE}};
+    const int cluster_size = 4;
     unsigned *d_ranks = NULL;
     unsigned *d_err = NULL;
 
@@ -318,7 +413,7 @@ func runRankGeometry(t *testing.T, clusterSize int) error {
 	}
 	nvcc, _ := cudatest.NVCC(t)
 
-	src := strings.ReplaceAll(rankGeometryTemplate, "{{CLUSTER_SIZE}}", strconv.Itoa(clusterSize))
+	src := rankGeometrySource(clusterSize)
 
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -354,4 +449,29 @@ func runRankGeometry(t *testing.T, clusterSize int) error {
 		return fmt.Errorf("rank geometry fixture failed: %w: %s", err, out)
 	}
 	return nil
+}
+
+func rankGeometrySource(clusterSize int) string {
+	src := strings.ReplaceAll(rankGeometryTemplate, "{{BLOCK_RANK}}", strings.ReplaceAll(EmitBlockRank("%0"), "%cluster", "%%cluster"))
+	src = strings.ReplaceAll(src, "{{CLUSTER_SIZE}}", strings.ReplaceAll(EmitClusterSize("%0"), "%cluster", "%%cluster"))
+	src = strings.ReplaceAll(src, "{{EXPECTED_SIZE}}", strconv.Itoa(clusterSize))
+	cta, _ := EmitClusterCTAID("%0", DimX)
+	nctaX, _ := EmitClusterNCTAID("%0", DimX)
+	nctaY, _ := EmitClusterNCTAID("%0", DimY)
+	src = strings.ReplaceAll(src, "{{CTAID_X}}", strings.ReplaceAll(cta, "%cluster", "%%cluster"))
+	src = strings.ReplaceAll(src, "{{NCTAID_X}}", strings.ReplaceAll(nctaX, "%cluster", "%%cluster"))
+	src = strings.ReplaceAll(src, "{{NCTAID_Y}}", strings.ReplaceAll(nctaY, "%cluster", "%%cluster"))
+	return src
+}
+
+func TestRankGeometrySourceUsesEmitters(t *testing.T) {
+	src := rankGeometrySource(4)
+	cta, _ := EmitClusterCTAID("%0", DimX)
+	nctaX, _ := EmitClusterNCTAID("%0", DimX)
+	nctaY, _ := EmitClusterNCTAID("%0", DimY)
+	for _, emitted := range []string{strings.ReplaceAll(EmitBlockRank("%0"), "%cluster", "%%cluster"), strings.ReplaceAll(EmitClusterSize("%0"), "%cluster", "%%cluster"), strings.ReplaceAll(cta, "%cluster", "%%cluster"), strings.ReplaceAll(nctaX, "%cluster", "%%cluster"), strings.ReplaceAll(nctaY, "%cluster", "%%cluster")} {
+		if !strings.Contains(src, emitted) {
+			t.Errorf("rank geometry source lacks emitter output %q", emitted)
+		}
+	}
 }

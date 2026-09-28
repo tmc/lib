@@ -1,5 +1,7 @@
 package cudacluster
 
+import "fmt"
+
 // Cluster geometry is read from PTX special registers rather than computed.
 //
 // Only %cluster_ctarank is verified in this tree: it is asserted by
@@ -30,19 +32,24 @@ func EmitClusterSize(dst string) string {
 // within its cluster into dst, a .u32 register, for the named dimension.
 //
 // Not covered by any fixture in this tree.
-//
-// Note the spelling: the ISA register is %cluster_ctaid with an underscore.
-// Lane 56 writes it as %clusterctaid, which no assembler accepts.
-func EmitClusterCTAID(dst string, dim Dim) string {
-	return "mov.u32 " + dst + ", %cluster_ctaid." + dim.String() + ";"
+func EmitClusterCTAID(dst string, dim Dim) (string, error) {
+	axis, err := dim.axis()
+	if err != nil {
+		return "", err
+	}
+	return "mov.u32 " + dst + ", %cluster_ctaid." + axis + ";", nil
 }
 
 // EmitClusterNCTAID returns PTX reading the cluster's three-dimensional
 // extent in CTAs into dst, a .u32 register, for the named dimension.
 //
 // Not covered by any fixture in this tree.
-func EmitClusterNCTAID(dst string, dim Dim) string {
-	return "mov.u32 " + dst + ", %cluster_nctaid." + dim.String() + ";"
+func EmitClusterNCTAID(dst string, dim Dim) (string, error) {
+	axis, err := dim.axis()
+	if err != nil {
+		return "", err
+	}
+	return "mov.u32 " + dst + ", %cluster_nctaid." + axis + ";", nil
 }
 
 // Dim names one axis of a cluster's CTA grid.
@@ -57,13 +64,18 @@ const (
 
 // String returns the PTX suffix for the axis.
 func (d Dim) String() string {
+	axis, _ := d.axis()
+	return axis
+}
+
+func (d Dim) axis() (string, error) {
 	switch d {
 	case DimX:
-		return "x"
+		return "x", nil
 	case DimY:
-		return "y"
+		return "y", nil
 	case DimZ:
-		return "z"
+		return "z", nil
 	}
-	return "invalid"
+	return "", fmt.Errorf("cudacluster: invalid cluster dimension %d", d)
 }

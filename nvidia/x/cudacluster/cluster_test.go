@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tmc/lib/nvidia/x/cudadevicetable"
+	"github.com/tmc/lib/nvidia/x/cudalock"
 	"github.com/tmc/lib/nvidia/x/cudashared"
 )
 
@@ -55,7 +57,7 @@ func TestCluster_UnsupportedPartReturnsPending(t *testing.T) {
 		want   error
 	}{
 		{"sm_80", ErrUnsupported},
-		{"sm_86", ErrUnsupported},
+		{"sm_86", ErrHardwarePending},
 		{"sm_89", ErrUnsupported},
 		{"sm_98a", ErrHardwarePending}, // above the fence, no record anywhere
 		{"sm_121a", nil},
@@ -69,6 +71,36 @@ func TestCluster_UnsupportedPartReturnsPending(t *testing.T) {
 		case tt.want != nil && !errors.Is(err, tt.want):
 			t.Errorf("Check(%q) = %v, want %v", tt.target, err, tt.want)
 		}
+	}
+}
+
+func TestCapabilityLookupErrorIsPending(t *testing.T) {
+	err := check("sm_90a", func(string) (cudadevicetable.Target, bool) {
+		return cudadevicetable.Target{Target: "sm_90a"}, true
+	})
+	if !errors.Is(err, ErrHardwarePending) {
+		t.Fatalf("check with missing feature = %v, want ErrHardwarePending", err)
+	}
+}
+
+func TestCluster_PointerFromUnsupportedTargetIsRefused(t *testing.T) {
+	if _, err := Open("sm_86"); !errors.Is(err, ErrHardwarePending) {
+		t.Fatalf("Open(sm_86) = %v, want ErrHardwarePending", err)
+	}
+}
+
+func TestPointerCannotCrossClusterScopes(t *testing.T) {
+	c1, plan, region := testPlan(t)
+	c2, err := Open("sm_121a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, ptr, err := c1.MapSharedRank("%r1", "%r9", plan, region, "%r2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c2.EmitLoadU32("%r3", ptr); err == nil {
+		t.Fatal("foreign scope load accepted")
 	}
 }
 
@@ -89,7 +121,7 @@ func TestCluster_ClusterFactIsNotADSMEMFact(t *testing.T) {
 	}
 }
 
-func testPlan(t *testing.T) (*cudashared.Plan, cudashared.Region) {
+func testPlan(t *testing.T) (*Cluster, *cudashared.Plan, cudashared.Region) {
 	t.Helper()
 	limits := cudashared.Limits{StaticMax: 49152, DynamicMax: 102400, TotalMax: 102400, Source: "test target sm_121a"}
 	plan, err := cudashared.NewPlan(limits)
@@ -100,12 +132,16 @@ func testPlan(t *testing.T) (*cudashared.Plan, cudashared.Region) {
 	if err != nil {
 		t.Fatalf("Add: %v", err)
 	}
-	return plan, region
+	c, err := Open("sm_121a")
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	return c, plan, region
 }
 
 func TestMapSharedRank(t *testing.T) {
-	plan, region := testPlan(t)
-	ptx, p, err := MapSharedRank("%r1", "%r9", plan, region, "%r2")
+	c, plan, region := testPlan(t)
+	ptx, p, err := c.MapSharedRank("%r1", "%r9", plan, region, "%r2")
 	if err != nil {
 		t.Fatalf("MapSharedRank: %v", err)
 	}
@@ -120,6 +156,56 @@ func TestMapSharedRank(t *testing.T) {
 	}
 }
 
+func TestReductionFixtureUsesEmitters(t *testing.T) {
+	src, err := ReductionFixture(4, MutantNone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, emitted := range []string{
+		"mov.u32 %0, smem;",
+		"mapa.shared::cluster.u32 %1, %2, %3;",
+		"ld.shared::cluster.u32 %0, [%1];",
+		"barrier.cluster.arrive;",
+		"barrier.cluster.wait;",
+	} {
+		if !strings.Contains(src, emitted) {
+			t.Errorf("generated fixture lacks emitter output %q", emitted)
+		}
+	}
+	mutant, err := ReductionFixture(4, MutantLocalWindow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(mutant, "mapa.shared::cluster.u32 %1, %2, %4;") {
+		t.Fatalf("local-window mutant does not substitute current rank")
+	}
+}
+
+func TestReductionFixtureRejectsUnknownMutant(t *testing.T) {
+	if _, err := ReductionFixture(4, Mutant("bogus")); err == nil {
+		t.Fatal("unknown mutant accepted")
+	}
+}
+
+func TestInheritedLockRejectsPresenceOnlyValue(t *testing.T) {
+	_, err := cudalock.Inherited(func(k string) string {
+		if k == "GPU_LOCK_HELD" {
+			return "1"
+		}
+		return ""
+	})
+	if err == nil {
+		t.Fatal("presence-only lock value accepted")
+	}
+}
+
+func mustEmit(s string, err error) string {
+	if err != nil {
+		panic(err)
+	}
+	return s
+}
+
 // TestCluster_PointerTypeIsDistinct is lane 56's requirement that a cluster
 // pointer not be interchangeable with a local shared address. Go enforces it
 // at compile time: ClusterPtr is a struct with no exported fields and no string
@@ -127,32 +213,33 @@ func TestMapSharedRank(t *testing.T) {
 // test asserts the runtime half -- that a zero value is refused rather than
 // emitting an instruction with an empty operand.
 func TestCluster_PointerTypeIsDistinct(t *testing.T) {
+	c, _, _ := testPlan(t)
 	var zero ClusterPtr
 	if zero.Valid() {
 		t.Fatal("zero ClusterPtr reports Valid")
 	}
-	if _, err := EmitLoadU32("%r1", zero); err == nil {
+	if _, err := c.EmitLoadU32("%r1", zero); err == nil {
 		t.Error("EmitLoadU32 through a zero ClusterPtr = nil error, want failure")
 	}
-	if _, err := EmitStoreU32(zero, "%r1"); err == nil {
+	if _, err := c.EmitStoreU32(zero, "%r1"); err == nil {
 		t.Error("EmitStoreU32 through a zero ClusterPtr = nil error, want failure")
 	}
 }
 
 func TestStoreThroughReadOnlyMappingIsRefused(t *testing.T) {
-	plan, region := testPlan(t)
-	_, ro, err := MapSharedRank("%r1", "%r9", plan, region, "%r2")
+	c, plan, region := testPlan(t)
+	_, ro, err := c.MapSharedRank("%r1", "%r9", plan, region, "%r2")
 	if err != nil {
 		t.Fatalf("MapSharedRank: %v", err)
 	}
-	if _, err := EmitStoreU32(ro, "%r3"); err == nil {
+	if _, err := c.EmitStoreU32(ro, "%r3"); err == nil {
 		t.Fatal("store through read-only mapping = nil error, want failure")
 	}
-	_, rw, err := MapSharedRankMut("%r1", "%r9", plan, region, "%r2")
+	_, rw, err := c.MapSharedRankMut("%r1", "%r9", plan, region, "%r2")
 	if err != nil {
 		t.Fatalf("MapSharedRankMut: %v", err)
 	}
-	ptx, err := EmitStoreU32(rw, "%r3")
+	ptx, err := c.EmitStoreU32(rw, "%r3")
 	if err != nil {
 		t.Fatalf("store through mutable mapping: %v", err)
 	}
@@ -162,24 +249,32 @@ func TestStoreThroughReadOnlyMappingIsRefused(t *testing.T) {
 }
 
 func TestMapSharedRankRejectsForeignRegion(t *testing.T) {
-	plan, _ := testPlan(t)
+	c, plan, _ := testPlan(t)
 	foreign := cudashared.Region{Name: "elsewhere", Offset: 4096, Size: 16}
-	if _, _, err := MapSharedRank("%r1", "%r9", plan, foreign, "%r2"); err == nil {
+	if _, _, err := c.MapSharedRank("%r1", "%r9", plan, foreign, "%r2"); err == nil {
 		t.Fatal("MapSharedRank with a region not in the plan = nil error, want failure")
 	}
 }
 
+func TestMapSharedRankRejectsSameNameWithDifferentSize(t *testing.T) {
+	c, plan, region := testPlan(t)
+	region.Size++
+	if _, _, err := c.MapSharedRank("%r1", "%r9", plan, region, "%r2"); err == nil {
+		t.Fatal("region with mismatched size accepted")
+	}
+}
+
 func TestEmitReadU32IsTheMappingPlusTheLoad(t *testing.T) {
-	plan, region := testPlan(t)
-	combined, err := EmitReadU32("%r1", "%r2", "%r9", plan, region, "%r3")
+	c, plan, region := testPlan(t)
+	combined, err := c.EmitReadU32("%r1", "%r2", "%r9", plan, region, "%r3")
 	if err != nil {
 		t.Fatalf("EmitReadU32: %v", err)
 	}
-	mapPTX, p, err := MapSharedRank("%r2", "%r9", plan, region, "%r3")
+	mapPTX, p, err := c.MapSharedRank("%r2", "%r9", plan, region, "%r3")
 	if err != nil {
 		t.Fatalf("MapSharedRank: %v", err)
 	}
-	ldPTX, err := EmitLoadU32("%r1", p)
+	ldPTX, err := c.EmitLoadU32("%r1", p)
 	if err != nil {
 		t.Fatalf("EmitLoadU32: %v", err)
 	}
@@ -216,8 +311,8 @@ func TestGeometryRegisterSpelling(t *testing.T) {
 	emitted := []string{
 		EmitBlockRank("%r1"),
 		EmitClusterSize("%r1"),
-		EmitClusterCTAID("%r1", DimX),
-		EmitClusterNCTAID("%r1", DimZ),
+		mustEmit(EmitClusterCTAID("%r1", DimX)),
+		mustEmit(EmitClusterNCTAID("%r1", DimZ)),
 	}
 	for _, ptx := range emitted {
 		if !strings.Contains(ptx, "%cluster_") {
@@ -227,8 +322,17 @@ func TestGeometryRegisterSpelling(t *testing.T) {
 	if got := EmitBlockRank("%r1"); got != "mov.u32 %r1, %cluster_ctarank;" {
 		t.Errorf("EmitBlockRank = %q", got)
 	}
-	if got := EmitClusterCTAID("%r7", DimY); got != "mov.u32 %r7, %cluster_ctaid.y;" {
+	if got := mustEmit(EmitClusterCTAID("%r7", DimY)); got != "mov.u32 %r7, %cluster_ctaid.y;" {
 		t.Errorf("EmitClusterCTAID = %q", got)
+	}
+}
+
+func TestGeometryRejectsInvalidDim(t *testing.T) {
+	if _, err := EmitClusterCTAID("%r1", Dim(3)); err == nil {
+		t.Fatal("CTAID accepted invalid Dim")
+	}
+	if _, err := EmitClusterNCTAID("%r1", Dim(3)); err == nil {
+		t.Fatal("NCTAID accepted invalid Dim")
 	}
 }
 
@@ -238,7 +342,7 @@ func TestGeometryRegisterSpelling(t *testing.T) {
 // have assembled. Nothing in the host-side suite could have caught it, which is
 // the point of pinning it here.
 func TestMapSharedRankTakesAnAddressNotAnOffset(t *testing.T) {
-	plan, region := testPlan(t)
+	c, plan, region := testPlan(t)
 	addr, err := EmitSharedAddr("%r9", "smem", plan, region)
 	if err != nil {
 		t.Fatalf("EmitSharedAddr: %v", err)
@@ -248,7 +352,7 @@ func TestMapSharedRankTakesAnAddressNotAnOffset(t *testing.T) {
 			t.Errorf("EmitSharedAddr = %q, want %q", addr, want)
 		}
 	}
-	ptx, _, err := MapSharedRank("%r1", "%r9", plan, region, "%r2")
+	ptx, _, err := c.MapSharedRank("%r1", "%r9", plan, region, "%r2")
 	if err != nil {
 		t.Fatalf("MapSharedRank: %v", err)
 	}
@@ -260,7 +364,18 @@ func TestMapSharedRankTakesAnAddressNotAnOffset(t *testing.T) {
 			t.Errorf("MapSharedRank emitted a bare integer operand: %q", ptx)
 		}
 	}
-	if _, _, err := MapSharedRank("%r1", "", plan, region, "%r2"); err == nil {
+	second, err := plan.Add(cudashared.Request{Name: "second", Size: 32, Alignment: 16, FirstStage: 0, LastStage: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr, err = EmitSharedAddr("%r8", "smem", plan, second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "mov.u32 %r8, smem+1024;"; addr != want {
+		t.Fatalf("offset address = %q, want %q", addr, want)
+	}
+	if _, _, err := c.MapSharedRank("%r1", "", plan, region, "%r2"); err == nil {
 		t.Error("MapSharedRank with no base operand = nil error, want failure")
 	}
 }

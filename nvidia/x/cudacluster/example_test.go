@@ -22,6 +22,10 @@ func Example() {
 		panic(err)
 	}
 
+	c, err := cudacluster.Open("sm_121a")
+	if err != nil {
+		panic(err)
+	}
 	fmt.Println(cudacluster.EmitBlockRank("%r1"))
 	for _, s := range cudacluster.EmitClusterSync() {
 		fmt.Println(s)
@@ -31,7 +35,7 @@ func Example() {
 		panic(err)
 	}
 	fmt.Println(addr)
-	read, err := cudacluster.EmitReadU32("%r4", "%r3", "%r9", plan, window, "%r2")
+	read, err := c.EmitReadU32("%r4", "%r3", "%r9", plan, window, "%r2")
 	if err != nil {
 		panic(err)
 	}
