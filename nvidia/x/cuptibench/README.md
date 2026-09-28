@@ -308,7 +308,8 @@ not successful hardware qualification.
 CUPTI layout admission is based on observed header and runtime evidence, not
 only the CUDA toolkit release name. CUPTI 27 is admitted using CUDA 12.9.41
 evidence recorded on an L4. That admission does not qualify KernelReplay,
-which remains restricted to 130200 and 130202.
+which is restricted to 130200, 130202 and 130400. 130400 was admitted after
+the GB20B kernel-replay controls passed against it with driver 580.173.02.
 The reported L4 run passed Whole and Regions controls; Kernels returned zero
 ranges and remains unqualified on that configuration.
 

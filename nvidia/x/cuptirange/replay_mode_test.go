@@ -7,7 +7,7 @@ func TestReplayModeSupport(t *testing.T) {
 		if err := ReplayModeSupport(version, UserReplay); err != nil {
 			t.Fatal(err)
 		}
-		want := version == 130200 || version == 130202
+		want := version == 130200 || version == 130202 || version == 130400
 		if err := ReplayModeSupport(version, KernelReplay); (err == nil) != want {
 			t.Fatalf("version=%d error=%v", version, err)
 		}
