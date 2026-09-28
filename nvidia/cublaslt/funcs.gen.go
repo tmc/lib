@@ -1145,14 +1145,7 @@ func matmul(lightHandle Handle, computeDesc MatmulDesc, alpha Scalar, a driver.D
 // MatmulAlgoCapGetAttribute returns the value of the queried capability attribute for an initialized [MatmulAlgo] descriptor structure.
 //
 // The capability attribute value is retrieved from the enumerated type [MatmulAlgoCapAttributes].
-// For example, to get list of supported Tile IDs:
 //
-//	cublasLtMatmulTile_t tiles[CUBLASLT_MATMUL_TILE_END];
-//	size_t num_tiles, size_written;
-//	if (cublasLtMatmulAlgoCapGetAttribute(algo, CUBLASLT_ALGO_CAP_TILE_IDS, tiles, sizeof(tiles), &size_written) == CUBLAS_STATUS_SUCCESS) {
-//	  num_tiles = size_written / sizeof(tiles[0]);}
-//
-// Parameters:
 //   - algo: Pointer to the previously created opaque structure holding the matrix multiply algorithm descriptor. See [MatmulAlgo]
 //   - attr: The capability attribute whose value will be retrieved by this function. See [MatmulAlgoCapAttributes]
 //   - buf: The attribute value returned by this function

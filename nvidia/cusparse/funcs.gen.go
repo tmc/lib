@@ -2875,13 +2875,7 @@ func LoggerOpenFile(logFile *byte) error {
 // LoggerSetCallback sets the logging callback function.
 //
 // This function is experimental.
-// where cusparseLoggerCallback_t has the following signature:
 //
-//	void (*cusparseLoggerCallback_t)(int         logLevel,
-//	                                 const char* functionName,
-//	                                 const char* message)
-//
-// Parameters:
 //   - callback: Pointer to a callback function (see [LoggerCallback])
 //
 // Wraps cusparseLoggerSetCallback.

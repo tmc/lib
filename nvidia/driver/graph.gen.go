@@ -208,22 +208,6 @@ func (g Graph) AddHostNode(dependencies *GraphNode, numDependencies uint, nodePa
 // AddKernelNode creates a kernel execution node and adds it to a graph.
 //
 // Creates a new kernel execution node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
-// The [KernelNodeParams] structure is defined as:
-//
-//	typedef struct CUDA_KERNEL_NODE_PARAMS_st {
-//	    CUfunction func;
-//	    unsigned int gridDimX;
-//	    unsigned int gridDimY;
-//	    unsigned int gridDimZ;
-//	    unsigned int blockDimX;
-//	    unsigned int blockDimY;
-//	    unsigned int blockDimZ;
-//	    unsigned int sharedMemBytes;
-//	    void **kernelParams;
-//	    void **extra;
-//	    CUkernel kern;
-//	    CUcontext ctx;
-//	} CUDA_KERNEL_NODE_PARAMS;
 //
 // When the graph is launched, the node will invoke kernel func on a ( gridDimX x gridDimY x gridDimZ) grid of blocks. Each block contains ( blockDimX x blockDimY x blockDimZ) threads.
 // sharedMemBytes sets the amount of dynamic shared memory that will be available to each thread block.
@@ -579,14 +563,7 @@ func (g Graph) Instantiate(flags GraphinstantiateFlags) (GraphExec, error) {
 // InstantiateWithParams creates an executable graph from a graph.
 //
 // Instantiates hGraph as an executable graph according to the instantiateParams structure. The graph is validated for any structural constraints or intra-node constraints which were not previously validated. If instantiation is successful, a handle to the instantiated graph is returned in phGraphExec.
-// instantiateParams controls the behavior of instantiation and subsequent graph launches, as well as returning more detailed information in the event of an error. [GraphInstantiateParams] is defined as:
-//
-//	typedef struct {
-//	    cuuint64_t flags;
-//	    CUstream hUploadStream;
-//	    CUgraphNode hErrNode_out;
-//	    CUgraphInstantiateResult result_out;
-//	} CUDA_GRAPH_INSTANTIATE_PARAMS;
+// instantiateParams controls the behavior of instantiation and subsequent graph launches, as well as returning more detailed information in the event of an error.
 //
 // The flags field controls the behavior of instantiation and subsequent graph launches. Valid flags are:
 //   - [GraphInstantiateFlagAutoFreeOnLaunch], which configures a graph containing memory allocation nodes to automatically free any unfreed memory allocations before the graph is relaunched.

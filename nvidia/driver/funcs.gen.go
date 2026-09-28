@@ -3616,110 +3616,16 @@ func fnwaitExternalSemaphoresAsync(a0 *ExternalSemaphore, a1 *ExternalSemaphoreW
 
 // array3DCreate creates a 3D CUDA array.
 //
-// Creates a CUDA array according to the [Array3dDescriptor] structure pAllocateArray and returns a handle to the new CUDA array in *pHandle. The [Array3dDescriptor] is defined as:
+// Creates a CUDA array according to the [Array3dDescriptor] structure pAllocateArray and returns a handle to the new CUDA array in *pHandle.
 //
-//	typedef struct {
-//	    unsigned int Width;
-//	    unsigned int Height;
-//	    unsigned int Depth;
-//	    CUarray_format Format;
-//	    unsigned int NumChannels;
-//	    unsigned int Flags;
-//	} CUDA_ARRAY3D_DESCRIPTOR;
-//
-// where:
-//
-// Width, Height, and Depth are the width, height, and depth of the CUDA array (in elements); the following types of CUDA arrays can be allocated: A 1D array is allocated if Height and Depth extents are both zero. A 2D array is allocated if only Depth extent is zero. A 3D array is allocated if all three extents are non-zero. A 1D layered CUDA array is allocated if only Height is zero and the CUDA_ARRAY3D_LAYERED flag is set. Each layer is a 1D array. The number of layers is determined by the depth extent. A 2D layered CUDA array is allocated if all three extents are non-zero and the CUDA_ARRAY3D_LAYERED flag is set. Each layer is a 2D array. The number of layers is determined by the depth extent. A cubemap CUDA array is allocated if all three extents are non-zero and the CUDA_ARRAY3D_CUBEMAP flag is set. Width must be equal to Height, and Depth must be six. A cubemap is a special type of 2D layered CUDA array, where the six layers represent the six faces of a cube. The order of the six layers in memory is the same as that listed in [ArrayCubemapFace]. A cubemap layered CUDA array is allocated if all three extents are non-zero, and both, CUDA_ARRAY3D_CUBEMAP and CUDA_ARRAY3D_LAYERED flags are set. Width must be equal to Height, and Depth must be a multiple of six. A cubemap layered CUDA array is a special type of 2D layered CUDA array that consists of a collection of cubemaps. The first six layers represent the first cubemap, the next six layers form the second cubemap, and so on.
-//
-// Format specifies the format of the elements; [ArrayFormat] is defined as:
-//
-//	typedef enum CUarray_format_enum {
-//	      CU_AD_FORMAT_UNSIGNED_INT8 = 0x01,
-//	      CU_AD_FORMAT_UNSIGNED_INT16 = 0x02,
-//	      CU_AD_FORMAT_UNSIGNED_INT32 = 0x03,
-//	      CU_AD_FORMAT_SIGNED_INT8 = 0x08,
-//	      CU_AD_FORMAT_SIGNED_INT16 = 0x09,
-//	      CU_AD_FORMAT_SIGNED_INT32 = 0x0a,
-//	      CU_AD_FORMAT_HALF = 0x10,
-//	      CU_AD_FORMAT_FLOAT = 0x20,
-//	      CU_AD_FORMAT_NV12 = 0xb0,
-//	      CU_AD_FORMAT_UNORM_INT8X1 = 0xc0,
-//	      CU_AD_FORMAT_UNORM_INT8X2 = 0xc1,
-//	      CU_AD_FORMAT_UNORM_INT8X4 = 0xc2,
-//	      CU_AD_FORMAT_UNORM_INT16X1 = 0xc3,
-//	      CU_AD_FORMAT_UNORM_INT16X2 = 0xc4,
-//	      CU_AD_FORMAT_UNORM_INT16X4 = 0xc5,
-//	      CU_AD_FORMAT_SNORM_INT8X1 = 0xc6,
-//	      CU_AD_FORMAT_SNORM_INT8X2 = 0xc7,
-//	      CU_AD_FORMAT_SNORM_INT8X4 = 0xc8,
-//	      CU_AD_FORMAT_SNORM_INT16X1 = 0xc9,
-//	      CU_AD_FORMAT_SNORM_INT16X2 = 0xca,
-//	      CU_AD_FORMAT_SNORM_INT16X4 = 0xcb,
-//	      CU_AD_FORMAT_BC1_UNORM = 0x91,
-//	      CU_AD_FORMAT_BC1_UNORM_SRGB = 0x92,
-//	      CU_AD_FORMAT_BC2_UNORM = 0x93,
-//	      CU_AD_FORMAT_BC2_UNORM_SRGB = 0x94,
-//	      CU_AD_FORMAT_BC3_UNORM = 0x95,
-//	      CU_AD_FORMAT_BC3_UNORM_SRGB = 0x96,
-//	      CU_AD_FORMAT_BC4_UNORM = 0x97,
-//	      CU_AD_FORMAT_BC4_SNORM = 0x98,
-//	      CU_AD_FORMAT_BC5_UNORM = 0x99,
-//	      CU_AD_FORMAT_BC5_SNORM = 0x9a,
-//	      CU_AD_FORMAT_BC6H_UF16 = 0x9b,
-//	      CU_AD_FORMAT_BC6H_SF16 = 0x9c,
-//	      CU_AD_FORMAT_BC7_UNORM = 0x9d,
-//	      CU_AD_FORMAT_BC7_UNORM_SRGB = 0x9e,
-//	      CU_AD_FORMAT_P010 = 0x9f,
-//	      CU_AD_FORMAT_P016 = 0xa1,
-//	      CU_AD_FORMAT_NV16 = 0xa2,
-//	      CU_AD_FORMAT_P210 = 0xa3,
-//	      CU_AD_FORMAT_P216 = 0xa4,
-//	      CU_AD_FORMAT_YUY2 = 0xa5,
-//	      CU_AD_FORMAT_Y210 = 0xa6,
-//	      CU_AD_FORMAT_Y216 = 0xa7,
-//	      CU_AD_FORMAT_AYUV = 0xa8,
-//	      CU_AD_FORMAT_Y410 = 0xa9,
-//	      CU_AD_FORMAT_Y416 = 0xb1,
-//	      CU_AD_FORMAT_Y444_PLANAR8 = 0xb2,
-//	      CU_AD_FORMAT_Y444_PLANAR10 = 0xb3,
-//	      CU_AD_FORMAT_YUV444_8bit_SemiPlanar = 0xb4,
-//	      CU_AD_FORMAT_YUV444_16bit_SemiPlanar = 0xb5,
-//	      CU_AD_FORMAT_UNORM_INT_101010_2 = 0x50,
-//	} CUarray_format;
-//
-// NumChannels specifies the number of packed components per CUDA array element; it may be 1, 2, or 4;
-//
-// Flags may be set to CUDA_ARRAY3D_LAYERED to enable creation of layered CUDA arrays. If this flag is set, Depth specifies the number of layers, not the depth of a 3D array. CUDA_ARRAY3D_SURFACE_LDST to enable surface references to be bound to the CUDA array. If this flag is not set, [SurfRef.SetArray] will fail when attempting to bind the CUDA array to a surface reference. CUDA_ARRAY3D_CUBEMAP to enable creation of cubemaps. If this flag is set, Width must be equal to Height, and Depth must be six. If the CUDA_ARRAY3D_LAYERED flag is also set, then Depth must be a multiple of six. CUDA_ARRAY3D_TEXTURE_GATHER to indicate that the CUDA array will be used for texture gather. Texture gather can only be performed on 2D CUDA arrays.
+//   - Width, Height, and Depth are the width, height, and depth of the CUDA array (in elements); the following types of CUDA arrays can be allocated: A 1D array is allocated if Height and Depth extents are both zero. A 2D array is allocated if only Depth extent is zero. A 3D array is allocated if all three extents are non-zero. A 1D layered CUDA array is allocated if only Height is zero and the CUDA_ARRAY3D_LAYERED flag is set. Each layer is a 1D array. The number of layers is determined by the depth extent. A 2D layered CUDA array is allocated if all three extents are non-zero and the CUDA_ARRAY3D_LAYERED flag is set. Each layer is a 2D array. The number of layers is determined by the depth extent. A cubemap CUDA array is allocated if all three extents are non-zero and the CUDA_ARRAY3D_CUBEMAP flag is set. Width must be equal to Height, and Depth must be six. A cubemap is a special type of 2D layered CUDA array, where the six layers represent the six faces of a cube. The order of the six layers in memory is the same as that listed in [ArrayCubemapFace]. A cubemap layered CUDA array is allocated if all three extents are non-zero, and both, CUDA_ARRAY3D_CUBEMAP and CUDA_ARRAY3D_LAYERED flags are set. Width must be equal to Height, and Depth must be a multiple of six. A cubemap layered CUDA array is a special type of 2D layered CUDA array that consists of a collection of cubemaps. The first six layers represent the first cubemap, the next six layers form the second cubemap, and so on.
+//   - Format specifies the format of the elements.
+//   - NumChannels specifies the number of packed components per CUDA array element; it may be 1, 2, or 4;
+//   - Flags may be set to CUDA_ARRAY3D_LAYERED to enable creation of layered CUDA arrays. If this flag is set, Depth specifies the number of layers, not the depth of a 3D array. CUDA_ARRAY3D_SURFACE_LDST to enable surface references to be bound to the CUDA array. If this flag is not set, [SurfRef.SetArray] will fail when attempting to bind the CUDA array to a surface reference. CUDA_ARRAY3D_CUBEMAP to enable creation of cubemaps. If this flag is set, Width must be equal to Height, and Depth must be six. If the CUDA_ARRAY3D_LAYERED flag is also set, then Depth must be a multiple of six. CUDA_ARRAY3D_TEXTURE_GATHER to indicate that the CUDA array will be used for texture gather. Texture gather can only be performed on 2D CUDA arrays.
 //
 // Width, Height and Depth must meet certain size requirements as listed in the following table. All values are specified in elements. Note that for brevity’s sake, the full name of the device attribute is not specified. For ex., TEXTURE1D_WIDTH refers to the device attribute [DevAttrMaximumTexture1dWidth].
 // Note that 2D CUDA arrays have different size requirements if the CUDA_ARRAY3D_TEXTURE_GATHER flag is set. Width and Height must not be greater than [DevAttrMaximumTexture2dGatherWidth] and [DevAttrMaximumTexture2dGatherHeight] respectively, in that case.
 // Here are examples of CUDA array descriptions:
-// Description for a CUDA array of 2048 floats:
-//
-//	CUDA_ARRAY3D_DESCRIPTOR desc;
-//	desc.Format = CU_AD_FORMAT_FLOAT;
-//	desc.NumChannels = 1;
-//	desc.Width = 2048;
-//	desc.Height = 0;
-//	desc.Depth = 0;
-//
-// Description for a 64 x 64 CUDA array of floats:
-//
-//	CUDA_ARRAY3D_DESCRIPTOR desc;
-//	desc.Format = CU_AD_FORMAT_FLOAT;
-//	desc.NumChannels = 1;
-//	desc.Width = 64;
-//	desc.Height = 64;
-//	desc.Depth = 0;
-//
-// Description for a width x height x depth CUDA array of 64-bit, 4x16-bit float16’s:
-//
-//	CUDA_ARRAY3D_DESCRIPTOR desc;
-//	desc.Format = CU_AD_FORMAT_HALF;
-//	desc.NumChannels = 4;
-//	desc.Width = width;
-//	desc.Height = height;
-//	desc.Depth = depth;
 //
 // See also: [Array.Get3DDescriptor], [NewArray], [Array.Close], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMalloc3DArray
 //
@@ -3786,123 +3692,13 @@ var slotArray3DGetDescriptor outSlot[Array3dDescriptor]
 
 // arrayCreate creates a 1D or 2D CUDA array.
 //
-// Creates a CUDA array according to the [ArrayDescriptor] structure pAllocateArray and returns a handle to the new CUDA array in *pHandle. The [ArrayDescriptor] is defined as:
+// Creates a CUDA array according to the [ArrayDescriptor] structure pAllocateArray and returns a handle to the new CUDA array in *pHandle.
 //
-//	typedef struct {
-//	    unsigned int Width;
-//	    unsigned int Height;
-//	    CUarray_format Format;
-//	    unsigned int NumChannels;
-//	} CUDA_ARRAY_DESCRIPTOR;
-//
-// where:
-//
-// Width, and Height are the width, and height of the CUDA array (in elements); the CUDA array is one-dimensional if height is 0, two-dimensional otherwise;
-//
-// Format specifies the format of the elements; [ArrayFormat] is defined as:
-//
-//	typedef enum CUarray_format_enum {
-//	       CU_AD_FORMAT_UNSIGNED_INT8 = 0x01,
-//	       CU_AD_FORMAT_UNSIGNED_INT16 = 0x02,
-//	       CU_AD_FORMAT_UNSIGNED_INT32 = 0x03,
-//	       CU_AD_FORMAT_SIGNED_INT8 = 0x08,
-//	       CU_AD_FORMAT_SIGNED_INT16 = 0x09,
-//	       CU_AD_FORMAT_SIGNED_INT32 = 0x0a,
-//	       CU_AD_FORMAT_HALF = 0x10,
-//	       CU_AD_FORMAT_FLOAT = 0x20,
-//	       CU_AD_FORMAT_NV12 = 0xb0,
-//	       CU_AD_FORMAT_UNORM_INT8X1 = 0xc0,
-//	       CU_AD_FORMAT_UNORM_INT8X2 = 0xc1,
-//	       CU_AD_FORMAT_UNORM_INT8X4 = 0xc2,
-//	       CU_AD_FORMAT_UNORM_INT16X1 = 0xc3,
-//	       CU_AD_FORMAT_UNORM_INT16X2 = 0xc4,
-//	       CU_AD_FORMAT_UNORM_INT16X4 = 0xc5,
-//	       CU_AD_FORMAT_SNORM_INT8X1 = 0xc6,
-//	       CU_AD_FORMAT_SNORM_INT8X2 = 0xc7,
-//	       CU_AD_FORMAT_SNORM_INT8X4 = 0xc8,
-//	       CU_AD_FORMAT_SNORM_INT16X1 = 0xc9,
-//	       CU_AD_FORMAT_SNORM_INT16X2 = 0xca,
-//	       CU_AD_FORMAT_SNORM_INT16X4 = 0xcb,
-//	       CU_AD_FORMAT_BC1_UNORM = 0x91,
-//	       CU_AD_FORMAT_BC1_UNORM_SRGB = 0x92,
-//	       CU_AD_FORMAT_BC2_UNORM = 0x93,
-//	       CU_AD_FORMAT_BC2_UNORM_SRGB = 0x94,
-//	       CU_AD_FORMAT_BC3_UNORM = 0x95,
-//	       CU_AD_FORMAT_BC3_UNORM_SRGB = 0x96,
-//	       CU_AD_FORMAT_BC4_UNORM = 0x97,
-//	       CU_AD_FORMAT_BC4_SNORM = 0x98,
-//	       CU_AD_FORMAT_BC5_UNORM = 0x99,
-//	       CU_AD_FORMAT_BC5_SNORM = 0x9a,
-//	       CU_AD_FORMAT_BC6H_UF16 = 0x9b,
-//	       CU_AD_FORMAT_BC6H_SF16 = 0x9c,
-//	       CU_AD_FORMAT_BC7_UNORM = 0x9d,
-//	       CU_AD_FORMAT_BC7_UNORM_SRGB = 0x9e,
-//	       CU_AD_FORMAT_P010 = 0x9f,
-//	       CU_AD_FORMAT_P016 = 0xa1,
-//	       CU_AD_FORMAT_NV16 = 0xa2,
-//	       CU_AD_FORMAT_P210 = 0xa3,
-//	       CU_AD_FORMAT_P216 = 0xa4,
-//	       CU_AD_FORMAT_YUY2 = 0xa5,
-//	       CU_AD_FORMAT_Y210 = 0xa6,
-//	       CU_AD_FORMAT_Y216 = 0xa7,
-//	       CU_AD_FORMAT_AYUV = 0xa8,
-//	       CU_AD_FORMAT_Y410 = 0xa9,
-//	       CU_AD_FORMAT_Y416 = 0xb1,
-//	       CU_AD_FORMAT_Y444_PLANAR8 = 0xb2,
-//	       CU_AD_FORMAT_Y444_PLANAR10 = 0xb3,
-//	       CU_AD_FORMAT_YUV444_8bit_SemiPlanar = 0xb4,
-//	       CU_AD_FORMAT_YUV444_16bit_SemiPlanar = 0xb5,
-//	       CU_AD_FORMAT_UNORM_INT_101010_2 = 0x50,
-//	       CU_AD_FORMAT_UINT8_PACKED_422 = 0x51,
-//	       CU_AD_FORMAT_UINT8_PACKED_444 = 0x52,
-//	       CU_AD_FORMAT_UINT8_SEMIPLANAR_420 = 0x53,
-//	       CU_AD_FORMAT_UINT16_SEMIPLANAR_420 = 0x54,
-//	       CU_AD_FORMAT_UINT8_SEMIPLANAR_422 = 0x55,
-//	       CU_AD_FORMAT_UINT16_SEMIPLANAR_422 = 0x56,
-//	       CU_AD_FORMAT_UINT8_SEMIPLANAR_444 = 0x57,
-//	       CU_AD_FORMAT_UINT16_SEMIPLANAR_444 = 0x58,
-//	       CU_AD_FORMAT_UINT8_PLANAR_420 = 0x59,
-//	       CU_AD_FORMAT_UINT16_PLANAR_420 = 0x5a,
-//	       CU_AD_FORMAT_UINT8_PLANAR_422 = 0x5b,
-//	       CU_AD_FORMAT_UINT16_PLANAR_422 = 0x5c,
-//	       CU_AD_FORMAT_UINT8_PLANAR_444 = 0x5d,
-//	       CU_AD_FORMAT_UINT16_PLANAR_444 = 0x5e,
-//	} CUarray_format;
-//
-// NumChannels specifies the number of packed components per CUDA array element; it may be 1, 2, or 4;
+//   - Width, and Height are the width, and height of the CUDA array (in elements); the CUDA array is one-dimensional if height is 0, two-dimensional otherwise;
+//   - Format specifies the format of the elements.
+//   - NumChannels specifies the number of packed components per CUDA array element; it may be 1, 2, or 4;
 //
 // Here are examples of CUDA array descriptions:
-// Description for a CUDA array of 2048 floats:
-//
-//	CUDA_ARRAY_DESCRIPTOR desc;
-//	desc.Format = CU_AD_FORMAT_FLOAT;
-//	desc.NumChannels = 1;
-//	desc.Width = 2048;
-//	desc.Height = 1;
-//
-// Description for a 64 x 64 CUDA array of floats:
-//
-//	CUDA_ARRAY_DESCRIPTOR desc;
-//	desc.Format = CU_AD_FORMAT_FLOAT;
-//	desc.NumChannels = 1;
-//	desc.Width = 64;
-//	desc.Height = 64;
-//
-// Description for a width x height CUDA array of 64-bit, 4x16-bit float16’s:
-//
-//	CUDA_ARRAY_DESCRIPTOR desc;
-//	desc.Format = CU_AD_FORMAT_HALF;
-//	desc.NumChannels = 4;
-//	desc.Width = width;
-//	desc.Height = height;
-//
-// Description for a width x height CUDA array of 16-bit elements, each of which is two 8-bit unsigned chars:
-//
-//	CUDA_ARRAY_DESCRIPTOR arrayDesc;
-//	desc.Format = CU_AD_FORMAT_UNSIGNED_INT8;
-//	desc.NumChannels = 2;
-//	desc.Width = width;
-//	desc.Height = height;
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [Array.Close], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMallocArray
 //
@@ -5507,24 +5303,6 @@ var slotDevResourceGenerateDesc outSlot[DevResourceDesc]
 //   - A [CuDevSmResourceGroupParams] array of size nbGroups. Each entry must be zero-initialized. smCount: must be either 0 or in the range of [2,inputSmCount] where inputSmCount is the amount of SMs the input resource has. smCount must be a multiple of 2, as well as a multiple of coscheduledSmCount if it is nonzero. When assigning SMs to a group (and if results are expected by having the result parameter set), smCount cannot end up with 0 or a value less than coscheduledSmCount otherwise [ErrInvalidResourceConfiguration] will be returned. coscheduledSmCount: allows grouping SMs together in order to be able to launch clusters on Compute Architecture 9.0+. The default value may be queried from the device’s [DevResourceTypeSm] resource (8 on Compute Architecture 9.0+ and 2 otherwise). The maximum is 32 on Compute Architecture 9.0+ and 2 otherwise. A coscheduledSmCount of 0 uses the default value internally while preserving 0 in groupParams. Cluster occupancy will be derived from the resulting SM topology. preferredCoscheduledSmCount: Attempts to merge coscheduledSmCount groups into larger groups, in order to make use of preferredClusterDimensions on Compute Architecture 10.0+. The default value is set to coscheduledSmCount. flags: [DevSmResourceGroupBackfill]: Treats constraints as a hint, ignoring them if necessary to reach the requested smCount. Lets smCount be a non-multiple of coscheduledSmCount, filling the difference between SM count and already assigned co-scheduled groupings with other SMs. This lets any resulting group behave similar to the remainder group for example. When used with CU_DEV_SM_RESOURCE_GROUP_LOCALITY_DOMAIN_ID, backfill fills up to the requested smCount using the target locality domain first, then SMs not attributed to any locality domain, then SMs from other locality domains. If no SMs can be found in the requested locality domain, [ErrInvalidResourceConfiguration] is returned. CU_DEV_SM_RESOURCE_GROUP_LOCALITY_DOMAIN_ID: Specifies that the SM partition should be localized to the specified localityDomainId. localityDomainId: Specifies the locality domain that the partitioned SMs must be located on. Only valid when CU_DEV_SM_RESOURCE_GROUP_LOCALITY_DOMAIN_ID is set in flags.
 //
 // Example params and their effect:
-// A groupParams array element is defined in the following order:
-//
-//	{ .smCount, .coscheduledSmCount, .preferredCoscheduledSmCount, .flags, \/\* .reserved \*\/ }
-//	// Example 1
-//	// Will discover how many SMs are available without imposing a co-scheduled group-size constraint.
-//	// The rest is placed in the optional remainder.
-//	CU_DEV_SM_RESOURCE_GROUP_PARAMS params { 0, 0, 0, 0, 0 };
-//	// Example 2
-//	// Assuming the device has 10+ SMs, the result will have 10 SMs that are co-scheduled in groups of 2 SMs.
-//	// The rest is placed in the optional remainder.
-//	CU_DEV_SM_RESOURCE_GROUP_PARAMS params { 10, 2, 0, 0, 0 };
-//	// Setting the coscheduledSmCount to 2 guarantees that we can always have a valid result
-//	// as long as the SM count is less than or equal to the input resource SM count.
-//	// Example 3
-//	// A single piece is split-off, but instead of assigning the rest to the remainder, a second group contains everything else
-//	// This assumes the device has 10+ SMs (8 of which are coscheduled in groups of 4),
-//	// otherwise the second group could end up with 0 SMs, which is not allowed.
-//	CU_DEV_SM_RESOURCE_GROUP_PARAMS params { {8, 4, 0, 0, 0}, {0, 2, 0, CU_DEV_SM_RESOURCE_GROUP_BACKFILL, 0 } }
 //
 // The difference between a catch-all param group as the last entry and the remainder is in two aspects:
 //   - The remainder may be NULL / _TYPE_INVALID (if there are no SMs remaining), while a result group must always be valid.
@@ -6166,22 +5944,8 @@ func deviceGetPCIBusId(dev Device) (string, error) {
 
 // deviceGetProperties returns properties for a selected device.
 //
-// Returns in *prop the properties of device dev. The [Devprop] structure is defined as:
+// Returns in *prop the properties of device dev.
 //
-//	   typedef struct CUdevprop_st {
-//	   int maxThreadsPerBlock;
-//	   int maxThreadsDim[3];
-//	   int maxGridSize[3];
-//	   int sharedMemPerBlock;
-//	   int totalConstantMemory;
-//	   int SIMDWidth;
-//	   int memPitch;
-//	   int regsPerBlock;
-//	   int clockRate;
-//	   int textureAlign
-//	} CUdevprop;
-//
-// where:
 //   - maxThreadsPerBlock is the maximum number of threads per block;
 //   - maxThreadsDim[3] is the maximum sizes of each dimension of a block;
 //   - maxGridSize[3] is the maximum sizes of each dimension of a grid;
@@ -6824,15 +6588,9 @@ func eventSynchronize(hEvent Event) error {
 // externalMemoryGetMappedBuffer maps a buffer onto an imported memory object.
 //
 // Maps a buffer onto an imported memory object and returns a device pointer in devPtr.
-// The properties of the buffer being mapped must be described in bufferDesc. The [ExternalMemoryBufferDesc] structure is defined as follows:
+// The properties of the buffer being mapped must be described in bufferDesc.
 //
-//	typedef struct CUDA_EXTERNAL_MEMORY_BUFFER_DESC_st {
-//	    unsigned long long offset;
-//	    unsigned long long size;
-//	    unsigned int flags;
-//	} CUDA_EXTERNAL_MEMORY_BUFFER_DESC;
-//
-// where [ExternalMemoryBufferDesc].offset is the offset in the memory object where the buffer’s base address is. [ExternalMemoryBufferDesc].size is the size of the buffer. [ExternalMemoryBufferDesc].flags must be zero.
+// [ExternalMemoryBufferDesc].offset is the offset in the memory object where the buffer’s base address is. [ExternalMemoryBufferDesc].size is the size of the buffer. [ExternalMemoryBufferDesc].flags must be zero.
 // The offset and size have to be suitably aligned to match the requirements of the external API. Mapping two buffers whose ranges overlap may or may not result in the same virtual address being returned for the overlapped portion. In such cases, the application must ensure that all accesses to that region from the GPU are volatile. Otherwise writes made via one address are not guaranteed to be visible via the other address, even if they’re issued by the same thread. It is recommended that applications map the combined range instead of mapping separate buffers and then apply the appropriate offsets to the returned pointer to derive the individual buffers.
 // The returned pointer devPtr must be freed using [DevicePtr.Free].
 //
@@ -6866,15 +6624,9 @@ var slotExternalMemoryGetMappedBuffer outSlot[DevicePtr]
 // externalMemoryGetMappedMipmappedArray maps a CUDA mipmapped array onto an external memory object.
 //
 // Maps a CUDA mipmapped array onto an external object and returns a handle to it in mipmap.
-// The properties of the CUDA mipmapped array being mapped must be described in mipmapDesc. The structure [ExternalMemoryMipmappedArrayDesc] is defined as follows:
+// The properties of the CUDA mipmapped array being mapped must be described in mipmapDesc.
 //
-//	typedef struct CUDA_EXTERNAL_MEMORY_MIPMAPPED_ARRAY_DESC_st {
-//	    unsigned long long offset;
-//	    CUDA_ARRAY3D_DESCRIPTOR arrayDesc;
-//	    unsigned int numLevels;
-//	} CUDA_EXTERNAL_MEMORY_MIPMAPPED_ARRAY_DESC;
-//
-// where [ExternalMemoryMipmappedArrayDesc].offset is the offset in the memory object where the base level of the mipmap chain is. [ExternalMemoryMipmappedArrayDesc].arrayDesc describes the format, dimensions and type of the base level of the mipmap chain. For further details on these parameters, please refer to the documentation for [NewMipmappedArray]. Note that if the mipmapped array is bound as a color target in the graphics API, then the flag CUDA_ARRAY3D_COLOR_ATTACHMENT must be specified in [ExternalMemoryMipmappedArrayDesc].arrayDesc.Flags. [ExternalMemoryMipmappedArrayDesc].numLevels specifies the total number of levels in the mipmap chain.
+// [ExternalMemoryMipmappedArrayDesc].offset is the offset in the memory object where the base level of the mipmap chain is. [ExternalMemoryMipmappedArrayDesc].arrayDesc describes the format, dimensions and type of the base level of the mipmap chain. For further details on these parameters, please refer to the documentation for [NewMipmappedArray]. Note that if the mipmapped array is bound as a color target in the graphics API, then the flag CUDA_ARRAY3D_COLOR_ATTACHMENT must be specified in [ExternalMemoryMipmappedArrayDesc].arrayDesc.Flags. [ExternalMemoryMipmappedArrayDesc].numLevels specifies the total number of levels in the mipmap chain.
 // If extMem was imported from a handle of type [ExternalMemoryHandleTypeNvscibuf], then [ExternalMemoryMipmappedArrayDesc].numLevels must be equal to 1.
 // Mapping extMem imported from a handle of type [ExternalMemoryHandleTypeDmabufFd], is not supported.
 // The returned CUDA mipmapped array must be freed using [MipmappedArray.Close].
@@ -7659,22 +7411,6 @@ var slotGraphAddHostNode outSlot[GraphNode]
 // graphAddKernelNode creates a kernel execution node and adds it to a graph.
 //
 // Creates a new kernel execution node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
-// The [KernelNodeParams] structure is defined as:
-//
-//	typedef struct CUDA_KERNEL_NODE_PARAMS_st {
-//	    CUfunction func;
-//	    unsigned int gridDimX;
-//	    unsigned int gridDimY;
-//	    unsigned int gridDimZ;
-//	    unsigned int blockDimX;
-//	    unsigned int blockDimY;
-//	    unsigned int blockDimZ;
-//	    unsigned int sharedMemBytes;
-//	    void **kernelParams;
-//	    void **extra;
-//	    CUkernel kern;
-//	    CUcontext ctx;
-//	} CUDA_KERNEL_NODE_PARAMS;
 //
 // When the graph is launched, the node will invoke kernel func on a ( gridDimX x gridDimY x gridDimZ) grid of blocks. Each block contains ( blockDimX x blockDimY x blockDimZ) threads.
 // sharedMemBytes sets the amount of dynamic shared memory that will be available to each thread block.
@@ -8977,14 +8713,7 @@ var slotGraphInstantiate outSlot[GraphExec]
 // graphInstantiateWithParams creates an executable graph from a graph.
 //
 // Instantiates hGraph as an executable graph according to the instantiateParams structure. The graph is validated for any structural constraints or intra-node constraints which were not previously validated. If instantiation is successful, a handle to the instantiated graph is returned in phGraphExec.
-// instantiateParams controls the behavior of instantiation and subsequent graph launches, as well as returning more detailed information in the event of an error. [GraphInstantiateParams] is defined as:
-//
-//	typedef struct {
-//	    cuuint64_t flags;
-//	    CUstream hUploadStream;
-//	    CUgraphNode hErrNode_out;
-//	    CUgraphInstantiateResult result_out;
-//	} CUDA_GRAPH_INSTANTIATE_PARAMS;
+// instantiateParams controls the behavior of instantiation and subsequent graph launches, as well as returning more detailed information in the event of an error.
 //
 // The flags field controls the behavior of instantiation and subsequent graph launches. Valid flags are:
 //   - [GraphInstantiateFlagAutoFreeOnLaunch], which configures a graph containing memory allocation nodes to automatically free any unfreed memory allocations before the graph is relaunched.
@@ -10197,35 +9926,9 @@ func greenCtxWaitEvent(hCtx GreenCtx, hEvent Event) error {
 // ImportExternalMemory imports an external memory object.
 //
 // Imports an externally allocated memory object and returns a handle to that in extMemOut.
-// The properties of the handle being imported must be described in memHandleDesc. The [ExternalMemoryHandleDesc] structure is defined as follows:
+// The properties of the handle being imported must be described in memHandleDesc.
 //
-//	typedef struct CUDA_EXTERNAL_MEMORY_HANDLE_DESC_st {
-//	    CUexternalMemoryHandleType type;
-//	    union {
-//	        int fd;
-//	        struct {
-//	            void *handle;
-//	            const void *name;
-//	        } win32;
-//	        const void *nvSciBufObject;
-//	    } handle;
-//	    unsigned long long size;
-//	    unsigned int flags;
-//	} CUDA_EXTERNAL_MEMORY_HANDLE_DESC;
-//
-// where [ExternalMemoryHandleDesc].type specifies the type of handle being imported. [ExternalMemoryHandleType] is defined as:
-//
-//	typedef enum CUexternalMemoryHandleType_enum {
-//	    CU_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD          = 1,
-//	    CU_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32       = 2,
-//	    CU_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_KMT   = 3,
-//	    CU_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_HEAP         = 4,
-//	    CU_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE     = 5,
-//	    CU_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_RESOURCE     = 6,
-//	    CU_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_RESOURCE_KMT = 7,
-//	    CU_EXTERNAL_MEMORY_HANDLE_TYPE_NVSCIBUF           = 8,
-//	    CU_EXTERNAL_MEMORY_HANDLE_TYPE_DMABUF_FD          = 9
-//	} CUexternalMemoryHandleType;
+// [ExternalMemoryHandleDesc].type specifies the type of handle being imported.
 //
 // If [ExternalMemoryHandleDesc].type is [ExternalMemoryHandleTypeOpaqueFd], then [ExternalMemoryHandleDesc].handle.fd must be a valid file descriptor referencing a memory object. Ownership of the file descriptor is transferred to the CUDA driver when the handle is imported successfully. Performing any operations on the file descriptor after it is imported results in undefined behavior.
 // If [ExternalMemoryHandleDesc].type is [ExternalMemoryHandleTypeOpaqueWin32], then exactly one of [ExternalMemoryHandleDesc].handle.win32.handle and [ExternalMemoryHandleDesc].handle.win32.name must not be NULL. If [ExternalMemoryHandleDesc].handle.win32.handle is not NULL, then it must represent a valid shared NT handle that references a memory object. Ownership of this handle is not transferred to CUDA after the import operation, so the application must release the handle using the appropriate system call. If [ExternalMemoryHandleDesc].handle.win32.name is not NULL, then it must point to a NULL-terminated array of UTF-16 characters that refers to a memory object.
@@ -10272,35 +9975,9 @@ var slotImportExternalMemory outSlot[ExternalMemory]
 // ImportExternalSemaphore imports an external semaphore.
 //
 // Imports an externally allocated synchronization object and returns a handle to that in extSemOut.
-// The properties of the handle being imported must be described in semHandleDesc. The [ExternalSemaphoreHandleDesc] is defined as follows:
+// The properties of the handle being imported must be described in semHandleDesc.
 //
-//	typedef struct CUDA_EXTERNAL_SEMAPHORE_HANDLE_DESC_st {
-//	    CUexternalSemaphoreHandleType type;
-//	    union {
-//	        int fd;
-//	        struct {
-//	            void *handle;
-//	            const void *name;
-//	        } win32;
-//	        const void* NvSciSyncObj;
-//	    } handle;
-//	    unsigned int flags;
-//	} CUDA_EXTERNAL_SEMAPHORE_HANDLE_DESC;
-//
-// where [ExternalSemaphoreHandleDesc].type specifies the type of handle being imported. [ExternalSemaphoreHandleType] is defined as:
-//
-//	typedef enum CUexternalSemaphoreHandleType_enum {
-//	    CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD                = 1,
-//	    CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32             = 2,
-//	    CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_KMT         = 3,
-//	    CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE_D3D12_FENCE              = 4,
-//	    CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE_D3D11_FENCE              = 5,
-//	    CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE_NVSCISYNC                = 6,
-//	    CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE_D3D11_KEYED_MUTEX        = 7,
-//	    CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE_D3D11_KEYED_MUTEX_KMT    = 8,
-//	    CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TIMELINE_SEMAPHORE_FD    = 9,
-//	    CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TIMELINE_SEMAPHORE_WIN32 = 10
-//	} CUexternalSemaphoreHandleType;
+// [ExternalSemaphoreHandleDesc].type specifies the type of handle being imported.
 //
 // If [ExternalSemaphoreHandleDesc].type is [ExternalSemaphoreHandleTypeOpaqueFd], then [ExternalSemaphoreHandleDesc].handle.fd must be a valid file descriptor referencing a synchronization object. Ownership of the file descriptor is transferred to the CUDA driver when the handle is imported successfully. Performing any operations on the file descriptor after it is imported results in undefined behavior.
 // If [ExternalSemaphoreHandleDesc].type is [ExternalSemaphoreHandleTypeOpaqueWin32], then exactly one of [ExternalSemaphoreHandleDesc].handle.win32.handle and [ExternalSemaphoreHandleDesc].handle.win32.name must not be NULL. If [ExternalSemaphoreHandleDesc].handle.win32.handle is not NULL, then it must represent a valid shared NT handle that references a synchronization object. Ownership of this handle is not transferred to CUDA after the import operation, so the application must release the handle using the appropriate system call. If [ExternalSemaphoreHandleDesc].handle.win32.name is not NULL, then it must name a valid synchronization object.
@@ -10887,23 +10564,7 @@ func launchCooperativeKernel(f Function, gridDimX uint32, gridDimY uint32, gridD
 // The streams used to launch these kernels must have been created via either [NewStream] or [StreamCreateWithPriority]. The NULL stream or CU_STREAM_LEGACY or CU_STREAM_PER_THREAD cannot be used.
 // The total number of blocks launched per kernel cannot exceed the maximum number of blocks per multiprocessor as returned by [Function.MaxActiveBlocksPerMultiprocessor] (or [Function.MaxActiveBlocksPerMultiprocessorWithFlags]) times the number of multiprocessors as specified by the device attribute [DevAttrMultiprocessorCount]. Since the total number of blocks launched per device has to match across all devices, the maximum number of blocks that can be launched per device will be limited by the device with the least number of multiprocessors.
 // The kernels cannot make use of CUDA dynamic parallelism.
-// The [LaunchParams] structure is defined as:
 //
-//	typedef struct CUDA_LAUNCH_PARAMS_st
-//	{
-//	    CUfunction function;
-//	    unsigned int gridDimX;
-//	    unsigned int gridDimY;
-//	    unsigned int gridDimZ;
-//	    unsigned int blockDimX;
-//	    unsigned int blockDimY;
-//	    unsigned int blockDimZ;
-//	    unsigned int sharedMemBytes;
-//	    CUstream hStream;
-//	    void **kernelParams;
-//	} CUDA_LAUNCH_PARAMS;
-//
-// where:
 //   - [LaunchParams].function specifies the kernel to be launched. All functions must be identical with respect to the compiled code. Note that you can also specify context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then casting to [Function]. In this case, the context to launch the kernel on be taken from the specified stream [LaunchParams].hStream.
 //   - [LaunchParams].gridDimX is the width of the grid in blocks. This must match across all kernels launched.
 //   - [LaunchParams].gridDimY is the height of the grid in blocks. This must match across all kernels launched.
@@ -11066,22 +10727,8 @@ func launchHostFunc(hStream Stream, fn uintptr, userData uintptr, syncMode uint3
 // Invokes the function [Function] or the kernel [Kernel] f on a gridDimX x gridDimY x gridDimZ grid of blocks. Each block contains blockDimX x blockDimY x blockDimZ threads.
 // sharedMemBytes sets the amount of dynamic shared memory that will be available to each thread block.
 // Kernel parameters to f can be specified in one of two ways:
-//
-// Kernel parameters can be specified via kernelParams. If f has N parameters, then kernelParams needs to be an array of N pointers. Each of kernelParams[0] through kernelParams[N-1] must point to a region of memory from which the actual kernel parameter will be copied. The number of kernel parameters and their offsets and sizes do not need to be specified as that information is retrieved directly from the kernel’s image.
-//
-// Kernel parameters can also be packaged by the application into a single buffer that is passed in via the extra parameter. This places the burden on the application of knowing each kernel parameter’s size and alignment/padding within the buffer. Here is an example of using the extra parameter in this manner:
-//
-//	size_t argBufferSize;
-//	char argBuffer[256];
-//
-//	// populate argBuffer and argBufferSize
-//
-//	void *config[] = {
-//	    CU_LAUNCH_PARAM_BUFFER_POINTER, argBuffer,
-//	    CU_LAUNCH_PARAM_BUFFER_SIZE,    &argBufferSize,
-//	    CU_LAUNCH_PARAM_END
-//	};
-//	status = cuLaunchKernel(f, gx, gy, gz, bx, by, bz, sh, s, NULL, config);
+//   - Kernel parameters can be specified via kernelParams. If f has N parameters, then kernelParams needs to be an array of N pointers. Each of kernelParams[0] through kernelParams[N-1] must point to a region of memory from which the actual kernel parameter will be copied. The number of kernel parameters and their offsets and sizes do not need to be specified as that information is retrieved directly from the kernel’s image.
+//   - Kernel parameters can also be packaged by the application into a single buffer that is passed in via the extra parameter. This places the burden on the application of knowing each kernel parameter’s size and alignment/padding within the buffer.
 //
 // The extra parameter exists to allow [Function.LaunchKernel] to take additional less commonly used arguments. extra specifies a list of names of extra settings and their corresponding values. Each extra setting name is immediately followed by the corresponding value. The list must be terminated with either NULL or CU_LAUNCH_PARAM_END.
 //   - CU_LAUNCH_PARAM_END, which indicates the end of the extra array;
@@ -11134,22 +10781,7 @@ func launchKernel(f Function, gridDimX uint32, gridDimY uint32, gridDimZ uint32,
 // launchKernelEx launches a CUDA function [Function] or a CUDA kernel [Kernel] with launch-time configuration.
 //
 // Invokes the function [Function] or the kernel [Kernel] f with the specified launch-time configuration config.
-// The [LaunchConfig] structure is defined as:
 //
-//	      typedef struct CUlaunchConfig_st {
-//	    unsigned int gridDimX;
-//	    unsigned int gridDimY;
-//	    unsigned int gridDimZ;
-//	    unsigned int blockDimX;
-//	    unsigned int blockDimY;
-//	    unsigned int blockDimZ;
-//	    unsigned int sharedMemBytes;
-//	    CUstream hStream;
-//	    CUlaunchAttribute *attrs;
-//	    unsigned int numAttrs;
-//	} CUlaunchConfig;
-//
-// where:
 //   - [LaunchConfig].gridDimX is the width of the grid in blocks.
 //   - [LaunchConfig].gridDimY is the height of the grid in blocks.
 //   - [LaunchConfig].gridDimZ is the depth of the grid in blocks.
@@ -11162,81 +10794,9 @@ func launchKernel(f Function, gridDimX uint32, gridDimY uint32, gridDimZ uint32,
 //   - [LaunchConfig].numAttrs is the number of attributes populating the first [LaunchConfig].numAttrs positions of the [LaunchConfig].attrs array.
 //
 // Launch-time configuration is specified by adding entries to [LaunchConfig].attrs. Each entry is an attribute ID and a corresponding attribute value.
-// The [LaunchAttribute] structure is defined as:
 //
-//	      typedef struct CUlaunchAttribute_st {
-//	    CUlaunchAttributeID id;
-//	    CUlaunchAttributeValue value;
-//	} CUlaunchAttribute;
-//
-// where:
 //   - [LaunchAttribute].id is a unique enum identifying the attribute.
 //   - [LaunchAttribute].value is a union that hold the attribute value.
-//
-// An example of using the config parameter:
-//
-//	      CUlaunchAttribute coopAttr = {.id = CU_LAUNCH_ATTRIBUTE_COOPERATIVE,
-//	                              .value = 1};
-//	CUlaunchConfig config = {... // set block and grid dimensions
-//	                       .attrs = &coopAttr,
-//	                       .numAttrs = 1};
-//
-//	cuLaunchKernelEx(&config, kernel, NULL, NULL);
-//
-// The [LaunchAttributeID] enum is defined as:
-//
-//	      typedef enum CUlaunchAttributeID_enum {
-//	    CU_LAUNCH_ATTRIBUTE_IGNORE = 0,
-//	    CU_LAUNCH_ATTRIBUTE_ACCESS_POLICY_WINDOW   = 1,
-//	    CU_LAUNCH_ATTRIBUTE_COOPERATIVE            = 2,
-//	    CU_LAUNCH_ATTRIBUTE_SYNCHRONIZATION_POLICY = 3,
-//	    CU_LAUNCH_ATTRIBUTE_CLUSTER_DIMENSION                    = 4,
-//	    CU_LAUNCH_ATTRIBUTE_CLUSTER_SCHEDULING_POLICY_PREFERENCE = 5,
-//	    CU_LAUNCH_ATTRIBUTE_PROGRAMMATIC_STREAM_SERIALIZATION    = 6,
-//	    CU_LAUNCH_ATTRIBUTE_PROGRAMMATIC_EVENT                   = 7,
-//	    CU_LAUNCH_ATTRIBUTE_PRIORITY               = 8,
-//	    CU_LAUNCH_ATTRIBUTE_MEM_SYNC_DOMAIN_MAP    = 9,
-//	    CU_LAUNCH_ATTRIBUTE_MEM_SYNC_DOMAIN        = 10,
-//	    CU_LAUNCH_ATTRIBUTE_PREFERRED_CLUSTER_DIMENSION = 11,
-//	    CU_LAUNCH_ATTRIBUTE_LAUNCH_COMPLETION_EVENT = 12,
-//	    CU_LAUNCH_ATTRIBUTE_DEVICE_UPDATABLE_KERNEL_NODE = 13,
-//	} CUlaunchAttributeID;
-//
-// and the corresponding CUlaunchAttributeValue union as :
-//
-//	      typedef union CUlaunchAttributeValue_union {
-//	    CUaccessPolicyWindow accessPolicyWindow;
-//	    int cooperative;
-//	    CUsynchronizationPolicy syncPolicy;
-//	    struct {
-//	        unsigned int x;
-//	        unsigned int y;
-//	        unsigned int z;
-//	    } clusterDim;
-//	    CUclusterSchedulingPolicy clusterSchedulingPolicyPreference;
-//	    int programmaticStreamSerializationAllowed;
-//	    struct {
-//	        CUevent event;
-//	        int flags;
-//	        int triggerAtBlockStart;
-//	    } programmaticEvent;
-//	    int priority;
-//	    CUlaunchMemSyncDomainMap memSyncDomainMap;
-//	    CUlaunchMemSyncDomain memSyncDomain;
-//	    struct {
-//	        unsigned int x;
-//	        unsigned int y;
-//	        unsigned int z;
-//	    } preferredClusterDim;
-//	    struct {
-//	        CUevent event;
-//	        int flags;
-//	    } launchCompletionEvent;
-//	    struct {
-//	        int deviceUpdatable;
-//	        CUgraphDeviceNode devNode;
-//	    } deviceUpdatableKernelNode;
-//	} CUlaunchAttributeValue;
 //
 // Setting [LaunchAttributeCooperative] to a non-zero value causes the kernel launch to be a cooperative launch, with exactly the same usage and semantics of [Function.LaunchCooperativeKernel].
 // Setting [LaunchAttributeProgrammaticStreamSerialization] to a non-zero values causes the kernel to use programmatic means to resolve its stream dependency — enabling the CUDA runtime to opportunistically allow the grid’s execution to overlap with the previous kernel in the stream, if that kernel requests the overlap.
@@ -12990,65 +12550,16 @@ func memMap(ptr DevicePtr, size uint, offset uint, handle uint64, flags uint64) 
 
 // memMapArrayAsync maps or unmaps subregions of sparse CUDA arrays and sparse CUDA mipmapped arrays.
 //
-// Performs map or unmap operations on subregions of sparse CUDA arrays and sparse CUDA mipmapped arrays. Each operation is specified by a [ArrayMapInfo] entry in the mapInfoList array of size count. The structure [ArrayMapInfo] is defined as follow:
+// Performs map or unmap operations on subregions of sparse CUDA arrays and sparse CUDA mipmapped arrays. Each operation is specified by a [ArrayMapInfo] entry in the mapInfoList array of size count.
 //
-//	 typedef struct CUarrayMapInfo_st {
-//	    CUresourcetype resourceType;
-//	    union {
-//	        CUmipmappedArray mipmap;
-//	        CUarray array;
-//	    } resource;
+// [ArrayMapInfo].resourceType specifies the type of resource to be operated on. If [ArrayMapInfo].resourceType is set to [Resourcetype].[ResourceTypeArray] then [ArrayMapInfo].resource.array must be set to a valid sparse CUDA array handle. The CUDA array must be either a 2D, 2D layered or 3D CUDA array and must have been allocated using [NewArray] or [NewArray3D] with the flag CUDA_ARRAY3D_SPARSE or CUDA_ARRAY3D_DEFERRED_MAPPING. For CUDA arrays obtained using [MipmappedArray.Level], [ErrInvalidValue] will be returned. If [ArrayMapInfo].resourceType is set to [Resourcetype].[ResourceTypeMipmappedArray] then [ArrayMapInfo].resource.mipmap must be set to a valid sparse CUDA mipmapped array handle. The CUDA mipmapped array must be either a 2D, 2D layered or 3D CUDA mipmapped array and must have been allocated using [NewMipmappedArray] with the flag CUDA_ARRAY3D_SPARSE or CUDA_ARRAY3D_DEFERRED_MAPPING.
+// [ArrayMapInfo].subresourceType specifies the type of subresource within the resource.
 //
-//	    CUarraySparseSubresourceType subresourceType;
-//	    union {
-//	        struct {
-//	            unsigned int level;
-//	            unsigned int layer;
-//	            unsigned int offsetX;
-//	            unsigned int offsetY;
-//	            unsigned int offsetZ;
-//	            unsigned int extentWidth;
-//	            unsigned int extentHeight;
-//	            unsigned int extentDepth;
-//	        } sparseLevel;
-//	        struct {
-//	            unsigned int layer;
-//	            unsigned long long offset;
-//	            unsigned long long size;
-//	        } miptail;
-//	    } subresource;
-//
-//	    CUmemOperationType memOperationType;
-//
-//	    CUmemHandleType memHandleType;
-//	    union {
-//	        CUmemGenericAllocationHandle memHandle;
-//	    } memHandle;
-//
-//	    unsigned long long offset;
-//	    unsigned int deviceBitMask;
-//	    unsigned int flags;
-//	    unsigned int reserved[2];
-//	} CUarrayMapInfo;
-//
-// where [ArrayMapInfo].resourceType specifies the type of resource to be operated on. If [ArrayMapInfo].resourceType is set to [Resourcetype].[ResourceTypeArray] then [ArrayMapInfo].resource.array must be set to a valid sparse CUDA array handle. The CUDA array must be either a 2D, 2D layered or 3D CUDA array and must have been allocated using [NewArray] or [NewArray3D] with the flag CUDA_ARRAY3D_SPARSE or CUDA_ARRAY3D_DEFERRED_MAPPING. For CUDA arrays obtained using [MipmappedArray.Level], [ErrInvalidValue] will be returned. If [ArrayMapInfo].resourceType is set to [Resourcetype].[ResourceTypeMipmappedArray] then [ArrayMapInfo].resource.mipmap must be set to a valid sparse CUDA mipmapped array handle. The CUDA mipmapped array must be either a 2D, 2D layered or 3D CUDA mipmapped array and must have been allocated using [NewMipmappedArray] with the flag CUDA_ARRAY3D_SPARSE or CUDA_ARRAY3D_DEFERRED_MAPPING.
-// [ArrayMapInfo].subresourceType specifies the type of subresource within the resource. CUarraySparseSubresourceType_enum is defined as:
-//
-//	typedef enum CUarraySparseSubresourceType_enum {
-//	    CU_ARRAY_SPARSE_SUBRESOURCE_TYPE_SPARSE_LEVEL = 0,
-//	    CU_ARRAY_SPARSE_SUBRESOURCE_TYPE_MIPTAIL = 1
-//	} CUarraySparseSubresourceType;
-//
-// where [ArraySparseSubresourceType].[ArraySparseSubresourceTypeSparseLevel] indicates a sparse-miplevel which spans at least one tile in every dimension. The remaining miplevels which are too small to span at least one tile in any dimension constitute the mip tail region as indicated by [ArraySparseSubresourceType].[ArraySparseSubresourceTypeMiptail] subresource type.
+// [ArraySparseSubresourceType].[ArraySparseSubresourceTypeSparseLevel] indicates a sparse-miplevel which spans at least one tile in every dimension. The remaining miplevels which are too small to span at least one tile in any dimension constitute the mip tail region as indicated by [ArraySparseSubresourceType].[ArraySparseSubresourceTypeMiptail] subresource type.
 // If [ArrayMapInfo].subresourceType is set to [ArraySparseSubresourceType].[ArraySparseSubresourceTypeSparseLevel] then [ArrayMapInfo].subresource.sparseLevel struct must contain valid array subregion offsets and extents. The [ArrayMapInfo].subresource.sparseLevel.offsetX, [ArrayMapInfo].subresource.sparseLevel.offsetY and [ArrayMapInfo].subresource.sparseLevel.offsetZ must specify valid X, Y and Z offsets respectively. The [ArrayMapInfo].subresource.sparseLevel.extentWidth, [ArrayMapInfo].subresource.sparseLevel.extentHeight and [ArrayMapInfo].subresource.sparseLevel.extentDepth must specify valid width, height and depth extents respectively. These offsets and extents must be aligned to the corresponding tile dimension. For CUDA mipmapped arrays [ArrayMapInfo].subresource.sparseLevel.level must specify a valid mip level index. Otherwise, must be zero. For layered CUDA arrays and layered CUDA mipmapped arrays [ArrayMapInfo].subresource.sparseLevel.layer must specify a valid layer index. Otherwise, must be zero. [ArrayMapInfo].subresource.sparseLevel.offsetZ must be zero and [ArrayMapInfo].subresource.sparseLevel.extentDepth must be set to 1 for 2D and 2D layered CUDA arrays and CUDA mipmapped arrays. Tile extents can be obtained by calling [Array.SparseProperties] and [MipmappedArray.SparseProperties]
 // If [ArrayMapInfo].subresourceType is set to [ArraySparseSubresourceType].[ArraySparseSubresourceTypeMiptail] then [ArrayMapInfo].subresource.miptail struct must contain valid mip tail offset in [ArrayMapInfo].subresource.miptail.offset and size in [ArrayMapInfo].subresource.miptail.size. Both, mip tail offset and mip tail size must be aligned to the tile size. For layered CUDA mipmapped arrays which don’t have the flag CU_ARRAY_SPARSE_PROPERTIES_SINGLE_MIPTAIL set in [ArraySparseProperties].flags as returned by [MipmappedArray.SparseProperties], [ArrayMapInfo].subresource.miptail.layer must specify a valid layer index. Otherwise, must be zero.
 // If [ArrayMapInfo].resource.array or [ArrayMapInfo].resource.mipmap was created with CUDA_ARRAY3D_DEFERRED_MAPPING flag set the [ArrayMapInfo].subresourceType and the contents of [ArrayMapInfo].subresource will be ignored.
-// [ArrayMapInfo].memOperationType specifies the type of operation. [MemOperationType] is defined as:
-//
-//	typedef enum CUmemOperationType_enum {
-//	    CU_MEM_OPERATION_TYPE_MAP = 1,
-//	    CU_MEM_OPERATION_TYPE_UNMAP = 2
-//	} CUmemOperationType;
+// [ArrayMapInfo].memOperationType specifies the type of operation.
 //
 // If [ArrayMapInfo].memOperationType is set to [MemOperationType].[MemOperationTypeMap] then the subresource will be mapped onto the tile pool memory specified by [ArrayMapInfo].memHandle at offset [ArrayMapInfo].offset. The tile pool allocation has to be created by specifying the CU_MEM_CREATE_USAGE_TILE_POOL flag when calling [MemCreate]. Also, [ArrayMapInfo].memHandleType must be set to [MemHandleType].[MemHandleTypeGeneric].
 // If [ArrayMapInfo].memOperationType is set to [MemOperationType].[MemOperationTypeUnmap] then an unmapping operation is performed. [ArrayMapInfo].memHandle must be NULL.
@@ -13694,39 +13205,10 @@ func memcpy(dst DevicePtr, src DevicePtr, byteCount uint) error {
 
 // Memcpy2D copies memory for 2D arrays.
 //
-// Perform a 2D memory copy according to the parameters specified in pCopy. The [Memcpy2d] structure is defined as:
+// Perform a 2D memory copy according to the parameters specified in pCopy.
 //
-//	typedef struct CUDA_MEMCPY2D_st {
-//	   unsigned int srcXInBytes, srcY;
-//	   CUmemorytype srcMemoryType;
-//	       const void *srcHost;
-//	       CUdeviceptr srcDevice;
-//	       CUarray srcArray;
-//	       unsigned int srcPitch;
-//
-//	   unsigned int dstXInBytes, dstY;
-//	   CUmemorytype dstMemoryType;
-//	       void *dstHost;
-//	       CUdeviceptr dstDevice;
-//	       CUarray dstArray;
-//	       unsigned int dstPitch;
-//
-//	   unsigned int WidthInBytes;
-//	   unsigned int Height;
-//	} CUDA_MEMCPY2D;
-//
-// where:
-//
-// srcMemoryType and dstMemoryType specify the type of memory of the source and destination, respectively; CUmemorytype_enum is defined as:
-//
-//	typedef enum CUmemorytype_enum {
-//	   CU_MEMORYTYPE_HOST = 0x01,
-//	   CU_MEMORYTYPE_DEVICE = 0x02,
-//	   CU_MEMORYTYPE_ARRAY = 0x03,
-//	   CU_MEMORYTYPE_UNIFIED = 0x04
-//	} CUmemorytype;
-//
-// srcXInBytes and srcY specify the base address of the source data for the copy.
+//   - srcMemoryType and dstMemoryType specify the type of memory of the source and destination, respectively.
+//   - srcXInBytes and srcY specify the base address of the source data for the copy.
 //
 // If srcMemoryType is [MemoryTypeUnified], srcDevice and srcPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. srcArray is ignored. This value may be used only if unified addressing is supported in the calling context.
 // If srcMemoryType is [MemoryTypeHost], srcHost and srcPitch specify the (host) base address of the source data and the bytes per row to apply. srcArray is ignored.
@@ -13784,37 +13266,10 @@ func Memcpy2D(pCopy *Memcpy2d) error {
 
 // memcpy2DAsync copies memory for 2D arrays.
 //
-// Perform a 2D memory copy according to the parameters specified in pCopy. The [Memcpy2d] structure is defined as:
+// Perform a 2D memory copy according to the parameters specified in pCopy.
 //
-//	typedef struct CUDA_MEMCPY2D_st {
-//	   unsigned int srcXInBytes, srcY;
-//	   CUmemorytype srcMemoryType;
-//	   const void *srcHost;
-//	   CUdeviceptr srcDevice;
-//	   CUarray srcArray;
-//	   unsigned int srcPitch;
-//	   unsigned int dstXInBytes, dstY;
-//	   CUmemorytype dstMemoryType;
-//	   void *dstHost;
-//	   CUdeviceptr dstDevice;
-//	   CUarray dstArray;
-//	   unsigned int dstPitch;
-//	   unsigned int WidthInBytes;
-//	   unsigned int Height;
-//	} CUDA_MEMCPY2D;
-//
-// where:
-//
-// srcMemoryType and dstMemoryType specify the type of memory of the source and destination, respectively; CUmemorytype_enum is defined as:
-//
-//	typedef enum CUmemorytype_enum {
-//	   CU_MEMORYTYPE_HOST = 0x01,
-//	   CU_MEMORYTYPE_DEVICE = 0x02,
-//	   CU_MEMORYTYPE_ARRAY = 0x03,
-//	   CU_MEMORYTYPE_UNIFIED = 0x04
-//	} CUmemorytype;
-//
-// srcXInBytes and srcY specify the base address of the source data for the copy.
+//   - srcMemoryType and dstMemoryType specify the type of memory of the source and destination, respectively.
+//   - srcXInBytes and srcY specify the base address of the source data for the copy.
 //
 // If srcMemoryType is [MemoryTypeHost], srcHost and srcPitch specify the (host) base address of the source data and the bytes per row to apply. srcArray is ignored.
 // If srcMemoryType is [MemoryTypeUnified], srcDevice and srcPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. srcArray is ignored. This value may be used only if unified addressing is supported in the calling context.
@@ -13878,37 +13333,10 @@ func memcpy2DAsync(pCopy *Memcpy2d, hStream Stream) error {
 
 // Memcpy2DUnaligned copies memory for 2D arrays.
 //
-// Perform a 2D memory copy according to the parameters specified in pCopy. The [Memcpy2d] structure is defined as:
+// Perform a 2D memory copy according to the parameters specified in pCopy.
 //
-//	typedef struct CUDA_MEMCPY2D_st {
-//	   unsigned int srcXInBytes, srcY;
-//	   CUmemorytype srcMemoryType;
-//	   const void *srcHost;
-//	   CUdeviceptr srcDevice;
-//	   CUarray srcArray;
-//	   unsigned int srcPitch;
-//	   unsigned int dstXInBytes, dstY;
-//	   CUmemorytype dstMemoryType;
-//	   void *dstHost;
-//	   CUdeviceptr dstDevice;
-//	   CUarray dstArray;
-//	   unsigned int dstPitch;
-//	   unsigned int WidthInBytes;
-//	   unsigned int Height;
-//	} CUDA_MEMCPY2D;
-//
-// where:
-//
-// srcMemoryType and dstMemoryType specify the type of memory of the source and destination, respectively; CUmemorytype_enum is defined as:
-//
-//	typedef enum CUmemorytype_enum {
-//	   CU_MEMORYTYPE_HOST = 0x01,
-//	   CU_MEMORYTYPE_DEVICE = 0x02,
-//	   CU_MEMORYTYPE_ARRAY = 0x03,
-//	   CU_MEMORYTYPE_UNIFIED = 0x04
-//	} CUmemorytype;
-//
-// srcXInBytes and srcY specify the base address of the source data for the copy.
+//   - srcMemoryType and dstMemoryType specify the type of memory of the source and destination, respectively.
+//   - srcXInBytes and srcY specify the base address of the source data for the copy.
 //
 // If srcMemoryType is [MemoryTypeUnified], srcDevice and srcPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. srcArray is ignored. This value may be used only if unified addressing is supported in the calling context.
 // If srcMemoryType is [MemoryTypeHost], srcHost and srcPitch specify the (host) base address of the source data and the bytes per row to apply. srcArray is ignored.
@@ -13966,45 +13394,10 @@ func Memcpy2DUnaligned(pCopy *Memcpy2d) error {
 
 // Memcpy3D copies memory for 3D arrays.
 //
-// Perform a 3D memory copy according to the parameters specified in pCopy. The [Memcpy3d] structure is defined as:
+// Perform a 3D memory copy according to the parameters specified in pCopy.
 //
-//	typedef struct CUDA_MEMCPY3D_st {
-//
-//	    unsigned int srcXInBytes, srcY, srcZ;
-//	    unsigned int srcLOD;
-//	    CUmemorytype srcMemoryType;
-//	        const void *srcHost;
-//	        CUdeviceptr srcDevice;
-//	        CUarray srcArray;
-//	        unsigned int srcPitch;  // ignored when src is array
-//	        unsigned int srcHeight; // ignored when src is array; may be 0 if Depth==1
-//
-//	    unsigned int dstXInBytes, dstY, dstZ;
-//	    unsigned int dstLOD;
-//	    CUmemorytype dstMemoryType;
-//	        void *dstHost;
-//	        CUdeviceptr dstDevice;
-//	        CUarray dstArray;
-//	        unsigned int dstPitch;  // ignored when dst is array
-//	        unsigned int dstHeight; // ignored when dst is array; may be 0 if Depth==1
-//
-//	    unsigned int WidthInBytes;
-//	    unsigned int Height;
-//	    unsigned int Depth;
-//	} CUDA_MEMCPY3D;
-//
-// where:
-//
-// srcMemoryType and dstMemoryType specify the type of memory of the source and destination, respectively; CUmemorytype_enum is defined as:
-//
-//	typedef enum CUmemorytype_enum {
-//	   CU_MEMORYTYPE_HOST = 0x01,
-//	   CU_MEMORYTYPE_DEVICE = 0x02,
-//	   CU_MEMORYTYPE_ARRAY = 0x03,
-//	   CU_MEMORYTYPE_UNIFIED = 0x04
-//	} CUmemorytype;
-//
-// srcXInBytes, srcY and srcZ specify the base address of the source data for the copy.
+//   - srcMemoryType and dstMemoryType specify the type of memory of the source and destination, respectively.
+//   - srcXInBytes, srcY and srcZ specify the base address of the source data for the copy.
 //
 // If srcMemoryType is [MemoryTypeUnified], srcDevice and srcPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. srcArray is ignored. This value may be used only if unified addressing is supported in the calling context.
 // If srcMemoryType is [MemoryTypeHost], srcHost, srcPitch and srcHeight specify the (host) base address of the source data, the bytes per row, and the height of each 2D slice of the 3D array. srcArray is ignored.
@@ -14063,45 +13456,10 @@ func Memcpy3D(pCopy *Memcpy3d) error {
 
 // memcpy3DAsync copies memory for 3D arrays.
 //
-// Perform a 3D memory copy according to the parameters specified in pCopy. The [Memcpy3d] structure is defined as:
+// Perform a 3D memory copy according to the parameters specified in pCopy.
 //
-//	typedef struct CUDA_MEMCPY3D_st {
-//
-//	    unsigned int srcXInBytes, srcY, srcZ;
-//	    unsigned int srcLOD;
-//	    CUmemorytype srcMemoryType;
-//	        const void *srcHost;
-//	        CUdeviceptr srcDevice;
-//	        CUarray srcArray;
-//	        unsigned int srcPitch;  // ignored when src is array
-//	        unsigned int srcHeight; // ignored when src is array; may be 0 if Depth==1
-//
-//	    unsigned int dstXInBytes, dstY, dstZ;
-//	    unsigned int dstLOD;
-//	    CUmemorytype dstMemoryType;
-//	        void *dstHost;
-//	        CUdeviceptr dstDevice;
-//	        CUarray dstArray;
-//	        unsigned int dstPitch;  // ignored when dst is array
-//	        unsigned int dstHeight; // ignored when dst is array; may be 0 if Depth==1
-//
-//	    unsigned int WidthInBytes;
-//	    unsigned int Height;
-//	    unsigned int Depth;
-//	} CUDA_MEMCPY3D;
-//
-// where:
-//
-// srcMemoryType and dstMemoryType specify the type of memory of the source and destination, respectively; CUmemorytype_enum is defined as:
-//
-//	typedef enum CUmemorytype_enum {
-//	   CU_MEMORYTYPE_HOST = 0x01,
-//	   CU_MEMORYTYPE_DEVICE = 0x02,
-//	   CU_MEMORYTYPE_ARRAY = 0x03,
-//	   CU_MEMORYTYPE_UNIFIED = 0x04
-//	} CUmemorytype;
-//
-// srcXInBytes, srcY and srcZ specify the base address of the source data for the copy.
+//   - srcMemoryType and dstMemoryType specify the type of memory of the source and destination, respectively.
+//   - srcXInBytes, srcY and srcZ specify the base address of the source data for the copy.
 //
 // If srcMemoryType is [MemoryTypeUnified], srcDevice and srcPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. srcArray is ignored. This value may be used only if unified addressing is supported in the calling context.
 // If srcMemoryType is [MemoryTypeHost], srcHost, srcPitch and srcHeight specify the (host) base address of the source data, the bytes per row, and the height of each 2D slice of the 3D array. srcArray is ignored.
@@ -15172,94 +14530,11 @@ func memsetD8Async(dstDevice DevicePtr, uc uint8, n uint, hStream Stream) error 
 // mipmappedArrayCreate creates a CUDA mipmapped array.
 //
 // Creates a CUDA mipmapped array according to the [Array3dDescriptor] structure pMipmappedArrayDesc and returns a handle to the new CUDA mipmapped array in *pHandle. numMipmapLevels specifies the number of mipmap levels to be allocated. This value is clamped to the range [1, 1 + floor(log2(max(width, height, depth)))].
-// The [Array3dDescriptor] is defined as:
 //
-//	typedef struct {
-//	    unsigned int Width;
-//	    unsigned int Height;
-//	    unsigned int Depth;
-//	    CUarray_format Format;
-//	    unsigned int NumChannels;
-//	    unsigned int Flags;
-//	} CUDA_ARRAY3D_DESCRIPTOR;
-//
-// where:
-//
-// Width, Height, and Depth are the width, height, and depth of the CUDA array (in elements); the following types of CUDA arrays can be allocated: A 1D mipmapped array is allocated if Height and Depth extents are both zero. A 2D mipmapped array is allocated if only Depth extent is zero. A 3D mipmapped array is allocated if all three extents are non-zero. A 1D layered CUDA mipmapped array is allocated if only Height is zero and the CUDA_ARRAY3D_LAYERED flag is set. Each layer is a 1D array. The number of layers is determined by the depth extent. A 2D layered CUDA mipmapped array is allocated if all three extents are non-zero and the CUDA_ARRAY3D_LAYERED flag is set. Each layer is a 2D array. The number of layers is determined by the depth extent. A cubemap CUDA mipmapped array is allocated if all three extents are non-zero and the CUDA_ARRAY3D_CUBEMAP flag is set. Width must be equal to Height, and Depth must be six. A cubemap is a special type of 2D layered CUDA array, where the six layers represent the six faces of a cube. The order of the six layers in memory is the same as that listed in [ArrayCubemapFace]. A cubemap layered CUDA mipmapped array is allocated if all three extents are non-zero, and both, CUDA_ARRAY3D_CUBEMAP and CUDA_ARRAY3D_LAYERED flags are set. Width must be equal to Height, and Depth must be a multiple of six. A cubemap layered CUDA array is a special type of 2D layered CUDA array that consists of a collection of cubemaps. The first six layers represent the first cubemap, the next six layers form the second cubemap, and so on.
-//
-// Format specifies the format of the elements; [ArrayFormat] is defined as:
-//
-//	typedef enum CUarray_format_enum {
-//	      CU_AD_FORMAT_UNSIGNED_INT8 = 0x01,
-//	      CU_AD_FORMAT_UNSIGNED_INT16 = 0x02,
-//	      CU_AD_FORMAT_UNSIGNED_INT32 = 0x03,
-//	      CU_AD_FORMAT_SIGNED_INT8 = 0x08,
-//	      CU_AD_FORMAT_SIGNED_INT16 = 0x09,
-//	      CU_AD_FORMAT_SIGNED_INT32 = 0x0a,
-//	      CU_AD_FORMAT_HALF = 0x10,
-//	      CU_AD_FORMAT_FLOAT = 0x20,
-//	      CU_AD_FORMAT_NV12 = 0xb0,
-//	      CU_AD_FORMAT_UNORM_INT8X1 = 0xc0,
-//	      CU_AD_FORMAT_UNORM_INT8X2 = 0xc1,
-//	      CU_AD_FORMAT_UNORM_INT8X4 = 0xc2,
-//	      CU_AD_FORMAT_UNORM_INT16X1 = 0xc3,
-//	      CU_AD_FORMAT_UNORM_INT16X2 = 0xc4,
-//	      CU_AD_FORMAT_UNORM_INT16X4 = 0xc5,
-//	      CU_AD_FORMAT_SNORM_INT8X1 = 0xc6,
-//	      CU_AD_FORMAT_SNORM_INT8X2 = 0xc7,
-//	      CU_AD_FORMAT_SNORM_INT8X4 = 0xc8,
-//	      CU_AD_FORMAT_SNORM_INT16X1 = 0xc9,
-//	      CU_AD_FORMAT_SNORM_INT16X2 = 0xca,
-//	      CU_AD_FORMAT_SNORM_INT16X4 = 0xcb,
-//	      CU_AD_FORMAT_BC1_UNORM = 0x91,
-//	      CU_AD_FORMAT_BC1_UNORM_SRGB = 0x92,
-//	      CU_AD_FORMAT_BC2_UNORM = 0x93,
-//	      CU_AD_FORMAT_BC2_UNORM_SRGB = 0x94,
-//	      CU_AD_FORMAT_BC3_UNORM = 0x95,
-//	      CU_AD_FORMAT_BC3_UNORM_SRGB = 0x96,
-//	      CU_AD_FORMAT_BC4_UNORM = 0x97,
-//	      CU_AD_FORMAT_BC4_SNORM = 0x98,
-//	      CU_AD_FORMAT_BC5_UNORM = 0x99,
-//	      CU_AD_FORMAT_BC5_SNORM = 0x9a,
-//	      CU_AD_FORMAT_BC6H_UF16 = 0x9b,
-//	      CU_AD_FORMAT_BC6H_SF16 = 0x9c,
-//	      CU_AD_FORMAT_BC7_UNORM = 0x9d,
-//	      CU_AD_FORMAT_BC7_UNORM_SRGB = 0x9e,
-//	      CU_AD_FORMAT_P010 = 0x9f,
-//	      CU_AD_FORMAT_P016 = 0xa1,
-//	      CU_AD_FORMAT_NV16 = 0xa2,
-//	      CU_AD_FORMAT_P210 = 0xa3,
-//	      CU_AD_FORMAT_P216 = 0xa4,
-//	      CU_AD_FORMAT_YUY2 = 0xa5,
-//	      CU_AD_FORMAT_Y210 = 0xa6,
-//	      CU_AD_FORMAT_Y216 = 0xa7,
-//	      CU_AD_FORMAT_AYUV = 0xa8,
-//	      CU_AD_FORMAT_Y410 = 0xa9,
-//	      CU_AD_FORMAT_Y416 = 0xb1,
-//	      CU_AD_FORMAT_Y444_PLANAR8 = 0xb2,
-//	      CU_AD_FORMAT_Y444_PLANAR10 = 0xb3,
-//	      CU_AD_FORMAT_YUV444_8bit_SemiPlanar = 0xb4,
-//	      CU_AD_FORMAT_YUV444_16bit_SemiPlanar = 0xb5,
-//	      CU_AD_FORMAT_UNORM_INT_101010_2 = 0x50,
-//	      CU_AD_FORMAT_UINT8_PACKED_422 = 0x51,
-//	      CU_AD_FORMAT_UINT8_PACKED_444 = 0x52,
-//	      CU_AD_FORMAT_UINT8_SEMIPLANAR_420 = 0x53,
-//	      CU_AD_FORMAT_UINT16_SEMIPLANAR_420 = 0x54,
-//	      CU_AD_FORMAT_UINT8_SEMIPLANAR_422 = 0x55,
-//	      CU_AD_FORMAT_UINT16_SEMIPLANAR_422 = 0x56,
-//	      CU_AD_FORMAT_UINT8_SEMIPLANAR_444 = 0x57,
-//	      CU_AD_FORMAT_UINT16_SEMIPLANAR_444 = 0x58,
-//	      CU_AD_FORMAT_UINT8_PLANAR_420 = 0x59,
-//	      CU_AD_FORMAT_UINT16_PLANAR_420 = 0x5a,
-//	      CU_AD_FORMAT_UINT8_PLANAR_422 = 0x5b,
-//	      CU_AD_FORMAT_UINT16_PLANAR_422 = 0x5c,
-//	      CU_AD_FORMAT_UINT8_PLANAR_444 = 0x5d,
-//	      CU_AD_FORMAT_UINT16_PLANAR_444 = 0x5e,
-//	} CUarray_format;
-//
-// NumChannels specifies the number of packed components per CUDA array element; it may be 1, 2, or 4;
-//
-// Flags may be set to CUDA_ARRAY3D_LAYERED to enable creation of layered CUDA mipmapped arrays. If this flag is set, Depth specifies the number of layers, not the depth of a 3D array. CUDA_ARRAY3D_SURFACE_LDST to enable surface references to be bound to individual mipmap levels of the CUDA mipmapped array. If this flag is not set, [SurfRef.SetArray] will fail when attempting to bind a mipmap level of the CUDA mipmapped array to a surface reference. CUDA_ARRAY3D_CUBEMAP to enable creation of mipmapped cubemaps. If this flag is set, Width must be equal to Height, and Depth must be six. If the CUDA_ARRAY3D_LAYERED flag is also set, then Depth must be a multiple of six. CUDA_ARRAY3D_TEXTURE_GATHER to indicate that the CUDA mipmapped array will be used for texture gather. Texture gather can only be performed on 2D CUDA mipmapped arrays.
+//   - Width, Height, and Depth are the width, height, and depth of the CUDA array (in elements); the following types of CUDA arrays can be allocated: A 1D mipmapped array is allocated if Height and Depth extents are both zero. A 2D mipmapped array is allocated if only Depth extent is zero. A 3D mipmapped array is allocated if all three extents are non-zero. A 1D layered CUDA mipmapped array is allocated if only Height is zero and the CUDA_ARRAY3D_LAYERED flag is set. Each layer is a 1D array. The number of layers is determined by the depth extent. A 2D layered CUDA mipmapped array is allocated if all three extents are non-zero and the CUDA_ARRAY3D_LAYERED flag is set. Each layer is a 2D array. The number of layers is determined by the depth extent. A cubemap CUDA mipmapped array is allocated if all three extents are non-zero and the CUDA_ARRAY3D_CUBEMAP flag is set. Width must be equal to Height, and Depth must be six. A cubemap is a special type of 2D layered CUDA array, where the six layers represent the six faces of a cube. The order of the six layers in memory is the same as that listed in [ArrayCubemapFace]. A cubemap layered CUDA mipmapped array is allocated if all three extents are non-zero, and both, CUDA_ARRAY3D_CUBEMAP and CUDA_ARRAY3D_LAYERED flags are set. Width must be equal to Height, and Depth must be a multiple of six. A cubemap layered CUDA array is a special type of 2D layered CUDA array that consists of a collection of cubemaps. The first six layers represent the first cubemap, the next six layers form the second cubemap, and so on.
+//   - Format specifies the format of the elements.
+//   - NumChannels specifies the number of packed components per CUDA array element; it may be 1, 2, or 4;
+//   - Flags may be set to CUDA_ARRAY3D_LAYERED to enable creation of layered CUDA mipmapped arrays. If this flag is set, Depth specifies the number of layers, not the depth of a 3D array. CUDA_ARRAY3D_SURFACE_LDST to enable surface references to be bound to individual mipmap levels of the CUDA mipmapped array. If this flag is not set, [SurfRef.SetArray] will fail when attempting to bind a mipmap level of the CUDA mipmapped array to a surface reference. CUDA_ARRAY3D_CUBEMAP to enable creation of mipmapped cubemaps. If this flag is set, Width must be equal to Height, and Depth must be six. If the CUDA_ARRAY3D_LAYERED flag is also set, then Depth must be a multiple of six. CUDA_ARRAY3D_TEXTURE_GATHER to indicate that the CUDA mipmapped array will be used for texture gather. Texture gather can only be performed on 2D CUDA mipmapped arrays.
 //
 // Width, Height and Depth must meet certain size requirements as listed in the following table. All values are specified in elements. Note that for brevity’s sake, the full name of the device attribute is not specified. For ex., TEXTURE1D_MIPMAPPED_WIDTH refers to the device attribute [DevAttrMaximumTexture1dMipmappedWidth].
 //
@@ -16250,10 +15525,7 @@ var slotOccupancyMaxActiveClusters outSlot[int32]
 // If blockSizeLimit is 0, the configurator will use the maximum block size permitted by the device / function instead.
 // If per-block dynamic shared memory allocation is not needed, the user should leave both blockSizeToDynamicSMemSize and dynamicSMemSize as 0.
 // If per-block dynamic shared memory allocation is needed, then if the dynamic shared memory size is constant regardless of block size, the size should be passed through dynamicSMemSize, and blockSizeToDynamicSMemSize should be NULL.
-// Otherwise, if the per-block dynamic shared memory size varies with different block sizes, the user needs to provide a unary function through blockSizeToDynamicSMemSize that computes the dynamic shared memory needed by func for any given block size. dynamicSMemSize is ignored. An example signature is:
-//
-//	// Take block size, returns dynamic shared memory needed
-//	size_t blockToSmem(int blockSize);
+// Otherwise, if the per-block dynamic shared memory size varies with different block sizes, the user needs to provide a unary function through blockSizeToDynamicSMemSize that computes the dynamic shared memory needed by func for any given block size. dynamicSMemSize is ignored.
 //
 // Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context.
 //
@@ -17770,105 +17042,35 @@ func surfRefSetArray(hSurfRef SurfRef, hArray Array, flags uint32) error {
 // Creates a descriptor for Tensor Memory Access (TMA) object specified by the parameters describing a im2col memory layout and returns it in tensorMap.
 // Tensor map objects are only supported on devices of compute capability 9.0 or higher. Additionally, a tensor map object is an opaque value, and, as such, should only be accessed through CUDA APIs and PTX.
 // The parameters passed are bound to the following requirements:
-//
-// tensorMap address must be aligned to 64 bytes.
-//
-// tensorDataType has to be an enum from [TensorMapDataType] which is defined as:
-//
-//	typedef enum CUtensorMapDataType_enum {
-//	      CU_TENSOR_MAP_DATA_TYPE_UINT8 = 0,       // 1 byte
-//	      CU_TENSOR_MAP_DATA_TYPE_UINT16,          // 2 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_UINT32,          // 4 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_INT32,           // 4 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_UINT64,          // 8 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_INT64,           // 8 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_FLOAT16,         // 2 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_FLOAT32,         // 4 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_FLOAT64,         // 8 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_BFLOAT16,        // 2 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_FLOAT32_FTZ,     // 4 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_TFLOAT32,        // 4 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_TFLOAT32_FTZ     // 4 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_16U4_ALIGN8B,    // 4 bits
-//	      CU_TENSOR_MAP_DATA_TYPE_16U4_ALIGN16B,   // 4 bits
-//	      CU_TENSOR_MAP_DATA_TYPE_16U6_ALIGN16B    // 6 bits
-//	} CUtensorMapDataType;
+//   - tensorMap address must be aligned to 64 bytes.
+//   - tensorDataType has to be an enum from [TensorMapDataType].
 //
 // [TensorMapDataType16U4Align8b] copies ‘16 x U4’ packed values to memory aligned as 8 bytes. There are no gaps between packed values. [TensorMapDataType16U4Align16b] copies ‘16 x U4’ packed values to memory aligned as 16 bytes. There are 8 byte gaps between every 8 byte chunk of packed values. [TensorMapDataType16U6Align16b] copies ‘16 x U6’ packed values to memory aligned as 16 bytes. There are 4 byte gaps between every 12 byte chunk of packed values.
-//
-// tensorRank, which specifies the number of tensor dimensions, must be 3, 4, or 5.
-//
-// globalAddress, which specifies the starting address of the memory region described, must be 16 byte aligned. The following requirements need to also be met: When interleave is [TensorMapInterleave32B], globalAddress must be 32 byte aligned. When tensorDataType is [TensorMapDataType16U6Align16b] or [TensorMapDataType16U4Align16b], globalAddress must be 32 byte aligned.
-//
-// globalDim array, which specifies tensor size of each of the tensorRank dimensions, must be non-zero and less than or equal to 2^32. Additionally, the following requirements need to be met for the packed data types: When tensorDataType is [TensorMapDataType16U6Align16b] or [TensorMapDataType16U4Align16b], globalDim[0] must be a multiple of 128. When tensorDataType is [TensorMapDataType16U4Align8b], globalDim[0] must be a multiple of 2. Dimension for the packed data types must reflect the number of individual U# values.
-//
-// globalStrides array, which specifies tensor stride of each of the lower tensorRank - 1 dimensions in bytes, must be a multiple of 16 and less than 2^40. Additionally, the following requirements need to be met: When interleave is [TensorMapInterleave32B], the strides must be a multiple of 32. When tensorDataType is [TensorMapDataType16U6Align16b] or [TensorMapDataType16U4Align16b], the strides must be a multiple of 32. Each following dimension specified includes previous dimension stride:
-//
-// pixelBoxLowerCorner array specifies the coordinate offsets {D, H, W} of the bounding box from top/left/front corner. The number of offsets and their precision depend on the tensor dimensionality: When tensorRank is 3, one signed offset within range [-32768, 32767] is supported. When tensorRank is 4, two signed offsets each within range [-128, 127] are supported. When tensorRank is 5, three offsets each within range [-16, 15] are supported.
-//
-// pixelBoxUpperCorner array specifies the coordinate offsets {D, H, W} of the bounding box from bottom/right/back corner. The number of offsets and their precision depend on the tensor dimensionality: When tensorRank is 3, one signed offset within range [-32768, 32767] is supported. When tensorRank is 4, two signed offsets each within range [-128, 127] are supported. When tensorRank is 5, three offsets each within range [-16, 15] are supported. The bounding box specified by pixelBoxLowerCorner and pixelBoxUpperCorner must have non-zero area.
-//
-// channelsPerPixel, which specifies the number of elements which must be accessed along C dimension, must be less than or equal to 256. Additionally, when tensorDataType is [TensorMapDataType16U6Align16b] or [TensorMapDataType16U4Align16b], channelsPerPixel must be 128.
-//
-// pixelsPerColumn, which specifies the number of elements that must be accessed along the {N, D, H, W} dimensions, must be less than or equal to 1024.
-//
-// elementStrides array, which specifies the iteration step along each of the tensorRank dimensions, must be non-zero and less than or equal to 8. Note that when interleave is [TensorMapInterleaveNone], the first element of this array is ignored since TMA doesn’t support the stride for dimension zero. When all elements of the elementStrides array are one, boxDim specifies the number of elements to load. However, if elementStridesi is not equal to one for some i, then TMA loads ceil( boxDimi / elementStridesi) number of elements along i-th dimension. To load N elements along i-th dimension, boxDimi must be set to N * elementStridesi.
-//
-// interleave specifies the interleaved layout of type [TensorMapInterleave], which is defined as:
-//
-//	typedef enum CUtensorMapInterleave_enum {
-//	      CU_TENSOR_MAP_INTERLEAVE_NONE = 0,
-//	      CU_TENSOR_MAP_INTERLEAVE_16B,
-//	      CU_TENSOR_MAP_INTERLEAVE_32B
-//	} CUtensorMapInterleave;
+//   - tensorRank, which specifies the number of tensor dimensions, must be 3, 4, or 5.
+//   - globalAddress, which specifies the starting address of the memory region described, must be 16 byte aligned. The following requirements need to also be met: When interleave is [TensorMapInterleave32B], globalAddress must be 32 byte aligned. When tensorDataType is [TensorMapDataType16U6Align16b] or [TensorMapDataType16U4Align16b], globalAddress must be 32 byte aligned.
+//   - globalDim array, which specifies tensor size of each of the tensorRank dimensions, must be non-zero and less than or equal to 2^32. Additionally, the following requirements need to be met for the packed data types: When tensorDataType is [TensorMapDataType16U6Align16b] or [TensorMapDataType16U4Align16b], globalDim[0] must be a multiple of 128. When tensorDataType is [TensorMapDataType16U4Align8b], globalDim[0] must be a multiple of 2. Dimension for the packed data types must reflect the number of individual U# values.
+//   - globalStrides array, which specifies tensor stride of each of the lower tensorRank - 1 dimensions in bytes, must be a multiple of 16 and less than 2^40. Additionally, the following requirements need to be met: When interleave is [TensorMapInterleave32B], the strides must be a multiple of 32. When tensorDataType is [TensorMapDataType16U6Align16b] or [TensorMapDataType16U4Align16b], the strides must be a multiple of 32. Each following dimension specified includes previous dimension stride:
+//   - pixelBoxLowerCorner array specifies the coordinate offsets {D, H, W} of the bounding box from top/left/front corner. The number of offsets and their precision depend on the tensor dimensionality: When tensorRank is 3, one signed offset within range [-32768, 32767] is supported. When tensorRank is 4, two signed offsets each within range [-128, 127] are supported. When tensorRank is 5, three offsets each within range [-16, 15] are supported.
+//   - pixelBoxUpperCorner array specifies the coordinate offsets {D, H, W} of the bounding box from bottom/right/back corner. The number of offsets and their precision depend on the tensor dimensionality: When tensorRank is 3, one signed offset within range [-32768, 32767] is supported. When tensorRank is 4, two signed offsets each within range [-128, 127] are supported. When tensorRank is 5, three offsets each within range [-16, 15] are supported. The bounding box specified by pixelBoxLowerCorner and pixelBoxUpperCorner must have non-zero area.
+//   - channelsPerPixel, which specifies the number of elements which must be accessed along C dimension, must be less than or equal to 256. Additionally, when tensorDataType is [TensorMapDataType16U6Align16b] or [TensorMapDataType16U4Align16b], channelsPerPixel must be 128.
+//   - pixelsPerColumn, which specifies the number of elements that must be accessed along the {N, D, H, W} dimensions, must be less than or equal to 1024.
+//   - elementStrides array, which specifies the iteration step along each of the tensorRank dimensions, must be non-zero and less than or equal to 8. Note that when interleave is [TensorMapInterleaveNone], the first element of this array is ignored since TMA doesn’t support the stride for dimension zero. When all elements of the elementStrides array are one, boxDim specifies the number of elements to load. However, if elementStridesi is not equal to one for some i, then TMA loads ceil( boxDimi / elementStridesi) number of elements along i-th dimension. To load N elements along i-th dimension, boxDimi must be set to N * elementStridesi.
+//   - interleave specifies the interleaved layout of type [TensorMapInterleave].
 //
 // TMA supports interleaved layouts like NC/8HWC8 where C8 utilizes 16 bytes in memory assuming 2 byte per channel or NC/16HWC16 where C16 uses 32 bytes. When interleave is [TensorMapInterleaveNone] and swizzle is not [TensorMapSwizzleNone], the bounding box inner dimension (computed as channelsPerPixel multiplied by element size in bytes derived from tensorDataType) must be less than or equal to the swizzle size. - [TensorMapSwizzle32B] requires the bounding box inner dimension to be <= 32.
-//
-// [TensorMapSwizzle64B] requires the bounding box inner dimension to be <= 64.
-//
-// [TensorMapSwizzle128B]* require the bounding box inner dimension to be <= 128. Additionally, tensorDataType of [TensorMapDataType16U6Align16b] requires interleave to be [TensorMapInterleaveNone].
-//
-// swizzle, which specifies the shared memory bank swizzling pattern, has to be of type [TensorMapSwizzle] which is defined as:
-//
-//	typedef enum CUtensorMapSwizzle_enum {
-//	      CU_TENSOR_MAP_SWIZZLE_NONE = 0,
-//	      CU_TENSOR_MAP_SWIZZLE_32B,                   // Swizzle 16B chunks within 32B  span
-//	      CU_TENSOR_MAP_SWIZZLE_64B,                   // Swizzle 16B chunks within 64B  span
-//	      CU_TENSOR_MAP_SWIZZLE_128B,                  // Swizzle 16B chunks within 128B span
-//	      CU_TENSOR_MAP_SWIZZLE_128B_ATOM_32B,         // Swizzle 32B chunks within 128B span
-//	      CU_TENSOR_MAP_SWIZZLE_128B_ATOM_32B_FLIP_8B, // Swizzle 32B chunks within 128B span, additionally swap lower 8B with upper 8B within each 16B for every alternate row
-//	      CU_TENSOR_MAP_SWIZZLE_128B_ATOM_64B,         // Swizzle 64B chunks within 128B span
-//	} CUtensorMapSwizzle;
+//   - [TensorMapSwizzle64B] requires the bounding box inner dimension to be <= 64.
+//   - [TensorMapSwizzle128B]* require the bounding box inner dimension to be <= 128. Additionally, tensorDataType of [TensorMapDataType16U6Align16b] requires interleave to be [TensorMapInterleaveNone].
+//   - swizzle, which specifies the shared memory bank swizzling pattern, has to be of type [TensorMapSwizzle].
 //
 // Data are organized in a specific order in global memory; however, this may not match the order in which the application accesses data in shared memory. This difference in data organization may cause bank conflicts when shared memory is accessed. In order to avoid this problem, data can be loaded to shared memory with shuffling across shared memory banks. When interleave is [TensorMapInterleave32B], swizzle must be [TensorMapSwizzle32B]. Other interleave modes can have any swizzling pattern. When the tensorDataType is [TensorMapDataType16U6Align16b], only the following swizzle modes are supported: - [TensorMapSwizzleNone] (Load & Store)
-//
-// [TensorMapSwizzle128B] (Load & Store).
-//
-// [TensorMapSwizzle128BAtom32B] (Load & Store).
-//
-// [TensorMapSwizzle128BAtom64B] (Store only) When the tensorDataType is [TensorMapDataType16U4Align16b], only the following swizzle modes are supported:
-//
-// [TensorMapSwizzleNone] (Load only).
-//
-// [TensorMapSwizzle128B] (Load only).
-//
-// [TensorMapSwizzle128BAtom32B] (Load only).
-//
-// l2Promotion specifies L2 fetch size which indicates the byte granularity at which L2 requests are filled from DRAM. It must be of type [TensorMapL2promotion], which is defined as:
-//
-//	typedef enum CUtensorMapL2promotion_enum {
-//	      CU_TENSOR_MAP_L2_PROMOTION_NONE = 0,
-//	      CU_TENSOR_MAP_L2_PROMOTION_L2_64B,
-//	      CU_TENSOR_MAP_L2_PROMOTION_L2_128B,
-//	      CU_TENSOR_MAP_L2_PROMOTION_L2_256B
-//	} CUtensorMapL2promotion;
-//
-// oobFill, which indicates whether zero or a special NaN constant should be used to fill out-of-bound elements, must be of type [TensorMapFloatOOBfill] which is defined as:
-//
-//	typedef enum CUtensorMapFloatOOBfill_enum {
-//	      CU_TENSOR_MAP_FLOAT_OOB_FILL_NONE = 0,
-//	      CU_TENSOR_MAP_FLOAT_OOB_FILL_NAN_REQUEST_ZERO_FMA
-//	} CUtensorMapFloatOOBfill;
+//   - [TensorMapSwizzle128B] (Load & Store)
+//   - [TensorMapSwizzle128BAtom32B] (Load & Store)
+//   - [TensorMapSwizzle128BAtom64B] (Store only) When the tensorDataType is [TensorMapDataType16U4Align16b], only the following swizzle modes are supported:
+//   - [TensorMapSwizzleNone] (Load only)
+//   - [TensorMapSwizzle128B] (Load only)
+//   - [TensorMapSwizzle128BAtom32B] (Load only)
+//   - l2Promotion specifies L2 fetch size which indicates the byte granularity at which L2 requests are filled from DRAM. It must be of type [TensorMapL2promotion].
+//   - oobFill, which indicates whether zero or a special NaN constant should be used to fill out-of-bound elements, must be of type [TensorMapFloatOOBfill].
 //
 // Note that [TensorMapFloatOobFillNanRequestZeroFma] can only be used when tensorDataType represents a floating-point data type, and when tensorDataType is not [TensorMapDataType16U4Align8b], [TensorMapDataType16U4Align16b], and [TensorMapDataType16U6Align16b].
 //
@@ -17909,29 +17111,8 @@ func TensorMapEncodeIm2col(tensorMap *TensorMap, tensorDataType TensorMapDataTyp
 // Creates a descriptor for Tensor Memory Access (TMA) object specified by the parameters describing a im2col memory layout and where the row is always loaded along the W dimensuin and returns it in tensorMap. This assumes the tensor layout in memory is either NDHWC, NHWC, or NWC.
 // This API is only supported on devices of compute capability 10.0 or higher. Additionally, a tensor map object is an opaque value, and, as such, should only be accessed through CUDA APIs and PTX.
 // The parameters passed are bound to the following requirements:
-//
-// tensorMap address must be aligned to 64 bytes.
-//
-// tensorDataType has to be an enum from [TensorMapDataType] which is defined as:
-//
-//	typedef enum CUtensorMapDataType_enum {
-//	      CU_TENSOR_MAP_DATA_TYPE_UINT8 = 0,       // 1 byte
-//	      CU_TENSOR_MAP_DATA_TYPE_UINT16,          // 2 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_UINT32,          // 4 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_INT32,           // 4 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_UINT64,          // 8 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_INT64,           // 8 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_FLOAT16,         // 2 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_FLOAT32,         // 4 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_FLOAT64,         // 8 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_BFLOAT16,        // 2 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_FLOAT32_FTZ,     // 4 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_TFLOAT32,        // 4 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_TFLOAT32_FTZ     // 4 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_16U4_ALIGN8B,    // 4 bits
-//	      CU_TENSOR_MAP_DATA_TYPE_16U4_ALIGN16B,   // 4 bits
-//	      CU_TENSOR_MAP_DATA_TYPE_16U6_ALIGN16B    // 6 bits
-//	} CUtensorMapDataType;
+//   - tensorMap address must be aligned to 64 bytes.
+//   - tensorDataType has to be an enum from [TensorMapDataType].
 //
 // [TensorMapDataType16U4Align8b] copies ‘16 x U4’ packed values to memory aligned as 8 bytes. There are no gaps between packed values. [TensorMapDataType16U4Align16b] copies ‘16 x U4’ packed values to memory aligned as 16 bytes. There are 8 byte gaps between every 8 byte chunk of packed values. [TensorMapDataType16U6Align16b] copies ‘16 x U6’ packed values to memory aligned as 16 bytes. There are 4 byte gaps between every 12 byte chunk of packed values.
 //   - tensorRank, which specifies the number of tensor dimensions, must be 3, 4, or 5.
@@ -17957,20 +17138,10 @@ func TensorMapEncodeIm2col(tensorMap *TensorMap, tensorDataType TensorMapDataTyp
 //   - pixelBoxUpperCornerWidth specifies the coordinate offset W of the bounding box from right corner. The offset must be within range [-32768, 32767].
 //
 // The bounding box specified by pixelBoxLowerCornerWidth and pixelBoxUpperCornerWidth must have non-zero area. Note that the size of the box along D and H dimensions is always equal to one.
-//
-// channelsPerPixel, which specifies the number of elements which must be accessed along C dimension, must be less than or equal to 256. Additionally, when tensorDataType is [TensorMapDataType16U6Align16b] or [TensorMapDataType16U4Align16b], channelsPerPixel must be 128.
-//
-// pixelsPerColumn, which specifies the number of elements that must be accessed along the W dimension, must be less than or equal to 1024. This field is ignored when mode is [TensorMapIm2colWideModeW128].
-//
-// elementStrides array, which specifies the iteration step along each of the tensorRank dimensions, must be non-zero and less than or equal to 8. Note that when interleave is [TensorMapInterleaveNone], the first element of this array is ignored since TMA doesn’t support the stride for dimension zero. When all elements of the elementStrides array are one, boxDim specifies the number of elements to load. However, if elementStridesi is not equal to one for some i, then TMA loads ceil( boxDimi / elementStridesi) number of elements along i-th dimension. To load N elements along i-th dimension, boxDimi must be set to N * elementStridesi.
-//
-// interleave specifies the interleaved layout of type [TensorMapInterleave], which is defined as:
-//
-//	typedef enum CUtensorMapInterleave_enum {
-//	      CU_TENSOR_MAP_INTERLEAVE_NONE = 0,
-//	      CU_TENSOR_MAP_INTERLEAVE_16B,
-//	      CU_TENSOR_MAP_INTERLEAVE_32B
-//	} CUtensorMapInterleave;
+//   - channelsPerPixel, which specifies the number of elements which must be accessed along C dimension, must be less than or equal to 256. Additionally, when tensorDataType is [TensorMapDataType16U6Align16b] or [TensorMapDataType16U4Align16b], channelsPerPixel must be 128.
+//   - pixelsPerColumn, which specifies the number of elements that must be accessed along the W dimension, must be less than or equal to 1024. This field is ignored when mode is [TensorMapIm2colWideModeW128].
+//   - elementStrides array, which specifies the iteration step along each of the tensorRank dimensions, must be non-zero and less than or equal to 8. Note that when interleave is [TensorMapInterleaveNone], the first element of this array is ignored since TMA doesn’t support the stride for dimension zero. When all elements of the elementStrides array are one, boxDim specifies the number of elements to load. However, if elementStridesi is not equal to one for some i, then TMA loads ceil( boxDimi / elementStridesi) number of elements along i-th dimension. To load N elements along i-th dimension, boxDimi must be set to N * elementStridesi.
+//   - interleave specifies the interleaved layout of type [TensorMapInterleave].
 //
 // TMA supports interleaved layouts like NC/8HWC8 where C8 utilizes 16 bytes in memory assuming 2 byte per channel or NC/16HWC16 where C16 uses 32 bytes. When interleave is [TensorMapInterleaveNone], the bounding box inner dimension (computed as channelsPerPixel multiplied by element size in bytes derived from tensorDataType) must be less than or equal to the swizzle size. - [TensorMapSwizzle64B] requires the bounding box inner dimension to be <= 64.
 //
@@ -17982,14 +17153,7 @@ func TensorMapEncodeIm2col(tensorMap *TensorMap, tensorDataType TensorMapDataTyp
 //	CU_TENSOR_MAP_IM2COL_WIDE_MODE_W128
 //
 // [TensorMapIm2colWideModeW] allows the number of elements loaded along the W dimension to be specified via the pixelsPerColumn field.
-//
-// swizzle, which specifies the shared memory bank swizzling pattern, must be one of the following [TensorMapSwizzle] modes (other swizzle modes are not supported):
-//
-//	typedef enum CUtensorMapSwizzle_enum {
-//	      CU_TENSOR_MAP_SWIZZLE_64B,                   // Swizzle 16B chunks within 64B  span
-//	      CU_TENSOR_MAP_SWIZZLE_128B,                  // Swizzle 16B chunks within 128B span
-//	      CU_TENSOR_MAP_SWIZZLE_128B_ATOM_32B,         // Swizzle 32B chunks within 128B span
-//	} CUtensorMapSwizzle;
+//   - swizzle, which specifies the shared memory bank swizzling pattern, must be one of the following [TensorMapSwizzle] modes (other swizzle modes are not supported).
 //
 // Data are organized in a specific order in global memory; however, this may not match the order in which the application accesses data in shared memory. This difference in data organization may cause bank conflicts when shared memory is accessed. In order to avoid this problem, data can be loaded to shared memory with shuffling across shared memory banks. When the tensorDataType is [TensorMapDataType16U6Align16b], only the following swizzle modes are supported: - [TensorMapSwizzle64B] (Store only)
 //   - [TensorMapSwizzle128B] (Load & Store)
@@ -17998,22 +17162,8 @@ func TensorMapEncodeIm2col(tensorMap *TensorMap, tensorDataType TensorMapDataTyp
 //   - [TensorMapSwizzle128BAtom32B] (Load only)
 //
 // Additionally, CU_TENSOR_MAP_SWIZZLE_96B is supported only when mode is [TensorMapIm2colWideModeW].
-//
-// l2Promotion specifies L2 fetch size which indicates the byte granularity at which L2 requests are filled from DRAM. It must be of type [TensorMapL2promotion], which is defined as:
-//
-//	typedef enum CUtensorMapL2promotion_enum {
-//	      CU_TENSOR_MAP_L2_PROMOTION_NONE = 0,
-//	      CU_TENSOR_MAP_L2_PROMOTION_L2_64B,
-//	      CU_TENSOR_MAP_L2_PROMOTION_L2_128B,
-//	      CU_TENSOR_MAP_L2_PROMOTION_L2_256B
-//	} CUtensorMapL2promotion;
-//
-// oobFill, which indicates whether zero or a special NaN constant should be used to fill out-of-bound elements, must be of type [TensorMapFloatOOBfill] which is defined as:
-//
-//	typedef enum CUtensorMapFloatOOBfill_enum {
-//	      CU_TENSOR_MAP_FLOAT_OOB_FILL_NONE = 0,
-//	      CU_TENSOR_MAP_FLOAT_OOB_FILL_NAN_REQUEST_ZERO_FMA
-//	} CUtensorMapFloatOOBfill;
+//   - l2Promotion specifies L2 fetch size which indicates the byte granularity at which L2 requests are filled from DRAM. It must be of type [TensorMapL2promotion].
+//   - oobFill, which indicates whether zero or a special NaN constant should be used to fill out-of-bound elements, must be of type [TensorMapFloatOOBfill].
 //
 // Note that [TensorMapFloatOobFillNanRequestZeroFma] can only be used when tensorDataType represents a floating-point data type, and when tensorDataType is not [TensorMapDataType16U4Align8b], [TensorMapDataType16U4Align16b], and [TensorMapDataType16U6Align16b].
 //
@@ -18055,29 +17205,8 @@ func TensorMapEncodeIm2colWide(tensorMap *TensorMap, tensorDataType TensorMapDat
 // Creates a descriptor for Tensor Memory Access (TMA) object specified by the parameters describing a tiled region and returns it in tensorMap.
 // Tensor map objects are only supported on devices of compute capability 9.0 or higher. Additionally, a tensor map object is an opaque value, and, as such, should only be accessed through CUDA APIs and PTX.
 // The parameters passed are bound to the following requirements:
-//
-// tensorMap address must be aligned to 64 bytes.
-//
-// tensorDataType has to be an enum from [TensorMapDataType] which is defined as:
-//
-//	typedef enum CUtensorMapDataType_enum {
-//	      CU_TENSOR_MAP_DATA_TYPE_UINT8 = 0,       // 1 byte
-//	      CU_TENSOR_MAP_DATA_TYPE_UINT16,          // 2 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_UINT32,          // 4 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_INT32,           // 4 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_UINT64,          // 8 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_INT64,           // 8 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_FLOAT16,         // 2 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_FLOAT32,         // 4 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_FLOAT64,         // 8 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_BFLOAT16,        // 2 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_FLOAT32_FTZ,     // 4 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_TFLOAT32,        // 4 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_TFLOAT32_FTZ,    // 4 bytes
-//	      CU_TENSOR_MAP_DATA_TYPE_16U4_ALIGN8B,    // 4 bits
-//	      CU_TENSOR_MAP_DATA_TYPE_16U4_ALIGN16B,   // 4 bits
-//	      CU_TENSOR_MAP_DATA_TYPE_16U6_ALIGN16B    // 6 bits
-//	} CUtensorMapDataType;
+//   - tensorMap address must be aligned to 64 bytes.
+//   - tensorDataType has to be an enum from [TensorMapDataType].
 //
 // [TensorMapDataType16U4Align8b] copies ‘16 x U4’ packed values to memory aligned as 8 bytes. There are no gaps between packed values. [TensorMapDataType16U4Align16b] copies ‘16 x U4’ packed values to memory aligned as 16 bytes. There are 8 byte gaps between every 8 byte chunk of packed values. [TensorMapDataType16U6Align16b] copies ‘16 x U6’ packed values to memory aligned as 16 bytes. There are 4 byte gaps between every 12 byte chunk of packed values.
 //   - tensorRank must be non-zero and less than or equal to the maximum supported dimensionality of 5. If interleave is not [TensorMapInterleaveNone], then tensorRank must additionally be greater than or equal to 3.
@@ -18104,62 +17233,22 @@ func TensorMapEncodeIm2colWide(tensorMap *TensorMap, tensorDataType TensorMapDat
 //   - When tensorDataType is [TensorMapDataType16U6Align16b] or [TensorMapDataType16U4Align16b], boxDim[0] must be 128.
 //
 // elementStrides array, which specifies the iteration step along each of the tensorRank dimensions, must be non-zero and less than or equal to 8. Note that when interleave is [TensorMapInterleaveNone], the first element of this array is ignored since TMA doesn’t support the stride for dimension zero. When all elements of elementStrides array is one, boxDim specifies the number of elements to load. However, if the elementStridesi is not equal to one, then TMA loads ceil( boxDimi / elementStridesi) number of elements along i-th dimension. To load N elements along i-th dimension, boxDimi must be set to N * elementStridesi.
-//
-// interleave specifies the interleaved layout of type [TensorMapInterleave], which is defined as:
-//
-//	typedef enum CUtensorMapInterleave_enum {
-//	      CU_TENSOR_MAP_INTERLEAVE_NONE = 0,
-//	      CU_TENSOR_MAP_INTERLEAVE_16B,
-//	      CU_TENSOR_MAP_INTERLEAVE_32B
-//	} CUtensorMapInterleave;
+//   - interleave specifies the interleaved layout of type [TensorMapInterleave].
 //
 // TMA supports interleaved layouts like NC/8HWC8 where C8 utilizes 16 bytes in memory assuming 2 byte per channel or NC/16HWC16 where C16 uses 32 bytes. When interleave is [TensorMapInterleaveNone] and swizzle is not [TensorMapSwizzleNone], the bounding box inner dimension (computed as boxDim[0] multiplied by element size derived from tensorDataType) must be less than or equal to the swizzle size. - [TensorMapSwizzle32B] requires the bounding box inner dimension to be <= 32.
-//
-// [TensorMapSwizzle64B] requires the bounding box inner dimension to be <= 64.
-//
-// [TensorMapSwizzle128B]* require the bounding box inner dimension to be <= 128. Additionally, tensorDataType of [TensorMapDataType16U6Align16b] requires interleave to be [TensorMapInterleaveNone].
-//
-// swizzle, which specifies the shared memory bank swizzling pattern, has to be of type [TensorMapSwizzle] which is defined as:
-//
-//	typedef enum CUtensorMapSwizzle_enum {
-//	      CU_TENSOR_MAP_SWIZZLE_NONE = 0,
-//	      CU_TENSOR_MAP_SWIZZLE_32B,                   // Swizzle 16B chunks within 32B  span
-//	      CU_TENSOR_MAP_SWIZZLE_64B,                   // Swizzle 16B chunks within 64B  span
-//	      CU_TENSOR_MAP_SWIZZLE_128B,                  // Swizzle 16B chunks within 128B span
-//	      CU_TENSOR_MAP_SWIZZLE_128B_ATOM_32B,         // Swizzle 32B chunks within 128B span
-//	      CU_TENSOR_MAP_SWIZZLE_128B_ATOM_32B_FLIP_8B, // Swizzle 32B chunks within 128B span, additionally swap lower 8B with upper 8B within each 16B for every alternate row
-//	      CU_TENSOR_MAP_SWIZZLE_128B_ATOM_64B,         // Swizzle 64B chunks within 128B span
-//	} CUtensorMapSwizzle;
+//   - [TensorMapSwizzle64B] requires the bounding box inner dimension to be <= 64.
+//   - [TensorMapSwizzle128B]* require the bounding box inner dimension to be <= 128. Additionally, tensorDataType of [TensorMapDataType16U6Align16b] requires interleave to be [TensorMapInterleaveNone].
+//   - swizzle, which specifies the shared memory bank swizzling pattern, has to be of type [TensorMapSwizzle].
 //
 // Data are organized in a specific order in global memory; however, this may not match the order in which the application accesses data in shared memory. This difference in data organization may cause bank conflicts when shared memory is accessed. In order to avoid this problem, data can be loaded to shared memory with shuffling across shared memory banks. When interleave is [TensorMapInterleave32B], swizzle must be [TensorMapSwizzle32B]. Other interleave modes can have any swizzling pattern. When the tensorDataType is [TensorMapDataType16U6Align16b], only the following swizzle modes are supported: - [TensorMapSwizzleNone] (Load & Store)
-//
-// [TensorMapSwizzle128B] (Load & Store).
-//
-// [TensorMapSwizzle128BAtom32B] (Load & Store).
-//
-// [TensorMapSwizzle128BAtom64B] (Store only) When the tensorDataType is [TensorMapDataType16U4Align16b], only the following swizzle modes are supported:
-//
-// [TensorMapSwizzleNone] (Load only).
-//
-// [TensorMapSwizzle128B] (Load only).
-//
-// [TensorMapSwizzle128BAtom32B] (Load only).
-//
-// l2Promotion specifies L2 fetch size which indicates the byte granurality at which L2 requests is filled from DRAM. It must be of type [TensorMapL2promotion], which is defined as:
-//
-//	typedef enum CUtensorMapL2promotion_enum {
-//	      CU_TENSOR_MAP_L2_PROMOTION_NONE = 0,
-//	      CU_TENSOR_MAP_L2_PROMOTION_L2_64B,
-//	      CU_TENSOR_MAP_L2_PROMOTION_L2_128B,
-//	      CU_TENSOR_MAP_L2_PROMOTION_L2_256B
-//	} CUtensorMapL2promotion;
-//
-// oobFill, which indicates whether zero or a special NaN constant should be used to fill out-of-bound elements, must be of type [TensorMapFloatOOBfill] which is defined as:
-//
-//	typedef enum CUtensorMapFloatOOBfill_enum {
-//	      CU_TENSOR_MAP_FLOAT_OOB_FILL_NONE = 0,
-//	      CU_TENSOR_MAP_FLOAT_OOB_FILL_NAN_REQUEST_ZERO_FMA
-//	} CUtensorMapFloatOOBfill;
+//   - [TensorMapSwizzle128B] (Load & Store)
+//   - [TensorMapSwizzle128BAtom32B] (Load & Store)
+//   - [TensorMapSwizzle128BAtom64B] (Store only) When the tensorDataType is [TensorMapDataType16U4Align16b], only the following swizzle modes are supported:
+//   - [TensorMapSwizzleNone] (Load only)
+//   - [TensorMapSwizzle128B] (Load only)
+//   - [TensorMapSwizzle128BAtom32B] (Load only)
+//   - l2Promotion specifies L2 fetch size which indicates the byte granurality at which L2 requests is filled from DRAM. It must be of type [TensorMapL2promotion].
+//   - oobFill, which indicates whether zero or a special NaN constant should be used to fill out-of-bound elements, must be of type [TensorMapFloatOOBfill].
 //
 // Note that [TensorMapFloatOobFillNanRequestZeroFma] can only be used when tensorDataType represents a floating-point data type, and when tensorDataType is not [TensorMapDataType16U4Align8b], [TensorMapDataType16U4Align16b], and [TensorMapDataType16U6Align16b].
 //
@@ -18220,87 +17309,19 @@ func TensorMapReplaceAddress(tensorMap *TensorMap, globalAddress DevicePtr) erro
 //
 // Creates a texture object and returns it in pTexObject. pResDesc describes the data to texture from. pTexDesc describes how the data should be sampled. pResViewDesc is an optional argument that specifies an alternate format for the data described by pResDesc, and also describes the subresource region to restrict access to when texturing. pResViewDesc can only be specified if the type of resource is a CUDA array or a CUDA mipmapped array not in a block compressed format.
 // Texture objects are only supported on devices of compute capability 3.0 or higher. Additionally, a texture object is an opaque value, and, as such, should only be accessed through CUDA API calls.
-// The [ResourceDesc] structure is defined as:
 //
-//	typedef struct CUDA_RESOURCE_DESC_st
-//	{
-//	    CUresourcetype resType;
-//
-//	    union {
-//	        struct {
-//	            CUarray hArray;
-//	        } array;
-//	        struct {
-//	            CUmipmappedArray hMipmappedArray;
-//	        } mipmap;
-//	        struct {
-//	            CUdeviceptr devPtr;
-//	            CUarray_format format;
-//	            unsigned int numChannels;
-//	            size_t sizeInBytes;
-//	        } linear;
-//	        struct {
-//	            CUdeviceptr devPtr;
-//	            CUarray_format format;
-//	            unsigned int numChannels;
-//	            size_t width;
-//	            size_t height;
-//	            size_t pitchInBytes;
-//	        } pitch2D;
-//	    } res;
-//
-//	    unsigned int flags;
-//	} CUDA_RESOURCE_DESC;
-//
-// where:
-//
-// [ResourceDesc].resType specifies the type of resource to texture from. CUresourceType is defined as:
-//
-//	typedef enum CUresourcetype_enum {
-//	      CU_RESOURCE_TYPE_ARRAY           = 0x00,
-//	      CU_RESOURCE_TYPE_MIPMAPPED_ARRAY = 0x01,
-//	      CU_RESOURCE_TYPE_LINEAR          = 0x02,
-//	      CU_RESOURCE_TYPE_PITCH2D         = 0x03
-//	} CUresourcetype;
-//
-// flags must be set to zero.
+//   - [ResourceDesc].resType specifies the type of resource to texture from.
+//   - flags must be set to zero.
 //
 // If [ResourceDesc].resType is set to [ResourceTypeArray], [ResourceDesc].res.array.hArray must be set to a valid CUDA array handle.
 // If [ResourceDesc].resType is set to [ResourceTypeMipmappedArray], [ResourceDesc].res.mipmap.hMipmappedArray must be set to a valid CUDA mipmapped array handle.
 // If [ResourceDesc].resType is set to [ResourceTypeLinear], [ResourceDesc].res.linear.devPtr must be set to a valid device pointer, that is aligned to [DevAttrTextureAlignment]. [ResourceDesc].res.linear.format and [ResourceDesc].res.linear.numChannels describe the format of each component and the number of components per array element. [ResourceDesc].res.linear.sizeInBytes specifies the size of the array in bytes. The total number of elements in the linear address range cannot exceed [DevAttrMaximumTexture1dLinearWidth]. The number of elements is computed as (sizeInBytes / (sizeof(format) * numChannels)).
 // If [ResourceDesc].resType is set to [ResourceTypePitch2d], [ResourceDesc].res.pitch2D.devPtr must be set to a valid device pointer, that is aligned to [DevAttrTextureAlignment]. [ResourceDesc].res.pitch2D.format and [ResourceDesc].res.pitch2D.numChannels describe the format of each component and the number of components per array element. [ResourceDesc].res.pitch2D.width and [ResourceDesc].res.pitch2D.height specify the width and height of the array in elements, and cannot exceed [DevAttrMaximumTexture2dLinearWidth] and [DevAttrMaximumTexture2dLinearHeight] respectively. [ResourceDesc].res.pitch2D.pitchInBytes specifies the pitch between two rows in bytes and has to be aligned to [DevAttrTexturePitchAlignment]. Pitch cannot exceed [DevAttrMaximumTexture2dLinearPitch].
-// The [TextureDesc] struct is defined as
 //
-//	typedef struct CUDA_TEXTURE_DESC_st {
-//	    CUaddress_mode addressMode[3];
-//	    CUfilter_mode filterMode;
-//	    unsigned int flags;
-//	    unsigned int maxAnisotropy;
-//	    CUfilter_mode mipmapFilterMode;
-//	    float mipmapLevelBias;
-//	    float minMipmapLevelClamp;
-//	    float maxMipmapLevelClamp;
-//	} CUDA_TEXTURE_DESC;
-//
-// where
-//
-// [TextureDesc].addressMode specifies the addressing mode for each dimension of the texture data. [AddressMode] is defined as:
-//
-//	typedef enum CUaddress_mode_enum {
-//	      CU_TR_ADDRESS_MODE_WRAP = 0,
-//	      CU_TR_ADDRESS_MODE_CLAMP = 1,
-//	      CU_TR_ADDRESS_MODE_MIRROR = 2,
-//	      CU_TR_ADDRESS_MODE_BORDER = 3
-//	} CUaddress_mode;
+//   - [TextureDesc].addressMode specifies the addressing mode for each dimension of the texture data.
 //
 // This is ignored if [ResourceDesc].resType is [ResourceTypeLinear]. Also, if the flag, CU_TRSF_NORMALIZED_COORDINATES is not set, the only supported address mode is [TrAddressModeClamp].
-//
-// [TextureDesc].filterMode specifies the filtering mode to be used when fetching from the texture. [FilterMode] is defined as:
-//
-//	typedef enum CUfilter_mode_enum {
-//	      CU_TR_FILTER_MODE_POINT = 0,
-//	      CU_TR_FILTER_MODE_LINEAR = 1
-//	} CUfilter_mode;
+//   - [TextureDesc].filterMode specifies the filtering mode to be used when fetching from the texture.
 //
 // This is ignored if [ResourceDesc].resType is [ResourceTypeLinear].
 //   - [TextureDesc].flags can be any combination of the following: CU_TRSF_READ_AS_INTEGER, which suppresses the default behavior of having the texture promote integer data to floating point data in the range [0, 1]. Note that texture with 32-bit integer format would not be promoted, regardless of whether or not this flag is specified. CU_TRSF_NORMALIZED_COORDINATES, which suppresses the default behavior of having the texture coordinates range from [0, Dim) where Dim is the width or height of the CUDA array. Instead, the texture coordinates [0, 1.0) reference the entire breadth of the array dimension; Note that for CUDA mipmapped arrays, this flag has to be set. CU_TRSF_DISABLE_TRILINEAR_OPTIMIZATION, which disables any trilinear filtering optimizations. Trilinear optimizations improve texture filtering performance by allowing bilinear filtering on textures in scenarios where it can closely approximate the expected results. CU_TRSF_SEAMLESS_CUBEMAP, which enables seamless cube map filtering. This flag can only be specified if the underlying resource is a CUDA array or a CUDA mipmapped array that was created with the flag CUDA_ARRAY3D_CUBEMAP. When seamless cube map filtering is enabled, texture address modes specified by [TextureDesc].addressMode are ignored. Instead, if the [TextureDesc].filterMode is set to [TrFilterModePoint] the address mode [TrAddressModeClamp] will be applied for all dimensions. If the [TextureDesc].filterMode is set to [TrFilterModeLinear] seamless cube map filtering will be performed when sampling along the cube face borders.
@@ -18309,22 +17330,6 @@ func TensorMapReplaceAddress(tensorMap *TensorMap, globalAddress DevicePtr) erro
 //   - [TextureDesc].mipmapLevelBias specifies the offset to be applied to the calculated mipmap level.
 //   - [TextureDesc].minMipmapLevelClamp specifies the lower end of the mipmap level range to clamp access to.
 //   - [TextureDesc].maxMipmapLevelClamp specifies the upper end of the mipmap level range to clamp access to.
-//
-// The [ResourceViewDesc] struct is defined as
-//
-//	typedef struct CUDA_RESOURCE_VIEW_DESC_st
-//	{
-//	    CUresourceViewFormat format;
-//	    size_t width;
-//	    size_t height;
-//	    size_t depth;
-//	    unsigned int firstMipmapLevel;
-//	    unsigned int lastMipmapLevel;
-//	    unsigned int firstLayer;
-//	    unsigned int lastLayer;
-//	} CUDA_RESOURCE_VIEW_DESC;
-//
-// where:
 //   - [ResourceViewDesc].format specifies how the data contained in the CUDA array or CUDA mipmapped array should be interpreted. Note that this can incur a change in size of the texture data. If the resource view format is a block compressed format, then the underlying CUDA array or CUDA mipmapped array has to have a base of format [AdFormatUnsignedInt32]. with 2 or 4 channels, depending on the block compressed format. For ex., BC1 and BC4 require the underlying CUDA array to have a format of [AdFormatUnsignedInt32] with 2 channels. The other BC formats require the underlying resource to have the same base format but with 4 channels.
 //   - [ResourceViewDesc].width specifies the new width of the texture data. If the resource view format is a block compressed format, this value has to be 4 times the original width of the resource. For non block compressed formats, this value has to be equal to that of the original resource.
 //   - [ResourceViewDesc].height specifies the new height of the texture data. If the resource view format is a block compressed format, this value has to be 4 times the original height of the resource. For non block compressed formats, this value has to be equal to that of the original resource.
@@ -19004,14 +18009,7 @@ func texRefSetAddress2D(hTexRef TexRef, desc *ArrayDescriptor, dptr DevicePtr, p
 
 // texRefSetAddressMode sets the addressing mode for a texture reference.
 //
-// Specifies the addressing mode am for the given dimension dim of the texture reference hTexRef. If dim is zero, the addressing mode is applied to the first parameter of the functions used to fetch from the texture; if dim is 1, the second, and so on. [AddressMode] is defined as:
-//
-//	typedef enum CUaddress_mode_enum {
-//	   CU_TR_ADDRESS_MODE_WRAP = 0,
-//	   CU_TR_ADDRESS_MODE_CLAMP = 1,
-//	   CU_TR_ADDRESS_MODE_MIRROR = 2,
-//	   CU_TR_ADDRESS_MODE_BORDER = 3
-//	} CUaddress_mode;
+// Specifies the addressing mode am for the given dimension dim of the texture reference hTexRef. If dim is zero, the addressing mode is applied to the first parameter of the functions used to fetch from the texture; if dim is 1, the second, and so on.
 //
 // Note that this call has no effect if hTexRef is bound to linear memory. Also, if the flag, CU_TRSF_NORMALIZED_COORDINATES, is not set, the only supported address mode is [TrAddressModeClamp].
 //
@@ -19099,12 +18097,7 @@ var slotTexRefSetBorderColor outSlot[float32]
 
 // texRefSetFilterMode sets the filtering mode for a texture reference.
 //
-// Specifies the filtering mode fm to be used when reading memory through the texture reference hTexRef. CUfilter_mode_enum is defined as:
-//
-//	typedef enum CUfilter_mode_enum {
-//	   CU_TR_FILTER_MODE_POINT = 0,
-//	   CU_TR_FILTER_MODE_LINEAR = 1
-//	} CUfilter_mode;
+// Specifies the filtering mode fm to be used when reading memory through the texture reference hTexRef.
 //
 // Note that this call has no effect if hTexRef is bound to linear memory.
 //
@@ -19211,12 +18204,7 @@ func texRefSetMaxAnisotropy(hTexRef TexRef, maxAniso uint32) error {
 
 // texRefSetMipmapFilterMode sets the mipmap filtering mode for a texture reference.
 //
-// Specifies the mipmap filtering mode fm to be used when reading memory through the texture reference hTexRef. CUfilter_mode_enum is defined as:
-//
-//	typedef enum CUfilter_mode_enum {
-//	   CU_TR_FILTER_MODE_POINT = 0,
-//	   CU_TR_FILTER_MODE_LINEAR = 1
-//	} CUfilter_mode;
+// Specifies the mipmap filtering mode fm to be used when reading memory through the texture reference hTexRef.
 //
 // Note that this call has no effect if hTexRef is not bound to a mipmapped array.
 //
@@ -19322,12 +18310,7 @@ func texRefSetMipmappedArray(hTexRef TexRef, hMipmappedArray MipmappedArray, fla
 
 // ThreadExchangeStreamCaptureMode swaps the stream capture interaction mode for a thread.
 //
-// Sets the calling thread’s stream capture interaction mode to the value contained in *mode, and overwrites *mode with the previous mode for the thread. To facilitate deterministic behavior across function or module boundaries, callers are encouraged to use this API in a push-pop fashion:
-//
-//	CUstreamCaptureMode mode = desiredMode;
-//	cuThreadExchangeStreamCaptureMode(&mode);
-//	...
-//	cuThreadExchangeStreamCaptureMode(&mode); // restore previous mode
+// Sets the calling thread’s stream capture interaction mode to the value contained in *mode, and overwrites *mode with the previous mode for the thread. To facilitate deterministic behavior across function or module boundaries, callers are encouraged to use this API in a push-pop fashion.
 //
 // During stream capture (see [Stream.BeginCapture]), some actions, such as a call to cudaMalloc, may be unsafe. In the case of cudaMalloc, the operation is not enqueued asynchronously to a stream, and is not observed by stream capture. Therefore, if the sequence of operations captured via [Stream.BeginCapture] depended on the allocation being replayed whenever the graph is launched, the captured graph would be invalid.
 // Therefore, stream capture places restrictions on API calls that can be made within or concurrently to a [Stream.BeginCapture]- [Stream.EndCapture] sequence. This behavior can be controlled via this API and flags to [Stream.BeginCapture].

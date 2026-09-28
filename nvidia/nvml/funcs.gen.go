@@ -5211,13 +5211,8 @@ func deviceGetGpuFabricInfo(device Device, gpuFabricInfo *GpuFabricInfo) error {
 //
 // For Hopper or newer fully supported devices.
 //
-// Note: The caller must set the [GpuFabricInfoV].version field to the appropriate version prior to calling this function. For example:
+// Note: The caller must set the [GpuFabricInfoV].version field to the appropriate version prior to calling this function.
 //
-//	nvmlGpuFabricInfoV_t fabricInfo =
-//	    { .version = nvmlGpuFabricInfo_v2 };
-//	nvmlReturn_t result = nvmlDeviceGetGpuFabricInfoV(device,&fabricInfo);
-//
-// Parameters:
 //   - device: The identifier of the target device
 //   - gpuFabricInfo: Information about GPU fabric state
 //
@@ -5370,15 +5365,8 @@ var slotDeviceGetGpuInstanceProfileInfo outSlot[GpuInstanceProfileInfo]
 // It accepts a versioned [GpuInstanceProfileInfoV2] or later output structure.
 // For Ampere or newer fully supported devices. Supported on Linux only.
 //
-// Note: The caller must set the [GpuInstanceProfileInfoV2].version field to the appropriate version prior to calling this function. For example:
+// Note: The caller must set the [GpuInstanceProfileInfoV2].version field to the appropriate version prior to calling this function.
 //
-//	nvmlGpuInstanceProfileInfo_v2_t profileInfo =
-//	    { .version = nvmlGpuInstanceProfileInfo_v2 };
-//	nvmlReturn_t result = nvmlDeviceGetGpuInstanceProfileInfoV(device,
-//	                                                           profile,
-//	                                                           &profileInfo);
-//
-// Parameters:
 //   - device: The identifier of the target device
 //   - profileId: One of the profile IDs
 //   - info: Returns detailed profile information
@@ -5415,15 +5403,8 @@ var slotDeviceGetGpuInstanceProfileInfoByIdV outSlot[GpuInstanceProfileInfoV2]
 //
 // For Ampere or newer fully supported devices. Supported on Linux only.
 //
-// Note: The caller must set the [GpuInstanceProfileInfoV2].version field to the appropriate version prior to calling this function. For example:
+// Note: The caller must set the [GpuInstanceProfileInfoV2].version field to the appropriate version prior to calling this function.
 //
-//	nvmlGpuInstanceProfileInfo_v2_t profileInfo =
-//	    { .version = nvmlGpuInstanceProfileInfo_v2 };
-//	nvmlReturn_t result = nvmlDeviceGetGpuInstanceProfileInfoV(device,
-//	                                                           profile,
-//	                                                           &profileInfo);
-//
-// Parameters:
 //   - device: The identifier of the target device
 //   - profile: One of the NVML_GPU_INSTANCE_PROFILE_*
 //   - info: Returns detailed profile information
@@ -11798,16 +11779,8 @@ var slotGpuInstanceGetComputeInstanceProfileInfo outSlot[ComputeInstanceProfileI
 //
 // For Ampere or newer fully supported devices. Supported on Linux only.
 //
-// Note: The caller must set the [GpuInstanceProfileInfoV2].version field to the appropriate version prior to calling this function. For example:
+// Note: The caller must set the [GpuInstanceProfileInfoV2].version field to the appropriate version prior to calling this function.
 //
-//	nvmlComputeInstanceProfileInfo_v2_t profileInfo =
-//	    { .version = nvmlComputeInstanceProfileInfo_v2 };
-//	nvmlReturn_t result = nvmlGpuInstanceGetComputeInstanceProfileInfoV(gpuInstance,
-//	                                                                    profile,
-//	                                                                    engProfile,
-//	                                                                    &profileInfo);
-//
-// Parameters:
 //   - gpuInstance: The identifier of the target GPU instance
 //   - profile: One of the NVML_COMPUTE_INSTANCE_PROFILE_*
 //   - engProfile: One of the NVML_COMPUTE_INSTANCE_ENGINE_PROFILE_*

@@ -1147,18 +1147,6 @@ func MemFree(ptr driver.DevicePtr) error {
 //
 // The returned handle is owned by the parameter system and must not be freed by the caller. If key does not match any registered parameter, the function returns an ncclInvalidArgument error and *out is left unmodified.
 // key is the canonical name of the parameter (typically the corresponding environment variable name).
-// Example:
-//
-//	ncclResult_t ret = ncclSuccess;
-//	ncclParamHandle_t myHandle = NULL;
-//	ret = ncclParamBind(&myHandle, "NCCL_IB_ROCE_VERSION_NUM");
-//	if (ret == ncclSuccess) {
-//	  int32_t roceVerValue = 0;
-//	  ret = ncclParamGetI32(myHandle, &roceVerValue);
-//	  if (ret == ncclSuccess) {
-//	    /* roceVerValue is set to the current value of NCCL_IB_ROCE_VERSION_NUM */
-//	  }
-//	}
 //
 // Wraps ncclParamBind.
 func ParamBind(out *ParamHandle, key *byte) error {
@@ -1208,26 +1196,6 @@ func paramGet(h ParamHandle, out unsafe.Pointer, maxLen int32, len_ *int32) erro
 //
 // *table is set to an array of const char* pointers, one per registered parameter, and *tableLen is set to the number of entries. The table and the strings it contains are owned by the parameter system. Both are valid until the next call to [ParamGetAllParameterKeys] on the same thread. The keys in the returned table are not sorted.
 // This function returns parameters published in Environment Variables by default. Setting [ParamDumpAll] to true forces this function to return all parameters.
-// Example:
-//
-//	ncclResult_t ret = ncclSuccess;
-//	const char** keyTable = NULL;
-//	int tableLen = 0;
-//
-//	ret = ncclParamGetAllParameterKeys(&keyTable, &tableLen);
-//	if (ret == ncclSuccess) {
-//	  for (int i = 0; i < tableLen; ++i) {
-//	    printf("Key: %s\n", keyTable[i]); /* prints all published parameter keys */
-//	  }
-//	}
-//
-//	putenv("NCCL_PARAM_DUMP_ALL=true");
-//	ret = ncclParamGetAllParameterKeys(&keyTable, &tableLen);
-//	if (ret == ncclSuccess) {
-//	  for (int i = 0; i < tableLen; ++i) {
-//	    printf("Key: %s\n", keyTable[i]); /* prints all parameter keys */
-//	  }
-//	}
 //
 // Wraps ncclParamGetAllParameterKeys.
 func ParamGetAllParameterKeys(table **byte, tableLen *int32) error {
@@ -1310,15 +1278,6 @@ func paramGetI8(h ParamHandle, out *int8) error {
 // ParamGetParameter looks up the parameter identified by key and returns its value as a null-terminated string.
 //
 // The pointer written to *value is owned by the parameter system and is valid until the next call to [ParamGetParameter] on the same thread. valueLen receives the length of the string in bytes, excluding the null terminator. Returns ncclInvalidArgument if key is not found.
-// Example:
-//
-//	ncclResult_t ret = ncclSuccess;
-//	const char* valueStr = NULL;
-//	int len = 0;
-//	ret = ncclParamGetParameter("NCCL_IB_ROCE_VERSION_NUM", &valueStr, &len);
-//	if (ret == ncclSuccess) {
-//	  printf("NCCL_IB_ROCE_VERSION_NUM=%s\n", valueStr);
-//	}
 //
 // Wraps ncclParamGetParameter.
 func ParamGetParameter(key *byte, value **byte, valueLen *int32) error {

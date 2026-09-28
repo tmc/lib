@@ -2020,13 +2020,8 @@ func (d Device) GpuFabricInfo(gpuFabricInfo *GpuFabricInfo) error {
 //
 // For Hopper or newer fully supported devices.
 //
-// Note: The caller must set the [GpuFabricInfoV].version field to the appropriate version prior to calling this function. For example:
+// Note: The caller must set the [GpuFabricInfoV].version field to the appropriate version prior to calling this function.
 //
-//	nvmlGpuFabricInfoV_t fabricInfo =
-//	    { .version = nvmlGpuFabricInfo_v2 };
-//	nvmlReturn_t result = nvmlDeviceGetGpuFabricInfoV(device,&fabricInfo);
-//
-// Parameters:
 //   - gpuFabricInfo: Information about GPU fabric state
 //
 // Errors:
@@ -2132,15 +2127,8 @@ func (d Device) GpuInstanceProfileInfo(profile uint32) (GpuInstanceProfileInfo, 
 // It accepts a versioned [GpuInstanceProfileInfoV2] or later output structure.
 // For Ampere or newer fully supported devices. Supported on Linux only.
 //
-// Note: The caller must set the [GpuInstanceProfileInfoV2].version field to the appropriate version prior to calling this function. For example:
+// Note: The caller must set the [GpuInstanceProfileInfoV2].version field to the appropriate version prior to calling this function.
 //
-//	nvmlGpuInstanceProfileInfo_v2_t profileInfo =
-//	    { .version = nvmlGpuInstanceProfileInfo_v2 };
-//	nvmlReturn_t result = nvmlDeviceGetGpuInstanceProfileInfoV(device,
-//	                                                           profile,
-//	                                                           &profileInfo);
-//
-// Parameters:
 //   - profileId: One of the profile IDs
 //   - info: Returns detailed profile information
 //
@@ -2163,15 +2151,8 @@ func (d Device) GpuInstanceProfileInfoByIdV(profileId uint32) (GpuInstanceProfil
 //
 // For Ampere or newer fully supported devices. Supported on Linux only.
 //
-// Note: The caller must set the [GpuInstanceProfileInfoV2].version field to the appropriate version prior to calling this function. For example:
+// Note: The caller must set the [GpuInstanceProfileInfoV2].version field to the appropriate version prior to calling this function.
 //
-//	nvmlGpuInstanceProfileInfo_v2_t profileInfo =
-//	    { .version = nvmlGpuInstanceProfileInfo_v2 };
-//	nvmlReturn_t result = nvmlDeviceGetGpuInstanceProfileInfoV(device,
-//	                                                           profile,
-//	                                                           &profileInfo);
-//
-// Parameters:
 //   - profile: One of the NVML_GPU_INSTANCE_PROFILE_*
 //   - info: Returns detailed profile information
 //

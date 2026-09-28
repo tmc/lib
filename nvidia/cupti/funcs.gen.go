@@ -1980,25 +1980,7 @@ var slotActivityGetEnabledKinds outSlot[uint32]
 // ActivityGetNextRecord iterates over the activity records in a buffer.
 //
 // This is a helper function to iterate over the activity records in a buffer. A buffer of activity records is typically obtained by receiving a [BuffersCallbackCompleteFunc] callback. Stop iterating the buffer when an error occurs.
-// An example of typical usage:
 //
-//	CUpti_Activity *record = NULL;
-//	CUptiResult status = CUPTI_SUCCESS;
-//	  do {
-//	     status = cuptiActivityGetNextRecord(buffer, validSize, &record);
-//	     if(status == CUPTI_SUCCESS) {
-//	          // Use record here...
-//	     }
-//	     else if (status == CUPTI_ERROR_MAX_LIMIT_REACHED)
-//	         break;
-//	     else if (status == CUPTI_ERROR_INVALID_KIND)
-//	         break;
-//	     else {
-//	         goto Error;
-//	     }
-//	   } while (1);
-//
-// Parameters:
 //   - buffer: The buffer containing activity records
 //   - validBufferSizeBytes: The number of valid bytes in the buffer
 //   - record: Inputs the previous record returned by [ActivityGetNextRecord] and returns the next activity record from the buffer. If input value is NULL, returns the first activity record in the buffer. Records of certain kinds like [ActivityKindConcurrentKernel] may contain invalid (0) timestamps, indicating that no timing information could be collected for lack of device memory
@@ -3363,30 +3345,7 @@ func EventGroupSetsDestroy(eventGroupSets *EventGroupSets) error {
 
 // Finalize detaches CUPTI from the running process.
 //
-// This API detaches the CUPTI from the running process. It destroys and cleans up all the resources associated with CUPTI in the current process. After CUPTI detaches from the process, the process will keep on running with no CUPTI attached to it. For safe operation of the API, it is recommended this API is invoked from the exit callsite of any of the CUDA Driver or Runtime API. Otherwise CUPTI client needs to make sure that required CUDA synchronization and CUPTI activity buffer flush is done before calling the API. Sample code showing the usage of the API in the cupti callback handler code:
-//
-//	void CUPTIAPI
-//	cuptiCallbackHandler(void *userdata, CUpti_CallbackDomain domain,
-//	    CUpti_CallbackId cbid, void *cbdata)
-//	{
-//	  const CUpti_CallbackData *cbInfo = (CUpti_CallbackData *)cbdata;
-//
-//	  // Take this code path when CUPTI detach is requested
-//	  if (detachCupti) {
-//	    switch(domain)
-//	    {
-//	      case CUPTI_CB_DOMAIN_RUNTIME_API:
-//	      case CUPTI_CB_DOMAIN_DRIVER_API:
-//	        if (cbInfo->callbackSite == CUPTI_API_EXIT) {
-//	            // call the CUPTI detach API
-//	            cuptiFinalize();
-//	        }
-//	        break;
-//	      default:
-//	        break;
-//	    }
-//	  }
-//	}
+// This API detaches the CUPTI from the running process. It destroys and cleans up all the resources associated with CUPTI in the current process. After CUPTI detaches from the process, the process will keep on running with no CUPTI attached to it. For safe operation of the API, it is recommended this API is invoked from the exit callsite of any of the CUDA Driver or Runtime API. Otherwise CUPTI client needs to make sure that required CUDA synchronization and CUPTI activity buffer flush is done before calling the API.
 //
 // Wraps cuptiFinalize.
 func Finalize() error {

@@ -317,14 +317,7 @@ func (t TexRef) SetAddress2D(desc *ArrayDescriptor, dptr DevicePtr, pitch uint) 
 
 // SetAddressMode sets the addressing mode for a texture reference.
 //
-// Specifies the addressing mode am for the given dimension dim of the texture reference hTexRef. If dim is zero, the addressing mode is applied to the first parameter of the functions used to fetch from the texture; if dim is 1, the second, and so on. [AddressMode] is defined as:
-//
-//	typedef enum CUaddress_mode_enum {
-//	   CU_TR_ADDRESS_MODE_WRAP = 0,
-//	   CU_TR_ADDRESS_MODE_CLAMP = 1,
-//	   CU_TR_ADDRESS_MODE_MIRROR = 2,
-//	   CU_TR_ADDRESS_MODE_BORDER = 3
-//	} CUaddress_mode;
+// Specifies the addressing mode am for the given dimension dim of the texture reference hTexRef. If dim is zero, the addressing mode is applied to the first parameter of the functions used to fetch from the texture; if dim is 1, the second, and so on.
 //
 // Note that this call has no effect if hTexRef is bound to linear memory. Also, if the flag, CU_TRSF_NORMALIZED_COORDINATES, is not set, the only supported address mode is [TrAddressModeClamp].
 //
@@ -390,12 +383,7 @@ func (t TexRef) SetBorderColor() (float32, error) {
 
 // SetFilterMode sets the filtering mode for a texture reference.
 //
-// Specifies the filtering mode fm to be used when reading memory through the texture reference hTexRef. CUfilter_mode_enum is defined as:
-//
-//	typedef enum CUfilter_mode_enum {
-//	   CU_TR_FILTER_MODE_POINT = 0,
-//	   CU_TR_FILTER_MODE_LINEAR = 1
-//	} CUfilter_mode;
+// Specifies the filtering mode fm to be used when reading memory through the texture reference hTexRef.
 //
 // Note that this call has no effect if hTexRef is bound to linear memory.
 //
@@ -486,12 +474,7 @@ func (t TexRef) SetMaxAnisotropy(maxAniso uint32) error {
 
 // SetMipmapFilterMode sets the mipmap filtering mode for a texture reference.
 //
-// Specifies the mipmap filtering mode fm to be used when reading memory through the texture reference hTexRef. CUfilter_mode_enum is defined as:
-//
-//	typedef enum CUfilter_mode_enum {
-//	   CU_TR_FILTER_MODE_POINT = 0,
-//	   CU_TR_FILTER_MODE_LINEAR = 1
-//	} CUfilter_mode;
+// Specifies the mipmap filtering mode fm to be used when reading memory through the texture reference hTexRef.
 //
 // Note that this call has no effect if hTexRef is not bound to a mipmapped array.
 //

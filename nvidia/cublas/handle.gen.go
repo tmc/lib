@@ -1549,17 +1549,7 @@ func (h Handle) CgetrfBatched(n int32, a driver.DevicePtr, lda int32, p driver.D
 // This function performs the inversion of matrices A[i] for i = 0, …, batchSize-1.
 // Prior to calling cublasgetriBatched, the matrix A[i] must be factorized first using the routine cublasgetrfBatched. After the call of cublasgetrfBatched, the matrix pointing by Aarray[i] will contain the LU factors of the matrix A[i] and the vector pointing by (PivotArray+i) will contain the pivoting sequence.
 // Following the LU factorization, cublasgetriBatched uses forward and backward triangular solvers to complete inversion of matrices A[i] for i = 0, …, batchSize-1. The inversion is out-of-place, so memory space of Carray[i] cannot overlap memory space of Array[i].
-// Typically all parameters in cublasgetrfBatched would be passed into cublasgetriBatched. For example,
-//
-//	// step 1: perform in-place LU decomposition, P*A = L*U.
-//	//      Aarray[i] is n*n matrix A[i]
-//	    cublasDgetrfBatched(handle, n, Aarray, lda, PivotArray, infoArray, batchSize);
-//	//      check infoArray[i] to see if factorization of A[i] is successful or not.
-//	//      Array[i] contains LU factorization of A[i]
-//
-//	// step 2: perform out-of-place inversion, Carray[i] = inv(A[i])
-//	    cublasDgetriBatched(handle, n, Aarray, lda, PivotArray, Carray, ldc, infoArray, batchSize);
-//	//      check infoArray[i] to see if inversion of A[i] is successful or not.
+// Typically all parameters in cublasgetrfBatched would be passed into cublasgetriBatched.
 //
 // The user can check singularity from either cublasgetrfBatched or cublasgetriBatched.
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.
@@ -5174,17 +5164,7 @@ func (h Handle) DgetrfBatched(n int32, a driver.DevicePtr, lda int32, p driver.D
 // This function performs the inversion of matrices A[i] for i = 0, …, batchSize-1.
 // Prior to calling cublasgetriBatched, the matrix A[i] must be factorized first using the routine cublasgetrfBatched. After the call of cublasgetrfBatched, the matrix pointing by Aarray[i] will contain the LU factors of the matrix A[i] and the vector pointing by (PivotArray+i) will contain the pivoting sequence.
 // Following the LU factorization, cublasgetriBatched uses forward and backward triangular solvers to complete inversion of matrices A[i] for i = 0, …, batchSize-1. The inversion is out-of-place, so memory space of Carray[i] cannot overlap memory space of Array[i].
-// Typically all parameters in cublasgetrfBatched would be passed into cublasgetriBatched. For example,
-//
-//	// step 1: perform in-place LU decomposition, P*A = L*U.
-//	//      Aarray[i] is n*n matrix A[i]
-//	    cublasDgetrfBatched(handle, n, Aarray, lda, PivotArray, infoArray, batchSize);
-//	//      check infoArray[i] to see if factorization of A[i] is successful or not.
-//	//      Array[i] contains LU factorization of A[i]
-//
-//	// step 2: perform out-of-place inversion, Carray[i] = inv(A[i])
-//	    cublasDgetriBatched(handle, n, Aarray, lda, PivotArray, Carray, ldc, infoArray, batchSize);
-//	//      check infoArray[i] to see if inversion of A[i] is successful or not.
+// Typically all parameters in cublasgetrfBatched would be passed into cublasgetriBatched.
 //
 // The user can check singularity from either cublasgetrfBatched or cublasgetriBatched.
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.
@@ -10562,17 +10542,7 @@ func (h Handle) SgetrfBatched(n int32, a driver.DevicePtr, lda int32, p driver.D
 // This function performs the inversion of matrices A[i] for i = 0, …, batchSize-1.
 // Prior to calling cublasgetriBatched, the matrix A[i] must be factorized first using the routine cublasgetrfBatched. After the call of cublasgetrfBatched, the matrix pointing by Aarray[i] will contain the LU factors of the matrix A[i] and the vector pointing by (PivotArray+i) will contain the pivoting sequence.
 // Following the LU factorization, cublasgetriBatched uses forward and backward triangular solvers to complete inversion of matrices A[i] for i = 0, …, batchSize-1. The inversion is out-of-place, so memory space of Carray[i] cannot overlap memory space of Array[i].
-// Typically all parameters in cublasgetrfBatched would be passed into cublasgetriBatched. For example,
-//
-//	// step 1: perform in-place LU decomposition, P*A = L*U.
-//	//      Aarray[i] is n*n matrix A[i]
-//	    cublasDgetrfBatched(handle, n, Aarray, lda, PivotArray, infoArray, batchSize);
-//	//      check infoArray[i] to see if factorization of A[i] is successful or not.
-//	//      Array[i] contains LU factorization of A[i]
-//
-//	// step 2: perform out-of-place inversion, Carray[i] = inv(A[i])
-//	    cublasDgetriBatched(handle, n, Aarray, lda, PivotArray, Carray, ldc, infoArray, batchSize);
-//	//      check infoArray[i] to see if inversion of A[i] is successful or not.
+// Typically all parameters in cublasgetrfBatched would be passed into cublasgetriBatched.
 //
 // The user can check singularity from either cublasgetrfBatched or cublasgetriBatched.
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.
@@ -13912,17 +13882,7 @@ func (h Handle) ZgetrfBatched(n int32, a driver.DevicePtr, lda int32, p driver.D
 // This function performs the inversion of matrices A[i] for i = 0, …, batchSize-1.
 // Prior to calling cublasgetriBatched, the matrix A[i] must be factorized first using the routine cublasgetrfBatched. After the call of cublasgetrfBatched, the matrix pointing by Aarray[i] will contain the LU factors of the matrix A[i] and the vector pointing by (PivotArray+i) will contain the pivoting sequence.
 // Following the LU factorization, cublasgetriBatched uses forward and backward triangular solvers to complete inversion of matrices A[i] for i = 0, …, batchSize-1. The inversion is out-of-place, so memory space of Carray[i] cannot overlap memory space of Array[i].
-// Typically all parameters in cublasgetrfBatched would be passed into cublasgetriBatched. For example,
-//
-//	// step 1: perform in-place LU decomposition, P*A = L*U.
-//	//      Aarray[i] is n*n matrix A[i]
-//	    cublasDgetrfBatched(handle, n, Aarray, lda, PivotArray, infoArray, batchSize);
-//	//      check infoArray[i] to see if factorization of A[i] is successful or not.
-//	//      Array[i] contains LU factorization of A[i]
-//
-//	// step 2: perform out-of-place inversion, Carray[i] = inv(A[i])
-//	    cublasDgetriBatched(handle, n, Aarray, lda, PivotArray, Carray, ldc, infoArray, batchSize);
-//	//      check infoArray[i] to see if inversion of A[i] is successful or not.
+// Typically all parameters in cublasgetrfBatched would be passed into cublasgetriBatched.
 //
 // The user can check singularity from either cublasgetrfBatched or cublasgetriBatched.
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.

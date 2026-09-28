@@ -343,110 +343,16 @@ func (a Array) CopyFromHostAsyncPtr(dstOffset uint, srcHost unsafe.Pointer, byte
 
 // NewArray3D creates a 3D CUDA array.
 //
-// Creates a CUDA array according to the [Array3dDescriptor] structure pAllocateArray and returns a handle to the new CUDA array in *pHandle. The [Array3dDescriptor] is defined as:
+// Creates a CUDA array according to the [Array3dDescriptor] structure pAllocateArray and returns a handle to the new CUDA array in *pHandle.
 //
-//	typedef struct {
-//	    unsigned int Width;
-//	    unsigned int Height;
-//	    unsigned int Depth;
-//	    CUarray_format Format;
-//	    unsigned int NumChannels;
-//	    unsigned int Flags;
-//	} CUDA_ARRAY3D_DESCRIPTOR;
-//
-// where:
-//
-// Width, Height, and Depth are the width, height, and depth of the CUDA array (in elements); the following types of CUDA arrays can be allocated: A 1D array is allocated if Height and Depth extents are both zero. A 2D array is allocated if only Depth extent is zero. A 3D array is allocated if all three extents are non-zero. A 1D layered CUDA array is allocated if only Height is zero and the CUDA_ARRAY3D_LAYERED flag is set. Each layer is a 1D array. The number of layers is determined by the depth extent. A 2D layered CUDA array is allocated if all three extents are non-zero and the CUDA_ARRAY3D_LAYERED flag is set. Each layer is a 2D array. The number of layers is determined by the depth extent. A cubemap CUDA array is allocated if all three extents are non-zero and the CUDA_ARRAY3D_CUBEMAP flag is set. Width must be equal to Height, and Depth must be six. A cubemap is a special type of 2D layered CUDA array, where the six layers represent the six faces of a cube. The order of the six layers in memory is the same as that listed in [ArrayCubemapFace]. A cubemap layered CUDA array is allocated if all three extents are non-zero, and both, CUDA_ARRAY3D_CUBEMAP and CUDA_ARRAY3D_LAYERED flags are set. Width must be equal to Height, and Depth must be a multiple of six. A cubemap layered CUDA array is a special type of 2D layered CUDA array that consists of a collection of cubemaps. The first six layers represent the first cubemap, the next six layers form the second cubemap, and so on.
-//
-// Format specifies the format of the elements; [ArrayFormat] is defined as:
-//
-//	typedef enum CUarray_format_enum {
-//	      CU_AD_FORMAT_UNSIGNED_INT8 = 0x01,
-//	      CU_AD_FORMAT_UNSIGNED_INT16 = 0x02,
-//	      CU_AD_FORMAT_UNSIGNED_INT32 = 0x03,
-//	      CU_AD_FORMAT_SIGNED_INT8 = 0x08,
-//	      CU_AD_FORMAT_SIGNED_INT16 = 0x09,
-//	      CU_AD_FORMAT_SIGNED_INT32 = 0x0a,
-//	      CU_AD_FORMAT_HALF = 0x10,
-//	      CU_AD_FORMAT_FLOAT = 0x20,
-//	      CU_AD_FORMAT_NV12 = 0xb0,
-//	      CU_AD_FORMAT_UNORM_INT8X1 = 0xc0,
-//	      CU_AD_FORMAT_UNORM_INT8X2 = 0xc1,
-//	      CU_AD_FORMAT_UNORM_INT8X4 = 0xc2,
-//	      CU_AD_FORMAT_UNORM_INT16X1 = 0xc3,
-//	      CU_AD_FORMAT_UNORM_INT16X2 = 0xc4,
-//	      CU_AD_FORMAT_UNORM_INT16X4 = 0xc5,
-//	      CU_AD_FORMAT_SNORM_INT8X1 = 0xc6,
-//	      CU_AD_FORMAT_SNORM_INT8X2 = 0xc7,
-//	      CU_AD_FORMAT_SNORM_INT8X4 = 0xc8,
-//	      CU_AD_FORMAT_SNORM_INT16X1 = 0xc9,
-//	      CU_AD_FORMAT_SNORM_INT16X2 = 0xca,
-//	      CU_AD_FORMAT_SNORM_INT16X4 = 0xcb,
-//	      CU_AD_FORMAT_BC1_UNORM = 0x91,
-//	      CU_AD_FORMAT_BC1_UNORM_SRGB = 0x92,
-//	      CU_AD_FORMAT_BC2_UNORM = 0x93,
-//	      CU_AD_FORMAT_BC2_UNORM_SRGB = 0x94,
-//	      CU_AD_FORMAT_BC3_UNORM = 0x95,
-//	      CU_AD_FORMAT_BC3_UNORM_SRGB = 0x96,
-//	      CU_AD_FORMAT_BC4_UNORM = 0x97,
-//	      CU_AD_FORMAT_BC4_SNORM = 0x98,
-//	      CU_AD_FORMAT_BC5_UNORM = 0x99,
-//	      CU_AD_FORMAT_BC5_SNORM = 0x9a,
-//	      CU_AD_FORMAT_BC6H_UF16 = 0x9b,
-//	      CU_AD_FORMAT_BC6H_SF16 = 0x9c,
-//	      CU_AD_FORMAT_BC7_UNORM = 0x9d,
-//	      CU_AD_FORMAT_BC7_UNORM_SRGB = 0x9e,
-//	      CU_AD_FORMAT_P010 = 0x9f,
-//	      CU_AD_FORMAT_P016 = 0xa1,
-//	      CU_AD_FORMAT_NV16 = 0xa2,
-//	      CU_AD_FORMAT_P210 = 0xa3,
-//	      CU_AD_FORMAT_P216 = 0xa4,
-//	      CU_AD_FORMAT_YUY2 = 0xa5,
-//	      CU_AD_FORMAT_Y210 = 0xa6,
-//	      CU_AD_FORMAT_Y216 = 0xa7,
-//	      CU_AD_FORMAT_AYUV = 0xa8,
-//	      CU_AD_FORMAT_Y410 = 0xa9,
-//	      CU_AD_FORMAT_Y416 = 0xb1,
-//	      CU_AD_FORMAT_Y444_PLANAR8 = 0xb2,
-//	      CU_AD_FORMAT_Y444_PLANAR10 = 0xb3,
-//	      CU_AD_FORMAT_YUV444_8bit_SemiPlanar = 0xb4,
-//	      CU_AD_FORMAT_YUV444_16bit_SemiPlanar = 0xb5,
-//	      CU_AD_FORMAT_UNORM_INT_101010_2 = 0x50,
-//	} CUarray_format;
-//
-// NumChannels specifies the number of packed components per CUDA array element; it may be 1, 2, or 4;
-//
-// Flags may be set to CUDA_ARRAY3D_LAYERED to enable creation of layered CUDA arrays. If this flag is set, Depth specifies the number of layers, not the depth of a 3D array. CUDA_ARRAY3D_SURFACE_LDST to enable surface references to be bound to the CUDA array. If this flag is not set, [SurfRef.SetArray] will fail when attempting to bind the CUDA array to a surface reference. CUDA_ARRAY3D_CUBEMAP to enable creation of cubemaps. If this flag is set, Width must be equal to Height, and Depth must be six. If the CUDA_ARRAY3D_LAYERED flag is also set, then Depth must be a multiple of six. CUDA_ARRAY3D_TEXTURE_GATHER to indicate that the CUDA array will be used for texture gather. Texture gather can only be performed on 2D CUDA arrays.
+//   - Width, Height, and Depth are the width, height, and depth of the CUDA array (in elements); the following types of CUDA arrays can be allocated: A 1D array is allocated if Height and Depth extents are both zero. A 2D array is allocated if only Depth extent is zero. A 3D array is allocated if all three extents are non-zero. A 1D layered CUDA array is allocated if only Height is zero and the CUDA_ARRAY3D_LAYERED flag is set. Each layer is a 1D array. The number of layers is determined by the depth extent. A 2D layered CUDA array is allocated if all three extents are non-zero and the CUDA_ARRAY3D_LAYERED flag is set. Each layer is a 2D array. The number of layers is determined by the depth extent. A cubemap CUDA array is allocated if all three extents are non-zero and the CUDA_ARRAY3D_CUBEMAP flag is set. Width must be equal to Height, and Depth must be six. A cubemap is a special type of 2D layered CUDA array, where the six layers represent the six faces of a cube. The order of the six layers in memory is the same as that listed in [ArrayCubemapFace]. A cubemap layered CUDA array is allocated if all three extents are non-zero, and both, CUDA_ARRAY3D_CUBEMAP and CUDA_ARRAY3D_LAYERED flags are set. Width must be equal to Height, and Depth must be a multiple of six. A cubemap layered CUDA array is a special type of 2D layered CUDA array that consists of a collection of cubemaps. The first six layers represent the first cubemap, the next six layers form the second cubemap, and so on.
+//   - Format specifies the format of the elements.
+//   - NumChannels specifies the number of packed components per CUDA array element; it may be 1, 2, or 4;
+//   - Flags may be set to CUDA_ARRAY3D_LAYERED to enable creation of layered CUDA arrays. If this flag is set, Depth specifies the number of layers, not the depth of a 3D array. CUDA_ARRAY3D_SURFACE_LDST to enable surface references to be bound to the CUDA array. If this flag is not set, [SurfRef.SetArray] will fail when attempting to bind the CUDA array to a surface reference. CUDA_ARRAY3D_CUBEMAP to enable creation of cubemaps. If this flag is set, Width must be equal to Height, and Depth must be six. If the CUDA_ARRAY3D_LAYERED flag is also set, then Depth must be a multiple of six. CUDA_ARRAY3D_TEXTURE_GATHER to indicate that the CUDA array will be used for texture gather. Texture gather can only be performed on 2D CUDA arrays.
 //
 // Width, Height and Depth must meet certain size requirements as listed in the following table. All values are specified in elements. Note that for brevity’s sake, the full name of the device attribute is not specified. For ex., TEXTURE1D_WIDTH refers to the device attribute [DevAttrMaximumTexture1dWidth].
 // Note that 2D CUDA arrays have different size requirements if the CUDA_ARRAY3D_TEXTURE_GATHER flag is set. Width and Height must not be greater than [DevAttrMaximumTexture2dGatherWidth] and [DevAttrMaximumTexture2dGatherHeight] respectively, in that case.
 // Here are examples of CUDA array descriptions:
-// Description for a CUDA array of 2048 floats:
-//
-//	CUDA_ARRAY3D_DESCRIPTOR desc;
-//	desc.Format = CU_AD_FORMAT_FLOAT;
-//	desc.NumChannels = 1;
-//	desc.Width = 2048;
-//	desc.Height = 0;
-//	desc.Depth = 0;
-//
-// Description for a 64 x 64 CUDA array of floats:
-//
-//	CUDA_ARRAY3D_DESCRIPTOR desc;
-//	desc.Format = CU_AD_FORMAT_FLOAT;
-//	desc.NumChannels = 1;
-//	desc.Width = 64;
-//	desc.Height = 64;
-//	desc.Depth = 0;
-//
-// Description for a width x height x depth CUDA array of 64-bit, 4x16-bit float16’s:
-//
-//	CUDA_ARRAY3D_DESCRIPTOR desc;
-//	desc.Format = CU_AD_FORMAT_HALF;
-//	desc.NumChannels = 4;
-//	desc.Width = width;
-//	desc.Height = height;
-//	desc.Depth = depth;
 //
 // See also: [Array.Get3DDescriptor], [NewArray], [Array.Close], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMalloc3DArray
 //
@@ -467,123 +373,13 @@ func NewArray3D(pAllocateArray *Array3dDescriptor) (Array, error) {
 
 // NewArray creates a 1D or 2D CUDA array.
 //
-// Creates a CUDA array according to the [ArrayDescriptor] structure pAllocateArray and returns a handle to the new CUDA array in *pHandle. The [ArrayDescriptor] is defined as:
+// Creates a CUDA array according to the [ArrayDescriptor] structure pAllocateArray and returns a handle to the new CUDA array in *pHandle.
 //
-//	typedef struct {
-//	    unsigned int Width;
-//	    unsigned int Height;
-//	    CUarray_format Format;
-//	    unsigned int NumChannels;
-//	} CUDA_ARRAY_DESCRIPTOR;
-//
-// where:
-//
-// Width, and Height are the width, and height of the CUDA array (in elements); the CUDA array is one-dimensional if height is 0, two-dimensional otherwise;
-//
-// Format specifies the format of the elements; [ArrayFormat] is defined as:
-//
-//	typedef enum CUarray_format_enum {
-//	       CU_AD_FORMAT_UNSIGNED_INT8 = 0x01,
-//	       CU_AD_FORMAT_UNSIGNED_INT16 = 0x02,
-//	       CU_AD_FORMAT_UNSIGNED_INT32 = 0x03,
-//	       CU_AD_FORMAT_SIGNED_INT8 = 0x08,
-//	       CU_AD_FORMAT_SIGNED_INT16 = 0x09,
-//	       CU_AD_FORMAT_SIGNED_INT32 = 0x0a,
-//	       CU_AD_FORMAT_HALF = 0x10,
-//	       CU_AD_FORMAT_FLOAT = 0x20,
-//	       CU_AD_FORMAT_NV12 = 0xb0,
-//	       CU_AD_FORMAT_UNORM_INT8X1 = 0xc0,
-//	       CU_AD_FORMAT_UNORM_INT8X2 = 0xc1,
-//	       CU_AD_FORMAT_UNORM_INT8X4 = 0xc2,
-//	       CU_AD_FORMAT_UNORM_INT16X1 = 0xc3,
-//	       CU_AD_FORMAT_UNORM_INT16X2 = 0xc4,
-//	       CU_AD_FORMAT_UNORM_INT16X4 = 0xc5,
-//	       CU_AD_FORMAT_SNORM_INT8X1 = 0xc6,
-//	       CU_AD_FORMAT_SNORM_INT8X2 = 0xc7,
-//	       CU_AD_FORMAT_SNORM_INT8X4 = 0xc8,
-//	       CU_AD_FORMAT_SNORM_INT16X1 = 0xc9,
-//	       CU_AD_FORMAT_SNORM_INT16X2 = 0xca,
-//	       CU_AD_FORMAT_SNORM_INT16X4 = 0xcb,
-//	       CU_AD_FORMAT_BC1_UNORM = 0x91,
-//	       CU_AD_FORMAT_BC1_UNORM_SRGB = 0x92,
-//	       CU_AD_FORMAT_BC2_UNORM = 0x93,
-//	       CU_AD_FORMAT_BC2_UNORM_SRGB = 0x94,
-//	       CU_AD_FORMAT_BC3_UNORM = 0x95,
-//	       CU_AD_FORMAT_BC3_UNORM_SRGB = 0x96,
-//	       CU_AD_FORMAT_BC4_UNORM = 0x97,
-//	       CU_AD_FORMAT_BC4_SNORM = 0x98,
-//	       CU_AD_FORMAT_BC5_UNORM = 0x99,
-//	       CU_AD_FORMAT_BC5_SNORM = 0x9a,
-//	       CU_AD_FORMAT_BC6H_UF16 = 0x9b,
-//	       CU_AD_FORMAT_BC6H_SF16 = 0x9c,
-//	       CU_AD_FORMAT_BC7_UNORM = 0x9d,
-//	       CU_AD_FORMAT_BC7_UNORM_SRGB = 0x9e,
-//	       CU_AD_FORMAT_P010 = 0x9f,
-//	       CU_AD_FORMAT_P016 = 0xa1,
-//	       CU_AD_FORMAT_NV16 = 0xa2,
-//	       CU_AD_FORMAT_P210 = 0xa3,
-//	       CU_AD_FORMAT_P216 = 0xa4,
-//	       CU_AD_FORMAT_YUY2 = 0xa5,
-//	       CU_AD_FORMAT_Y210 = 0xa6,
-//	       CU_AD_FORMAT_Y216 = 0xa7,
-//	       CU_AD_FORMAT_AYUV = 0xa8,
-//	       CU_AD_FORMAT_Y410 = 0xa9,
-//	       CU_AD_FORMAT_Y416 = 0xb1,
-//	       CU_AD_FORMAT_Y444_PLANAR8 = 0xb2,
-//	       CU_AD_FORMAT_Y444_PLANAR10 = 0xb3,
-//	       CU_AD_FORMAT_YUV444_8bit_SemiPlanar = 0xb4,
-//	       CU_AD_FORMAT_YUV444_16bit_SemiPlanar = 0xb5,
-//	       CU_AD_FORMAT_UNORM_INT_101010_2 = 0x50,
-//	       CU_AD_FORMAT_UINT8_PACKED_422 = 0x51,
-//	       CU_AD_FORMAT_UINT8_PACKED_444 = 0x52,
-//	       CU_AD_FORMAT_UINT8_SEMIPLANAR_420 = 0x53,
-//	       CU_AD_FORMAT_UINT16_SEMIPLANAR_420 = 0x54,
-//	       CU_AD_FORMAT_UINT8_SEMIPLANAR_422 = 0x55,
-//	       CU_AD_FORMAT_UINT16_SEMIPLANAR_422 = 0x56,
-//	       CU_AD_FORMAT_UINT8_SEMIPLANAR_444 = 0x57,
-//	       CU_AD_FORMAT_UINT16_SEMIPLANAR_444 = 0x58,
-//	       CU_AD_FORMAT_UINT8_PLANAR_420 = 0x59,
-//	       CU_AD_FORMAT_UINT16_PLANAR_420 = 0x5a,
-//	       CU_AD_FORMAT_UINT8_PLANAR_422 = 0x5b,
-//	       CU_AD_FORMAT_UINT16_PLANAR_422 = 0x5c,
-//	       CU_AD_FORMAT_UINT8_PLANAR_444 = 0x5d,
-//	       CU_AD_FORMAT_UINT16_PLANAR_444 = 0x5e,
-//	} CUarray_format;
-//
-// NumChannels specifies the number of packed components per CUDA array element; it may be 1, 2, or 4;
+//   - Width, and Height are the width, and height of the CUDA array (in elements); the CUDA array is one-dimensional if height is 0, two-dimensional otherwise;
+//   - Format specifies the format of the elements.
+//   - NumChannels specifies the number of packed components per CUDA array element; it may be 1, 2, or 4;
 //
 // Here are examples of CUDA array descriptions:
-// Description for a CUDA array of 2048 floats:
-//
-//	CUDA_ARRAY_DESCRIPTOR desc;
-//	desc.Format = CU_AD_FORMAT_FLOAT;
-//	desc.NumChannels = 1;
-//	desc.Width = 2048;
-//	desc.Height = 1;
-//
-// Description for a 64 x 64 CUDA array of floats:
-//
-//	CUDA_ARRAY_DESCRIPTOR desc;
-//	desc.Format = CU_AD_FORMAT_FLOAT;
-//	desc.NumChannels = 1;
-//	desc.Width = 64;
-//	desc.Height = 64;
-//
-// Description for a width x height CUDA array of 64-bit, 4x16-bit float16’s:
-//
-//	CUDA_ARRAY_DESCRIPTOR desc;
-//	desc.Format = CU_AD_FORMAT_HALF;
-//	desc.NumChannels = 4;
-//	desc.Width = width;
-//	desc.Height = height;
-//
-// Description for a width x height CUDA array of 16-bit elements, each of which is two 8-bit unsigned chars:
-//
-//	CUDA_ARRAY_DESCRIPTOR arrayDesc;
-//	desc.Format = CU_AD_FORMAT_UNSIGNED_INT8;
-//	desc.NumChannels = 2;
-//	desc.Width = width;
-//	desc.Height = height;
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [Array.Close], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMallocArray
 //

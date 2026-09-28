@@ -844,65 +844,16 @@ func (s Stream) MemDiscardBatchAsync(dptrs *DevicePtr, sizes *uint, count uint, 
 
 // MemMapArrayAsync maps or unmaps subregions of sparse CUDA arrays and sparse CUDA mipmapped arrays.
 //
-// Performs map or unmap operations on subregions of sparse CUDA arrays and sparse CUDA mipmapped arrays. Each operation is specified by a [ArrayMapInfo] entry in the mapInfoList array of size count. The structure [ArrayMapInfo] is defined as follow:
+// Performs map or unmap operations on subregions of sparse CUDA arrays and sparse CUDA mipmapped arrays. Each operation is specified by a [ArrayMapInfo] entry in the mapInfoList array of size count.
 //
-//	 typedef struct CUarrayMapInfo_st {
-//	    CUresourcetype resourceType;
-//	    union {
-//	        CUmipmappedArray mipmap;
-//	        CUarray array;
-//	    } resource;
+// [ArrayMapInfo].resourceType specifies the type of resource to be operated on. If [ArrayMapInfo].resourceType is set to [Resourcetype].[ResourceTypeArray] then [ArrayMapInfo].resource.array must be set to a valid sparse CUDA array handle. The CUDA array must be either a 2D, 2D layered or 3D CUDA array and must have been allocated using [NewArray] or [NewArray3D] with the flag CUDA_ARRAY3D_SPARSE or CUDA_ARRAY3D_DEFERRED_MAPPING. For CUDA arrays obtained using [MipmappedArray.Level], [ErrInvalidValue] will be returned. If [ArrayMapInfo].resourceType is set to [Resourcetype].[ResourceTypeMipmappedArray] then [ArrayMapInfo].resource.mipmap must be set to a valid sparse CUDA mipmapped array handle. The CUDA mipmapped array must be either a 2D, 2D layered or 3D CUDA mipmapped array and must have been allocated using [NewMipmappedArray] with the flag CUDA_ARRAY3D_SPARSE or CUDA_ARRAY3D_DEFERRED_MAPPING.
+// [ArrayMapInfo].subresourceType specifies the type of subresource within the resource.
 //
-//	    CUarraySparseSubresourceType subresourceType;
-//	    union {
-//	        struct {
-//	            unsigned int level;
-//	            unsigned int layer;
-//	            unsigned int offsetX;
-//	            unsigned int offsetY;
-//	            unsigned int offsetZ;
-//	            unsigned int extentWidth;
-//	            unsigned int extentHeight;
-//	            unsigned int extentDepth;
-//	        } sparseLevel;
-//	        struct {
-//	            unsigned int layer;
-//	            unsigned long long offset;
-//	            unsigned long long size;
-//	        } miptail;
-//	    } subresource;
-//
-//	    CUmemOperationType memOperationType;
-//
-//	    CUmemHandleType memHandleType;
-//	    union {
-//	        CUmemGenericAllocationHandle memHandle;
-//	    } memHandle;
-//
-//	    unsigned long long offset;
-//	    unsigned int deviceBitMask;
-//	    unsigned int flags;
-//	    unsigned int reserved[2];
-//	} CUarrayMapInfo;
-//
-// where [ArrayMapInfo].resourceType specifies the type of resource to be operated on. If [ArrayMapInfo].resourceType is set to [Resourcetype].[ResourceTypeArray] then [ArrayMapInfo].resource.array must be set to a valid sparse CUDA array handle. The CUDA array must be either a 2D, 2D layered or 3D CUDA array and must have been allocated using [NewArray] or [NewArray3D] with the flag CUDA_ARRAY3D_SPARSE or CUDA_ARRAY3D_DEFERRED_MAPPING. For CUDA arrays obtained using [MipmappedArray.Level], [ErrInvalidValue] will be returned. If [ArrayMapInfo].resourceType is set to [Resourcetype].[ResourceTypeMipmappedArray] then [ArrayMapInfo].resource.mipmap must be set to a valid sparse CUDA mipmapped array handle. The CUDA mipmapped array must be either a 2D, 2D layered or 3D CUDA mipmapped array and must have been allocated using [NewMipmappedArray] with the flag CUDA_ARRAY3D_SPARSE or CUDA_ARRAY3D_DEFERRED_MAPPING.
-// [ArrayMapInfo].subresourceType specifies the type of subresource within the resource. CUarraySparseSubresourceType_enum is defined as:
-//
-//	typedef enum CUarraySparseSubresourceType_enum {
-//	    CU_ARRAY_SPARSE_SUBRESOURCE_TYPE_SPARSE_LEVEL = 0,
-//	    CU_ARRAY_SPARSE_SUBRESOURCE_TYPE_MIPTAIL = 1
-//	} CUarraySparseSubresourceType;
-//
-// where [ArraySparseSubresourceType].[ArraySparseSubresourceTypeSparseLevel] indicates a sparse-miplevel which spans at least one tile in every dimension. The remaining miplevels which are too small to span at least one tile in any dimension constitute the mip tail region as indicated by [ArraySparseSubresourceType].[ArraySparseSubresourceTypeMiptail] subresource type.
+// [ArraySparseSubresourceType].[ArraySparseSubresourceTypeSparseLevel] indicates a sparse-miplevel which spans at least one tile in every dimension. The remaining miplevels which are too small to span at least one tile in any dimension constitute the mip tail region as indicated by [ArraySparseSubresourceType].[ArraySparseSubresourceTypeMiptail] subresource type.
 // If [ArrayMapInfo].subresourceType is set to [ArraySparseSubresourceType].[ArraySparseSubresourceTypeSparseLevel] then [ArrayMapInfo].subresource.sparseLevel struct must contain valid array subregion offsets and extents. The [ArrayMapInfo].subresource.sparseLevel.offsetX, [ArrayMapInfo].subresource.sparseLevel.offsetY and [ArrayMapInfo].subresource.sparseLevel.offsetZ must specify valid X, Y and Z offsets respectively. The [ArrayMapInfo].subresource.sparseLevel.extentWidth, [ArrayMapInfo].subresource.sparseLevel.extentHeight and [ArrayMapInfo].subresource.sparseLevel.extentDepth must specify valid width, height and depth extents respectively. These offsets and extents must be aligned to the corresponding tile dimension. For CUDA mipmapped arrays [ArrayMapInfo].subresource.sparseLevel.level must specify a valid mip level index. Otherwise, must be zero. For layered CUDA arrays and layered CUDA mipmapped arrays [ArrayMapInfo].subresource.sparseLevel.layer must specify a valid layer index. Otherwise, must be zero. [ArrayMapInfo].subresource.sparseLevel.offsetZ must be zero and [ArrayMapInfo].subresource.sparseLevel.extentDepth must be set to 1 for 2D and 2D layered CUDA arrays and CUDA mipmapped arrays. Tile extents can be obtained by calling [Array.SparseProperties] and [MipmappedArray.SparseProperties]
 // If [ArrayMapInfo].subresourceType is set to [ArraySparseSubresourceType].[ArraySparseSubresourceTypeMiptail] then [ArrayMapInfo].subresource.miptail struct must contain valid mip tail offset in [ArrayMapInfo].subresource.miptail.offset and size in [ArrayMapInfo].subresource.miptail.size. Both, mip tail offset and mip tail size must be aligned to the tile size. For layered CUDA mipmapped arrays which don’t have the flag CU_ARRAY_SPARSE_PROPERTIES_SINGLE_MIPTAIL set in [ArraySparseProperties].flags as returned by [MipmappedArray.SparseProperties], [ArrayMapInfo].subresource.miptail.layer must specify a valid layer index. Otherwise, must be zero.
 // If [ArrayMapInfo].resource.array or [ArrayMapInfo].resource.mipmap was created with CUDA_ARRAY3D_DEFERRED_MAPPING flag set the [ArrayMapInfo].subresourceType and the contents of [ArrayMapInfo].subresource will be ignored.
-// [ArrayMapInfo].memOperationType specifies the type of operation. [MemOperationType] is defined as:
-//
-//	typedef enum CUmemOperationType_enum {
-//	    CU_MEM_OPERATION_TYPE_MAP = 1,
-//	    CU_MEM_OPERATION_TYPE_UNMAP = 2
-//	} CUmemOperationType;
+// [ArrayMapInfo].memOperationType specifies the type of operation.
 //
 // If [ArrayMapInfo].memOperationType is set to [MemOperationType].[MemOperationTypeMap] then the subresource will be mapped onto the tile pool memory specified by [ArrayMapInfo].memHandle at offset [ArrayMapInfo].offset. The tile pool allocation has to be created by specifying the CU_MEM_CREATE_USAGE_TILE_POOL flag when calling [MemCreate]. Also, [ArrayMapInfo].memHandleType must be set to [MemHandleType].[MemHandleTypeGeneric].
 // If [ArrayMapInfo].memOperationType is set to [MemOperationType].[MemOperationTypeUnmap] then an unmapping operation is performed. [ArrayMapInfo].memHandle must be NULL.
@@ -944,37 +895,10 @@ func (s Stream) MemPrefetchBatchAsync(dptrs *DevicePtr, sizes *uint, count uint,
 
 // Memcpy2DAsync copies memory for 2D arrays.
 //
-// Perform a 2D memory copy according to the parameters specified in pCopy. The [Memcpy2d] structure is defined as:
+// Perform a 2D memory copy according to the parameters specified in pCopy.
 //
-//	typedef struct CUDA_MEMCPY2D_st {
-//	   unsigned int srcXInBytes, srcY;
-//	   CUmemorytype srcMemoryType;
-//	   const void *srcHost;
-//	   CUdeviceptr srcDevice;
-//	   CUarray srcArray;
-//	   unsigned int srcPitch;
-//	   unsigned int dstXInBytes, dstY;
-//	   CUmemorytype dstMemoryType;
-//	   void *dstHost;
-//	   CUdeviceptr dstDevice;
-//	   CUarray dstArray;
-//	   unsigned int dstPitch;
-//	   unsigned int WidthInBytes;
-//	   unsigned int Height;
-//	} CUDA_MEMCPY2D;
-//
-// where:
-//
-// srcMemoryType and dstMemoryType specify the type of memory of the source and destination, respectively; CUmemorytype_enum is defined as:
-//
-//	typedef enum CUmemorytype_enum {
-//	   CU_MEMORYTYPE_HOST = 0x01,
-//	   CU_MEMORYTYPE_DEVICE = 0x02,
-//	   CU_MEMORYTYPE_ARRAY = 0x03,
-//	   CU_MEMORYTYPE_UNIFIED = 0x04
-//	} CUmemorytype;
-//
-// srcXInBytes and srcY specify the base address of the source data for the copy.
+//   - srcMemoryType and dstMemoryType specify the type of memory of the source and destination, respectively.
+//   - srcXInBytes and srcY specify the base address of the source data for the copy.
 //
 // If srcMemoryType is [MemoryTypeHost], srcHost and srcPitch specify the (host) base address of the source data and the bytes per row to apply. srcArray is ignored.
 // If srcMemoryType is [MemoryTypeUnified], srcDevice and srcPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. srcArray is ignored. This value may be used only if unified addressing is supported in the calling context.
@@ -1034,45 +958,10 @@ func (s Stream) Memcpy2DAsync(pCopy *Memcpy2d) error {
 
 // Memcpy3DAsync copies memory for 3D arrays.
 //
-// Perform a 3D memory copy according to the parameters specified in pCopy. The [Memcpy3d] structure is defined as:
+// Perform a 3D memory copy according to the parameters specified in pCopy.
 //
-//	typedef struct CUDA_MEMCPY3D_st {
-//
-//	    unsigned int srcXInBytes, srcY, srcZ;
-//	    unsigned int srcLOD;
-//	    CUmemorytype srcMemoryType;
-//	        const void *srcHost;
-//	        CUdeviceptr srcDevice;
-//	        CUarray srcArray;
-//	        unsigned int srcPitch;  // ignored when src is array
-//	        unsigned int srcHeight; // ignored when src is array; may be 0 if Depth==1
-//
-//	    unsigned int dstXInBytes, dstY, dstZ;
-//	    unsigned int dstLOD;
-//	    CUmemorytype dstMemoryType;
-//	        void *dstHost;
-//	        CUdeviceptr dstDevice;
-//	        CUarray dstArray;
-//	        unsigned int dstPitch;  // ignored when dst is array
-//	        unsigned int dstHeight; // ignored when dst is array; may be 0 if Depth==1
-//
-//	    unsigned int WidthInBytes;
-//	    unsigned int Height;
-//	    unsigned int Depth;
-//	} CUDA_MEMCPY3D;
-//
-// where:
-//
-// srcMemoryType and dstMemoryType specify the type of memory of the source and destination, respectively; CUmemorytype_enum is defined as:
-//
-//	typedef enum CUmemorytype_enum {
-//	   CU_MEMORYTYPE_HOST = 0x01,
-//	   CU_MEMORYTYPE_DEVICE = 0x02,
-//	   CU_MEMORYTYPE_ARRAY = 0x03,
-//	   CU_MEMORYTYPE_UNIFIED = 0x04
-//	} CUmemorytype;
-//
-// srcXInBytes, srcY and srcZ specify the base address of the source data for the copy.
+//   - srcMemoryType and dstMemoryType specify the type of memory of the source and destination, respectively.
+//   - srcXInBytes, srcY and srcZ specify the base address of the source data for the copy.
 //
 // If srcMemoryType is [MemoryTypeUnified], srcDevice and srcPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. srcArray is ignored. This value may be used only if unified addressing is supported in the calling context.
 // If srcMemoryType is [MemoryTypeHost], srcHost, srcPitch and srcHeight specify the (host) base address of the source data, the bytes per row, and the height of each 2D slice of the 3D array. srcArray is ignored.

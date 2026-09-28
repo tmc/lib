@@ -1022,9 +1022,6 @@ func RemoveBundledHeaders(installPath string) error {
 // setFlowCallback [Program.SetFlowCallback] registers a callback function that the compiler will invoke at different points during a call to [Program.Compile], and the callback function can decide whether to cancel compilation by returning specific values.
 //
 // The callback function must satisfy the following constraints:
-// (1) Its signature should be:
-//
-//	int callback(void* param1, void* param2);
 //
 // When invoking the callback, the compiler will always pass payload to param1 so that the callback may make decisions based on payload . It’ll always pass NULL to param2 for now which is reserved for future extensions.
 // (2) It must return 1 to cancel compilation or 0 to continue. Other return values are reserved for future use.
