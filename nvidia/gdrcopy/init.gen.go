@@ -411,41 +411,41 @@ func checkLibSym(symbol string) error {
 // registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
 	symClose = registerSym("gdr_close")
-	register(&fnCopyFromMapping, "gdr_copy_from_mapping")
-	register(&fnCopyToMapping, "gdr_copy_to_mapping")
+	symCopyFromMapping = registerSym("gdr_copy_from_mapping")
+	symCopyToMapping = registerSym("gdr_copy_to_mapping")
 	symDriverGetVersion = registerSym("gdr_driver_get_version")
 	symGetAttribute = registerSym("gdr_get_attribute")
-	register(&fnGetCallbackFlag, "gdr_get_callback_flag")
-	register(&fnGetInfoV2, "gdr_get_info_v2")
+	symGetCallbackFlag = registerSym("gdr_get_callback_flag")
+	symGetInfoV2 = registerSym("gdr_get_info_v2")
 	symGetMappingTypeString = registerSym("gdr_get_mapping_type_string")
-	register(&fnMap, "gdr_map")
-	register(&fnMapV2, "gdr_map_v2")
+	symMap = registerSym("gdr_map")
+	symMapV2 = registerSym("gdr_map_v2")
 	symOpen = registerSym("gdr_open")
 	symPinBuffer = registerSym("gdr_pin_buffer")
 	symPinBufferV2 = registerSym("gdr_pin_buffer_v2")
 	symRuntimeGetVersion = registerSym("gdr_runtime_get_version")
-	register(&fnUnmap, "gdr_unmap")
-	register(&fnUnpinBuffer, "gdr_unpin_buffer")
+	symUnmap = registerSym("gdr_unmap")
+	symUnpinBuffer = registerSym("gdr_unpin_buffer")
 }
 
 // clearFuncs unbinds all function pointers.
 func clearFuncs() {
 	symClose = 0
-	fnCopyFromMapping = nil
-	fnCopyToMapping = nil
+	symCopyFromMapping = 0
+	symCopyToMapping = 0
 	symDriverGetVersion = 0
 	symGetAttribute = 0
-	fnGetCallbackFlag = nil
-	fnGetInfoV2 = nil
+	symGetCallbackFlag = 0
+	symGetInfoV2 = 0
 	symGetMappingTypeString = 0
-	fnMap = nil
-	fnMapV2 = nil
+	symMap = 0
+	symMapV2 = 0
 	symOpen = 0
 	symPinBuffer = 0
 	symPinBufferV2 = 0
 	symRuntimeGetVersion = 0
-	fnUnmap = nil
-	fnUnpinBuffer = nil
+	symUnmap = 0
+	symUnpinBuffer = 0
 }
 
 // HasClose reports whether gdr_close resolved in the loaded library.

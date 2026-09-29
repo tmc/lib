@@ -326,7 +326,7 @@ var (
 	symlogsUnregisterCallback                             uintptr
 	symmemAddressFree                                     uintptr
 	symmemAddressReserve                                  uintptr
-	fnmemAdvise                                           func(DevicePtr, uint, MemAdvise, MemLocation) Result
+	symmemAdvise                                          uintptr
 	symMemAlloc                                           uintptr
 	symmemAllocAsync                                      uintptr
 	symmemAllocFromPoolAsync                              uintptr
@@ -368,7 +368,7 @@ var (
 	symmemPoolSetAccess                                   uintptr
 	symmemPoolSetAttribute                                uintptr
 	symmemPoolTrimTo                                      uintptr
-	fnmemPrefetchAsync                                    func(DevicePtr, uint, MemLocation, uint32, Stream) Result
+	symmemPrefetchAsync                                   uintptr
 	symmemPrefetchBatchAsync                              uintptr
 	symmemRangeGetAttribute                               uintptr
 	symmemRangeGetAttributes                              uintptr
@@ -2372,6 +2372,12 @@ func fnmemAddressReserve(a0 *DevicePtr, a1 uint, a2 uint, a3 DevicePtr, a4 uint6
 	return Result(r1)
 }
 
+// fnmemAdvise calls cuMemAdvise_v2.
+func fnmemAdvise(a0 DevicePtr, a1 uint, a2 MemAdvise, a3 MemLocation) Result {
+	r1, _ := ffiCallWidths4(symmemAdvise, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), *(*uintptr)(unsafe.Pointer(&a3)))
+	return Result(r1)
+}
+
 // fnMemAlloc calls cuMemAlloc_v2.
 func fnMemAlloc(a0 *DevicePtr, a1 uint) Result {
 	r1, _ := ffiCall2(symMemAlloc, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
@@ -2615,6 +2621,12 @@ func fnmemPoolSetAttribute(a0 MemoryPool, a1 MempoolAttribute, a2 unsafe.Pointer
 // fnmemPoolTrimTo calls cuMemPoolTrimTo.
 func fnmemPoolTrimTo(a0 MemoryPool, a1 uint) Result {
 	r1, _ := ffiCall2(symmemPoolTrimTo, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnmemPrefetchAsync calls cuMemPrefetchAsync_v2.
+func fnmemPrefetchAsync(a0 DevicePtr, a1 uint, a2 MemLocation, a3 uint32, a4 Stream) Result {
+	r1, _ := ffiCallWidths5(symmemPrefetchAsync, 0, 0xc0, uintptr(a0), uintptr(a1), *(*uintptr)(unsafe.Pointer(&a2)), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
 
@@ -3613,6 +3625,12 @@ func fnwaitExternalSemaphoresAsync(a0 *ExternalSemaphore, a1 *ExternalSemaphoreW
 	r1, _ := ffiCallWidths4(symwaitExternalSemaphoresAsync, 0, 0x30, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
+
+// These types travel as one 8-byte integer word. Each line fails to
+// compile unless its type is 8 bytes.
+var (
+	_ [0]byte = [unsafe.Sizeof(*new(MemLocation)) - 8]byte{}
+)
 
 // array3DCreate creates a 3D CUDA array.
 //

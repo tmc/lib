@@ -7,6 +7,7 @@ package cufile
 
 import (
 	"sync"
+	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/internal/ffi"
@@ -14,53 +15,53 @@ import (
 
 // Generated function pointer variables.
 var (
-	fnbatchIOCancel                        func(BatchHandle) Error
-	symbatchIODestroy                      uintptr
-	fnbatchIOGetStatus                     func(BatchHandle, uint32, *uint32, *IOEvents, *Timespec) Error
-	fnBatchIOSetUp                         func(*BatchHandle, uint32) Error
-	fnbatchIOSubmit                        func(BatchHandle, uint32, *IOParams, uint32) Error
-	fnBufDeregister                        func(uintptr) Error
-	fnBufRegister                          func(uintptr, uint, int32) Error
-	fnDriverClose                          func() Error
-	fnDriverGetP2PFlags                    func(DriverStatusFlags, *P2PFlags) Error
-	fnDriverGetProperties                  func(*DrvProps) Error
-	fnDriverOpen                           func() Error
-	fnDriverSetMaxCacheSize                func(uint) Error
-	fnDriverSetMaxDirectIOSize             func(uint) Error
-	fnDriverSetMaxPinnedMemSize            func(uint) Error
-	fnDriverSetP2PFlags                    func(DriverStatusFlags, P2PFlags) Error
-	fnDriverSetPollMode                    func(bool, uint) Error
-	fnExportPCIeTopology                   func(*byte) Error
-	fnGetBARSizeInKB                       func(int32, *uint) Error
-	fnGetParameterBool                     func(CUFileBoolConfigParameter, *bool) Error
-	fnGetParameterGpuBounceBufferSlabArray func(*uint, *uint, int32) Error
-	fnGetParameterMinMaxValue              func(CUFileSizeTConfigParameter, *uint, *uint) Error
-	fnGetParameterPosixPoolSlabArray       func(*uint, *uint, int32) Error
-	fnGetParameterSizeT                    func(CUFileSizeTConfigParameter, *uint) Error
-	fnGetParameterString                   func(CUFileStringConfigParameter, *byte, int32) Error
-	fnGetStatsL1                           func(*StatsLevel1) Error
-	fnGetStatsL2                           func(*StatsLevel2) Error
-	fnGetStatsL3                           func(*StatsLevel3) Error
-	fnGetStatsLevel                        func(*int32) Error
-	fnGetVersion                           func(*int32) Error
-	symhandleDeregister                    uintptr
-	fnhandleRegister                       func(*Handle, *Descr) Error
-	symread                                uintptr
-	fnreadAsync                            func(Handle, uintptr, *uint, *int64, *int64, *int64, driver.Stream) Error
-	fnSetParameterBool                     func(CUFileBoolConfigParameter, bool) Error
-	fnSetParameterGpuBounceBufferSlabArray func(*uint, *uint, int32) Error
-	fnSetParameterPosixPoolSlabArray       func(*uint, *uint, int32) Error
-	fnSetParameterSizeT                    func(CUFileSizeTConfigParameter, uint) Error
-	fnSetParameterString                   func(CUFileStringConfigParameter, *byte) Error
-	fnSetStatsLevel                        func(int32) Error
-	fnStatsReset                           func() Error
-	fnStatsStart                           func() Error
-	fnStatsStop                            func() Error
-	fnStreamDeregister                     func(driver.Stream) Error
-	fnStreamRegister                       func(driver.Stream, uint32) Error
-	symUseCount                            uintptr
-	symwrite                               uintptr
-	fnwriteAsync                           func(Handle, uintptr, *uint, *int64, *int64, *int64, driver.Stream) Error
+	symbatchIOCancel                        uintptr
+	symbatchIODestroy                       uintptr
+	symbatchIOGetStatus                     uintptr
+	symBatchIOSetUp                         uintptr
+	symbatchIOSubmit                        uintptr
+	symBufDeregister                        uintptr
+	symBufRegister                          uintptr
+	symDriverClose                          uintptr
+	symDriverGetP2PFlags                    uintptr
+	symDriverGetProperties                  uintptr
+	symDriverOpen                           uintptr
+	symDriverSetMaxCacheSize                uintptr
+	symDriverSetMaxDirectIOSize             uintptr
+	symDriverSetMaxPinnedMemSize            uintptr
+	symDriverSetP2PFlags                    uintptr
+	symDriverSetPollMode                    uintptr
+	symExportPCIeTopology                   uintptr
+	symGetBARSizeInKB                       uintptr
+	symGetParameterBool                     uintptr
+	symGetParameterGpuBounceBufferSlabArray uintptr
+	symGetParameterMinMaxValue              uintptr
+	symGetParameterPosixPoolSlabArray       uintptr
+	symGetParameterSizeT                    uintptr
+	symGetParameterString                   uintptr
+	symGetStatsL1                           uintptr
+	symGetStatsL2                           uintptr
+	symGetStatsL3                           uintptr
+	symGetStatsLevel                        uintptr
+	symGetVersion                           uintptr
+	symhandleDeregister                     uintptr
+	symhandleRegister                       uintptr
+	symread                                 uintptr
+	symreadAsync                            uintptr
+	symSetParameterBool                     uintptr
+	symSetParameterGpuBounceBufferSlabArray uintptr
+	symSetParameterPosixPoolSlabArray       uintptr
+	symSetParameterSizeT                    uintptr
+	symSetParameterString                   uintptr
+	symSetStatsLevel                        uintptr
+	symStatsReset                           uintptr
+	symStatsStart                           uintptr
+	symStatsStop                            uintptr
+	symStreamDeregister                     uintptr
+	symStreamRegister                       uintptr
+	symUseCount                             uintptr
+	symwrite                                uintptr
+	symwriteAsync                           uintptr
 )
 
 // The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
@@ -92,6 +93,72 @@ func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
 	return ffi.CallFloat(fn, 1, &args, floatMask)
 }
 
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall7(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	return ffi.CallFloat(fn, 7, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCallWidths1(fn uintptr, floatMask uint32, widths uint64, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloatWidths(fn, 1, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths2(fn uintptr, floatMask uint32, widths uint64, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloatWidths(fn, 2, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths3(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloatWidths(fn, 3, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths4(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloatWidths(fn, 4, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths5(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloatWidths(fn, 5, &args, floatMask, widths)
+}
+
 // The ffiCallErrno funnels call ffi.CallErrno, which also returns the
 // errno the C function left on the calling thread.
 
@@ -105,6 +172,14 @@ func ffiCallErrno5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1
 	args[4] = a4
 	r1, _, errno = ffi.CallErrno(fn, 5, &args, floatMask)
 	return r1, errno
+}
+
+// ffiBool encodes a Go bool as the C _Bool argument word.
+func ffiBool(b bool) uintptr {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 // An outSlot pools the heap cells a wrapper passes to C for its outputs.
@@ -128,9 +203,177 @@ func (s *outSlot[T]) put(p *T) {
 	s.pool.Put(p)
 }
 
+// fnbatchIOCancel calls cuFileBatchIOCancel.
+func fnbatchIOCancel(a0 BatchHandle) Error {
+	r1, _ := ffiCall1(symbatchIOCancel, 0, uintptr(a0))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
 // fnbatchIODestroy calls cuFileBatchIODestroy.
 func fnbatchIODestroy(a0 BatchHandle) {
 	ffiCall1(symbatchIODestroy, 0, uintptr(a0))
+}
+
+// fnbatchIOGetStatus calls cuFileBatchIOGetStatus.
+func fnbatchIOGetStatus(a0 BatchHandle, a1 uint32, a2 *uint32, a3 *IOEvents, a4 *Timespec) Error {
+	r1, _ := ffiCallWidths5(symbatchIOGetStatus, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnBatchIOSetUp calls cuFileBatchIOSetUp.
+func fnBatchIOSetUp(a0 *BatchHandle, a1 uint32) Error {
+	r1, _ := ffiCallWidths2(symBatchIOSetUp, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnbatchIOSubmit calls cuFileBatchIOSubmit.
+func fnbatchIOSubmit(a0 BatchHandle, a1 uint32, a2 *IOParams, a3 uint32) Error {
+	r1, _ := ffiCallWidths4(symbatchIOSubmit, 0, 0xcc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnBufDeregister calls cuFileBufDeregister.
+func fnBufDeregister(a0 uintptr) Error {
+	r1, _ := ffiCall1(symBufDeregister, 0, uintptr(a0))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnBufRegister calls cuFileBufRegister.
+func fnBufRegister(a0 uintptr, a1 uint, a2 int32) Error {
+	r1, _ := ffiCallWidths3(symBufRegister, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnDriverClose calls cuFileDriverClose_v2.
+func fnDriverClose() Error {
+	r1, _ := ffiCall0(symDriverClose, 0)
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnDriverGetP2PFlags calls cuFileDriverGetP2PFlags.
+func fnDriverGetP2PFlags(a0 DriverStatusFlags, a1 *P2PFlags) Error {
+	r1, _ := ffiCallWidths2(symDriverGetP2PFlags, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnDriverGetProperties calls cuFileDriverGetProperties.
+func fnDriverGetProperties(a0 *DrvProps) Error {
+	r1, _ := ffiCall1(symDriverGetProperties, 0, uintptr(unsafe.Pointer(a0)))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnDriverOpen calls cuFileDriverOpen.
+func fnDriverOpen() Error {
+	r1, _ := ffiCall0(symDriverOpen, 0)
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnDriverSetMaxCacheSize calls cuFileDriverSetMaxCacheSize.
+func fnDriverSetMaxCacheSize(a0 uint) Error {
+	r1, _ := ffiCall1(symDriverSetMaxCacheSize, 0, uintptr(a0))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnDriverSetMaxDirectIOSize calls cuFileDriverSetMaxDirectIOSize.
+func fnDriverSetMaxDirectIOSize(a0 uint) Error {
+	r1, _ := ffiCall1(symDriverSetMaxDirectIOSize, 0, uintptr(a0))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnDriverSetMaxPinnedMemSize calls cuFileDriverSetMaxPinnedMemSize.
+func fnDriverSetMaxPinnedMemSize(a0 uint) Error {
+	r1, _ := ffiCall1(symDriverSetMaxPinnedMemSize, 0, uintptr(a0))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnDriverSetP2PFlags calls cuFileDriverSetP2PFlags.
+func fnDriverSetP2PFlags(a0 DriverStatusFlags, a1 P2PFlags) Error {
+	r1, _ := ffiCallWidths2(symDriverSetP2PFlags, 0, 0xf, uintptr(a0), uintptr(a1))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnDriverSetPollMode calls cuFileDriverSetPollMode.
+func fnDriverSetPollMode(a0 bool, a1 uint) Error {
+	r1, _ := ffiCallWidths2(symDriverSetPollMode, 0, 0x1, ffiBool(a0), uintptr(a1))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnExportPCIeTopology calls cuFileExportPCIeTopology.
+func fnExportPCIeTopology(a0 *byte) Error {
+	r1, _ := ffiCall1(symExportPCIeTopology, 0, uintptr(unsafe.Pointer(a0)))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnGetBARSizeInKB calls cuFileGetBARSizeInKB.
+func fnGetBARSizeInKB(a0 int32, a1 *uint) Error {
+	r1, _ := ffiCallWidths2(symGetBARSizeInKB, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnGetParameterBool calls cuFileGetParameterBool.
+func fnGetParameterBool(a0 CUFileBoolConfigParameter, a1 *bool) Error {
+	r1, _ := ffiCallWidths2(symGetParameterBool, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnGetParameterGpuBounceBufferSlabArray calls cuFileGetParameterGpuBounceBufferSlabArray.
+func fnGetParameterGpuBounceBufferSlabArray(a0 *uint, a1 *uint, a2 int32) Error {
+	r1, _ := ffiCallWidths3(symGetParameterGpuBounceBufferSlabArray, 0, 0x30, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnGetParameterMinMaxValue calls cuFileGetParameterMinMaxValue.
+func fnGetParameterMinMaxValue(a0 CUFileSizeTConfigParameter, a1 *uint, a2 *uint) Error {
+	r1, _ := ffiCallWidths3(symGetParameterMinMaxValue, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnGetParameterPosixPoolSlabArray calls cuFileGetParameterPosixPoolSlabArray.
+func fnGetParameterPosixPoolSlabArray(a0 *uint, a1 *uint, a2 int32) Error {
+	r1, _ := ffiCallWidths3(symGetParameterPosixPoolSlabArray, 0, 0x30, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnGetParameterSizeT calls cuFileGetParameterSizeT.
+func fnGetParameterSizeT(a0 CUFileSizeTConfigParameter, a1 *uint) Error {
+	r1, _ := ffiCallWidths2(symGetParameterSizeT, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnGetParameterString calls cuFileGetParameterString.
+func fnGetParameterString(a0 CUFileStringConfigParameter, a1 *byte, a2 int32) Error {
+	r1, _ := ffiCallWidths3(symGetParameterString, 0, 0x33, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnGetStatsL1 calls cuFileGetStatsL1.
+func fnGetStatsL1(a0 *StatsLevel1) Error {
+	r1, _ := ffiCall1(symGetStatsL1, 0, uintptr(unsafe.Pointer(a0)))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnGetStatsL2 calls cuFileGetStatsL2.
+func fnGetStatsL2(a0 *StatsLevel2) Error {
+	r1, _ := ffiCall1(symGetStatsL2, 0, uintptr(unsafe.Pointer(a0)))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnGetStatsL3 calls cuFileGetStatsL3.
+func fnGetStatsL3(a0 *StatsLevel3) Error {
+	r1, _ := ffiCall1(symGetStatsL3, 0, uintptr(unsafe.Pointer(a0)))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnGetStatsLevel calls cuFileGetStatsLevel.
+func fnGetStatsLevel(a0 *int32) Error {
+	r1, _ := ffiCall1(symGetStatsLevel, 0, uintptr(unsafe.Pointer(a0)))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnGetVersion calls cuFileGetVersion.
+func fnGetVersion(a0 *int32) Error {
+	r1, _ := ffiCall1(symGetVersion, 0, uintptr(unsafe.Pointer(a0)))
+	return *(*Error)(unsafe.Pointer(&r1))
 }
 
 // fnhandleDeregister calls cuFileHandleDeregister.
@@ -138,10 +381,88 @@ func fnhandleDeregister(a0 Handle) {
 	ffiCall1(symhandleDeregister, 0, uintptr(a0))
 }
 
+// fnhandleRegister calls cuFileHandleRegister.
+func fnhandleRegister(a0 *Handle, a1 *Descr) Error {
+	r1, _ := ffiCall2(symhandleRegister, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
 // fnread calls cuFileRead.
 func fnread(a0 Handle, a1 uintptr, a2 uint, a3 int64, a4 int64) (int64, int32) {
 	r1, errno := ffiCallErrno5(symread, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return int64(r1), errno
+}
+
+// fnreadAsync calls cuFileReadAsync.
+func fnreadAsync(a0 Handle, a1 uintptr, a2 *uint, a3 *int64, a4 *int64, a5 *int64, a6 driver.Stream) Error {
+	r1, _ := ffiCall7(symreadAsync, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(a6))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnSetParameterBool calls cuFileSetParameterBool.
+func fnSetParameterBool(a0 CUFileBoolConfigParameter, a1 bool) Error {
+	r1, _ := ffiCallWidths2(symSetParameterBool, 0, 0x7, uintptr(a0), ffiBool(a1))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnSetParameterGpuBounceBufferSlabArray calls cuFileSetParameterGpuBounceBufferSlabArray.
+func fnSetParameterGpuBounceBufferSlabArray(a0 *uint, a1 *uint, a2 int32) Error {
+	r1, _ := ffiCallWidths3(symSetParameterGpuBounceBufferSlabArray, 0, 0x30, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnSetParameterPosixPoolSlabArray calls cuFileSetParameterPosixPoolSlabArray.
+func fnSetParameterPosixPoolSlabArray(a0 *uint, a1 *uint, a2 int32) Error {
+	r1, _ := ffiCallWidths3(symSetParameterPosixPoolSlabArray, 0, 0x30, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnSetParameterSizeT calls cuFileSetParameterSizeT.
+func fnSetParameterSizeT(a0 CUFileSizeTConfigParameter, a1 uint) Error {
+	r1, _ := ffiCallWidths2(symSetParameterSizeT, 0, 0x3, uintptr(a0), uintptr(a1))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnSetParameterString calls cuFileSetParameterString.
+func fnSetParameterString(a0 CUFileStringConfigParameter, a1 *byte) Error {
+	r1, _ := ffiCallWidths2(symSetParameterString, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnSetStatsLevel calls cuFileSetStatsLevel.
+func fnSetStatsLevel(a0 int32) Error {
+	r1, _ := ffiCallWidths1(symSetStatsLevel, 0, 0x3, uintptr(a0))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnStatsReset calls cuFileStatsReset.
+func fnStatsReset() Error {
+	r1, _ := ffiCall0(symStatsReset, 0)
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnStatsStart calls cuFileStatsStart.
+func fnStatsStart() Error {
+	r1, _ := ffiCall0(symStatsStart, 0)
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnStatsStop calls cuFileStatsStop.
+func fnStatsStop() Error {
+	r1, _ := ffiCall0(symStatsStop, 0)
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnStreamDeregister calls cuFileStreamDeregister.
+func fnStreamDeregister(a0 driver.Stream) Error {
+	r1, _ := ffiCall1(symStreamDeregister, 0, uintptr(a0))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// fnStreamRegister calls cuFileStreamRegister.
+func fnStreamRegister(a0 driver.Stream, a1 uint32) Error {
+	r1, _ := ffiCallWidths2(symStreamRegister, 0, 0xc, uintptr(a0), uintptr(a1))
+	return *(*Error)(unsafe.Pointer(&r1))
 }
 
 // fnUseCount calls cuFileUseCount.
@@ -155,6 +476,18 @@ func fnwrite(a0 Handle, a1 uintptr, a2 uint, a3 int64, a4 int64) (int64, int32) 
 	r1, errno := ffiCallErrno5(symwrite, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return int64(r1), errno
 }
+
+// fnwriteAsync calls cuFileWriteAsync.
+func fnwriteAsync(a0 Handle, a1 uintptr, a2 *uint, a3 *int64, a4 *int64, a5 *int64, a6 driver.Stream) Error {
+	r1, _ := ffiCall7(symwriteAsync, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(a6))
+	return *(*Error)(unsafe.Pointer(&r1))
+}
+
+// These types travel as one 8-byte integer word. Each line fails to
+// compile unless its type is 8 bytes.
+var (
+	_ [0]byte = [unsafe.Sizeof(*new(Error)) - 8]byte{}
+)
 
 // batchIOCancel is a batch API to cancel an ongoing IO batch operation by using the batch_id that was returned by [BatchHandle.IOSubmit].
 //
@@ -247,13 +580,16 @@ func BatchIOSetUp(nr uint32) (BatchHandle, error) {
 		var zero BatchHandle
 		return zero, err
 	}
-	var out BatchHandle
-	if err := toError(fnBatchIOSetUp(&out, nr), "cuFileBatchIOSetUp"); err != nil {
+	out := slotBatchIOSetUp.get()
+	defer slotBatchIOSetUp.put(out)
+	if err := toError(fnBatchIOSetUp(out, nr), "cuFileBatchIOSetUp"); err != nil {
 		var zero BatchHandle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotBatchIOSetUp outSlot[BatchHandle]
 
 // batchIOSubmit will need to be used to submit a read/write operation on an array of GPU/CPU data pointers from their respective file handle, offset, and size bytes.
 //
@@ -374,13 +710,16 @@ func DriverGetP2PFlags(statusFlag DriverStatusFlags) (P2PFlags, error) {
 		var zero P2PFlags
 		return zero, err
 	}
-	var out P2PFlags
-	if err := toError(fnDriverGetP2PFlags(statusFlag, &out), "cuFileDriverGetP2PFlags"); err != nil {
+	out := slotDriverGetP2PFlags.get()
+	defer slotDriverGetP2PFlags.put(out)
+	if err := toError(fnDriverGetP2PFlags(statusFlag, out), "cuFileDriverGetP2PFlags"); err != nil {
 		var zero P2PFlags
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDriverGetP2PFlags outSlot[P2PFlags]
 
 // DriverGetProperties gets the Driver session properties for GDS functionality.
 //
@@ -419,13 +758,16 @@ func DriverGetProperties() (DrvProps, error) {
 		var zero DrvProps
 		return zero, err
 	}
-	var out DrvProps
-	if err := toError(fnDriverGetProperties(&out), "cuFileDriverGetProperties"); err != nil {
+	out := slotDriverGetProperties.get()
+	defer slotDriverGetProperties.put(out)
+	if err := toError(fnDriverGetProperties(out), "cuFileDriverGetProperties"); err != nil {
 		var zero DrvProps
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDriverGetProperties outSlot[DrvProps]
 
 // DriverOpen opens the Driver session to support GDS IO operations.
 //
@@ -593,13 +935,16 @@ func GetBARSizeInKB(gpuIndex int32) (uint, error) {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnGetBARSizeInKB(gpuIndex, &out), "cuFileGetBARSizeInKB"); err != nil {
+	out := slotGetBARSizeInKB.get()
+	defer slotGetBARSizeInKB.put(out)
+	if err := toError(fnGetBARSizeInKB(gpuIndex, out), "cuFileGetBARSizeInKB"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetBARSizeInKB outSlot[uint]
 
 // GetParameterBool Fetch cuFile configuration parameters in a program.
 //
@@ -620,13 +965,16 @@ func GetParameterBool(param CUFileBoolConfigParameter) (bool, error) {
 		var zero bool
 		return zero, err
 	}
-	var out bool
-	if err := toError(fnGetParameterBool(param, &out), "cuFileGetParameterBool"); err != nil {
+	out := slotGetParameterBool.get()
+	defer slotGetParameterBool.put(out)
+	if err := toError(fnGetParameterBool(param, out), "cuFileGetParameterBool"); err != nil {
 		var zero bool
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetParameterBool outSlot[bool]
 
 // GetParameterGpuBounceBufferSlabArray wraps cuFileGetParameterGpuBounceBufferSlabArray.
 func GetParameterGpuBounceBufferSlabArray(sizeValues *uint, countValues *uint, len_ int32) error {
@@ -652,13 +1000,18 @@ func GetParameterMinMaxValue(param CUFileSizeTConfigParameter) (uint, uint, erro
 	if err := checkLibSym("cuFileGetParameterMinMaxValue"); err != nil {
 		return 0, 0, err
 	}
-	var out0 uint
-	var out1 uint
-	if err := toError(fnGetParameterMinMaxValue(param, &out0, &out1), "cuFileGetParameterMinMaxValue"); err != nil {
+	outs := slotGetParameterMinMaxValue.get()
+	defer slotGetParameterMinMaxValue.put(outs)
+	if err := toError(fnGetParameterMinMaxValue(param, &outs.out0, &outs.out1), "cuFileGetParameterMinMaxValue"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
+
+var slotGetParameterMinMaxValue outSlot[struct {
+	out0 uint
+	out1 uint
+}]
 
 // GetParameterPosixPoolSlabArray gets POSIX pool slab array.
 //
@@ -699,13 +1052,16 @@ func GetParameterSizeT(param CUFileSizeTConfigParameter) (uint, error) {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnGetParameterSizeT(param, &out), "cuFileGetParameterSizeT"); err != nil {
+	out := slotGetParameterSizeT.get()
+	defer slotGetParameterSizeT.put(out)
+	if err := toError(fnGetParameterSizeT(param, out), "cuFileGetParameterSizeT"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetParameterSizeT outSlot[uint]
 
 // GetParameterString Fetch cuFile configuration parameters in a program.
 //
@@ -744,13 +1100,16 @@ func GetStatsL1() (StatsLevel1, error) {
 		var zero StatsLevel1
 		return zero, err
 	}
-	var out StatsLevel1
-	if err := toError(fnGetStatsL1(&out), "cuFileGetStatsL1"); err != nil {
+	out := slotGetStatsL1.get()
+	defer slotGetStatsL1.put(out)
+	if err := toError(fnGetStatsL1(out), "cuFileGetStatsL1"); err != nil {
 		var zero StatsLevel1
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetStatsL1 outSlot[StatsLevel1]
 
 // GetStatsL2 gets Level 2 cuFile statistics.
 //
@@ -768,13 +1127,16 @@ func GetStatsL2() (StatsLevel2, error) {
 		var zero StatsLevel2
 		return zero, err
 	}
-	var out StatsLevel2
-	if err := toError(fnGetStatsL2(&out), "cuFileGetStatsL2"); err != nil {
+	out := slotGetStatsL2.get()
+	defer slotGetStatsL2.put(out)
+	if err := toError(fnGetStatsL2(out), "cuFileGetStatsL2"); err != nil {
 		var zero StatsLevel2
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetStatsL2 outSlot[StatsLevel2]
 
 // GetStatsL3 gets Level 3 cuFile statistics.
 //
@@ -792,13 +1154,16 @@ func GetStatsL3() (StatsLevel3, error) {
 		var zero StatsLevel3
 		return zero, err
 	}
-	var out StatsLevel3
-	if err := toError(fnGetStatsL3(&out), "cuFileGetStatsL3"); err != nil {
+	out := slotGetStatsL3.get()
+	defer slotGetStatsL3.put(out)
+	if err := toError(fnGetStatsL3(out), "cuFileGetStatsL3"); err != nil {
 		var zero StatsLevel3
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetStatsL3 outSlot[StatsLevel3]
 
 // GetStatsLevel gets the current level of statistics collection for cuFile operations.
 //
@@ -815,13 +1180,16 @@ func GetStatsLevel() (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnGetStatsLevel(&out), "cuFileGetStatsLevel"); err != nil {
+	out := slotGetStatsLevel.get()
+	defer slotGetStatsLevel.put(out)
+	if err := toError(fnGetStatsLevel(out), "cuFileGetStatsLevel"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetStatsLevel outSlot[int32]
 
 // GetVersion retrieves the cuFile library version.
 //
@@ -841,13 +1209,16 @@ func GetVersion() (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnGetVersion(&out), "cuFileGetVersion"); err != nil {
+	out := slotGetVersion.get()
+	defer slotGetVersion.put(out)
+	if err := toError(fnGetVersion(out), "cuFileGetVersion"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetVersion outSlot[int32]
 
 // handleDeregister The API is used to release resources that are claimed by [HandleRegister].
 //
@@ -906,13 +1277,16 @@ func handleRegister(descr *Descr) (Handle, error) {
 		var zero Handle
 		return zero, err
 	}
-	var out Handle
-	if err := toError(fnhandleRegister(&out, descr), "cuFileHandleRegister"); err != nil {
+	out := slotHandleRegister.get()
+	defer slotHandleRegister.put(out)
+	if err := toError(fnhandleRegister(out, descr), "cuFileHandleRegister"); err != nil {
 		var zero Handle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotHandleRegister outSlot[Handle]
 
 // read reads specified bytes from the file descriptor into the device memory or the host memory.
 //

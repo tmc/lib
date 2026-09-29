@@ -426,104 +426,104 @@ func checkLibSym(symbol string) error {
 
 // registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
-	register(&fnbatchIOCancel, "cuFileBatchIOCancel")
+	symbatchIOCancel = registerSym("cuFileBatchIOCancel")
 	symbatchIODestroy = registerSym("cuFileBatchIODestroy")
-	register(&fnbatchIOGetStatus, "cuFileBatchIOGetStatus")
-	register(&fnBatchIOSetUp, "cuFileBatchIOSetUp")
-	register(&fnbatchIOSubmit, "cuFileBatchIOSubmit")
-	register(&fnBufDeregister, "cuFileBufDeregister")
-	register(&fnBufRegister, "cuFileBufRegister")
-	register(&fnDriverClose, "cuFileDriverClose_v2")
-	register(&fnDriverGetP2PFlags, "cuFileDriverGetP2PFlags")
-	register(&fnDriverGetProperties, "cuFileDriverGetProperties")
-	register(&fnDriverOpen, "cuFileDriverOpen")
-	register(&fnDriverSetMaxCacheSize, "cuFileDriverSetMaxCacheSize")
-	register(&fnDriverSetMaxDirectIOSize, "cuFileDriverSetMaxDirectIOSize")
-	register(&fnDriverSetMaxPinnedMemSize, "cuFileDriverSetMaxPinnedMemSize")
-	register(&fnDriverSetP2PFlags, "cuFileDriverSetP2PFlags")
-	register(&fnDriverSetPollMode, "cuFileDriverSetPollMode")
-	register(&fnExportPCIeTopology, "cuFileExportPCIeTopology")
-	register(&fnGetBARSizeInKB, "cuFileGetBARSizeInKB")
-	register(&fnGetParameterBool, "cuFileGetParameterBool")
-	register(&fnGetParameterGpuBounceBufferSlabArray, "cuFileGetParameterGpuBounceBufferSlabArray")
-	register(&fnGetParameterMinMaxValue, "cuFileGetParameterMinMaxValue")
-	register(&fnGetParameterPosixPoolSlabArray, "cuFileGetParameterPosixPoolSlabArray")
-	register(&fnGetParameterSizeT, "cuFileGetParameterSizeT")
-	register(&fnGetParameterString, "cuFileGetParameterString")
-	register(&fnGetStatsL1, "cuFileGetStatsL1")
-	register(&fnGetStatsL2, "cuFileGetStatsL2")
-	register(&fnGetStatsL3, "cuFileGetStatsL3")
-	register(&fnGetStatsLevel, "cuFileGetStatsLevel")
-	register(&fnGetVersion, "cuFileGetVersion")
+	symbatchIOGetStatus = registerSym("cuFileBatchIOGetStatus")
+	symBatchIOSetUp = registerSym("cuFileBatchIOSetUp")
+	symbatchIOSubmit = registerSym("cuFileBatchIOSubmit")
+	symBufDeregister = registerSym("cuFileBufDeregister")
+	symBufRegister = registerSym("cuFileBufRegister")
+	symDriverClose = registerSym("cuFileDriverClose_v2")
+	symDriverGetP2PFlags = registerSym("cuFileDriverGetP2PFlags")
+	symDriverGetProperties = registerSym("cuFileDriverGetProperties")
+	symDriverOpen = registerSym("cuFileDriverOpen")
+	symDriverSetMaxCacheSize = registerSym("cuFileDriverSetMaxCacheSize")
+	symDriverSetMaxDirectIOSize = registerSym("cuFileDriverSetMaxDirectIOSize")
+	symDriverSetMaxPinnedMemSize = registerSym("cuFileDriverSetMaxPinnedMemSize")
+	symDriverSetP2PFlags = registerSym("cuFileDriverSetP2PFlags")
+	symDriverSetPollMode = registerSym("cuFileDriverSetPollMode")
+	symExportPCIeTopology = registerSym("cuFileExportPCIeTopology")
+	symGetBARSizeInKB = registerSym("cuFileGetBARSizeInKB")
+	symGetParameterBool = registerSym("cuFileGetParameterBool")
+	symGetParameterGpuBounceBufferSlabArray = registerSym("cuFileGetParameterGpuBounceBufferSlabArray")
+	symGetParameterMinMaxValue = registerSym("cuFileGetParameterMinMaxValue")
+	symGetParameterPosixPoolSlabArray = registerSym("cuFileGetParameterPosixPoolSlabArray")
+	symGetParameterSizeT = registerSym("cuFileGetParameterSizeT")
+	symGetParameterString = registerSym("cuFileGetParameterString")
+	symGetStatsL1 = registerSym("cuFileGetStatsL1")
+	symGetStatsL2 = registerSym("cuFileGetStatsL2")
+	symGetStatsL3 = registerSym("cuFileGetStatsL3")
+	symGetStatsLevel = registerSym("cuFileGetStatsLevel")
+	symGetVersion = registerSym("cuFileGetVersion")
 	symhandleDeregister = registerSym("cuFileHandleDeregister")
-	register(&fnhandleRegister, "cuFileHandleRegister")
+	symhandleRegister = registerSym("cuFileHandleRegister")
 	symread = registerSym("cuFileRead")
-	register(&fnreadAsync, "cuFileReadAsync")
-	register(&fnSetParameterBool, "cuFileSetParameterBool")
-	register(&fnSetParameterGpuBounceBufferSlabArray, "cuFileSetParameterGpuBounceBufferSlabArray")
-	register(&fnSetParameterPosixPoolSlabArray, "cuFileSetParameterPosixPoolSlabArray")
-	register(&fnSetParameterSizeT, "cuFileSetParameterSizeT")
-	register(&fnSetParameterString, "cuFileSetParameterString")
-	register(&fnSetStatsLevel, "cuFileSetStatsLevel")
-	register(&fnStatsReset, "cuFileStatsReset")
-	register(&fnStatsStart, "cuFileStatsStart")
-	register(&fnStatsStop, "cuFileStatsStop")
-	register(&fnStreamDeregister, "cuFileStreamDeregister")
-	register(&fnStreamRegister, "cuFileStreamRegister")
+	symreadAsync = registerSym("cuFileReadAsync")
+	symSetParameterBool = registerSym("cuFileSetParameterBool")
+	symSetParameterGpuBounceBufferSlabArray = registerSym("cuFileSetParameterGpuBounceBufferSlabArray")
+	symSetParameterPosixPoolSlabArray = registerSym("cuFileSetParameterPosixPoolSlabArray")
+	symSetParameterSizeT = registerSym("cuFileSetParameterSizeT")
+	symSetParameterString = registerSym("cuFileSetParameterString")
+	symSetStatsLevel = registerSym("cuFileSetStatsLevel")
+	symStatsReset = registerSym("cuFileStatsReset")
+	symStatsStart = registerSym("cuFileStatsStart")
+	symStatsStop = registerSym("cuFileStatsStop")
+	symStreamDeregister = registerSym("cuFileStreamDeregister")
+	symStreamRegister = registerSym("cuFileStreamRegister")
 	symUseCount = registerSym("cuFileUseCount")
 	symwrite = registerSym("cuFileWrite")
-	register(&fnwriteAsync, "cuFileWriteAsync")
+	symwriteAsync = registerSym("cuFileWriteAsync")
 }
 
 // clearFuncs unbinds all function pointers.
 func clearFuncs() {
-	fnbatchIOCancel = nil
+	symbatchIOCancel = 0
 	symbatchIODestroy = 0
-	fnbatchIOGetStatus = nil
-	fnBatchIOSetUp = nil
-	fnbatchIOSubmit = nil
-	fnBufDeregister = nil
-	fnBufRegister = nil
-	fnDriverClose = nil
-	fnDriverGetP2PFlags = nil
-	fnDriverGetProperties = nil
-	fnDriverOpen = nil
-	fnDriverSetMaxCacheSize = nil
-	fnDriverSetMaxDirectIOSize = nil
-	fnDriverSetMaxPinnedMemSize = nil
-	fnDriverSetP2PFlags = nil
-	fnDriverSetPollMode = nil
-	fnExportPCIeTopology = nil
-	fnGetBARSizeInKB = nil
-	fnGetParameterBool = nil
-	fnGetParameterGpuBounceBufferSlabArray = nil
-	fnGetParameterMinMaxValue = nil
-	fnGetParameterPosixPoolSlabArray = nil
-	fnGetParameterSizeT = nil
-	fnGetParameterString = nil
-	fnGetStatsL1 = nil
-	fnGetStatsL2 = nil
-	fnGetStatsL3 = nil
-	fnGetStatsLevel = nil
-	fnGetVersion = nil
+	symbatchIOGetStatus = 0
+	symBatchIOSetUp = 0
+	symbatchIOSubmit = 0
+	symBufDeregister = 0
+	symBufRegister = 0
+	symDriverClose = 0
+	symDriverGetP2PFlags = 0
+	symDriverGetProperties = 0
+	symDriverOpen = 0
+	symDriverSetMaxCacheSize = 0
+	symDriverSetMaxDirectIOSize = 0
+	symDriverSetMaxPinnedMemSize = 0
+	symDriverSetP2PFlags = 0
+	symDriverSetPollMode = 0
+	symExportPCIeTopology = 0
+	symGetBARSizeInKB = 0
+	symGetParameterBool = 0
+	symGetParameterGpuBounceBufferSlabArray = 0
+	symGetParameterMinMaxValue = 0
+	symGetParameterPosixPoolSlabArray = 0
+	symGetParameterSizeT = 0
+	symGetParameterString = 0
+	symGetStatsL1 = 0
+	symGetStatsL2 = 0
+	symGetStatsL3 = 0
+	symGetStatsLevel = 0
+	symGetVersion = 0
 	symhandleDeregister = 0
-	fnhandleRegister = nil
+	symhandleRegister = 0
 	symread = 0
-	fnreadAsync = nil
-	fnSetParameterBool = nil
-	fnSetParameterGpuBounceBufferSlabArray = nil
-	fnSetParameterPosixPoolSlabArray = nil
-	fnSetParameterSizeT = nil
-	fnSetParameterString = nil
-	fnSetStatsLevel = nil
-	fnStatsReset = nil
-	fnStatsStart = nil
-	fnStatsStop = nil
-	fnStreamDeregister = nil
-	fnStreamRegister = nil
+	symreadAsync = 0
+	symSetParameterBool = 0
+	symSetParameterGpuBounceBufferSlabArray = 0
+	symSetParameterPosixPoolSlabArray = 0
+	symSetParameterSizeT = 0
+	symSetParameterString = 0
+	symSetStatsLevel = 0
+	symStatsReset = 0
+	symStatsStart = 0
+	symStatsStop = 0
+	symStreamDeregister = 0
+	symStreamRegister = 0
 	symUseCount = 0
 	symwrite = 0
-	fnwriteAsync = nil
+	symwriteAsync = 0
 }
 
 // HasBatchIOCancel reports whether cuFileBatchIOCancel resolved in the loaded library.

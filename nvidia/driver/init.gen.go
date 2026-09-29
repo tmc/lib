@@ -684,7 +684,7 @@ func registerFuncs() {
 	symlogsUnregisterCallback = registerSym("cuLogsUnregisterCallback")
 	symmemAddressFree = registerSym("cuMemAddressFree")
 	symmemAddressReserve = registerSym("cuMemAddressReserve")
-	register(&fnmemAdvise, "cuMemAdvise_v2")
+	symmemAdvise = registerSym("cuMemAdvise_v2")
 	symMemAlloc = registerSym("cuMemAlloc_v2")
 	symmemAllocAsync = registerSym("cuMemAllocAsync")
 	symmemAllocFromPoolAsync = registerSym("cuMemAllocFromPoolAsync")
@@ -726,7 +726,7 @@ func registerFuncs() {
 	symmemPoolSetAccess = registerSym("cuMemPoolSetAccess")
 	symmemPoolSetAttribute = registerSym("cuMemPoolSetAttribute")
 	symmemPoolTrimTo = registerSym("cuMemPoolTrimTo")
-	register(&fnmemPrefetchAsync, "cuMemPrefetchAsync_v2")
+	symmemPrefetchAsync = registerSym("cuMemPrefetchAsync_v2")
 	symmemPrefetchBatchAsync = registerSym("cuMemPrefetchBatchAsync")
 	symmemRangeGetAttribute = registerSym("cuMemRangeGetAttribute")
 	symmemRangeGetAttributes = registerSym("cuMemRangeGetAttributes")
@@ -1156,7 +1156,7 @@ func clearFuncs() {
 	symlogsUnregisterCallback = 0
 	symmemAddressFree = 0
 	symmemAddressReserve = 0
-	fnmemAdvise = nil
+	symmemAdvise = 0
 	symMemAlloc = 0
 	symmemAllocAsync = 0
 	symmemAllocFromPoolAsync = 0
@@ -1198,7 +1198,7 @@ func clearFuncs() {
 	symmemPoolSetAccess = 0
 	symmemPoolSetAttribute = 0
 	symmemPoolTrimTo = 0
-	fnmemPrefetchAsync = nil
+	symmemPrefetchAsync = 0
 	symmemPrefetchBatchAsync = 0
 	symmemRangeGetAttribute = 0
 	symmemRangeGetAttributes = 0

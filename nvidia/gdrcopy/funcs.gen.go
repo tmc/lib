@@ -15,21 +15,21 @@ import (
 // Generated function pointer variables.
 var (
 	symClose                uintptr
-	fnCopyFromMapping       func(MemHandle, unsafe.Pointer, uintptr, uint) int32
-	fnCopyToMapping         func(MemHandle, uintptr, unsafe.Pointer, uint) int32
+	symCopyFromMapping      uintptr
+	symCopyToMapping        uintptr
 	symDriverGetVersion     uintptr
 	symGetAttribute         uintptr
-	fnGetCallbackFlag       func(Handle, MemHandle, *int32) int32
-	fnGetInfoV2             func(Handle, MemHandle, *Info) int32
+	symGetCallbackFlag      uintptr
+	symGetInfoV2            uintptr
 	symGetMappingTypeString uintptr
-	fnMap                   func(Handle, MemHandle, *uintptr, uint) int32
-	fnMapV2                 func(Handle, MemHandle, *uintptr, uint, int32) int32
+	symMap                  uintptr
+	symMapV2                uintptr
 	symOpen                 uintptr
 	symPinBuffer            uintptr
 	symPinBufferV2          uintptr
 	symRuntimeGetVersion    uintptr
-	fnUnmap                 func(Handle, MemHandle, uintptr, uint) int32
-	fnUnpinBuffer           func(Handle, MemHandle) int32
+	symUnmap                uintptr
+	symUnpinBuffer          uintptr
 )
 
 // The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
@@ -76,6 +76,16 @@ func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr)
 	args[1] = a1
 	args[2] = a2
 	return ffi.CallFloat(fn, 3, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloat(fn, 4, &args, floatMask)
 }
 
 //go:uintptrescapes
@@ -145,6 +155,18 @@ func fnClose(a0 Handle) int32 {
 	return int32(r1)
 }
 
+// fnCopyFromMapping calls gdr_copy_from_mapping.
+func fnCopyFromMapping(a0 MemHandle, a1 unsafe.Pointer, a2 uintptr, a3 uint) int32 {
+	r1, _ := ffiCall4(symCopyFromMapping, 0, *(*uintptr)(unsafe.Pointer(&a0)), uintptr(a1), uintptr(a2), uintptr(a3))
+	return int32(r1)
+}
+
+// fnCopyToMapping calls gdr_copy_to_mapping.
+func fnCopyToMapping(a0 MemHandle, a1 uintptr, a2 unsafe.Pointer, a3 uint) int32 {
+	r1, _ := ffiCall4(symCopyToMapping, 0, *(*uintptr)(unsafe.Pointer(&a0)), uintptr(a1), uintptr(a2), uintptr(a3))
+	return int32(r1)
+}
+
 // fnDriverGetVersion calls gdr_driver_get_version.
 func fnDriverGetVersion(a0 Handle, a1 *int32, a2 *int32) int32 {
 	r1, _ := ffiCall3(symDriverGetVersion, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
@@ -157,9 +179,33 @@ func fnGetAttribute(a0 Handle, a1 Attr, a2 *int32) int32 {
 	return int32(r1)
 }
 
+// fnGetCallbackFlag calls gdr_get_callback_flag.
+func fnGetCallbackFlag(a0 Handle, a1 MemHandle, a2 *int32) int32 {
+	r1, _ := ffiCall3(symGetCallbackFlag, 0, uintptr(a0), *(*uintptr)(unsafe.Pointer(&a1)), uintptr(unsafe.Pointer(a2)))
+	return int32(r1)
+}
+
+// fnGetInfoV2 calls gdr_get_info_v2.
+func fnGetInfoV2(a0 Handle, a1 MemHandle, a2 *Info) int32 {
+	r1, _ := ffiCall3(symGetInfoV2, 0, uintptr(a0), *(*uintptr)(unsafe.Pointer(&a1)), uintptr(unsafe.Pointer(a2)))
+	return int32(r1)
+}
+
 // fnGetMappingTypeString calls gdr_get_mapping_type_string.
 func fnGetMappingTypeString(a0 MappingType, a1 **byte) int32 {
 	r1, _ := ffiCallWidths2(symGetMappingTypeString, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return int32(r1)
+}
+
+// fnMap calls gdr_map.
+func fnMap(a0 Handle, a1 MemHandle, a2 *uintptr, a3 uint) int32 {
+	r1, _ := ffiCall4(symMap, 0, uintptr(a0), *(*uintptr)(unsafe.Pointer(&a1)), uintptr(unsafe.Pointer(a2)), uintptr(a3))
+	return int32(r1)
+}
+
+// fnMapV2 calls gdr_map_v2.
+func fnMapV2(a0 Handle, a1 MemHandle, a2 *uintptr, a3 uint, a4 int32) int32 {
+	r1, _ := ffiCallWidths5(symMapV2, 0, 0x300, uintptr(a0), *(*uintptr)(unsafe.Pointer(&a1)), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4))
 	return int32(r1)
 }
 
@@ -185,3 +231,21 @@ func fnPinBufferV2(a0 Handle, a1 uint, a2 uint, a3 uint32, a4 *MemHandle) int32 
 func fnRuntimeGetVersion(a0 *int32, a1 *int32) {
 	ffiCall2(symRuntimeGetVersion, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
 }
+
+// fnUnmap calls gdr_unmap.
+func fnUnmap(a0 Handle, a1 MemHandle, a2 uintptr, a3 uint) int32 {
+	r1, _ := ffiCall4(symUnmap, 0, uintptr(a0), *(*uintptr)(unsafe.Pointer(&a1)), uintptr(a2), uintptr(a3))
+	return int32(r1)
+}
+
+// fnUnpinBuffer calls gdr_unpin_buffer.
+func fnUnpinBuffer(a0 Handle, a1 MemHandle) int32 {
+	r1, _ := ffiCall2(symUnpinBuffer, 0, uintptr(a0), *(*uintptr)(unsafe.Pointer(&a1)))
+	return int32(r1)
+}
+
+// These types travel as one 8-byte integer word. Each line fails to
+// compile unless its type is 8 bytes.
+var (
+	_ [0]byte = [unsafe.Sizeof(*new(MemHandle)) - 8]byte{}
+)
