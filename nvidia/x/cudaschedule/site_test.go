@@ -97,11 +97,18 @@ func TestNativeRaceFixturesInitializeHandoffAndExposeReversingDraw(t *testing.T)
 				t.Fatalf("sentinel initialization/store/barrier/data access order invalid: value=%d sentinel=%d barrier=%d writer-value=%d writer=%d reader=%d", initValue, sentinelStore, initBarrier, writerValue, writerStore, readerLoad)
 			}
 			barrierBetween := false
+			orderingBetween := false
 			for _, inst := range instructions[writerStore+1 : readerLoad] {
 				barrierBetween = barrierBetween || inst.Opcode == "bar.sync"
+				for _, prefix := range []string{"bar.", "barrier.", "mbarrier.", "membar.", "fence."} {
+					orderingBetween = orderingBetween || strings.HasPrefix(inst.Opcode, prefix)
+				}
 			}
 			if barrierBetween != fixture.wantClean {
 				t.Fatalf("writer-to-reader barrier=%t, want %t", barrierBetween, fixture.wantClean)
+			}
+			if orderingBetween != fixture.wantClean {
+				t.Fatalf("writer-to-reader ordering instruction=%t, want %t", orderingBetween, fixture.wantClean)
 			}
 			if !strings.Contains(string(data), "reader work makes the pristine writer likely to publish first") || !strings.Contains(string(data), "writer's shared store can reverse this order") {
 				t.Fatal("fixture does not document the pristine bias and reversing perturbation")
