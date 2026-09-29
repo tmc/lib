@@ -318,68 +318,77 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *Report) {
 			// Elementwise producer-consumer fusion
 			if isElementwise(ev1) && isElementwise(ev2) && matchingShapesOrBuffers(ev1, ev2) {
 				seenFusion[key] = true
-				finding := fmt.Sprintf("Redundant global memory round-trips for intermediate tensors: sequential back-to-back elementwise kernels (%s followed by %s) on stream %d operate on matching tensors", ev1.Name, ev2.Name, streamID)
+				finding := fmt.Sprintf("Possible intermediate-tensor round-trip: sequential elementwise kernels (%s followed by %s) on stream %d operate on matching tensors; captured pair runtime is not an estimate of removable time", ev1.Name, ev2.Name, streamID)
 				if ps.count > 1 {
 					finding += fmt.Sprintf(" (occurred %d times", ps.count)
 					if ps.totalDur > 0 {
-						finding += fmt.Sprintf(", accumulating %s", time.Duration(ps.totalDur).String())
+						finding += fmt.Sprintf(", pair runtime %s", time.Duration(ps.totalDur).String())
 					}
 					finding += ")"
 				}
-				rec := fmt.Sprintf("Fuse into a single kernel (e.g. fused %s + %s) to eliminate intermediate DRAM round-trips.", cleanName1, cleanName2)
+				rec := fmt.Sprintf("Check the intermediate tensor's bytes and measured DRAM bandwidth before estimating a gain; if material, fuse %s + %s.", cleanName1, cleanName2)
 
 				report.Items = append(report.Items, Item{
 					rule:          "round-trip",
-					Severity:      SeverityCost,
+					Severity:      SeverityContext,
 					Category:      CategoryMemoryCompute,
-					EvidenceLevel: EvidenceSuspected,
-					// The pair is the unit of device time here, so the item carries the
-					// sum the finding already names. Without it the item reaches a
-					// consumer with neither device_time_nanos nor share_of_profile --
-					// Location.Kernel is "A -> B", which is no kernel in the profile, so
-					// the fill-in below looks it up and finds nothing. Pairs overlap, so
-					// these shares do not sum with the per-kernel ones.
-					DeviceTimeNanos: int64(ps.totalDur),
+					EvidenceLevel: EvidenceUnmeasured,
 					Location: Location{
 						Kernel: fmt.Sprintf("%s -> %s", ev1.Name, ev2.Name),
 					},
 					Finding:                  finding,
 					ActionableRecommendation: rec,
-					NextMeasurement:          "A/B wall-clock timing with fused kernel",
+					NextMeasurement:          "intermediate tensor bytes and achieved DRAM bandwidth, followed by A/B wall-clock timing",
 				})
+				if a, b := explicitDType(ev1.Name), explicitDType(ev2.Name); a != "" || b != "" {
+					if a == "" || b == "" {
+						known := a
+						if known == "" {
+							known = b
+						}
+						report.Items = append(report.Items, Item{
+							Severity: SeverityContext, Category: CategoryMemoryCompute, EvidenceLevel: EvidenceObserved,
+							Location:                 Location{Kernel: fmt.Sprintf("%s -> %s", ev1.Name, ev2.Name)},
+							Finding:                  fmt.Sprintf("Adjacent elementwise pair contains an explicitly typed %s kernel and an untyped kernel", known),
+							ActionableRecommendation: "Check the producer-consumer tensor dtype against the intended training precision, including any implicit cast.",
+							NextMeasurement:          "inspect tensor dtype at the producer-consumer boundary",
+						})
+					} else if a != b {
+						report.Items = append(report.Items, Item{
+							Severity: SeverityContext, Category: CategoryMemoryCompute, EvidenceLevel: EvidenceObserved,
+							Location:                 Location{Kernel: fmt.Sprintf("%s -> %s", ev1.Name, ev2.Name)},
+							Finding:                  fmt.Sprintf("Adjacent elementwise kernels use different explicit dtypes (%s then %s)", a, b),
+							ActionableRecommendation: "Check whether the conversion is required and whether both stages preserve the intended training dtype.",
+							NextMeasurement:          "inspect tensor dtype at the producer-consumer boundary",
+						})
+					}
+				}
 			}
 
 			// Sequential RMSNorm -> Block Quantization Fusion
 			if isNormKernel(ev1.Name) && isQuantKernel(ev2.Name) {
 				seenFusion[key] = true
-				finding := fmt.Sprintf("Redundant global memory round-trips for normalized activations: %s writes normalized activations to DRAM and %s immediately reads them back for quantization on stream %d", ev1.Name, ev2.Name, streamID)
+				finding := fmt.Sprintf("Possible normalized-activation round-trip: %s is followed by %s on stream %d; captured pair runtime is not an estimate of removable time", ev1.Name, ev2.Name, streamID)
 				if ps.count > 1 {
 					finding += fmt.Sprintf(" (occurred %d times", ps.count)
 					if ps.totalDur > 0 {
-						finding += fmt.Sprintf(", accumulating %s", time.Duration(ps.totalDur).String())
+						finding += fmt.Sprintf(", pair runtime %s", time.Duration(ps.totalDur).String())
 					}
 					finding += ")"
 				}
-				rec := fmt.Sprintf("Fuse normalization and quantization into a single kernel (e.g. fused %s_%s) that normalizes in shared memory/registers and directly stores quantized blocks to eliminate %d DRAM round-trips.", cleanName1, cleanName2, ps.count)
+				rec := fmt.Sprintf("Measure the normalized tensor bytes and achieved DRAM bandwidth first; if material, fuse %s + %s to avoid the intermediate write and read.", cleanName1, cleanName2)
 
 				report.Items = append(report.Items, Item{
 					rule:          "round-trip",
-					Severity:      SeverityCost,
+					Severity:      SeverityContext,
 					Category:      CategoryMemoryCompute,
-					EvidenceLevel: EvidenceSuspected,
-					// The pair is the unit of device time here, so the item carries the
-					// sum the finding already names. Without it the item reaches a
-					// consumer with neither device_time_nanos nor share_of_profile --
-					// Location.Kernel is "A -> B", which is no kernel in the profile, so
-					// the fill-in below looks it up and finds nothing. Pairs overlap, so
-					// these shares do not sum with the per-kernel ones.
-					DeviceTimeNanos: int64(ps.totalDur),
+					EvidenceLevel: EvidenceUnmeasured,
 					Location: Location{
 						Kernel: fmt.Sprintf("%s -> %s", ev1.Name, ev2.Name),
 					},
 					Finding:                  finding,
 					ActionableRecommendation: rec,
-					NextMeasurement:          "A/B wall-clock timing with fused kernel",
+					NextMeasurement:          "intermediate tensor bytes and achieved DRAM bandwidth, followed by A/B wall-clock timing",
 				})
 			}
 

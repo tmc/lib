@@ -6,6 +6,29 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 )
 
+// isStreamingKernelName recognizes naming conventions that identify a
+// bandwidth-oriented kernel without claiming a measured bytes-per-flop ratio.
+func isStreamingKernelName(name string) bool {
+	n := strings.ToLower(name)
+	return (strings.Contains(n, "transpose") && strings.Contains(n, "copy")) ||
+		strings.Contains(n, "triton_poi_") && !strings.Contains(n, "matmul") && !strings.Contains(n, "attention") ||
+		strings.Contains(n, "triton_per_") && (strings.Contains(n, "copy") || strings.Contains(n, "cast") || strings.Contains(n, "to_copy"))
+}
+
+func explicitDType(name string) string {
+	n := strings.ToLower(name)
+	switch {
+	case strings.Contains(n, "bfloat16"), strings.Contains(n, "bf16"):
+		return "bf16"
+	case strings.Contains(n, "c10::half"), strings.Contains(n, "float16"), strings.Contains(n, "fp16"), strings.Contains(n, "half"):
+		return "fp16"
+	case strings.Contains(n, "float32"), strings.Contains(n, "fp32"):
+		return "fp32"
+	default:
+		return ""
+	}
+}
+
 func isElementwise(ev timeline.Event) bool {
 	name := strings.ToLower(ev.Name)
 	if strings.Contains(name, "gemm") || strings.Contains(name, "matmul") ||

@@ -119,6 +119,7 @@ const keepPerRule = 3
 // ruleNames describes each collapsible rule, for the finding that holds the
 // rest of its findings.
 var ruleNames = map[string]string{
+	"single-warp":         "single-warp occupancy",
 	"imad-wide":           "scalar address arithmetic (IMAD.WIDE)",
 	"fastmath":            "precise float math with local memory",
 	"spill":               "register spill",

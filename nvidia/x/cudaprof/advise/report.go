@@ -178,7 +178,8 @@ type Item struct {
 
 // Report contains all recommendations resulting from analyzing a capture.
 type Report struct {
-	Items []Item `json:"items"`
+	Items            []Item `json:"items"`
+	EvidenceGuidance string `json:"evidence_guidance,omitempty"`
 
 	// SampleOnly reports that the capture carries PC samples but no device
 	// timing. A share of samples then says where execution was, never how
@@ -319,6 +320,9 @@ func (r *Report) MarkdownWithLimit(limit int) string {
 	if limit > 0 && len(r.Items) > limit {
 		omitted := len(r.Items) - limit
 		sb.WriteString(fmt.Sprintf("*... %d additional findings omitted (use --format=json for all, -e, or -limit=N).*\n", omitted))
+	}
+	if r.EvidenceGuidance != "" {
+		fmt.Fprintf(&sb, "**Evidence note:** %s\n", r.EvidenceGuidance)
 	}
 
 	return demangleText(sb.String())

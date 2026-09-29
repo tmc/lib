@@ -219,6 +219,7 @@ func run() error {
 		return err
 	}
 	reportProvenance(os.Stderr, cap)
+	reportMissingModuleCode(os.Stderr, cap)
 	os.Args = append(os.Args[:1], args...)
 	return driver.PProf(&driver.Options{Obj: tool, Fetch: fetch})
 }

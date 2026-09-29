@@ -1,6 +1,7 @@
 package advise
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -155,9 +156,15 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 			// a finding per instruction charged the kernel's time to each.
 			if len(imadWides) > 0 {
 				first := imadWides[0]
+				severity := SeverityCost
+				recommendation := "If address patterns are regular and aligned, use vectorized 128-bit memory addressing or hardware TMA descriptors on sm_90+ to eliminate scalar 64-bit integer address multiplications."
+				if isStreamingKernelName(fn.Name) {
+					severity = SeverityContext
+					recommendation = "This kernel name suggests a streaming copy or elementwise workload. Scalar address arithmetic is a low-priority static-code observation here; check global-memory throughput and transaction efficiency before changing address calculations."
+				}
 				report.Items = append(report.Items, Item{
 					rule:          "imad-wide",
-					Severity:      SeverityCost,
+					Severity:      severity,
 					Category:      CategoryArchitecture,
 					EvidenceLevel: EvidenceSuspected,
 					Location: Location{
@@ -167,7 +174,7 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 						Line:   first.SourceLine,
 					},
 					Finding:                  fmt.Sprintf("Scalar address arithmetic fallback (%s) in kernel %q: %d instructions, at %s", first.Opcode, fn.Name, len(imadWides), formatPCs(imadWides)),
-					ActionableRecommendation: "If address patterns are regular and aligned, use vectorized 128-bit memory addressing or hardware TMA descriptors on sm_90+ to eliminate scalar 64-bit integer address multiplications.",
+					ActionableRecommendation: recommendation,
 					NextMeasurement:          "A/B wall-clock timing or profiling with hardware instruction counters",
 				})
 			}
@@ -398,6 +405,7 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 
 	// 0. Capture Status & Integrity Audit
 	auditCaptureStatus(cap, report)
+	auditMissingModuleCode(cap, report)
 
 	// 3. CUBIN ELF Resource & Microarchitecture Occupancy Audit (via x/cudaoccupancy)
 	auditCUBINResourceOccupancy(cap, report, resources, launchesByKernel, math)
@@ -430,6 +438,44 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 	// Finalize device times and rank findings by device time
 	report.SampleOnly = !hasTiming
 	finalizeAndRankFindingsWithTiming(report, kernelTimes, totalTime, hasTiming)
+	for _, item := range report.Items {
+		if item.EvidenceLevel == EvidenceSuspected || item.EvidenceLevel == EvidenceUnmeasured {
+			report.EvidenceGuidance = "Suspected findings are heuristics. Capture with --pcsampling for per-PC evidence; bandwidth and occupancy claims require hardware counters through the CUPTI Profiling API with replay (for example, x/cuptirange)."
+			break
+		}
+	}
 
 	return report, nil
+}
+
+func auditMissingModuleCode(cap *cudacapture.Capture, report *Report) {
+	if cap == nil || report == nil {
+		return
+	}
+	var status struct {
+		Status struct {
+			OmittedFiles []struct {
+				Name   string `json:"name"`
+				Reason string `json:"reason"`
+			} `json:"omitted_files"`
+		} `json:"status"`
+	}
+	if json.Unmarshal(cap.Files["capture-status.json"], &status) != nil {
+		return
+	}
+	var omitted []string
+	for _, file := range status.Status.OmittedFiles {
+		if strings.HasSuffix(strings.ToLower(file.Name), ".cubin") && strings.Contains(strings.ToLower(file.Reason), "budget") {
+			omitted = append(omitted, fmt.Sprintf("%s (%s)", file.Name, file.Reason))
+		}
+	}
+	if len(omitted) == 0 {
+		return
+	}
+	report.Items = append(report.Items, Item{
+		Severity: SeverityReadFirst, severityByKind: true, Category: CategoryMemory, EvidenceLevel: EvidenceUnmeasured,
+		Finding:                  "Code not captured for over-budget module(s): " + strings.Join(omitted, ", "),
+		ActionableRecommendation: "Increase --capture-file-bytes or --capture-total-bytes on the capture that writes these CUBINs; code-based findings are incomplete for the omitted modules.",
+		NextMeasurement:          "rerun cudaprof advise after capturing the omitted module images",
+	})
 }

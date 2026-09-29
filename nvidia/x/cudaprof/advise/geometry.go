@@ -81,6 +81,7 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *Report) {
 					launch.Kernel, launch.BlockThreads, occupancyPct, residentWarpsPerSM, maxWarpsPerSM, blocksPerSM, provSuffix)
 
 				report.Items = append(report.Items, Item{
+					rule:                     "single-warp",
 					Severity:                 SeverityCost,
 					Category:                 CategoryArchitectureCompute,
 					EvidenceLevel:            EvidenceSuspected,
