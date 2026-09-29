@@ -108,6 +108,30 @@ func runInspectCFG(args []string, limits cudacapture.Limits) error {
 }
 
 func printCaptureCFG(w io.Writer, cap *cudacapture.Capture, kernel string, basicBlocks bool) error {
+	if cap != nil && len(cap.Modules) > 0 {
+		var graphs []string
+		for _, module := range cap.Modules {
+			graph, err := moduleCaptureDOT(cap, module, basicBlocks)
+			if err != nil {
+				continue
+			}
+			if kernel != "" {
+				graph, err = cudasass.ExtractDOTGraph(graph, kernel)
+				if err != nil {
+					continue
+				}
+			}
+			graphs = append(graphs, fmt.Sprintf("// Module: %s\n%s", module.ID, strings.TrimSpace(graph)))
+		}
+		if len(graphs) == 0 {
+			if kernel != "" {
+				return fmt.Errorf("kernel %q not found in captured module control-flow graphs", kernel)
+			}
+			return errors.New("capture modules contain no control-flow graph or disassemblable CUBIN")
+		}
+		_, err := io.WriteString(w, strings.Join(graphs, "\n\n")+"\n")
+		return err
+	}
 	dotText, err := findCaptureDOT(cap, basicBlocks)
 	if err != nil {
 		return err
@@ -126,6 +150,37 @@ func printCaptureCFG(w io.Writer, cap *cudacapture.Capture, kernel string, basic
 	}
 	_, err = io.WriteString(w, dotText)
 	return err
+}
+
+func moduleCaptureDOT(cap *cudacapture.Capture, module cudacapture.Module, basicBlocks bool) (string, error) {
+	role := module.Code.BBCFG
+	if !basicBlocks {
+		role = module.Code.CFG
+	}
+	if role != "" {
+		if data := cap.Files[role]; len(data) > 0 {
+			return string(data), nil
+		}
+	}
+	suffix, fallback := ".bbcfg.dot", "kernels.bbcfg.dot"
+	if !basicBlocks {
+		suffix, fallback = ".cfg.dot", "kernels.cfg.dot"
+	}
+	if data := cap.Files[module.ID+suffix]; len(data) > 0 {
+		return string(data), nil
+	}
+	if data := cap.Files[fallback]; len(data) > 0 && len(cap.Modules) == 1 {
+		return string(data), nil
+	}
+	cubin := cap.Files[module.Code.CUBIN]
+	if len(cubin) == 0 {
+		return "", fmt.Errorf("module %s has no CUBIN", module.ID)
+	}
+	graph, err := cudasass.DisassembleCFG(cubin, basicBlocks)
+	if err != nil {
+		return "", err
+	}
+	return graph, nil
 }
 
 func findCaptureDOT(cap *cudacapture.Capture, basicBlocks bool) (string, error) {
