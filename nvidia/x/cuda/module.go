@@ -237,9 +237,9 @@ func (k *Kernel) Launch(grid, block [3]uint32, sharedBytes uint32, stream driver
 			return fmt.Errorf("cuda: zero launch dimension")
 		}
 	}
-	if err := m.ctx.Run(func() error {
+	if err := m.ctx.run(func() error {
 		return k.raw.LaunchKernel(driver.Dim3{X: grid[0], Y: grid[1], Z: grid[2]}, driver.Dim3{X: block[0], Y: block[1], Z: block[2]}, sharedBytes, stream, args)
-	}); err != nil {
+	}, false); err != nil {
 		return fmt.Errorf("cuda: launch kernel: %w", err)
 	}
 	return nil
@@ -271,9 +271,9 @@ func (k *Kernel) LaunchEx(config *driver.LaunchConfig, args []unsafe.Pointer) er
 		config.BlockDim.X == 0 || config.BlockDim.Y == 0 || config.BlockDim.Z == 0 {
 		return fmt.Errorf("cuda: zero launch dimension")
 	}
-	if err := m.ctx.Run(func() error {
+	if err := m.ctx.run(func() error {
 		return k.raw.LaunchKernelEx(config, args)
-	}); err != nil {
+	}, false); err != nil {
 		return fmt.Errorf("cuda: launch kernel ex: %w", err)
 	}
 	return nil

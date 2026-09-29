@@ -31,8 +31,16 @@ func (c *Context) Device() *Device {
 // Run executes the given function with this context bound as the current context
 // for the calling OS thread. It guarantees that the goroutine will not be migrated
 // to another OS thread during execution via runtime.LockOSThread. Run restores the
-// context that was current on that thread before it returns.
+// context that was current on that thread before it returns, including when fn
+// changes the binding, returns an error, or panics. Operations inside Run may
+// reuse its binding. Run does not leave a new binding on the calling thread.
 func (c *Context) Run(fn func() error) (err error) {
+	return c.run(fn, true)
+}
+
+// run may omit restoration when the context was already current, but only if
+// restore is false and fn is an internal operation that cannot change it.
+func (c *Context) run(fn func() error, restore bool) (err error) {
 	if c == nil {
 		return errors.New("cuda: nil context")
 	}
@@ -54,12 +62,14 @@ func (c *Context) Run(fn func() error) (err error) {
 			return fmt.Errorf("cuda: set current context: %w", err)
 		}
 	}
-	// Even if our context was already current, fn may bind a different one.
-	defer func() {
-		if restoreErr := previous.SetCurrent(); restoreErr != nil {
-			err = errors.Join(err, fmt.Errorf("cuda: restore current context: %w", restoreErr))
-		}
-	}()
+	// Public callbacks may rebind even when our context was already current.
+	if restore || previous != c.raw {
+		defer func() {
+			if restoreErr := previous.SetCurrent(); restoreErr != nil {
+				err = errors.Join(err, fmt.Errorf("cuda: restore current context: %w", restoreErr))
+			}
+		}()
+	}
 	return fn()
 }
 
