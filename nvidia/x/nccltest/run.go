@@ -352,6 +352,13 @@ func runSweepContext(ctx context.Context, c Case, o Options, omit bool, sizes []
 			if err := s.sendArg.CopyFromHost(inputData); err != nil {
 				return err
 			}
+			// A copy from pageable memory can return before its DMA
+			// lands, and the collectives run on a non-blocking stream
+			// that does not wait for the legacy stream. Without this,
+			// NCCL can read a stale send buffer on GB10.
+			if err := driver.CtxSynchronize(); err != nil {
+				return err
+			}
 		}
 		return nil
 	}
