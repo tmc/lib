@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -64,31 +65,12 @@ func runPressureCommand(rawArgs []string) error {
 }
 
 func printCapturePressure(w io.Writer, cap *cudacapture.Capture, kernel string) error {
-	disasm, err := loadDisassemblyWithPressure(cap)
+	reportMissingModuleCode(w, cap)
+	images, err := loadDisassembliesWithPressureForKernel(cap, kernel)
 	if err != nil {
 		return err
 	}
-
-	var targets []*cudasass.Function
-	if kernel != "" {
-		fn := disasm.Function(kernel)
-		if fn == nil {
-			for _, f := range disasm.Functions {
-				if strings.EqualFold(f.Name, kernel) || strings.Contains(f.Name, kernel) {
-					fn = f
-					break
-				}
-			}
-		}
-		if fn == nil {
-			return fmt.Errorf("kernel %q not found in disassembly", kernel)
-		}
-		targets = []*cudasass.Function{fn}
-	} else {
-		targets = disasm.Functions
-	}
-
-	if len(targets) == 0 {
+	if len(images) == 0 {
 		return errors.New("no functions found in disassembly")
 	}
 
@@ -102,13 +84,36 @@ func printCapturePressure(w io.Writer, cap *cudacapture.Capture, kernel string) 
 	} else if loadErr != nil {
 		fmt.Fprintf(w, "note: kernel offsets unavailable, resolving addresses from the disassembly alone: %v\n\n", loadErr)
 	}
-	stalls := extractStallMetrics(cap, code, disasm)
-
-	for i, fn := range targets {
+	var targets []struct {
+		module string
+		disasm *cudasass.Disassembly
+		fn     *cudasass.Function
+	}
+	for _, image := range images {
+		for _, fn := range image.disasm.Functions {
+			if kernel != "" && !strings.EqualFold(fn.Name, kernel) && !strings.Contains(fn.Name, kernel) {
+				continue
+			}
+			targets = append(targets, struct {
+				module string
+				disasm *cudasass.Disassembly
+				fn     *cudasass.Function
+			}{image.module, image.disasm, fn})
+		}
+	}
+	if len(targets) == 0 && kernel != "" {
+		return fmt.Errorf("kernel %q not found in disassembly", kernel)
+	}
+	for i, target := range targets {
 		if i > 0 {
 			fmt.Fprintln(w)
 		}
+		fn, disasm := target.fn, target.disasm
+		if target.module != "" {
+			fmt.Fprintf(w, "Module: %s\n", target.module)
+		}
 		fmt.Fprintf(w, "Kernel: %s\n", fn.Name)
+		stalls := extractStallMetrics(cap, code, disasm)
 
 		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 		if stalls.hasStalls {
@@ -157,26 +162,92 @@ func printCapturePressure(w io.Writer, cap *cudacapture.Capture, kernel string) 
 }
 
 func loadDisassemblyWithPressure(cap *cudacapture.Capture) (*cudasass.Disassembly, error) {
+	images, err := loadDisassembliesWithPressure(cap)
+	if err != nil {
+		return nil, err
+	}
+	if len(images) != 1 {
+		return nil, errors.New("capture has multiple module images; select a kernel with pressure <kernel> capture.pprof")
+	}
+	return images[0].disasm, nil
+}
+
+type pressureImage struct {
+	module string
+	disasm *cudasass.Disassembly
+}
+
+func loadDisassembliesWithPressure(cap *cudacapture.Capture) ([]pressureImage, error) {
+	return loadDisassembliesWithPressureForKernel(cap, "")
+}
+
+func loadDisassembliesWithPressureForKernel(cap *cudacapture.Capture, kernel string) ([]pressureImage, error) {
 	if cap == nil {
 		return nil, errors.New("nil capture")
 	}
-
-	// 1. Try reading pre-joined pressure from capture files if present.
-	if disasm, err := capturefiles.Pressure(cap); err == nil && disasm != nil {
-		return disasm, nil
-	}
-
-	// 2. If pre-joined pressure is not present, extract CUBIN and run DisassembleWithPressure.
-	cubinData, ok := findCUBIN(cap)
-	if ok && len(cubinData) > 0 {
+	if len(cap.Modules) == 0 {
+		if disasm, err := capturefiles.Pressure(cap); err == nil && disasm != nil {
+			return []pressureImage{{disasm: disasm}}, nil
+		}
+		cubinData, ok := findCUBIN(cap)
+		if !ok || len(cubinData) == 0 {
+			return nil, errors.New("capture contains neither CUBIN nor SASS disassembly with register pressure")
+		}
 		disasm, err := cudasass.DisassembleWithPressure(cubinData)
 		if err != nil {
 			return nil, fmt.Errorf("disassemble with pressure: %w", err)
 		}
-		return disasm, nil
+		return []pressureImage{{disasm: disasm}}, nil
 	}
+	var images []pressureImage
+	for _, module := range cap.Modules {
+		if kernel != "" && !moduleMayContainKernel(cap, module, kernel) {
+			continue
+		}
+		local := *cap
+		local.Code = module.Code
+		local.Modules = nil
+		disasm, err := capturefiles.Pressure(&local)
+		if err != nil || disasm == nil {
+			cubin := cap.Files[module.Code.CUBIN]
+			if len(cubin) == 0 {
+				continue
+			}
+			disasm, err = cudasass.DisassembleWithPressure(cubin)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("module %s: disassemble with pressure: %w", module.ID, err)
+		}
+		if disasm != nil {
+			images = append(images, pressureImage{module: module.ID, disasm: disasm})
+		}
+	}
+	if len(images) == 0 {
+		if kernel != "" {
+			return nil, fmt.Errorf("kernel %q not found in captured module images", kernel)
+		}
+		return nil, errors.New("capture contains no module CUBIN or SASS disassembly with register pressure")
+	}
+	return images, nil
+}
 
-	return nil, errors.New("capture contains neither CUBIN nor SASS disassembly with register pressure")
+// moduleMayContainKernel avoids running nvdisasm on unrelated module images
+// when pressure is requested for one named kernel. A byte scan for the
+// requested symbol can rule a module out without parsing a large symbol table.
+func moduleMayContainKernel(cap *cudacapture.Capture, module cudacapture.Module, kernel string) bool {
+	needle := []byte(kernel)
+	if sass := cap.Files[module.Code.SASS]; len(sass) != 0 {
+		if bytes.Contains(sass, needle) {
+			return true
+		}
+	}
+	cubin := cap.Files[module.Code.CUBIN]
+	if len(cubin) == 0 {
+		return false
+	}
+	// Kernel identifiers occur in cubin symbol strings. A raw substring scan
+	// avoids parsing/allocating the full symbol table of a very large fatbin.
+	return bytes.Contains(cubin, needle)
 }
 
 func findCUBIN(cap *cudacapture.Capture) ([]byte, bool) {

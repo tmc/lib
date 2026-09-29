@@ -107,6 +107,31 @@ func testCaptureWithPressure(t *testing.T, withStalls bool) (*cudacapture.Captur
 	return cap, capturePath
 }
 
+func TestModuleMayContainKernel(t *testing.T) {
+	cap := &cudacapture.Capture{Files: map[string][]byte{
+		"target.cubin": []byte("ELF symbol _transpose_copy_kernel_32"),
+		"other.cubin":  []byte("ELF symbol unrelated_kernel"),
+		"target.sass":  []byte(".section .text._transpose_copy_kernel"),
+	}}
+	tests := []struct {
+		name   string
+		module cudacapture.Module
+		want   bool
+	}{
+		{"cubin symbol", cudacapture.Module{Code: cudacapture.CodeFiles{CUBIN: "target.cubin"}}, true},
+		{"unrelated cubin", cudacapture.Module{Code: cudacapture.CodeFiles{CUBIN: "other.cubin"}}, false},
+		{"sass symbol", cudacapture.Module{Code: cudacapture.CodeFiles{SASS: "target.sass"}}, true},
+		{"no cubin", cudacapture.Module{}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := moduleMayContainKernel(cap, tt.module, "_transpose_copy_kernel"); got != tt.want {
+				t.Errorf("moduleMayContainKernel() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRunPressureCommand(t *testing.T) {
 	_, capturePath := testCaptureWithPressure(t, false)
 
