@@ -8,3 +8,15 @@ ITERM_SESSION_ID: w13t0p9:E8F57AFD-1DAC-47B0-AA52-5A76722DD540
 session=f67c2dcc-2b3c-4d7a-91ca-4741e68f9911
 session_url=https://claude.ai/code/session_01EtvqCzGak7aomYVo1jAaL4
 note: history rewrite for the first public release; see main-clean and next
+
+commit: e4556cd0d1f6446e2ab85dde8b44d37a6c5fbf5d
+date: 2026-09-28T19:43:12-07:00
+agent: Codex rebase_next
+model: GPT-6
+claude-code version: 2.1.284 (Claude Code)
+codex version: codex-cli 0.158.0
+tty: none
+pid: 1631746 (note writer)
+ITERM_SESSION_ID: unset
+rebased from: 6d2206d7f4d86a474c745be2068ad5efe2e47941
+base: 0d7722f39189be97e9ceb9ab8363a91016b32d17
