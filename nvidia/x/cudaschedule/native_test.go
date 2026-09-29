@@ -86,6 +86,9 @@ func TestCampaignNativeHarness(t *testing.T) {
 	fmt.Fprintln(os.Stdout, "PASS: shared handoff produced 1")
 }
 
+// schedule_race.ptx gives the reader a bounded loop so the pristine writer
+// usually publishes first. A delay before the writer's shared store can
+// reverse that order; the sentinel then makes a lost write fail the output check.
 func TestCampaign_FindingReproducesFromSeed(t *testing.T) {
 	if _, err := os.Stat("/dev/nvidiactl"); err != nil {
 		t.Skip("no NVIDIA device")

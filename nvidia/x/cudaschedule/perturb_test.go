@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudapipeline"
+	"github.com/tmc/lib/nvidia/x/cudaptx"
 	"github.com/tmc/lib/nvidia/x/cudaschedule"
 )
 
@@ -328,6 +329,7 @@ func TestPerturb_InlineAsmInjectionStaysOutsideMarkers(t *testing.T) {
 // end inline asm
     ret;
 }
+
 `
 	for seed := uint64(0); seed < 256; seed++ {
 		r, err := cudaschedule.Perturb(inline, cudaschedule.Options{Seed: seed, Intensity: 2})
@@ -351,4 +353,128 @@ func TestPerturb_InlineAsmInjectionStaysOutsideMarkers(t *testing.T) {
 			offset = i + len("nanosleep.u32")
 		}
 	}
+}
+
+func TestPerturb_PreservesSameLineStatementsAndIgnoresComments(t *testing.T) {
+	const src = `.version 8.7
+.target sm_90
+.address_size 64
+.visible .entry same_line() {
+    .reg .pred %p0;
+    .reg .b32 %r<2>;
+    .reg .b64 %rd<2>;
+    mov.u32 %r1, 0;
+    setp.eq.u32 %p0, %r1, 0;
+L_start: /* atom.global.add.u32 is only comment text */ @%p0 atom.global.add.u32 %r0, [%rd0], 1; st.global.u32 [%rd1], %r0; // trailing source comment
+    membar.gl; bar.sync 0;
+    ret;
+}
+`
+
+	baseSites, err := cudaschedule.Analyze(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(baseSites) != 3 || baseSites[0].Head != "atom.global.add.u32" || baseSites[0].Predicate == "" {
+		t.Fatalf("sites = %+v, want atom, fence, barrier", baseSites)
+	}
+	commentEnd := strings.LastIndex(src[:baseSites[0].Span.Start], "*/") + len("*/")
+	if commentEnd > baseSites[0].Span.Start || !strings.HasPrefix(src[baseSites[0].Span.Start:], baseSites[0].Predicate) {
+		t.Fatalf("first atomic span does not start at the instruction after its comment: %+v", baseSites[0])
+	}
+
+	originalInstructions := ptxInstructionSignatures(t, src)
+	var sawInjection bool
+	for seed := uint64(0); seed < 128; seed++ {
+		rewrite, err := cudaschedule.Perturb(src, cudaschedule.Options{Seed: seed, Intensity: 2})
+		if err != nil {
+			t.Fatalf("seed %d: Perturb: %v", seed, err)
+		}
+		if rewrite.Report.SitesInjected == 0 {
+			continue
+		}
+		sawInjection = true
+		actual := ptxInstructionSignatures(t, rewrite.PTX)
+		var preserved []string
+		for _, signature := range actual {
+			if !strings.Contains(signature, "nanosleep.u32 ") {
+				preserved = append(preserved, signature)
+			}
+		}
+		if !sameStrings(preserved, originalInstructions) {
+			t.Fatalf("seed %d changed source instructions:\nwant %q\n got %q\n%s", seed, originalInstructions, preserved, rewrite.PTX)
+		}
+
+		rewrittenSites, err := cudaschedule.Analyze(rewrite.PTX)
+		if err != nil {
+			t.Fatalf("seed %d rewritten Analyze: %v\n%s", seed, err, rewrite.PTX)
+		}
+		if len(rewrittenSites) != len(baseSites) {
+			t.Fatalf("seed %d sites = %+v, want %+v", seed, rewrittenSites, baseSites)
+		}
+		for i := range baseSites {
+			before, after := baseSites[i], rewrittenSites[i]
+			if before.Callable != after.Callable || before.Kind != after.Kind || before.Head != after.Head || before.Predicate != after.Predicate || before.Text != after.Text {
+				t.Fatalf("seed %d site %d changed:\nbefore=%+v\nafter=%+v", seed, i, before, after)
+			}
+		}
+
+		markers := 0
+		for _, line := range strings.Split(rewrite.PTX, "\n") {
+			if i := strings.Index(line, "// ptx_schedule before"); i >= 0 {
+				markers++
+				if strings.TrimSpace(line[i+len("// ptx_schedule before"):]) != "" {
+					t.Fatalf("seed %d has PTX after injection marker comment: %q", seed, line)
+				}
+			}
+			if i := strings.Index(line, "// ptx_schedule after"); i >= 0 {
+				markers++
+				if strings.TrimSpace(line[i+len("// ptx_schedule after"):]) != "" {
+					t.Fatalf("seed %d has PTX after injection marker comment: %q", seed, line)
+				}
+			}
+		}
+		wantMarkers := 0
+		for _, decision := range rewrite.Report.Decisions {
+			if decision.BeforeNs > 0 {
+				wantMarkers++
+			}
+			if decision.AfterNs > 0 {
+				wantMarkers++
+			}
+		}
+		if markers != wantMarkers {
+			t.Fatalf("seed %d marker count = %d, want %d", seed, markers, wantMarkers)
+		}
+	}
+	if !sawInjection {
+		t.Fatal("the full-intensity seed set produced no non-empty rewrite")
+	}
+}
+
+func ptxInstructionSignatures(t *testing.T, src string) []string {
+	t.Helper()
+	module, err := cudaptx.ParseString(src)
+	if err != nil {
+		t.Fatalf("parse PTX instructions: %v", err)
+	}
+	var instructions []string
+	for _, kernel := range module.Kernels {
+		for _, inst := range kernel.Instructions {
+			instructions = append(instructions, inst.Predicate+" "+inst.Opcode+" "+inst.Operands)
+		}
+	}
+	return instructions
+}
+
+func sameStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

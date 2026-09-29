@@ -6,16 +6,17 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tmc/lib/nvidia/x/cudaptx"
 	"github.com/tmc/lib/nvidia/x/cudaschedule"
 )
 
 func TestNativeScheduleFixtureAnalyzes(t *testing.T) {
 	for _, fixture := range []struct {
-		name        string
-		wantBarrier bool
+		name         string
+		wantBarriers int
 	}{
-		{"schedule_race.ptx", false},
-		{"schedule_race_clean.ptx", true},
+		{"schedule_race.ptx", 1},
+		{"schedule_race_clean.ptx", 2},
 	} {
 		ptx, err := os.ReadFile(filepath.Join("testdata", fixture.name))
 		if err != nil {
@@ -25,12 +26,14 @@ func TestNativeScheduleFixtureAnalyzes(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Analyze %s: %v", fixture.name, err)
 		}
-		barrier := false
+		barriers := 0
 		for _, site := range sites {
-			barrier = barrier || site.Kind == cudaschedule.SiteBarrier
+			if site.Kind == cudaschedule.SiteBarrier {
+				barriers++
+			}
 		}
-		if barrier != fixture.wantBarrier {
-			t.Fatalf("%s barrier site=%t, want %t (sites=%+v)", fixture.name, barrier, fixture.wantBarrier, sites)
+		if barriers != fixture.wantBarriers {
+			t.Fatalf("%s barrier sites=%d, want %d (sites=%+v)", fixture.name, barriers, fixture.wantBarriers, sites)
 		}
 		for seed := uint64(17); seed < 49; seed++ {
 			rewrite, err := cudaschedule.Perturb(string(ptx), cudaschedule.Options{Seed: seed, Intensity: 2})
@@ -41,6 +44,114 @@ func TestNativeScheduleFixtureAnalyzes(t *testing.T) {
 				t.Fatalf("%s seed %d reported injection without nanosleep: %+v", fixture.name, seed, rewrite.Report)
 			}
 		}
+	}
+}
+
+func TestNativeRaceFixturesInitializeHandoffAndExposeReversingDraw(t *testing.T) {
+	fixtures := []struct {
+		name      string
+		wantClean bool
+	}{
+		{name: "schedule_race.ptx"},
+		{name: "schedule_race_clean.ptx", wantClean: true},
+	}
+	for _, fixture := range fixtures {
+		t.Run(fixture.name, func(t *testing.T) {
+			data, err := os.ReadFile(filepath.Join("testdata", fixture.name))
+			if err != nil {
+				t.Fatal(err)
+			}
+			module, err := cudaptx.ParseString(string(data))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(module.Kernels) != 1 {
+				t.Fatalf("fixture has %d kernels, want one", len(module.Kernels))
+			}
+			instructions := module.Kernels[0].Instructions
+			find := func(predicate func(cudaptx.Instruction) bool, start int) int {
+				for i := start; i < len(instructions); i++ {
+					if predicate(instructions[i]) {
+						return i
+					}
+				}
+				return -1
+			}
+			initValue := find(func(inst cudaptx.Instruction) bool {
+				return inst.Opcode == "mov.u32" && strings.Contains(inst.Operands, "%r3, 0")
+			}, 0)
+			sentinelStore := find(func(inst cudaptx.Instruction) bool {
+				return inst.Opcode == "st.volatile.shared.u32" && strings.Contains(inst.Operands, "[handoff], %r3")
+			}, 0)
+			initBarrier := find(func(inst cudaptx.Instruction) bool { return inst.Opcode == "bar.sync" }, sentinelStore+1)
+			writerValue := find(func(inst cudaptx.Instruction) bool {
+				return inst.Opcode == "mov.u32" && strings.Contains(inst.Operands, "%r1, 1")
+			}, initBarrier+1)
+			writerStore := find(func(inst cudaptx.Instruction) bool {
+				return inst.Opcode == "st.volatile.shared.u32" && strings.Contains(inst.Operands, "[handoff], %r1")
+			}, writerValue+1)
+			readerLoad := find(func(inst cudaptx.Instruction) bool {
+				return inst.Opcode == "ld.volatile.shared.u32" && strings.Contains(inst.Operands, "[handoff]")
+			}, writerStore+1)
+			if initValue < 0 || sentinelStore < 0 || initBarrier < 0 || writerValue < 0 || writerStore < 0 || readerLoad < 0 || !(initValue < sentinelStore && sentinelStore < initBarrier && initBarrier < writerValue && writerValue < writerStore && writerStore < readerLoad) {
+				t.Fatalf("sentinel initialization/store/barrier/data access order invalid: value=%d sentinel=%d barrier=%d writer-value=%d writer=%d reader=%d", initValue, sentinelStore, initBarrier, writerValue, writerStore, readerLoad)
+			}
+			barrierBetween := false
+			for _, inst := range instructions[writerStore+1 : readerLoad] {
+				barrierBetween = barrierBetween || inst.Opcode == "bar.sync"
+			}
+			if barrierBetween != fixture.wantClean {
+				t.Fatalf("writer-to-reader barrier=%t, want %t", barrierBetween, fixture.wantClean)
+			}
+			if !strings.Contains(string(data), "reader work makes the pristine writer likely to publish first") || !strings.Contains(string(data), "writer's shared store can reverse this order") {
+				t.Fatal("fixture does not document the pristine bias and reversing perturbation")
+			}
+			ptx := string(data)
+			for _, fragment := range []string{
+				"setp.eq.u32 %p1, %r0, 0;",
+				"@!%p1 bra INIT_DONE;",
+				"setp.eq.u32 %p0, %r0, 0;",
+				"@!%p0 bra READER;",
+				"mov.u32 %r1, 64;",
+				"sub.u32 %r1, %r1, 1;",
+				"@%p2 bra READER_DELAY;",
+			} {
+				if !strings.Contains(ptx, fragment) {
+					t.Fatalf("fixture does not preserve single-writer/reader-bias fragment %q", fragment)
+				}
+			}
+		})
+	}
+	nativeTest, err := os.ReadFile("native_test.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(nativeTest), "if got[0] != 1") {
+		t.Fatal("native output check no longer compares the handoff against 1")
+	}
+
+	raceData, err := os.ReadFile(filepath.Join("testdata", "schedule_race.ptx"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sites, err := cudaschedule.Analyze(string(raceData))
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundWriterDelay := false
+	for seed := uint64(17); seed < 49; seed++ {
+		rewrite, err := cudaschedule.Perturb(string(raceData), cudaschedule.Options{Seed: seed, Intensity: 2})
+		if err != nil {
+			t.Fatalf("seed %d: %v", seed, err)
+		}
+		for _, decision := range rewrite.Report.Decisions {
+			if decision.BeforeNs > 0 && strings.Contains(decision.Site.Text, "st.volatile.shared.u32 [handoff], %r1") {
+				foundWriterDelay = true
+			}
+		}
+	}
+	if !foundWriterDelay {
+		t.Fatalf("sweep seeds 17..48 never delay the writer store; sites=%+v", sites)
 	}
 }
 

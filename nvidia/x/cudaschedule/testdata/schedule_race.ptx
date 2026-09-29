@@ -6,20 +6,33 @@
     .param .u64 output
 )
 {
-    .reg .pred %p<2>;
+    .reg .pred %p<3>;
     .reg .b32 %r<4>;
     .reg .b64 %rd<2>;
     .shared .align 4 .b32 handoff;
 
     ld.param.u64 %rd0, [output];
     mov.u32 %r0, %tid.x;
-    setp.lt.u32 %p0, %r0, 32;
+    setp.eq.u32 %p1, %r0, 0;
+    @!%p1 bra INIT_DONE;
+    mov.u32 %r3, 0;
+    st.volatile.shared.u32 [handoff], %r3;
+INIT_DONE:
+    bar.sync 0;
+    setp.eq.u32 %p0, %r0, 0;
     @!%p0 bra READER;
     mov.u32 %r1, 1;
     st.volatile.shared.u32 [handoff], %r1;
     bra JOIN;
 
 READER:
+    // Bounded reader work makes the pristine writer likely to publish first.
+    // Delaying the writer's shared store can reverse this order.
+    mov.u32 %r1, 64;
+READER_DELAY:
+    sub.u32 %r1, %r1, 1;
+    setp.ne.u32 %p2, %r1, 0;
+    @%p2 bra READER_DELAY;
     bra JOIN;
 
 JOIN:

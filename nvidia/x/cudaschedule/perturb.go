@@ -126,7 +126,7 @@ func Perturb(src string, opts Options) (Rewrite, error) {
 			edits = append(edits, edit{offset: beforePoint, order: 0, text: insertText})
 		}
 		if afterNs > 0 {
-			insertText := fmt.Sprintf("\nnanosleep.u32 %d; // ptx_schedule after", afterNs)
+			insertText := fmt.Sprintf("\nnanosleep.u32 %d; // ptx_schedule after\n", afterNs)
 			edits = append(edits, edit{offset: afterPoint, order: 1, text: insertText})
 		}
 

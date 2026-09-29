@@ -147,7 +147,7 @@ func Analyze(src string) ([]Site, error) {
 			callableEndOffset = len(src)
 		}
 
-		instSpans, err := locateInstructionSpans(src, lineOffsets, k.Instructions)
+		instSpans, err := locateInstructionSpans(src, callableStartOffset, k.Instructions)
 		if err != nil {
 			return nil, fmt.Errorf("cudaschedule: callable %q: %w", k.Name, err)
 		}
@@ -341,15 +341,11 @@ func splitLines(s string) []string {
 	return lines
 }
 
-func locateInstructionSpans(src string, lineOffsets []int, instructions []cudaptx.Instruction) ([]Span, error) {
+func locateInstructionSpans(src string, startOffset int, instructions []cudaptx.Instruction) ([]Span, error) {
 	spans := make([]Span, len(instructions))
-	lastOffset := 0
+	lastOffset := startOffset
 	for i, inst := range instructions {
-		startLineOffset := 0
-		if inst.Line > 0 && inst.Line-1 < len(lineOffsets) {
-			startLineOffset = lineOffsets[inst.Line-1]
-		}
-		searchStart := max(lastOffset, startLineOffset)
+		searchStart := lastOffset
 		if searchStart > len(src) {
 			searchStart = len(src)
 		}
@@ -359,27 +355,128 @@ func locateInstructionSpans(src string, lineOffsets []int, instructions []cudapt
 			needle = inst.Predicate
 		}
 
-		idx := strings.Index(src[searchStart:], needle)
-		if idx < 0 {
-			// Fallback: search anywhere after startLineOffset
-			idx = strings.Index(src[startLineOffset:], needle)
-			if idx < 0 {
-				return nil, fmt.Errorf("could not locate instruction statement %q at line %d", needle, inst.Line)
-			}
-			searchStart = startLineOffset
+		stmtStart := findPTXToken(src, searchStart, needle)
+		if stmtStart < 0 {
+			return nil, fmt.Errorf("could not locate instruction statement %q at line %d", needle, inst.Line)
 		}
-
-		stmtStart := searchStart + idx
-		semiIdx := strings.IndexByte(src[stmtStart:], ';')
-		if semiIdx < 0 {
+		stmtEnd := findPTXStatementEnd(src, stmtStart)
+		if stmtEnd < 0 {
 			return nil, fmt.Errorf("instruction statement missing terminating semicolon at line %d", inst.Line)
 		}
-		stmtEnd := stmtStart + semiIdx + 1
 
 		spans[i] = Span{Start: stmtStart, End: stmtEnd}
 		lastOffset = stmtEnd
 	}
 	return spans, nil
+}
+
+// findPTXToken locates a token outside PTX comments and quoted strings.
+func findPTXToken(src string, start int, token string) int {
+	var lineComment, blockComment, quoted, escaped bool
+	for i := start; i < len(src); i++ {
+		c := src[i]
+		if lineComment {
+			if c == '\n' {
+				lineComment = false
+			}
+			continue
+		}
+		if blockComment {
+			if c == '*' && i+1 < len(src) && src[i+1] == '/' {
+				blockComment = false
+				i++
+			}
+			continue
+		}
+		if quoted {
+			if escaped {
+				escaped = false
+			} else if c == '\\' {
+				escaped = true
+			} else if c == '"' {
+				quoted = false
+			}
+			continue
+		}
+		if c == '/' && i+1 < len(src) {
+			switch src[i+1] {
+			case '/':
+				lineComment = true
+				i++
+				continue
+			case '*':
+				blockComment = true
+				i++
+				continue
+			}
+		}
+		if c == '"' {
+			quoted = true
+			continue
+		}
+		if i+len(token) <= len(src) && src[i:i+len(token)] == token &&
+			(i == start || !ptxWordByte(src[i-1])) &&
+			(i+len(token) == len(src) || !ptxWordByte(src[i+len(token)])) &&
+			(i+len(token) == len(src) || src[i+len(token)] != ':') {
+			return i
+		}
+	}
+	return -1
+}
+
+func findPTXStatementEnd(src string, start int) int {
+	var lineComment, blockComment, quoted, escaped bool
+	for i := start; i < len(src); i++ {
+		c := src[i]
+		if lineComment {
+			if c == '\n' {
+				lineComment = false
+			}
+			continue
+		}
+		if blockComment {
+			if c == '*' && i+1 < len(src) && src[i+1] == '/' {
+				blockComment = false
+				i++
+			}
+			continue
+		}
+		if quoted {
+			if escaped {
+				escaped = false
+			} else if c == '\\' {
+				escaped = true
+			} else if c == '"' {
+				quoted = false
+			}
+			continue
+		}
+		if c == '/' && i+1 < len(src) {
+			switch src[i+1] {
+			case '/':
+				lineComment = true
+				i++
+				continue
+			case '*':
+				blockComment = true
+				i++
+				continue
+			}
+		}
+		if c == '"' {
+			quoted = true
+			continue
+		}
+		if c == ';' {
+			return i + 1
+		}
+	}
+	return -1
+}
+
+func ptxWordByte(c byte) bool {
+	return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' ||
+		c >= '0' && c <= '9' || c == '_' || c == '.' || c == '$'
 }
 
 type labelInfo struct {
