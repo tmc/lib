@@ -136,7 +136,7 @@ func TestPhysicalCorrelation(t *testing.T) {
 				t.Fatal(err)
 			}
 			var a captureActivity
-			if record.Kind == recordActivity {
+			if record.Kind == wire.KindActivity {
 				if err := json.Unmarshal(record.Payload, &a); err != nil {
 					t.Fatal(err)
 				}
