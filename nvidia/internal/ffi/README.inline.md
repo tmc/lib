@@ -6,13 +6,16 @@ so the package has no github.com/ebitengine/purego dependency and can coexist in
 one binary with stock purego.
 
 With -with-register, register_func.go supplies the local, error-returning
-RegisterFunc API for linux/arm64 and darwin/arm64. This is tmc/ffi code copied
-with its source provenance, not a patch to purego RegisterFunc. Small non-HFA
-structs are copied as complete integer memory chunks, including a partial final
-word. Unsupported signatures return an error and leave the destination unchanged;
-consumers must check that error and must not fall back to stock registration.
-Strings, slices, callbacks as arguments, HFA, structs over 16 bytes, pointer fields
-in structs, and register exhaustion are unsupported. NewCallback is a separate
+RegisterFunc API for linux/arm64, darwin/arm64 and the System V amd64 platforms.
+This is tmc/ffi code copied with its source provenance, not a patch to purego
+RegisterFunc. On arm64, small non-HFA structs are copied as complete integer
+memory chunks, including a partial final word; on amd64, struct eightbytes are
+classified INTEGER or SSE and overflow goes on the stack. Unsupported signatures
+return an error and leave the destination unchanged; consumers must check that
+error and must not fall back to stock registration. Strings, slices, callbacks as
+arguments and pointer fields in structs are unsupported everywhere; so are HFA,
+structs over 16 bytes and register exhaustion on arm64, and struct results in two
+SSE registers on amd64. NewCallback is a separate
 -with-callbacks tier. Go and C layouts must match, including padding.
 
 The inline coexistence gate has run on darwin/amd64, darwin/arm64 and linux/arm64.

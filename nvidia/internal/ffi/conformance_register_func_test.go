@@ -2,7 +2,7 @@
 // Regenerate with ffi-eject rather than editing here; local changes are lost
 // on the next eject and weaken the drift check this suite exists to provide.
 
-//go:build arm64 && (darwin || linux)
+//go:build (amd64 || arm64) && (darwin || linux)
 
 package ffi_test
 
@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"unsafe"
@@ -22,6 +23,7 @@ import (
 type team12 struct{ A, B, C int32 }
 
 const registerFuncC = `
+#include <stddef.h>
 #include <stdint.h>
 typedef struct { int32_t a, b, c; } team;
 typedef struct { int32_t a, b; } pair;
@@ -39,6 +41,34 @@ int follow(uint64_t first, team t, uint64_t tail, uint64_t *out) {
 double mixed_value(mixed v, uint64_t tail) { return v.i + v.d + tail; }
 float scalar(float f, int8_t i, uint16_t u, double d) { return f+i+u+d; }
 void *pointer_identity(void *p) { return p; }
+typedef struct { uint64_t a, b, c; } large;
+typedef struct { double a, b; } dpair;
+typedef struct { float a, b, c; } ftriple;
+typedef struct { double d; int64_t i; } dmixed;
+typedef struct { float f; int32_t i; double d; } fmixed;
+int le_info(void *win, size_t off, int32_t lsa, team t, uint32_t *id, size_t *sz) {
+ *id = (uint32_t)t.a + (uint32_t)t.b + (uint32_t)t.c + lsa;
+ *sz = (size_t)win + off;
+ return 3;
+}
+int gin_barrier(void *comm, team t, int32_t n, uint64_t *h, uint64_t *r) {
+ *h = (uintptr_t)comm + (uint32_t)t.a + (uint32_t)t.b + (uint32_t)t.c;
+ *r = n;
+ return 5;
+}
+int32_t rank_to(void *comm, team t, int32_t rank) { return t.a * 100 + t.b * 10 + t.c + rank + (comm != 0); }
+uint64_t large_sum(uint64_t x, large v, uint64_t y) { return x + v.a * 3 + v.b * 5 + v.c * 7 + y; }
+large large_make(uint64_t a, uint64_t b) { return (large){a, b, a + b}; }
+double dpair_sum(dpair p, double x) { return p.a * 2 + p.b + x; }
+float ftriple_sum(ftriple t) { return t.a + t.b * 2 + t.c * 4; }
+dmixed dmixed_make(double d, int64_t i) { return (dmixed){d, i}; }
+double fmixed_sum(fmixed m) { return m.f + m.i + m.d; }
+uint64_t spill(uint64_t a, uint64_t b, uint64_t c, uint64_t d, uint64_t e, team t, uint64_t f) {
+ return a + b + c + d + e + (uint32_t)t.a + (uint32_t)t.b + (uint32_t)t.c + f * 1000;
+}
+double nine(double a, double b, double c, double d, double e, double f, double g, double h, double i) {
+ return a + b * 2 + c * 3 + d * 4 + e * 5 + f * 6 + g * 7 + h * 8 + i * 9;
+}
 `
 
 func TestRegisterFuncStruct(t *testing.T) {
@@ -151,21 +181,166 @@ func TestRegisterFuncFollowingPointer(t *testing.T) {
 	t.Log("pointer probe passed")
 }
 
+// TestRegisterFuncSysV covers the System V amd64 shapes that arm64 rejects:
+// stack arguments, SSE eightbytes in structs, and memory-class structs. The
+// first three are the NCCL device API signatures.
+func TestRegisterFuncSysV(t *testing.T) {
+	if runtime.GOARCH != "amd64" {
+		t.Skip("System V amd64 only")
+	}
+	team := team12{1, 2, 3}
+	t.Run("stackPointer", func(t *testing.T) {
+		// ncclGetCftDeviceLeInfo: the sixth integer word is the last register,
+		// so the final pointer goes on the stack.
+		var call func(uintptr, uint, int32, team12, *uint32, *uint) int32
+		if err := ffi.RegisterFunc(&call, buildSym(t, registerFuncC, "le_info")); err != nil {
+			t.Fatal(err)
+		}
+		var id uint32
+		var size uint
+		if got := call(0x1000, 0x20, 4, team, &id, &size); got != 3 || id != 10 || size != 0x1020 {
+			t.Fatalf("got %d, id=%d size=%#x", got, id, size)
+		}
+	})
+	t.Run("teamArgument", func(t *testing.T) {
+		var call func(uintptr, team12, int32, *uint64, *uint64) int32
+		if err := ffi.RegisterFunc(&call, buildSym(t, registerFuncC, "gin_barrier")); err != nil {
+			t.Fatal(err)
+		}
+		var h, r uint64
+		if got := call(0x100, team, 9, &h, &r); got != 5 || h != 0x106 || r != 9 {
+			t.Fatalf("got %d, h=%#x r=%d", got, h, r)
+		}
+	})
+	t.Run("teamRank", func(t *testing.T) {
+		var call func(uintptr, team12, int32) int32
+		if err := ffi.RegisterFunc(&call, buildSym(t, registerFuncC, "rank_to")); err != nil {
+			t.Fatal(err)
+		}
+		if got := call(1, team, 4); got != 128 {
+			t.Fatalf("got %d, want 128", got)
+		}
+	})
+	type large struct{ A, B, C uint64 }
+	t.Run("memoryArgument", func(t *testing.T) {
+		var call func(uint64, large, uint64) uint64
+		if err := ffi.RegisterFunc(&call, buildSym(t, registerFuncC, "large_sum")); err != nil {
+			t.Fatal(err)
+		}
+		if got := call(1, large{10, 100, 1000}, 10000); got != 1+30+500+7000+10000 {
+			t.Fatalf("got %d", got)
+		}
+	})
+	t.Run("memoryResult", func(t *testing.T) {
+		var call func(uint64, uint64) large
+		if err := ffi.RegisterFunc(&call, buildSym(t, registerFuncC, "large_make")); err != nil {
+			t.Fatal(err)
+		}
+		if got := call(5, 7); got != (large{5, 7, 12}) {
+			t.Fatalf("got %+v", got)
+		}
+	})
+	t.Run("sseArgument", func(t *testing.T) {
+		type dpair struct{ A, B float64 }
+		var call func(dpair, float64) float64
+		if err := ffi.RegisterFunc(&call, buildSym(t, registerFuncC, "dpair_sum")); err != nil {
+			t.Fatal(err)
+		}
+		if got := call(dpair{1.5, 2.25}, 0.5); got != 5.75 {
+			t.Fatalf("got %v", got)
+		}
+	})
+	t.Run("packedFloats", func(t *testing.T) {
+		type ftriple struct{ A, B, C float32 }
+		var call func(ftriple) float32
+		if err := ffi.RegisterFunc(&call, buildSym(t, registerFuncC, "ftriple_sum")); err != nil {
+			t.Fatal(err)
+		}
+		if got := call(ftriple{1, 2, 3}); got != 17 {
+			t.Fatalf("got %v", got)
+		}
+	})
+	t.Run("mixedResult", func(t *testing.T) {
+		type dmixed struct {
+			D float64
+			I int64
+		}
+		var call func(float64, int64) dmixed
+		if err := ffi.RegisterFunc(&call, buildSym(t, registerFuncC, "dmixed_make")); err != nil {
+			t.Fatal(err)
+		}
+		if got := call(2.5, -9); got != (dmixed{2.5, -9}) {
+			t.Fatalf("got %+v", got)
+		}
+	})
+	t.Run("mixedEightbyte", func(t *testing.T) {
+		type fmixed struct {
+			F float32
+			I int32
+			D float64
+		}
+		var call func(fmixed) float64
+		if err := ffi.RegisterFunc(&call, buildSym(t, registerFuncC, "fmixed_sum")); err != nil {
+			t.Fatal(err)
+		}
+		if got := call(fmixed{0.5, 3, 0.25}); got != 3.75 {
+			t.Fatalf("got %v", got)
+		}
+	})
+	t.Run("structSpill", func(t *testing.T) {
+		// Five registers are taken, so team12 goes to the stack and the
+		// following integer still takes the sixth register.
+		var call func(uint64, uint64, uint64, uint64, uint64, team12, uint64) uint64
+		if err := ffi.RegisterFunc(&call, buildSym(t, registerFuncC, "spill")); err != nil {
+			t.Fatal(err)
+		}
+		if got := call(1, 2, 3, 4, 5, team, 7); got != 7021 {
+			t.Fatalf("got %d, want 7021", got)
+		}
+	})
+	t.Run("floatSpill", func(t *testing.T) {
+		var call func(float64, float64, float64, float64, float64, float64, float64, float64, float64) float64
+		if err := ffi.RegisterFunc(&call, buildSym(t, registerFuncC, "nine")); err != nil {
+			t.Fatal(err)
+		}
+		if got := call(1, 1, 1, 1, 1, 1, 1, 1, 1); got != 45 {
+			t.Fatalf("got %v, want 45", got)
+		}
+	})
+}
+
 func TestRegisterFuncReject(t *testing.T) {
 	type hfa struct{ A, B float32 }
 	type large struct{ A, B, C uint64 }
 	type pointer struct{ P unsafe.Pointer }
+	type dpair struct{ A, B float64 }
 	cases := []struct {
 		name  string
 		value any
 	}{
 		{"nil", nil}, {"notPointer", 1}, {"notFunction", new(int)},
-		{"hfa", new(func(hfa))}, {"large", new(func(large))},
 		{"pointerField", new(func(pointer))}, {"string", new(func(string))},
 		{"slice", new(func([]byte))}, {"callback", new(func(func()))},
 		{"variadic", new(func(...int))}, {"twoResults", new(func() (int, int))},
-		{"registerExhaustion", new(func(uint64, uint64, uint64, uint64, uint64, uint64, uint64, team12))},
-		{"hfaReturn", new(func() hfa)}, {"largeReturn", new(func() large)},
+	}
+	switch runtime.GOARCH {
+	case "arm64":
+		cases = append(cases, []struct {
+			name  string
+			value any
+		}{
+			{"hfa", new(func(hfa))}, {"large", new(func(large))},
+			{"registerExhaustion", new(func(uint64, uint64, uint64, uint64, uint64, uint64, uint64, team12))},
+			{"hfaReturn", new(func() hfa)}, {"largeReturn", new(func() large)},
+		}...)
+	case "amd64":
+		cases = append(cases, []struct {
+			name  string
+			value any
+		}{
+			{"sseReturn", new(func() dpair)},
+			{"tooManyWords", new(func(large, large, large, large, large, large, large, large, large))},
+		}...)
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
