@@ -702,7 +702,7 @@ func registerFuncs() {
 	symsetFixedPointEmulationMantissaControl = registerSym("cusolverDnSetFixedPointEmulationMantissaControl")
 	symsetFixedPointEmulationMaxMantissaBitCount = registerSym("cusolverDnSetFixedPointEmulationMaxMantissaBitCount")
 	symsetMathMode = registerSym("cusolverDnSetMathMode")
-	register(&fnsetStream, "cusolverDnSetStream")
+	symsetStream = registerSym("cusolverDnSetStream")
 	symsgebrd = registerSym("cusolverDnSgebrd")
 	symsgebrdBufferSize = registerSym("cusolverDnSgebrd_bufferSize")
 	symsgeqrf = registerSym("cusolverDnSgeqrf")
@@ -1097,7 +1097,7 @@ func clearFuncs() {
 	symsetFixedPointEmulationMantissaControl = 0
 	symsetFixedPointEmulationMaxMantissaBitCount = 0
 	symsetMathMode = 0
-	fnsetStream = nil
+	symsetStream = 0
 	symsgebrd = 0
 	symsgebrdBufferSize = 0
 	symsgeqrf = 0

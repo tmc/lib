@@ -19,8 +19,8 @@ func sliceData(s []unsafe.Pointer) unsafe.Pointer {
 
 // Generated function pointer variables.
 var (
-	fncontractSlices                                func(Handle, ContractionPlan, *uintptr, uintptr, int32, WorkspaceDescriptor, SliceGroup, driver.Stream) Result
-	fncontractionAutotune                           func(Handle, ContractionPlan, *uintptr, uintptr, WorkspaceDescriptor, ContractionAutotunePreference, driver.Stream) Result
+	symcontractSlices                               uintptr
+	symcontractionAutotune                          uintptr
 	symcontractionAutotunePreferenceGetAttribute    uintptr
 	symcontractionAutotunePreferenceSetAttribute    uintptr
 	symcontractionOptimize                          uintptr
@@ -68,10 +68,10 @@ var (
 	symLoggerSetLevel                               uintptr
 	symLoggerSetMask                                uintptr
 	symnetworkAppendTensor                          uintptr
-	fnnetworkAutotuneContraction                    func(Handle, NetworkDescriptor, WorkspaceDescriptor, NetworkAutotunePreference, driver.Stream) Result
+	symnetworkAutotuneContraction                   uintptr
 	symnetworkAutotunePreferenceGetAttribute        uintptr
 	symnetworkAutotunePreferenceSetAttribute        uintptr
-	fnnetworkContract                               func(Handle, NetworkDescriptor, int32, WorkspaceDescriptor, SliceGroup, driver.Stream) Result
+	symnetworkContract                              uintptr
 	symnetworkGetAttribute                          uintptr
 	symnetworkPrepareContraction                    uintptr
 	symnetworkSetAttribute                          uintptr
@@ -272,6 +272,18 @@ func (s *outSlot[T]) put(p *T) {
 	var zero T
 	*p = zero
 	s.pool.Put(p)
+}
+
+// fncontractSlices calls cutensornetContractSlices.
+func fncontractSlices(a0 Handle, a1 ContractionPlan, a2 *uintptr, a3 uintptr, a4 int32, a5 WorkspaceDescriptor, a6 SliceGroup, a7 driver.Stream) Result {
+	r1, _ := ffiCallWidths8(symcontractSlices, 0, 0x300, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fncontractionAutotune calls cutensornetContractionAutotune.
+func fncontractionAutotune(a0 Handle, a1 ContractionPlan, a2 *uintptr, a3 uintptr, a4 WorkspaceDescriptor, a5 ContractionAutotunePreference, a6 driver.Stream) Result {
+	r1, _ := ffiCall7(symcontractionAutotune, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
 }
 
 // fncontractionAutotunePreferenceGetAttribute calls cutensornetContractionAutotunePreferenceGetAttribute.
@@ -556,6 +568,12 @@ func fnnetworkAppendTensor(a0 Handle, a1 NetworkDescriptor, a2 int32, a3 *int64,
 	return Result(r1)
 }
 
+// fnnetworkAutotuneContraction calls cutensornetNetworkAutotuneContraction.
+func fnnetworkAutotuneContraction(a0 Handle, a1 NetworkDescriptor, a2 WorkspaceDescriptor, a3 NetworkAutotunePreference, a4 driver.Stream) Result {
+	r1, _ := ffiCall5(symnetworkAutotuneContraction, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
 // fnnetworkAutotunePreferenceGetAttribute calls cutensornetNetworkAutotunePreferenceGetAttribute.
 func fnnetworkAutotunePreferenceGetAttribute(a0 Handle, a1 NetworkAutotunePreference, a2 NetworkAutotunePreferenceAttributes, a3 unsafe.Pointer, a4 uint) Result {
 	r1, _ := ffiCallWidths5(symnetworkAutotunePreferenceGetAttribute, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
@@ -565,6 +583,12 @@ func fnnetworkAutotunePreferenceGetAttribute(a0 Handle, a1 NetworkAutotunePrefer
 // fnnetworkAutotunePreferenceSetAttribute calls cutensornetNetworkAutotunePreferenceSetAttribute.
 func fnnetworkAutotunePreferenceSetAttribute(a0 Handle, a1 NetworkAutotunePreference, a2 NetworkAutotunePreferenceAttributes, a3 unsafe.Pointer, a4 uint) Result {
 	r1, _ := ffiCallWidths5(symnetworkAutotunePreferenceSetAttribute, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnnetworkContract calls cutensornetNetworkContract.
+func fnnetworkContract(a0 Handle, a1 NetworkDescriptor, a2 int32, a3 WorkspaceDescriptor, a4 SliceGroup, a5 driver.Stream) Result {
+	r1, _ := ffiCallWidths6(symnetworkContract, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
 	return Result(r1)
 }
 

@@ -672,16 +672,16 @@ func registerFuncs() {
 	symGetLoggerCallback = registerSym("cublasGetLoggerCallback")
 	symgetMathMode = registerSym("cublasGetMathMode")
 	symGetMatrix = registerSym("cublasGetMatrix")
-	register(&fnGetMatrixAsync, "cublasGetMatrixAsync")
-	register(&fnGetMatrixAsync64, "cublasGetMatrixAsync_64")
+	symGetMatrixAsync = registerSym("cublasGetMatrixAsync")
+	symGetMatrixAsync64 = registerSym("cublasGetMatrixAsync_64")
 	symGetMatrix64 = registerSym("cublasGetMatrix_64")
 	symgetPointerMode = registerSym("cublasGetPointerMode_v2")
 	symGetProperty = registerSym("cublasGetProperty")
 	symgetSmCountTarget = registerSym("cublasGetSmCountTarget")
 	symgetStream = registerSym("cublasGetStream_v2")
 	symGetVector = registerSym("cublasGetVector")
-	register(&fnGetVectorAsync, "cublasGetVectorAsync")
-	register(&fnGetVectorAsync64, "cublasGetVectorAsync_64")
+	symGetVectorAsync = registerSym("cublasGetVectorAsync")
+	symGetVectorAsync64 = registerSym("cublasGetVectorAsync_64")
 	symGetVector64 = registerSym("cublasGetVector_64")
 	symgetVersion = registerSym("cublasGetVersion_v2")
 	symhSHgemvBatched = registerSym("cublasHSHgemvBatched")
@@ -753,15 +753,15 @@ func registerFuncs() {
 	symSetLoggerCallback = registerSym("cublasSetLoggerCallback")
 	symsetMathMode = registerSym("cublasSetMathMode")
 	symSetMatrix = registerSym("cublasSetMatrix")
-	register(&fnSetMatrixAsync, "cublasSetMatrixAsync")
-	register(&fnSetMatrixAsync64, "cublasSetMatrixAsync_64")
+	symSetMatrixAsync = registerSym("cublasSetMatrixAsync")
+	symSetMatrixAsync64 = registerSym("cublasSetMatrixAsync_64")
 	symSetMatrix64 = registerSym("cublasSetMatrix_64")
 	symsetPointerMode = registerSym("cublasSetPointerMode_v2")
 	symsetSmCountTarget = registerSym("cublasSetSmCountTarget")
-	register(&fnsetStream, "cublasSetStream_v2")
+	symsetStream = registerSym("cublasSetStream_v2")
 	symSetVector = registerSym("cublasSetVector")
-	register(&fnSetVectorAsync, "cublasSetVectorAsync")
-	register(&fnSetVectorAsync64, "cublasSetVectorAsync_64")
+	symSetVectorAsync = registerSym("cublasSetVectorAsync")
+	symSetVectorAsync64 = registerSym("cublasSetVectorAsync_64")
 	symSetVector64 = registerSym("cublasSetVector_64")
 	symsetWorkspace = registerSym("cublasSetWorkspace_v2")
 	symsgbmv = registerSym("cublasSgbmv_v2")
@@ -1213,16 +1213,16 @@ func clearFuncs() {
 	symGetLoggerCallback = 0
 	symgetMathMode = 0
 	symGetMatrix = 0
-	fnGetMatrixAsync = nil
-	fnGetMatrixAsync64 = nil
+	symGetMatrixAsync = 0
+	symGetMatrixAsync64 = 0
 	symGetMatrix64 = 0
 	symgetPointerMode = 0
 	symGetProperty = 0
 	symgetSmCountTarget = 0
 	symgetStream = 0
 	symGetVector = 0
-	fnGetVectorAsync = nil
-	fnGetVectorAsync64 = nil
+	symGetVectorAsync = 0
+	symGetVectorAsync64 = 0
 	symGetVector64 = 0
 	symgetVersion = 0
 	symhSHgemvBatched = 0
@@ -1294,15 +1294,15 @@ func clearFuncs() {
 	symSetLoggerCallback = 0
 	symsetMathMode = 0
 	symSetMatrix = 0
-	fnSetMatrixAsync = nil
-	fnSetMatrixAsync64 = nil
+	symSetMatrixAsync = 0
+	symSetMatrixAsync64 = 0
 	symSetMatrix64 = 0
 	symsetPointerMode = 0
 	symsetSmCountTarget = 0
-	fnsetStream = nil
+	symsetStream = 0
 	symSetVector = 0
-	fnSetVectorAsync = nil
-	fnSetVectorAsync64 = nil
+	symSetVectorAsync = 0
+	symSetVectorAsync64 = 0
 	symSetVector64 = 0
 	symsetWorkspace = 0
 	symsgbmv = 0

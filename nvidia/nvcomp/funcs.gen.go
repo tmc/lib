@@ -21,7 +21,7 @@ var (
 	fnDecompressGetRequiredAlignments func(DecompressOpts, *AlignmentRequirements) Result
 	fnDecompressGetTempSizeAsync      func(uint, uint, DecompressOpts, *uint, uint) Result
 	fnDecompressGetTempSizeSync       func(DevicePointerArray, DeviceSizeArray, uint, uint, *uint, uint, DecompressOpts, DeviceStatusArray, driver.Stream) Result
-	fnGetDecompressSizeAsync          func(DevicePointerArray, DeviceSizeArray, DeviceSizeArray, uint, driver.Stream) Result
+	symGetDecompressSizeAsync         uintptr
 	symGetProperties                  uintptr
 	symGetStatusString                uintptr
 )
@@ -47,6 +47,17 @@ func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
 	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloat(fn, 5, &args, floatMask)
 }
 
 //go:uintptrescapes
@@ -81,6 +92,12 @@ func (s *outSlot[T]) put(p *T) {
 	var zero T
 	*p = zero
 	s.pool.Put(p)
+}
+
+// fnGetDecompressSizeAsync calls nvcompBatchedLZ4GetDecompressSizeAsync.
+func fnGetDecompressSizeAsync(a0 DevicePointerArray, a1 DeviceSizeArray, a2 DeviceSizeArray, a3 uint, a4 driver.Stream) Result {
+	r1, _ := ffiCall5(symGetDecompressSizeAsync, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
 }
 
 // fnGetProperties calls nvcompGetProperties.

@@ -16,20 +16,20 @@ import (
 var (
 	symBufferDeregister        uintptr
 	symBufferRegister          uintptr
-	fnCreate                   func(*Handle, driver.Stream) Result
+	symCreate                  uintptr
 	symDestroy                 uintptr
 	symFree                    uintptr
-	fnGemm                     func(Handle, cublas.Operation, cublas.Operation, int64, int64, int64, unsafe.Pointer, uintptr, int64, int64, MatrixDescriptor, uintptr, int64, int64, MatrixDescriptor, unsafe.Pointer, uintptr, int64, int64, MatrixDescriptor, cublas.ComputeType, uintptr, uint, unsafe.Pointer, uint) Result
-	fnGemmBufferSize           func(Handle, cublas.Operation, cublas.Operation, int64, int64, int64, unsafe.Pointer, uintptr, int64, int64, MatrixDescriptor, uintptr, int64, int64, MatrixDescriptor, unsafe.Pointer, uintptr, int64, int64, MatrixDescriptor, cublas.ComputeType, *uint, *uint) Result
+	symGemm                    uintptr
+	symGemmBufferSize          uintptr
 	symGetStream               uintptr
 	symGetVersion              uintptr
-	fnGridCreate               func(int64, int64, GridLayout, nccl.Comm, *Grid) Result
+	symGridCreate              uintptr
 	symGridDestroy             uintptr
 	symMalloc                  uintptr
-	fnMatrixDescriptorCreate   func(int64, int64, int64, int64, int64, int64, int64, cublas.DataType, Grid, *MatrixDescriptor) Result
+	symMatrixDescriptorCreate  uintptr
 	symMatrixDescriptorDestroy uintptr
-	fnMatrixDescriptorInit     func(int64, int64, int64, int64, int64, int64, int64, cublas.DataType, Grid, MatrixDescriptor) Result
-	fnSetStream                func(Handle, driver.Stream) Result
+	symMatrixDescriptorInit    uintptr
+	symSetStream               uintptr
 )
 
 // The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
@@ -72,6 +72,93 @@ func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr)
 	return ffi.CallFloat(fn, 3, &args, floatMask)
 }
 
+//go:uintptrescapes
+func ffiCallWidths5(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloatWidths(fn, 5, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths10(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	return ffi.CallFloatWidths(fn, 10, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths23(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	args[16] = a16
+	args[17] = a17
+	args[18] = a18
+	args[19] = a19
+	args[20] = a20
+	args[21] = a21
+	args[22] = a22
+	return ffi.CallFloatWidths(fn, 23, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths25(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	args[16] = a16
+	args[17] = a17
+	args[18] = a18
+	args[19] = a19
+	args[20] = a20
+	args[21] = a21
+	args[22] = a22
+	args[23] = a23
+	args[24] = a24
+	return ffi.CallFloatWidths(fn, 25, &args, floatMask, widths)
+}
+
 // An outSlot pools the heap cells a wrapper passes to C for its outputs.
 //
 // A pointer passed through a positional call is moved to the heap, so the
@@ -105,6 +192,12 @@ func fnBufferRegister(a0 Grid, a1 uintptr, a2 uint) Result {
 	return Result(r1)
 }
 
+// fnCreate calls cublasMpCreate.
+func fnCreate(a0 *Handle, a1 driver.Stream) Result {
+	r1, _ := ffiCall2(symCreate, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
 // fnDestroy calls cublasMpDestroy.
 func fnDestroy(a0 Handle) Result {
 	r1, _ := ffiCall1(symDestroy, 0, uintptr(a0))
@@ -114,6 +207,18 @@ func fnDestroy(a0 Handle) Result {
 // fnFree calls cublasMpFree.
 func fnFree(a0 Grid, a1 uintptr) Result {
 	r1, _ := ffiCall2(symFree, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnGemm calls cublasMpGemm.
+func fnGemm(a0 Handle, a1 cublas.Operation, a2 cublas.Operation, a3 int64, a4 int64, a5 int64, a6 unsafe.Pointer, a7 uintptr, a8 int64, a9 int64, a10 MatrixDescriptor, a11 uintptr, a12 int64, a13 int64, a14 MatrixDescriptor, a15 unsafe.Pointer, a16 uintptr, a17 int64, a18 int64, a19 MatrixDescriptor, a20 cublas.ComputeType, a21 uintptr, a22 uint, a23 unsafe.Pointer, a24 uint) Result {
+	r1, _ := ffiCallWidths25(symGemm, 0, 0x3000000003c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21), uintptr(a22), uintptr(a23), uintptr(a24))
+	return Result(r1)
+}
+
+// fnGemmBufferSize calls cublasMpGemm_bufferSize.
+func fnGemmBufferSize(a0 Handle, a1 cublas.Operation, a2 cublas.Operation, a3 int64, a4 int64, a5 int64, a6 unsafe.Pointer, a7 uintptr, a8 int64, a9 int64, a10 MatrixDescriptor, a11 uintptr, a12 int64, a13 int64, a14 MatrixDescriptor, a15 unsafe.Pointer, a16 uintptr, a17 int64, a18 int64, a19 MatrixDescriptor, a20 cublas.ComputeType, a21 *uint, a22 *uint) Result {
+	r1, _ := ffiCallWidths23(symGemmBufferSize, 0, 0x3000000003c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(unsafe.Pointer(a21)), uintptr(unsafe.Pointer(a22)))
 	return Result(r1)
 }
 
@@ -129,6 +234,12 @@ func fnGetVersion(a0 *int32) Result {
 	return Result(r1)
 }
 
+// fnGridCreate calls cublasMpGridCreate.
+func fnGridCreate(a0 int64, a1 int64, a2 GridLayout, a3 nccl.Comm, a4 *Grid) Result {
+	r1, _ := ffiCallWidths5(symGridCreate, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
 // fnGridDestroy calls cublasMpGridDestroy.
 func fnGridDestroy(a0 Grid) Result {
 	r1, _ := ffiCall1(symGridDestroy, 0, uintptr(a0))
@@ -141,9 +252,27 @@ func fnMalloc(a0 Grid, a1 *uintptr, a2 uint) Result {
 	return Result(r1)
 }
 
+// fnMatrixDescriptorCreate calls cublasMpMatrixDescriptorCreate.
+func fnMatrixDescriptorCreate(a0 int64, a1 int64, a2 int64, a3 int64, a4 int64, a5 int64, a6 int64, a7 cublas.DataType, a8 Grid, a9 *MatrixDescriptor) Result {
+	r1, _ := ffiCallWidths10(symMatrixDescriptorCreate, 0, 0xc000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)))
+	return Result(r1)
+}
+
 // fnMatrixDescriptorDestroy calls cublasMpMatrixDescriptorDestroy.
 func fnMatrixDescriptorDestroy(a0 MatrixDescriptor) Result {
 	r1, _ := ffiCall1(symMatrixDescriptorDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnMatrixDescriptorInit calls cublasMpMatrixDescriptorInit.
+func fnMatrixDescriptorInit(a0 int64, a1 int64, a2 int64, a3 int64, a4 int64, a5 int64, a6 int64, a7 cublas.DataType, a8 Grid, a9 MatrixDescriptor) Result {
+	r1, _ := ffiCallWidths10(symMatrixDescriptorInit, 0, 0xc000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnSetStream calls cublasMpSetStream.
+func fnSetStream(a0 Handle, a1 driver.Stream) Result {
+	r1, _ := ffiCall2(symSetStream, 0, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
@@ -360,13 +489,16 @@ func Create(stream driver.Stream) (Handle, error) {
 		var zero Handle
 		return zero, err
 	}
-	var out Handle
-	if err := toError(fnCreate(&out, stream), "cublasMpCreate"); err != nil {
+	out := slotCreate.get()
+	defer slotCreate.put(out)
+	if err := toError(fnCreate(out, stream), "cublasMpCreate"); err != nil {
 		var zero Handle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreate outSlot[Handle]
 
 // Destroy destroys the cuBLASMp library handle.
 //
@@ -517,13 +649,18 @@ func GemmBufferSize(handle Handle, transA cublas.Operation, transB cublas.Operat
 	}
 	_scalars := scalarCells.get()
 	defer scalarCells.put(_scalars)
-	var out0 uint
-	var out1 uint
-	if err := toError(fnGemmBufferSize(handle, transA, transB, m, n, k, alpha.arg(&_scalars[0]), a, ia, ja, descA, b, ib, jb, descB, beta.arg(&_scalars[1]), c, ic, jc, descC, computeType, &out0, &out1), "cublasMpGemm_bufferSize"); err != nil {
+	outs := slotGemmBufferSize.get()
+	defer slotGemmBufferSize.put(outs)
+	if err := toError(fnGemmBufferSize(handle, transA, transB, m, n, k, alpha.arg(&_scalars[0]), a, ia, ja, descA, b, ib, jb, descB, beta.arg(&_scalars[1]), c, ic, jc, descC, computeType, &outs.out0, &outs.out1), "cublasMpGemm_bufferSize"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
+
+var slotGemmBufferSize outSlot[struct {
+	out0 uint
+	out1 uint
+}]
 
 // GetStream gets the current CUDA stream used by the cuBLASMp library.
 //
@@ -590,13 +727,16 @@ func GridCreate(nprow int64, npcol int64, layout GridLayout, comm nccl.Comm) (Gr
 		var zero Grid
 		return zero, err
 	}
-	var out Grid
-	if err := toError(fnGridCreate(nprow, npcol, layout, comm, &out), "cublasMpGridCreate"); err != nil {
+	out := slotGridCreate.get()
+	defer slotGridCreate.put(out)
+	if err := toError(fnGridCreate(nprow, npcol, layout, comm, out), "cublasMpGridCreate"); err != nil {
 		var zero Grid
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGridCreate outSlot[Grid]
 
 // GridDestroy destroys a process grid.
 //
@@ -670,13 +810,16 @@ func MatrixDescriptorCreate(m int64, n int64, mb int64, nb int64, rsrc int64, cs
 		var zero MatrixDescriptor
 		return zero, err
 	}
-	var out MatrixDescriptor
-	if err := toError(fnMatrixDescriptorCreate(m, n, mb, nb, rsrc, csrc, lld, type_, grid, &out), "cublasMpMatrixDescriptorCreate"); err != nil {
+	out := slotMatrixDescriptorCreate.get()
+	defer slotMatrixDescriptorCreate.put(out)
+	if err := toError(fnMatrixDescriptorCreate(m, n, mb, nb, rsrc, csrc, lld, type_, grid, out), "cublasMpMatrixDescriptorCreate"); err != nil {
 		var zero MatrixDescriptor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotMatrixDescriptorCreate outSlot[MatrixDescriptor]
 
 // MatrixDescriptorDestroy destroys a matrix descriptor.
 //

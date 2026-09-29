@@ -423,40 +423,40 @@ func checkLibSym(symbol string) error {
 func registerFuncs() {
 	symBufferDeregister = registerSym("cublasMpBufferDeregister")
 	symBufferRegister = registerSym("cublasMpBufferRegister")
-	register(&fnCreate, "cublasMpCreate")
+	symCreate = registerSym("cublasMpCreate")
 	symDestroy = registerSym("cublasMpDestroy")
 	symFree = registerSym("cublasMpFree")
-	register(&fnGemm, "cublasMpGemm")
-	register(&fnGemmBufferSize, "cublasMpGemm_bufferSize")
+	symGemm = registerSym("cublasMpGemm")
+	symGemmBufferSize = registerSym("cublasMpGemm_bufferSize")
 	symGetStream = registerSym("cublasMpGetStream")
 	symGetVersion = registerSym("cublasMpGetVersion")
-	register(&fnGridCreate, "cublasMpGridCreate")
+	symGridCreate = registerSym("cublasMpGridCreate")
 	symGridDestroy = registerSym("cublasMpGridDestroy")
 	symMalloc = registerSym("cublasMpMalloc")
-	register(&fnMatrixDescriptorCreate, "cublasMpMatrixDescriptorCreate")
+	symMatrixDescriptorCreate = registerSym("cublasMpMatrixDescriptorCreate")
 	symMatrixDescriptorDestroy = registerSym("cublasMpMatrixDescriptorDestroy")
-	register(&fnMatrixDescriptorInit, "cublasMpMatrixDescriptorInit")
-	register(&fnSetStream, "cublasMpSetStream")
+	symMatrixDescriptorInit = registerSym("cublasMpMatrixDescriptorInit")
+	symSetStream = registerSym("cublasMpSetStream")
 }
 
 // clearFuncs unbinds all function pointers.
 func clearFuncs() {
 	symBufferDeregister = 0
 	symBufferRegister = 0
-	fnCreate = nil
+	symCreate = 0
 	symDestroy = 0
 	symFree = 0
-	fnGemm = nil
-	fnGemmBufferSize = nil
+	symGemm = 0
+	symGemmBufferSize = 0
 	symGetStream = 0
 	symGetVersion = 0
-	fnGridCreate = nil
+	symGridCreate = 0
 	symGridDestroy = 0
 	symMalloc = 0
-	fnMatrixDescriptorCreate = nil
+	symMatrixDescriptorCreate = 0
 	symMatrixDescriptorDestroy = 0
-	fnMatrixDescriptorInit = nil
-	fnSetStream = nil
+	symMatrixDescriptorInit = 0
+	symSetStream = 0
 }
 
 // HasBufferDeregister reports whether cublasMpBufferDeregister resolved in the loaded library.

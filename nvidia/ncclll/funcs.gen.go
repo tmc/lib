@@ -13,9 +13,9 @@ import (
 // Generated function pointer variables.
 var (
 	symCalcMinReductionBufferSize uintptr
-	fnLLGetPoisonValue            func(nccl.DataType) uint32
-	fnLLPoisonBuffer              func(uintptr, uint, nccl.DataType) nccl.Result
-	fnLLPoisonBufferAsync         func(uintptr, uint, nccl.DataType, driver.Stream) nccl.Result
+	symLLGetPoisonValue           uintptr
+	symLLPoisonBuffer             uintptr
+	symLLPoisonBufferAsync        uintptr
 )
 
 // The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
@@ -33,6 +33,32 @@ var (
 // moved to the heap and kept there until the call returns. A
 // runtime.KeepAlive after the call would prevent reclamation but not
 // movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCallWidths1(fn uintptr, floatMask uint32, widths uint64, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloatWidths(fn, 1, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths3(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloatWidths(fn, 3, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths4(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloatWidths(fn, 4, &args, floatMask, widths)
+}
 
 //go:uintptrescapes
 func ffiCallWidths6(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
@@ -71,6 +97,24 @@ func (s *outSlot[T]) put(p *T) {
 func fnCalcMinReductionBufferSize(a0 LLSyncMode, a1 int32, a2 int32, a3 int32, a4 int32, a5 int32) uint {
 	r1, _ := ffiCallWidths6(symCalcMinReductionBufferSize, 0, 0xfff, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
 	return uint(r1)
+}
+
+// fnLLGetPoisonValue calls ncclLLGetPoisonValue.
+func fnLLGetPoisonValue(a0 nccl.DataType) uint32 {
+	r1, _ := ffiCallWidths1(symLLGetPoisonValue, 0, 0x3, uintptr(a0))
+	return uint32(r1)
+}
+
+// fnLLPoisonBuffer calls ncclLLPoisonBuffer.
+func fnLLPoisonBuffer(a0 uintptr, a1 uint, a2 nccl.DataType) nccl.Result {
+	r1, _ := ffiCallWidths3(symLLPoisonBuffer, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2))
+	return nccl.Result(r1)
+}
+
+// fnLLPoisonBufferAsync calls ncclLLPoisonBufferAsync.
+func fnLLPoisonBufferAsync(a0 uintptr, a1 uint, a2 nccl.DataType, a3 driver.Stream) nccl.Result {
+	r1, _ := ffiCallWidths4(symLLPoisonBufferAsync, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return nccl.Result(r1)
 }
 
 // CalcMinReductionBufferSize wraps ncclCalcMinReductionBufferSize.

@@ -53,7 +53,7 @@ var (
 	symSetCommLayer               uintptr
 	symSetDeviceMemHandler        uintptr
 	symSetMgStreams               uintptr
-	fnSetStream                   func(Handle, driver.Stream) Result
+	symSetStream                  uintptr
 	symSetThreadingLayer          uintptr
 )
 
@@ -555,6 +555,12 @@ func fnSetDeviceMemHandler(a0 Handle, a1 *DeviceMemHandler) Result {
 // fnSetMgStreams calls cudssSetMgStreams.
 func fnSetMgStreams(a0 Handle, a1 *driver.Stream, a2 int32) Result {
 	r1, _ := ffiCallWidths3(symSetMgStreams, 0, 0x30, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fnSetStream calls cudssSetStream.
+func fnSetStream(a0 Handle, a1 driver.Stream) Result {
+	r1, _ := ffiCall2(symSetStream, 0, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 

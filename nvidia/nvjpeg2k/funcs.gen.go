@@ -15,8 +15,8 @@ var (
 	symCreate                          uintptr
 	symCreateSimple                    uintptr
 	symCreateV2                        uintptr
-	fnDecode                           func(Handle, DecodeState, Bitstream, *Image, driver.Stream) Result
-	fnDecodeImage                      func(Handle, DecodeState, Bitstream, DecodeParams, *Image, driver.Stream) Result
+	symDecode                          uintptr
+	symDecodeImage                     uintptr
 	symDecodeParamsCreate              uintptr
 	symDecodeParamsDestroy             uintptr
 	symDecodeParamsSetDecodeArea       uintptr
@@ -24,7 +24,7 @@ var (
 	symDecodeParamsSetRGBOutput        uintptr
 	symDecodeStateCreate               uintptr
 	symDecodeStateDestroy              uintptr
-	fnDecodeTile                       func(Handle, DecodeState, Bitstream, DecodeParams, uint32, uint32, *Image, driver.Stream) Result
+	symDecodeTile                      uintptr
 	symDestroy                         uintptr
 	symGetCudartProperty               uintptr
 	symGetDeviceMemoryPadding          uintptr
@@ -86,6 +86,29 @@ func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr)
 }
 
 //go:uintptrescapes
+func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloat(fn, 5, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	return ffi.CallFloat(fn, 6, &args, floatMask)
+}
+
+//go:uintptrescapes
 func ffiCallWidths2(fn uintptr, floatMask uint32, widths uint64, a0, a1 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
@@ -135,6 +158,20 @@ func ffiCallWidths6(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3,
 	return ffi.CallFloatWidths(fn, 6, &args, floatMask, widths)
 }
 
+//go:uintptrescapes
+func ffiCallWidths8(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	return ffi.CallFloatWidths(fn, 8, &args, floatMask, widths)
+}
+
 // An outSlot pools the heap cells a wrapper passes to C for its outputs.
 //
 // A pointer passed through a positional call is moved to the heap, so the
@@ -171,6 +208,18 @@ func fnCreateSimple(a0 *Handle) Result {
 // fnCreateV2 calls nvjpeg2kCreateV2.
 func fnCreateV2(a0 Backend, a1 *DeviceAllocatorV2, a2 *PinnedAllocatorV2, a3 *Handle) Result {
 	r1, _ := ffiCallWidths4(symCreateV2, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnDecode calls nvjpeg2kDecode.
+func fnDecode(a0 Handle, a1 DecodeState, a2 Bitstream, a3 *Image, a4 driver.Stream) Result {
+	r1, _ := ffiCall5(symDecode, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4))
+	return Result(r1)
+}
+
+// fnDecodeImage calls nvjpeg2kDecodeImage.
+func fnDecodeImage(a0 Handle, a1 DecodeState, a2 Bitstream, a3 DecodeParams, a4 *Image, a5 driver.Stream) Result {
+	r1, _ := ffiCall6(symDecodeImage, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5))
 	return Result(r1)
 }
 
@@ -213,6 +262,12 @@ func fnDecodeStateCreate(a0 Handle, a1 *DecodeState) Result {
 // fnDecodeStateDestroy calls nvjpeg2kDecodeStateDestroy.
 func fnDecodeStateDestroy(a0 DecodeState) Result {
 	r1, _ := ffiCall1(symDecodeStateDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnDecodeTile calls nvjpeg2kDecodeTile.
+func fnDecodeTile(a0 Handle, a1 DecodeState, a2 Bitstream, a3 DecodeParams, a4 uint32, a5 uint32, a6 *Image, a7 driver.Stream) Result {
+	r1, _ := ffiCallWidths8(symDecodeTile, 0, 0xf00, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7))
 	return Result(r1)
 }
 

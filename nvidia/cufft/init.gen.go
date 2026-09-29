@@ -517,7 +517,7 @@ func registerFuncs() {
 	symresetPlanProperty = registerSym("cufftResetPlanProperty")
 	symsetAutoAllocation = registerSym("cufftSetAutoAllocation")
 	symsetPlanPropertyInt64 = registerSym("cufftSetPlanPropertyInt64")
-	register(&fnsetStream, "cufftSetStream")
+	symsetStream = registerSym("cufftSetStream")
 	symsetWorkArea = registerSym("cufftSetWorkArea")
 }
 
@@ -556,7 +556,7 @@ func clearFuncs() {
 	symresetPlanProperty = 0
 	symsetAutoAllocation = 0
 	symsetPlanPropertyInt64 = 0
-	fnsetStream = nil
+	symsetStream = 0
 	symsetWorkArea = 0
 }
 

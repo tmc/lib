@@ -414,8 +414,8 @@ func registerFuncs() {
 	symCreate = registerSym("nvjpeg2kCreate")
 	symCreateSimple = registerSym("nvjpeg2kCreateSimple")
 	symCreateV2 = registerSym("nvjpeg2kCreateV2")
-	register(&fnDecode, "nvjpeg2kDecode")
-	register(&fnDecodeImage, "nvjpeg2kDecodeImage")
+	symDecode = registerSym("nvjpeg2kDecode")
+	symDecodeImage = registerSym("nvjpeg2kDecodeImage")
 	symDecodeParamsCreate = registerSym("nvjpeg2kDecodeParamsCreate")
 	symDecodeParamsDestroy = registerSym("nvjpeg2kDecodeParamsDestroy")
 	symDecodeParamsSetDecodeArea = registerSym("nvjpeg2kDecodeParamsSetDecodeArea")
@@ -423,7 +423,7 @@ func registerFuncs() {
 	symDecodeParamsSetRGBOutput = registerSym("nvjpeg2kDecodeParamsSetRGBOutput")
 	symDecodeStateCreate = registerSym("nvjpeg2kDecodeStateCreate")
 	symDecodeStateDestroy = registerSym("nvjpeg2kDecodeStateDestroy")
-	register(&fnDecodeTile, "nvjpeg2kDecodeTile")
+	symDecodeTile = registerSym("nvjpeg2kDecodeTile")
 	symDestroy = registerSym("nvjpeg2kDestroy")
 	symGetCudartProperty = registerSym("nvjpeg2kGetCudartProperty")
 	symGetDeviceMemoryPadding = registerSym("nvjpeg2kGetDeviceMemoryPadding")
@@ -449,8 +449,8 @@ func clearFuncs() {
 	symCreate = 0
 	symCreateSimple = 0
 	symCreateV2 = 0
-	fnDecode = nil
-	fnDecodeImage = nil
+	symDecode = 0
+	symDecodeImage = 0
 	symDecodeParamsCreate = 0
 	symDecodeParamsDestroy = 0
 	symDecodeParamsSetDecodeArea = 0
@@ -458,7 +458,7 @@ func clearFuncs() {
 	symDecodeParamsSetRGBOutput = 0
 	symDecodeStateCreate = 0
 	symDecodeStateDestroy = 0
-	fnDecodeTile = nil
+	symDecodeTile = 0
 	symDestroy = 0
 	symGetCudartProperty = 0
 	symGetDeviceMemoryPadding = 0

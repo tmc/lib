@@ -421,46 +421,46 @@ func checkLibSym(symbol string) error {
 
 // registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
-	register(&fnCombine, "ncclEpCombine")
-	register(&fnComplete, "ncclEpComplete")
-	register(&fnCreateGroup, "ncclEpCreateGroup")
-	register(&fnCreateHandle, "ncclEpCreateHandle")
-	register(&fnDispatch, "ncclEpDispatch")
-	register(&fnErrorClear, "ncclEpErrorClear")
-	register(&fnGetAsyncError, "ncclEpGetAsyncError")
-	register(&fnGetVersion, "ncclEpGetVersion")
-	register(&fnGroupDestroy, "ncclEpGroupDestroy")
-	register(&fnHandleDestroy, "ncclEpHandleDestroy")
-	register(&fnHandleMemSize, "ncclEpHandleMemSize")
-	register(&fnInitHandle, "ncclEpInitHandle")
-	register(&fnMaskClean, "ncclEpMaskClean")
-	register(&fnMaskQuery, "ncclEpMaskQuery")
-	register(&fnMaskUpdate, "ncclEpMaskUpdate")
-	register(&fnTensorAlloc, "ncclEpTensorAlloc")
-	register(&fnTensorDestroy, "ncclEpTensorDestroy")
-	register(&fnUpdateHandle, "ncclEpUpdateHandle")
+	symCombine = registerSym("ncclEpCombine")
+	symComplete = registerSym("ncclEpComplete")
+	symCreateGroup = registerSym("ncclEpCreateGroup")
+	symCreateHandle = registerSym("ncclEpCreateHandle")
+	symDispatch = registerSym("ncclEpDispatch")
+	symErrorClear = registerSym("ncclEpErrorClear")
+	symGetAsyncError = registerSym("ncclEpGetAsyncError")
+	symGetVersion = registerSym("ncclEpGetVersion")
+	symGroupDestroy = registerSym("ncclEpGroupDestroy")
+	symHandleDestroy = registerSym("ncclEpHandleDestroy")
+	symHandleMemSize = registerSym("ncclEpHandleMemSize")
+	symInitHandle = registerSym("ncclEpInitHandle")
+	symMaskClean = registerSym("ncclEpMaskClean")
+	symMaskQuery = registerSym("ncclEpMaskQuery")
+	symMaskUpdate = registerSym("ncclEpMaskUpdate")
+	symTensorAlloc = registerSym("ncclEpTensorAlloc")
+	symTensorDestroy = registerSym("ncclEpTensorDestroy")
+	symUpdateHandle = registerSym("ncclEpUpdateHandle")
 }
 
 // clearFuncs unbinds all function pointers.
 func clearFuncs() {
-	fnCombine = nil
-	fnComplete = nil
-	fnCreateGroup = nil
-	fnCreateHandle = nil
-	fnDispatch = nil
-	fnErrorClear = nil
-	fnGetAsyncError = nil
-	fnGetVersion = nil
-	fnGroupDestroy = nil
-	fnHandleDestroy = nil
-	fnHandleMemSize = nil
-	fnInitHandle = nil
-	fnMaskClean = nil
-	fnMaskQuery = nil
-	fnMaskUpdate = nil
-	fnTensorAlloc = nil
-	fnTensorDestroy = nil
-	fnUpdateHandle = nil
+	symCombine = 0
+	symComplete = 0
+	symCreateGroup = 0
+	symCreateHandle = 0
+	symDispatch = 0
+	symErrorClear = 0
+	symGetAsyncError = 0
+	symGetVersion = 0
+	symGroupDestroy = 0
+	symHandleDestroy = 0
+	symHandleMemSize = 0
+	symInitHandle = 0
+	symMaskClean = 0
+	symMaskQuery = 0
+	symMaskUpdate = 0
+	symTensorAlloc = 0
+	symTensorDestroy = 0
+	symUpdateHandle = 0
 }
 
 // HasCombine reports whether ncclEpCombine resolved in the loaded library.

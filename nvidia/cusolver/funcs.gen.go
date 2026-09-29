@@ -231,7 +231,7 @@ var (
 	symsetFixedPointEmulationMantissaControl     uintptr
 	symsetFixedPointEmulationMaxMantissaBitCount uintptr
 	symsetMathMode                               uintptr
-	fnsetStream                                  func(Handle, driver.Stream) Result
+	symsetStream                                 uintptr
 	symsgebrd                                    uintptr
 	symsgebrdBufferSize                          uintptr
 	symsgeqrf                                    uintptr
@@ -2248,6 +2248,12 @@ func fnsetFixedPointEmulationMaxMantissaBitCount(a0 Handle, a1 int32) Result {
 // fnsetMathMode calls cusolverDnSetMathMode.
 func fnsetMathMode(a0 Handle, a1 MathMode) Result {
 	r1, _ := ffiCallWidths2(symsetMathMode, 0, 0xc, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsetStream calls cusolverDnSetStream.
+func fnsetStream(a0 Handle, a1 driver.Stream) Result {
+	r1, _ := ffiCall2(symsetStream, 0, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 

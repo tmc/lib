@@ -30,7 +30,7 @@ var (
 	symLoggerSetFile                    uintptr
 	symLoggerSetLevel                   uintptr
 	symLoggerSetMask                    uintptr
-	fnmatmul                            func(Handle, MatmulDesc, unsafe.Pointer, uintptr, MatrixLayout, uintptr, MatrixLayout, unsafe.Pointer, uintptr, MatrixLayout, uintptr, MatrixLayout, *MatmulAlgo, uintptr, uint, driver.Stream) Result
+	symmatmul                           uintptr
 	symMatmulAlgoCapGetAttribute        uintptr
 	symmatmulAlgoCheck                  uintptr
 	symMatmulAlgoConfigGetAttribute     uintptr
@@ -53,7 +53,7 @@ var (
 	symmatrixLayoutGetAttribute         uintptr
 	symmatrixLayoutInit_internal        uintptr
 	symmatrixLayoutSetAttribute         uintptr
-	fnmatrixTransform                   func(Handle, MatrixTransformDesc, unsafe.Pointer, uintptr, MatrixLayout, unsafe.Pointer, uintptr, MatrixLayout, uintptr, MatrixLayout, driver.Stream) Result
+	symmatrixTransform                  uintptr
 	symmatrixTransformDescCreate        uintptr
 	symmatrixTransformDescDestroy       uintptr
 	symmatrixTransformDescGetAttribute  uintptr
@@ -110,6 +110,45 @@ func ffiCall8(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7 uintp
 	args[6] = a6
 	args[7] = a7
 	return ffi.CallFloat(fn, 8, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall11(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	return ffi.CallFloat(fn, 11, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall16(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	return ffi.CallFloat(fn, 16, &args, floatMask)
 }
 
 //go:uintptrescapes
@@ -342,6 +381,12 @@ func fnLoggerSetMask(a0 int32) Result {
 	return Result(r1)
 }
 
+// fnmatmul calls cublasLtMatmul.
+func fnmatmul(a0 Handle, a1 MatmulDesc, a2 unsafe.Pointer, a3 uintptr, a4 MatrixLayout, a5 uintptr, a6 MatrixLayout, a7 unsafe.Pointer, a8 uintptr, a9 MatrixLayout, a10 uintptr, a11 MatrixLayout, a12 *MatmulAlgo, a13 uintptr, a14 uint, a15 driver.Stream) Result {
+	r1, _ := ffiCall16(symmatmul, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
 // fnMatmulAlgoCapGetAttribute calls cublasLtMatmulAlgoCapGetAttribute.
 func fnMatmulAlgoCapGetAttribute(a0 *MatmulAlgo, a1 MatmulAlgoCapAttributes, a2 unsafe.Pointer, a3 uint, a4 *uint) Result {
 	r1, _ := ffiCallWidths5(symMatmulAlgoCapGetAttribute, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
@@ -471,6 +516,12 @@ func fnmatrixLayoutInit_internal(a0 MatrixLayout, a1 uint, a2 DataType, a3 uint6
 // fnmatrixLayoutSetAttribute calls cublasLtMatrixLayoutSetAttribute.
 func fnmatrixLayoutSetAttribute(a0 MatrixLayout, a1 MatrixLayoutAttribute, a2 unsafe.Pointer, a3 uint) Result {
 	r1, _ := ffiCallWidths4(symmatrixLayoutSetAttribute, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnmatrixTransform calls cublasLtMatrixTransform.
+func fnmatrixTransform(a0 Handle, a1 MatrixTransformDesc, a2 unsafe.Pointer, a3 uintptr, a4 MatrixLayout, a5 unsafe.Pointer, a6 uintptr, a7 MatrixLayout, a8 uintptr, a9 MatrixLayout, a10 driver.Stream) Result {
+	r1, _ := ffiCall11(symmatrixTransform, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
 	return Result(r1)
 }
 

@@ -13,7 +13,7 @@ import (
 )
 
 // abiStub stands in for libnccl. Every collective takes a driver.Stream,
-// a type from another package.
+// a type from another package, which the binding passes as a machine word.
 const abiStub = abistub.Prelude + `
 #ifdef STUB_REAL_HEADER
 #include <nccl.h>
@@ -102,10 +102,11 @@ func testABI(t *testing.T, path string) {
 			if got := stub.Recorded(); !slices.Equal(got, tt.want) {
 				t.Errorf("C received\n\t%#x\nwant\n\t%#x", got, tt.want)
 			}
-			// The collectives take driver.Stream, which the generator does
-			// not know to be a word, so they bind through purego.
-			n := testing.AllocsPerRun(100, func() { tt.call() })
-			t.Logf("%v allocs/op through purego.RegisterFunc", n)
+			// driver.Stream is a word, so the collectives are positional
+			// calls and allocate nothing.
+			if n := testing.AllocsPerRun(100, func() { tt.call() }); n != 0 {
+				t.Errorf("%v allocs/op, want 0", n)
+			}
 
 			stub.Reset(int32(ErrUnhandledCudaError))
 			defer stub.Reset(0)

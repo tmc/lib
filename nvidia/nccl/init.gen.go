@@ -441,14 +441,14 @@ func checkLibSym(symbol string) error {
 // registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
 	register(&fnGetErrorString, "ncclGetErrorString")
-	register(&fnallGather, "ncclAllGather")
-	register(&fnallGatherConfig, "ncclAllGatherConfig")
-	register(&fnallReduce, "ncclAllReduce")
-	register(&fnallReduceConfig, "ncclAllReduceConfig")
-	register(&fnalltoAll, "ncclAlltoAll")
-	register(&fnalltoAllConfig, "ncclAlltoAllConfig")
-	register(&fnbroadcast, "ncclBroadcast")
-	register(&fnbroadcastConfig, "ncclBroadcastConfig")
+	symallGather = registerSym("ncclAllGather")
+	symallGatherConfig = registerSym("ncclAllGatherConfig")
+	symallReduce = registerSym("ncclAllReduce")
+	symallReduceConfig = registerSym("ncclAllReduceConfig")
+	symalltoAll = registerSym("ncclAlltoAll")
+	symalltoAllConfig = registerSym("ncclAlltoAllConfig")
+	symbroadcast = registerSym("ncclBroadcast")
+	symbroadcastConfig = registerSym("ncclBroadcastConfig")
 	registerFFI(&fnCftBarrierCreateRequirement, "ncclCftBarrierCreateRequirement")
 	symcommAbort = registerSym("ncclCommAbort")
 	symcommCount = registerSym("ncclCommCount")
@@ -476,8 +476,8 @@ func registerFuncs() {
 	symcommWindowRegister = registerSym("ncclCommWindowRegister")
 	symdevCommCreate = registerSym("ncclDevCommCreate")
 	symdevCommDestroy = registerSym("ncclDevCommDestroy")
-	register(&fngather, "ncclGather")
-	register(&fngatherConfig, "ncclGatherConfig")
+	symgather = registerSym("ncclGather")
+	symgatherConfig = registerSym("ncclGatherConfig")
 	registerFFI(&fngetCftDeviceLeInfo, "ncclGetCftDeviceLeInfo")
 	symgetLastError = registerSym("ncclGetLastError")
 	symgetLsaDevicePointer = registerSym("ncclGetLsaDevicePointer")
@@ -511,18 +511,18 @@ func registerFuncs() {
 	symparamGetU32 = registerSym("ncclParamGetU32")
 	symparamGetU64 = registerSym("ncclParamGetU64")
 	symparamGetU8 = registerSym("ncclParamGetU8")
-	register(&fnputSignal, "ncclPutSignal")
-	register(&fnrecv, "ncclRecv")
+	symputSignal = registerSym("ncclPutSignal")
+	symrecv = registerSym("ncclRecv")
 	symredOpCreatePreMulSum = registerSym("ncclRedOpCreatePreMulSum")
 	symredOpDestroy = registerSym("ncclRedOpDestroy")
-	register(&fnreduce, "ncclReduce")
-	register(&fnreduceConfig, "ncclReduceConfig")
-	register(&fnreduceScatter, "ncclReduceScatter")
-	register(&fnreduceScatterConfig, "ncclReduceScatterConfig")
-	register(&fnscatter, "ncclScatter")
-	register(&fnscatterConfig, "ncclScatterConfig")
-	register(&fnsend, "ncclSend")
-	register(&fnsignal, "ncclSignal")
+	symreduce = registerSym("ncclReduce")
+	symreduceConfig = registerSym("ncclReduceConfig")
+	symreduceScatter = registerSym("ncclReduceScatter")
+	symreduceScatterConfig = registerSym("ncclReduceScatterConfig")
+	symscatter = registerSym("ncclScatter")
+	symscatterConfig = registerSym("ncclScatterConfig")
+	symsend = registerSym("ncclSend")
+	symsignal = registerSym("ncclSignal")
 	registerFFI(&fnteamCft, "ncclTeamCft")
 	registerFFI(&fnteamCftMultimem, "ncclTeamCftMultimem")
 	registerFFI(&fnteamLsa, "ncclTeamLsa")
@@ -530,21 +530,21 @@ func registerFuncs() {
 	registerFFI(&fnteamRankToLsa, "ncclTeamRankToLsa")
 	registerFFI(&fnteamRankToWorld, "ncclTeamRankToWorld")
 	registerFFI(&fnteamWorld, "ncclTeamWorld")
-	register(&fnwaitSignal, "ncclWaitSignal")
+	symwaitSignal = registerSym("ncclWaitSignal")
 	symwinGetUserPtr = registerSym("ncclWinGetUserPtr")
 }
 
 // clearFuncs unbinds all function pointers.
 func clearFuncs() {
 	fnGetErrorString = nil
-	fnallGather = nil
-	fnallGatherConfig = nil
-	fnallReduce = nil
-	fnallReduceConfig = nil
-	fnalltoAll = nil
-	fnalltoAllConfig = nil
-	fnbroadcast = nil
-	fnbroadcastConfig = nil
+	symallGather = 0
+	symallGatherConfig = 0
+	symallReduce = 0
+	symallReduceConfig = 0
+	symalltoAll = 0
+	symalltoAllConfig = 0
+	symbroadcast = 0
+	symbroadcastConfig = 0
 	fnCftBarrierCreateRequirement = nil
 	symcommAbort = 0
 	symcommCount = 0
@@ -572,8 +572,8 @@ func clearFuncs() {
 	symcommWindowRegister = 0
 	symdevCommCreate = 0
 	symdevCommDestroy = 0
-	fngather = nil
-	fngatherConfig = nil
+	symgather = 0
+	symgatherConfig = 0
 	fngetCftDeviceLeInfo = nil
 	symgetLastError = 0
 	symgetLsaDevicePointer = 0
@@ -607,18 +607,18 @@ func clearFuncs() {
 	symparamGetU32 = 0
 	symparamGetU64 = 0
 	symparamGetU8 = 0
-	fnputSignal = nil
-	fnrecv = nil
+	symputSignal = 0
+	symrecv = 0
 	symredOpCreatePreMulSum = 0
 	symredOpDestroy = 0
-	fnreduce = nil
-	fnreduceConfig = nil
-	fnreduceScatter = nil
-	fnreduceScatterConfig = nil
-	fnscatter = nil
-	fnscatterConfig = nil
-	fnsend = nil
-	fnsignal = nil
+	symreduce = 0
+	symreduceConfig = 0
+	symreduceScatter = 0
+	symreduceScatterConfig = 0
+	symscatter = 0
+	symscatterConfig = 0
+	symsend = 0
+	symsignal = 0
 	fnteamCft = nil
 	fnteamCftMultimem = nil
 	fnteamLsa = nil
@@ -626,7 +626,7 @@ func clearFuncs() {
 	fnteamRankToLsa = nil
 	fnteamRankToWorld = nil
 	fnteamWorld = nil
-	fnwaitSignal = nil
+	symwaitSignal = 0
 	symwinGetUserPtr = 0
 }
 

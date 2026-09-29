@@ -499,7 +499,7 @@ func registerFuncs() {
 	symsDDMMPreprocess = registerSym("cusparseSDDMM_preprocess")
 	symscatter = registerSym("cusparseScatter")
 	symsetPointerMode = registerSym("cusparseSetPointerMode")
-	register(&fnsetStream, "cusparseSetStream")
+	symsetStream = registerSym("cusparseSetStream")
 	symspGEMMCompute = registerSym("cusparseSpGEMM_compute")
 	symspGEMMCopy = registerSym("cusparseSpGEMM_copy")
 	symSpGEMMCreateDescr = registerSym("cusparseSpGEMM_createDescr")
@@ -628,7 +628,7 @@ func clearFuncs() {
 	symsDDMMPreprocess = 0
 	symscatter = 0
 	symsetPointerMode = 0
-	fnsetStream = nil
+	symsetStream = 0
 	symspGEMMCompute = 0
 	symspGEMMCopy = 0
 	symSpGEMMCreateDescr = 0

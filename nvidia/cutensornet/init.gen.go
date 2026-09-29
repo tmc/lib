@@ -424,8 +424,8 @@ func checkLibSym(symbol string) error {
 // registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
 	register(&fnGetErrorString, "cutensornetGetErrorString")
-	register(&fncontractSlices, "cutensornetContractSlices")
-	register(&fncontractionAutotune, "cutensornetContractionAutotune")
+	symcontractSlices = registerSym("cutensornetContractSlices")
+	symcontractionAutotune = registerSym("cutensornetContractionAutotune")
 	symcontractionAutotunePreferenceGetAttribute = registerSym("cutensornetContractionAutotunePreferenceGetAttribute")
 	symcontractionAutotunePreferenceSetAttribute = registerSym("cutensornetContractionAutotunePreferenceSetAttribute")
 	symcontractionOptimize = registerSym("cutensornetContractionOptimize")
@@ -473,10 +473,10 @@ func registerFuncs() {
 	symLoggerSetLevel = registerSym("cutensornetLoggerSetLevel")
 	symLoggerSetMask = registerSym("cutensornetLoggerSetMask")
 	symnetworkAppendTensor = registerSym("cutensornetNetworkAppendTensor")
-	register(&fnnetworkAutotuneContraction, "cutensornetNetworkAutotuneContraction")
+	symnetworkAutotuneContraction = registerSym("cutensornetNetworkAutotuneContraction")
 	symnetworkAutotunePreferenceGetAttribute = registerSym("cutensornetNetworkAutotunePreferenceGetAttribute")
 	symnetworkAutotunePreferenceSetAttribute = registerSym("cutensornetNetworkAutotunePreferenceSetAttribute")
-	register(&fnnetworkContract, "cutensornetNetworkContract")
+	symnetworkContract = registerSym("cutensornetNetworkContract")
 	symnetworkGetAttribute = registerSym("cutensornetNetworkGetAttribute")
 	symnetworkPrepareContraction = registerSym("cutensornetNetworkPrepareContraction")
 	symnetworkSetAttribute = registerSym("cutensornetNetworkSetAttribute")
@@ -495,8 +495,8 @@ func registerFuncs() {
 // clearFuncs unbinds all function pointers.
 func clearFuncs() {
 	fnGetErrorString = nil
-	fncontractSlices = nil
-	fncontractionAutotune = nil
+	symcontractSlices = 0
+	symcontractionAutotune = 0
 	symcontractionAutotunePreferenceGetAttribute = 0
 	symcontractionAutotunePreferenceSetAttribute = 0
 	symcontractionOptimize = 0
@@ -544,10 +544,10 @@ func clearFuncs() {
 	symLoggerSetLevel = 0
 	symLoggerSetMask = 0
 	symnetworkAppendTensor = 0
-	fnnetworkAutotuneContraction = nil
+	symnetworkAutotuneContraction = 0
 	symnetworkAutotunePreferenceGetAttribute = 0
 	symnetworkAutotunePreferenceSetAttribute = 0
-	fnnetworkContract = nil
+	symnetworkContract = 0
 	symnetworkGetAttribute = 0
 	symnetworkPrepareContraction = 0
 	symnetworkSetAttribute = 0

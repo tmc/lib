@@ -211,7 +211,7 @@ var (
 	symsetReduceTensorDescriptor                           uintptr
 	symsetSeqDataDescriptor                                uintptr
 	symsetSpatialTransformerNdDescriptor                   uintptr
-	fnsetStream                                            func(Handle, driver.Stream) Result
+	symsetStream                                           uintptr
 	symsetTensor                                           uintptr
 	symsetTensor4dDescriptor                               uintptr
 	symsetTensor4dDescriptorEx                             uintptr
@@ -2197,6 +2197,12 @@ func fnsetSeqDataDescriptor(a0 SeqDataDescriptor, a1 DataType, a2 int32, a3 *int
 // fnsetSpatialTransformerNdDescriptor calls cudnnSetSpatialTransformerNdDescriptor.
 func fnsetSpatialTransformerNdDescriptor(a0 SpatialTransformerDescriptor, a1 SamplerType, a2 DataType, a3 int32, a4 *int32) Result {
 	r1, _ := ffiCallWidths5(symsetSpatialTransformerNdDescriptor, 0, 0xfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnsetStream calls cudnnSetStream.
+func fnsetStream(a0 Handle, a1 driver.Stream) Result {
+	r1, _ := ffiCall2(symsetStream, 0, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 

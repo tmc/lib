@@ -445,7 +445,7 @@ func registerFuncs() {
 	symLoggerSetFile = registerSym("cublasLtLoggerSetFile")
 	symLoggerSetLevel = registerSym("cublasLtLoggerSetLevel")
 	symLoggerSetMask = registerSym("cublasLtLoggerSetMask")
-	register(&fnmatmul, "cublasLtMatmul")
+	symmatmul = registerSym("cublasLtMatmul")
 	symMatmulAlgoCapGetAttribute = registerSym("cublasLtMatmulAlgoCapGetAttribute")
 	symmatmulAlgoCheck = registerSym("cublasLtMatmulAlgoCheck")
 	symMatmulAlgoConfigGetAttribute = registerSym("cublasLtMatmulAlgoConfigGetAttribute")
@@ -468,7 +468,7 @@ func registerFuncs() {
 	symmatrixLayoutGetAttribute = registerSym("cublasLtMatrixLayoutGetAttribute")
 	symmatrixLayoutInit_internal = registerSym("cublasLtMatrixLayoutInit_internal")
 	symmatrixLayoutSetAttribute = registerSym("cublasLtMatrixLayoutSetAttribute")
-	register(&fnmatrixTransform, "cublasLtMatrixTransform")
+	symmatrixTransform = registerSym("cublasLtMatrixTransform")
 	symmatrixTransformDescCreate = registerSym("cublasLtMatrixTransformDescCreate")
 	symmatrixTransformDescDestroy = registerSym("cublasLtMatrixTransformDescDestroy")
 	symmatrixTransformDescGetAttribute = registerSym("cublasLtMatrixTransformDescGetAttribute")
@@ -498,7 +498,7 @@ func clearFuncs() {
 	symLoggerSetFile = 0
 	symLoggerSetLevel = 0
 	symLoggerSetMask = 0
-	fnmatmul = nil
+	symmatmul = 0
 	symMatmulAlgoCapGetAttribute = 0
 	symmatmulAlgoCheck = 0
 	symMatmulAlgoConfigGetAttribute = 0
@@ -521,7 +521,7 @@ func clearFuncs() {
 	symmatrixLayoutGetAttribute = 0
 	symmatrixLayoutInit_internal = 0
 	symmatrixLayoutSetAttribute = 0
-	fnmatrixTransform = nil
+	symmatrixTransform = 0
 	symmatrixTransformDescCreate = 0
 	symmatrixTransformDescDestroy = 0
 	symmatrixTransformDescGetAttribute = 0

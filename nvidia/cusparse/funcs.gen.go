@@ -87,7 +87,7 @@ var (
 	symsDDMMPreprocess           uintptr
 	symscatter                   uintptr
 	symsetPointerMode            uintptr
-	fnsetStream                  func(Handle, driver.Stream) Result
+	symsetStream                 uintptr
 	symspGEMMCompute             uintptr
 	symspGEMMCopy                uintptr
 	symSpGEMMCreateDescr         uintptr
@@ -915,6 +915,12 @@ func fnscatter(a0 Handle, a1 ConstSpVecDescr, a2 DnVecDescr) Result {
 // fnsetPointerMode calls cusparseSetPointerMode.
 func fnsetPointerMode(a0 Handle, a1 PointerMode) Result {
 	r1, _ := ffiCallWidths2(symsetPointerMode, 0, 0xc, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsetStream calls cusparseSetStream.
+func fnsetStream(a0 Handle, a1 driver.Stream) Result {
+	r1, _ := ffiCall2(symsetStream, 0, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 

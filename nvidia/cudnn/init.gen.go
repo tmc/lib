@@ -623,7 +623,7 @@ func registerFuncs() {
 	symsetReduceTensorDescriptor = registerSym("cudnnSetReduceTensorDescriptor")
 	symsetSeqDataDescriptor = registerSym("cudnnSetSeqDataDescriptor")
 	symsetSpatialTransformerNdDescriptor = registerSym("cudnnSetSpatialTransformerNdDescriptor")
-	register(&fnsetStream, "cudnnSetStream")
+	symsetStream = registerSym("cudnnSetStream")
 	symsetTensor = registerSym("cudnnSetTensor")
 	symsetTensor4dDescriptor = registerSym("cudnnSetTensor4dDescriptor")
 	symsetTensor4dDescriptorEx = registerSym("cudnnSetTensor4dDescriptorEx")
@@ -841,7 +841,7 @@ func clearFuncs() {
 	symsetReduceTensorDescriptor = 0
 	symsetSeqDataDescriptor = 0
 	symsetSpatialTransformerNdDescriptor = 0
-	fnsetStream = nil
+	symsetStream = 0
 	symsetTensor = 0
 	symsetTensor4dDescriptor = 0
 	symsetTensor4dDescriptorEx = 0

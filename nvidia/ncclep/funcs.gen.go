@@ -4,32 +4,143 @@ package ncclep
 
 import (
 	"sync"
+	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/internal/ffi"
 	"github.com/tmc/lib/nvidia/nccl"
 )
 
 // Generated function pointer variables.
 var (
-	fnCombine       func(Handle, *CombineInputs, *CombineOutputs, *CombineConfig, driver.Stream) nccl.Result
-	fnComplete      func(Handle, *CompleteConfig, driver.Stream) nccl.Result
-	fnCreateGroup   func(*Group, nccl.Comm, *GroupConfig) nccl.Result
-	fnCreateHandle  func(*Handle, Group, Layout, *Tensor, *LayoutInfo, *HandleConfig, driver.Stream) nccl.Result
-	fnDispatch      func(Handle, *DispatchInputs, *DispatchOutputs, *LayoutInfo, *DispatchConfig, driver.Stream) nccl.Result
-	fnErrorClear    func(Group) nccl.Result
-	fnGetAsyncError func(Group, *int32) nccl.Result
-	fnGetVersion    func(*int32) nccl.Result
-	fnGroupDestroy  func(Group) nccl.Result
-	fnHandleDestroy func(Handle) nccl.Result
-	fnHandleMemSize func(Group, Layout, *HandleConfig, *uint, int32) nccl.Result
-	fnInitHandle    func(*Handle, Group, Layout, *HandleConfig, int32, *Tensor) nccl.Result
-	fnMaskClean     func(Group, driver.Stream) nccl.Result
-	fnMaskQuery     func(Group, nccl.Buffer, driver.Stream) nccl.Result
-	fnMaskUpdate    func(Group, *int32, driver.Stream) nccl.Result
-	fnTensorAlloc   func(**Tensor, uint32, nccl.DataType, *uint, *TensorAllocConfig) nccl.Result
-	fnTensorDestroy func(*Tensor) nccl.Result
-	fnUpdateHandle  func(Handle, *Tensor, *LayoutInfo, driver.Stream) nccl.Result
+	symCombine       uintptr
+	symComplete      uintptr
+	symCreateGroup   uintptr
+	symCreateHandle  uintptr
+	symDispatch      uintptr
+	symErrorClear    uintptr
+	symGetAsyncError uintptr
+	symGetVersion    uintptr
+	symGroupDestroy  uintptr
+	symHandleDestroy uintptr
+	symHandleMemSize uintptr
+	symInitHandle    uintptr
+	symMaskClean     uintptr
+	symMaskQuery     uintptr
+	symMaskUpdate    uintptr
+	symTensorAlloc   uintptr
+	symTensorDestroy uintptr
+	symUpdateHandle  uintptr
 )
+
+// The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Bits 2i and 2i+1 of widths give the size of
+// argument word i as a ffi.Width code, which places a narrow argument
+// on the stack where the C ABI expects it. Each funnel returns the first
+// integer result register and the first floating-point one; a caller
+// reads whichever the C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloat(fn, 3, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloat(fn, 4, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloat(fn, 5, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	return ffi.CallFloat(fn, 6, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCallWidths5(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloatWidths(fn, 5, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths6(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	return ffi.CallFloatWidths(fn, 6, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths7(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	return ffi.CallFloatWidths(fn, 7, &args, floatMask, widths)
+}
 
 // An outSlot pools the heap cells a wrapper passes to C for its outputs.
 //
@@ -50,6 +161,114 @@ func (s *outSlot[T]) put(p *T) {
 	var zero T
 	*p = zero
 	s.pool.Put(p)
+}
+
+// fnCombine calls ncclEpCombine.
+func fnCombine(a0 Handle, a1 *CombineInputs, a2 *CombineOutputs, a3 *CombineConfig, a4 driver.Stream) nccl.Result {
+	r1, _ := ffiCall5(symCombine, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(a4))
+	return nccl.Result(r1)
+}
+
+// fnComplete calls ncclEpComplete.
+func fnComplete(a0 Handle, a1 *CompleteConfig, a2 driver.Stream) nccl.Result {
+	r1, _ := ffiCall3(symComplete, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return nccl.Result(r1)
+}
+
+// fnCreateGroup calls ncclEpCreateGroup.
+func fnCreateGroup(a0 *Group, a1 nccl.Comm, a2 *GroupConfig) nccl.Result {
+	r1, _ := ffiCall3(symCreateGroup, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return nccl.Result(r1)
+}
+
+// fnCreateHandle calls ncclEpCreateHandle.
+func fnCreateHandle(a0 *Handle, a1 Group, a2 Layout, a3 *Tensor, a4 *LayoutInfo, a5 *HandleConfig, a6 driver.Stream) nccl.Result {
+	r1, _ := ffiCallWidths7(symCreateHandle, 0, 0x30, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(a6))
+	return nccl.Result(r1)
+}
+
+// fnDispatch calls ncclEpDispatch.
+func fnDispatch(a0 Handle, a1 *DispatchInputs, a2 *DispatchOutputs, a3 *LayoutInfo, a4 *DispatchConfig, a5 driver.Stream) nccl.Result {
+	r1, _ := ffiCall6(symDispatch, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(a5))
+	return nccl.Result(r1)
+}
+
+// fnErrorClear calls ncclEpErrorClear.
+func fnErrorClear(a0 Group) nccl.Result {
+	r1, _ := ffiCall1(symErrorClear, 0, uintptr(a0))
+	return nccl.Result(r1)
+}
+
+// fnGetAsyncError calls ncclEpGetAsyncError.
+func fnGetAsyncError(a0 Group, a1 *int32) nccl.Result {
+	r1, _ := ffiCall2(symGetAsyncError, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return nccl.Result(r1)
+}
+
+// fnGetVersion calls ncclEpGetVersion.
+func fnGetVersion(a0 *int32) nccl.Result {
+	r1, _ := ffiCall1(symGetVersion, 0, uintptr(unsafe.Pointer(a0)))
+	return nccl.Result(r1)
+}
+
+// fnGroupDestroy calls ncclEpGroupDestroy.
+func fnGroupDestroy(a0 Group) nccl.Result {
+	r1, _ := ffiCall1(symGroupDestroy, 0, uintptr(a0))
+	return nccl.Result(r1)
+}
+
+// fnHandleDestroy calls ncclEpHandleDestroy.
+func fnHandleDestroy(a0 Handle) nccl.Result {
+	r1, _ := ffiCall1(symHandleDestroy, 0, uintptr(a0))
+	return nccl.Result(r1)
+}
+
+// fnHandleMemSize calls ncclEpHandleMemSize.
+func fnHandleMemSize(a0 Group, a1 Layout, a2 *HandleConfig, a3 *uint, a4 int32) nccl.Result {
+	r1, _ := ffiCallWidths5(symHandleMemSize, 0, 0x30c, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(a4))
+	return nccl.Result(r1)
+}
+
+// fnInitHandle calls ncclEpInitHandle.
+func fnInitHandle(a0 *Handle, a1 Group, a2 Layout, a3 *HandleConfig, a4 int32, a5 *Tensor) nccl.Result {
+	r1, _ := ffiCallWidths6(symInitHandle, 0, 0x330, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return nccl.Result(r1)
+}
+
+// fnMaskClean calls ncclEpMaskClean.
+func fnMaskClean(a0 Group, a1 driver.Stream) nccl.Result {
+	r1, _ := ffiCall2(symMaskClean, 0, uintptr(a0), uintptr(a1))
+	return nccl.Result(r1)
+}
+
+// fnMaskQuery calls ncclEpMaskQuery.
+func fnMaskQuery(a0 Group, a1 nccl.Buffer, a2 driver.Stream) nccl.Result {
+	r1, _ := ffiCall3(symMaskQuery, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return nccl.Result(r1)
+}
+
+// fnMaskUpdate calls ncclEpMaskUpdate.
+func fnMaskUpdate(a0 Group, a1 *int32, a2 driver.Stream) nccl.Result {
+	r1, _ := ffiCall3(symMaskUpdate, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return nccl.Result(r1)
+}
+
+// fnTensorAlloc calls ncclEpTensorAlloc.
+func fnTensorAlloc(a0 **Tensor, a1 uint32, a2 nccl.DataType, a3 *uint, a4 *TensorAllocConfig) nccl.Result {
+	r1, _ := ffiCallWidths5(symTensorAlloc, 0, 0x3c, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	return nccl.Result(r1)
+}
+
+// fnTensorDestroy calls ncclEpTensorDestroy.
+func fnTensorDestroy(a0 *Tensor) nccl.Result {
+	r1, _ := ffiCall1(symTensorDestroy, 0, uintptr(unsafe.Pointer(a0)))
+	return nccl.Result(r1)
+}
+
+// fnUpdateHandle calls ncclEpUpdateHandle.
+func fnUpdateHandle(a0 Handle, a1 *Tensor, a2 *LayoutInfo, a3 driver.Stream) nccl.Result {
+	r1, _ := ffiCall4(symUpdateHandle, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(a3))
+	return nccl.Result(r1)
 }
 
 // Combine combines expert outputs in the original token order.
@@ -99,13 +318,16 @@ func CreateGroup(comm nccl.Comm, config *GroupConfig) (Group, error) {
 		var zero Group
 		return zero, err
 	}
-	var out Group
-	if err := toError(fnCreateGroup(&out, comm, config), "ncclEpCreateGroup"); err != nil {
+	out := slotCreateGroup.get()
+	defer slotCreateGroup.put(out)
+	if err := toError(fnCreateGroup(out, comm, config), "ncclEpCreateGroup"); err != nil {
 		var zero Group
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateGroup outSlot[Group]
 
 // CreateHandle creates a handle and updates its routing metadata.
 //
@@ -124,13 +346,16 @@ func CreateHandle(epGroup Group, layout Layout, topkIdx *Tensor, layoutInfo *Lay
 		var zero Handle
 		return zero, err
 	}
-	var out Handle
-	if err := toError(fnCreateHandle(&out, epGroup, layout, topkIdx, layoutInfo, config, stream), "ncclEpCreateHandle"); err != nil {
+	out := slotCreateHandle.get()
+	defer slotCreateHandle.put(out)
+	if err := toError(fnCreateHandle(out, epGroup, layout, topkIdx, layoutInfo, config, stream), "ncclEpCreateHandle"); err != nil {
 		var zero Handle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateHandle outSlot[Handle]
 
 // Dispatch dispatches tokens to experts using the handle's routing metadata.
 //
@@ -177,13 +402,16 @@ func GetAsyncError(epGroup Group) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnGetAsyncError(epGroup, &out), "ncclEpGetAsyncError"); err != nil {
+	out := slotGetAsyncError.get()
+	defer slotGetAsyncError.put(out)
+	if err := toError(fnGetAsyncError(epGroup, out), "ncclEpGetAsyncError"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetAsyncError outSlot[int32]
 
 // GetVersion returns the EP library version code.
 //
@@ -195,13 +423,16 @@ func GetVersion() (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnGetVersion(&out), "ncclEpGetVersion"); err != nil {
+	out := slotGetVersion.get()
+	defer slotGetVersion.put(out)
+	if err := toError(fnGetVersion(out), "ncclEpGetVersion"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetVersion outSlot[int32]
 
 // GroupDestroy destroys an EP group.
 //
@@ -246,13 +477,16 @@ func HandleMemSize(epGroup Group, layout Layout, config *HandleConfig, numTopk i
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnHandleMemSize(epGroup, layout, config, &out, numTopk), "ncclEpHandleMemSize"); err != nil {
+	out := slotHandleMemSize.get()
+	defer slotHandleMemSize.put(out)
+	if err := toError(fnHandleMemSize(epGroup, layout, config, out, numTopk), "ncclEpHandleMemSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotHandleMemSize outSlot[uint]
 
 // InitHandle initializes a handle for an explicit layout.
 //
@@ -290,13 +524,16 @@ func InitHandle(epGroup Group, layout Layout, config *HandleConfig, numTopk int3
 		var zero Handle
 		return zero, err
 	}
-	var out Handle
-	if err := toError(fnInitHandle(&out, epGroup, layout, config, numTopk, handleMem), "ncclEpInitHandle"); err != nil {
+	out := slotInitHandle.get()
+	defer slotInitHandle.put(out)
+	if err := toError(fnInitHandle(out, epGroup, layout, config, numTopk, handleMem), "ncclEpInitHandle"); err != nil {
 		var zero Handle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotInitHandle outSlot[Handle]
 
 // MaskClean collectively cleans masked-rank communication state.
 //
@@ -360,13 +597,16 @@ func TensorAlloc(ndim uint32, datatype nccl.DataType, sizes *uint, config *Tenso
 		var zero *Tensor
 		return zero, err
 	}
-	var out *Tensor
-	if err := toError(fnTensorAlloc(&out, ndim, datatype, sizes, config), "ncclEpTensorAlloc"); err != nil {
+	out := slotTensorAlloc.get()
+	defer slotTensorAlloc.put(out)
+	if err := toError(fnTensorAlloc(out, ndim, datatype, sizes, config), "ncclEpTensorAlloc"); err != nil {
 		var zero *Tensor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotTensorAlloc outSlot[*Tensor]
 
 // TensorDestroy releases a descriptor returned by TensorAlloc.
 //

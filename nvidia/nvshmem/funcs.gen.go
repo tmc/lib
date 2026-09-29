@@ -47,43 +47,43 @@ var (
 	symTeamSplitStrided          uintptr
 	symTeamSync                  uintptr
 	symTeamTranslatePE           uintptr
-	fnAllToAllMemOnStream        func(Team, uintptr, uintptr, uint, driver.Stream) Status
-	fnBarrierAllOnStream         func(driver.Stream)
-	fnBarrierOnStream            func(Team, driver.Stream) Status
-	fnBroadcastMemOnStream       func(Team, uintptr, uintptr, uint, int32, driver.Stream) Status
+	symAllToAllMemOnStream       uintptr
+	symBarrierAllOnStream        uintptr
+	symBarrierOnStream           uintptr
+	symBroadcastMemOnStream      uintptr
 	symBufferRegister            uintptr
 	symBufferRegisterSymmetric   uintptr
 	symBufferRegisterSymmetricAt uintptr
 	symBufferUnregister          uintptr
 	symBufferUnregisterAll       uintptr
 	symBufferUnregisterSymmetric uintptr
-	fnCULibraryFinalize          func(driver.Library) Status
-	fnCULibraryInit              func(driver.Library) Status
-	fnCUModuleFinalize           func(driver.Module) Status
-	fnCUModuleInit               func(driver.Module) Status
-	fnFCollectMemOnStream        func(Team, uintptr, uintptr, uint, driver.Stream) Status
+	symCULibraryFinalize         uintptr
+	symCULibraryInit             uintptr
+	symCUModuleFinalize          uintptr
+	symCUModuleInit              uintptr
+	symFCollectMemOnStream       uintptr
 	symFlush                     uintptr
-	fnFlushOnStream              func(driver.Stream)
+	symFlushOnStream             uintptr
 	symGetUniqueID               uintptr
-	fnGetMemNBIOnStream          func(uintptr, uintptr, uint, int32, driver.Stream)
-	fnGetMemOnStream             func(uintptr, uintptr, uint, int32, driver.Stream)
+	symGetMemNBIOnStream         uintptr
+	symGetMemOnStream            uintptr
 	symHostlibFinalize           uintptr
 	symHostlibInitAttr           uintptr
 	symQueryInitStatus           uintptr
 	symMulticastPtr              uintptr
-	fnPutMemNBIOnStream          func(uintptr, uintptr, uint, int32, driver.Stream)
-	fnPutMemOnStream             func(uintptr, uintptr, uint, int32, driver.Stream)
-	fnPutMemSignalNBIOnStream    func(uintptr, uintptr, uint, uintptr, uint64, int32, int32, driver.Stream)
-	fnPutMemSignalOnStream       func(uintptr, uintptr, uint, uintptr, uint64, int32, int32, driver.Stream)
-	fnQuietOnStream              func(driver.Stream)
+	symPutMemNBIOnStream         uintptr
+	symPutMemOnStream            uintptr
+	symPutMemSignalNBIOnStream   uintptr
+	symPutMemSignalOnStream      uintptr
+	symQuietOnStream             uintptr
 	symSetAttrMPICommArgs        uintptr
 	symSetAttrUniqueIDArgs       uintptr
-	fnSignalOpOnStream           func(uintptr, uint64, int32, int32, driver.Stream)
-	fnSignalWaitUntilOnStream    func(uintptr, int32, uint64, driver.Stream)
-	fnSyncAllOnStream            func(driver.Stream)
+	symSignalOpOnStream          uintptr
+	symSignalWaitUntilOnStream   uintptr
+	symSyncAllOnStream           uintptr
 	symTeamGetUniqueID           uintptr
 	symTeamInit                  uintptr
-	fnTeamSyncOnStream           func(Team, driver.Stream) Status
+	symTeamSyncOnStream          uintptr
 	symVendorGetVersionInfoRaw   uintptr
 )
 
@@ -176,6 +176,18 @@ func ffiCallWidths5(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3,
 	args[3] = a3
 	args[4] = a4
 	return ffi.CallFloatWidths(fn, 5, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths6(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	return ffi.CallFloatWidths(fn, 6, &args, floatMask, widths)
 }
 
 //go:uintptrescapes
@@ -403,6 +415,29 @@ func fnTeamTranslatePE(a0 Team, a1 int32, a2 Team) int32 {
 	return int32(r1)
 }
 
+// fnAllToAllMemOnStream calls nvshmemx_alltoallmem_on_stream.
+func fnAllToAllMemOnStream(a0 Team, a1 uintptr, a2 uintptr, a3 uint, a4 driver.Stream) Status {
+	r1, _ := ffiCallWidths5(symAllToAllMemOnStream, 0, 0x3, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Status(r1)
+}
+
+// fnBarrierAllOnStream calls nvshmemx_barrier_all_on_stream.
+func fnBarrierAllOnStream(a0 driver.Stream) {
+	ffiCall1(symBarrierAllOnStream, 0, uintptr(a0))
+}
+
+// fnBarrierOnStream calls nvshmemx_barrier_on_stream.
+func fnBarrierOnStream(a0 Team, a1 driver.Stream) Status {
+	r1, _ := ffiCallWidths2(symBarrierOnStream, 0, 0x3, uintptr(a0), uintptr(a1))
+	return Status(r1)
+}
+
+// fnBroadcastMemOnStream calls nvshmemx_broadcastmem_on_stream.
+func fnBroadcastMemOnStream(a0 Team, a1 uintptr, a2 uintptr, a3 uint, a4 int32, a5 driver.Stream) Status {
+	r1, _ := ffiCallWidths6(symBroadcastMemOnStream, 0, 0x303, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Status(r1)
+}
+
 // fnBufferRegister calls nvshmemx_buffer_register.
 func fnBufferRegister(a0 uintptr, a1 uint) Status {
 	r1, _ := ffiCall2(symBufferRegister, 0, uintptr(a0), uintptr(a1))
@@ -438,15 +473,60 @@ func fnBufferUnregisterSymmetric(a0 uintptr, a1 uint) Status {
 	return Status(r1)
 }
 
+// fnCULibraryFinalize calls nvshmemx_culibrary_finalize.
+func fnCULibraryFinalize(a0 driver.Library) Status {
+	r1, _ := ffiCall1(symCULibraryFinalize, 0, uintptr(a0))
+	return Status(r1)
+}
+
+// fnCULibraryInit calls nvshmemx_culibrary_init.
+func fnCULibraryInit(a0 driver.Library) Status {
+	r1, _ := ffiCall1(symCULibraryInit, 0, uintptr(a0))
+	return Status(r1)
+}
+
+// fnCUModuleFinalize calls nvshmemx_cumodule_finalize.
+func fnCUModuleFinalize(a0 driver.Module) Status {
+	r1, _ := ffiCall1(symCUModuleFinalize, 0, uintptr(a0))
+	return Status(r1)
+}
+
+// fnCUModuleInit calls nvshmemx_cumodule_init.
+func fnCUModuleInit(a0 driver.Module) Status {
+	r1, _ := ffiCall1(symCUModuleInit, 0, uintptr(a0))
+	return Status(r1)
+}
+
+// fnFCollectMemOnStream calls nvshmemx_fcollectmem_on_stream.
+func fnFCollectMemOnStream(a0 Team, a1 uintptr, a2 uintptr, a3 uint, a4 driver.Stream) Status {
+	r1, _ := ffiCallWidths5(symFCollectMemOnStream, 0, 0x3, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Status(r1)
+}
+
 // fnFlush calls nvshmemx_flush.
 func fnFlush() {
 	ffiCall0(symFlush, 0)
+}
+
+// fnFlushOnStream calls nvshmemx_flush_on_stream.
+func fnFlushOnStream(a0 driver.Stream) {
+	ffiCall1(symFlushOnStream, 0, uintptr(a0))
 }
 
 // fnGetUniqueID calls nvshmemx_get_uniqueid.
 func fnGetUniqueID(a0 *UniqueID) Status {
 	r1, _ := ffiCall1(symGetUniqueID, 0, uintptr(unsafe.Pointer(a0)))
 	return Status(r1)
+}
+
+// fnGetMemNBIOnStream calls nvshmemx_getmem_nbi_on_stream.
+func fnGetMemNBIOnStream(a0 uintptr, a1 uintptr, a2 uint, a3 int32, a4 driver.Stream) {
+	ffiCallWidths5(symGetMemNBIOnStream, 0, 0xc0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+}
+
+// fnGetMemOnStream calls nvshmemx_getmem_on_stream.
+func fnGetMemOnStream(a0 uintptr, a1 uintptr, a2 uint, a3 int32, a4 driver.Stream) {
+	ffiCallWidths5(symGetMemOnStream, 0, 0xc0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 }
 
 // fnHostlibFinalize calls nvshmemx_hostlib_finalize.
@@ -472,6 +552,31 @@ func fnMulticastPtr(a0 Team, a1 uintptr) uintptr {
 	return uintptr(r1)
 }
 
+// fnPutMemNBIOnStream calls nvshmemx_putmem_nbi_on_stream.
+func fnPutMemNBIOnStream(a0 uintptr, a1 uintptr, a2 uint, a3 int32, a4 driver.Stream) {
+	ffiCallWidths5(symPutMemNBIOnStream, 0, 0xc0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+}
+
+// fnPutMemOnStream calls nvshmemx_putmem_on_stream.
+func fnPutMemOnStream(a0 uintptr, a1 uintptr, a2 uint, a3 int32, a4 driver.Stream) {
+	ffiCallWidths5(symPutMemOnStream, 0, 0xc0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+}
+
+// fnPutMemSignalNBIOnStream calls nvshmemx_putmem_signal_nbi_on_stream.
+func fnPutMemSignalNBIOnStream(a0 uintptr, a1 uintptr, a2 uint, a3 uintptr, a4 uint64, a5 int32, a6 int32, a7 driver.Stream) {
+	ffiCallWidths8(symPutMemSignalNBIOnStream, 0, 0x3c00, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+}
+
+// fnPutMemSignalOnStream calls nvshmemx_putmem_signal_on_stream.
+func fnPutMemSignalOnStream(a0 uintptr, a1 uintptr, a2 uint, a3 uintptr, a4 uint64, a5 int32, a6 int32, a7 driver.Stream) {
+	ffiCallWidths8(symPutMemSignalOnStream, 0, 0x3c00, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+}
+
+// fnQuietOnStream calls nvshmemx_quiet_on_stream.
+func fnQuietOnStream(a0 driver.Stream) {
+	ffiCall1(symQuietOnStream, 0, uintptr(a0))
+}
+
 // fnSetAttrMPICommArgs calls nvshmemx_set_attr_mpi_comm_args.
 func fnSetAttrMPICommArgs(a0 unsafe.Pointer, a1 *InitAttr) Status {
 	r1, _ := ffiCall2(symSetAttrMPICommArgs, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
@@ -484,6 +589,21 @@ func fnSetAttrUniqueIDArgs(a0 int32, a1 int32, a2 *UniqueID, a3 *InitAttr) Statu
 	return Status(r1)
 }
 
+// fnSignalOpOnStream calls nvshmemx_signal_op_on_stream.
+func fnSignalOpOnStream(a0 uintptr, a1 uint64, a2 int32, a3 int32, a4 driver.Stream) {
+	ffiCallWidths5(symSignalOpOnStream, 0, 0xf0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+}
+
+// fnSignalWaitUntilOnStream calls nvshmemx_signal_wait_until_on_stream.
+func fnSignalWaitUntilOnStream(a0 uintptr, a1 int32, a2 uint64, a3 driver.Stream) {
+	ffiCallWidths4(symSignalWaitUntilOnStream, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+}
+
+// fnSyncAllOnStream calls nvshmemx_sync_all_on_stream.
+func fnSyncAllOnStream(a0 driver.Stream) {
+	ffiCall1(symSyncAllOnStream, 0, uintptr(a0))
+}
+
 // fnTeamGetUniqueID calls nvshmemx_team_get_uniqueid.
 func fnTeamGetUniqueID(a0 *uint64) Status {
 	r1, _ := ffiCall1(symTeamGetUniqueID, 0, uintptr(unsafe.Pointer(a0)))
@@ -493,6 +613,12 @@ func fnTeamGetUniqueID(a0 *uint64) Status {
 // fnTeamInit calls nvshmemx_team_init.
 func fnTeamInit(a0 *Team, a1 *TeamConfig, a2 int, a3 int32, a4 int32) Status {
 	r1, _ := ffiCallWidths5(symTeamInit, 0, 0x3c0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Status(r1)
+}
+
+// fnTeamSyncOnStream calls nvshmemx_team_sync_on_stream.
+func fnTeamSyncOnStream(a0 Team, a1 driver.Stream) Status {
+	r1, _ := ffiCallWidths2(symTeamSyncOnStream, 0, 0x3, uintptr(a0), uintptr(a1))
 	return Status(r1)
 }
 

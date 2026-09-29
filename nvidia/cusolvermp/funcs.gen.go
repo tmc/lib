@@ -4,6 +4,7 @@ package cusolvermp
 
 import (
 	"sync"
+	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cusolver"
 	"github.com/tmc/lib/nvidia/driver"
@@ -13,32 +14,32 @@ import (
 
 // Generated function pointer variables.
 var (
-	fnBufferDeregister   func(Grid, DevicePtr) cusolver.Result
-	fnBufferRegister     func(Grid, DevicePtr, uint) cusolver.Result
-	fnCreate             func(*Handle, int32, driver.Stream) cusolver.Result
-	fnCreateDeviceGrid   func(Handle, *Grid, nccl.Comm, int32, int32, GridMapping) cusolver.Result
-	fnCreateMatrixDesc   func(*MatrixDescriptor, Grid, cusolver.DataType, int64, int64, int64, int64, uint32, uint32, int64) cusolver.Result
-	fnDestroy            func(Handle) cusolver.Result
-	fnDestroyGrid        func(Grid) cusolver.Result
-	fnDestroyMatrixDesc  func(MatrixDescriptor) cusolver.Result
-	fnFree               func(Grid, DevicePtr) cusolver.Result
-	fnGetMathMode        func(Handle, *cusolver.MathMode) cusolver.Result
-	fnGetStream          func(Handle, *driver.Stream) cusolver.Result
-	fnGetVersion         func(Handle, *int32) cusolver.Result
-	fnGetrf              func(Handle, int64, int64, DevicePtr, int64, int64, MatrixDescriptor, DevicePtr, cusolver.DataType, DevicePtr, uint, HostPtr, uint, DevicePtr) cusolver.Result
-	fnGetrfBufferSize    func(Handle, int64, int64, DevicePtr, int64, int64, MatrixDescriptor, DevicePtr, cusolver.DataType, *uint, *uint) cusolver.Result
-	fnGetrs              func(Handle, cusolver.Operation, int64, int64, DevicePtr, int64, int64, MatrixDescriptor, DevicePtr, DevicePtr, int64, int64, MatrixDescriptor, cusolver.DataType, DevicePtr, uint, HostPtr, uint, DevicePtr) cusolver.Result
-	fnGetrsBufferSize    func(Handle, cusolver.Operation, int64, int64, DevicePtr, int64, int64, MatrixDescriptor, DevicePtr, DevicePtr, int64, int64, MatrixDescriptor, cusolver.DataType, *uint, *uint) cusolver.Result
-	fnLoggerForceDisable func() cusolver.Result
-	fnLoggerOpenFile     func(*byte) cusolver.Result
-	fnLoggerSetLevel     func(int32) cusolver.Result
-	fnLoggerSetMask      func(int32) cusolver.Result
-	fnMalloc             func(Grid, *DevicePtr, uint) cusolver.Result
-	fnMatrixGatherD2H    func(Handle, int64, int64, DevicePtr, int64, int64, MatrixDescriptor, int32, HostPtr, int64) cusolver.Result
-	fnMatrixScatterH2D   func(Handle, int64, int64, DevicePtr, int64, int64, MatrixDescriptor, int32, HostPtr, int64) cusolver.Result
-	symNUMROC            uintptr
-	fnSetMathMode        func(Handle, cusolver.MathMode) cusolver.Result
-	fnSetStream          func(Handle, driver.Stream) cusolver.Result
+	symBufferDeregister   uintptr
+	symBufferRegister     uintptr
+	symCreate             uintptr
+	symCreateDeviceGrid   uintptr
+	symCreateMatrixDesc   uintptr
+	symDestroy            uintptr
+	symDestroyGrid        uintptr
+	symDestroyMatrixDesc  uintptr
+	symFree               uintptr
+	symGetMathMode        uintptr
+	symGetStream          uintptr
+	symGetVersion         uintptr
+	symGetrf              uintptr
+	symGetrfBufferSize    uintptr
+	symGetrs              uintptr
+	symGetrsBufferSize    uintptr
+	symLoggerForceDisable uintptr
+	symLoggerOpenFile     uintptr
+	symLoggerSetLevel     uintptr
+	symLoggerSetMask      uintptr
+	symMalloc             uintptr
+	symMatrixGatherD2H    uintptr
+	symMatrixScatterH2D   uintptr
+	symNUMROC             uintptr
+	symSetMathMode        uintptr
+	symSetStream          uintptr
 )
 
 // The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
@@ -58,6 +59,60 @@ var (
 // movement, which is the failure this avoids.
 
 //go:uintptrescapes
+func ffiCall0(fn uintptr, floatMask uint32) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	return ffi.CallFloat(fn, 0, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloat(fn, 3, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCallWidths1(fn uintptr, floatMask uint32, widths uint64, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloatWidths(fn, 1, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths2(fn uintptr, floatMask uint32, widths uint64, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloatWidths(fn, 2, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths3(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloatWidths(fn, 3, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
 func ffiCallWidths5(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
@@ -66,6 +121,118 @@ func ffiCallWidths5(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3,
 	args[3] = a3
 	args[4] = a4
 	return ffi.CallFloatWidths(fn, 5, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths6(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	return ffi.CallFloatWidths(fn, 6, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths10(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	return ffi.CallFloatWidths(fn, 10, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths11(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	return ffi.CallFloatWidths(fn, 11, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths14(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	return ffi.CallFloatWidths(fn, 14, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths16(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	return ffi.CallFloatWidths(fn, 16, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths19(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	args[16] = a16
+	args[17] = a17
+	args[18] = a18
+	return ffi.CallFloatWidths(fn, 19, &args, floatMask, widths)
 }
 
 // An outSlot pools the heap cells a wrapper passes to C for its outputs.
@@ -89,10 +256,160 @@ func (s *outSlot[T]) put(p *T) {
 	s.pool.Put(p)
 }
 
+// fnBufferDeregister calls cusolverMpBufferDeregister.
+func fnBufferDeregister(a0 Grid, a1 DevicePtr) cusolver.Result {
+	r1, _ := ffiCall2(symBufferDeregister, 0, uintptr(a0), uintptr(a1))
+	return cusolver.Result(r1)
+}
+
+// fnBufferRegister calls cusolverMpBufferRegister.
+func fnBufferRegister(a0 Grid, a1 DevicePtr, a2 uint) cusolver.Result {
+	r1, _ := ffiCall3(symBufferRegister, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return cusolver.Result(r1)
+}
+
+// fnCreate calls cusolverMpCreate.
+func fnCreate(a0 *Handle, a1 int32, a2 driver.Stream) cusolver.Result {
+	r1, _ := ffiCallWidths3(symCreate, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return cusolver.Result(r1)
+}
+
+// fnCreateDeviceGrid calls cusolverMpCreateDeviceGrid.
+func fnCreateDeviceGrid(a0 Handle, a1 *Grid, a2 nccl.Comm, a3 int32, a4 int32, a5 GridMapping) cusolver.Result {
+	r1, _ := ffiCallWidths6(symCreateDeviceGrid, 0, 0xfc0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return cusolver.Result(r1)
+}
+
+// fnCreateMatrixDesc calls cusolverMpCreateMatrixDesc.
+func fnCreateMatrixDesc(a0 *MatrixDescriptor, a1 Grid, a2 cusolver.DataType, a3 int64, a4 int64, a5 int64, a6 int64, a7 uint32, a8 uint32, a9 int64) cusolver.Result {
+	r1, _ := ffiCallWidths10(symCreateMatrixDesc, 0, 0x3c030, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return cusolver.Result(r1)
+}
+
+// fnDestroy calls cusolverMpDestroy.
+func fnDestroy(a0 Handle) cusolver.Result {
+	r1, _ := ffiCall1(symDestroy, 0, uintptr(a0))
+	return cusolver.Result(r1)
+}
+
+// fnDestroyGrid calls cusolverMpDestroyGrid.
+func fnDestroyGrid(a0 Grid) cusolver.Result {
+	r1, _ := ffiCall1(symDestroyGrid, 0, uintptr(a0))
+	return cusolver.Result(r1)
+}
+
+// fnDestroyMatrixDesc calls cusolverMpDestroyMatrixDesc.
+func fnDestroyMatrixDesc(a0 MatrixDescriptor) cusolver.Result {
+	r1, _ := ffiCall1(symDestroyMatrixDesc, 0, uintptr(a0))
+	return cusolver.Result(r1)
+}
+
+// fnFree calls cusolverMpFree.
+func fnFree(a0 Grid, a1 DevicePtr) cusolver.Result {
+	r1, _ := ffiCall2(symFree, 0, uintptr(a0), uintptr(a1))
+	return cusolver.Result(r1)
+}
+
+// fnGetMathMode calls cusolverMpGetMathMode.
+func fnGetMathMode(a0 Handle, a1 *cusolver.MathMode) cusolver.Result {
+	r1, _ := ffiCall2(symGetMathMode, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return cusolver.Result(r1)
+}
+
+// fnGetStream calls cusolverMpGetStream.
+func fnGetStream(a0 Handle, a1 *driver.Stream) cusolver.Result {
+	r1, _ := ffiCall2(symGetStream, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return cusolver.Result(r1)
+}
+
+// fnGetVersion calls cusolverMpGetVersion.
+func fnGetVersion(a0 Handle, a1 *int32) cusolver.Result {
+	r1, _ := ffiCall2(symGetVersion, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return cusolver.Result(r1)
+}
+
+// fnGetrf calls cusolverMpGetrf.
+func fnGetrf(a0 Handle, a1 int64, a2 int64, a3 DevicePtr, a4 int64, a5 int64, a6 MatrixDescriptor, a7 DevicePtr, a8 cusolver.DataType, a9 DevicePtr, a10 uint, a11 HostPtr, a12 uint, a13 DevicePtr) cusolver.Result {
+	r1, _ := ffiCallWidths14(symGetrf, 0, 0x30000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return cusolver.Result(r1)
+}
+
+// fnGetrfBufferSize calls cusolverMpGetrf_bufferSize.
+func fnGetrfBufferSize(a0 Handle, a1 int64, a2 int64, a3 DevicePtr, a4 int64, a5 int64, a6 MatrixDescriptor, a7 DevicePtr, a8 cusolver.DataType, a9 *uint, a10 *uint) cusolver.Result {
+	r1, _ := ffiCallWidths11(symGetrfBufferSize, 0, 0x30000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(unsafe.Pointer(a10)))
+	return cusolver.Result(r1)
+}
+
+// fnGetrs calls cusolverMpGetrs.
+func fnGetrs(a0 Handle, a1 cusolver.Operation, a2 int64, a3 int64, a4 DevicePtr, a5 int64, a6 int64, a7 MatrixDescriptor, a8 DevicePtr, a9 DevicePtr, a10 int64, a11 int64, a12 MatrixDescriptor, a13 cusolver.DataType, a14 DevicePtr, a15 uint, a16 HostPtr, a17 uint, a18 DevicePtr) cusolver.Result {
+	r1, _ := ffiCallWidths19(symGetrs, 0, 0xc00000c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18))
+	return cusolver.Result(r1)
+}
+
+// fnGetrsBufferSize calls cusolverMpGetrs_bufferSize.
+func fnGetrsBufferSize(a0 Handle, a1 cusolver.Operation, a2 int64, a3 int64, a4 DevicePtr, a5 int64, a6 int64, a7 MatrixDescriptor, a8 DevicePtr, a9 DevicePtr, a10 int64, a11 int64, a12 MatrixDescriptor, a13 cusolver.DataType, a14 *uint, a15 *uint) cusolver.Result {
+	r1, _ := ffiCallWidths16(symGetrsBufferSize, 0, 0xc00000c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(unsafe.Pointer(a15)))
+	return cusolver.Result(r1)
+}
+
+// fnLoggerForceDisable calls cusolverMpLoggerForceDisable.
+func fnLoggerForceDisable() cusolver.Result {
+	r1, _ := ffiCall0(symLoggerForceDisable, 0)
+	return cusolver.Result(r1)
+}
+
+// fnLoggerOpenFile calls cusolverMpLoggerOpenFile.
+func fnLoggerOpenFile(a0 *byte) cusolver.Result {
+	r1, _ := ffiCall1(symLoggerOpenFile, 0, uintptr(unsafe.Pointer(a0)))
+	return cusolver.Result(r1)
+}
+
+// fnLoggerSetLevel calls cusolverMpLoggerSetLevel.
+func fnLoggerSetLevel(a0 int32) cusolver.Result {
+	r1, _ := ffiCallWidths1(symLoggerSetLevel, 0, 0x3, uintptr(a0))
+	return cusolver.Result(r1)
+}
+
+// fnLoggerSetMask calls cusolverMpLoggerSetMask.
+func fnLoggerSetMask(a0 int32) cusolver.Result {
+	r1, _ := ffiCallWidths1(symLoggerSetMask, 0, 0x3, uintptr(a0))
+	return cusolver.Result(r1)
+}
+
+// fnMalloc calls cusolverMpMalloc.
+func fnMalloc(a0 Grid, a1 *DevicePtr, a2 uint) cusolver.Result {
+	r1, _ := ffiCall3(symMalloc, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return cusolver.Result(r1)
+}
+
+// fnMatrixGatherD2H calls cusolverMpMatrixGatherD2H.
+func fnMatrixGatherD2H(a0 Handle, a1 int64, a2 int64, a3 DevicePtr, a4 int64, a5 int64, a6 MatrixDescriptor, a7 int32, a8 HostPtr, a9 int64) cusolver.Result {
+	r1, _ := ffiCallWidths10(symMatrixGatherD2H, 0, 0xc000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return cusolver.Result(r1)
+}
+
+// fnMatrixScatterH2D calls cusolverMpMatrixScatterH2D.
+func fnMatrixScatterH2D(a0 Handle, a1 int64, a2 int64, a3 DevicePtr, a4 int64, a5 int64, a6 MatrixDescriptor, a7 int32, a8 HostPtr, a9 int64) cusolver.Result {
+	r1, _ := ffiCallWidths10(symMatrixScatterH2D, 0, 0xc000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return cusolver.Result(r1)
+}
+
 // fnNUMROC calls cusolverMpNUMROC.
 func fnNUMROC(a0 int64, a1 int64, a2 uint32, a3 uint32, a4 uint32) int64 {
 	r1, _ := ffiCallWidths5(symNUMROC, 0, 0x3f0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
 	return int64(r1)
+}
+
+// fnSetMathMode calls cusolverMpSetMathMode.
+func fnSetMathMode(a0 Handle, a1 cusolver.MathMode) cusolver.Result {
+	r1, _ := ffiCallWidths2(symSetMathMode, 0, 0xc, uintptr(a0), uintptr(a1))
+	return cusolver.Result(r1)
+}
+
+// fnSetStream calls cusolverMpSetStream.
+func fnSetStream(a0 Handle, a1 driver.Stream) cusolver.Result {
+	r1, _ := ffiCall2(symSetStream, 0, uintptr(a0), uintptr(a1))
+	return cusolver.Result(r1)
 }
 
 // Create creates a cuSOLVERMp handle bound to one device and one stream
@@ -114,13 +431,16 @@ func Create(deviceId int32, stream driver.Stream) (Handle, error) {
 		var zero Handle
 		return zero, err
 	}
-	var out Handle
-	if err := toError(fnCreate(&out, deviceId, stream), "cusolverMpCreate"); err != nil {
+	out := slotCreate.get()
+	defer slotCreate.put(out)
+	if err := toError(fnCreate(out, deviceId, stream), "cusolverMpCreate"); err != nil {
 		var zero Handle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreate outSlot[Handle]
 
 // CreateDeviceGrid describes the process grid the distributed matrices are laid out over
 //
@@ -144,13 +464,16 @@ func CreateDeviceGrid(handle Handle, comm nccl.Comm, numRowDevices int32, numCol
 		var zero Grid
 		return zero, err
 	}
-	var out Grid
-	if err := toError(fnCreateDeviceGrid(handle, &out, comm, numRowDevices, numColDevices, mapping), "cusolverMpCreateDeviceGrid"); err != nil {
+	out := slotCreateDeviceGrid.get()
+	defer slotCreateDeviceGrid.put(out)
+	if err := toError(fnCreateDeviceGrid(handle, out, comm, numRowDevices, numColDevices, mapping), "cusolverMpCreateDeviceGrid"); err != nil {
 		var zero Grid
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateDeviceGrid outSlot[Grid]
 
 // CreateMatrixDesc describes a 2D block-cyclic distributed matrix over a grid
 //
@@ -184,13 +507,16 @@ func CreateMatrixDesc(grid Grid, dataType cusolver.DataType, mA int64, nA int64,
 		var zero MatrixDescriptor
 		return zero, err
 	}
-	var out MatrixDescriptor
-	if err := toError(fnCreateMatrixDesc(&out, grid, dataType, mA, nA, mBA, nBA, rSRCA, cSRCA, lLDA), "cusolverMpCreateMatrixDesc"); err != nil {
+	out := slotCreateMatrixDesc.get()
+	defer slotCreateMatrixDesc.put(out)
+	if err := toError(fnCreateMatrixDesc(out, grid, dataType, mA, nA, mBA, nBA, rSRCA, cSRCA, lLDA), "cusolverMpCreateMatrixDesc"); err != nil {
 		var zero MatrixDescriptor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateMatrixDesc outSlot[MatrixDescriptor]
 
 // Destroy releases a handle created by [NewHandle]
 //
@@ -245,13 +571,16 @@ func GetMathMode(handle Handle) (cusolver.MathMode, error) {
 		var zero cusolver.MathMode
 		return zero, err
 	}
-	var out cusolver.MathMode
-	if err := toError(fnGetMathMode(handle, &out), "cusolverMpGetMathMode"); err != nil {
+	out := slotGetMathMode.get()
+	defer slotGetMathMode.put(out)
+	if err := toError(fnGetMathMode(handle, out), "cusolverMpGetMathMode"); err != nil {
 		var zero cusolver.MathMode
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetMathMode outSlot[cusolver.MathMode]
 
 // GetStream returns the stream operations on handle are enqueued on
 //
@@ -261,13 +590,16 @@ func GetStream(handle Handle) (driver.Stream, error) {
 		var zero driver.Stream
 		return zero, err
 	}
-	var out driver.Stream
-	if err := toError(fnGetStream(handle, &out), "cusolverMpGetStream"); err != nil {
+	out := slotGetStream.get()
+	defer slotGetStream.put(out)
+	if err := toError(fnGetStream(handle, out), "cusolverMpGetStream"); err != nil {
 		var zero driver.Stream
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetStream outSlot[driver.Stream]
 
 // GetVersion returns the version of the loaded library
 //
@@ -281,13 +613,16 @@ func GetVersion(handle Handle) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnGetVersion(handle, &out), "cusolverMpGetVersion"); err != nil {
+	out := slotGetVersion.get()
+	defer slotGetVersion.put(out)
+	if err := toError(fnGetVersion(handle, out), "cusolverMpGetVersion"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetVersion outSlot[int32]
 
 // LoggerForceDisable turns the library's logging off for the rest of the process
 //

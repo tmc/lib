@@ -49,7 +49,7 @@ var (
 	symsetGeneratorOrdering              uintptr
 	symsetPseudoRandomGeneratorSeed      uintptr
 	symsetQuasiRandomGeneratorDimensions uintptr
-	fnsetStream                          func(Generator, driver.Stream) Result
+	symsetStream                         uintptr
 )
 
 // The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
@@ -360,6 +360,12 @@ func fnsetPseudoRandomGeneratorSeed(a0 Generator, a1 uint64) Result {
 // fnsetQuasiRandomGeneratorDimensions calls curandSetQuasiRandomGeneratorDimensions.
 func fnsetQuasiRandomGeneratorDimensions(a0 Generator, a1 uint32) Result {
 	r1, _ := ffiCallWidths2(symsetQuasiRandomGeneratorDimensions, 0, 0xc, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsetStream calls curandSetStream.
+func fnsetStream(a0 Generator, a1 driver.Stream) Result {
+	r1, _ := ffiCall2(symsetStream, 0, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 

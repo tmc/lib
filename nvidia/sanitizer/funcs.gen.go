@@ -12,22 +12,22 @@ import (
 
 // Generated function pointer variables.
 var (
-	fnAddPatches                 func(unsafe.Pointer, driver.Context) Result
-	fnAddPatchesFromFile         func(*byte, driver.Context) Result
-	fnAlloc                      func(driver.Context, *uintptr, uint) Result
-	fnAllocHost                  func(driver.Context, *uintptr, uint) Result
+	symAddPatches                uintptr
+	symAddPatchesFromFile        uintptr
+	symAlloc                     uintptr
+	symAllocHost                 uintptr
 	symenableAllDomains          uintptr
 	symenableCallback            uintptr
 	symenableDomain              uintptr
-	fnFree                       func(driver.Context, uintptr) Result
-	fnFreeHost                   func(driver.Context, unsafe.Pointer) Result
-	fnGetCallbackPcAndSize       func(driver.Context, *byte, *uint64, *uint64) Result
+	symFree                      uintptr
+	symFreeHost                  uintptr
+	symGetCallbackPcAndSize      uintptr
 	symgetCallbackState          uintptr
 	symGetCudaBarrierCount       uintptr
 	symGetFunctionLoadedStatus   uintptr
 	symGetFunctionPcAndSize      uintptr
 	symgetStream                 uintptr
-	fnGetStreamHandle            func(driver.Context, driver.Stream, *StreamHandle) Result
+	symGetStreamHandle           uintptr
 	symIsInsideRecursiveCallback uintptr
 	symmemcpyDeviceToHost        uintptr
 	symmemcpyHostToDeviceAsync   uintptr
@@ -141,6 +141,30 @@ func (s *outSlot[T]) put(p *T) {
 	s.pool.Put(p)
 }
 
+// fnAddPatches calls sanitizerAddPatches.
+func fnAddPatches(a0 unsafe.Pointer, a1 driver.Context) Result {
+	r1, _ := ffiCall2(symAddPatches, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnAddPatchesFromFile calls sanitizerAddPatchesFromFile.
+func fnAddPatchesFromFile(a0 *byte, a1 driver.Context) Result {
+	r1, _ := ffiCall2(symAddPatchesFromFile, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnAlloc calls sanitizerAlloc.
+func fnAlloc(a0 driver.Context, a1 *uintptr, a2 uint) Result {
+	r1, _ := ffiCall3(symAlloc, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fnAllocHost calls sanitizerAllocHost.
+func fnAllocHost(a0 driver.Context, a1 *uintptr, a2 uint) Result {
+	r1, _ := ffiCall3(symAllocHost, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
 // fnenableAllDomains calls sanitizerEnableAllDomains.
 func fnenableAllDomains(a0 uint32, a1 Subscriber) Result {
 	r1, _ := ffiCallWidths2(symenableAllDomains, 0, 0x3, uintptr(a0), uintptr(a1))
@@ -156,6 +180,24 @@ func fnenableCallback(a0 uint32, a1 Subscriber, a2 CallbackDomain, a3 uint32) Re
 // fnenableDomain calls sanitizerEnableDomain.
 func fnenableDomain(a0 uint32, a1 Subscriber, a2 CallbackDomain) Result {
 	r1, _ := ffiCallWidths3(symenableDomain, 0, 0x33, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnFree calls sanitizerFree.
+func fnFree(a0 driver.Context, a1 uintptr) Result {
+	r1, _ := ffiCall2(symFree, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnFreeHost calls sanitizerFreeHost.
+func fnFreeHost(a0 driver.Context, a1 unsafe.Pointer) Result {
+	r1, _ := ffiCall2(symFreeHost, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnGetCallbackPcAndSize calls sanitizerGetCallbackPcAndSize.
+func fnGetCallbackPcAndSize(a0 driver.Context, a1 *byte, a2 *uint64, a3 *uint64) Result {
+	r1, _ := ffiCall4(symGetCallbackPcAndSize, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
@@ -186,6 +228,12 @@ func fnGetFunctionPcAndSize(a0 Module, a1 *byte, a2 *uint64, a3 *uint64) Result 
 // fngetStream calls sanitizerGetStream.
 func fngetStream(a0 StreamHandle, a1 *driver.Stream) Result {
 	r1, _ := ffiCall2(symgetStream, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGetStreamHandle calls sanitizerGetStreamHandle.
+func fnGetStreamHandle(a0 driver.Context, a1 driver.Stream, a2 *StreamHandle) Result {
+	r1, _ := ffiCall3(symGetStreamHandle, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -325,12 +373,15 @@ func Alloc(ctx driver.Context, size uint) (devPtr uintptr, err error) {
 	if err := checkLibSym("sanitizerAlloc"); err != nil {
 		return *new(uintptr), err
 	}
-	var out0 uintptr
-	if err := toError(fnAlloc(ctx, &out0, size), "sanitizerAlloc"); err != nil {
+	outs := slotAlloc.get()
+	defer slotAlloc.put(outs)
+	if err := toError(fnAlloc(ctx, &outs.out0, size), "sanitizerAlloc"); err != nil {
 		return *new(uintptr), err
 	}
-	return out0, nil
+	return outs.out0, nil
 }
+
+var slotAlloc outSlot[struct{ out0 uintptr }]
 
 // AllocHost allocates host pinned memory.
 //
@@ -344,12 +395,15 @@ func AllocHost(ctx driver.Context, size uint) (devPtr uintptr, err error) {
 	if err := checkLibSym("sanitizerAllocHost"); err != nil {
 		return *new(uintptr), err
 	}
-	var out0 uintptr
-	if err := toError(fnAllocHost(ctx, &out0, size), "sanitizerAllocHost"); err != nil {
+	outs := slotAllocHost.get()
+	defer slotAllocHost.put(outs)
+	if err := toError(fnAllocHost(ctx, &outs.out0, size), "sanitizerAllocHost"); err != nil {
 		return *new(uintptr), err
 	}
-	return out0, nil
+	return outs.out0, nil
 }
+
+var slotAllocHost outSlot[struct{ out0 uintptr }]
 
 // enableAllDomains enables or disables all callbacks in all domains.
 //
@@ -467,13 +521,18 @@ func GetCallbackPcAndSize(ctx driver.Context, deviceCallbackName string) (pc uin
 		return 0, 0, err
 	}
 	deviceCallbackName_cstr := append([]byte(deviceCallbackName), 0)
-	var out0 uint64
-	var out1 uint64
-	if err := toError(fnGetCallbackPcAndSize(ctx, &deviceCallbackName_cstr[0], &out0, &out1), "sanitizerGetCallbackPcAndSize"); err != nil {
+	outs := slotGetCallbackPcAndSize.get()
+	defer slotGetCallbackPcAndSize.put(outs)
+	if err := toError(fnGetCallbackPcAndSize(ctx, &deviceCallbackName_cstr[0], &outs.out0, &outs.out1), "sanitizerGetCallbackPcAndSize"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
+
+var slotGetCallbackPcAndSize outSlot[struct {
+	out0 uint64
+	out1 uint64
+}]
 
 // getCallbackState gets the current enabled/disabled state of a callback for a specific domain and function ID.
 //
@@ -628,13 +687,16 @@ func GetStreamHandle(ctx driver.Context, stream driver.Stream) (StreamHandle, er
 		var zero StreamHandle
 		return zero, err
 	}
-	var out StreamHandle
-	if err := toError(fnGetStreamHandle(ctx, stream, &out), "sanitizerGetStreamHandle"); err != nil {
+	out := slotGetStreamHandle.get()
+	defer slotGetStreamHandle.put(out)
+	if err := toError(fnGetStreamHandle(ctx, stream, out), "sanitizerGetStreamHandle"); err != nil {
 		var zero StreamHandle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetStreamHandle outSlot[StreamHandle]
 
 // IsInsideRecursiveCallback checks if the current thread is inside a recursive Sanitizer callback.
 //

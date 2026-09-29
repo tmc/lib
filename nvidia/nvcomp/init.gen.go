@@ -430,7 +430,7 @@ func registerFuncs() {
 	register(&fnDecompressGetRequiredAlignments, "nvcompBatchedLZ4DecompressGetRequiredAlignments")
 	register(&fnDecompressGetTempSizeAsync, "nvcompBatchedLZ4DecompressGetTempSizeAsync")
 	register(&fnDecompressGetTempSizeSync, "nvcompBatchedLZ4DecompressGetTempSizeSync")
-	register(&fnGetDecompressSizeAsync, "nvcompBatchedLZ4GetDecompressSizeAsync")
+	symGetDecompressSizeAsync = registerSym("nvcompBatchedLZ4GetDecompressSizeAsync")
 	symGetProperties = registerSym("nvcompGetProperties")
 	symGetStatusString = registerSym("nvcompGetStatusString")
 }
@@ -446,7 +446,7 @@ func clearFuncs() {
 	fnDecompressGetRequiredAlignments = nil
 	fnDecompressGetTempSizeAsync = nil
 	fnDecompressGetTempSizeSync = nil
-	fnGetDecompressSizeAsync = nil
+	symGetDecompressSizeAsync = 0
 	symGetProperties = 0
 	symGetStatusString = 0
 }

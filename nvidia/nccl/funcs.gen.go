@@ -13,14 +13,14 @@ import (
 
 // Generated function pointer variables.
 var (
-	fnallGather       func(uintptr, uintptr, uint, DataType, Comm, driver.Stream) Result
-	fnallGatherConfig func(uintptr, uintptr, uint, DataType, Comm, driver.Stream, *CollConfig) Result
-	fnallReduce       func(uintptr, uintptr, uint, DataType, RedOp, Comm, driver.Stream) Result
-	fnallReduceConfig func(uintptr, uintptr, uint, DataType, RedOp, Comm, driver.Stream, *CollConfig) Result
-	fnalltoAll        func(uintptr, uintptr, uint, DataType, Comm, driver.Stream) Result
-	fnalltoAllConfig  func(uintptr, uintptr, uint, DataType, Comm, driver.Stream, *CollConfig) Result
-	fnbroadcast       func(uintptr, uintptr, uint, DataType, int32, Comm, driver.Stream) Result
-	fnbroadcastConfig func(uintptr, uintptr, uint, DataType, int32, Comm, driver.Stream, *CollConfig) Result
+	symallGather       uintptr
+	symallGatherConfig uintptr
+	symallReduce       uintptr
+	symallReduceConfig uintptr
+	symalltoAll        uintptr
+	symalltoAllConfig  uintptr
+	symbroadcast       uintptr
+	symbroadcastConfig uintptr
 
 	symcommAbort            uintptr
 	symcommCount            uintptr
@@ -47,8 +47,8 @@ var (
 	symcommWindowDeregister uintptr
 	symcommWindowRegister   uintptr
 
-	fngather       func(uintptr, uintptr, uint, DataType, int32, Comm, driver.Stream) Result
-	fngatherConfig func(uintptr, uintptr, uint, DataType, int32, Comm, driver.Stream, *CollConfig) Result
+	symgather       uintptr
+	symgatherConfig uintptr
 
 	symgetLastError uintptr
 
@@ -75,20 +75,20 @@ var (
 	symparamGetU32              uintptr
 	symparamGetU64              uintptr
 	symparamGetU8               uintptr
-	fnputSignal                 func(uintptr, uint, DataType, int32, Window, uint, int32, int32, uint32, Comm, driver.Stream) Result
-	fnrecv                      func(uintptr, uint, DataType, int32, Comm, driver.Stream) Result
+	symputSignal                uintptr
+	symrecv                     uintptr
 	symredOpCreatePreMulSum     uintptr
 	symredOpDestroy             uintptr
-	fnreduce                    func(uintptr, uintptr, uint, DataType, RedOp, int32, Comm, driver.Stream) Result
-	fnreduceConfig              func(uintptr, uintptr, uint, DataType, RedOp, int32, Comm, driver.Stream, *CollConfig) Result
-	fnreduceScatter             func(uintptr, uintptr, uint, DataType, RedOp, Comm, driver.Stream) Result
-	fnreduceScatterConfig       func(uintptr, uintptr, uint, DataType, RedOp, Comm, driver.Stream, *CollConfig) Result
-	fnscatter                   func(uintptr, uintptr, uint, DataType, int32, Comm, driver.Stream) Result
-	fnscatterConfig             func(uintptr, uintptr, uint, DataType, int32, Comm, driver.Stream, *CollConfig) Result
-	fnsend                      func(uintptr, uint, DataType, int32, Comm, driver.Stream) Result
-	fnsignal                    func(int32, int32, int32, uint32, Comm, driver.Stream) Result
+	symreduce                   uintptr
+	symreduceConfig             uintptr
+	symreduceScatter            uintptr
+	symreduceScatterConfig      uintptr
+	symscatter                  uintptr
+	symscatterConfig            uintptr
+	symsend                     uintptr
+	symsignal                   uintptr
 
-	fnwaitSignal     func(int32, *WaitSignalDesc, Comm, driver.Stream) Result
+	symwaitSignal    uintptr
 	symwinGetUserPtr uintptr
 )
 
@@ -182,6 +182,65 @@ func ffiCallWidths6(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3,
 	return ffi.CallFloatWidths(fn, 6, &args, floatMask, widths)
 }
 
+//go:uintptrescapes
+func ffiCallWidths7(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	return ffi.CallFloatWidths(fn, 7, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths8(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	return ffi.CallFloatWidths(fn, 8, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths9(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	return ffi.CallFloatWidths(fn, 9, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths11(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	return ffi.CallFloatWidths(fn, 11, &args, floatMask, widths)
+}
+
 // ffiPointer reinterprets an address a C function returned as a pointer.
 // Such an address does not identify a Go allocation.
 func ffiPointer(addr uintptr) unsafe.Pointer {
@@ -207,6 +266,54 @@ func (s *outSlot[T]) put(p *T) {
 	var zero T
 	*p = zero
 	s.pool.Put(p)
+}
+
+// fnallGather calls ncclAllGather.
+func fnallGather(a0 uintptr, a1 uintptr, a2 uint, a3 DataType, a4 Comm, a5 driver.Stream) Result {
+	r1, _ := ffiCallWidths6(symallGather, 0, 0xc0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnallGatherConfig calls ncclAllGatherConfig.
+func fnallGatherConfig(a0 uintptr, a1 uintptr, a2 uint, a3 DataType, a4 Comm, a5 driver.Stream, a6 *CollConfig) Result {
+	r1, _ := ffiCallWidths7(symallGatherConfig, 0, 0xc0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fnallReduce calls ncclAllReduce.
+func fnallReduce(a0 uintptr, a1 uintptr, a2 uint, a3 DataType, a4 RedOp, a5 Comm, a6 driver.Stream) Result {
+	r1, _ := ffiCallWidths7(symallReduce, 0, 0x3c0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnallReduceConfig calls ncclAllReduceConfig.
+func fnallReduceConfig(a0 uintptr, a1 uintptr, a2 uint, a3 DataType, a4 RedOp, a5 Comm, a6 driver.Stream, a7 *CollConfig) Result {
+	r1, _ := ffiCallWidths8(symallReduceConfig, 0, 0x3c0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fnalltoAll calls ncclAlltoAll.
+func fnalltoAll(a0 uintptr, a1 uintptr, a2 uint, a3 DataType, a4 Comm, a5 driver.Stream) Result {
+	r1, _ := ffiCallWidths6(symalltoAll, 0, 0xc0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnalltoAllConfig calls ncclAlltoAllConfig.
+func fnalltoAllConfig(a0 uintptr, a1 uintptr, a2 uint, a3 DataType, a4 Comm, a5 driver.Stream, a6 *CollConfig) Result {
+	r1, _ := ffiCallWidths7(symalltoAllConfig, 0, 0xc0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fnbroadcast calls ncclBroadcast.
+func fnbroadcast(a0 uintptr, a1 uintptr, a2 uint, a3 DataType, a4 int32, a5 Comm, a6 driver.Stream) Result {
+	r1, _ := ffiCallWidths7(symbroadcast, 0, 0x3c0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnbroadcastConfig calls ncclBroadcastConfig.
+func fnbroadcastConfig(a0 uintptr, a1 uintptr, a2 uint, a3 DataType, a4 int32, a5 Comm, a6 driver.Stream, a7 *CollConfig) Result {
+	r1, _ := ffiCallWidths8(symbroadcastConfig, 0, 0x3c0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
 }
 
 // fncommAbort calls ncclCommAbort.
@@ -332,6 +439,18 @@ func fncommWindowDeregister(a0 Comm, a1 Window) Result {
 // fncommWindowRegister calls ncclCommWindowRegister.
 func fncommWindowRegister(a0 Comm, a1 uintptr, a2 uint, a3 *Window, a4 int32) Result {
 	r1, _ := ffiCallWidths5(symcommWindowRegister, 0, 0x300, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4))
+	return Result(r1)
+}
+
+// fngather calls ncclGather.
+func fngather(a0 uintptr, a1 uintptr, a2 uint, a3 DataType, a4 int32, a5 Comm, a6 driver.Stream) Result {
+	r1, _ := ffiCallWidths7(symgather, 0, 0x3c0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fngatherConfig calls ncclGatherConfig.
+func fngatherConfig(a0 uintptr, a1 uintptr, a2 uint, a3 DataType, a4 int32, a5 Comm, a6 driver.Stream, a7 *CollConfig) Result {
+	r1, _ := ffiCallWidths8(symgatherConfig, 0, 0x3c0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
 	return Result(r1)
 }
 
@@ -466,6 +585,18 @@ func fnparamGetU8(a0 ParamHandle, a1 *uint8) Result {
 	return Result(r1)
 }
 
+// fnputSignal calls ncclPutSignal.
+func fnputSignal(a0 uintptr, a1 uint, a2 DataType, a3 int32, a4 Window, a5 uint, a6 int32, a7 int32, a8 uint32, a9 Comm, a10 driver.Stream) Result {
+	r1, _ := ffiCallWidths11(symputSignal, 0, 0x3f0f0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnrecv calls ncclRecv.
+func fnrecv(a0 uintptr, a1 uint, a2 DataType, a3 int32, a4 Comm, a5 driver.Stream) Result {
+	r1, _ := ffiCallWidths6(symrecv, 0, 0xf0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
 // fnredOpCreatePreMulSum calls ncclRedOpCreatePreMulSum.
 func fnredOpCreatePreMulSum(a0 *RedOp, a1 uintptr, a2 DataType, a3 ScalarResidence, a4 Comm) Result {
 	r1, _ := ffiCallWidths5(symredOpCreatePreMulSum, 0, 0xf0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
@@ -475,6 +606,60 @@ func fnredOpCreatePreMulSum(a0 *RedOp, a1 uintptr, a2 DataType, a3 ScalarResiden
 // fnredOpDestroy calls ncclRedOpDestroy.
 func fnredOpDestroy(a0 RedOp, a1 Comm) Result {
 	r1, _ := ffiCallWidths2(symredOpDestroy, 0, 0x3, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnreduce calls ncclReduce.
+func fnreduce(a0 uintptr, a1 uintptr, a2 uint, a3 DataType, a4 RedOp, a5 int32, a6 Comm, a7 driver.Stream) Result {
+	r1, _ := ffiCallWidths8(symreduce, 0, 0xfc0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnreduceConfig calls ncclReduceConfig.
+func fnreduceConfig(a0 uintptr, a1 uintptr, a2 uint, a3 DataType, a4 RedOp, a5 int32, a6 Comm, a7 driver.Stream, a8 *CollConfig) Result {
+	r1, _ := ffiCallWidths9(symreduceConfig, 0, 0xfc0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
+	return Result(r1)
+}
+
+// fnreduceScatter calls ncclReduceScatter.
+func fnreduceScatter(a0 uintptr, a1 uintptr, a2 uint, a3 DataType, a4 RedOp, a5 Comm, a6 driver.Stream) Result {
+	r1, _ := ffiCallWidths7(symreduceScatter, 0, 0x3c0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnreduceScatterConfig calls ncclReduceScatterConfig.
+func fnreduceScatterConfig(a0 uintptr, a1 uintptr, a2 uint, a3 DataType, a4 RedOp, a5 Comm, a6 driver.Stream, a7 *CollConfig) Result {
+	r1, _ := ffiCallWidths8(symreduceScatterConfig, 0, 0x3c0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fnscatter calls ncclScatter.
+func fnscatter(a0 uintptr, a1 uintptr, a2 uint, a3 DataType, a4 int32, a5 Comm, a6 driver.Stream) Result {
+	r1, _ := ffiCallWidths7(symscatter, 0, 0x3c0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnscatterConfig calls ncclScatterConfig.
+func fnscatterConfig(a0 uintptr, a1 uintptr, a2 uint, a3 DataType, a4 int32, a5 Comm, a6 driver.Stream, a7 *CollConfig) Result {
+	r1, _ := ffiCallWidths8(symscatterConfig, 0, 0x3c0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fnsend calls ncclSend.
+func fnsend(a0 uintptr, a1 uint, a2 DataType, a3 int32, a4 Comm, a5 driver.Stream) Result {
+	r1, _ := ffiCallWidths6(symsend, 0, 0xf0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnsignal calls ncclSignal.
+func fnsignal(a0 int32, a1 int32, a2 int32, a3 uint32, a4 Comm, a5 driver.Stream) Result {
+	r1, _ := ffiCallWidths6(symsignal, 0, 0xff, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnwaitSignal calls ncclWaitSignal.
+func fnwaitSignal(a0 int32, a1 *WaitSignalDesc, a2 Comm, a3 driver.Stream) Result {
+	r1, _ := ffiCallWidths4(symwaitSignal, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
 

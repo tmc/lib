@@ -520,7 +520,7 @@ func registerFuncs() {
 	symsetGeneratorOrdering = registerSym("curandSetGeneratorOrdering")
 	symsetPseudoRandomGeneratorSeed = registerSym("curandSetPseudoRandomGeneratorSeed")
 	symsetQuasiRandomGeneratorDimensions = registerSym("curandSetQuasiRandomGeneratorDimensions")
-	register(&fnsetStream, "curandSetStream")
+	symsetStream = registerSym("curandSetStream")
 }
 
 // clearFuncs unbinds all function pointers.
@@ -561,7 +561,7 @@ func clearFuncs() {
 	symsetGeneratorOrdering = 0
 	symsetPseudoRandomGeneratorSeed = 0
 	symsetQuasiRandomGeneratorDimensions = 0
-	fnsetStream = nil
+	symsetStream = 0
 }
 
 // HasCreateGenerator reports whether curandCreateGenerator resolved in the loaded library.

@@ -32,8 +32,8 @@ var (
 	symGetVersion                                uintptr
 	syminitializeStateVector                     uintptr
 	symmeasureOnZBasis                           uintptr
-	fnsVSwapWorkerCreate                         func(Handle, *SVSwapWorker, Communicator, uintptr, int32, driver.Event, DataType, driver.Stream, *uint, *uint) Result
-	fnsVSwapWorkerCreateWithSemaphore            func(Handle, *SVSwapWorker, Communicator, uintptr, int32, uintptr, DataType, driver.Stream, *uint, *uint) Result
+	symsVSwapWorkerCreate                        uintptr
+	symsVSwapWorkerCreateWithSemaphore           uintptr
 	symsVSwapWorkerDestroy                       uintptr
 	symsVSwapWorkerExecute                       uintptr
 	symsVSwapWorkerSetExtraWorkspace             uintptr
@@ -41,7 +41,7 @@ var (
 	symsVSwapWorkerSetSubSVsP2P                  uintptr
 	symsVSwapWorkerSetSubSVsP2PWithSemaphores    uintptr
 	symsVSwapWorkerSetTransferWorkspace          uintptr
-	fnsetStream                                  func(Handle, driver.Stream) Result
+	symsetStream                                 uintptr
 	symsetWorkspace                              uintptr
 )
 
@@ -382,6 +382,18 @@ func fnmeasureOnZBasis(a0 Handle, a1 uintptr, a2 DataType, a3 uint32, a4 *int32,
 	return Result(r1)
 }
 
+// fnsVSwapWorkerCreate calls custatevecSVSwapWorkerCreate.
+func fnsVSwapWorkerCreate(a0 Handle, a1 *SVSwapWorker, a2 Communicator, a3 uintptr, a4 int32, a5 driver.Event, a6 DataType, a7 driver.Stream, a8 *uint, a9 *uint) Result {
+	r1, _ := ffiCallWidths10(symsVSwapWorkerCreate, 0, 0x3300, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)))
+	return Result(r1)
+}
+
+// fnsVSwapWorkerCreateWithSemaphore calls custatevecSVSwapWorkerCreateWithSemaphore.
+func fnsVSwapWorkerCreateWithSemaphore(a0 Handle, a1 *SVSwapWorker, a2 Communicator, a3 uintptr, a4 int32, a5 uintptr, a6 DataType, a7 driver.Stream, a8 *uint, a9 *uint) Result {
+	r1, _ := ffiCallWidths10(symsVSwapWorkerCreateWithSemaphore, 0, 0x3300, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)))
+	return Result(r1)
+}
+
 // fnsVSwapWorkerDestroy calls custatevecSVSwapWorkerDestroy.
 func fnsVSwapWorkerDestroy(a0 Handle, a1 SVSwapWorker) Result {
 	r1, _ := ffiCall2(symsVSwapWorkerDestroy, 0, uintptr(a0), uintptr(a1))
@@ -421,6 +433,12 @@ func fnsVSwapWorkerSetSubSVsP2PWithSemaphores(a0 Handle, a1 SVSwapWorker, a2 *ui
 // fnsVSwapWorkerSetTransferWorkspace calls custatevecSVSwapWorkerSetTransferWorkspace.
 func fnsVSwapWorkerSetTransferWorkspace(a0 Handle, a1 SVSwapWorker, a2 uintptr, a3 uint) Result {
 	r1, _ := ffiCall4(symsVSwapWorkerSetTransferWorkspace, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnsetStream calls custatevecSetStream.
+func fnsetStream(a0 Handle, a1 driver.Stream) Result {
+	r1, _ := ffiCall2(symsetStream, 0, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
@@ -971,14 +989,19 @@ func sVSwapWorkerCreate(handle Handle, communicator Communicator, orgSubSV uintp
 	if err := checkLibSym("custatevecSVSwapWorkerCreate"); err != nil {
 		return *new(SVSwapWorker), 0, 0, err
 	}
-	var out0 SVSwapWorker
-	var out1 uint
-	var out2 uint
-	if err := toError(fnsVSwapWorkerCreate(handle, &out0, communicator, orgSubSV, orgSubSVIndex, orgEvent, svDataType, stream, &out1, &out2), "custatevecSVSwapWorkerCreate"); err != nil {
+	outs := slotSVSwapWorkerCreate.get()
+	defer slotSVSwapWorkerCreate.put(outs)
+	if err := toError(fnsVSwapWorkerCreate(handle, &outs.out0, communicator, orgSubSV, orgSubSVIndex, orgEvent, svDataType, stream, &outs.out1, &outs.out2), "custatevecSVSwapWorkerCreate"); err != nil {
 		return *new(SVSwapWorker), 0, 0, err
 	}
-	return out0, out1, out2, nil
+	return outs.out0, outs.out1, outs.out2, nil
 }
+
+var slotSVSwapWorkerCreate outSlot[struct {
+	out0 SVSwapWorker
+	out1 uint
+	out2 uint
+}]
 
 // sVSwapWorkerCreateWithSemaphore creates state vector swap worker with semaphore.
 //
@@ -998,14 +1021,19 @@ func sVSwapWorkerCreateWithSemaphore(handle Handle, communicator Communicator, o
 	if err := checkLibSym("custatevecSVSwapWorkerCreateWithSemaphore"); err != nil {
 		return *new(SVSwapWorker), 0, 0, err
 	}
-	var out0 SVSwapWorker
-	var out1 uint
-	var out2 uint
-	if err := toError(fnsVSwapWorkerCreateWithSemaphore(handle, &out0, communicator, orgSubSV, orgSubSVIndex, orgSemaphore, svDataType, stream, &out1, &out2), "custatevecSVSwapWorkerCreateWithSemaphore"); err != nil {
+	outs := slotSVSwapWorkerCreateWithSemaphore.get()
+	defer slotSVSwapWorkerCreateWithSemaphore.put(outs)
+	if err := toError(fnsVSwapWorkerCreateWithSemaphore(handle, &outs.out0, communicator, orgSubSV, orgSubSVIndex, orgSemaphore, svDataType, stream, &outs.out1, &outs.out2), "custatevecSVSwapWorkerCreateWithSemaphore"); err != nil {
 		return *new(SVSwapWorker), 0, 0, err
 	}
-	return out0, out1, out2, nil
+	return outs.out0, outs.out1, outs.out2, nil
 }
+
+var slotSVSwapWorkerCreateWithSemaphore outSlot[struct {
+	out0 SVSwapWorker
+	out1 uint
+	out2 uint
+}]
 
 // sVSwapWorkerDestroy releases the state vector swap worker.
 //

@@ -3,6 +3,7 @@
 package cudensitymat
 
 import (
+	"math"
 	"sync"
 	"unsafe"
 
@@ -27,28 +28,28 @@ var (
 	symdestroyState                       uintptr
 	symdestroyWorkspace                   uintptr
 	symelementaryOperatorAttachBuffer     uintptr
-	fnexpectationCompute                  func(Handle, Expectation, float64, int64, int32, *float64, State, uintptr, WorkspaceDescriptor, driver.Stream) Result
-	fnexpectationPrepare                  func(Handle, Expectation, State, ComputeType, uint, WorkspaceDescriptor, driver.Stream) Result
+	symexpectationCompute                 uintptr
+	symexpectationPrepare                 uintptr
 	symgetNumRanks                        uintptr
 	symgetProcRank                        uintptr
 	symGetVersion                         uintptr
 	fnoperatorAppendTerm                  func(Handle, Operator, OperatorTerm, int32, Complex128, WrappedScalarCallback, WrappedScalarGradientCallback) Result
-	fnoperatorComputeAction               func(Handle, Operator, float64, int64, int32, *float64, State, State, WorkspaceDescriptor, driver.Stream) Result
-	fnoperatorPrepareAction               func(Handle, Operator, State, State, ComputeType, uint, WorkspaceDescriptor, driver.Stream) Result
+	symoperatorComputeAction              uintptr
+	symoperatorPrepareAction              uintptr
 	fnoperatorTermAppendElementaryProduct func(Handle, OperatorTerm, int32, *ElementaryOperator, *int32, *int32, Complex128, WrappedScalarCallback, WrappedScalarGradientCallback) Result
 	symresetDistributedConfiguration      uintptr
 	symresetRandomSeed                    uintptr
 	symstateAttachComponentStorage        uintptr
-	fnstateComputeAccumulation            func(Handle, State, State, uintptr, driver.Stream) Result
-	fnstateComputeInnerProduct            func(Handle, State, State, uintptr, driver.Stream) Result
-	fnstateComputeNorm                    func(Handle, State, uintptr, driver.Stream) Result
-	fnstateComputeScaling                 func(Handle, State, uintptr, driver.Stream) Result
-	fnstateComputeTrace                   func(Handle, State, uintptr, driver.Stream) Result
+	symstateComputeAccumulation           uintptr
+	symstateComputeInnerProduct           uintptr
+	symstateComputeNorm                   uintptr
+	symstateComputeScaling                uintptr
+	symstateComputeTrace                  uintptr
 	symstateGetComponentInfo              uintptr
 	symstateGetComponentNumModes          uintptr
 	symstateGetComponentStorageSize       uintptr
 	symstateGetNumComponents              uintptr
-	fnstateInitializeZero                 func(Handle, State, driver.Stream) Result
+	symstateInitializeZero                uintptr
 	symworkspaceGetMemory                 uintptr
 	symworkspaceGetMemorySize             uintptr
 	symworkspaceSetMemory                 uintptr
@@ -111,6 +112,17 @@ func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uint
 }
 
 //go:uintptrescapes
+func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloat(fn, 5, &args, floatMask)
+}
+
+//go:uintptrescapes
 func ffiCallWidths2(fn uintptr, floatMask uint32, widths uint64, a0, a1 uintptr) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	args[0] = a0
@@ -162,6 +174,36 @@ func ffiCallWidths7(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3,
 	args[5] = a5
 	args[6] = a6
 	return ffi.CallFloatWidths(fn, 7, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths8(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	return ffi.CallFloatWidths(fn, 8, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths10(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	return ffi.CallFloatWidths(fn, 10, &args, floatMask, widths)
 }
 
 // An outSlot pools the heap cells a wrapper passes to C for its outputs.
@@ -269,6 +311,18 @@ func fnelementaryOperatorAttachBuffer(a0 Handle, a1 ElementaryOperator, a2 uintp
 	return Result(r1)
 }
 
+// fnexpectationCompute calls cudensitymatExpectationCompute.
+func fnexpectationCompute(a0 Handle, a1 Expectation, a2 float64, a3 int64, a4 int32, a5 *float64, a6 State, a7 uintptr, a8 WorkspaceDescriptor, a9 driver.Stream) Result {
+	r1, _ := ffiCallWidths10(symexpectationCompute, 0b100, 0x300, uintptr(a0), uintptr(a1), uintptr(math.Float64bits(a2)), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnexpectationPrepare calls cudensitymatExpectationPrepare.
+func fnexpectationPrepare(a0 Handle, a1 Expectation, a2 State, a3 ComputeType, a4 uint, a5 WorkspaceDescriptor, a6 driver.Stream) Result {
+	r1, _ := ffiCallWidths7(symexpectationPrepare, 0, 0xc0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
 // fngetNumRanks calls cudensitymatGetNumRanks.
 func fngetNumRanks(a0 Handle, a1 *int32) Result {
 	r1, _ := ffiCall2(symgetNumRanks, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
@@ -287,6 +341,18 @@ func fnGetVersion() uint {
 	return uint(r1)
 }
 
+// fnoperatorComputeAction calls cudensitymatOperatorComputeAction.
+func fnoperatorComputeAction(a0 Handle, a1 Operator, a2 float64, a3 int64, a4 int32, a5 *float64, a6 State, a7 State, a8 WorkspaceDescriptor, a9 driver.Stream) Result {
+	r1, _ := ffiCallWidths10(symoperatorComputeAction, 0b100, 0x300, uintptr(a0), uintptr(a1), uintptr(math.Float64bits(a2)), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnoperatorPrepareAction calls cudensitymatOperatorPrepareAction.
+func fnoperatorPrepareAction(a0 Handle, a1 Operator, a2 State, a3 State, a4 ComputeType, a5 uint, a6 WorkspaceDescriptor, a7 driver.Stream) Result {
+	r1, _ := ffiCallWidths8(symoperatorPrepareAction, 0, 0x300, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
 // fnresetDistributedConfiguration calls cudensitymatResetDistributedConfiguration.
 func fnresetDistributedConfiguration(a0 Handle, a1 DistributedProvider, a2 unsafe.Pointer, a3 uint) Result {
 	r1, _ := ffiCallWidths4(symresetDistributedConfiguration, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
@@ -302,6 +368,36 @@ func fnresetRandomSeed(a0 Handle, a1 int32) Result {
 // fnstateAttachComponentStorage calls cudensitymatStateAttachComponentStorage.
 func fnstateAttachComponentStorage(a0 Handle, a1 State, a2 int32, a3 *uintptr, a4 *uint) Result {
 	r1, _ := ffiCallWidths5(symstateAttachComponentStorage, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnstateComputeAccumulation calls cudensitymatStateComputeAccumulation.
+func fnstateComputeAccumulation(a0 Handle, a1 State, a2 State, a3 uintptr, a4 driver.Stream) Result {
+	r1, _ := ffiCall5(symstateComputeAccumulation, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnstateComputeInnerProduct calls cudensitymatStateComputeInnerProduct.
+func fnstateComputeInnerProduct(a0 Handle, a1 State, a2 State, a3 uintptr, a4 driver.Stream) Result {
+	r1, _ := ffiCall5(symstateComputeInnerProduct, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnstateComputeNorm calls cudensitymatStateComputeNorm.
+func fnstateComputeNorm(a0 Handle, a1 State, a2 uintptr, a3 driver.Stream) Result {
+	r1, _ := ffiCall4(symstateComputeNorm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnstateComputeScaling calls cudensitymatStateComputeScaling.
+func fnstateComputeScaling(a0 Handle, a1 State, a2 uintptr, a3 driver.Stream) Result {
+	r1, _ := ffiCall4(symstateComputeScaling, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnstateComputeTrace calls cudensitymatStateComputeTrace.
+func fnstateComputeTrace(a0 Handle, a1 State, a2 uintptr, a3 driver.Stream) Result {
+	r1, _ := ffiCall4(symstateComputeTrace, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
 
@@ -326,6 +422,12 @@ func fnstateGetComponentStorageSize(a0 Handle, a1 State, a2 int32, a3 *uint) Res
 // fnstateGetNumComponents calls cudensitymatStateGetNumComponents.
 func fnstateGetNumComponents(a0 Handle, a1 State, a2 *int32) Result {
 	r1, _ := ffiCall3(symstateGetNumComponents, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnstateInitializeZero calls cudensitymatStateInitializeZero.
+func fnstateInitializeZero(a0 Handle, a1 State, a2 driver.Stream) Result {
+	r1, _ := ffiCall3(symstateInitializeZero, 0, uintptr(a0), uintptr(a1), uintptr(a2))
 	return Result(r1)
 }
 

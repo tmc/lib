@@ -45,7 +45,7 @@ var (
 	symresetPlanProperty    uintptr
 	symsetAutoAllocation    uintptr
 	symsetPlanPropertyInt64 uintptr
-	fnsetStream             func(Handle, driver.Stream) Result
+	symsetStream            uintptr
 	symsetWorkArea          uintptr
 )
 
@@ -374,6 +374,12 @@ func fnsetAutoAllocation(a0 Handle, a1 int32) Result {
 // fnsetPlanPropertyInt64 calls cufftSetPlanPropertyInt64.
 func fnsetPlanPropertyInt64(a0 Handle, a1 Property, a2 int64) Result {
 	r1, _ := ffiCallWidths3(symsetPlanPropertyInt64, 0, 0xf, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnsetStream calls cufftSetStream.
+func fnsetStream(a0 Handle, a1 driver.Stream) Result {
+	r1, _ := ffiCallWidths2(symsetStream, 0, 0x3, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 

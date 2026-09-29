@@ -586,8 +586,8 @@ func HasComputeDescTF32() bool {
 // registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
 	register(&fnGetErrorString, "cutensorGetErrorString")
-	register(&fncontract, "cutensorContract")
-	register(&fncontractTrinary, "cutensorContractTrinary")
+	symcontract = registerSym("cutensorContract")
+	symcontractTrinary = registerSym("cutensorContractTrinary")
 	symCreate = registerSym("cutensorCreate")
 	symcreateContraction = registerSym("cutensorCreateContraction")
 	symcreateContractionTrinary = registerSym("cutensorCreateContractionTrinary")
@@ -603,8 +603,8 @@ func registerFuncs() {
 	symdestroyPlan = registerSym("cutensorDestroyPlan")
 	symdestroyPlanPreference = registerSym("cutensorDestroyPlanPreference")
 	symdestroyTensorDescriptor = registerSym("cutensorDestroyTensorDescriptor")
-	register(&fnelementwiseBinaryExecute, "cutensorElementwiseBinaryExecute")
-	register(&fnelementwiseTrinaryExecute, "cutensorElementwiseTrinaryExecute")
+	symelementwiseBinaryExecute = registerSym("cutensorElementwiseBinaryExecute")
+	symelementwiseTrinaryExecute = registerSym("cutensorElementwiseTrinaryExecute")
 	symestimateWorkspaceSize = registerSym("cutensorEstimateWorkspaceSize")
 	symGetCudartVersion = registerSym("cutensorGetCudartVersion")
 	symGetVersion = registerSym("cutensorGetVersion")
@@ -619,20 +619,20 @@ func registerFuncs() {
 	symLoggerSetMask = registerSym("cutensorLoggerSetMask")
 	symoperationDescriptorGetAttribute = registerSym("cutensorOperationDescriptorGetAttribute")
 	symoperationDescriptorSetAttribute = registerSym("cutensorOperationDescriptorSetAttribute")
-	register(&fnpermute, "cutensorPermute")
+	sympermute = registerSym("cutensorPermute")
 	symplanGetAttribute = registerSym("cutensorPlanGetAttribute")
 	symplanPreferenceGetAttribute = registerSym("cutensorPlanPreferenceGetAttribute")
 	symplanPreferenceSetAttribute = registerSym("cutensorPlanPreferenceSetAttribute")
 	symreadKernelCacheFromFile = registerSym("cutensorReadKernelCacheFromFile")
-	register(&fnreduce, "cutensorReduce")
+	symreduce = registerSym("cutensorReduce")
 	symwriteKernelCacheToFile = registerSym("cutensorWriteKernelCacheToFile")
 }
 
 // clearFuncs unbinds all function pointers.
 func clearFuncs() {
 	fnGetErrorString = nil
-	fncontract = nil
-	fncontractTrinary = nil
+	symcontract = 0
+	symcontractTrinary = 0
 	symCreate = 0
 	symcreateContraction = 0
 	symcreateContractionTrinary = 0
@@ -648,8 +648,8 @@ func clearFuncs() {
 	symdestroyPlan = 0
 	symdestroyPlanPreference = 0
 	symdestroyTensorDescriptor = 0
-	fnelementwiseBinaryExecute = nil
-	fnelementwiseTrinaryExecute = nil
+	symelementwiseBinaryExecute = 0
+	symelementwiseTrinaryExecute = 0
 	symestimateWorkspaceSize = 0
 	symGetCudartVersion = 0
 	symGetVersion = 0
@@ -664,12 +664,12 @@ func clearFuncs() {
 	symLoggerSetMask = 0
 	symoperationDescriptorGetAttribute = 0
 	symoperationDescriptorSetAttribute = 0
-	fnpermute = nil
+	sympermute = 0
 	symplanGetAttribute = 0
 	symplanPreferenceGetAttribute = 0
 	symplanPreferenceSetAttribute = 0
 	symreadKernelCacheFromFile = 0
-	fnreduce = nil
+	symreduce = 0
 	symwriteKernelCacheToFile = 0
 }
 

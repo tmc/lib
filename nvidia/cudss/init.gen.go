@@ -462,7 +462,7 @@ func registerFuncs() {
 	symSetCommLayer = registerSym("cudssSetCommLayer")
 	symSetDeviceMemHandler = registerSym("cudssSetDeviceMemHandler")
 	symSetMgStreams = registerSym("cudssSetMgStreams")
-	register(&fnSetStream, "cudssSetStream")
+	symSetStream = registerSym("cudssSetStream")
 	symSetThreadingLayer = registerSym("cudssSetThreadingLayer")
 }
 
@@ -506,7 +506,7 @@ func clearFuncs() {
 	symSetCommLayer = 0
 	symSetDeviceMemHandler = 0
 	symSetMgStreams = 0
-	fnSetStream = nil
+	symSetStream = 0
 	symSetThreadingLayer = 0
 }
 

@@ -421,26 +421,26 @@ func checkLibSym(symbol string) error {
 
 // registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
-	register(&fnFinalize, "ncclM2nFinalize")
+	symFinalize = registerSym("ncclM2nFinalize")
 	symGetLastError = registerSym("ncclM2nGetLastError")
-	register(&fnGroupAbort, "ncclM2nGroupAbort")
-	register(&fnGroupEnd, "ncclM2nGroupEnd")
-	register(&fnGroupStart, "ncclM2nGroupStart")
-	register(&fnInit, "ncclM2nInit")
-	register(&fnReshard, "ncclReshard")
-	register(&fnReshardWithWindow, "ncclReshardWithWindow")
+	symGroupAbort = registerSym("ncclM2nGroupAbort")
+	symGroupEnd = registerSym("ncclM2nGroupEnd")
+	symGroupStart = registerSym("ncclM2nGroupStart")
+	symInit = registerSym("ncclM2nInit")
+	symReshard = registerSym("ncclReshard")
+	symReshardWithWindow = registerSym("ncclReshardWithWindow")
 }
 
 // clearFuncs unbinds all function pointers.
 func clearFuncs() {
-	fnFinalize = nil
+	symFinalize = 0
 	symGetLastError = 0
-	fnGroupAbort = nil
-	fnGroupEnd = nil
-	fnGroupStart = nil
-	fnInit = nil
-	fnReshard = nil
-	fnReshardWithWindow = nil
+	symGroupAbort = 0
+	symGroupEnd = 0
+	symGroupStart = 0
+	symInit = 0
+	symReshard = 0
+	symReshardWithWindow = 0
 }
 
 // HasFinalize reports whether ncclM2nFinalize resolved in the loaded library.

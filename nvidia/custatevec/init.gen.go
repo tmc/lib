@@ -444,8 +444,8 @@ func registerFuncs() {
 	symGetVersion = registerSym("custatevecGetVersion")
 	syminitializeStateVector = registerSym("custatevecInitializeStateVector")
 	symmeasureOnZBasis = registerSym("custatevecMeasureOnZBasis")
-	register(&fnsVSwapWorkerCreate, "custatevecSVSwapWorkerCreate")
-	register(&fnsVSwapWorkerCreateWithSemaphore, "custatevecSVSwapWorkerCreateWithSemaphore")
+	symsVSwapWorkerCreate = registerSym("custatevecSVSwapWorkerCreate")
+	symsVSwapWorkerCreateWithSemaphore = registerSym("custatevecSVSwapWorkerCreateWithSemaphore")
 	symsVSwapWorkerDestroy = registerSym("custatevecSVSwapWorkerDestroy")
 	symsVSwapWorkerExecute = registerSym("custatevecSVSwapWorkerExecute")
 	symsVSwapWorkerSetExtraWorkspace = registerSym("custatevecSVSwapWorkerSetExtraWorkspace")
@@ -453,7 +453,7 @@ func registerFuncs() {
 	symsVSwapWorkerSetSubSVsP2P = registerSym("custatevecSVSwapWorkerSetSubSVsP2P")
 	symsVSwapWorkerSetSubSVsP2PWithSemaphores = registerSym("custatevecSVSwapWorkerSetSubSVsP2PWithSemaphores")
 	symsVSwapWorkerSetTransferWorkspace = registerSym("custatevecSVSwapWorkerSetTransferWorkspace")
-	register(&fnsetStream, "custatevecSetStream")
+	symsetStream = registerSym("custatevecSetStream")
 	symsetWorkspace = registerSym("custatevecSetWorkspace")
 }
 
@@ -480,8 +480,8 @@ func clearFuncs() {
 	symGetVersion = 0
 	syminitializeStateVector = 0
 	symmeasureOnZBasis = 0
-	fnsVSwapWorkerCreate = nil
-	fnsVSwapWorkerCreateWithSemaphore = nil
+	symsVSwapWorkerCreate = 0
+	symsVSwapWorkerCreateWithSemaphore = 0
 	symsVSwapWorkerDestroy = 0
 	symsVSwapWorkerExecute = 0
 	symsVSwapWorkerSetExtraWorkspace = 0
@@ -489,7 +489,7 @@ func clearFuncs() {
 	symsVSwapWorkerSetSubSVsP2P = 0
 	symsVSwapWorkerSetSubSVsP2PWithSemaphores = 0
 	symsVSwapWorkerSetTransferWorkspace = 0
-	fnsetStream = nil
+	symsetStream = 0
 	symsetWorkspace = 0
 }
 

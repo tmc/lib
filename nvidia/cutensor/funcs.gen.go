@@ -13,8 +13,8 @@ import (
 
 // Generated function pointer variables.
 var (
-	fncontract                         func(Handle, Plan, unsafe.Pointer, uintptr, uintptr, unsafe.Pointer, uintptr, uintptr, uintptr, uint64, driver.Stream) Result
-	fncontractTrinary                  func(Handle, Plan, unsafe.Pointer, uintptr, uintptr, uintptr, unsafe.Pointer, uintptr, uintptr, uintptr, uint64, driver.Stream) Result
+	symcontract                        uintptr
+	symcontractTrinary                 uintptr
 	symCreate                          uintptr
 	symcreateContraction               uintptr
 	symcreateContractionTrinary        uintptr
@@ -30,8 +30,8 @@ var (
 	symdestroyPlan                     uintptr
 	symdestroyPlanPreference           uintptr
 	symdestroyTensorDescriptor         uintptr
-	fnelementwiseBinaryExecute         func(Handle, Plan, unsafe.Pointer, uintptr, unsafe.Pointer, uintptr, uintptr, driver.Stream) Result
-	fnelementwiseTrinaryExecute        func(Handle, Plan, unsafe.Pointer, uintptr, unsafe.Pointer, uintptr, unsafe.Pointer, uintptr, uintptr, driver.Stream) Result
+	symelementwiseBinaryExecute        uintptr
+	symelementwiseTrinaryExecute       uintptr
 	symestimateWorkspaceSize           uintptr
 	symGetCudartVersion                uintptr
 	symGetVersion                      uintptr
@@ -46,12 +46,12 @@ var (
 	symLoggerSetMask                   uintptr
 	symoperationDescriptorGetAttribute uintptr
 	symoperationDescriptorSetAttribute uintptr
-	fnpermute                          func(Handle, Plan, unsafe.Pointer, uintptr, uintptr, driver.Stream) Result
+	sympermute                         uintptr
 	symplanGetAttribute                uintptr
 	symplanPreferenceGetAttribute      uintptr
 	symplanPreferenceSetAttribute      uintptr
 	symreadKernelCacheFromFile         uintptr
-	fnreduce                           func(Handle, Plan, unsafe.Pointer, uintptr, unsafe.Pointer, uintptr, uintptr, uintptr, uint64, driver.Stream) Result
+	symreduce                          uintptr
 	symwriteKernelCacheToFile          uintptr
 )
 
@@ -110,6 +110,83 @@ func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf 
 	args[3] = a3
 	args[4] = a4
 	return ffi.CallFloat(fn, 5, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	return ffi.CallFloat(fn, 6, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall8(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	return ffi.CallFloat(fn, 8, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall10(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	return ffi.CallFloat(fn, 10, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall11(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	return ffi.CallFloat(fn, 11, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall12(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	return ffi.CallFloat(fn, 12, &args, floatMask)
 }
 
 //go:uintptrescapes
@@ -279,6 +356,18 @@ func (s *outSlot[T]) put(p *T) {
 	s.pool.Put(p)
 }
 
+// fncontract calls cutensorContract.
+func fncontract(a0 Handle, a1 Plan, a2 unsafe.Pointer, a3 uintptr, a4 uintptr, a5 unsafe.Pointer, a6 uintptr, a7 uintptr, a8 uintptr, a9 uint64, a10 driver.Stream) Result {
+	r1, _ := ffiCall11(symcontract, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fncontractTrinary calls cutensorContractTrinary.
+func fncontractTrinary(a0 Handle, a1 Plan, a2 unsafe.Pointer, a3 uintptr, a4 uintptr, a5 uintptr, a6 unsafe.Pointer, a7 uintptr, a8 uintptr, a9 uintptr, a10 uint64, a11 driver.Stream) Result {
+	r1, _ := ffiCall12(symcontractTrinary, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
 // fnCreate calls cutensorCreate.
 func fnCreate(a0 *Handle) Result {
 	r1, _ := ffiCall1(symCreate, 0, uintptr(unsafe.Pointer(a0)))
@@ -369,6 +458,18 @@ func fndestroyTensorDescriptor(a0 TensorDescriptor) Result {
 	return Result(r1)
 }
 
+// fnelementwiseBinaryExecute calls cutensorElementwiseBinaryExecute.
+func fnelementwiseBinaryExecute(a0 Handle, a1 Plan, a2 unsafe.Pointer, a3 uintptr, a4 unsafe.Pointer, a5 uintptr, a6 uintptr, a7 driver.Stream) Result {
+	r1, _ := ffiCall8(symelementwiseBinaryExecute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnelementwiseTrinaryExecute calls cutensorElementwiseTrinaryExecute.
+func fnelementwiseTrinaryExecute(a0 Handle, a1 Plan, a2 unsafe.Pointer, a3 uintptr, a4 unsafe.Pointer, a5 uintptr, a6 unsafe.Pointer, a7 uintptr, a8 uintptr, a9 driver.Stream) Result {
+	r1, _ := ffiCall10(symelementwiseTrinaryExecute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
 // fnestimateWorkspaceSize calls cutensorEstimateWorkspaceSize.
 func fnestimateWorkspaceSize(a0 Handle, a1 OperationDescriptor, a2 PlanPreference, a3 WorksizepreferenceT, a4 *uint64) Result {
 	r1, _ := ffiCallWidths5(symestimateWorkspaceSize, 0, 0xc0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
@@ -453,6 +554,12 @@ func fnoperationDescriptorSetAttribute(a0 Handle, a1 OperationDescriptor, a2 Ope
 	return Result(r1)
 }
 
+// fnpermute calls cutensorPermute.
+func fnpermute(a0 Handle, a1 Plan, a2 unsafe.Pointer, a3 uintptr, a4 uintptr, a5 driver.Stream) Result {
+	r1, _ := ffiCall6(sympermute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
 // fnplanGetAttribute calls cutensorPlanGetAttribute.
 func fnplanGetAttribute(a0 Handle, a1 Plan, a2 PlanattributeT, a3 unsafe.Pointer, a4 uint) Result {
 	r1, _ := ffiCallWidths5(symplanGetAttribute, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
@@ -474,6 +581,12 @@ func fnplanPreferenceSetAttribute(a0 Handle, a1 PlanPreference, a2 Planpreferenc
 // fnreadKernelCacheFromFile calls cutensorReadKernelCacheFromFile.
 func fnreadKernelCacheFromFile(a0 Handle, a1 *byte) Result {
 	r1, _ := ffiCall2(symreadKernelCacheFromFile, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnreduce calls cutensorReduce.
+func fnreduce(a0 Handle, a1 Plan, a2 unsafe.Pointer, a3 uintptr, a4 unsafe.Pointer, a5 uintptr, a6 uintptr, a7 uintptr, a8 uint64, a9 driver.Stream) Result {
+	r1, _ := ffiCall10(symreduce, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
 	return Result(r1)
 }
 

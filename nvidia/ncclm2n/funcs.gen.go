@@ -13,14 +13,14 @@ import (
 
 // Generated function pointer variables.
 var (
-	fnFinalize          func(Handle) nccl.Result
-	symGetLastError     uintptr
-	fnGroupAbort        func() nccl.Result
-	fnGroupEnd          func() nccl.Result
-	fnGroupStart        func() nccl.Result
-	fnInit              func(*Handle, *Config) nccl.Result
-	fnReshard           func(Handle, nccl.Comm, *DistTensor, *DistTensor, driver.Stream) nccl.Result
-	fnReshardWithWindow func(Handle, nccl.Comm, nccl.Window, *DistTensor, *DistTensor, driver.Stream) nccl.Result
+	symFinalize          uintptr
+	symGetLastError      uintptr
+	symGroupAbort        uintptr
+	symGroupEnd          uintptr
+	symGroupStart        uintptr
+	symInit              uintptr
+	symReshard           uintptr
+	symReshardWithWindow uintptr
 )
 
 // The ffiCall and ffiCallWidths funnels hand a call to github.com/tmc/lib/nvidia/internal/ffi.
@@ -43,6 +43,44 @@ var (
 func ffiCall0(fn uintptr, floatMask uint32) (r1, rf uintptr) {
 	var args [ffi.MaxArgs]uintptr
 	return ffi.CallFloat(fn, 0, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloat(fn, 5, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	return ffi.CallFloat(fn, 6, &args, floatMask)
 }
 
 // ffiPointer reinterprets an address a C function returned as a pointer.
@@ -72,10 +110,52 @@ func (s *outSlot[T]) put(p *T) {
 	s.pool.Put(p)
 }
 
+// fnFinalize calls ncclM2nFinalize.
+func fnFinalize(a0 Handle) nccl.Result {
+	r1, _ := ffiCall1(symFinalize, 0, uintptr(a0))
+	return nccl.Result(r1)
+}
+
 // fnGetLastError calls ncclM2nGetLastError.
 func fnGetLastError() *byte {
 	r1, _ := ffiCall0(symGetLastError, 0)
 	return (*byte)(ffiPointer(r1))
+}
+
+// fnGroupAbort calls ncclM2nGroupAbort.
+func fnGroupAbort() nccl.Result {
+	r1, _ := ffiCall0(symGroupAbort, 0)
+	return nccl.Result(r1)
+}
+
+// fnGroupEnd calls ncclM2nGroupEnd.
+func fnGroupEnd() nccl.Result {
+	r1, _ := ffiCall0(symGroupEnd, 0)
+	return nccl.Result(r1)
+}
+
+// fnGroupStart calls ncclM2nGroupStart.
+func fnGroupStart() nccl.Result {
+	r1, _ := ffiCall0(symGroupStart, 0)
+	return nccl.Result(r1)
+}
+
+// fnInit calls ncclM2nInit.
+func fnInit(a0 *Handle, a1 *Config) nccl.Result {
+	r1, _ := ffiCall2(symInit, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
+	return nccl.Result(r1)
+}
+
+// fnReshard calls ncclReshard.
+func fnReshard(a0 Handle, a1 nccl.Comm, a2 *DistTensor, a3 *DistTensor, a4 driver.Stream) nccl.Result {
+	r1, _ := ffiCall5(symReshard, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(a4))
+	return nccl.Result(r1)
+}
+
+// fnReshardWithWindow calls ncclReshardWithWindow.
+func fnReshardWithWindow(a0 Handle, a1 nccl.Comm, a2 nccl.Window, a3 *DistTensor, a4 *DistTensor, a5 driver.Stream) nccl.Result {
+	r1, _ := ffiCall6(symReshardWithWindow, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(a5))
+	return nccl.Result(r1)
 }
 
 // Finalize finalizes a handle after its submitted work has completed.
@@ -236,13 +316,16 @@ func Init(config *Config) (Handle, error) {
 		var zero Handle
 		return zero, err
 	}
-	var out Handle
-	if err := toError(fnInit(&out, config), "ncclM2nInit"); err != nil {
+	out := slotInit.get()
+	defer slotInit.put(out)
+	if err := toError(fnInit(out, config), "ncclM2nInit"); err != nil {
 		var zero Handle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotInit outSlot[Handle]
 
 // Reshard reshards tensors using library-managed staging storage.
 //

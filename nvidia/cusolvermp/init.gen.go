@@ -421,62 +421,62 @@ func checkLibSym(symbol string) error {
 
 // registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
-	register(&fnBufferDeregister, "cusolverMpBufferDeregister")
-	register(&fnBufferRegister, "cusolverMpBufferRegister")
-	register(&fnCreate, "cusolverMpCreate")
-	register(&fnCreateDeviceGrid, "cusolverMpCreateDeviceGrid")
-	register(&fnCreateMatrixDesc, "cusolverMpCreateMatrixDesc")
-	register(&fnDestroy, "cusolverMpDestroy")
-	register(&fnDestroyGrid, "cusolverMpDestroyGrid")
-	register(&fnDestroyMatrixDesc, "cusolverMpDestroyMatrixDesc")
-	register(&fnFree, "cusolverMpFree")
-	register(&fnGetMathMode, "cusolverMpGetMathMode")
-	register(&fnGetStream, "cusolverMpGetStream")
-	register(&fnGetVersion, "cusolverMpGetVersion")
-	register(&fnGetrf, "cusolverMpGetrf")
-	register(&fnGetrfBufferSize, "cusolverMpGetrf_bufferSize")
-	register(&fnGetrs, "cusolverMpGetrs")
-	register(&fnGetrsBufferSize, "cusolverMpGetrs_bufferSize")
-	register(&fnLoggerForceDisable, "cusolverMpLoggerForceDisable")
-	register(&fnLoggerOpenFile, "cusolverMpLoggerOpenFile")
-	register(&fnLoggerSetLevel, "cusolverMpLoggerSetLevel")
-	register(&fnLoggerSetMask, "cusolverMpLoggerSetMask")
-	register(&fnMalloc, "cusolverMpMalloc")
-	register(&fnMatrixGatherD2H, "cusolverMpMatrixGatherD2H")
-	register(&fnMatrixScatterH2D, "cusolverMpMatrixScatterH2D")
+	symBufferDeregister = registerSym("cusolverMpBufferDeregister")
+	symBufferRegister = registerSym("cusolverMpBufferRegister")
+	symCreate = registerSym("cusolverMpCreate")
+	symCreateDeviceGrid = registerSym("cusolverMpCreateDeviceGrid")
+	symCreateMatrixDesc = registerSym("cusolverMpCreateMatrixDesc")
+	symDestroy = registerSym("cusolverMpDestroy")
+	symDestroyGrid = registerSym("cusolverMpDestroyGrid")
+	symDestroyMatrixDesc = registerSym("cusolverMpDestroyMatrixDesc")
+	symFree = registerSym("cusolverMpFree")
+	symGetMathMode = registerSym("cusolverMpGetMathMode")
+	symGetStream = registerSym("cusolverMpGetStream")
+	symGetVersion = registerSym("cusolverMpGetVersion")
+	symGetrf = registerSym("cusolverMpGetrf")
+	symGetrfBufferSize = registerSym("cusolverMpGetrf_bufferSize")
+	symGetrs = registerSym("cusolverMpGetrs")
+	symGetrsBufferSize = registerSym("cusolverMpGetrs_bufferSize")
+	symLoggerForceDisable = registerSym("cusolverMpLoggerForceDisable")
+	symLoggerOpenFile = registerSym("cusolverMpLoggerOpenFile")
+	symLoggerSetLevel = registerSym("cusolverMpLoggerSetLevel")
+	symLoggerSetMask = registerSym("cusolverMpLoggerSetMask")
+	symMalloc = registerSym("cusolverMpMalloc")
+	symMatrixGatherD2H = registerSym("cusolverMpMatrixGatherD2H")
+	symMatrixScatterH2D = registerSym("cusolverMpMatrixScatterH2D")
 	symNUMROC = registerSym("cusolverMpNUMROC")
-	register(&fnSetMathMode, "cusolverMpSetMathMode")
-	register(&fnSetStream, "cusolverMpSetStream")
+	symSetMathMode = registerSym("cusolverMpSetMathMode")
+	symSetStream = registerSym("cusolverMpSetStream")
 }
 
 // clearFuncs unbinds all function pointers.
 func clearFuncs() {
-	fnBufferDeregister = nil
-	fnBufferRegister = nil
-	fnCreate = nil
-	fnCreateDeviceGrid = nil
-	fnCreateMatrixDesc = nil
-	fnDestroy = nil
-	fnDestroyGrid = nil
-	fnDestroyMatrixDesc = nil
-	fnFree = nil
-	fnGetMathMode = nil
-	fnGetStream = nil
-	fnGetVersion = nil
-	fnGetrf = nil
-	fnGetrfBufferSize = nil
-	fnGetrs = nil
-	fnGetrsBufferSize = nil
-	fnLoggerForceDisable = nil
-	fnLoggerOpenFile = nil
-	fnLoggerSetLevel = nil
-	fnLoggerSetMask = nil
-	fnMalloc = nil
-	fnMatrixGatherD2H = nil
-	fnMatrixScatterH2D = nil
+	symBufferDeregister = 0
+	symBufferRegister = 0
+	symCreate = 0
+	symCreateDeviceGrid = 0
+	symCreateMatrixDesc = 0
+	symDestroy = 0
+	symDestroyGrid = 0
+	symDestroyMatrixDesc = 0
+	symFree = 0
+	symGetMathMode = 0
+	symGetStream = 0
+	symGetVersion = 0
+	symGetrf = 0
+	symGetrfBufferSize = 0
+	symGetrs = 0
+	symGetrsBufferSize = 0
+	symLoggerForceDisable = 0
+	symLoggerOpenFile = 0
+	symLoggerSetLevel = 0
+	symLoggerSetMask = 0
+	symMalloc = 0
+	symMatrixGatherD2H = 0
+	symMatrixScatterH2D = 0
 	symNUMROC = 0
-	fnSetMathMode = nil
-	fnSetStream = nil
+	symSetMathMode = 0
+	symSetStream = 0
 }
 
 // HasBufferDeregister reports whether cusolverMpBufferDeregister resolved in the loaded library.

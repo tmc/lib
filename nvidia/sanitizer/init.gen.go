@@ -422,22 +422,22 @@ func checkLibSym(symbol string) error {
 // registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
 	register(&fnGetResultString, "sanitizerGetResultString")
-	register(&fnAddPatches, "sanitizerAddPatches")
-	register(&fnAddPatchesFromFile, "sanitizerAddPatchesFromFile")
-	register(&fnAlloc, "sanitizerAlloc")
-	register(&fnAllocHost, "sanitizerAllocHost")
+	symAddPatches = registerSym("sanitizerAddPatches")
+	symAddPatchesFromFile = registerSym("sanitizerAddPatchesFromFile")
+	symAlloc = registerSym("sanitizerAlloc")
+	symAllocHost = registerSym("sanitizerAllocHost")
 	symenableAllDomains = registerSym("sanitizerEnableAllDomains")
 	symenableCallback = registerSym("sanitizerEnableCallback")
 	symenableDomain = registerSym("sanitizerEnableDomain")
-	register(&fnFree, "sanitizerFree")
-	register(&fnFreeHost, "sanitizerFreeHost")
-	register(&fnGetCallbackPcAndSize, "sanitizerGetCallbackPcAndSize")
+	symFree = registerSym("sanitizerFree")
+	symFreeHost = registerSym("sanitizerFreeHost")
+	symGetCallbackPcAndSize = registerSym("sanitizerGetCallbackPcAndSize")
 	symgetCallbackState = registerSym("sanitizerGetCallbackState")
 	symGetCudaBarrierCount = registerSym("sanitizerGetCudaBarrierCount")
 	symGetFunctionLoadedStatus = registerSym("sanitizerGetFunctionLoadedStatus")
 	symGetFunctionPcAndSize = registerSym("sanitizerGetFunctionPcAndSize")
 	symgetStream = registerSym("sanitizerGetStream")
-	register(&fnGetStreamHandle, "sanitizerGetStreamHandle")
+	symGetStreamHandle = registerSym("sanitizerGetStreamHandle")
 	symIsInsideRecursiveCallback = registerSym("sanitizerIsInsideRecursiveCallback")
 	symmemcpyDeviceToHost = registerSym("sanitizerMemcpyDeviceToHost")
 	symmemcpyHostToDeviceAsync = registerSym("sanitizerMemcpyHostToDeviceAsync")
@@ -456,22 +456,22 @@ func registerFuncs() {
 // clearFuncs unbinds all function pointers.
 func clearFuncs() {
 	fnGetResultString = nil
-	fnAddPatches = nil
-	fnAddPatchesFromFile = nil
-	fnAlloc = nil
-	fnAllocHost = nil
+	symAddPatches = 0
+	symAddPatchesFromFile = 0
+	symAlloc = 0
+	symAllocHost = 0
 	symenableAllDomains = 0
 	symenableCallback = 0
 	symenableDomain = 0
-	fnFree = nil
-	fnFreeHost = nil
-	fnGetCallbackPcAndSize = nil
+	symFree = 0
+	symFreeHost = 0
+	symGetCallbackPcAndSize = 0
 	symgetCallbackState = 0
 	symGetCudaBarrierCount = 0
 	symGetFunctionLoadedStatus = 0
 	symGetFunctionPcAndSize = 0
 	symgetStream = 0
-	fnGetStreamHandle = nil
+	symGetStreamHandle = 0
 	symIsInsideRecursiveCallback = 0
 	symmemcpyDeviceToHost = 0
 	symmemcpyHostToDeviceAsync = 0

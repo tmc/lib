@@ -548,17 +548,17 @@ func checkLibSym(symbol string) error {
 func registerFuncs() {
 	register(&fnGetResultString, "cuptiGetResultString")
 	register(&fnGetErrorMessage, "cuptiGetErrorMessage")
-	register(&fnActivityConfigurePCSampling, "cuptiActivityConfigurePCSampling")
+	symActivityConfigurePCSampling = registerSym("cuptiActivityConfigurePCSampling")
 	symActivityConfigureUnifiedMemoryCounter = registerSym("cuptiActivityConfigureUnifiedMemoryCounter")
 	symActivityDisable = registerSym("cuptiActivityDisable")
-	register(&fnActivityDisableContext, "cuptiActivityDisableContext")
+	symActivityDisableContext = registerSym("cuptiActivityDisableContext")
 	symactivityDisableV2 = registerSym("cuptiActivityDisable_v2")
 	symActivityEnable = registerSym("cuptiActivityEnable")
 	symActivityEnableAllSyncRecords = registerSym("cuptiActivityEnableAllSyncRecords")
 	symActivityEnableAllocationSource = registerSym("cuptiActivityEnableAllocationSource")
 	symActivityEnableAndDump = registerSym("cuptiActivityEnableAndDump")
 	symactivityEnableAndDumpV2 = registerSym("cuptiActivityEnableAndDump_v2")
-	register(&fnActivityEnableContext, "cuptiActivityEnableContext")
+	symActivityEnableContext = registerSym("cuptiActivityEnableContext")
 	symActivityEnableCudaEventDeviceTimestamps = registerSym("cuptiActivityEnableCudaEventDeviceTimestamps")
 	symActivityEnableDeviceGraph = registerSym("cuptiActivityEnableDeviceGraph")
 	symActivityEnableDriverApi = registerSym("cuptiActivityEnableDriverApi")
@@ -567,14 +567,14 @@ func registerFuncs() {
 	symActivityEnableLaunchAttributes = registerSym("cuptiActivityEnableLaunchAttributes")
 	symActivityEnableRuntimeApi = registerSym("cuptiActivityEnableRuntimeApi")
 	symactivityEnableV2 = registerSym("cuptiActivityEnable_v2")
-	register(&fnActivityFlush, "cuptiActivityFlush")
+	symActivityFlush = registerSym("cuptiActivityFlush")
 	symActivityFlushAll = registerSym("cuptiActivityFlushAll")
 	symActivityFlushPeriod = registerSym("cuptiActivityFlushPeriod")
 	symActivityGetAttribute = registerSym("cuptiActivityGetAttribute")
 	symactivityGetAttributeV2 = registerSym("cuptiActivityGetAttribute_v2")
 	symactivityGetEnabledKinds = registerSym("cuptiActivityGetEnabledKinds")
 	symActivityGetNextRecord = registerSym("cuptiActivityGetNextRecord")
-	register(&fnActivityGetNumDroppedRecords, "cuptiActivityGetNumDroppedRecords")
+	symActivityGetNumDroppedRecords = registerSym("cuptiActivityGetNumDroppedRecords")
 	symActivityGetStructSize = registerSym("cuptiActivityGetStructSize")
 	symActivityPopExternalCorrelationId = registerSym("cuptiActivityPopExternalCorrelationId")
 	symActivityPushExternalCorrelationId = registerSym("cuptiActivityPushExternalCorrelationId")
@@ -596,11 +596,11 @@ func registerFuncs() {
 	symDeviceGetNumMetrics = registerSym("cuptiDeviceGetNumMetrics")
 	symDeviceSupported = registerSym("cuptiDeviceSupported")
 	symDeviceVirtualizationMode = registerSym("cuptiDeviceVirtualizationMode")
-	register(&fnDisableKernelReplayMode, "cuptiDisableKernelReplayMode")
+	symDisableKernelReplayMode = registerSym("cuptiDisableKernelReplayMode")
 	symenableAllDomains = registerSym("cuptiEnableAllDomains")
 	symenableCallback = registerSym("cuptiEnableCallback")
 	symenableDomain = registerSym("cuptiEnableDomain")
-	register(&fnEnableKernelReplayMode, "cuptiEnableKernelReplayMode")
+	symEnableKernelReplayMode = registerSym("cuptiEnableKernelReplayMode")
 	symEnumEventDomains = registerSym("cuptiEnumEventDomains")
 	symEnumMetrics = registerSym("cuptiEnumMetrics")
 	symEventDomainEnumEvents = registerSym("cuptiEventDomainEnumEvents")
@@ -609,7 +609,7 @@ func registerFuncs() {
 	symEventGetAttribute = registerSym("cuptiEventGetAttribute")
 	symEventGetIdFromName = registerSym("cuptiEventGetIdFromName")
 	symeventGroupAddEvent = registerSym("cuptiEventGroupAddEvent")
-	register(&fneventGroupCreate, "cuptiEventGroupCreate")
+	symeventGroupCreate = registerSym("cuptiEventGroupCreate")
 	symeventGroupDestroy = registerSym("cuptiEventGroupDestroy")
 	symeventGroupDisable = registerSym("cuptiEventGroupDisable")
 	symeventGroupEnable = registerSym("cuptiEventGroupEnable")
@@ -622,15 +622,15 @@ func registerFuncs() {
 	symeventGroupSetAttribute = registerSym("cuptiEventGroupSetAttribute")
 	symEventGroupSetDisable = registerSym("cuptiEventGroupSetDisable")
 	symEventGroupSetEnable = registerSym("cuptiEventGroupSetEnable")
-	register(&fnEventGroupSetsCreate, "cuptiEventGroupSetsCreate")
+	symEventGroupSetsCreate = registerSym("cuptiEventGroupSetsCreate")
 	symEventGroupSetsDestroy = registerSym("cuptiEventGroupSetsDestroy")
 	symFinalize = registerSym("cuptiFinalize")
-	register(&fnGetAutoBoostState, "cuptiGetAutoBoostState")
+	symGetAutoBoostState = registerSym("cuptiGetAutoBoostState")
 	symGetCallbackName = registerSym("cuptiGetCallbackName")
 	symgetCallbackState = registerSym("cuptiGetCallbackState")
-	register(&fnGetContextId, "cuptiGetContextId")
+	symGetContextId = registerSym("cuptiGetContextId")
 	symGetCubinCrc = registerSym("cuptiGetCubinCrc")
-	register(&fnGetDeviceId, "cuptiGetDeviceId")
+	symGetDeviceId = registerSym("cuptiGetDeviceId")
 	symgetEnabledCallbacks = registerSym("cuptiGetEnabledCallbacks")
 	symGetGraphExecId = registerSym("cuptiGetGraphExecId")
 	symGetGraphId = registerSym("cuptiGetGraphId")
@@ -639,21 +639,21 @@ func registerFuncs() {
 	symGetNumEventDomains = registerSym("cuptiGetNumEventDomains")
 	symGetNumMetrics = registerSym("cuptiGetNumMetrics")
 	symGetSassToSourceCorrelation = registerSym("cuptiGetSassToSourceCorrelation")
-	register(&fnGetStreamId, "cuptiGetStreamId")
-	register(&fnGetStreamIdEx, "cuptiGetStreamIdEx")
+	symGetStreamId = registerSym("cuptiGetStreamId")
+	symGetStreamIdEx = registerSym("cuptiGetStreamIdEx")
 	symGetThreadIdType = registerSym("cuptiGetThreadIdType")
 	symGetTimestamp = registerSym("cuptiGetTimestamp")
 	register(&fnGetVersion, "cuptiGetVersion")
 	symIsTracingSessionRunning = registerSym("cuptiIsTracingSessionRunning")
 	symKernelReplaySubscribeUpdate = registerSym("cuptiKernelReplaySubscribeUpdate")
-	register(&fnMetricCreateEventGroupSets, "cuptiMetricCreateEventGroupSets")
+	symMetricCreateEventGroupSets = registerSym("cuptiMetricCreateEventGroupSets")
 	symMetricEnumEvents = registerSym("cuptiMetricEnumEvents")
 	symMetricEnumProperties = registerSym("cuptiMetricEnumProperties")
 	symMetricGetAttribute = registerSym("cuptiMetricGetAttribute")
 	symMetricGetIdFromName = registerSym("cuptiMetricGetIdFromName")
 	symMetricGetNumEvents = registerSym("cuptiMetricGetNumEvents")
 	symMetricGetNumProperties = registerSym("cuptiMetricGetNumProperties")
-	register(&fnMetricGetRequiredEventGroupSets, "cuptiMetricGetRequiredEventGroupSets")
+	symMetricGetRequiredEventGroupSets = registerSym("cuptiMetricGetRequiredEventGroupSets")
 	symMetricGetValue = registerSym("cuptiMetricGetValue")
 	symMetricGetValue2 = registerSym("cuptiMetricGetValue2")
 	symPCSamplingDisable = registerSym("cuptiPCSamplingDisable")
@@ -733,7 +733,7 @@ func registerFuncs() {
 	symSassMetricsGetProperties = registerSym("cuptiSassMetricsGetProperties")
 	symSassMetricsSetConfig = registerSym("cuptiSassMetricsSetConfig")
 	symSassMetricsUnsetConfig = registerSym("cuptiSassMetricsUnsetConfig")
-	register(&fnSetEventCollectionMode, "cuptiSetEventCollectionMode")
+	symSetEventCollectionMode = registerSym("cuptiSetEventCollectionMode")
 	symSetThreadIdType = registerSym("cuptiSetThreadIdType")
 	symSubscribe = registerSym("cuptiSubscribe")
 	symSubscribeV2 = registerSym("cuptiSubscribe_v2")
@@ -745,17 +745,17 @@ func registerFuncs() {
 func clearFuncs() {
 	fnGetResultString = nil
 	fnGetErrorMessage = nil
-	fnActivityConfigurePCSampling = nil
+	symActivityConfigurePCSampling = 0
 	symActivityConfigureUnifiedMemoryCounter = 0
 	symActivityDisable = 0
-	fnActivityDisableContext = nil
+	symActivityDisableContext = 0
 	symactivityDisableV2 = 0
 	symActivityEnable = 0
 	symActivityEnableAllSyncRecords = 0
 	symActivityEnableAllocationSource = 0
 	symActivityEnableAndDump = 0
 	symactivityEnableAndDumpV2 = 0
-	fnActivityEnableContext = nil
+	symActivityEnableContext = 0
 	symActivityEnableCudaEventDeviceTimestamps = 0
 	symActivityEnableDeviceGraph = 0
 	symActivityEnableDriverApi = 0
@@ -764,14 +764,14 @@ func clearFuncs() {
 	symActivityEnableLaunchAttributes = 0
 	symActivityEnableRuntimeApi = 0
 	symactivityEnableV2 = 0
-	fnActivityFlush = nil
+	symActivityFlush = 0
 	symActivityFlushAll = 0
 	symActivityFlushPeriod = 0
 	symActivityGetAttribute = 0
 	symactivityGetAttributeV2 = 0
 	symactivityGetEnabledKinds = 0
 	symActivityGetNextRecord = 0
-	fnActivityGetNumDroppedRecords = nil
+	symActivityGetNumDroppedRecords = 0
 	symActivityGetStructSize = 0
 	symActivityPopExternalCorrelationId = 0
 	symActivityPushExternalCorrelationId = 0
@@ -793,11 +793,11 @@ func clearFuncs() {
 	symDeviceGetNumMetrics = 0
 	symDeviceSupported = 0
 	symDeviceVirtualizationMode = 0
-	fnDisableKernelReplayMode = nil
+	symDisableKernelReplayMode = 0
 	symenableAllDomains = 0
 	symenableCallback = 0
 	symenableDomain = 0
-	fnEnableKernelReplayMode = nil
+	symEnableKernelReplayMode = 0
 	symEnumEventDomains = 0
 	symEnumMetrics = 0
 	symEventDomainEnumEvents = 0
@@ -806,7 +806,7 @@ func clearFuncs() {
 	symEventGetAttribute = 0
 	symEventGetIdFromName = 0
 	symeventGroupAddEvent = 0
-	fneventGroupCreate = nil
+	symeventGroupCreate = 0
 	symeventGroupDestroy = 0
 	symeventGroupDisable = 0
 	symeventGroupEnable = 0
@@ -819,15 +819,15 @@ func clearFuncs() {
 	symeventGroupSetAttribute = 0
 	symEventGroupSetDisable = 0
 	symEventGroupSetEnable = 0
-	fnEventGroupSetsCreate = nil
+	symEventGroupSetsCreate = 0
 	symEventGroupSetsDestroy = 0
 	symFinalize = 0
-	fnGetAutoBoostState = nil
+	symGetAutoBoostState = 0
 	symGetCallbackName = 0
 	symgetCallbackState = 0
-	fnGetContextId = nil
+	symGetContextId = 0
 	symGetCubinCrc = 0
-	fnGetDeviceId = nil
+	symGetDeviceId = 0
 	symgetEnabledCallbacks = 0
 	symGetGraphExecId = 0
 	symGetGraphId = 0
@@ -836,21 +836,21 @@ func clearFuncs() {
 	symGetNumEventDomains = 0
 	symGetNumMetrics = 0
 	symGetSassToSourceCorrelation = 0
-	fnGetStreamId = nil
-	fnGetStreamIdEx = nil
+	symGetStreamId = 0
+	symGetStreamIdEx = 0
 	symGetThreadIdType = 0
 	symGetTimestamp = 0
 	fnGetVersion = nil
 	symIsTracingSessionRunning = 0
 	symKernelReplaySubscribeUpdate = 0
-	fnMetricCreateEventGroupSets = nil
+	symMetricCreateEventGroupSets = 0
 	symMetricEnumEvents = 0
 	symMetricEnumProperties = 0
 	symMetricGetAttribute = 0
 	symMetricGetIdFromName = 0
 	symMetricGetNumEvents = 0
 	symMetricGetNumProperties = 0
-	fnMetricGetRequiredEventGroupSets = nil
+	symMetricGetRequiredEventGroupSets = 0
 	symMetricGetValue = 0
 	symMetricGetValue2 = 0
 	symPCSamplingDisable = 0
@@ -930,7 +930,7 @@ func clearFuncs() {
 	symSassMetricsGetProperties = 0
 	symSassMetricsSetConfig = 0
 	symSassMetricsUnsetConfig = 0
-	fnSetEventCollectionMode = nil
+	symSetEventCollectionMode = 0
 	symSetThreadIdType = 0
 	symSubscribe = 0
 	symSubscribeV2 = 0

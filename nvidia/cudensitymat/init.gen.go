@@ -436,28 +436,28 @@ func registerFuncs() {
 	symdestroyState = registerSym("cudensitymatDestroyState")
 	symdestroyWorkspace = registerSym("cudensitymatDestroyWorkspace")
 	symelementaryOperatorAttachBuffer = registerSym("cudensitymatElementaryOperatorAttachBuffer")
-	register(&fnexpectationCompute, "cudensitymatExpectationCompute")
-	register(&fnexpectationPrepare, "cudensitymatExpectationPrepare")
+	symexpectationCompute = registerSym("cudensitymatExpectationCompute")
+	symexpectationPrepare = registerSym("cudensitymatExpectationPrepare")
 	symgetNumRanks = registerSym("cudensitymatGetNumRanks")
 	symgetProcRank = registerSym("cudensitymatGetProcRank")
 	symGetVersion = registerSym("cudensitymatGetVersion")
 	register(&fnoperatorAppendTerm, "cudensitymatOperatorAppendTerm")
-	register(&fnoperatorComputeAction, "cudensitymatOperatorComputeAction")
-	register(&fnoperatorPrepareAction, "cudensitymatOperatorPrepareAction")
+	symoperatorComputeAction = registerSym("cudensitymatOperatorComputeAction")
+	symoperatorPrepareAction = registerSym("cudensitymatOperatorPrepareAction")
 	register(&fnoperatorTermAppendElementaryProduct, "cudensitymatOperatorTermAppendElementaryProduct")
 	symresetDistributedConfiguration = registerSym("cudensitymatResetDistributedConfiguration")
 	symresetRandomSeed = registerSym("cudensitymatResetRandomSeed")
 	symstateAttachComponentStorage = registerSym("cudensitymatStateAttachComponentStorage")
-	register(&fnstateComputeAccumulation, "cudensitymatStateComputeAccumulation")
-	register(&fnstateComputeInnerProduct, "cudensitymatStateComputeInnerProduct")
-	register(&fnstateComputeNorm, "cudensitymatStateComputeNorm")
-	register(&fnstateComputeScaling, "cudensitymatStateComputeScaling")
-	register(&fnstateComputeTrace, "cudensitymatStateComputeTrace")
+	symstateComputeAccumulation = registerSym("cudensitymatStateComputeAccumulation")
+	symstateComputeInnerProduct = registerSym("cudensitymatStateComputeInnerProduct")
+	symstateComputeNorm = registerSym("cudensitymatStateComputeNorm")
+	symstateComputeScaling = registerSym("cudensitymatStateComputeScaling")
+	symstateComputeTrace = registerSym("cudensitymatStateComputeTrace")
 	symstateGetComponentInfo = registerSym("cudensitymatStateGetComponentInfo")
 	symstateGetComponentNumModes = registerSym("cudensitymatStateGetComponentNumModes")
 	symstateGetComponentStorageSize = registerSym("cudensitymatStateGetComponentStorageSize")
 	symstateGetNumComponents = registerSym("cudensitymatStateGetNumComponents")
-	register(&fnstateInitializeZero, "cudensitymatStateInitializeZero")
+	symstateInitializeZero = registerSym("cudensitymatStateInitializeZero")
 	symworkspaceGetMemory = registerSym("cudensitymatWorkspaceGetMemory")
 	symworkspaceGetMemorySize = registerSym("cudensitymatWorkspaceGetMemorySize")
 	symworkspaceSetMemory = registerSym("cudensitymatWorkspaceSetMemory")
@@ -480,28 +480,28 @@ func clearFuncs() {
 	symdestroyState = 0
 	symdestroyWorkspace = 0
 	symelementaryOperatorAttachBuffer = 0
-	fnexpectationCompute = nil
-	fnexpectationPrepare = nil
+	symexpectationCompute = 0
+	symexpectationPrepare = 0
 	symgetNumRanks = 0
 	symgetProcRank = 0
 	symGetVersion = 0
 	fnoperatorAppendTerm = nil
-	fnoperatorComputeAction = nil
-	fnoperatorPrepareAction = nil
+	symoperatorComputeAction = 0
+	symoperatorPrepareAction = 0
 	fnoperatorTermAppendElementaryProduct = nil
 	symresetDistributedConfiguration = 0
 	symresetRandomSeed = 0
 	symstateAttachComponentStorage = 0
-	fnstateComputeAccumulation = nil
-	fnstateComputeInnerProduct = nil
-	fnstateComputeNorm = nil
-	fnstateComputeScaling = nil
-	fnstateComputeTrace = nil
+	symstateComputeAccumulation = 0
+	symstateComputeInnerProduct = 0
+	symstateComputeNorm = 0
+	symstateComputeScaling = 0
+	symstateComputeTrace = 0
 	symstateGetComponentInfo = 0
 	symstateGetComponentNumModes = 0
 	symstateGetComponentStorageSize = 0
 	symstateGetNumComponents = 0
-	fnstateInitializeZero = nil
+	symstateInitializeZero = 0
 	symworkspaceGetMemory = 0
 	symworkspaceGetMemorySize = 0
 	symworkspaceSetMemory = 0

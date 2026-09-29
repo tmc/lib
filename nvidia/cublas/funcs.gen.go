@@ -257,16 +257,16 @@ var (
 	symGetLoggerCallback                             uintptr
 	symgetMathMode                                   uintptr
 	symGetMatrix                                     uintptr
-	fnGetMatrixAsync                                 func(int32, int32, int32, uintptr, int32, uintptr, int32, driver.Stream) Result
-	fnGetMatrixAsync64                               func(int64, int64, int64, uintptr, int64, uintptr, int64, driver.Stream) Result
+	symGetMatrixAsync                                uintptr
+	symGetMatrixAsync64                              uintptr
 	symGetMatrix64                                   uintptr
 	symgetPointerMode                                uintptr
 	symGetProperty                                   uintptr
 	symgetSmCountTarget                              uintptr
 	symgetStream                                     uintptr
 	symGetVector                                     uintptr
-	fnGetVectorAsync                                 func(int32, int32, uintptr, int32, unsafe.Pointer, int32, driver.Stream) Result
-	fnGetVectorAsync64                               func(int64, int64, uintptr, int64, unsafe.Pointer, int64, driver.Stream) Result
+	symGetVectorAsync                                uintptr
+	symGetVectorAsync64                              uintptr
 	symGetVector64                                   uintptr
 	symgetVersion                                    uintptr
 	symhSHgemvBatched                                uintptr
@@ -338,15 +338,15 @@ var (
 	symSetLoggerCallback                             uintptr
 	symsetMathMode                                   uintptr
 	symSetMatrix                                     uintptr
-	fnSetMatrixAsync                                 func(int32, int32, int32, uintptr, int32, uintptr, int32, driver.Stream) Result
-	fnSetMatrixAsync64                               func(int64, int64, int64, uintptr, int64, uintptr, int64, driver.Stream) Result
+	symSetMatrixAsync                                uintptr
+	symSetMatrixAsync64                              uintptr
 	symSetMatrix64                                   uintptr
 	symsetPointerMode                                uintptr
 	symsetSmCountTarget                              uintptr
-	fnsetStream                                      func(Handle, driver.Stream) Result
+	symsetStream                                     uintptr
 	symSetVector                                     uintptr
-	fnSetVectorAsync                                 func(int32, int32, unsafe.Pointer, int32, uintptr, int32, driver.Stream) Result
-	fnSetVectorAsync64                               func(int64, int64, unsafe.Pointer, int64, uintptr, int64, driver.Stream) Result
+	symSetVectorAsync                                uintptr
+	symSetVectorAsync64                              uintptr
 	symSetVector64                                   uintptr
 	symsetWorkspace                                  uintptr
 	symsgbmv                                         uintptr
@@ -2511,6 +2511,18 @@ func fnGetMatrix(a0 int32, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 unsafe.P
 	return Result(r1)
 }
 
+// fnGetMatrixAsync calls cublasGetMatrixAsync.
+func fnGetMatrixAsync(a0 int32, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32, a7 driver.Stream) Result {
+	r1, _ := ffiCallWidths8(symGetMatrixAsync, 0, 0x333f, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnGetMatrixAsync64 calls cublasGetMatrixAsync_64.
+func fnGetMatrixAsync64(a0 int64, a1 int64, a2 int64, a3 uintptr, a4 int64, a5 uintptr, a6 int64, a7 driver.Stream) Result {
+	r1, _ := ffiCall8(symGetMatrixAsync64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
 // fnGetMatrix64 calls cublasGetMatrix_64.
 func fnGetMatrix64(a0 int64, a1 int64, a2 int64, a3 uintptr, a4 int64, a5 unsafe.Pointer, a6 int64) Result {
 	r1, _ := ffiCall7(symGetMatrix64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
@@ -2544,6 +2556,18 @@ func fngetStream(a0 Handle, a1 *driver.Stream) Result {
 // fnGetVector calls cublasGetVector.
 func fnGetVector(a0 int32, a1 int32, a2 uintptr, a3 int32, a4 unsafe.Pointer, a5 int32) Result {
 	r1, _ := ffiCallWidths6(symGetVector, 0, 0xccf, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnGetVectorAsync calls cublasGetVectorAsync.
+func fnGetVectorAsync(a0 int32, a1 int32, a2 uintptr, a3 int32, a4 unsafe.Pointer, a5 int32, a6 driver.Stream) Result {
+	r1, _ := ffiCallWidths7(symGetVectorAsync, 0, 0xccf, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnGetVectorAsync64 calls cublasGetVectorAsync_64.
+func fnGetVectorAsync64(a0 int64, a1 int64, a2 uintptr, a3 int64, a4 unsafe.Pointer, a5 int64, a6 driver.Stream) Result {
+	r1, _ := ffiCall7(symGetVectorAsync64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
 	return Result(r1)
 }
 
@@ -2973,6 +2997,18 @@ func fnSetMatrix(a0 int32, a1 int32, a2 int32, a3 unsafe.Pointer, a4 int32, a5 u
 	return Result(r1)
 }
 
+// fnSetMatrixAsync calls cublasSetMatrixAsync.
+func fnSetMatrixAsync(a0 int32, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32, a7 driver.Stream) Result {
+	r1, _ := ffiCallWidths8(symSetMatrixAsync, 0, 0x333f, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnSetMatrixAsync64 calls cublasSetMatrixAsync_64.
+func fnSetMatrixAsync64(a0 int64, a1 int64, a2 int64, a3 uintptr, a4 int64, a5 uintptr, a6 int64, a7 driver.Stream) Result {
+	r1, _ := ffiCall8(symSetMatrixAsync64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
 // fnSetMatrix64 calls cublasSetMatrix_64.
 func fnSetMatrix64(a0 int64, a1 int64, a2 int64, a3 unsafe.Pointer, a4 int64, a5 uintptr, a6 int64) Result {
 	r1, _ := ffiCall7(symSetMatrix64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
@@ -2991,9 +3027,27 @@ func fnsetSmCountTarget(a0 Handle, a1 int32) Result {
 	return Result(r1)
 }
 
+// fnsetStream calls cublasSetStream_v2.
+func fnsetStream(a0 Handle, a1 driver.Stream) Result {
+	r1, _ := ffiCall2(symsetStream, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
 // fnSetVector calls cublasSetVector.
 func fnSetVector(a0 int32, a1 int32, a2 unsafe.Pointer, a3 int32, a4 uintptr, a5 int32) Result {
 	r1, _ := ffiCallWidths6(symSetVector, 0, 0xccf, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnSetVectorAsync calls cublasSetVectorAsync.
+func fnSetVectorAsync(a0 int32, a1 int32, a2 unsafe.Pointer, a3 int32, a4 uintptr, a5 int32, a6 driver.Stream) Result {
+	r1, _ := ffiCallWidths7(symSetVectorAsync, 0, 0xccf, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnSetVectorAsync64 calls cublasSetVectorAsync_64.
+func fnSetVectorAsync64(a0 int64, a1 int64, a2 unsafe.Pointer, a3 int64, a4 uintptr, a5 int64, a6 driver.Stream) Result {
+	r1, _ := ffiCall7(symSetVectorAsync64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
 	return Result(r1)
 }
 

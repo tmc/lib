@@ -424,17 +424,17 @@ func checkLibSym(symbol string) error {
 // registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
 	symCalcMinReductionBufferSize = registerSym("ncclCalcMinReductionBufferSize")
-	register(&fnLLGetPoisonValue, "ncclLLGetPoisonValue")
-	register(&fnLLPoisonBuffer, "ncclLLPoisonBuffer")
-	register(&fnLLPoisonBufferAsync, "ncclLLPoisonBufferAsync")
+	symLLGetPoisonValue = registerSym("ncclLLGetPoisonValue")
+	symLLPoisonBuffer = registerSym("ncclLLPoisonBuffer")
+	symLLPoisonBufferAsync = registerSym("ncclLLPoisonBufferAsync")
 }
 
 // clearFuncs unbinds all function pointers.
 func clearFuncs() {
 	symCalcMinReductionBufferSize = 0
-	fnLLGetPoisonValue = nil
-	fnLLPoisonBuffer = nil
-	fnLLPoisonBufferAsync = nil
+	symLLGetPoisonValue = 0
+	symLLPoisonBuffer = 0
+	symLLPoisonBufferAsync = 0
 }
 
 // HasCalcMinReductionBufferSize reports whether ncclCalcMinReductionBufferSize resolved in the loaded library.

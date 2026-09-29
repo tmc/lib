@@ -12,17 +12,17 @@ import (
 
 // Generated function pointer variables.
 var (
-	fnActivityConfigurePCSampling                         func(driver.Context, *ActivityPCSamplingConfig) Result
+	symActivityConfigurePCSampling                        uintptr
 	symActivityConfigureUnifiedMemoryCounter              uintptr
 	symActivityDisable                                    uintptr
-	fnActivityDisableContext                              func(driver.Context, ActivityKind) Result
+	symActivityDisableContext                             uintptr
 	symactivityDisableV2                                  uintptr
 	symActivityEnable                                     uintptr
 	symActivityEnableAllSyncRecords                       uintptr
 	symActivityEnableAllocationSource                     uintptr
 	symActivityEnableAndDump                              uintptr
 	symactivityEnableAndDumpV2                            uintptr
-	fnActivityEnableContext                               func(driver.Context, ActivityKind) Result
+	symActivityEnableContext                              uintptr
 	symActivityEnableCudaEventDeviceTimestamps            uintptr
 	symActivityEnableDeviceGraph                          uintptr
 	symActivityEnableDriverApi                            uintptr
@@ -31,14 +31,14 @@ var (
 	symActivityEnableLaunchAttributes                     uintptr
 	symActivityEnableRuntimeApi                           uintptr
 	symactivityEnableV2                                   uintptr
-	fnActivityFlush                                       func(driver.Context, uint32, uint32) Result
+	symActivityFlush                                      uintptr
 	symActivityFlushAll                                   uintptr
 	symActivityFlushPeriod                                uintptr
 	symActivityGetAttribute                               uintptr
 	symactivityGetAttributeV2                             uintptr
 	symactivityGetEnabledKinds                            uintptr
 	symActivityGetNextRecord                              uintptr
-	fnActivityGetNumDroppedRecords                        func(driver.Context, uint32, *uint) Result
+	symActivityGetNumDroppedRecords                       uintptr
 	symActivityGetStructSize                              uintptr
 	symActivityPopExternalCorrelationId                   uintptr
 	symActivityPushExternalCorrelationId                  uintptr
@@ -60,11 +60,11 @@ var (
 	symDeviceGetNumMetrics                                uintptr
 	symDeviceSupported                                    uintptr
 	symDeviceVirtualizationMode                           uintptr
-	fnDisableKernelReplayMode                             func(driver.Context) Result
+	symDisableKernelReplayMode                            uintptr
 	symenableAllDomains                                   uintptr
 	symenableCallback                                     uintptr
 	symenableDomain                                       uintptr
-	fnEnableKernelReplayMode                              func(driver.Context) Result
+	symEnableKernelReplayMode                             uintptr
 	symEnumEventDomains                                   uintptr
 	symEnumMetrics                                        uintptr
 	symEventDomainEnumEvents                              uintptr
@@ -73,7 +73,7 @@ var (
 	symEventGetAttribute                                  uintptr
 	symEventGetIdFromName                                 uintptr
 	symeventGroupAddEvent                                 uintptr
-	fneventGroupCreate                                    func(driver.Context, *EventGroup, uint32) Result
+	symeventGroupCreate                                   uintptr
 	symeventGroupDestroy                                  uintptr
 	symeventGroupDisable                                  uintptr
 	symeventGroupEnable                                   uintptr
@@ -86,15 +86,15 @@ var (
 	symeventGroupSetAttribute                             uintptr
 	symEventGroupSetDisable                               uintptr
 	symEventGroupSetEnable                                uintptr
-	fnEventGroupSetsCreate                                func(driver.Context, uint, *uint32, **EventGroupSets) Result
+	symEventGroupSetsCreate                               uintptr
 	symEventGroupSetsDestroy                              uintptr
 	symFinalize                                           uintptr
-	fnGetAutoBoostState                                   func(driver.Context, *ActivityAutoBoostState) Result
+	symGetAutoBoostState                                  uintptr
 	symGetCallbackName                                    uintptr
 	symgetCallbackState                                   uintptr
-	fnGetContextId                                        func(driver.Context, *uint32) Result
+	symGetContextId                                       uintptr
 	symGetCubinCrc                                        uintptr
-	fnGetDeviceId                                         func(driver.Context, *uint32) Result
+	symGetDeviceId                                        uintptr
 	symgetEnabledCallbacks                                uintptr
 	symGetGraphExecId                                     uintptr
 	symGetGraphId                                         uintptr
@@ -103,21 +103,21 @@ var (
 	symGetNumEventDomains                                 uintptr
 	symGetNumMetrics                                      uintptr
 	symGetSassToSourceCorrelation                         uintptr
-	fnGetStreamId                                         func(driver.Context, driver.Stream, *uint32) Result
-	fnGetStreamIdEx                                       func(driver.Context, driver.Stream, uint8, *uint32) Result
+	symGetStreamId                                        uintptr
+	symGetStreamIdEx                                      uintptr
 	symGetThreadIdType                                    uintptr
 	symGetTimestamp                                       uintptr
 	fnGetVersion                                          func(*uint32) Result
 	symIsTracingSessionRunning                            uintptr
 	symKernelReplaySubscribeUpdate                        uintptr
-	fnMetricCreateEventGroupSets                          func(driver.Context, uint, *uint32, **EventGroupSets) Result
+	symMetricCreateEventGroupSets                         uintptr
 	symMetricEnumEvents                                   uintptr
 	symMetricEnumProperties                               uintptr
 	symMetricGetAttribute                                 uintptr
 	symMetricGetIdFromName                                uintptr
 	symMetricGetNumEvents                                 uintptr
 	symMetricGetNumProperties                             uintptr
-	fnMetricGetRequiredEventGroupSets                     func(driver.Context, uint32, **EventGroupSets) Result
+	symMetricGetRequiredEventGroupSets                    uintptr
 	symMetricGetValue                                     uintptr
 	symMetricGetValue2                                    uintptr
 	symPCSamplingDisable                                  uintptr
@@ -197,7 +197,7 @@ var (
 	symSassMetricsGetProperties                           uintptr
 	symSassMetricsSetConfig                               uintptr
 	symSassMetricsUnsetConfig                             uintptr
-	fnSetEventCollectionMode                              func(driver.Context, EventCollectionMode) Result
+	symSetEventCollectionMode                             uintptr
 	symSetThreadIdType                                    uintptr
 	symSubscribe                                          uintptr
 	symSubscribeV2                                        uintptr
@@ -370,6 +370,12 @@ func (s *outSlot[T]) put(p *T) {
 	s.pool.Put(p)
 }
 
+// fnActivityConfigurePCSampling calls cuptiActivityConfigurePCSampling.
+func fnActivityConfigurePCSampling(a0 driver.Context, a1 *ActivityPCSamplingConfig) Result {
+	r1, _ := ffiCall2(symActivityConfigurePCSampling, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
 // fnActivityConfigureUnifiedMemoryCounter calls cuptiActivityConfigureUnifiedMemoryCounter.
 func fnActivityConfigureUnifiedMemoryCounter(a0 *ActivityUnifiedMemoryCounterConfig, a1 uint32) Result {
 	r1, _ := ffiCallWidths2(symActivityConfigureUnifiedMemoryCounter, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1))
@@ -379,6 +385,12 @@ func fnActivityConfigureUnifiedMemoryCounter(a0 *ActivityUnifiedMemoryCounterCon
 // fnActivityDisable calls cuptiActivityDisable.
 func fnActivityDisable(a0 ActivityKind) Result {
 	r1, _ := ffiCallWidths1(symActivityDisable, 0, 0x3, uintptr(a0))
+	return Result(r1)
+}
+
+// fnActivityDisableContext calls cuptiActivityDisableContext.
+func fnActivityDisableContext(a0 driver.Context, a1 ActivityKind) Result {
+	r1, _ := ffiCallWidths2(symActivityDisableContext, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
@@ -415,6 +427,12 @@ func fnActivityEnableAndDump(a0 ActivityKind) Result {
 // fnactivityEnableAndDumpV2 calls cuptiActivityEnableAndDump_v2.
 func fnactivityEnableAndDumpV2(a0 Subscriber, a1 ActivityKind, a2 *ActivityConfig) Result {
 	r1, _ := ffiCallWidths3(symactivityEnableAndDumpV2, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnActivityEnableContext calls cuptiActivityEnableContext.
+func fnActivityEnableContext(a0 driver.Context, a1 ActivityKind) Result {
+	r1, _ := ffiCallWidths2(symActivityEnableContext, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
@@ -466,6 +484,12 @@ func fnactivityEnableV2(a0 Subscriber, a1 ActivityKind, a2 *ActivityConfig) Resu
 	return Result(r1)
 }
 
+// fnActivityFlush calls cuptiActivityFlush.
+func fnActivityFlush(a0 driver.Context, a1 uint32, a2 uint32) Result {
+	r1, _ := ffiCallWidths3(symActivityFlush, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
 // fnActivityFlushAll calls cuptiActivityFlushAll.
 func fnActivityFlushAll(a0 uint32) Result {
 	r1, _ := ffiCallWidths1(symActivityFlushAll, 0, 0x3, uintptr(a0))
@@ -499,6 +523,12 @@ func fnactivityGetEnabledKinds(a0 Subscriber, a1 *ActivityKind, a2 *uint32, a3 *
 // fnActivityGetNextRecord calls cuptiActivityGetNextRecord.
 func fnActivityGetNextRecord(a0 *uint8, a1 uint, a2 **Activity) Result {
 	r1, _ := ffiCall3(symActivityGetNextRecord, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnActivityGetNumDroppedRecords calls cuptiActivityGetNumDroppedRecords.
+func fnActivityGetNumDroppedRecords(a0 driver.Context, a1 uint32, a2 *uint) Result {
+	r1, _ := ffiCallWidths3(symActivityGetNumDroppedRecords, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -628,6 +658,12 @@ func fnDeviceVirtualizationMode(a0 Device, a1 *VirtualizationMode) Result {
 	return Result(r1)
 }
 
+// fnDisableKernelReplayMode calls cuptiDisableKernelReplayMode.
+func fnDisableKernelReplayMode(a0 driver.Context) Result {
+	r1, _ := ffiCall1(symDisableKernelReplayMode, 0, uintptr(a0))
+	return Result(r1)
+}
+
 // fnenableAllDomains calls cuptiEnableAllDomains.
 func fnenableAllDomains(a0 uint32, a1 Subscriber) Result {
 	r1, _ := ffiCallWidths2(symenableAllDomains, 0, 0x3, uintptr(a0), uintptr(a1))
@@ -643,6 +679,12 @@ func fnenableCallback(a0 uint32, a1 Subscriber, a2 CallbackDomain, a3 uint32) Re
 // fnenableDomain calls cuptiEnableDomain.
 func fnenableDomain(a0 uint32, a1 Subscriber, a2 CallbackDomain) Result {
 	r1, _ := ffiCallWidths3(symenableDomain, 0, 0x33, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnEnableKernelReplayMode calls cuptiEnableKernelReplayMode.
+func fnEnableKernelReplayMode(a0 driver.Context) Result {
+	r1, _ := ffiCall1(symEnableKernelReplayMode, 0, uintptr(a0))
 	return Result(r1)
 }
 
@@ -691,6 +733,12 @@ func fnEventGetIdFromName(a0 Device, a1 *byte, a2 *uint32) Result {
 // fneventGroupAddEvent calls cuptiEventGroupAddEvent.
 func fneventGroupAddEvent(a0 EventGroup, a1 uint32) Result {
 	r1, _ := ffiCallWidths2(symeventGroupAddEvent, 0, 0xc, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fneventGroupCreate calls cuptiEventGroupCreate.
+func fneventGroupCreate(a0 driver.Context, a1 *EventGroup, a2 uint32) Result {
+	r1, _ := ffiCallWidths3(symeventGroupCreate, 0, 0x30, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
 	return Result(r1)
 }
 
@@ -766,6 +814,12 @@ func fnEventGroupSetEnable(a0 *EventGroupSet) Result {
 	return Result(r1)
 }
 
+// fnEventGroupSetsCreate calls cuptiEventGroupSetsCreate.
+func fnEventGroupSetsCreate(a0 driver.Context, a1 uint, a2 *uint32, a3 **EventGroupSets) Result {
+	r1, _ := ffiCall4(symEventGroupSetsCreate, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
 // fnEventGroupSetsDestroy calls cuptiEventGroupSetsDestroy.
 func fnEventGroupSetsDestroy(a0 *EventGroupSets) Result {
 	r1, _ := ffiCall1(symEventGroupSetsDestroy, 0, uintptr(unsafe.Pointer(a0)))
@@ -775,6 +829,12 @@ func fnEventGroupSetsDestroy(a0 *EventGroupSets) Result {
 // fnFinalize calls cuptiFinalize.
 func fnFinalize() Result {
 	r1, _ := ffiCall0(symFinalize, 0)
+	return Result(r1)
+}
+
+// fnGetAutoBoostState calls cuptiGetAutoBoostState.
+func fnGetAutoBoostState(a0 driver.Context, a1 *ActivityAutoBoostState) Result {
+	r1, _ := ffiCall2(symGetAutoBoostState, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
@@ -790,9 +850,21 @@ func fngetCallbackState(a0 *uint32, a1 Subscriber, a2 CallbackDomain, a3 uint32)
 	return Result(r1)
 }
 
+// fnGetContextId calls cuptiGetContextId.
+func fnGetContextId(a0 driver.Context, a1 *uint32) Result {
+	r1, _ := ffiCall2(symGetContextId, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
 // fnGetCubinCrc calls cuptiGetCubinCrc.
 func fnGetCubinCrc(a0 *GetCubinCrcParams) Result {
 	r1, _ := ffiCall1(symGetCubinCrc, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnGetDeviceId calls cuptiGetDeviceId.
+func fnGetDeviceId(a0 driver.Context, a1 *uint32) Result {
+	r1, _ := ffiCall2(symGetDeviceId, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
@@ -844,6 +916,18 @@ func fnGetSassToSourceCorrelation(a0 *GetSassToSourceCorrelationParams) Result {
 	return Result(r1)
 }
 
+// fnGetStreamId calls cuptiGetStreamId.
+func fnGetStreamId(a0 driver.Context, a1 driver.Stream, a2 *uint32) Result {
+	r1, _ := ffiCall3(symGetStreamId, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnGetStreamIdEx calls cuptiGetStreamIdEx.
+func fnGetStreamIdEx(a0 driver.Context, a1 driver.Stream, a2 uint8, a3 *uint32) Result {
+	r1, _ := ffiCallWidths4(symGetStreamIdEx, 0, 0x10, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
 // fnGetThreadIdType calls cuptiGetThreadIdType.
 func fnGetThreadIdType(a0 *ActivityThreadIdType) Result {
 	r1, _ := ffiCall1(symGetThreadIdType, 0, uintptr(unsafe.Pointer(a0)))
@@ -865,6 +949,12 @@ func fnIsTracingSessionRunning(a0 *uint8) Result {
 // fnKernelReplaySubscribeUpdate calls cuptiKernelReplaySubscribeUpdate.
 func fnKernelReplaySubscribeUpdate(a0 uintptr, a1 uintptr) Result {
 	r1, _ := ffiCall2(symKernelReplaySubscribeUpdate, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnMetricCreateEventGroupSets calls cuptiMetricCreateEventGroupSets.
+func fnMetricCreateEventGroupSets(a0 driver.Context, a1 uint, a2 *uint32, a3 **EventGroupSets) Result {
+	r1, _ := ffiCall4(symMetricCreateEventGroupSets, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
@@ -901,6 +991,12 @@ func fnMetricGetNumEvents(a0 uint32, a1 *uint32) Result {
 // fnMetricGetNumProperties calls cuptiMetricGetNumProperties.
 func fnMetricGetNumProperties(a0 uint32, a1 *uint32) Result {
 	r1, _ := ffiCallWidths2(symMetricGetNumProperties, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnMetricGetRequiredEventGroupSets calls cuptiMetricGetRequiredEventGroupSets.
+func fnMetricGetRequiredEventGroupSets(a0 driver.Context, a1 uint32, a2 **EventGroupSets) Result {
+	r1, _ := ffiCallWidths3(symMetricGetRequiredEventGroupSets, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -1375,6 +1471,12 @@ func fnSassMetricsSetConfig(a0 *SassMetricsSetConfigParams) Result {
 // fnSassMetricsUnsetConfig calls cuptiSassMetricsUnsetConfig.
 func fnSassMetricsUnsetConfig(a0 *SassMetricsUnsetConfigParams) Result {
 	r1, _ := ffiCall1(symSassMetricsUnsetConfig, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnSetEventCollectionMode calls cuptiSetEventCollectionMode.
+func fnSetEventCollectionMode(a0 driver.Context, a1 EventCollectionMode) Result {
+	r1, _ := ffiCallWidths2(symSetEventCollectionMode, 0, 0xc, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
@@ -2021,13 +2123,16 @@ func ActivityGetNumDroppedRecords(context driver.Context, streamId uint32) (uint
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnActivityGetNumDroppedRecords(context, streamId, &out), "cuptiActivityGetNumDroppedRecords"); err != nil {
+	out := slotActivityGetNumDroppedRecords.get()
+	defer slotActivityGetNumDroppedRecords.put(out)
+	if err := toError(fnActivityGetNumDroppedRecords(context, streamId, out), "cuptiActivityGetNumDroppedRecords"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotActivityGetNumDroppedRecords outSlot[uint]
 
 // ActivityGetStructSize gets the size of the activity struct for a given CUPTI version.
 //
@@ -2898,13 +3003,16 @@ func eventGroupCreate(context driver.Context, flags uint32) (EventGroup, error) 
 		var zero EventGroup
 		return zero, err
 	}
-	var out EventGroup
-	if err := toError(fneventGroupCreate(context, &out, flags), "cuptiEventGroupCreate"); err != nil {
+	out := slotEventGroupCreate.get()
+	defer slotEventGroupCreate.put(out)
+	if err := toError(fneventGroupCreate(context, out, flags), "cuptiEventGroupCreate"); err != nil {
 		var zero EventGroup
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotEventGroupCreate outSlot[EventGroup]
 
 // eventGroupDestroy destroys an event group.
 //
@@ -3315,12 +3423,15 @@ func EventGroupSetsCreate(context driver.Context, eventIdArraySizeBytes uint, ev
 	if err := checkLibSym("cuptiEventGroupSetsCreate"); err != nil {
 		return *new(*EventGroupSets), err
 	}
-	var out0 *EventGroupSets
-	if err := toError(fnEventGroupSetsCreate(context, eventIdArraySizeBytes, eventIdArray, &out0), "cuptiEventGroupSetsCreate"); err != nil {
+	outs := slotEventGroupSetsCreate.get()
+	defer slotEventGroupSetsCreate.put(outs)
+	if err := toError(fnEventGroupSetsCreate(context, eventIdArraySizeBytes, eventIdArray, &outs.out0), "cuptiEventGroupSetsCreate"); err != nil {
 		return *new(*EventGroupSets), err
 	}
-	return out0, nil
+	return outs.out0, nil
 }
+
+var slotEventGroupSetsCreate outSlot[struct{ out0 *EventGroupSets }]
 
 // EventGroupSetsDestroy destroys a event group sets object.
 //
@@ -3455,13 +3566,16 @@ func GetContextId(context driver.Context) (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fnGetContextId(context, &out), "cuptiGetContextId"); err != nil {
+	out := slotGetContextId.get()
+	defer slotGetContextId.put(out)
+	if err := toError(fnGetContextId(context, out), "cuptiGetContextId"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetContextId outSlot[uint32]
 
 // GetCubinCrc gets the CRC of cubin.
 //
@@ -3502,13 +3616,16 @@ func GetDeviceId(context driver.Context) (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fnGetDeviceId(context, &out), "cuptiGetDeviceId"); err != nil {
+	out := slotGetDeviceId.get()
+	defer slotGetDeviceId.put(out)
+	if err := toError(fnGetDeviceId(context, out), "cuptiGetDeviceId"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetDeviceId outSlot[uint32]
 
 // getEnabledCallbacks gets the enabled callbacks for a subscriber.
 //
@@ -3735,13 +3852,16 @@ func GetStreamId(context driver.Context, stream driver.Stream) (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fnGetStreamId(context, stream, &out), "cuptiGetStreamId"); err != nil {
+	out := slotGetStreamId.get()
+	defer slotGetStreamId.put(out)
+	if err := toError(fnGetStreamId(context, stream, out), "cuptiGetStreamId"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetStreamId outSlot[uint32]
 
 // GetStreamIdEx gets the ID of a stream.
 //
@@ -3765,13 +3885,16 @@ func GetStreamIdEx(context driver.Context, stream driver.Stream, perThreadStream
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fnGetStreamIdEx(context, stream, perThreadStream, &out), "cuptiGetStreamIdEx"); err != nil {
+	out := slotGetStreamIdEx.get()
+	defer slotGetStreamIdEx.put(out)
+	if err := toError(fnGetStreamIdEx(context, stream, perThreadStream, out), "cuptiGetStreamIdEx"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetStreamIdEx outSlot[uint32]
 
 // GetThreadIdType gets the thread-id type.
 //
@@ -3919,12 +4042,15 @@ func MetricCreateEventGroupSets(context driver.Context, metricIdArraySizeBytes u
 	if err := checkLibSym("cuptiMetricCreateEventGroupSets"); err != nil {
 		return *new(*EventGroupSets), err
 	}
-	var out0 *EventGroupSets
-	if err := toError(fnMetricCreateEventGroupSets(context, metricIdArraySizeBytes, metricIdArray, &out0), "cuptiMetricCreateEventGroupSets"); err != nil {
+	outs := slotMetricCreateEventGroupSets.get()
+	defer slotMetricCreateEventGroupSets.put(outs)
+	if err := toError(fnMetricCreateEventGroupSets(context, metricIdArraySizeBytes, metricIdArray, &outs.out0), "cuptiMetricCreateEventGroupSets"); err != nil {
 		return *new(*EventGroupSets), err
 	}
-	return out0, nil
+	return outs.out0, nil
 }
+
+var slotMetricCreateEventGroupSets outSlot[struct{ out0 *EventGroupSets }]
 
 // MetricEnumEvents gets the events required to calculating a metric.
 //
@@ -4132,12 +4258,15 @@ func MetricGetRequiredEventGroupSets(context driver.Context, metric uint32) (eve
 	if err := checkLibSym("cuptiMetricGetRequiredEventGroupSets"); err != nil {
 		return *new(*EventGroupSets), err
 	}
-	var out0 *EventGroupSets
-	if err := toError(fnMetricGetRequiredEventGroupSets(context, metric, &out0), "cuptiMetricGetRequiredEventGroupSets"); err != nil {
+	outs := slotMetricGetRequiredEventGroupSets.get()
+	defer slotMetricGetRequiredEventGroupSets.put(outs)
+	if err := toError(fnMetricGetRequiredEventGroupSets(context, metric, &outs.out0), "cuptiMetricGetRequiredEventGroupSets"); err != nil {
 		return *new(*EventGroupSets), err
 	}
-	return out0, nil
+	return outs.out0, nil
 }
+
+var slotMetricGetRequiredEventGroupSets outSlot[struct{ out0 *EventGroupSets }]
 
 // MetricGetValue calculates the value for a metric.
 //

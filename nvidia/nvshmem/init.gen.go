@@ -442,43 +442,43 @@ func registerFuncs() {
 	symTeamSplitStrided = registerSym("nvshmem_team_split_strided")
 	symTeamSync = registerSym("nvshmem_team_sync")
 	symTeamTranslatePE = registerSym("nvshmem_team_translate_pe")
-	register(&fnAllToAllMemOnStream, "nvshmemx_alltoallmem_on_stream")
-	register(&fnBarrierAllOnStream, "nvshmemx_barrier_all_on_stream")
-	register(&fnBarrierOnStream, "nvshmemx_barrier_on_stream")
-	register(&fnBroadcastMemOnStream, "nvshmemx_broadcastmem_on_stream")
+	symAllToAllMemOnStream = registerSym("nvshmemx_alltoallmem_on_stream")
+	symBarrierAllOnStream = registerSym("nvshmemx_barrier_all_on_stream")
+	symBarrierOnStream = registerSym("nvshmemx_barrier_on_stream")
+	symBroadcastMemOnStream = registerSym("nvshmemx_broadcastmem_on_stream")
 	symBufferRegister = registerSym("nvshmemx_buffer_register")
 	symBufferRegisterSymmetric = registerSym("nvshmemx_buffer_register_symmetric")
 	symBufferRegisterSymmetricAt = registerSym("nvshmemx_buffer_register_symmetric_at_preferred_address")
 	symBufferUnregister = registerSym("nvshmemx_buffer_unregister")
 	symBufferUnregisterAll = registerSym("nvshmemx_buffer_unregister_all")
 	symBufferUnregisterSymmetric = registerSym("nvshmemx_buffer_unregister_symmetric")
-	register(&fnCULibraryFinalize, "nvshmemx_culibrary_finalize")
-	register(&fnCULibraryInit, "nvshmemx_culibrary_init")
-	register(&fnCUModuleFinalize, "nvshmemx_cumodule_finalize")
-	register(&fnCUModuleInit, "nvshmemx_cumodule_init")
-	register(&fnFCollectMemOnStream, "nvshmemx_fcollectmem_on_stream")
+	symCULibraryFinalize = registerSym("nvshmemx_culibrary_finalize")
+	symCULibraryInit = registerSym("nvshmemx_culibrary_init")
+	symCUModuleFinalize = registerSym("nvshmemx_cumodule_finalize")
+	symCUModuleInit = registerSym("nvshmemx_cumodule_init")
+	symFCollectMemOnStream = registerSym("nvshmemx_fcollectmem_on_stream")
 	symFlush = registerSym("nvshmemx_flush")
-	register(&fnFlushOnStream, "nvshmemx_flush_on_stream")
+	symFlushOnStream = registerSym("nvshmemx_flush_on_stream")
 	symGetUniqueID = registerSym("nvshmemx_get_uniqueid")
-	register(&fnGetMemNBIOnStream, "nvshmemx_getmem_nbi_on_stream")
-	register(&fnGetMemOnStream, "nvshmemx_getmem_on_stream")
+	symGetMemNBIOnStream = registerSym("nvshmemx_getmem_nbi_on_stream")
+	symGetMemOnStream = registerSym("nvshmemx_getmem_on_stream")
 	symHostlibFinalize = registerSym("nvshmemx_hostlib_finalize")
 	symHostlibInitAttr = registerSym("nvshmemx_hostlib_init_attr")
 	symQueryInitStatus = registerSym("nvshmemx_init_status")
 	symMulticastPtr = registerSym("nvshmemx_mc_ptr")
-	register(&fnPutMemNBIOnStream, "nvshmemx_putmem_nbi_on_stream")
-	register(&fnPutMemOnStream, "nvshmemx_putmem_on_stream")
-	register(&fnPutMemSignalNBIOnStream, "nvshmemx_putmem_signal_nbi_on_stream")
-	register(&fnPutMemSignalOnStream, "nvshmemx_putmem_signal_on_stream")
-	register(&fnQuietOnStream, "nvshmemx_quiet_on_stream")
+	symPutMemNBIOnStream = registerSym("nvshmemx_putmem_nbi_on_stream")
+	symPutMemOnStream = registerSym("nvshmemx_putmem_on_stream")
+	symPutMemSignalNBIOnStream = registerSym("nvshmemx_putmem_signal_nbi_on_stream")
+	symPutMemSignalOnStream = registerSym("nvshmemx_putmem_signal_on_stream")
+	symQuietOnStream = registerSym("nvshmemx_quiet_on_stream")
 	symSetAttrMPICommArgs = registerSym("nvshmemx_set_attr_mpi_comm_args")
 	symSetAttrUniqueIDArgs = registerSym("nvshmemx_set_attr_uniqueid_args")
-	register(&fnSignalOpOnStream, "nvshmemx_signal_op_on_stream")
-	register(&fnSignalWaitUntilOnStream, "nvshmemx_signal_wait_until_on_stream")
-	register(&fnSyncAllOnStream, "nvshmemx_sync_all_on_stream")
+	symSignalOpOnStream = registerSym("nvshmemx_signal_op_on_stream")
+	symSignalWaitUntilOnStream = registerSym("nvshmemx_signal_wait_until_on_stream")
+	symSyncAllOnStream = registerSym("nvshmemx_sync_all_on_stream")
 	symTeamGetUniqueID = registerSym("nvshmemx_team_get_uniqueid")
 	symTeamInit = registerSym("nvshmemx_team_init")
-	register(&fnTeamSyncOnStream, "nvshmemx_team_sync_on_stream")
+	symTeamSyncOnStream = registerSym("nvshmemx_team_sync_on_stream")
 	symVendorGetVersionInfoRaw = registerSym("nvshmemx_vendor_get_version_info")
 }
 
@@ -516,43 +516,43 @@ func clearFuncs() {
 	symTeamSplitStrided = 0
 	symTeamSync = 0
 	symTeamTranslatePE = 0
-	fnAllToAllMemOnStream = nil
-	fnBarrierAllOnStream = nil
-	fnBarrierOnStream = nil
-	fnBroadcastMemOnStream = nil
+	symAllToAllMemOnStream = 0
+	symBarrierAllOnStream = 0
+	symBarrierOnStream = 0
+	symBroadcastMemOnStream = 0
 	symBufferRegister = 0
 	symBufferRegisterSymmetric = 0
 	symBufferRegisterSymmetricAt = 0
 	symBufferUnregister = 0
 	symBufferUnregisterAll = 0
 	symBufferUnregisterSymmetric = 0
-	fnCULibraryFinalize = nil
-	fnCULibraryInit = nil
-	fnCUModuleFinalize = nil
-	fnCUModuleInit = nil
-	fnFCollectMemOnStream = nil
+	symCULibraryFinalize = 0
+	symCULibraryInit = 0
+	symCUModuleFinalize = 0
+	symCUModuleInit = 0
+	symFCollectMemOnStream = 0
 	symFlush = 0
-	fnFlushOnStream = nil
+	symFlushOnStream = 0
 	symGetUniqueID = 0
-	fnGetMemNBIOnStream = nil
-	fnGetMemOnStream = nil
+	symGetMemNBIOnStream = 0
+	symGetMemOnStream = 0
 	symHostlibFinalize = 0
 	symHostlibInitAttr = 0
 	symQueryInitStatus = 0
 	symMulticastPtr = 0
-	fnPutMemNBIOnStream = nil
-	fnPutMemOnStream = nil
-	fnPutMemSignalNBIOnStream = nil
-	fnPutMemSignalOnStream = nil
-	fnQuietOnStream = nil
+	symPutMemNBIOnStream = 0
+	symPutMemOnStream = 0
+	symPutMemSignalNBIOnStream = 0
+	symPutMemSignalOnStream = 0
+	symQuietOnStream = 0
 	symSetAttrMPICommArgs = 0
 	symSetAttrUniqueIDArgs = 0
-	fnSignalOpOnStream = nil
-	fnSignalWaitUntilOnStream = nil
-	fnSyncAllOnStream = nil
+	symSignalOpOnStream = 0
+	symSignalWaitUntilOnStream = 0
+	symSyncAllOnStream = 0
 	symTeamGetUniqueID = 0
 	symTeamInit = 0
-	fnTeamSyncOnStream = nil
+	symTeamSyncOnStream = 0
 	symVendorGetVersionInfoRaw = 0
 }
 
