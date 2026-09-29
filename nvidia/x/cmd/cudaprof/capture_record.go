@@ -1035,6 +1035,9 @@ Options:
                                 lever that cuts journal volume by an order of magnitude. It
                                 changes what is collected, not what is reported: sets
                                 CUDAPROF_API_ACTIVITY in the target
+  --host-sample-hz <n>          sample native host thread states and CPU ticks at n Hz (1-1000);
+                                0 disables inherited host sampling. This records no stacks;
+                                correlate host stacks separately with perf
   --memsets                     collect memset activity. Off by default: with it on,
                                 cuGraphLaunch has faulted inside libcuda for a CUDA-graph
                                 MLX workload on GB10. Without it a target's memsets are

@@ -114,6 +114,9 @@ const admitWaitNanos = 100 * 1000 * 1000
 // the agent keeps for a crash trace.
 const maxCrashTrace = 4096
 
+// maxHostSampleHz mirrors HOST_SAMPLE_MAX_HZ in cupti_agent.c.
+const maxHostSampleHz = 1000
+
 // writeLatencyNote reports whether the producer's own timings say the loss was
 // journal write latency, which is the question a capacity drop count raises and
 // cannot answer.
@@ -236,6 +239,11 @@ type captureOptions struct {
 	// target's own environment alone, as the collection policy below does.
 	APIActivity    bool
 	apiActivitySet bool
+	// HostSampleHz samples thread run states and CPU tick counters from the
+	// native agent. It does not collect host stack traces. hostSampleSet lets
+	// zero explicitly disable sampling inherited from the caller's environment.
+	HostSampleHz  int
+	hostSampleSet bool
 	// Memsets collects memset activity. It is off by default: with the kind
 	// enabled, cuGraphLaunch has faulted inside libcuda for a CUDA-graph MLX
 	// workload on GB10. The launcher always exports CUDAPROF_MEMSETS, so a
@@ -545,6 +553,17 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 				return o, err
 			}
 			o.PCSampling = v
+		case "--host-sample-hz", "-host-sample-hz":
+			v, next, err := captureValue(args, i, value, hasValue)
+			if err != nil {
+				return o, err
+			}
+			i = next
+			n, err := strconv.Atoi(v)
+			if err != nil || n < 0 || n > maxHostSampleHz {
+				return o, fmt.Errorf("invalid %s %q (0 to %d)", name, v, maxHostSampleHz)
+			}
+			o.HostSampleHz, o.hostSampleSet = n, true
 		case "--gemms", "-gemms":
 			v, err := captureBool(name, value, hasValue)
 			if err != nil {
@@ -1000,6 +1019,9 @@ func captureEnvironment(o captureOptions, session, dir string) []string {
 		if o.PCSamplingPeriod > 0 {
 			env = setCaptureEnv(env, "CUDAPROF_PCSAMPLING_PERIOD", strconv.Itoa(o.PCSamplingPeriod))
 		}
+	}
+	if o.hostSampleSet {
+		env = setCaptureEnv(env, "CUDAPROF_HOST_SAMPLE", strconv.Itoa(o.HostSampleHz))
 	}
 	if o.CrashTrace > 0 {
 		env = setCaptureEnv(env, "CUDAPROF_CRASH_TRACE", strconv.Itoa(o.CrashTrace))
