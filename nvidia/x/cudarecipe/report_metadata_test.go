@@ -19,6 +19,7 @@ func metadataELF(shared bool, size uint64, machine elf.Machine) []byte {
 	b := make([]byte, 64+count*64+len(names))
 	copy(b, "\x7fELF")
 	b[4], b[5], b[6] = 2, 1, 1
+	b[elf.EI_OSABI], b[elf.EI_ABIVERSION] = 0x33, 7 // CUDA ABI 7: SM in flag bits 0..7
 	order := binary.LittleEndian
 	order.PutUint16(b[16:], uint16(elf.ET_EXEC))
 	order.PutUint16(b[18:], uint16(machine))
