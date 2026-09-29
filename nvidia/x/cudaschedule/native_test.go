@@ -156,16 +156,18 @@ func TestCampaign_FindingReproducesFromSeed(t *testing.T) {
 	if !found {
 		t.Fatalf("sweep found no shared-memory race mismatch: %+v", first.Seeds)
 	}
-	var maxInjected uint64
-	for _, result := range first.Seeds {
-		if result.Report.InjectedNsPerVisit > maxInjected {
-			maxInjected = result.Report.InjectedNsPerVisit
-		}
+	sites, err := cudaschedule.Analyze(readPTX("schedule_race.ptx"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	if maxInjected >= uint64((3 * time.Second).Nanoseconds()) {
-		t.Fatalf("injected sleep %d ns reaches the 3 s run timeout", maxInjected)
+	// The fixture has one 64-thread block and no loop. Even if every thread
+	// sleeps at the maximum once at every site, the total is below 3 seconds.
+	const threadsPerBlock = 64
+	worstInjected := uint64(threadsPerBlock) * uint64(len(sites)) * uint64(cudaschedule.DefaultMaxSleepNs)
+	if worstInjected >= uint64((3 * time.Second).Nanoseconds()) {
+		t.Fatalf("worst-case injected sleep %d ns reaches the 3 s run timeout", worstInjected)
 	}
-	t.Logf("race fixture injected sleep ceiling=%d ns, below 3 s run timeout", maxInjected)
+	t.Logf("race fixture worst-case injected sleep=%d ns (%d threads x %d sites x %d ns), below 3 s run timeout", worstInjected, threadsPerBlock, len(sites), cudaschedule.DefaultMaxSleepNs)
 	firstPTX := append([]byte(nil), firstImages[strconv.FormatUint(seed, 10)+"/false"]...)
 	secondImages := make(map[string][]byte)
 	second, err := cudaschedule.RunCampaign(context.Background(), options(readPTX("schedule_race.ptx"), seed, seed+1, secondImages))

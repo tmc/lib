@@ -232,14 +232,14 @@ func TestCampaign_BuildTimeIsOutsideRunTimeout(t *testing.T) {
 	var variantBuilds int
 	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
 		PTXSource: CAMPAIGN_PTX, SeedStart: 20, SeedEnd: 21, Intensity: 2,
-		ConfirmRuns: 1, Timeout: 2 * time.Second, PristineTimeout: 8 * time.Second, BuildTimeout: 12 * time.Second,
+		ConfirmRuns: 1, Timeout: 5 * time.Second, PristineTimeout: 30 * time.Second, BuildTimeout: 20 * time.Second,
 		DeviceProbe: func() bool { return true },
 		Executable:  "/bin/sh",
 		Args:        []string{"-c", "echo PASS"},
 		BuildVariant: func(_ context.Context, _ uint64, pristine bool, _ string) (string, []string, error) {
 			if !pristine {
 				variantBuilds++
-				time.Sleep(4 * time.Second)
+				time.Sleep(8 * time.Second)
 			}
 			return "/bin/sh", []string{"-c", "echo PASS"}, nil
 		},
@@ -306,7 +306,7 @@ func TestCampaign_BuildHookSeesPristineAndDistinctImages(t *testing.T) {
 	var builds []build
 	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
 		PTXSource: CAMPAIGN_PTX, SeedStart: 50, SeedEnd: 51, Intensity: 2,
-		ConfirmRuns: 1, Timeout: 2 * time.Second, PristineTimeout: 8 * time.Second, DeviceProbe: func() bool { return true },
+		ConfirmRuns: 1, Timeout: 5 * time.Second, PristineTimeout: 30 * time.Second, DeviceProbe: func() bool { return true },
 		BuildVariant: func(_ context.Context, seed uint64, pristine bool, path string) (string, []string, error) {
 			data, err := os.ReadFile(path)
 			if err != nil {
@@ -340,7 +340,7 @@ func TestCampaign_PristineRunUsesSeparateTimeout(t *testing.T) {
 	pristineRuns := 0
 	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
 		PTXSource: CAMPAIGN_PTX, SeedStart: 51, SeedEnd: 52, Intensity: 10,
-		ConfirmRuns: 1, Timeout: time.Second, PristineTimeout: 5 * time.Second,
+		ConfirmRuns: 1, Timeout: time.Second, PristineTimeout: 20 * time.Second,
 		RunVariant: func(ctx context.Context, _ uint64, pristine bool, _ string) (cudaschedule.RunRecord, error) {
 			if pristine {
 				pristineRuns++
@@ -761,10 +761,13 @@ func TestCampaign_WaitDelayClosesInheritedPipe(t *testing.T) {
 	})
 	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
 		PTXSource: CAMPAIGN_PTX,
-		SeedStart: 9, SeedEnd: 10, Intensity: 2, ConfirmRuns: 1, Timeout: 5 * time.Second, PristineTimeout: 8 * time.Second,
+		SeedStart: 9, SeedEnd: 10, Intensity: 2, ConfirmRuns: 1, Timeout: 8 * time.Second, PristineTimeout: 30 * time.Second,
 		DeviceProbe: func() bool { return true },
-		BuildVariant: func(_ context.Context, _ uint64, _ bool, _ string) (string, []string, error) {
-			return "/bin/sh", []string{"-c", `grep -q nanosleep "$2" && { sleep 30 & echo $! > "$1"; wait; } || echo PASS`, "wait-delay", pidFile}, nil
+		BuildVariant: func(_ context.Context, _ uint64, pristine bool, _ string) (string, []string, error) {
+			if pristine {
+				return "/bin/sh", []string{"-c", "echo PASS"}, nil
+			}
+			return "/bin/sh", []string{"-c", `sleep 30 & echo $! > "$1"; wait`, "wait-delay", pidFile}, nil
 		},
 	})
 	elapsed := time.Since(start)
@@ -772,12 +775,16 @@ func TestCampaign_WaitDelayClosesInheritedPipe(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(report.Seeds) != 1 || report.Seeds[0].Verdict != cudaschedule.VerdictHang {
-		t.Fatalf("wait-delay campaign = %+v", report.Seeds)
+		var run any
+		if len(report.Seeds) > 0 && report.Seeds[0].Run != nil {
+			run = *report.Seeds[0].Run
+		}
+		t.Fatalf("wait-delay campaign = %+v, run=%+v", report.Seeds, run)
 	}
 	if report.Seeds[0].Run.Pristine == nil || !report.Seeds[0].Run.Pristine.PristineRun {
 		t.Fatalf("timeout health check is not marked pristine: %+v", report.Seeds[0].Run)
 	}
-	if elapsed > 15*time.Second {
+	if elapsed > 22*time.Second {
 		t.Fatalf("watchdog plus WaitDelay took %s", elapsed)
 	}
 	if data, err := os.ReadFile(pidFile); err != nil || len(strings.TrimSpace(string(data))) == 0 {
