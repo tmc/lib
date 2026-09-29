@@ -34,7 +34,8 @@
 // another proven-shared slot; dependent slots narrow or remain generic together.
 // Typed-pointer slots are limited to simple scalar pointer types. Volatile,
 // atomic, metadata-bearing, indirect, malformed, or otherwise unlisted uses
-// keep the slot generic. The parser checks complete LLVM identifiers and all
+// keep the slot generic. Memory instructions accept no metadata after align N.
+// The parser checks complete LLVM identifiers and all
 // uses in a function before rewriting; unknown instruction forms fail closed.
 // After rewriting, the function is parsed again and each narrowed slot access
 // and loaded-value use is checked for the required address-space type. If any
@@ -42,6 +43,8 @@
 // unchanged and all inferred slots in it remain generic. This fallback also
 // declines spellings that the rewriter does not yet normalize, such as explicit
 // addrspace(0) pointer operands or extra whitespace in a load or store.
+// Function definitions must end with a bare closing brace; trailing comments
+// on the closing-brace line are refused as unterminated input.
 //
 // Inference uses a 3-element lattice over slots:
 //

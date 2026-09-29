@@ -53,6 +53,27 @@ Function : unrelated
 	}
 }
 
+func TestVerifyNoSharedConversions_RequiresSlotWithValidPair(t *testing.T) {
+	ptx, err := cudaptx.Parse(strings.NewReader(`.version 8.0
+.target sm_90
+.address_size 64
+.entry matched() { ret; }
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sass, err := cudasass.Parse(strings.NewReader(`code for sm_90
+Function : matched
+/*0000*/ RET ;
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := VerifyNoSharedConversions(ptx, sass); err == nil || !strings.Contains(err.Error(), "no inferred shared slots") {
+		t.Fatalf("valid pair with no slots error = %v", err)
+	}
+}
+
 func TestVerifyNoSharedConversions_GlobalTrafficIsNotConversion(t *testing.T) {
 	ptx, err := cudaptx.Parse(strings.NewReader(`.version 8.0
 .target sm_90

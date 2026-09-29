@@ -305,14 +305,6 @@ func inferredPointerType(allocType string) (old, new string) {
 	return allocType, allocType
 }
 
-func rewriteSlotStore(line string, decl *slotDecl) string {
-	oldType, newType := inferredPointerType(decl.allocType)
-	if strings.HasPrefix(strings.TrimSpace(line), "store "+newType+" ") {
-		return line
-	}
-	return strings.Replace(line, "store "+oldType+" ", "store "+newType+" ", 1)
-}
-
 func rewriteSlotPointerOperand(line string, decl *slotDecl) string {
 	if decl.allocType == "ptr" {
 		return line

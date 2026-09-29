@@ -202,6 +202,53 @@ entry:
 			if report.Slots["@kernel/%slot"].Effective != AddrSpaceGeneric {
 				t.Fatalf("nested attribute type narrowed generic parameter: %+v", report.Slots["@kernel/%slot"])
 			}
+			if !bytes.Equal(got, ir) {
+				t.Fatalf("generic slot use was rewritten:\n got:\n%s\nwant unchanged:\n%s", got, ir)
+			}
+			verifyIRWithClang(t, got)
+		})
+	}
+}
+
+func TestParameterPointerAddressSpaceUsesLeadingType(t *testing.T) {
+	for _, tt := range []struct {
+		arg  string
+		want AddrSpace
+	}{
+		{`ptr byval({ ptr addrspace(3) })`, AddrSpaceGeneric},
+		{`ptr sret(ptr addrspace(3))`, AddrSpaceGeneric},
+		{`ptr addrspace(3) noalias`, AddrSpaceShared},
+		{`i8 addrspace(3)*`, AddrSpaceShared},
+	} {
+		if got := parameterPointerAddressSpace(tt.arg); got != tt.want {
+			t.Errorf("parameterPointerAddressSpace(%q) = %v, want %v", tt.arg, got, tt.want)
+		}
+	}
+}
+
+func TestAddrSpace_SharedParameterCanNarrowSlot(t *testing.T) {
+	for _, parameter := range []string{"ptr addrspace(3) %s", "ptr addrspace(3) noalias %s"} {
+		t.Run(parameter, func(t *testing.T) {
+			ir := []byte(`define void @kernel(` + parameter + `) {
+entry:
+  %slot = alloca ptr, align 8
+  store ptr addrspace(3) %s, ptr %slot, align 8
+  %p = load ptr, ptr %slot, align 8
+  %v = load i8, ptr %p, align 1
+  ret void
+}
+`)
+			verifyIRWithClang(t, ir)
+			got, report, err := InferAddressSpaces(ir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if report.Slots["@kernel/%slot"].Effective != AddrSpaceShared {
+				t.Fatalf("shared parameter did not narrow slot: %+v", report.Slots["@kernel/%slot"])
+			}
+			if !bytes.Contains(got, []byte("store ptr addrspace(3) %s, ptr %slot")) {
+				t.Fatalf("shared parameter store was not retyped:\n%s", got)
+			}
 			verifyIRWithClang(t, got)
 		})
 	}
@@ -271,6 +318,98 @@ entry:
 	}
 	verifyIRWithClang(t, got)
 	assertIndependentSlotTypes(t, got, report)
+}
+
+func TestAddrSpace_GenericLoadedPointerStoreStaysUnchanged(t *testing.T) {
+	ir := []byte(`@global = internal addrspace(1) global i8 0
+define void @kernel() {
+entry:
+  %slot = alloca ptr, align 8
+  store ptr addrspace(1) @global, ptr %slot, align 8
+  %p = load ptr, ptr %slot, align 8
+  store i8 0, ptr %p, align 1
+  ret void
+}
+`)
+	verifyIRWithClang(t, ir)
+	got, report, err := InferAddressSpaces(ir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Slots["@kernel/%slot"].Effective != AddrSpaceGeneric || !bytes.Equal(got, ir) {
+		t.Fatalf("generic slot or loaded-pointer store changed: report=%+v\n%s", report.Slots["@kernel/%slot"], got)
+	}
+	verifyIRWithClang(t, got)
+}
+
+func TestParseMemoryRejectsMetadataAfterAlignment(t *testing.T) {
+	for _, line := range []string{
+		"store i8 1, ptr %p, align 1, !tbaa !0",
+		"%v = load i8, ptr %p, align 1, !nontemporal !0",
+	} {
+		if _, ok := parseMemory(line); ok {
+			t.Errorf("parseMemory accepted unsupported trailing metadata: %s", line)
+		}
+	}
+}
+
+func TestAddrSpace_GEPEffectiveSpaceComesFromBase(t *testing.T) {
+	ir := []byte(`define void @kernel(ptr %base) {
+entry:
+  %slot = alloca ptr, align 8
+  %field = getelementptr { ptr addrspace(3) }, ptr %base, i64 0, i32 0
+  store ptr %field, ptr %slot, align 8
+  ret void
+}
+`)
+	verifyIRWithClang(t, ir)
+	got, report, err := InferAddressSpaces(ir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Slots["@kernel/%slot"].Effective != AddrSpaceGeneric || !bytes.Equal(got, ir) {
+		t.Fatalf("addrspace(3) in GEP element type affected generic base: %+v\n%s", report.Slots["@kernel/%slot"], got)
+	}
+}
+
+func TestAddrSpace_DuplicateLocalDefinitionStaysGeneric(t *testing.T) {
+	ir := []byte(`@smem = internal addrspace(3) global i8 0
+define void @kernel() {
+entry:
+  %slot = alloca ptr, align 8
+  store ptr addrspace(3) @smem, ptr %slot, align 8
+  %p = load ptr, ptr %slot, align 8
+  %p = load ptr, ptr %slot, align 8
+  %v = load i8, ptr %p, align 1
+  ret void
+}
+`)
+	got, report, err := InferAddressSpaces(ir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Slots["@kernel/%slot"].Effective != AddrSpaceGeneric || !bytes.Equal(got, ir) {
+		t.Fatalf("duplicate local definition did not fail closed: %+v\n%s", report.Slots["@kernel/%slot"], got)
+	}
+}
+
+func TestAddrSpace_SharedCastToNonGenericSpaceStaysGeneric(t *testing.T) {
+	ir := []byte(`@smem = internal addrspace(3) global i8 0
+define void @kernel() {
+entry:
+  %slot = alloca ptr, align 8
+  store ptr addrspace(1) addrspacecast (ptr addrspace(3) @smem to ptr addrspace(1)), ptr %slot, align 8
+  ret void
+}
+`)
+	verifyIRWithClang(t, ir)
+	got, report, err := InferAddressSpaces(ir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Slots["@kernel/%slot"].Effective != AddrSpaceGeneric || !bytes.Equal(got, ir) {
+		t.Fatalf("non-generic cast target was treated as shared: %+v\n%s", report.Slots["@kernel/%slot"], got)
+	}
 }
 
 func TestAddrSpace_LoadedUsesAreCollectedAcrossTextOrder(t *testing.T) {

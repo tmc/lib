@@ -1,6 +1,7 @@
 package nvvmx
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 )
@@ -145,4 +146,15 @@ entry:
 		t.Fatal(err)
 	}
 	assertIndependentSlotTypes(t, rewritten, report)
+}
+
+func TestPrepareInputs_SkipsLazyBitcode(t *testing.T) {
+	input := Input{Name: "lazy-libdevice", Lazy: true, Data: []byte{'B', 'C', 0xc0, 0xde}}
+	prepared, err := prepareInputs([]Input{input}, true)
+	if err != nil {
+		t.Fatalf("prepareInputs rejected lazy bitcode: %v", err)
+	}
+	if len(prepared) != 1 || !prepared[0].Lazy || !bytes.Equal(prepared[0].Data, input.Data) {
+		t.Fatalf("lazy input changed: got %+v", prepared)
+	}
 }

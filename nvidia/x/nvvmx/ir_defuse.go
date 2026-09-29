@@ -78,6 +78,8 @@ type parsedMemory struct {
 
 var simpleTypedPointer = regexp.MustCompile(`^(?:i[0-9]+|half|float|double)(?: addrspace\([0-9]+\))?\*+$`)
 var supportedSlotPointer = regexp.MustCompile(`^(?:i[0-9]+|half|float|double)(?: addrspace\([0-9]+\))?\*$`)
+var alignClause = regexp.MustCompile(`^align [0-9]+$`)
+var scalarGEPElementType = regexp.MustCompile(`^(?:i[0-9]+|half|float|double)$`)
 
 func llvmPointerType(s string) bool {
 	s = strings.TrimSpace(s)
@@ -211,7 +213,7 @@ func parseAlloca(line string) (name, allocType string, ok bool) {
 	if len(parts) == 0 || len(parts) > 2 {
 		return "", "", false
 	}
-	if len(parts) == 2 && !regexp.MustCompile(`^align [0-9]+$`).MatchString(parts[1]) {
+	if len(parts) == 2 && !alignClause.MatchString(parts[1]) {
 		return "", "", false
 	}
 	allocType = strings.TrimSpace(parts[0])
@@ -262,7 +264,7 @@ func parseMemory(line string) (parsedMemory, bool) {
 	if len(parts) < 2 || len(parts) > 3 {
 		return parsedMemory{}, false
 	}
-	if len(parts) == 3 && !regexp.MustCompile(`^align [0-9]+$`).MatchString(parts[2]) {
+	if len(parts) == 3 && !alignClause.MatchString(parts[2]) {
 		return parsedMemory{}, false
 	}
 	if kind == "store" && assigned || kind == "load" && !assigned {
@@ -280,13 +282,6 @@ func parseMemory(line string) (parsedMemory, bool) {
 	if !ok {
 		return parsedMemory{}, false
 	}
-	if kind == "load" && !llvmPointerType(valueType) { // scalar loads are supported only as consumers of a loaded pointer.
-		// Keep the load parsed; callers decide whether its pointer operand is a
-		// loaded value or a candidate slot.
-	}
-	if kind == "store" && !llvmPointerType(valueType) { // Such stores cannot establish pointer provenance.
-		// Still return the parsed pointer operand so the slot is rejected.
-	}
 	ids := llvmIDs(value)
 	valueID := ""
 	if len(ids) == 1 {
@@ -299,11 +294,10 @@ func parseTypedValue(s string) (typ, value, castSource string) {
 	s = strings.TrimSpace(s)
 	if castAt := strings.Index(s, " addrspacecast ("); castAt > 0 {
 		outerType := strings.TrimSpace(s[:castAt])
-		castType, castValue, source := parseTypedValue(strings.TrimSpace(s[castAt+1:]))
+		castType, _, source := parseTypedValue(strings.TrimSpace(s[castAt+1:]))
 		if llvmPointerType(outerType) && castType != "" {
 			return outerType, strings.TrimSpace(s[castAt+1:]), source
 		}
-		_ = castValue
 	}
 	if strings.HasPrefix(s, "addrspacecast (") {
 		inner := strings.TrimSuffix(strings.TrimPrefix(s, "addrspacecast ("), ")")
@@ -427,6 +421,8 @@ func parseFunctionLines(lines []string) parsedFunction {
 		if result, _, ok := assignment(code); ok {
 			p.result = result
 			if _, exists := f.defs[result]; exists {
+				// Duplicate local definitions are invalid IR. Keep any slot
+				// depending on this value generic instead of choosing a definition.
 				f.duplicateDef[result] = true
 			}
 			f.defs[result] = i
@@ -809,6 +805,8 @@ func inferFunctionAndRewrite(lines []string, globals map[string]AddrSpace) (stri
 					state[dst] = StateGenericRequired
 					changed = true
 				} else if state[dst] == StateShared && state[src] != StateShared {
+					// An unconstrained source may still become generic. Keep the
+					// destination unconstrained until that dependency is resolved.
 					state[dst] = StateUnconstrained
 					changed = true
 				}
@@ -863,7 +861,6 @@ func inferFunctionAndRewrite(lines []string, globals map[string]AddrSpace) (stri
 		if p.hasMem {
 			if p.mem.kind == "store" && toRewrite[p.mem.ptrID] {
 				line = rewriteStoreLine(line)
-				line = rewriteSlotStore(line, slots[p.mem.ptrID])
 				line = rewriteSlotPointerOperand(line, slots[p.mem.ptrID])
 			}
 			if p.mem.kind == "load" && toRewrite[p.mem.ptrID] {
@@ -991,7 +988,7 @@ func traceAddressSpace(line string, valAS, globals map[string]AddrSpace) (AddrSp
 		rhs = strings.TrimPrefix(rhs, "getelementptr ")
 		rhs = strings.TrimPrefix(rhs, "inbounds ")
 		parts := splitLLVMTopLevel(rhs)
-		if len(parts) >= 3 && regexp.MustCompile(`^(?:i[0-9]+|half|float|double)$`).MatchString(parts[0]) {
+		if len(parts) >= 3 && scalarGEPElementType.MatchString(parts[0]) {
 			typ, value, ok := parseSimplePointerOperand(parts[1])
 			if ok && validGEPIndices(parts[2:]) {
 				return valueASForOperand(typ, value, valAS, globals), true

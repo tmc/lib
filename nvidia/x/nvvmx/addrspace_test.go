@@ -3,6 +3,7 @@ package nvvmx
 import (
 	"bytes"
 	"os/exec"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -322,16 +323,18 @@ entry:
 func TestAddrSpace_ClusterValuesStayGeneric(t *testing.T) {
 	for _, value := range []string{
 		"store ptr addrspace(7) %cluster, ptr %slot, align 8",
-		"store ptr addrspace(3) addrspacecast (ptr addrspace(7) %cluster to ptr addrspace(3)), ptr %slot, align 8",
-		"%cluster = call ptr addrspace(3) @llvm.nvvm.mapa.shared.cluster(ptr addrspace(3) %p, i32 %rank)\n  store ptr addrspace(3) %cluster, ptr %slot, align 8",
+		"%cast = addrspacecast ptr addrspace(7) %cluster to ptr addrspace(3)\n  store ptr addrspace(3) %cast, ptr %slot, align 8",
+		"%cluster.result = call ptr addrspace(3) @mapa_shared_cluster(ptr addrspace(3) %p, i32 %rank)\n  store ptr addrspace(3) %cluster.result, ptr %slot, align 8",
 	} {
-		ir := `define void @kernel(ptr addrspace(7) %cluster, ptr addrspace(3) %p, i32 %rank) {
+		ir := `declare ptr addrspace(3) @mapa_shared_cluster(ptr addrspace(3), i32)
+define void @kernel(ptr addrspace(7) %cluster, ptr addrspace(3) %p, i32 %rank) {
 entry:
   %slot = alloca ptr, align 8
   ` + value + `
   ret void
 }
 `
+		verifyIRWithClang(t, []byte(ir))
 		_, report, err := InferAddressSpaces([]byte(ir))
 		if err != nil {
 			t.Fatal(err)
@@ -404,13 +407,14 @@ func TestInferAddressSpaces_LongLine(t *testing.T) {
 		"define void @kernel() {\r\nentry:\r\n" +
 		"  %slot = alloca ptr, align 8\r\n" +
 		"  store ptr addrspace(3) @smem, ptr %slot, align 8\r\n" +
-		"  %p = load ptr, ptr %slot, align 8\r\n  ret void\r\n}\r\n")
+		"  ret void\r\n}\r\n")
 	got, report, err := InferAddressSpaces(ir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.HasPrefix(got, []byte(comment)) || !bytes.Contains(got, []byte("  %slot = alloca ptr addrspace(3), align 8\r\n")) || !bytes.HasSuffix(got, []byte("}\r\n")) {
-		t.Fatalf("long line or CRLF boundaries were not preserved (got %d bytes, input %d)", len(got), len(ir))
+	want := bytes.Replace(ir, []byte("  %slot = alloca ptr, align 8\r\n"), []byte("  %slot = alloca ptr addrspace(3), align 8\r\n"), 1)
+	if !bytes.Equal(got, want) {
+		t.Fatalf("long-line output differs beyond the inferred alloca:\n got %d bytes\nwant %d bytes", len(got), len(want))
 	}
 	verifyIRWithClang(t, got)
 	assertIndependentSlotTypes(t, got, report)
@@ -443,6 +447,9 @@ entry:
 	}
 	if report.Slots["@first/%slot"].State != StateShared || report.Slots["@second/%slot"].State != StateGenericRequired {
 		t.Fatalf("per-function slot states = %+v", report.Slots)
+	}
+	if !reflect.DeepEqual(report.RewrittenSlots, []string{"@first/%slot"}) {
+		t.Fatalf("rewritten slots = %v, want [@first/%%slot]", report.RewrittenSlots)
 	}
 	verifyIRWithClang(t, rewritten)
 	assertIndependentSlotTypes(t, rewritten, report)
@@ -494,6 +501,7 @@ func TestAddrSpace_GlobalQualifierDoesNotComeFromElementType(t *testing.T) {
 	tests := []struct{ name, global, store string }{
 		{"addrspace one global with shared pointer element", "@gp = internal addrspace(1) global ptr addrspace(3) null, align 8", "store ptr addrspace(1) @gp, ptr %slot, align 8"},
 		{"generic global with shared pointer initializer", "@tbl = internal global ptr addrspace(3) @smem, align 8", "store ptr @tbl, ptr %slot, align 8"},
+		{"generic global with address-space element and section", "@tbl = internal global ptr addrspace(3) @smem, section \"global\"", "store ptr @tbl, ptr %slot, align 8"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -519,6 +527,25 @@ entry:
 	}
 }
 
+func TestAddrSpace_GlobalQualifierUsesFirstGlobalKeyword(t *testing.T) {
+	ir := []byte(`@smem = internal addrspace(3) global i8 0
+@g = internal global ptr addrspace(3) @smem, section "global"
+define void @kernel() {
+entry:
+  %slot = alloca ptr, align 8
+  store ptr @g, ptr %slot, align 8
+  ret void
+}
+`)
+	got, report, err := InferAddressSpaces(ir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Slots["@kernel/%slot"].State != StateGenericRequired || !bytes.Equal(got, ir) {
+		t.Fatalf("generic global with shared pointer element was inferred shared: state=%v\n%s", report.Slots["@kernel/%slot"].State, got)
+	}
+}
+
 func TestAddrSpace_TypedPointerSlotUsesConsistentTypes(t *testing.T) {
 	ir := []byte(`@smem = internal addrspace(3) global i32 0
 define void @kernel() {
@@ -537,8 +564,49 @@ entry:
 	if report.Slots["@kernel/%slot"].State != StateShared {
 		t.Fatalf("typed slot not inferred: %+v", report.Slots["@kernel/%slot"])
 	}
+	if !bytes.Contains(rewritten, []byte("%slot = alloca i32 addrspace(3)*, align 8")) {
+		t.Fatalf("typed-pointer alloca was not rewritten:\n%s", rewritten)
+	}
 	verifyIRWithClang(t, rewritten)
 	assertIndependentSlotTypes(t, rewritten, report)
+}
+
+func TestAddrSpace_OpaqueInlineCastIsRemovedWhenNarrowing(t *testing.T) {
+	ir := []byte(`@smem = internal addrspace(3) global i8 0
+define void @kernel() {
+entry:
+  %slot = alloca ptr, align 8
+  store ptr addrspacecast (ptr addrspace(3) @smem to ptr), ptr %slot, align 8
+  %p = load ptr, ptr %slot, align 8
+  %v = load i8, ptr %p, align 1
+  ret void
+}
+`)
+	verifyIRWithClang(t, ir)
+	got, report, err := InferAddressSpaces(ir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Slots["@kernel/%slot"].Effective != AddrSpaceShared {
+		t.Fatalf("inline-cast slot did not narrow: %+v", report.Slots["@kernel/%slot"])
+	}
+	if !bytes.Contains(got, []byte("store ptr addrspace(3) @smem, ptr %slot, align 8")) {
+		t.Fatalf("inline cast was not removed from the stored value:\n%s", got)
+	}
+	verifyIRWithClang(t, got)
+}
+
+func TestInferAddressSpaces_RejectsCommentAfterClosingBrace(t *testing.T) {
+	ir := []byte(`@smem = internal addrspace(3) global i8 0
+define void @kernel() {
+entry:
+  %slot = alloca ptr, align 8
+  store ptr addrspace(3) @smem, ptr %slot, align 8
+} ; end
+`)
+	if _, _, err := InferAddressSpaces(ir); err == nil || !strings.Contains(err.Error(), "unterminated function") {
+		t.Fatalf("commented closing brace error = %v, want refusal", err)
+	}
 }
 
 func TestAddrSpace_ExampleOutputIsValidIR(t *testing.T) {
