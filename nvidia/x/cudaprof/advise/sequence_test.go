@@ -912,9 +912,10 @@ func TestFusionPairFindingCarriesItsDeviceTime(t *testing.T) {
 		t.Fatalf("Analyze: %v", err)
 	}
 	var pair *Item
-	for i := range report.Items {
-		if strings.Contains(report.Items[i].Location.Kernel, "->") {
-			pair = &report.Items[i]
+	all := findings(report)
+	for i := range all {
+		if strings.Contains(all[i].Location.Kernel, "->") {
+			pair = &all[i]
 			break
 		}
 	}

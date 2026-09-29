@@ -6,24 +6,32 @@ import (
 	"testing"
 )
 
-func TestCollapseRules(t *testing.T) {
-	item := func(rule string, ms int64) Item {
-		return Item{Severity: SeverityCost, Category: CategoryArchitecture, rule: rule, DeviceTimeNanos: ms * 1e6, Finding: fmt.Sprintf("%s %d", rule, ms)}
+func TestGroupRules(t *testing.T) {
+	item := func(rule, kernel string, ms int64) Item {
+		return Item{Severity: SeverityCost, Category: CategoryArchitecture, rule: rule, DeviceTimeNanos: ms * 1e6,
+			Location: Location{Kernel: kernel}, Finding: fmt.Sprintf("%s %s", rule, kernel)}
 	}
 	tests := []struct {
-		name  string
-		items []Item
-		want  []string
+		name     string
+		items    []Item
+		want     []string
+		wantTime int64 // device time of the first item, in ms
+		wantMag  string
+		wantHeld int
 	}{
-		{"none", []Item{item("", 9), item("", 8)}, []string{" 9", " 8"}},
-		{"four kept", []Item{item("imad-wide", 4), item("imad-wide", 3), item("imad-wide", 2), item("imad-wide", 1)},
-			[]string{"imad-wide 4", "imad-wide 3", "imad-wide 2", "imad-wide 1"}},
-		{"five collapsed", []Item{item("imad-wide", 5), item("fusion", 9), item("imad-wide", 4), item("imad-wide", 3), item("imad-wide", 2), item("imad-wide", 1)},
-			[]string{"imad-wide 5", "fusion 9", "imad-wide 4", "imad-wide 3", "2 more scalar address arithmetic (IMAD.WIDE) findings rank below the 3 listed above"}},
+		{"none", []Item{item("", "a", 9), item("", "b", 8)}, []string{" a", " b"}, 9, "", 0},
+		{"one kept", []Item{item("imad-wide", "a", 4), item("fusion", "b", 3)}, []string{"imad-wide a", "fusion b"}, 4, "", 0},
+		{"kernels summed", []Item{item("single-warp", "a", 5), item("fusion", "x", 9), item("single-warp", "b", 4), item("single-warp", "c", 3)},
+			[]string{"3 kernels, 12.00 ms total: single-warp occupancy", "fusion x"}, 12, "", 3},
+		{"pairs not summed", []Item{item("round-trip", "a -> b", 5), item("round-trip", "b -> c", 4)},
+			[]string{"2 findings: intermediate tensor round-trip"}, 0, "2 findings, the largest 5.000 ms", 2},
+		{"same kernel not summed", []Item{item("imad-wide", "a", 5), item("imad-wide", "a", 5)},
+			[]string{"2 findings: scalar address arithmetic (IMAD.WIDE)"}, 0, "2 findings, the largest 5.000 ms", 2},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := collapseRules(tt.items)
+			got := groupRules(tt.items)
+			rankItems(got)
 			var findings []string
 			for _, item := range got {
 				findings = append(findings, item.Finding)
@@ -31,14 +39,29 @@ func TestCollapseRules(t *testing.T) {
 			if strings.Join(findings, "|") != strings.Join(tt.want, "|") {
 				t.Fatalf("findings = %q, want %q", findings, tt.want)
 			}
-			if tt.name != "five collapsed" {
-				return
-			}
-			tail := got[len(got)-1]
-			if tail.Severity != SeverityContext || len(tail.Patterns) != 2 || tail.magnitude != "2 findings, the largest 2.000 ms" || tail.DeviceTimeNanos != 0 {
-				t.Errorf("tail = %+v", tail)
+			first := got[0]
+			if first.DeviceTimeNanos != tt.wantTime*1e6 || first.magnitude != tt.wantMag || len(first.Patterns) != tt.wantHeld {
+				t.Errorf("first = %+v", first)
 			}
 		})
+	}
+}
+
+// TestMarkdownGroupedOnce checks that a group prints its recommendation once
+// and lists each finding by location.
+func TestMarkdownGroupedOnce(t *testing.T) {
+	var items []Item
+	for i := range 4 {
+		items = append(items, Item{Severity: SeverityCost, Category: CategoryArchitecture, rule: "single-warp",
+			Location: Location{Kernel: fmt.Sprintf("triton_per_%d", i)}, DeviceTimeNanos: int64(i+1) * 1e6,
+			Finding: fmt.Sprintf("Single-warp thread blocks limit occupancy in triton_per_%d", i), ActionableRecommendation: "Restructure thread block geometry."})
+	}
+	md := (&Report{Items: groupRules(items)}).MarkdownWithLimit(0)
+	if n := strings.Count(md, "Restructure thread block geometry."); n != 1 {
+		t.Errorf("recommendation printed %d times, want 1:\n%s", n, md)
+	}
+	if strings.Contains(md, "Single-warp thread blocks") || !strings.Contains(md, "4 kernels, 10.00 ms total: single-warp occupancy") || !strings.Contains(md, "triton_per_3 (4.00 ms)") {
+		t.Errorf("group not rendered as one pattern with a location list:\n%s", md)
 	}
 }
 

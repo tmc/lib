@@ -90,8 +90,15 @@ func finalizeAndRankFindingsWithTiming(report *Report, kernelTimes map[string]in
 		item.Severity = SeverityContext
 	}
 
-	sort.SliceStable(report.Items, func(i, j int) bool {
-		a, b := report.Items[i], report.Items[j]
+	rankItems(report.Items)
+	report.Items = groupRules(report.Items)
+	rankItems(report.Items)
+}
+
+// rankItems sorts items by severity, then size.
+func rankItems(items []Item) {
+	sort.SliceStable(items, func(i, j int) bool {
+		a, b := items[i], items[j]
 		if a.Severity != b.Severity {
 			return severityRank(a.Severity) < severityRank(b.Severity)
 		}
@@ -106,18 +113,10 @@ func finalizeAndRankFindingsWithTiming(report *Report, kernelTimes map[string]in
 		}
 		return a.Finding < b.Finding
 	})
-	report.Items = collapseRules(report.Items)
 }
 
-// keepPerRule is the number of findings of one rule that rank on their own.
-// Rules that fire once per kernel or per kernel pair produced 9,635 findings
-// on one training capture, 6,017 of them the same IMAD.WIDE note in a
-// different kernel; a reader acts on the few largest of each and needs only
-// to know how many more there are.
-const keepPerRule = 3
-
-// ruleNames describes each collapsible rule, for the finding that holds the
-// rest of its findings.
+// ruleNames describes each groupable rule, for the finding that holds its
+// findings.
 var ruleNames = map[string]string{
 	"single-warp":         "single-warp occupancy",
 	"imad-wide":           "scalar address arithmetic (IMAD.WIDE)",
@@ -140,63 +139,95 @@ var ruleNames = map[string]string{
 	"fusion":              "pointwise fusion",
 }
 
-// collapseRules keeps the first keepPerRule findings of each rule in items,
-// which are in rank order, and replaces the rest with one context finding
-// per rule that holds them as patterns.
-func collapseRules(items []Item) []Item {
+// groupRules replaces the findings of each rule that fired more than once
+// with one finding that states the pattern once and lists its locations.
+// Rules that fire once per kernel or per kernel pair produced 9,635 findings
+// on one training capture, 6,017 of them the same IMAD.WIDE note in a
+// different kernel, and ten of the top twelve on another the same
+// single-warp paragraph; a reader needs the pattern, its total, and where.
+//
+// The group takes the place of its highest-ranked finding. Its device time
+// is the sum over its findings only when each names a different kernel;
+// kernel pairs overlap, so a group of pairs reports its largest instead.
+func groupRules(items []Item) []Item {
 	count := make(map[string]int)
 	for _, item := range items {
-		if item.rule != "" {
+		if ruleNames[item.rule] != "" {
 			count[item.rule]++
 		}
 	}
+	held := make(map[string][]Item)
+	for _, item := range items {
+		if count[item.rule] > 1 {
+			held[item.rule] = append(held[item.rule], item)
+		}
+	}
 	var out []Item
-	var rules []string
-	seen := make(map[string]int)
-	rest := make(map[string][]Item)
+	done := make(map[string]bool)
 	for _, item := range items {
 		r := item.rule
-		if r == "" || count[r] <= keepPerRule+1 {
+		if count[r] <= 1 {
 			out = append(out, item)
 			continue
 		}
-		if seen[r]++; seen[r] <= keepPerRule {
-			out = append(out, item)
+		if done[r] {
 			continue
 		}
-		if rest[r] == nil {
-			rules = append(rules, r)
-		}
-		rest[r] = append(rest[r], item)
-	}
-	for _, r := range rules {
-		held := rest[r]
-		name := ruleNames[r]
-		if name == "" {
-			name = r
-		}
-		var largest int64
-		kinds := make(map[Category]bool)
-		for _, item := range held {
-			largest = max(largest, item.DeviceTimeNanos, item.HostTimeNanos)
-			kinds[item.Category] = true
-		}
-		tail := Item{
-			Severity: SeverityContext,
-			Category: held[0].Category,
-			rule:     r,
-			Finding:  fmt.Sprintf("%d more %s findings rank below the %d listed above", len(held), name, keepPerRule),
-			Patterns: held,
-		}
-		if len(kinds) > 1 {
-			tail.Category = CategoryKernel
-		}
-		if largest > 0 {
-			tail.magnitude = fmt.Sprintf("%d findings, the largest %.3f ms", len(held), float64(largest)/1e6)
-		}
-		out = append(out, tail)
+		done[r] = true
+		out = append(out, groupItem(r, held[r]))
 	}
 	return out
+}
+
+// groupItem returns the finding that holds held, the findings of rule r in
+// rank order.
+func groupItem(r string, held []Item) Item {
+	name := ruleNames[r]
+	first := held[0]
+	g := Item{
+		Severity:                 first.Severity,
+		severityByKind:           first.severityByKind,
+		Category:                 first.Category,
+		EvidenceLevel:            first.EvidenceLevel,
+		ActionableRecommendation: first.ActionableRecommendation,
+		NextMeasurement:          first.NextMeasurement,
+		rule:                     r,
+		grouped:                  true,
+		Patterns:                 held,
+	}
+	kernels := make(map[string]bool)
+	distinct := true
+	var total, largest int64
+	var share float64
+	for _, item := range held {
+		k := item.Location.Kernel
+		if k == "" || strings.Contains(k, " -> ") || kernels[k] {
+			distinct = false
+		}
+		kernels[k] = true
+		if item.Category != g.Category {
+			g.Category = CategoryKernel
+		}
+		d := max(item.DeviceTimeNanos, item.HostTimeNanos)
+		total += d
+		largest = max(largest, d)
+		share += item.ShareOfProfile
+	}
+	switch {
+	case distinct && total > 0:
+		g.Finding = fmt.Sprintf("%d kernels, %.2f ms total: %s", len(held), float64(total)/1e6, name)
+		g.DeviceTimeNanos = total
+		g.ShareOfProfile = share
+	case distinct:
+		g.Finding = fmt.Sprintf("%d kernels: %s", len(held), name)
+		g.ShareOfProfile = share
+	default:
+		g.Finding = fmt.Sprintf("%d findings: %s", len(held), name)
+		if largest > 0 {
+			g.magnitude = fmt.Sprintf("%d findings, the largest %.3f ms", len(held), float64(largest)/1e6)
+		}
+	}
+	return g
 }
 
 // takesKernelTime reports whether item is a pattern in one kernel's code

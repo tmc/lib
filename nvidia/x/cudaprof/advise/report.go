@@ -164,8 +164,12 @@ type Item struct {
 	magnitude string
 
 	// rule names the audit rule that produced the item, when that rule can
-	// fire once per kernel or kernel pair; see collapseRules. Not serialized.
+	// fire once per kernel or kernel pair; see groupRules. Not serialized.
 	rule string
+
+	// grouped reports that Patterns are the findings of one rule, which
+	// Markdown lists by location instead of repeating each paragraph.
+	grouped bool
 
 	// severityByKind exempts this item from the Critical share floor. A
 	// finding that says the module may not run, or that the report's own
@@ -311,6 +315,10 @@ func (r *Report) MarkdownWithLimit(limit int) string {
 				fmt.Fprintf(&sb, "\n*... %d more (use --format=json for all).*\n", len(item.Patterns)-j)
 				break
 			}
+			if item.grouped {
+				fmt.Fprintf(&sb, "%d. %s\n", j+1, groupedLine(p))
+				continue
+			}
 			fmt.Fprintf(&sb, "%d. %s: %s\n", j+1, p.Category, p.Finding)
 			writeAdviceBody(&sb, p, "   ")
 		}
@@ -330,6 +338,24 @@ func (r *Report) MarkdownWithLimit(limit int) string {
 
 // maxPatternLines is the number of patterns Markdown prints under one finding.
 const maxPatternLines = 5
+
+// groupedLine describes one finding of a group by where it is and its size;
+// the group's header and body already say what it is.
+func groupedLine(p Item) string {
+	where := p.Location.String()
+	if where == "" {
+		where = p.Finding
+	}
+	switch {
+	case p.magnitude != "":
+		return fmt.Sprintf("%s (%s)", where, p.magnitude)
+	case p.DeviceTimeNanos > 0:
+		return fmt.Sprintf("%s (%.2f ms)", where, float64(p.DeviceTimeNanos)/1e6)
+	case p.ShareOfProfile > 0:
+		return fmt.Sprintf("%s (%.2f%% of observed samples)", where, p.ShareOfProfile)
+	}
+	return where
+}
 
 // writeAdviceBody writes the list under a finding's header, each line
 // prefixed by indent.
