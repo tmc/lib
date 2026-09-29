@@ -32,7 +32,7 @@ func TestNativeStartStopMatchesReferenceSample(t *testing.T) {
 		t.Skip("CUPTI_PC_REFERENCE_TEST=1 required")
 	}
 	if _, err := cudalock.Inherited(os.Getenv); err != nil {
-		t.Skipf("native qualification pending: inherited gpu-lock required: %v", err)
+		t.Fatalf("CUPTI_PC_REFERENCE_TEST=1 requires an inherited gpu-lock: %v", err)
 	}
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -100,7 +100,6 @@ func TestNativeStartStopMatchesReferenceSample(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("reference build command: make -B -C %s CUDA_INSTALL_PATH=%s", filepath.Join(root, "pc_sampling_start_stop"), cudaRoot)
 	var minRef, maxRef uint64 = ^uint64(0), 0
 	var sumRef uint64
 	for i, reference := range referenceRuns {
@@ -408,6 +407,11 @@ func buildPCReferenceSample(t *testing.T, root, cudaRoot string) string {
 	if _, err := os.Stat(filepath.Join(cudaRoot, "bin", "nvcc")); err != nil {
 		t.Skipf("CUDA toolkit nvcc unavailable under %s: %v", cudaRoot, err)
 	}
+	buildDir, err := copyReferenceSampleTree(t, root, dir)
+	if err != nil {
+		t.Fatalf("copy reference tutorial to temporary build directory: %v", err)
+	}
+	dir = buildDir
 	cmd := exec.Command("make", "-B", "-C", dir, "CUDA_INSTALL_PATH="+cudaRoot)
 	output, err := cmd.CombinedOutput()
 	if err != nil {

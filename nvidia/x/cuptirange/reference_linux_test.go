@@ -29,7 +29,7 @@ func TestNativeRangeMatchesReferenceSample(t *testing.T) {
 		t.Skip("CUPTI_RANGE_REFERENCE_TEST=1 required")
 	}
 	if _, err := cudalock.Inherited(os.Getenv); err != nil {
-		t.Skipf("native qualification pending: inherited gpu-lock required: %v", err)
+		t.Fatalf("CUPTI_RANGE_REFERENCE_TEST=1 requires an inherited gpu-lock: %v", err)
 	}
 	chip := os.Getenv("CUPTI_CHIP")
 	if chip == "" {
@@ -80,7 +80,6 @@ func TestNativeRangeMatchesReferenceSample(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("reference build: make -C %s CUDA_INSTALL_PATH=%s", filepath.Join(root, "userrange_profiling"), cudaRoot)
 	major, minor, err := dev.ComputeCapability()
 	if err != nil {
 		t.Fatal(err)
@@ -214,6 +213,9 @@ extern "C" __global__ void VectorSubtract(const int *a, const int *b, int *c, in
 	}
 	for _, r := range capture.RangeInfo {
 		if r.Name == "vector-workload" {
+			// The tutorial's NVPW evaluator accepts isolated=true. This package
+			// uses CUPTI's host evaluator, whose API has no equivalent field, so
+			// this comparison does not claim parity for that evaluator mode.
 			values, err := plan.Evaluate(capture.Image, r.Index)
 			if err != nil {
 				return 0, err
@@ -295,10 +297,15 @@ func buildReferenceSample(t *testing.T, root, cudaRoot, dir, binary string) stri
 	if _, err := os.Stat(filepath.Join(cudaRoot, "bin", "nvcc")); err != nil {
 		t.Skipf("CUDA toolkit nvcc unavailable under %s: %v", cudaRoot, err)
 	}
+	buildDir, err := copyReferenceSampleTree(t, root, sampleDir)
+	if err != nil {
+		t.Fatalf("copy reference tutorial to temporary build directory: %v", err)
+	}
+	sampleDir = buildDir
 	cmd := exec.Command("make", "-B", "-C", sampleDir, "CUDA_INSTALL_PATH="+cudaRoot)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("reference build command make -C %s CUDA_INSTALL_PATH=%s: %v\n%s", sampleDir, cudaRoot, err, output)
+		t.Fatalf("reference build command make -B -C %s CUDA_INSTALL_PATH=%s: %v\n%s", sampleDir, cudaRoot, err, output)
 	}
 	path := filepath.Join(sampleDir, binary)
 	if _, err := os.Stat(path); err != nil {

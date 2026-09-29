@@ -1190,6 +1190,42 @@ func TestStallCoverageIncludesDroppedAndUnnamedSamples(t *testing.T) {
 	}
 }
 
+func TestUnattributedCompanionAndStallOtherShareWithLoss(t *testing.T) {
+	var buf bytes.Buffer
+	bridge := &cuptipcsampling.ProfileBridge{
+		Session: cudaprof.NewSession(&buf),
+		Inventory: cuptipcsampling.ReasonInventory{Reasons: []cuptipcsampling.StallReason{
+			{Index: 1, Name: "selected"},
+			{Index: 2, Name: "selected_not_issued"},
+		}},
+	}
+	batch := cuptipcsampling.Batch{
+		Valid: true, DroppedSamples: 50,
+		PCs: []cuptipcsampling.PC{
+			{Name: "kernel", Reasons: []cuptipcsampling.StallSamples{
+				{Index: 1, Samples: 70},
+				{Index: 3, Samples: 30}, // unknown named reason contributes to StallOther
+			}},
+			{Name: "", Reasons: []cuptipcsampling.StallSamples{
+				{Index: 1, Samples: 50},
+				{Index: 2, Samples: 50}, // companion must not inflate unattributed samples
+			}},
+		},
+	}
+	if err := bridge.RecordBatch(context.Background(), batch); err != nil {
+		t.Fatal(err)
+	}
+	if bridge.TotalSamples != 100 || bridge.StallOther != 30 {
+		t.Fatalf("named samples=%d other=%d, want 100 and 30", bridge.TotalSamples, bridge.StallOther)
+	}
+	if bridge.UnattributedSamples != 50 || bridge.DroppedSamples != 50 {
+		t.Fatalf("loss samples unattributed=%d dropped=%d, want 50 and 50", bridge.UnattributedSamples, bridge.DroppedSamples)
+	}
+	if bridge.StallOtherShare == nil || math.Abs(*bridge.StallOtherShare-0.15) > 1e-12 {
+		t.Fatalf("StallOtherShare = %v, want 0.15 with named, unnamed, and dropped samples", bridge.StallOtherShare)
+	}
+}
+
 func TestStallCoverageAbsentWithNoSamples(t *testing.T) {
 	var buf bytes.Buffer
 	session := cudaprof.NewSession(&buf)

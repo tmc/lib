@@ -176,6 +176,53 @@ func TestPublicBatchOwnership(t *testing.T) {
 	}
 }
 
+// A pre-close read and the final disable buffer are independent batches. Keep
+// both when accounting for the capture, and use distinct PC offsets to catch
+// implementations that substitute one buffer for the other.
+func TestPublicReadAndCloseKeepDistinctBatches(t *testing.T) {
+	api := testPublicControlAPI()
+	set := api.set
+	var output uintptr
+	api.set = func(p *cupti.PCSamplingConfigurationInfoParams) error {
+		attrs := unsafe.Slice((*cupti.PCSamplingConfigurationInfo)(nativePointer(p.PPCSamplingConfigurationInfo)), int(p.NumAttributes))
+		for _, attr := range attrs {
+			if attr.AttributeType == cupti.PcSamplingConfigurationAttrTypeSamplingDataBuffer {
+				output = uintptr(attr.AttributeData[0])
+			}
+		}
+		return set(p)
+	}
+	api.disable = func(*cupti.PCSamplingDisableParams) error {
+		if output == 0 {
+			return errors.New("sampling output buffer was not configured")
+		}
+		p := cupti.PCSamplingGetDataParams{PcSamplingData: output}
+		if err := testPublicOnePCNamed(&p, 100); err != nil {
+			return err
+		}
+		d := (*cupti.PCSamplingData)(nativePointer(output))
+		pcs := unsafe.Slice((*cupti.PCSamplingPCData)(nativePointer(d.PPcData)), int(d.TotalNumPcs))
+		pcs[0].PcOffset = 0x80
+		d.TotalSamples = 7
+		return nil
+	}
+	s := testPublicStart(t, api, testPublicOnePC)
+	read, err := s.Read()
+	if err != nil || !read.Valid || read.TotalSamples != 5 || len(read.PCs) != 1 || read.PCs[0].Offset != 0x40 {
+		t.Fatalf("read batch=%+v err=%v", read, err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	final, ok := s.Final()
+	if !ok || !final.Valid || final.TotalSamples != 7 || len(final.PCs) != 1 || final.PCs[0].Offset != 0x80 {
+		t.Fatalf("final batch=%+v available=%v", final, ok)
+	}
+	if got := read.TotalSamples + final.TotalSamples; got != 12 {
+		t.Fatalf("combined samples=%d, want 12", got)
+	}
+}
+
 // A failed native disable retains cleanup ownership for an explicit retry.
 // The retry may succeed, but the earlier failure stays an error.
 func TestPublicCloseRetryAfterDisableFailure(t *testing.T) {

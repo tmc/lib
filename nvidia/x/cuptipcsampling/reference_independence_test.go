@@ -26,6 +26,9 @@ func TestReferenceSampleIndependenceRejectsLibNvidia(t *testing.T) {
 	if err := checkPCReferenceDependencies([]string{"/work/lib/nvidia/libcupti.so"}, false); err == nil {
 		t.Fatal("lib/nvidia dependency accepted")
 	}
+	if err := checkPCReferenceDependencies([]string{"/work/Lib/NVIDIA/libcupti.so"}, false); err == nil {
+		t.Fatal("mixed-case Lib/NVIDIA dependency accepted")
+	}
 	if err := checkPCReferenceDependencies(nil, true); err == nil {
 		t.Fatal("Go build ID accepted")
 	}
