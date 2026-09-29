@@ -124,8 +124,9 @@ func ExampleWindow_PeerDevicePointer() {
 	defer nccl.MemFree(buf)
 
 	// WindowRegister is collective: every rank registers its own buffer.
-	win, err := comm.WindowRegister(buf, size, nccl.WinCollSymmetric)
-	if err != nil {
+	// Outside a group on a blocking communicator, win is set on return.
+	var win nccl.Window
+	if err := comm.WindowRegister(buf, size, &win, nccl.WinCollSymmetric); err != nil {
 		fmt.Println("register:", err)
 		return
 	}

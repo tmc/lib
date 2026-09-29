@@ -730,22 +730,15 @@ var slotCommGetUniqueId outSlot[UniqueId]
 //   - All existing ranks call [Comm.Grow] with comm =parent, rank =-1, uniqueId =NULL
 //   - All new ranks call [Comm.Grow] with comm =NULL, rank =new_rank, uniqueId =received_id
 //
+// The library may write *newcomm after the call returns. Keep the value it points to reachable, and do not read or reuse it, until any enclosing [GroupEnd] has returned and, for a nonblocking communicator, [Comm.AsyncError] no longer reports [ErrInProgress].
+//
 // Wraps ncclCommGrow.
-func commGrow(comm Comm, nRanks int32, uniqueId *UniqueId, rank int32, config *Config) (Comm, error) {
+func commGrow(comm Comm, nRanks int32, uniqueId *UniqueId, rank int32, newcomm *Comm, config *Config) error {
 	if err := checkLibSym("ncclCommGrow"); err != nil {
-		var zero Comm
-		return zero, err
+		return err
 	}
-	out := slotCommGrow.get()
-	defer slotCommGrow.put(out)
-	if err := toError(fncommGrow(comm, nRanks, uniqueId, rank, out, config), "ncclCommGrow"); err != nil {
-		var zero Comm
-		return zero, err
-	}
-	return *out, nil
+	return toError(fncommGrow(comm, nRanks, uniqueId, rank, newcomm, config), "ncclCommGrow")
 }
-
-var slotCommGrow outSlot[Comm]
 
 // CommInitAll creates a clique of communicators (single process version) in a blocking way.
 //
@@ -891,43 +884,29 @@ func commRevoke(comm Comm, revokeFlags int32) error {
 // It is a collective function that must be called by all participating ranks in the newly created communicator. Ranks that are part of excludeRanksList should not call this function. The original ranks listed in excludeRanksList (of size excludeRanksCount) will be excluded from the new communicator. Within the new communicator, ranks will be updated to maintain a contiguous set of ids. If the new communicator needs a special configuration, it can be passed as config; otherwise, setting config to NULL will make the new communicator inherit the configuration of the parent communicator.
 // The shrinkFlags parameter controls the behavior of the operation. Use NCCL_SHRINK_DEFAULT (or 0) for normal operation, or NCCL_SHRINK_ABORT when shrinking after an error on the parent communicator. Specifically, when using NCCL_SHRINK_DEFAULT, there should not be any outstanding NCCL operations on the comm to avoid potential deadlocks. Further, if the parent communicator has the flag config.shrinkShare set to 1, NCCL will reuse the parent communicator resources. On the other hand, when using NCCL_SHRINK_ABORT, NCCL will automatically abort any outstanding operations on the parent communicator, and no resources will be shared between the parent and the newly created communicator.
 //
+// The library may write *newcomm after the call returns. Keep the value it points to reachable, and do not read or reuse it, until any enclosing [GroupEnd] has returned and, for a nonblocking communicator, [Comm.AsyncError] no longer reports [ErrInProgress].
+//
 // Wraps ncclCommShrink.
-func commShrink(comm Comm, excludeRanksList *int32, excludeRanksCount int32, config *Config, shrinkFlags int32) (Comm, error) {
+func commShrink(comm Comm, excludeRanksList *int32, excludeRanksCount int32, newcomm *Comm, config *Config, shrinkFlags int32) error {
 	if err := checkLibSym("ncclCommShrink"); err != nil {
-		var zero Comm
-		return zero, err
+		return err
 	}
-	out := slotCommShrink.get()
-	defer slotCommShrink.put(out)
-	if err := toError(fncommShrink(comm, excludeRanksList, excludeRanksCount, out, config, shrinkFlags), "ncclCommShrink"); err != nil {
-		var zero Comm
-		return zero, err
-	}
-	return *out, nil
+	return toError(fncommShrink(comm, excludeRanksList, excludeRanksCount, newcomm, config, shrinkFlags), "ncclCommShrink")
 }
-
-var slotCommShrink outSlot[Comm]
 
 // commSplit The [Comm.Split] is a collective function and creates a set of new communicators from an existing one.
 //
 // Ranks which pass the same color value will be part of the same group; color must be a non-negative value. If it is passed as NCCL_SPLIT_NOCOLOR, it means that the rank will not be part of any group, therefore returning NULL as newcomm. The value of key will determine the rank order, and the smaller key means the smaller rank in new communicator. If keys are equal between ranks, then the rank in the original communicator will be used to order ranks. If the new communicator needs to have a special configuration, it can be passed as config, otherwise setting config to NULL will make the new communicator inherit the original communicator’s configuration. When split, there should not be any outstanding NCCL operations on the comm. Otherwise, it might cause a deadlock.
 //
+// The library may write *newcomm after the call returns. Keep the value it points to reachable, and do not read or reuse it, until any enclosing [GroupEnd] has returned and, for a nonblocking communicator, [Comm.AsyncError] no longer reports [ErrInProgress].
+//
 // Wraps ncclCommSplit.
-func commSplit(comm Comm, color int32, key int32, config *Config) (Comm, error) {
+func commSplit(comm Comm, color int32, key int32, newcomm *Comm, config *Config) error {
 	if err := checkLibSym("ncclCommSplit"); err != nil {
-		var zero Comm
-		return zero, err
+		return err
 	}
-	out := slotCommSplit.get()
-	defer slotCommSplit.put(out)
-	if err := toError(fncommSplit(comm, color, key, out, config), "ncclCommSplit"); err != nil {
-		var zero Comm
-		return zero, err
-	}
-	return *out, nil
+	return toError(fncommSplit(comm, color, key, newcomm, config), "ncclCommSplit")
 }
-
-var slotCommSplit outSlot[Comm]
 
 // commSuspend suspends communicator operations to free resources.
 //
@@ -980,22 +959,15 @@ func commWindowDeregister(comm Comm, win Window) error {
 //
 // Since this is a collective call, every rank in the communicator needs to participate in the registration. Size may differ across ranks; callers are responsible for ensuring later operations only access ranges that are valid for the ranks participating in that operation. win is returned for future deregistration (if called within a group, the value may not be filled in until [GroupEnd] has completed). See buff requirement and more instructions in User Buffer Registration. User can also pass different win flags to control the registration behavior. For more win flags information, please refer to Window Registration Flags. Host APIs do not accept buffers that are symmetrically registered more than once. Passing such buffers to host APIs results in undefined behavior.
 //
+// The library may write *win after the call returns. Keep the value it points to reachable, and do not read or reuse it, until any enclosing [GroupEnd] has returned and, for a nonblocking communicator, [Comm.AsyncError] no longer reports [ErrInProgress].
+//
 // Wraps ncclCommWindowRegister.
-func commWindowRegister(comm Comm, buff driver.DevicePtr, size uint, winFlags WinFlags) (Window, error) {
+func commWindowRegister(comm Comm, buff driver.DevicePtr, size uint, win *Window, winFlags WinFlags) error {
 	if err := checkLibSym("ncclCommWindowRegister"); err != nil {
-		var zero Window
-		return zero, err
+		return err
 	}
-	out := slotCommWindowRegister.get()
-	defer slotCommWindowRegister.put(out)
-	if err := toError(fncommWindowRegister(comm, uintptr(buff), size, out, int32(winFlags)), "ncclCommWindowRegister"); err != nil {
-		var zero Window
-		return zero, err
-	}
-	return *out, nil
+	return toError(fncommWindowRegister(comm, uintptr(buff), size, win, int32(winFlags)), "ncclCommWindowRegister")
 }
-
-var slotCommWindowRegister outSlot[Window]
 
 // gather gathers count elements from each rank on the root rank.
 //

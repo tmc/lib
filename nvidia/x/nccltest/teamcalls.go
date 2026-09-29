@@ -260,8 +260,8 @@ func checkCftDeviceLeInfo(comm nccl.Comm, cft nccl.Team) (result TeamCallResult,
 	}
 	defer func() { err = errors.Join(err, nccl.MemFree(ptr)) }()
 
-	win, err := comm.WindowRegister(ptr, bytes, 0)
-	if err != nil {
+	var win nccl.Window
+	if err := comm.WindowRegister(ptr, bytes, &win, 0); err != nil {
 		return result, fmt.Errorf("register window: %w", err)
 	}
 	defer func() { err = errors.Join(err, comm.WindowDeregister(win)) }()

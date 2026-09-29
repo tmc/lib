@@ -17,6 +17,14 @@
 // purego; kernels using those entry points must be compiled separately and launched
 // by the host application.
 //
+// # Threads
+//
+// NCCL keeps group state per OS thread, and the CUDA context it uses is the
+// one current on the calling thread. A goroutine that calls [GroupStart] must
+// stay on one OS thread, using [runtime.LockOSThread], until its matching
+// [GroupEnd] returns; otherwise the calls between them can join another
+// thread's group or none.
+//
 // # Quick Start
 //
 //	// Initialize communicators across GPUs.
