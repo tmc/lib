@@ -77,6 +77,12 @@ func TestCheckIsolationRejectsInvalidBounds(t *testing.T) {
 	}
 }
 
+func TestCheckIsolationRejectsNonIncreasingTripCountAlone(t *testing.T) {
+	if err := checkIsolation(130, 100, 130, 100, 3, 10, 10); err == nil {
+		t.Fatal("checkIsolation accepted equal trip counts")
+	}
+}
+
 func TestCheckIsolationRejectsEachInputGuardAlone(t *testing.T) {
 	tests := []struct {
 		name           string
