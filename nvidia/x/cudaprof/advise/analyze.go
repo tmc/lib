@@ -462,6 +462,16 @@ func auditMissingModuleCode(cap *cudacapture.Capture, report *Report, kernelTime
 		return
 	}
 	finding := "Code not captured for " + capturefiles.DescribeMissingCode(missing)
+	// Most loaded modules never run, so the census alone overstates what
+	// the findings below cannot see. Launches that name no module understate
+	// it instead, and the share below is then only a floor.
+	var unnamed bool
+	if launches, err := capturefiles.CountModuleLaunches(cap); err == nil {
+		if s := capturefiles.DescribeMissingLaunches(missing, launches); s != "" {
+			finding += ". " + strings.ToUpper(s[:1]) + s[1:]
+			unnamed = launches.Unnamed > 0
+		}
+	}
 	unseen := make(map[uint32]bool)
 	for _, m := range missing {
 		if m.Module != 0 {
@@ -494,13 +504,21 @@ func auditMissingModuleCode(cap *cudacapture.Capture, report *Report, kernelTime
 		if !hasTiming {
 			unit = "of samples"
 		}
-		finding += fmt.Sprintf("; %d kernels that ran from them hold %.1f%% %s", kernels, share, unit)
+		floor := ""
+		if unnamed {
+			floor = " at least"
+		}
+		verb := "kernels that ran from them hold"
+		if kernels == 1 {
+			verb = "kernel that ran from it holds"
+		}
+		finding += fmt.Sprintf(". %d %s%s %.1f%% %s", kernels, verb, floor, share, unit)
 		item.ShareOfProfile = share
 		if hasTiming {
 			item.DeviceTimeNanos = unseenTime
 		}
 	case kernels > 0:
-		finding += fmt.Sprintf("; %d kernels ran from them", kernels)
+		finding += fmt.Sprintf(". %d kernels ran from them", kernels)
 	}
 	item.Finding = finding
 	report.Items = append(report.Items, item)

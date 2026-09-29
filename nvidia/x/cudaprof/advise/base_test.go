@@ -452,6 +452,7 @@ func TestMissingModuleCode(t *testing.T) {
 		name   string
 		module uint32
 		dur    int
+		graph  uint32
 	}
 	tests := []struct {
 		name     string
@@ -461,14 +462,22 @@ func TestMissingModuleCode(t *testing.T) {
 	}{
 		{
 			name:     "no kernel ran from it",
-			launches: []launch{{"a", 1, 100}},
-			want:     "Code not captured for 1 module, 121.0 MB: 1 over per-module budget (121.0 MB)",
+			launches: []launch{{"a", 1, 100, 0}},
+			want:     "Code not captured for 1 loaded module, 121.0 MB: 1 over per-module budget (121.0 MB). No launch names it",
 		},
 		{
 			name:     "kernels ran from it",
-			launches: []launch{{"a", 1, 100}, {"b", 2, 100}, {"c", 1, 300}, {"c", 2, 100}},
-			want:     "; 2 kernels that ran from them hold 30.0% of kernel time",
+			launches: []launch{{"a", 1, 100, 0}, {"b", 2, 100, 0}, {"c", 1, 300, 0}, {"c", 2, 100, 0}},
+			want:     "It ran captured kernel launches. 2 kernels that ran from them hold 30.0% of kernel time",
 			wantTime: 3e6,
+		},
+		{
+			// Most launches of a PyTorch capture are graph nodes naming no
+			// module, so the share is only what the named ones establish.
+			name:     "launches name no module",
+			launches: []launch{{"a", 1, 100, 0}, {"b", 2, 100, 0}, {"c", 0, 100, 7}, {"c", 0, 100, 0}},
+			want:     "It ran captured kernel launches; 2 of 4 launches (1 in CUDA graphs) name no module and may have run from it. 1 kernel that ran from it holds at least 20.0% of kernel time",
+			wantTime: 2e6,
 		},
 	}
 	for _, tt := range tests {
@@ -478,7 +487,7 @@ func TestMissingModuleCode(t *testing.T) {
 			for i, l := range tt.launches {
 				b.Append(wire.KindActivity, map[string]any{
 					"kind": "activity", "subtype": "kernel", "valid": true, "name": l.name,
-					"start": start, "end": start + l.dur, "device": 0, "correlation": i + 1, "module_id": l.module,
+					"start": start, "end": start + l.dur, "device": 0, "correlation": i + 1, "module_id": l.module, "graph_id": l.graph,
 				})
 				start += 1000
 			}
