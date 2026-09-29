@@ -17,6 +17,10 @@ import (
 // type from another package, which the binding passes as a machine word.
 const abiStub = abistub.Prelude + `
 #ifdef STUB_REAL_HEADER
+// CUDA 12 headers refuse a direct include unless CUBLASAPI is defined.
+#ifndef CUBLASAPI
+#define CUBLASAPI
+#endif
 #include <cublas_api.h>
 #else
 typedef int cublasStatus_t;
