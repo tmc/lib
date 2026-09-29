@@ -1,0 +1,6 @@
+commit 9c6b1ef538b7c572ba9f127faded4b0eadabe131
+cherry-pick of 75e73009a (241C nccl-deferred-out, ExternalWordTypes), user-pasted 241C handoff
+date 2026-09-29T00:21:38-07:00
+agent claude-code 2.1.280, model claude-opus-5-5
+tty not a tty pid 76878 ITERM_SESSION_ID=w8t0p10:E8F57AFD-1DAC-47B0-AA52-5A76722DD540
+session=f67c2dcc-2b3c-4d7a-91ca-4741e68f9911
