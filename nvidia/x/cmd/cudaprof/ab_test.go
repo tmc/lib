@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tmc/lib/nvidia/internal/cudainject/wire"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 )
 
@@ -283,5 +284,56 @@ func TestSplitWords(t *testing.T) {
 		if err != nil || !reflect.DeepEqual(got, tt.want) {
 			t.Errorf("splitWords(%q) = %q, %v, want %q", tt.in, got, err, tt.want)
 		}
+	}
+}
+
+// TestRunABRefusesUnfinalizedChild pins ab failing closed on an arm whose
+// child journal did not finalize, even when the arm's status reports a
+// complete run with nothing dropped: a zero drop count says nothing about a
+// generation that never published its records.
+func TestRunABRefusesUnfinalizedChild(t *testing.T) {
+	bootstrapOnly := &journalBuilder{}
+	bootstrapOnly.session[0] = 0x42
+	bootstrapOnly.append(wire.KindBootstrap, map[string]any{"kind": "bootstrap"})
+	tests := []struct {
+		name  string
+		child []byte
+		want  string
+	}{
+		{"empty", []byte{}, "is empty"},
+		{"bootstrap only", bootstrapOnly.unfinalized(), "never finalized"},
+		{"bootstrap and capability", newJournalBuilder().unfinalized(), "never finalized"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			opts, err := parseABArgs([]string{"-o", dir, "-base", "spin 1000 2522 50", "-target", "spin 900 2522 50"}, io.Discard)
+			if err != nil {
+				t.Fatal(err)
+			}
+			opts.capture = func(flags []string, out, log string, command []string) error {
+				n := uint64(1000)
+				journals := map[string][]byte{
+					"capture.journal":                    compareJournal([]rec{{subtype: "kernel", name: "k", start: 1050, end: 1050 + n}}),
+					"worker-process-9-1-capture.journal": tt.child,
+				}
+				f, err := os.Create(out)
+				if err != nil {
+					return err
+				}
+				defer f.Close()
+				if err := cudacapture.Write(f, testCapture(journals, phaseStatus(1000, 1000+n+100))); err != nil {
+					return err
+				}
+				return os.WriteFile(log, nil, 0o644)
+			}
+			err = runAB(opts, io.Discard, io.Discard)
+			if err == nil || !strings.Contains(err.Error(), "ab: base: journal worker-process-9-1-capture.journal ") || !strings.Contains(err.Error(), tt.want) {
+				t.Errorf("err = %v, want the base arm refused for its child journal", err)
+			}
+			if _, err := os.Stat(filepath.Join(dir, "ab.json")); err == nil {
+				t.Errorf("ab.json written for a refused comparison")
+			}
+		})
 	}
 }
