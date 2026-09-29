@@ -57,6 +57,7 @@ func TestRetainedModuleDisasm(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Setenv("CUDA_HOME", dir)
+			t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 			fn := &profile.Function{ID: 1, Name: "compute"}
 			loc := &profile.Location{ID: 1, Line: []profile.Line{{Function: fn}}}
 			p := &profile.Profile{SampleType: []*profile.ValueType{{Type: "gpu_time", Unit: "nanoseconds"}}, Function: []*profile.Function{fn}, Location: []*profile.Location{loc}, Sample: []*profile.Sample{{Location: []*profile.Location{loc}, Value: []int64{73}}}}
