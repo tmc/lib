@@ -99,6 +99,8 @@ func (h HazardType) String() string {
 // distinguishes independent agents such as kernels. For device-scoped accesses
 // from different agents, a shared nonzero StreamID records launch ordering;
 // thread, block and cluster identify execution coordinates within an agent.
+// One agent cannot represent accesses on multiple nonzero streams; accesses
+// with the same agent ID on different nonzero streams are treated as distinct.
 type MemoryAccess struct {
 	Scope     ExecutionScope
 	AgentID   int
@@ -262,7 +264,7 @@ func (m *HazardMatrix) Evaluate() ([]HazardRecord, error) {
 
 			// Check scope concurrence (is there missing synchronization?).
 			scopeConflict := false
-			sameThread := a.AgentID == b.AgentID && a.ThreadID == b.ThreadID && a.BlockID == b.BlockID && a.ClusterID == b.ClusterID
+			sameThread := a.AgentID == b.AgentID && (a.StreamID == b.StreamID || a.StreamID == 0 || b.StreamID == 0) && a.ThreadID == b.ThreadID && a.BlockID == b.BlockID && a.ClusterID == b.ClusterID
 			sameStreamOrder := a.AgentID != b.AgentID && a.Scope == ScopeDevice && b.Scope == ScopeDevice && a.StreamID != 0 && a.StreamID == b.StreamID
 
 			if sameThread || sameStreamOrder {

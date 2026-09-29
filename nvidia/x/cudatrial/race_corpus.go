@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudaerrors"
@@ -145,7 +146,8 @@ type ConformanceSummary struct {
 // RaceCorpus holds the 27 data-race cases derived from NVlabs/cuHadron commit
 // 0a6c6d5 (Apache-2.0).
 type RaceCorpus struct {
-	cases []TestCase
+	cases       []TestCase
+	accessModel func(string, bool) ([]cudashared.MemoryAccess, error)
 }
 
 // NewRaceCorpus constructs the canonical cuHadron conformance corpus comprising all 27 benchmark cases.
@@ -278,7 +280,11 @@ func (c *RaceCorpus) EvaluateCase(name string, fixed bool, targetArch string) (E
 		base.HardwarePending, base.Error = errors.Is(err, cudaerrors.ErrHardwarePending), err
 		return base, err
 	}
-	accesses, err := caseAccesses(tc.Name, fixed)
+	accessModel := c.accessModel
+	if accessModel == nil {
+		accessModel = caseAccesses
+	}
+	accesses, err := accessModel(tc.Name, fixed)
 	if err != nil {
 		base.Unmodelled = true
 		base.Error = fmt.Errorf("unmodelled case %s: %w", name, err)
@@ -555,12 +561,28 @@ func runDetectorWithTimeout(ctx context.Context, timeout time.Duration, runCmd, 
 	runCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	cmd := exec.CommandContext(runCtx, "sh", "-c", "exec "+runCmd+" \"$1\"", "cudatrial", binaryPath)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.WaitDelay = time.Second
+	cmd.Cancel = func() error {
+		if cmd.Process == nil {
+			return os.ErrProcessDone
+		}
+		err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		if errors.Is(err, syscall.ESRCH) {
+			return os.ErrProcessDone
+		}
+		return err
+	}
 	out, err := cmd.CombinedOutput()
 	res.Output = string(out)
 	if errors.Is(runCtx.Err(), context.DeadlineExceeded) {
 		res.ExitCode = -1
 		res.UnknownExit = true
-		res.Error = fmt.Errorf("%w after %s: %s", errDetectorTimedOut, timeout, res.Output)
+		if ctx.Err() != nil {
+			res.Error = fmt.Errorf("%w: caller context: %w: %s", errDetectorTimedOut, ctx.Err(), res.Output)
+		} else {
+			res.Error = fmt.Errorf("%w after %s: %s", errDetectorTimedOut, timeout, res.Output)
+		}
 		return res, res.Error
 	}
 	res.ExitCode = 0

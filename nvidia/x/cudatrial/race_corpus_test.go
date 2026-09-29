@@ -176,6 +176,45 @@ func TestEvaluateCaseAccessesFollowsHazardsAgainstLabels(t *testing.T) {
 	}
 }
 
+func TestEvaluateCaseUsesReplaceableAccessModel(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		kind string
+		want bool
+	}{
+		{"memcpy/shared_readwrite_race", "disjoint", false},
+		{"false_positives/shared_bytewise_writewrite", "conflict", true},
+		{"interkernel/global_writewrite_race", "same-stream", false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			c := NewRaceCorpus()
+			c.accessModel = func(string, bool) ([]cudashared.MemoryAccess, error) {
+				a := []cudashared.MemoryAccess{
+					{Scope: cudashared.ScopeCTA, AgentID: 1, StreamID: 1, Space: cudashared.MemoryGlobal, SizeBytes: 1, IsWrite: true},
+					{Scope: cudashared.ScopeCTA, AgentID: 2, StreamID: 2, Space: cudashared.MemoryGlobal, SizeBytes: 1},
+				}
+				switch tt.kind {
+				case "disjoint":
+					a[1].Offset = 4
+				case "conflict":
+					a[1].IsWrite = true
+				case "same-stream":
+					a[0].Scope, a[1].Scope = cudashared.ScopeDevice, cudashared.ScopeDevice
+					a[0].StreamID, a[1].StreamID = 7, 7
+				}
+				return a, nil
+			}
+			got, err := c.EvaluateCase(tt.name, false, "sm_90")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.HasRace != tt.want {
+				t.Fatalf("EvaluateCase HasRace=%t, want %t", got.HasRace, tt.want)
+			}
+		})
+	}
+}
+
 func TestCorpus_HardwareRequirementPendingReport(t *testing.T) {
 	corpus := NewRaceCorpus()
 	res, err := corpus.EvaluateCase("dsmem/shared_readwrite_race", false, "sm_80")
@@ -605,9 +644,10 @@ func TestMinArchValueGatesEvaluationAndExternalSweep(t *testing.T) {
 }
 
 func validConformanceResults(c *RaceCorpus, configuration string) []EvaluationResult {
+	fixed, _ := configuredFixed(configuration)
 	results := []EvaluationResult{{TestCase: "cudatrial/planted-race-control", IsLivenessControl: true, HasRace: true, ExitCode: 1, Category: CategoryMemcpy, Configuration: configuration}}
 	for _, tc := range c.TestCases() {
-		result := EvaluationResult{TestCase: tc.Name, Category: tc.Category, Fixed: true, Configuration: configuration}
+		result := EvaluationResult{TestCase: tc.Name, Category: tc.Category, Fixed: fixed, Configuration: configuration}
 		results = append(results, result)
 	}
 	return results
@@ -756,6 +796,37 @@ func TestRunDetectorStopsAtPerRunDeadline(t *testing.T) {
 	}
 }
 
+func TestRunDetectorDeadlineKillsProcessGroup(t *testing.T) {
+	input := filepath.Join(t.TempDir(), "candidate.out")
+	if err := os.WriteFile(input, []byte("stub"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	started := time.Now()
+	result, err := runDetectorWithTimeout(context.Background(), time.Second, "sh -c 'sleep 30; true'", input)
+	if !errors.Is(err, errDetectorTimedOut) {
+		t.Fatalf("runDetectorWithTimeout error = %v, want timeout", err)
+	}
+	if elapsed := time.Since(started); elapsed > 8*time.Second {
+		t.Fatalf("timed-out detector took %s, want process group stopped promptly", elapsed)
+	}
+	if !result.UnknownExit || result.ExitCode != -1 || result.Error == nil {
+		t.Fatalf("timed-out detector result = %+v", result)
+	}
+}
+
+func TestRunDetectorReportsCallerDeadline(t *testing.T) {
+	input := filepath.Join(t.TempDir(), "candidate.out")
+	if err := os.WriteFile(input, []byte("stub"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	_, err := runDetectorWithTimeout(ctx, 2*time.Minute, "sh -c 'sleep 30'", input)
+	if !errors.Is(err, context.DeadlineExceeded) || !strings.Contains(err.Error(), "caller context") {
+		t.Fatalf("caller deadline error = %v, want context deadline", err)
+	}
+}
+
 func TestRunExternalMultigpuRowsAreUnmodelledWithoutExecution(t *testing.T) {
 	c := NewRaceCorpus()
 	root := makeCorpusBinaries(t, c, "sm_90")
@@ -802,14 +873,15 @@ func TestConformanceRateRejectsMismatchedExecConfiguration(t *testing.T) {
 	configuration := "FIXED=0;ARCH=sm_90"
 	control := makeExecControl(t, configuration)
 	results := validConformanceResults(c, configuration)
+	const mismatched = "memcpy/shared_writewrite_race"
 	for i := range results {
-		if results[i].TestCase != "cudatrial/planted-race-control" {
-			results[i].Configuration = "FIXED=1;ARCH=sm_90"
+		if results[i].TestCase == mismatched {
+			results[i].Configuration = "FIXED=0;ARCH=sm_80"
 			break
 		}
 	}
-	if _, err := c.ConformanceRate(results, control); err == nil {
-		t.Fatal("mismatched exec-control configuration accepted")
+	if _, err := c.ConformanceRate(results, control); err == nil || !strings.Contains(err.Error(), mismatched) {
+		t.Fatalf("mismatched row configuration error = %v, want row %q", err, mismatched)
 	}
 }
 

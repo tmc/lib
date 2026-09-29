@@ -54,7 +54,8 @@ func TestHazardMatrix_AgentIdentityAtSameCoordinates(t *testing.T) {
 		want   bool
 	}{
 		{"different agents", second, true},
-		{"same agent", func() MemoryAccess { a := second; a.AgentID = first.AgentID; return a }(), false},
+		{"same agent and stream", func() MemoryAccess { a := second; a.AgentID = first.AgentID; a.StreamID = first.StreamID; return a }(), false},
+		{"same agent on different streams", func() MemoryAccess { a := second; a.AgentID = first.AgentID; a.StreamID = 3; return a }(), true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			m := NewHazardMatrix("sm_90")
