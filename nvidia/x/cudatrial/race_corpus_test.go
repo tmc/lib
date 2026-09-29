@@ -132,6 +132,50 @@ func evaluateRecords(arch string, accesses []cudashared.MemoryAccess) ([]cudasha
 	return m.Evaluate()
 }
 
+func TestEvaluateCaseAccessesFollowsHazardsAgainstLabels(t *testing.T) {
+	c := NewRaceCorpus()
+	for _, tt := range []struct {
+		name     string
+		fixed    bool
+		edit     func([]cudashared.MemoryAccess)
+		wantRace bool
+	}{
+		{
+			name:     "memcpy/shared_readwrite_race",
+			edit:     func(accesses []cudashared.MemoryAccess) { accesses[1].Offset += 4 },
+			wantRace: false,
+		},
+		{
+			name:     "false_positives/shared_bytewise_writewrite",
+			edit:     func(accesses []cudashared.MemoryAccess) { accesses[1].Offset = accesses[0].Offset },
+			wantRace: true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			tc, ok := c.Lookup(tt.name)
+			if !ok {
+				t.Fatal("corpus case not found")
+			}
+			accesses, err := caseAccesses(tt.name, tt.fixed)
+			if err != nil {
+				t.Fatal(err)
+			}
+			tt.edit(accesses)
+			result, err := evaluateCaseAccesses(EvaluationResult{
+				TestCase: tt.name,
+				Category: tc.Category,
+				Fixed:    tt.fixed,
+			}, "sm_90", accesses)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.HasRace != tt.wantRace {
+				t.Fatalf("HasRace=%t, want %t for supplied accesses", result.HasRace, tt.wantRace)
+			}
+		})
+	}
+}
+
 func TestCorpus_HardwareRequirementPendingReport(t *testing.T) {
 	corpus := NewRaceCorpus()
 	res, err := corpus.EvaluateCase("dsmem/shared_readwrite_race", false, "sm_80")

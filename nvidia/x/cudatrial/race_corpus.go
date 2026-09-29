@@ -284,11 +284,19 @@ func (c *RaceCorpus) EvaluateCase(name string, fixed bool, targetArch string) (E
 		base.Error = fmt.Errorf("unmodelled case %s: %w", name, err)
 		return base, base.Error
 	}
-	base.HasRace, base.EvaluatedPairs, err = evaluateAccesses(targetArch, accesses)
+	return evaluateCaseAccesses(base, targetArch, accesses)
+}
+
+// evaluateCaseAccesses evaluates the supplied accesses under a corpus row.
+// Keeping the accesses injectable lets tests prove that a verdict follows
+// memory behavior when it contradicts the row's name or category.
+func evaluateCaseAccesses(base EvaluationResult, targetArch string, accesses []cudashared.MemoryAccess) (EvaluationResult, error) {
+	hasRace, pairs, err := evaluateAccesses(targetArch, accesses)
 	if err != nil {
 		base.HardwarePending, base.Error = errors.Is(err, cudaerrors.ErrHardwarePending), err
 		return base, err
 	}
+	base.HasRace, base.EvaluatedPairs = hasRace, pairs
 	if base.HasRace {
 		base.ReportedDefects = 1
 	}
