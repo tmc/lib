@@ -192,6 +192,21 @@ func TestLaunch_RejectsOverlappingPartitions(t *testing.T) {
 			t.Fatalf("ResolveArgs error = %v, want ErrOverlappingPartition", err)
 		}
 	})
+
+	t.Run("validate every partition", func(t *testing.T) {
+		tensor := mustShape(t, 100, 100)
+		tile := mustShape(t, 10, 10)
+		valid := mustPartition(t, 1, tensor, tile, 4,
+			cudalayout.WithPartitionStrides([]int{100, 1}))
+		overlapping := mustPartition(t, 2, tensor, tile, 4,
+			cudalayout.WithPartitionStrides([]int{50, 1}))
+		if _, err := cudalaunch.InferLaunchGrid(cudashape.Grid3D{}, []cudalayout.Partition{valid, overlapping}); !errors.Is(err, cudalayout.ErrOverlappingPartition) {
+			t.Fatalf("InferLaunchGrid error = %v, want ErrOverlappingPartition from second partition", err)
+		}
+		if _, err := cudalaunch.Kernel(1).ResolveArgs(valid, overlapping); !errors.Is(err, cudalayout.ErrOverlappingPartition) {
+			t.Fatalf("ResolveArgs error = %v, want ErrOverlappingPartition from second partition", err)
+		}
+	})
 }
 
 func TestLaunch_BindPartitionArguments(t *testing.T) {
@@ -285,6 +300,15 @@ func TestLaunch_BindPartitionArguments(t *testing.T) {
 		}
 	})
 
+	t.Run("rank-3 column-major strides keep axis order", func(t *testing.T) {
+		columnMajor := mustPartition(t, ptrA, mustShape(t, 16, 16, 16), mustShape(t, 4, 4, 4), 4,
+			cudalayout.WithPartitionStrides([]int{1, 16, 256}))
+		want := []any{ptrA, 16, 256, 4, 4, 4}
+		if got := cudalaunch.BindPartitionArgs(columnMajor); !reflect.DeepEqual(got, want) {
+			t.Fatalf("BindPartitionArgs() = %v, want %v", got, want)
+		}
+	})
+
 	t.Run("mutable bind helpers match immutable helpers", func(t *testing.T) {
 		if got, want := cudalaunch.BindPartitionMutArgs(partOut), cudalaunch.BindPartitionArgs(partOut.Partition); !reflect.DeepEqual(got, want) {
 			t.Fatalf("BindPartitionMutArgs() = %v, want %v", got, want)
@@ -321,13 +345,25 @@ func TestLaunch_BindRank3PartitionAndRejectInt32Overflow(t *testing.T) {
 		cudalayout.WithPartitionStrides([]int{1 << 32, 1}))); err == nil {
 		t.Fatal("expected int32 overflow error")
 	}
+	if _, err := cudalaunch.BindPartitionArgs32(mustPartition(t, 1, mustShape(t, 2, 2), mustShape(t, 1, 1), 4,
+		cudalayout.WithPartitionStrides([]int{1 << 31, 1}))); err == nil {
+		t.Fatal("expected int32 error for stride 1<<31")
+	}
+	maxStrideArgs, err := cudalaunch.BindPartitionArgs32(mustPartition(t, 1, mustShape(t, 2, 2), mustShape(t, 1, 1), 4,
+		cudalayout.WithPartitionStrides([]int{(1 << 31) - 1, 1})))
+	if err != nil {
+		t.Fatalf("BindPartitionArgs32() at max int32 stride: %v", err)
+	}
+	if got, want := maxStrideArgs[1], int32((1<<31)-1); got != want {
+		t.Fatalf("stride at max int32 = %v, want %v", got, want)
+	}
 	if _, err := cudalaunch.BindPartitionArgs32(mustPartition(t, 1, mustShape(t, 1<<31), mustShape(t, 1<<31), 4)); err == nil {
 		t.Fatal("expected int32 extent overflow error")
 	}
 }
 
 func TestLaunch_NewPartitionFromTileAndMutableBinders(t *testing.T) {
-	tile, err := cudalayout.NewTile(8, 8, 4)
+	tile, err := cudalayout.NewTile(8, 8, 4, cudalayout.WithStride(16))
 	if err != nil {
 		t.Fatal(err)
 	}

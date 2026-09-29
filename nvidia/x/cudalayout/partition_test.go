@@ -278,6 +278,7 @@ func TestPartition_TileStride32(t *testing.T) {
 		wantError bool
 	}{
 		{name: "fits", stride: 64, want: 64},
+		{name: "max int32", stride: (1 << 31) - 1, want: (1 << 31) - 1},
 		{name: "overflows", stride: 1 << 32, wantError: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

@@ -185,4 +185,17 @@ func TestShape_InferGrid_NonPositiveOrOverflow(t *testing.T) {
 			t.Fatalf("expected ErrShapeOverflow, got %v", err)
 		}
 	})
+
+	t.Run("Z grid upper boundary", func(t *testing.T) {
+		atLimit, err := cudashape.InferGrid(mustShape(t, 1, 1, 65535), mustShape(t, 1, 1, 1))
+		if err != nil {
+			t.Fatalf("InferGrid at Z limit: %v", err)
+		}
+		if atLimit.Z != 65535 {
+			t.Fatalf("InferGrid at Z limit = %v, want Z=65535", atLimit)
+		}
+		if _, err := cudashape.InferGrid(mustShape(t, 1, 1, 65536), mustShape(t, 1, 1, 1)); !errors.Is(err, cudashape.ErrShapeOverflow) {
+			t.Fatalf("InferGrid above Z limit error = %v, want ErrShapeOverflow", err)
+		}
+	})
 }
