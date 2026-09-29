@@ -117,6 +117,17 @@ Number of PCs remaining to be collected: 0, range id: 2, total samples: 1, dropp
 	}
 }
 
+func TestParsePCReferenceOutputRejectsTruncatedFinalRangeAfterCompleteRange(t *testing.T) {
+	output := pcRangeStart + `
+, pcOffset : 0x10, stallReasonCount: 1, functionName: _Z9VectorAddPKiS0_Pii, correlationID: 1, stallReason: reason_a, samples: 1
+` + pcSummaryLine("1", 1) + pcRangeStart + `
+, pcOffset : 0x20, stallReasonCount: 1, functionName: _Z9VectorAddPKiS0_Pii, correlationID: 2, stallReason: reason_b, samples: 1
+`
+	if _, err := parsePCReferenceOutput(output); err == nil || !strings.Contains(err.Error(), "truncated PC range") {
+		t.Fatalf("truncated final range error = %v, want truncation error", err)
+	}
+}
+
 func TestParsePCReferenceOutputRejectsSampleTotalOverflow(t *testing.T) {
 	for _, total := range []string{
 		"18446744073709551616",

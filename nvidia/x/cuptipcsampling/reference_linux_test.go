@@ -156,13 +156,13 @@ __global__ void VectorMultiply(const int *a, const int *b, int *c, int n) {
 	var add, sub, mul driver.Function
 	if err := dev.WithContext(func() error {
 		var err error
-		if add, err = module.Function("_Z9VectorAddPKiS0_Pii"); err != nil {
+		if add, err = module.Function(tutorialVectorAddName); err != nil {
 			return err
 		}
-		if sub, err = module.Function("_Z14VectorSubtractPKiS0_Pii"); err != nil {
+		if sub, err = module.Function(tutorialVectorSubtractName); err != nil {
 			return err
 		}
-		mul, err = module.Function("_Z14VectorMultiplyPKiS0_Pii")
+		mul, err = module.Function(tutorialVectorMultiplyName)
 		return err
 	}); err != nil {
 		return 0, nil, nil, err
