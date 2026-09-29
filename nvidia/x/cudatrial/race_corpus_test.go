@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudaerrors"
 	"github.com/tmc/lib/nvidia/x/cudashared"
@@ -694,6 +695,20 @@ func TestRunExternalCandidateUnknownExitAndOutput(t *testing.T) {
 				t.Fatalf("candidate exit 2 result = %+v", result)
 			}
 		}
+	}
+}
+
+func TestRunDetectorStopsAtPerRunDeadline(t *testing.T) {
+	input := filepath.Join(t.TempDir(), "candidate.out")
+	if err := os.WriteFile(input, []byte("stub"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	result, err := runDetectorWithTimeout(context.Background(), time.Second, "sh -c 'sleep 5'", input)
+	if !errors.Is(err, errDetectorTimedOut) {
+		t.Fatalf("runDetectorWithTimeout error = %v, want timeout", err)
+	}
+	if !result.UnknownExit || result.ExitCode != -1 || result.HasRace || result.Error == nil {
+		t.Fatalf("timed-out detector result = %+v", result)
 	}
 }
 

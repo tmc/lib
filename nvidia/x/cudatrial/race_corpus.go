@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudaerrors"
 	"github.com/tmc/lib/nvidia/x/cudashared"
@@ -18,6 +19,10 @@ import (
 // ErrDetectorNeverReached indicates that a detector runner or external command
 // exited 0 without detecting a planted race, indicating the detector was never reached.
 var ErrDetectorNeverReached = errors.New("cudatrial: detector was never reached: runner reported clean exit on planted race")
+
+var errDetectorTimedOut = errors.New("cudatrial: detector run timed out")
+
+const detectorRunTimeout = 2 * time.Minute
 
 // RaceCategory classifies the benchmark category derived from cuHadron.
 type RaceCategory string
@@ -425,7 +430,8 @@ func (c *RaceCorpus) EvaluateAll(fixed bool, targetArch string) ([]EvaluationRes
 // RunExternal executes an external detector RUN_CMD against the corpus test cases.
 // It verifies detector liveness with an independent FIXED=0 planted-race
 // binary on every sweep. A stub RUN_CMD that exits 0 on that input fails the
-// run rather than producing an unfalsifiable clean sweep.
+// run rather than producing an unfalsifiable clean sweep. Each invocation has
+// a two-minute deadline; the caller's context may impose an earlier deadline.
 func (c *RaceCorpus) RunExternal(ctx context.Context, runCmd string, fixed bool, targetArch string) ([]EvaluationResult, error) {
 	if c == nil {
 		return nil, fmt.Errorf("nil race corpus")
@@ -525,14 +531,30 @@ func (c *RaceCorpus) RunExternal(ctx context.Context, runCmd string, fixed bool,
 }
 
 func runDetector(ctx context.Context, runCmd, binaryPath string) (EvaluationResult, error) {
+	return runDetectorWithTimeout(ctx, detectorRunTimeout, runCmd, binaryPath)
+}
+
+func runDetectorWithTimeout(ctx context.Context, timeout time.Duration, runCmd, binaryPath string) (EvaluationResult, error) {
 	res := EvaluationResult{BinaryPath: binaryPath}
+	if timeout <= 0 {
+		res.Error = fmt.Errorf("detector timeout must be positive, got %s", timeout)
+		return res, res.Error
+	}
 	if _, err := os.Stat(binaryPath); err != nil {
 		res.Error = fmt.Errorf("stat detector input %s: %w", binaryPath, err)
 		return res, res.Error
 	}
-	cmd := exec.CommandContext(ctx, "sh", "-c", "exec "+runCmd+" \"$1\"", "cudatrial", binaryPath)
+	runCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	cmd := exec.CommandContext(runCtx, "sh", "-c", "exec "+runCmd+" \"$1\"", "cudatrial", binaryPath)
 	out, err := cmd.CombinedOutput()
 	res.Output = string(out)
+	if errors.Is(runCtx.Err(), context.DeadlineExceeded) {
+		res.ExitCode = -1
+		res.UnknownExit = true
+		res.Error = fmt.Errorf("%w after %s: %s", errDetectorTimedOut, timeout, res.Output)
+		return res, res.Error
+	}
 	res.ExitCode = 0
 	if err != nil {
 		var exitErr *exec.ExitError
