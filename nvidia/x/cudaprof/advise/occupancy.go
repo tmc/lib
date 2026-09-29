@@ -10,7 +10,7 @@ import (
 // auditCUBINResourceOccupancy inspects CUBIN ELF .nv.info sections (EIATTR_REG_COUNT,
 // EIATTR_SHARED_SIZE_SYSMEM, EIATTR_FRAME_SIZE, EIATTR_MAXREG_COUNT) using x/cudaoccupancy
 // to calculate target-specific SM warp occupancy, occupancy cliffs, and hardware limiting factors.
-func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *Report, infos []cudaoccupancy.KernelResourceInfo, launchesByKernel map[string]launchRecord, math map[string]floatMath) {
+func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *Report, infos []kernelResource, launchesByKernel map[string]launchRecord, math map[string]floatMath) {
 	if cap == nil || len(infos) == 0 {
 		return
 	}
@@ -37,7 +37,7 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *Report, infos
 				Severity:      SeverityReadFirst,
 				Category:      CategoryRegisterPressure,
 				EvidenceLevel: EvidenceObserved,
-				Location:      Location{Kernel: k.Name},
+				Location:      Location{Kernel: k.Name, Module: k.module},
 				Finding: fmt.Sprintf("Kernel %q allocates %d bytes of local stack frame per thread in CUBIN ELF (EIATTR_FRAME_SIZE), causing spills to high-latency local memory",
 					k.Name, k.FrameSizeBytes),
 				ActionableRecommendation: rec,
@@ -52,7 +52,7 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *Report, infos
 				Severity:      SeverityCost,
 				Category:      CategoryRegisterPressure,
 				EvidenceLevel: EvidenceObserved,
-				Location:      Location{Kernel: k.Name},
+				Location:      Location{Kernel: k.Name, Module: k.module},
 				Finding: fmt.Sprintf("Kernel %q reached the compiler register limit of %d GPRs (EIATTR_MAXREG_COUNT), which may force register spilling or sub-optimal instruction scheduling",
 					k.Name, k.MaxRegCount),
 				ActionableRecommendation: "Raise compiler register budget (-maxrregcount) or restructure compute loops to reduce register demand.",
@@ -109,7 +109,7 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *Report, infos
 				Severity:                 severity,
 				Category:                 CategoryRegisterPressure,
 				EvidenceLevel:            EvidenceSuspected,
-				Location:                 Location{Kernel: k.Name},
+				Location:                 Location{Kernel: k.Name, Module: k.module},
 				Finding:                  finding,
 				ActionableRecommendation: rec,
 				NextMeasurement:          "sm__warps_active.avg.pct_of_peak_sustained_active or A/B wall-clock timing",

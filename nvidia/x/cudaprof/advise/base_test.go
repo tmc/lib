@@ -300,13 +300,13 @@ func TestUnreadSource(t *testing.T) {
 		name      string
 		journal   []byte
 		fusion    string
-		wantImage string // the image that answers for ds4_rms, or ""
+		wantImage string // the images that answer for ds4_rms, comma-separated
 		wantRead  bool
 		wantWhy   string
 	}{
 		{name: "journal names the module", journal: ran(3), wantImage: "math.cubin", wantRead: true},
 		{name: "no journal, three modules define it", wantImage: "probe.cubin", wantWhy: "defined in 3 captured modules"},
-		{name: "ran from two modules", journal: ran(1, 3), wantImage: "probe.cubin", wantWhy: "ran from 2 modules"},
+		{name: "ran from two modules", journal: ran(1, 3), wantImage: "probe.cubin,math.cubin", wantRead: true},
 		{name: "fusion clears every kernel", journal: ran(3), fusion: "shifted", wantImage: "math.cubin", wantWhy: "not from one compilation"},
 	}
 	for _, tt := range tests {
@@ -321,16 +321,13 @@ func TestUnreadSource(t *testing.T) {
 			cap := testCapture(all, journaltest.CompleteStatus())
 			cap.Modules = modules
 			images, unread := kernelImages(cap)
-			var image string
+			var answer []string
 			for _, img := range images {
 				if img.answers("ds4_rms") {
-					if image != "" {
-						t.Fatalf("ds4_rms answered by %s and %s", image, img.file)
-					}
-					image = img.file
+					answer = append(answer, img.file)
 				}
 			}
-			if image != tt.wantImage {
+			if image := strings.Join(answer, ","); image != tt.wantImage {
 				t.Errorf("ds4_rms read from %q, want %q", image, tt.wantImage)
 			}
 			report := &Report{SourceFusion: tt.fusion, Items: []Item{
@@ -346,6 +343,97 @@ func TestUnreadSource(t *testing.T) {
 			}
 			if loc.File != "" || loc.Line != 0 || !strings.HasPrefix(loc.Source, "UNREAD: ") || !strings.Contains(loc.Source, tt.wantWhy) {
 				t.Errorf("location = %s, want file cleared and UNREAD naming %q", loc, tt.wantWhy)
+			}
+		})
+	}
+}
+
+// TestModuleCharge pins per-module accounting: a kernel name that ran from
+// two modules is two kernels, each charged the share of the name's time the
+// journal records from its module, and their findings are not folded into
+// one kernel's.
+func TestModuleCharge(t *testing.T) {
+	modules := []cudacapture.Module{
+		{ID: "a", DriverID: 1, Code: cudacapture.CodeFiles{CUBIN: "a.cubin"}},
+		{ID: "b", DriverID: 2, Code: cudacapture.CodeFiles{CUBIN: "b.cubin"}},
+	}
+	files := map[string][]byte{
+		"a.cubin": moduleCUBIN("gemm", "only_a"),
+		"b.cubin": moduleCUBIN("gemm"),
+	}
+	type launch struct {
+		module uint32
+		dur    int
+	}
+	tests := []struct {
+		name     string
+		launches []launch
+		want     map[string]int64 // kernel key -> time charged
+	}{
+		{
+			name:     "one module",
+			launches: []launch{{1, 300}, {1, 100}},
+			want:     map[string]int64{"gemm": 4e6},
+		},
+		{
+			name:     "split by launch time",
+			launches: []launch{{1, 300}, {2, 100}},
+			want:     map[string]int64{"gemm": 4e6, "gemm\x00a.cubin": 3e6, "gemm\x00b.cubin": 1e6},
+		},
+		{
+			name:     "no durations split evenly",
+			launches: []launch{{1, 0}, {2, 0}},
+			want:     map[string]int64{"gemm": 4e6, "gemm\x00a.cubin": 2e6, "gemm\x00b.cubin": 2e6},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := journaltest.New()
+			start := 1000
+			for i, l := range tt.launches {
+				b.Append(wire.KindActivity, map[string]any{
+					"kind": "activity", "subtype": "kernel", "valid": true, "name": "gemm",
+					"start": start, "end": start + l.dur, "device": 0, "correlation": i + 1, "module_id": l.module,
+				})
+				start += 1000
+			}
+			all := map[string][]byte{"capture.journal": b.Finalize()}
+			for k, v := range files {
+				all[k] = v
+			}
+			cap := testCapture(all, journaltest.CompleteStatus())
+			cap.Modules = modules
+			images, unread := kernelImages(cap)
+			if len(unread) != 0 {
+				t.Errorf("unread = %v, want none", unread)
+			}
+			times := map[string]int64{"gemm": 4e6}
+			chargeModules(times, images)
+			if !reflect.DeepEqual(times, tt.want) {
+				t.Errorf("times = %v, want %v", times, tt.want)
+			}
+
+			var items []Item
+			for _, r := range kernelResources(images) {
+				if r.Name != "gemm" {
+					continue
+				}
+				for _, f := range []string{"spill", "pressure"} {
+					items = append(items, Item{Severity: SeverityCost, Category: CategoryKernel, Finding: f,
+						Location: Location{Kernel: r.Name, Module: r.module}})
+				}
+			}
+			report := &Report{Items: items}
+			finalizeAndRankFindings(report, times, 8e6)
+			var charged int64
+			for _, item := range report.Items {
+				charged += item.DeviceTimeNanos
+				if len(item.Patterns) != 2 {
+					t.Errorf("%s holds %d patterns, want 2", item.Location, len(item.Patterns))
+				}
+			}
+			if charged != 4e6 {
+				t.Errorf("charged %d ns across %d kernels, want 4e6", charged, len(report.Items))
 			}
 		})
 	}

@@ -23,6 +23,20 @@ type kernelImage struct {
 	// kernels names the kernels this image answers for, or is nil when it
 	// answers for every kernel it defines.
 	kernels map[string]bool
+
+	// shares holds, for each kernel this image answers for that also ran
+	// from another image, the fraction of the kernel's launch time the
+	// journal records from this one.
+	shares map[string]float64
+}
+
+// module returns the image to name in a finding about kernel: its file when
+// the kernel ran from more than one image, and "" otherwise.
+func (img kernelImage) module(kernel string) string {
+	if _, ok := img.shares[kernel]; ok {
+		return img.file
+	}
+	return ""
 }
 
 func (img kernelImage) answers(kernel string) bool {
@@ -79,17 +93,21 @@ func kernelImages(cap *cudacapture.Capture) ([]kernelImage, map[string]string) {
 		for i, c := range cands {
 			images[i] = kernelImage{file: c.file, cubin: cap.Files[c.file], kernels: make(map[string]bool)}
 			for name, modules := range ran {
-				if c.module != 0 && modules[c.module] {
+				if _, ok := modules[c.module]; c.module != 0 && ok {
+					images[i].kernels[name] = true
 					holders[name] = append(holders[name], c.file)
-					if len(holders[name]) == 1 {
-						images[i].kernels[name] = true
-					}
 				}
 			}
 		}
-		for name, files := range holders {
-			if len(files) > 1 {
-				unread[name] = fmt.Sprintf("kernel ran from %d modules (%s); advise reads the first and charges time by name", len(files), strings.Join(files, ", "))
+		for i, c := range cands {
+			for name := range images[i].kernels {
+				if len(holders[name]) < 2 {
+					continue
+				}
+				if images[i].shares == nil {
+					images[i].shares = make(map[string]float64)
+				}
+				images[i].shares[name] = moduleShare(ran[name], c.module)
 			}
 		}
 	} else {
@@ -118,10 +136,17 @@ func kernelImages(cap *cudacapture.Capture) ([]kernelImage, map[string]string) {
 	return kept, unread
 }
 
+// kernelResource is the .nv.info resources of a kernel, and the image to name
+// in findings about it (see kernelImage.module).
+type kernelResource struct {
+	cudaoccupancy.KernelResourceInfo
+	module string
+}
+
 // kernelResources returns the .nv.info resources of each kernel the images
 // answer for.
-func kernelResources(images []kernelImage) []cudaoccupancy.KernelResourceInfo {
-	var infos []cudaoccupancy.KernelResourceInfo
+func kernelResources(images []kernelImage) []kernelResource {
+	var infos []kernelResource
 	for _, img := range images {
 		kinfos, err := cudaoccupancy.ReadKernelInfoBytes(img.cubin)
 		if err != nil {
@@ -129,11 +154,24 @@ func kernelResources(images []kernelImage) []cudaoccupancy.KernelResourceInfo {
 		}
 		for _, k := range kinfos {
 			if img.answers(k.Name) {
-				infos = append(infos, k)
+				infos = append(infos, kernelResource{k, img.module(k.Name)})
 			}
 		}
 	}
 	return infos
+}
+
+// chargeModules adds to kernelTimes the time of each kernel that ran from
+// several images, per image, under the key of a finding that names the image
+// (see Location.kernelKey). The time is the kernel's, split by the share of
+// its launch time the journal records from each image.
+func chargeModules(kernelTimes map[string]int64, images []kernelImage) {
+	for _, img := range images {
+		for name, share := range img.shares {
+			key := Location{Kernel: name, Module: img.file}.kernelKey()
+			kernelTimes[key] = int64(float64(kernelTimes[name]) * share)
+		}
+	}
 }
 
 // findCaptureCUBIN returns the capture's own CUBIN, when it names one.
@@ -146,10 +184,25 @@ func findCaptureCUBIN(cap *cudacapture.Capture) ([]byte, bool) {
 	return nil, false
 }
 
+// moduleShare returns the fraction of a kernel's launch time that ran from
+// module, given the launch time from each module it ran from. Launches with
+// no recorded duration split the kernel evenly.
+func moduleShare(times map[uint32]int64, module uint32) float64 {
+	var total int64
+	for _, t := range times {
+		total += t
+	}
+	if total <= 0 {
+		return 1 / float64(len(times))
+	}
+	return float64(times[module]) / float64(total)
+}
+
 // kernelModules returns, for each kernel the journal records a launch of, the
-// driver ids of the modules it ran from. It is empty when the capture has no
-// readable journal or its records do not name modules.
-func kernelModules(cap *cudacapture.Capture) map[string]map[uint32]bool {
+// launch time from each module it ran from, keyed by the module's driver id.
+// It is empty when the capture has no readable journal or its records do not
+// name modules.
+func kernelModules(cap *cudacapture.Capture) map[string]map[uint32]int64 {
 	journals, err := timeline.Journals(cap)
 	if err != nil {
 		return nil
@@ -158,24 +211,25 @@ func kernelModules(cap *cudacapture.Capture) map[string]map[uint32]bool {
 	if err != nil {
 		return nil
 	}
-	ran := make(map[string]map[uint32]bool)
+	ran := make(map[string]map[uint32]int64)
 	for _, a := range records.Activities {
 		if a.Subtype != "kernel" || a.Module == 0 || a.Name == "" {
 			continue
 		}
 		if ran[a.Name] == nil {
-			ran[a.Name] = make(map[uint32]bool)
+			ran[a.Name] = make(map[uint32]int64)
 		}
-		ran[a.Name][a.Module] = true
+		ran[a.Name][a.Module] += max(a.End-a.Start, 0)
 	}
 	return ran
 }
 
 // adviseDisassembly returns the SASS advise reads, holding for each kernel
-// the code of the image that answers for it.
-func adviseDisassembly(cap *cudacapture.Capture, images []kernelImage) *cudasass.Disassembly {
+// the code of each image that answers for it, and the image to name in
+// findings about each function (see kernelImage.module).
+func adviseDisassembly(cap *cudacapture.Capture, images []kernelImage) (*cudasass.Disassembly, map[*cudasass.Function]string) {
 	if d, err := capturefiles.Pressure(cap); err == nil && d != nil {
-		return d
+		return d, nil
 	}
 	// Each image is two nvdisasm runs, and a process capture holds one
 	// image per loaded module, so disassemble them concurrently.
@@ -195,6 +249,7 @@ func adviseDisassembly(cap *cudacapture.Capture, images []kernelImage) *cudasass
 	}
 	wg.Wait()
 	var fns []*cudasass.Function
+	modules := make(map[*cudasass.Function]string)
 	for i, d := range disasms {
 		if d == nil {
 			continue
@@ -202,18 +257,21 @@ func adviseDisassembly(cap *cudacapture.Capture, images []kernelImage) *cudasass
 		for _, fn := range d.Functions {
 			if images[i].answers(fn.Name) {
 				fns = append(fns, fn)
+				if m := images[i].module(fn.Name); m != "" {
+					modules[fn] = m
+				}
 			}
 		}
 	}
 	if len(fns) > 0 {
-		return &cudasass.Disassembly{Functions: fns}
+		return &cudasass.Disassembly{Functions: fns}, modules
 	}
 	if data, ok := capturefiles.SASS(cap); ok && len(data) > 0 {
 		if d, err := cudasass.Parse(bytes.NewReader(data)); err == nil {
-			return d
+			return d, nil
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 // formatPCs lists the first few addresses of insts and counts the rest.

@@ -98,7 +98,7 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 	}
 
 	images, unread := kernelImages(cap)
-	disasm := adviseDisassembly(cap, images)
+	disasm, modules := adviseDisassembly(cap, images)
 	resources := kernelResources(images)
 
 	ptxData, ptxFile, _ := capturefiles.PTX(cap)
@@ -113,7 +113,7 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 	mathKernels, math := floatMathByKernel(disasm, ptxMod, ptxFile)
 	frames := make(map[string]int)
 	for _, k := range resources {
-		frames[k.Name] = k.FrameSizeBytes
+		frames[k.Name] = max(frames[k.Name], k.FrameSizeBytes)
 	}
 	auditPreciseFloatMath(cap, report, mathKernels, math, frames)
 
@@ -169,6 +169,7 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 					EvidenceLevel: EvidenceSuspected,
 					Location: Location{
 						Kernel: fn.Name,
+						Module: modules[fn],
 						PC:     first.Address,
 						File:   first.SourceFile,
 						Line:   first.SourceLine,
@@ -192,6 +193,7 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 					EvidenceLevel: EvidenceObserved,
 					Location: Location{
 						Kernel: fn.Name,
+						Module: modules[fn],
 						PC:     first.Address,
 						File:   first.SourceFile,
 						Line:   first.SourceLine,
@@ -205,6 +207,7 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 			// Occupancy cliffs / Peak GPR
 			locGPR := Location{
 				Kernel: fn.Name,
+				Module: modules[fn],
 				PC:     peakGPRAddr,
 				File:   peakGPRInst.SourceFile,
 				Line:   peakGPRInst.SourceLine,
@@ -269,6 +272,7 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 					EvidenceLevel: EvidenceObserved,
 					Location: Location{
 						Kernel: fn.Name,
+						Module: modules[fn],
 						PC:     peakUGPRAddr,
 						File:   peakUGPRInst.SourceFile,
 						Line:   peakUGPRInst.SourceLine,
@@ -430,6 +434,7 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 
 	// 8. Kernel Family Dominance Audit (Macro Architectural Bottlenecks)
 	kernelTimes, totalTime := computeProfileTimes(cap)
+	chargeModules(kernelTimes, images)
 	hasTiming := hasDeviceTiming(cap)
 	auditKernelFamilyDominance(cap, report, kernelTimes, totalTime, hasTiming)
 

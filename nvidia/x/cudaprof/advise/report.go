@@ -87,9 +87,16 @@ const (
 // Location specifies the source or machine code position associated with an advice item.
 type Location struct {
 	Kernel string `json:"kernel,omitempty"`
-	PC     uint64 `json:"pc,omitempty"`
-	File   string `json:"file,omitempty"`
-	Line   int    `json:"line,omitempty"`
+
+	// Module is the captured image the kernel's code was read from, set
+	// when a kernel of this name ran from more than one module. Each is a
+	// different kernel, charged the share of the name's time the journal
+	// records from its module.
+	Module string `json:"module,omitempty"`
+
+	PC   uint64 `json:"pc,omitempty"`
+	File string `json:"file,omitempty"`
+	Line int    `json:"line,omitempty"`
 
 	// CallSite is the host call site of a host API finding, or UNREAD with
 	// the reason when the capture does not hold one.
@@ -105,6 +112,9 @@ func (l Location) String() string {
 	var parts []string
 	if l.Kernel != "" {
 		parts = append(parts, fmt.Sprintf("kernel %s", l.Kernel))
+	}
+	if l.Module != "" {
+		parts = append(parts, "module "+l.Module)
 	}
 	if l.File != "" {
 		if l.Line > 0 {
@@ -123,6 +133,15 @@ func (l Location) String() string {
 		parts = append(parts, "call site "+l.CallSite)
 	}
 	return strings.Join(parts, ", ")
+}
+
+// kernelKey returns the key of the kernel l names in kernel times: its name,
+// qualified by its module when it has one.
+func (l Location) kernelKey() string {
+	if l.Module == "" {
+		return l.Kernel
+	}
+	return l.Kernel + "\x00" + l.Module
 }
 
 // Item represents a single diagnosis or performance recommendation.

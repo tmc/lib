@@ -32,7 +32,7 @@ func finalizeAndRankFindingsWithTiming(report *Report, kernelTimes map[string]in
 		item := &report.Items[i]
 		if hasTiming {
 			if item.DeviceTimeNanos == 0 && item.Location.Kernel != "" {
-				item.DeviceTimeNanos = kernelTimes[item.Location.Kernel]
+				item.DeviceTimeNanos = kernelTimes[item.Location.kernelKey()]
 			}
 			if totalTime > 0 && item.DeviceTimeNanos > 0 && item.ShareOfProfile == 0 {
 				item.ShareOfProfile = float64(item.DeviceTimeNanos) / float64(totalTime) * 100.0
@@ -41,7 +41,7 @@ func finalizeAndRankFindingsWithTiming(report *Report, kernelTimes map[string]in
 			// Pure PC-sample or sample profile: do not assign sample counts to DeviceTimeNanos!
 			// DeviceTimeNanos remains 0.
 			if totalTime > 0 && item.ShareOfProfile == 0 && item.Location.Kernel != "" {
-				kSamples := kernelTimes[item.Location.Kernel]
+				kSamples := kernelTimes[item.Location.kernelKey()]
 				if kSamples > 0 {
 					item.ShareOfProfile = float64(kSamples) / float64(totalTime) * 100.0
 				}
@@ -200,7 +200,7 @@ func groupItem(r string, held []Item) Item {
 	var total, largest int64
 	var share float64
 	for _, item := range held {
-		k := item.Location.Kernel
+		k := item.Location.kernelKey()
 		if k == "" || strings.Contains(k, " -> ") || kernels[k] {
 			distinct = false
 		}
@@ -253,13 +253,14 @@ func foldKernelPatterns(items []Item) []Item {
 	byKernel := make(map[string][]Item)
 	for _, item := range items {
 		if takesKernelTime(item) {
-			byKernel[item.Location.Kernel] = append(byKernel[item.Location.Kernel], item)
+			k := item.Location.kernelKey()
+			byKernel[k] = append(byKernel[k], item)
 		}
 	}
 	var out []Item
 	folded := make(map[string]bool)
 	for _, item := range items {
-		k := item.Location.Kernel
+		k := item.Location.kernelKey()
 		patterns := byKernel[k]
 		if !takesKernelTime(item) || len(patterns) < 2 {
 			out = append(out, item)
@@ -273,8 +274,8 @@ func foldKernelPatterns(items []Item) []Item {
 			Severity: SeverityContext,
 			Category: CategoryKernel,
 			rule:     "kernel-patterns",
-			Location: Location{Kernel: k},
-			Finding:  fmt.Sprintf("%d patterns in kernel %q; the kernel's time is counted once", len(patterns), k),
+			Location: Location{Kernel: item.Location.Kernel, Module: item.Location.Module},
+			Finding:  fmt.Sprintf("%d patterns in kernel %q; the kernel's time is counted once", len(patterns), item.Location.Kernel),
 			Patterns: patterns,
 		}
 		for _, p := range patterns {
