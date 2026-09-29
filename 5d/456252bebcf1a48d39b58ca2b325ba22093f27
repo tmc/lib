@@ -1,0 +1,6 @@
+commit 5d456252bebcf1a48d39b58ca2b325ba22093f27
+cherry-pick of 16dfbcb3a (241C nccl-deferred-out), user approval relayed by 241C535C
+date 2026-09-28T23:05:22-07:00
+agent claude-code 2.1.280, model claude-opus-5-5
+tty not a tty pid 43793 ITERM_SESSION_ID=w8t0p10:E8F57AFD-1DAC-47B0-AA52-5A76722DD540
+session=f67c2dcc-2b3c-4d7a-91ca-4741e68f9911
