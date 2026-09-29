@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudaerrors"
@@ -561,18 +560,7 @@ func runDetectorWithTimeout(ctx context.Context, timeout time.Duration, runCmd, 
 	runCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	cmd := exec.CommandContext(runCtx, "sh", "-c", "exec "+runCmd+" \"$1\"", "cudatrial", binaryPath)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	cmd.WaitDelay = time.Second
-	cmd.Cancel = func() error {
-		if cmd.Process == nil {
-			return os.ErrProcessDone
-		}
-		err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-		if errors.Is(err, syscall.ESRCH) {
-			return os.ErrProcessDone
-		}
-		return err
-	}
+	configureDetectorCommand(cmd)
 	out, err := cmd.CombinedOutput()
 	res.Output = string(out)
 	if errors.Is(runCtx.Err(), context.DeadlineExceeded) {
