@@ -912,33 +912,56 @@ func rewrittenFunctionIsConsistent(original parsedFunction, rewrittenLines []str
 	rewritten := parseFunctionLines(rewrittenLines)
 	for i, before := range original.lines {
 		after := rewritten.lines[i]
+		if before.result != after.result || !sameLLVMIDs(before.ids, after.ids) {
+			return false
+		}
 		if before.hasAlloca && toRewrite[before.allocaName] {
-			_, allocType, ok := parseAlloca(after.code)
+			name, allocType, ok := parseAlloca(after.code)
 			_, newType := inferredPointerType(slots[before.allocaName].allocType)
-			if !ok || allocType != newType {
+			if !ok || name != before.allocaName || allocType != newType {
+				return false
+			}
+		} else if before.hasAlloca {
+			if !after.hasAlloca || before.allocaName != after.allocaName || before.allocType != after.allocType {
 				return false
 			}
 		}
 		if !before.hasMem {
+			if after.hasMem {
+				return false
+			}
 			continue
 		}
+		if !after.hasMem || before.mem.kind != after.mem.kind || before.mem.result != after.mem.result || before.mem.ptrID != after.mem.ptrID || before.mem.valueID != after.mem.valueID {
+			return false
+		}
+		wantValueType, wantPtrType := before.mem.valueType, before.mem.ptrType
 		if slot := lineSlotAccess[i]; slot != "" && toRewrite[slot] {
-			_, newType := inferredPointerType(slots[slot].allocType)
-			if !after.hasMem || after.mem.kind != before.mem.kind || after.mem.ptrID != slot || after.mem.valueType != newType {
-				return false
+			_, wantValueType = inferredPointerType(slots[slot].allocType)
+			if slots[slot].allocType != "ptr" {
+				wantPtrType = wantValueType + "*"
 			}
 		}
 		if src, ok := loadedFrom[before.mem.ptrID]; ok && toRewrite[src] {
-			_, newType := inferredPointerType(slots[src].allocType)
-			if !after.hasMem || after.mem.kind != before.mem.kind || after.mem.ptrID != before.mem.ptrID || after.mem.ptrType != newType {
-				return false
-			}
+			_, wantPtrType = inferredPointerType(slots[src].allocType)
 		}
 		if src, ok := loadedFrom[before.mem.valueID]; ok && toRewrite[src] {
-			_, newType := inferredPointerType(slots[src].allocType)
-			if !after.hasMem || after.mem.kind != "store" || after.mem.valueID != before.mem.valueID || after.mem.valueType != newType {
-				return false
-			}
+			_, wantValueType = inferredPointerType(slots[src].allocType)
+		}
+		if after.mem.valueType != wantValueType || after.mem.ptrType != wantPtrType {
+			return false
+		}
+	}
+	return true
+}
+
+func sameLLVMIDs(a, b []irID) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
 		}
 	}
 	return true

@@ -418,7 +418,6 @@ entry:
   %v = load i8, i8* %p, align 1
   ret void
 }
-
 `)
 	verifyIRWithClang(t, ir)
 	got, report, err := InferAddressSpaces(ir)
@@ -440,6 +439,115 @@ entry:
 	}
 	verifyIRWithClang(t, got)
 	assertIndependentSlotTypes(t, got, report)
+}
+
+func TestAddrSpace_RewriteFallsBackWhenFirstMatchTargetsNamesOrMissesTypedOperands(t *testing.T) {
+	tests := []struct {
+		name string
+		ir   string
+		slot string
+	}{
+		{
+			name: "quoted load result contains slot operand",
+			slot: "%slot",
+			ir: `@smem = internal addrspace(3) global i8 0
+define void @kernel() {
+entry:
+  %slot = alloca i8*, align 8
+  store i8* addrspacecast (i8 addrspace(3)* @smem to i8*), i8** %slot, align 8
+  %"q i8** %slot" = load i8*, i8** %slot, align 8
+  store i8 7, i8* %"q i8** %slot", align 1
+  ret void
+}
+`,
+		},
+		{
+			name: "quoted typed parameter contains slot operand",
+			slot: "%slot",
+			ir: `@smem = internal addrspace(3) global i8 0
+define void @kernel(i8 addrspace(3)* %"x i8** %slot") {
+entry:
+  %slot = alloca i8*, align 8
+  store i8 addrspace(3)* %"x i8** %slot", i8** %slot, align 8
+  %p = load i8*, i8** %slot, align 8
+  store i8 7, i8* %p, align 1
+  ret void
+}
+`,
+		},
+		{
+			name: "quoted opaque parameter matches store text",
+			slot: "%slot",
+			ir: `@smem = internal addrspace(3) global i8 0
+define void @kernel(ptr addrspace(3) %"store ptr ") {
+entry:
+  %slot = alloca ptr, align 8
+  store  ptr addrspace(3) %"store ptr ", ptr %slot, align 8
+  ret void
+}
+`,
+		},
+		{
+			name: "typed load with two spaces before operand",
+			slot: "%slot",
+			ir: `@smem = internal addrspace(3) global i8 0
+define void @kernel() {
+entry:
+  %slot = alloca i8*, align 8
+  store i8 addrspace(3)* @smem, i8** %slot, align 8
+  %p = load i8*, i8**  %slot, align 8
+  store i8 7, i8* %p, align 1
+  ret void
+}
+`,
+		},
+		{
+			name: "typed load with tab before operand",
+			slot: "%slot",
+			ir: `@smem = internal addrspace(3) global i8 0
+define void @kernel() {
+entry:
+  %slot = alloca i8*, align 8
+  store i8 addrspace(3)* @smem, i8** %slot, align 8
+  %p = load i8*, i8**\t%slot, align 8
+  store i8 7, i8* %p, align 1
+  ret void
+}
+`,
+		},
+		{
+			name: "typed store with two spaces before operand",
+			slot: "%slot",
+			ir: `@smem = internal addrspace(3) global i8 0
+define void @kernel() {
+entry:
+  %slot = alloca i8*, align 8
+  store i8 addrspace(3)* @smem, i8**  %slot, align 8
+  %p = load i8*, i8** %slot, align 8
+  store i8 7, i8* %p, align 1
+  ret void
+}
+`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ir := []byte(strings.ReplaceAll(tt.ir, `\t`, "\t"))
+			verifyIRWithClang(t, ir)
+			got, report, err := InferAddressSpaces(ir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			info, ok := report.Slots["@kernel/"+tt.slot]
+			if !ok || info.Effective != AddrSpaceGeneric {
+				t.Fatalf("unsafe spelling narrowed or omitted slot: %+v", report.Slots["@kernel/"+tt.slot])
+			}
+			if !bytes.Equal(got, ir) {
+				t.Fatalf("unsafe spelling did not fall back byte-for-byte:\n%s", got)
+			}
+			verifyIRWithClang(t, got)
+		})
+	}
 }
 
 func TestAddrSpace_LLVMIdentifiersAreWholeTokens(t *testing.T) {
