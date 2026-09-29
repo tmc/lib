@@ -438,3 +438,64 @@ func TestModuleCharge(t *testing.T) {
 		})
 	}
 }
+
+// TestMissingModuleCode pins the notice for module images the capture did not
+// keep: it names them by reason and charges it the share of kernel time that
+// ran from them, which code-based findings cannot see.
+func TestMissingModuleCode(t *testing.T) {
+	status := journaltest.CompleteStatus()
+	status["modules"] = []any{
+		map[string]any{"module_id": 1, "size": 10, "file": "a.cubin", "stored": true},
+		map[string]any{"module_id": 2, "size": 121e6, "stored": false, "reason": "over per-module budget"},
+	}
+	type launch struct {
+		name   string
+		module uint32
+		dur    int
+	}
+	tests := []struct {
+		name     string
+		launches []launch
+		want     string
+		wantTime int64
+	}{
+		{
+			name:     "no kernel ran from it",
+			launches: []launch{{"a", 1, 100}},
+			want:     "Code not captured for 1 module, 121.0 MB: 1 over per-module budget (121.0 MB)",
+		},
+		{
+			name:     "kernels ran from it",
+			launches: []launch{{"a", 1, 100}, {"b", 2, 100}, {"c", 1, 300}, {"c", 2, 100}},
+			want:     "; 2 kernels that ran from them hold 30.0% of kernel time",
+			wantTime: 3e6,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := journaltest.New()
+			start := 1000
+			for i, l := range tt.launches {
+				b.Append(wire.KindActivity, map[string]any{
+					"kind": "activity", "subtype": "kernel", "valid": true, "name": l.name,
+					"start": start, "end": start + l.dur, "device": 0, "correlation": i + 1, "module_id": l.module,
+				})
+				start += 1000
+			}
+			cap := testCapture(map[string][]byte{"capture.journal": b.Finalize()}, status)
+			times := map[string]int64{"a": 2e6, "b": 2e6, "c": 4e6}
+			var report Report
+			auditMissingModuleCode(cap, &report, times, 10e6, true)
+			if len(report.Items) != 1 {
+				t.Fatalf("got %d items, want 1", len(report.Items))
+			}
+			item := report.Items[0]
+			if !strings.Contains(item.Finding, tt.want) {
+				t.Errorf("finding = %q, want it to contain %q", item.Finding, tt.want)
+			}
+			if item.DeviceTimeNanos != tt.wantTime {
+				t.Errorf("device time = %d, want %d", item.DeviceTimeNanos, tt.wantTime)
+			}
+		})
+	}
+}

@@ -1,7 +1,6 @@
 package advise
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -409,7 +408,6 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 
 	// 0. Capture Status & Integrity Audit
 	auditCaptureStatus(cap, report)
-	auditMissingModuleCode(cap, report)
 
 	// 3. CUBIN ELF Resource & Microarchitecture Occupancy Audit (via x/cudaoccupancy)
 	auditCUBINResourceOccupancy(cap, report, resources, launchesByKernel, math)
@@ -437,6 +435,7 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 	chargeModules(kernelTimes, images)
 	hasTiming := hasDeviceTiming(cap)
 	auditKernelFamilyDominance(cap, report, kernelTimes, totalTime, hasTiming)
+	auditMissingModuleCode(cap, report, kernelTimes, totalTime, hasTiming)
 
 	markUnreadSources(report, unread)
 
@@ -453,34 +452,56 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 	return report, nil
 }
 
-func auditMissingModuleCode(cap *cudacapture.Capture, report *Report) {
-	if cap == nil || report == nil {
+// auditMissingModuleCode says which module images the capture did not keep,
+// and how much of the kernel time ran from them: code-based findings cannot
+// see those kernels, and a short list of findings reads as a clean bill for
+// code no finding inspected.
+func auditMissingModuleCode(cap *cudacapture.Capture, report *Report, kernelTimes map[string]int64, totalTime int64, hasTiming bool) {
+	missing := capturefiles.MissingModuleCode(cap)
+	if len(missing) == 0 {
 		return
 	}
-	var status struct {
-		Status struct {
-			OmittedFiles []struct {
-				Name   string `json:"name"`
-				Reason string `json:"reason"`
-			} `json:"omitted_files"`
-		} `json:"status"`
-	}
-	if json.Unmarshal(cap.Files["capture-status.json"], &status) != nil {
-		return
-	}
-	var omitted []string
-	for _, file := range status.Status.OmittedFiles {
-		if strings.HasSuffix(strings.ToLower(file.Name), ".cubin") && strings.Contains(strings.ToLower(file.Reason), "budget") {
-			omitted = append(omitted, fmt.Sprintf("%s (%s)", file.Name, file.Reason))
+	finding := "Code not captured for " + capturefiles.DescribeMissingCode(missing)
+	unseen := make(map[uint32]bool)
+	for _, m := range missing {
+		if m.Module != 0 {
+			unseen[m.Module] = true
 		}
 	}
-	if len(omitted) == 0 {
-		return
+	var kernels int
+	var unseenTime int64
+	for name, modules := range kernelModules(cap) {
+		var share float64
+		for id := range modules {
+			if unseen[id] {
+				share += moduleShare(modules, id)
+			}
+		}
+		if share > 0 {
+			kernels++
+			unseenTime += int64(float64(kernelTimes[name]) * share)
+		}
 	}
-	report.Items = append(report.Items, Item{
-		Severity: SeverityReadFirst, severityByKind: true, Category: CategoryMemory, EvidenceLevel: EvidenceUnmeasured,
-		Finding:                  "Code not captured for over-budget module(s): " + strings.Join(omitted, ", "),
-		ActionableRecommendation: "Increase --capture-file-bytes or --capture-total-bytes on the capture that writes these CUBINs; code-based findings are incomplete for the omitted modules.",
+	item := Item{
+		Severity: SeverityReadFirst, severityByKind: true, Category: CategoryKernel, EvidenceLevel: EvidenceObserved,
+		ActionableRecommendation: "Raise CUDAPROF_MODULE_FILE_BYTES, --capture-file-bytes or --capture-total-bytes on the capture that loads these modules; code-based findings are incomplete for them.",
 		NextMeasurement:          "rerun cudaprof advise after capturing the omitted module images",
-	})
+	}
+	switch {
+	case kernels > 0 && totalTime > 0:
+		share := float64(unseenTime) / float64(totalTime) * 100
+		unit := "of kernel time"
+		if !hasTiming {
+			unit = "of samples"
+		}
+		finding += fmt.Sprintf("; %d kernels that ran from them hold %.1f%% %s", kernels, share, unit)
+		item.ShareOfProfile = share
+		if hasTiming {
+			item.DeviceTimeNanos = unseenTime
+		}
+	case kernels > 0:
+		finding += fmt.Sprintf("; %d kernels ran from them", kernels)
+	}
+	item.Finding = finding
+	report.Items = append(report.Items, item)
 }

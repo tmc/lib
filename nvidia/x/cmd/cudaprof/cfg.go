@@ -81,6 +81,7 @@ func runCFGCommand(rawArgs []string) error {
 	if err != nil {
 		return fmt.Errorf("read capture: %w", err)
 	}
+	reportMissingModuleCode(os.Stderr, cap)
 	return printCaptureCFG(os.Stdout, cap, kernel, basicBlocks)
 }
 
@@ -104,6 +105,7 @@ func runInspectCFG(args []string, limits cudacapture.Limits) error {
 	if err != nil {
 		return fmt.Errorf("read capture: %w", err)
 	}
+	reportMissingModuleCode(os.Stderr, cap)
 	return printCaptureCFG(os.Stdout, cap, kernel, basicBlocks)
 }
 

@@ -201,6 +201,7 @@ func run() error {
 	fetch := &fetcher{path: path, dir: extractDir, cap: cap, tool: tool, limits: limits}
 	args, allowUnknownCoverage := stripCoverageFlag(os.Args[1:])
 	if handled, err := retainedDisasm(os.Stdout, args, cap.Profile, tool); handled {
+		reportMissingModuleCode(os.Stderr, cap)
 		return err
 	}
 	// Refuse an artifact that records its own failure before handing it to

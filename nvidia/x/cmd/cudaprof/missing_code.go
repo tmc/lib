@@ -1,44 +1,19 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
-	"path/filepath"
-	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/internal/capturefiles"
 )
 
-func budgetOmittedCubins(cap *cudacapture.Capture) []captureOmittedFile {
-	if cap == nil {
-		return nil
-	}
-	var status struct {
-		Status struct {
-			OmittedFiles []captureOmittedFile `json:"omitted_files"`
-		} `json:"status"`
-	}
-	if json.Unmarshal(cap.Files["capture-status.json"], &status) != nil {
-		return nil
-	}
-	var omitted []captureOmittedFile
-	for _, file := range status.Status.OmittedFiles {
-		if strings.EqualFold(filepath.Ext(file.Name), ".cubin") && strings.Contains(file.Reason, "budget") {
-			omitted = append(omitted, file)
-		}
-	}
-	return omitted
-}
-
+// reportMissingModuleCode says which module images the capture did not keep,
+// for each view that reads code: a kernel from one of them has no SASS,
+// pressure, control-flow graph or code-based advice, and the view would
+// otherwise read as if it had none to show.
 func reportMissingModuleCode(w io.Writer, cap *cudacapture.Capture) {
-	files := budgetOmittedCubins(cap)
-	if len(files) == 0 {
-		return
+	if s := capturefiles.DescribeMissingCode(capturefiles.MissingModuleCode(cap)); s != "" {
+		fmt.Fprintf(w, "cudaprof: code not captured for %s; pressure, cfg, disasm and code-based advice cannot inspect those modules\n", s)
 	}
-	items := make([]string, 0, len(files))
-	for _, file := range files {
-		items = append(items, fmt.Sprintf("%s (%s)", filepath.Base(file.Name), file.Reason))
-	}
-	fmt.Fprintf(w, "cudaprof: code not captured (module over budget): %s; pressure and code-based advice cannot inspect those modules\n", strings.Join(items, ", "))
 }
