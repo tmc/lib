@@ -339,6 +339,12 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *Report) {
 					Finding:                  finding,
 					ActionableRecommendation: rec,
 					NextMeasurement:          "intermediate tensor bytes and achieved DRAM bandwidth, followed by A/B wall-clock timing",
+					// The pair runtime is the only duration the finding names,
+					// so the item carries it for JSON consumers, but the header
+					// says what it is: the saving is the intermediate traffic,
+					// a fraction of it.
+					DeviceTimeNanos: int64(ps.totalDur),
+					magnitude:       pairRuntime(int64(ps.totalDur)),
 				})
 				if a, b := explicitDType(ev1.Name), explicitDType(ev2.Name); a != "" || b != "" {
 					if a == "" || b == "" {
@@ -389,6 +395,12 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *Report) {
 					Finding:                  finding,
 					ActionableRecommendation: rec,
 					NextMeasurement:          "intermediate tensor bytes and achieved DRAM bandwidth, followed by A/B wall-clock timing",
+					// The pair runtime is the only duration the finding names,
+					// so the item carries it for JSON consumers, but the header
+					// says what it is: the saving is the intermediate traffic,
+					// a fraction of it.
+					DeviceTimeNanos: int64(ps.totalDur),
+					magnitude:       pairRuntime(int64(ps.totalDur)),
 				})
 			}
 
@@ -524,4 +536,13 @@ func unmeasuredLaunchReason(apiRecords int) (why, recommendation string) {
 	}
 	return "host launch timestamps are absent from this capture",
 		"Capture host launch API records (correlation-matched) to test whether host submission is behind the device before restructuring dispatch."
+}
+
+// pairRuntime labels a round-trip finding's device time as the pair's
+// runtime, which bounds the removable intermediate traffic from above.
+func pairRuntime(d int64) string {
+	if d <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("pair runtime %.2f ms, not removable time", float64(d)/1e6)
 }

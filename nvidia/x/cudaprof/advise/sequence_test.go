@@ -221,9 +221,9 @@ func TestAdvice_PointwiseFusion(t *testing.T) {
 			},
 			wantWarning:  true,
 			wantCategory: CategoryMemoryCompute,
-			wantSeverity: SeverityCost,
-			wantFinding:  "Redundant global memory round-trips for intermediate tensors",
-			wantRec:      "Fuse into a single kernel (e.g. fused SwiGLU + quant)",
+			wantSeverity: SeverityContext,
+			wantFinding:  "Possible intermediate-tensor round-trip",
+			wantRec:      "fuse SwiGLU + quant",
 		},
 		{
 			name: "pointwise_matching_buffers",
@@ -256,9 +256,9 @@ func TestAdvice_PointwiseFusion(t *testing.T) {
 			},
 			wantWarning:  true,
 			wantCategory: CategoryMemoryCompute,
-			wantSeverity: SeverityCost,
-			wantFinding:  "Redundant global memory round-trips for intermediate tensors",
-			wantRec:      "Fuse into a single kernel",
+			wantSeverity: SeverityContext,
+			wantFinding:  "Possible intermediate-tensor round-trip",
+			wantRec:      "fuse SiLU + elementwise_scale_bias",
 		},
 		{
 			name: "different_streams_no_fusion",
@@ -513,8 +513,8 @@ deepseek_decode:
 		{
 			name:     "heuristic_5_pointwise_fusion",
 			category: CategoryMemoryCompute,
-			finding:  "Redundant global memory round-trips for intermediate tensors",
-			rec:      "Fuse into a single kernel (e.g. fused SwiGLU + quant)",
+			finding:  "Possible intermediate-tensor round-trip",
+			rec:      "fuse SwiGLU + quant",
 		},
 	}
 
@@ -572,10 +572,10 @@ func TestAdvice_SequentialRMSNormQuantFusion(t *testing.T) {
 
 	var found bool
 	for _, item := range report.Items {
-		if item.Category == CategoryMemoryCompute && strings.Contains(item.Finding, "Redundant global memory round-trips for normalized activations") {
+		if item.Category == CategoryMemoryCompute && strings.Contains(item.Finding, "Possible normalized-activation round-trip") {
 			found = true
-			if !strings.Contains(item.ActionableRecommendation, "Fuse normalization and quantization") {
-				t.Errorf("recommendation = %q, want containing fuse normalization and quantization", item.ActionableRecommendation)
+			if !strings.Contains(item.ActionableRecommendation, "to avoid the intermediate write and read") {
+				t.Errorf("recommendation = %q, want containing the intermediate write and read", item.ActionableRecommendation)
 			}
 			break
 		}
@@ -868,8 +868,8 @@ func TestAdvice_PointwiseKernelPairFusion(t *testing.T) {
 	for _, it := range report.Items {
 		if strings.Contains(it.Finding, "occurred 25 times") {
 			foundFusion = true
-			if !strings.Contains(it.ActionableRecommendation, "eliminate 25 DRAM round-trips") {
-				t.Errorf("expected recommendation to cite 25 round trips, got: %s", it.ActionableRecommendation)
+			if !strings.Contains(it.Finding, "not an estimate of removable time") {
+				t.Errorf("finding presents the pair runtime as removable time: %s", it.Finding)
 			}
 		}
 	}
@@ -950,14 +950,18 @@ func TestFusionPairFindingCarriesItsDeviceTime(t *testing.T) {
 }
 
 // accumulatedFromFinding returns the duration a pair finding names in its
-// "accumulating <d>" clause.
+// "pair runtime <d>" or "accumulating <d>" clause.
 func accumulatedFromFinding(finding string) (time.Duration, bool) {
-	const marker = "accumulating "
-	i := strings.Index(finding, marker)
-	if i < 0 {
+	var rest string
+	for _, marker := range []string{"pair runtime ", "accumulating "} {
+		if i := strings.LastIndex(finding, marker); i >= 0 {
+			rest = finding[i+len(marker):]
+			break
+		}
+	}
+	if rest == "" {
 		return 0, false
 	}
-	rest := finding[i+len(marker):]
 	if j := strings.IndexAny(rest, ")"); j >= 0 {
 		rest = rest[:j]
 	}
