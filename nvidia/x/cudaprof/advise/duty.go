@@ -366,6 +366,15 @@ func auditOpaqueDutyCeiling(streams map[uint32][]timeline.Event, pct float64, sp
 func auditDeviceDutyCycle(cap *cudacapture.Capture, report *Report) {
 	streams, graphsOpaque := timeline.Events(cap)
 	pct, spanNs, busyNs, ok := profileDutyCycle(streams)
+	// Several capture ranges leave uncaptured time between them. The gaps
+	// analysis reads the whole capture and would name that time as the
+	// largest stall, so its findings are withheld on such a capture.
+	windows := captureWindows(cap)
+	windowed := len(windows) > 1
+	if windowed {
+		pct, spanNs, busyNs, streams, ok = windowedDutyCycle(streams, windows)
+		report.CaptureWindows = len(windows)
+	}
 	if !ok {
 		return
 	}
@@ -375,7 +384,9 @@ func auditDeviceDutyCycle(cap *cudacapture.Capture, report *Report) {
 		// stall, and the duty cycle is exactly what hides it: the same stall
 		// beside longer kernels is a smaller share of a longer span. The
 		// concentration is the trigger, not the share.
-		auditDominantIdleGap(cap, report)
+		if !windowed {
+			auditDominantIdleGap(cap, report)
+		}
 		// A high duty cycle is why no idle finding follows. On a capture
 		// whose replays are opaque that reading is not available: see
 		// auditOpaqueDutyCeiling.
@@ -394,7 +405,11 @@ func auditDeviceDutyCycle(cap *cudacapture.Capture, report *Report) {
 	// names was attributed, rather than sending the reader to a command that
 	// has already run.
 	rec := "Attribute the idle time before acting on any kernel finding below: run cudaprof gaps on this capture, which splits idle into host-behind, synchronization, and graph-replay time. A kernel-time ranking cannot distinguish a per-launch tax from a tail, and the two have opposite remedies."
-	if auditIdleAttribution(cap, report) {
+	scope := "the captured span"
+	if windowed {
+		scope = fmt.Sprintf("the %d capture windows", len(windows))
+		rec = "Attribute the idle time before acting on any kernel finding below. cudaprof gaps reads the whole capture and counts the time between capture windows as idle, so read its gap distribution rather than its duty cycle. A kernel-time ranking cannot distinguish a per-launch tax from a tail, and the two have opposite remedies."
+	} else if auditIdleAttribution(cap, report) {
 		rec = "Act on the idle attribution in this report -- the finding naming where this idle went -- before any kernel finding below it. A kernel-time ranking cannot distinguish a per-launch tax from a tail, and the two have opposite remedies."
 	}
 	report.Items = append(report.Items, Item{
@@ -405,8 +420,8 @@ func auditDeviceDutyCycle(cap *cudacapture.Capture, report *Report) {
 		severityByKind:  true,
 		DeviceTimeNanos: int64(busyNs),
 		ShareOfProfile:  pct,
-		Finding: fmt.Sprintf("The device was idle for %.2f%% of the captured span: %.3f ms idle of a %.3f ms span, with %.3f ms of device work. Every finding below this one ranks that %.2f%% -- none of them can see the idle time, and on this capture the idle time is the larger quantity.%s",
-			100.0-pct, float64(idleNs)/1e6, float64(spanNs)/1e6, float64(busyNs)/1e6, pct, opaque),
+		Finding: fmt.Sprintf("The device was idle for %.2f%% of %s: %.3f ms idle of a %.3f ms span, with %.3f ms of device work. Every finding below this one ranks that %.2f%% -- none of them can see the idle time, and on this capture the idle time is the larger quantity.%s",
+			100.0-pct, scope, float64(idleNs)/1e6, float64(spanNs)/1e6, float64(busyNs)/1e6, pct, opaque),
 		ActionableRecommendation: rec,
 		NextMeasurement:          "cudaprof gaps <capture> -- idle attribution and the gap distribution",
 	})

@@ -220,6 +220,11 @@ type Report struct {
 	// the run. With a span the header can say both.
 	SpanNanos int64 `json:"span_nanos,omitempty"`
 
+	// CaptureWindows is the number of capture ranges SpanNanos sums over,
+	// when the target opened the range more than once. The time between
+	// windows was not captured, and is counted neither busy nor idle.
+	CaptureWindows int `json:"capture_windows,omitempty"`
+
 	// SourceFusion reports that the capture's PTX and SASS are not from one
 	// compilation, so LoadCode refused the source binding and every finding
 	// below carries an empty file and a zero line. Without this a reader cannot
@@ -260,6 +265,10 @@ func (r *Report) MarkdownWithLimit(limit int) string {
 	}
 	if r.SourceFusion != "" {
 		sb.WriteString(sourceFusionMarkdownCaveat(r.SourceFusion))
+	}
+	if r.CaptureWindows > 1 {
+		fmt.Fprintf(&sb, "> **This capture holds %d capture windows.** The captured span, %.3f ms, is the sum of the device spans inside them; the time between windows was not captured and is not counted as idle.\n\n",
+			r.CaptureWindows, float64(r.SpanNanos)/1e6)
 	}
 	if r.Base != nil {
 		r.writeBase(&sb)
