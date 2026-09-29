@@ -615,18 +615,6 @@ entry:
 `,
 		},
 		{
-			name: "quoted opaque parameter matches store text",
-			slot: "%slot",
-			ir: `@smem = internal addrspace(3) global i8 0
-define void @kernel(ptr addrspace(3) %"store ptr ") {
-entry:
-  %slot = alloca ptr, align 8
-  store  ptr addrspace(3) %"store ptr ", ptr %slot, align 8
-  ret void
-}
-`,
-		},
-		{
 			name: "typed load with two spaces before operand",
 			slot: "%slot",
 			ir: `@smem = internal addrspace(3) global i8 0
@@ -687,6 +675,35 @@ entry:
 			verifyIRWithClang(t, got)
 		})
 	}
+}
+
+func TestAddrSpace_QuotedOpaqueParameterMatchesStoreTextNarrows(t *testing.T) {
+	ir := []byte(`@smem = internal addrspace(3) global i8 0
+define void @kernel(ptr addrspace(3) %"store ptr ") {
+entry:
+  %slot = alloca ptr, align 8
+  store  ptr addrspace(3) %"store ptr ", ptr %slot, align 8
+  ret void
+}
+`)
+	verifyIRWithClang(t, ir)
+
+	got, report, err := InferAddressSpaces(ir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, ok := report.Slots["@kernel/%slot"]
+	if !ok || info.Effective != AddrSpaceShared {
+		t.Fatalf("quoted opaque parameter did not narrow the slot: %+v", report.Slots)
+	}
+	if len(report.RewrittenSlots) != 1 || report.RewrittenSlots[0] != "@kernel/%slot" {
+		t.Fatalf("rewritten slots = %v, want [@kernel/%%slot]", report.RewrittenSlots)
+	}
+	want := []byte(strings.Replace(string(ir), "alloca ptr, align 8", "alloca ptr addrspace(3), align 8", 1))
+	if !bytes.Equal(got, want) {
+		t.Fatalf("rewrite changed bytes beyond the alloca type:\n got:\n%s\nwant:\n%s", got, want)
+	}
+	verifyIRWithClang(t, got)
 }
 
 func TestAddrSpace_LLVMIdentifiersAreWholeTokens(t *testing.T) {
