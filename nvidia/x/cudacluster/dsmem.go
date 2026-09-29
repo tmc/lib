@@ -2,6 +2,7 @@ package cudacluster
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudashared"
 )
@@ -14,6 +15,12 @@ type Cluster struct {
 }
 
 // Open returns a scope for a target whose cluster support was measured.
+//
+// Open gates on [Check], which establishes cluster instruction support. It
+// does not establish distributed shared memory support: [CheckDSMEM] remains
+// pending until a target-specific mapa.shared::cluster probe is recorded.
+// This scope therefore permits emitting a DSMEM attempt, not claiming that
+// the target's assembler or device accepts it.
 func Open(target string) (*Cluster, error) {
 	if err := Check(target); err != nil {
 		return nil, err
@@ -64,7 +71,9 @@ func (p ClusterPtr) Mutable() bool { return p.mut }
 // holding one, as produced by [EmitSharedAddr]. It is not an offset. mapa takes
 // an address operand, so passing a bare integer emits an instruction that does
 // not assemble -- which is why the region offset is folded into base by
-// [EmitSharedAddr] rather than emitted here.
+// [EmitSharedAddr] rather than emitted here. Operand text is emitted verbatim
+// as PTX; callers must supply valid register operands and ensure the runtime
+// rank is in the cluster.
 //
 // The returned pointer is read-only: see [MapSharedRankMut] for the writable
 // form.
@@ -201,7 +210,9 @@ func EmitClusterSync() []string {
 //
 // symbol names the .shared array the plan was laid out over. The region's
 // offset within it is folded in here, so that the mapping call takes an address
-// rather than a number.
+// rather than a number. A shared symbol is materialized with `mov.u32`; a
+// register operand with a nonzero offset uses `add.u32`. Operand text is
+// emitted verbatim, so callers must supply valid PTX operands.
 func EmitSharedAddr(dst, symbol string, plan *cudashared.Plan, region cudashared.Region) (string, error) {
 	if plan == nil {
 		return "", fmt.Errorf("cudacluster: nil shared plan")
@@ -214,6 +225,9 @@ func EmitSharedAddr(dst, symbol string, plan *cudashared.Plan, region cudashared
 	}
 	if region.Offset == 0 {
 		return fmt.Sprintf("mov.u32 %s, %s;", dst, symbol), nil
+	}
+	if strings.HasPrefix(symbol, "%") {
+		return fmt.Sprintf("add.u32 %s, %s, %d;", dst, symbol, region.Offset), nil
 	}
 	return fmt.Sprintf("mov.u32 %s, %s+%d;", dst, symbol, region.Offset), nil
 }

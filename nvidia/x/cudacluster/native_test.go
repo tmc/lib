@@ -65,14 +65,21 @@ func runReduction(t *testing.T, clusterSize int, mut Mutant) (uint32, error) {
 	if mut == MutantNone {
 		oracle := cooperativeReductionFixture(clusterSize)
 		want, err := compileRunTotal(t, nvcc, target, dir, "oracle", oracle)
-		if err != nil {
-			return 0, fmt.Errorf("cooperative-groups oracle: %w", err)
-		}
-		if got != want {
-			return 0, fmt.Errorf("emitted PTX total %d differs from cooperative-groups oracle %d", got, want)
+		if err := compareOracleTotal(got, want, err); err != nil {
+			return 0, err
 		}
 	}
 	return got, nil
+}
+
+func compareOracleTotal(emitted, oracle uint32, oracleErr error) error {
+	if oracleErr != nil {
+		return fmt.Errorf("cooperative-groups oracle: %w", oracleErr)
+	}
+	if emitted != oracle {
+		return fmt.Errorf("emitted PTX total %d differs from cooperative-groups oracle %d", emitted, oracle)
+	}
+	return nil
 }
 
 func reductionMain(clusterSize int) string {
@@ -83,14 +90,14 @@ int main() {
   if (cudaMalloc(&d, sizeof h) != cudaSuccess) return 2;
   if (cudaMemset(d, 0, sizeof h) != cudaSuccess) return 3;
   dsmem_reduce<<<%d, 32>>>(d);
-  if (cudaGetLastError() != cudaSuccess) return 6;
+  if (cudaGetLastError() != cudaSuccess) return %d;
   if (cudaDeviceSynchronize() != cudaSuccess) return 4;
   if (cudaMemcpy(&h, d, sizeof h, cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
   cudaFree(d);
   printf("total %%u\n", h);
   return 0;
 }
-`, clusterSize)
+`, clusterSize, fixtureLaunchFailureCode)
 }
 
 func requireNativeLock(getenv func(string) string) error {
@@ -121,9 +128,13 @@ func compileRunTotal(t *testing.T, nvcc, target, dir, name, src string) (uint32,
 	run := exec.CommandContext(runCtx, bin)
 	out, _ := run.CombinedOutput()
 	if run.ProcessState == nil {
-		return classifyFixtureResult(false, runCtx.Err() != nil, 0, string(out))
+		return classifyFixtureResult(false, fixtureTimedOut(runCtx), 0, string(out))
 	}
-	return classifyFixtureResult(true, runCtx.Err() != nil, run.ProcessState.ExitCode(), string(out))
+	return classifyFixtureResult(true, fixtureTimedOut(runCtx), run.ProcessState.ExitCode(), string(out))
+}
+
+func fixtureTimedOut(ctx context.Context) bool {
+	return errors.Is(ctx.Err(), context.DeadlineExceeded)
 }
 
 var errFixtureTimeout = errors.New("fixture did not finish")
@@ -138,7 +149,7 @@ func classifyFixtureResult(hasProcessState, timedOut bool, exitCode int, output 
 	switch exitCode {
 	case 0:
 		return parseTotal(output)
-	case 2, 3, 4, 5, 6:
+	case 2, 3, 4, 5, fixtureLaunchFailureCode:
 		return 0, fmt.Errorf("fixture failed at CUDA stage %d: %s", exitCode, output)
 	default:
 		return 0, fmt.Errorf("fixture exited %d: %s", exitCode, output)
@@ -227,6 +238,34 @@ func TestNativeGateRejectsPresenceOnlyLockBeforeToolLookup(t *testing.T) {
 	}
 }
 
+func TestNativeGateAcceptsGenuineInheritedLockOnHost(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "gpu-lock")
+	h, err := cudalock.Acquire(context.Background(), cudalock.WithDir(dir), cudalock.WithLabel("cudacluster-host-test"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := h.Release(); err != nil {
+			t.Errorf("release test lock: %v", err)
+		}
+	})
+	env := func(key string) string {
+		switch key {
+		case "CUDA_CLUSTER_NATIVE":
+			return "1"
+		case "GPU_LOCK_HELD":
+			return strconv.Itoa(os.Getpid())
+		case "GPU_LOCKDIR":
+			return dir
+		default:
+			return ""
+		}
+	}
+	if err := requireNativeLock(env); err != nil {
+		t.Fatalf("requireNativeLock with inherited lock: %v", err)
+	}
+}
+
 // TestNativeClusterAllToOneReduction is lane 56 slice 6.
 func TestNativeClusterAllToOneReduction(t *testing.T) {
 	const size = 2
@@ -266,8 +305,8 @@ func TestNativeControlLocalWindowMutantFails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := uint32(size) * 7; got != want {
-		t.Fatalf("local-window mutant total = %d, want %d", got, want)
+	if err := checkLocalWindowTotal(size, got); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -282,24 +321,127 @@ func TestNativeControlLocalWindowMutantFails(t *testing.T) {
 func TestNativeControlNoSyncMutantIsNotDeterministicallyCorrect(t *testing.T) {
 	const size = 4
 	want := ExpectedReduction(size)
-	correct := 0
 	const reps = 5
+	runs := make([]noSyncRun, 0, reps)
 	for i := 0; i < reps; i++ {
 		got, err := runReduction(t, size, MutantNoSync)
-		if err != nil {
-			if !errors.Is(err, errFixtureTimeout) {
-				t.Fatalf("rep %d failed outside runtime timeout: %v", i, err)
-			}
+		runs = append(runs, noSyncRun{total: got, err: err})
+		if errors.Is(err, errFixtureTimeout) {
 			t.Logf("rep %d: %v (a failure here also falsifies determinism)", i, err)
-			return
+			break
 		}
-		if got == want {
+		if err != nil {
+			break
+		}
+	}
+	if err := checkNoSyncControl(want, runs); err != nil {
+		t.Fatal(err)
+	}
+}
+
+type noSyncRun struct {
+	total uint32
+	err   error
+}
+
+func checkNoSyncControl(want uint32, runs []noSyncRun) error {
+	if len(runs) == 0 {
+		return fmt.Errorf("no-sync control produced no runs")
+	}
+	correct := 0
+	for i, run := range runs {
+		if run.err != nil {
+			if errors.Is(run.err, errFixtureTimeout) {
+				return nil
+			}
+			return fmt.Errorf("rep %d failed outside runtime timeout: %w", i, run.err)
+		}
+		if run.total == want {
 			correct++
 		}
 	}
-	if correct == reps {
-		t.Fatalf("no-sync mutant produced the correct total %d in %d of %d runs: "+
-			"the reduction is not exercising a cross-CTA dependency", want, correct, reps)
+	if correct == len(runs) {
+		return fmt.Errorf("no-sync mutant produced the correct total %d in all %d runs: the reduction is not exercising a cross-CTA dependency", want, correct)
+	}
+	return nil
+}
+
+func checkLocalWindowTotal(size int, got uint32) error {
+	want := uint32(size) * 7
+	if got != want {
+		return fmt.Errorf("local-window mutant total = %d, want %d", got, want)
+	}
+	return nil
+}
+
+func TestCompareOracleTotal(t *testing.T) {
+	oracleErr := errors.New("oracle failed")
+	for _, tc := range []struct {
+		name      string
+		emitted   uint32
+		oracle    uint32
+		oracleErr error
+		wantErr   bool
+	}{
+		{name: "equal", emitted: 42, oracle: 42},
+		{name: "different", emitted: 42, oracle: 43, wantErr: true},
+		{name: "oracle failed", emitted: 42, oracleErr: oracleErr, wantErr: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := compareOracleTotal(tc.emitted, tc.oracle, tc.oracleErr)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("compareOracleTotal error = %v, wantErr=%t", err, tc.wantErr)
+			}
+			if tc.name == "oracle failed" && !errors.Is(err, oracleErr) {
+				t.Fatalf("oracle error = %v, want wrapped source error", err)
+			}
+		})
+	}
+}
+
+func TestCheckNoSyncControl(t *testing.T) {
+	timeoutErr := fmt.Errorf("%w: fixture", errFixtureTimeout)
+	ordinaryErr := errors.New("compiler failed")
+	for _, tc := range []struct {
+		name    string
+		runs    []noSyncRun
+		wantErr bool
+	}{
+		{name: "one wrong total", runs: []noSyncRun{{total: 1}, {total: 2}}},
+		{name: "all correct", runs: []noSyncRun{{total: 9}, {total: 9}}, wantErr: true},
+		{name: "timeout falsifies determinism", runs: []noSyncRun{{err: timeoutErr}}},
+		{name: "other error is fatal", runs: []noSyncRun{{err: ordinaryErr}}, wantErr: true},
+		{name: "no runs", wantErr: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := checkNoSyncControl(9, tc.runs)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("checkNoSyncControl error = %v, wantErr=%t", err, tc.wantErr)
+			}
+			if tc.name == "other error is fatal" && !errors.Is(err, ordinaryErr) {
+				t.Fatalf("ordinary error = %v, want wrapped source error", err)
+			}
+		})
+	}
+}
+
+func TestCheckLocalWindowTotal(t *testing.T) {
+	if err := checkLocalWindowTotal(4, 28); err != nil {
+		t.Fatalf("correct local total: %v", err)
+	}
+	if err := checkLocalWindowTotal(4, 628); err == nil {
+		t.Fatal("remote total was accepted as the local-window mutant total")
+	}
+}
+
+func TestFixtureTimedOut(t *testing.T) {
+	if fixtureTimedOut(context.Background()) {
+		t.Fatal("background context reported timeout")
+	}
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel()
+	if !fixtureTimedOut(ctx) {
+		t.Fatal("expired run deadline was not recorded")
 	}
 }
 
@@ -425,7 +567,7 @@ int main() {
     rank_geometry_kernel<<<dim3(cluster_x, cluster_y, 1), 32>>>(d_ranks, d_err);
     cudaError_t launch = cudaGetLastError();
     if (launch != cudaSuccess) {
-        fprintf(stderr, "rank_geometry_kernel launch failed: %s\\n", cudaGetErrorString(launch));
+        fprintf(stderr, "rank_geometry_kernel launch failed: %s\n", cudaGetErrorString(launch));
         return 8;
     }
 
@@ -591,10 +733,15 @@ func TestRankGeometrySourceUsesRequestedClusterShape(t *testing.T) {
 		"cudaGetLastError()",
 		"cta_x + cta_y * ncta_x",
 		"ptx_cluster_ctaid_y()",
+		"unsigned cta_y = ptx_cluster_ctaid_y();",
+		"if (ncta_x != 2 || ncta_y != 2 || cta_x >= ncta_x || cta_y >= ncta_y)",
 	} {
 		if !strings.Contains(src, want) {
 			t.Errorf("rank geometry source lacks %q", want)
 		}
+	}
+	if strings.Contains(src, `launch failed: %s\\n`) {
+		t.Fatal("rank geometry launch error prints a literal backslash-n")
 	}
 	if rankGeometrySource(6) == "" || !strings.Contains(rankGeometrySource(6), "const int cluster_y = 3;") {
 		t.Fatal("rank geometry source ignored the requested size")

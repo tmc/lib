@@ -2,11 +2,11 @@ package cudacluster
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudadevicetable"
-	"github.com/tmc/lib/nvidia/x/cudalock"
 	"github.com/tmc/lib/nvidia/x/cudashared"
 )
 
@@ -89,6 +89,20 @@ func TestCapabilityLookupErrorIsPending(t *testing.T) {
 	})
 	if !errors.Is(err, ErrHardwarePending) {
 		t.Fatalf("check with missing feature = %v, want ErrHardwarePending", err)
+	}
+}
+
+func TestClusterRejectsPositiveRecordBelowCapabilityFence(t *testing.T) {
+	err := check("sm_86", func(target string) (cudadevicetable.Target, bool) {
+		return cudadevicetable.Target{
+			Target: target,
+			Features: map[string]cudadevicetable.Feature{
+				clusterFeature: {Supported: true, Source: cudadevicetable.Probed},
+			},
+		}, true
+	})
+	if !errors.Is(err, ErrUnsupported) {
+		t.Fatalf("below-fence positive record = %v, want ErrUnsupported", err)
 	}
 }
 
@@ -187,12 +201,21 @@ func TestReductionFixtureUsesEmitters(t *testing.T) {
 	if !strings.Contains(mutant, "mapa.shared::cluster.u32 %1, %2, %4;") {
 		t.Fatalf("local-window mutant does not substitute current rank")
 	}
+	if !strings.Contains(mutant, `"r"(rank)`) {
+		t.Fatalf("local-window mutant does not bind its rank operand:\n%s", mutant)
+	}
 	noSync, err := ReductionFixture("sm_121a", 4, MutantNoSync)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if strings.Count(noSync, `barrier.cluster.wait;`) != 1 {
 		t.Fatal("no-sync mutant must retain only the trailing liveness barrier")
+	}
+	if strings.Count(src, `barrier.cluster.wait;`) != 2 || strings.Count(src, `barrier.cluster.arrive;`) != 2 {
+		t.Fatal("unmutated fixture must contain publish/read and trailing barriers")
+	}
+	if strings.Count(noSync, `barrier.cluster.arrive;`) != 1 {
+		t.Fatal("no-sync mutant retained the publish/read barrier")
 	}
 }
 
@@ -232,6 +255,9 @@ func TestReductionFixtureSourceIsValidCXXShape(t *testing.T) {
 	if strings.Contains(outside, `\n`) {
 		t.Fatal("newline escape appears outside a C string literal")
 	}
+	if strings.Contains(src+reductionMain(4), "\t#include") {
+		t.Fatal("composite reduction source has a tab before an include directive")
+	}
 	if !strings.Contains(src, `mov.u32 %0, %1;`) || !strings.Contains(src, `"r"((unsigned)__cvta_generic_to_shared(&window))`) {
 		t.Fatal("base operand is not derived from and uses the kernel's window")
 	}
@@ -260,6 +286,60 @@ func TestGeneratedReductionLaunchesCheckErrorsBeforeSynchronize(t *testing.T) {
 	oracle := cooperativeReductionFixture(size)
 	assertLaunchCheckBeforeSync(t, oracle, "oracle<<<4,32>>>(d);")
 	assertIncludesBeforeMain(t, oracle)
+}
+
+func TestGeneratedLaunchChecksCoverEverySizeAndMutant(t *testing.T) {
+	for size := 2; size <= 8; size++ {
+		launch := fmt.Sprintf("dsmem_reduce<<<%d, 32>>>(d);", size)
+		oracleLaunch := fmt.Sprintf("oracle<<<%d,32>>>(d);", size)
+		for _, mutant := range []Mutant{MutantNone, MutantLocalWindow, MutantNoSync} {
+			fixture, err := ReductionFixture("sm_121a", size, mutant)
+			if err != nil {
+				t.Fatalf("ReductionFixture(%d, %q): %v", size, mutant, err)
+			}
+			reduction := fixture + reductionMain(size)
+			assertLaunchCheckBeforeSync(t, reduction, launch)
+			assertIncludesBeforeMain(t, reduction)
+			if !strings.Contains(reduction, fmt.Sprintf("if (cudaGetLastError() != cudaSuccess) return %d;", fixtureLaunchFailureCode)) {
+				t.Errorf("size %d mutant %q launch failure is not classifier code %d", size, mutant, fixtureLaunchFailureCode)
+			}
+		}
+		oracle := cooperativeReductionFixture(size)
+		assertLaunchCheckBeforeSync(t, oracle, oracleLaunch)
+		assertIncludesBeforeMain(t, oracle)
+		if !strings.Contains(oracle, fmt.Sprintf("if (cudaGetLastError() != cudaSuccess) return %d;", fixtureLaunchFailureCode)) {
+			t.Errorf("size %d oracle launch failure is not classifier code %d", size, fixtureLaunchFailureCode)
+		}
+	}
+}
+
+func TestReductionBarrierIsReachedOutsideDivergentFlow(t *testing.T) {
+	src, err := ReductionFixture("sm_121a", 4, MutantNone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	marker := strings.Index(src, `asm volatile("barrier.cluster.arrive;`)
+	if marker < 0 {
+		t.Fatal("fixture has no publish/read barrier")
+	}
+	outside := cOutsideStringLiterals(src)
+	depth := 0
+	for _, ch := range outside[:marker] {
+		switch ch {
+		case '{':
+			depth++
+		case '}':
+			depth--
+		}
+	}
+	if depth != 1 {
+		t.Fatalf("cluster barrier is nested at C brace depth %d, want kernel body depth 1", depth)
+	}
+	lineStart := strings.LastIndex(outside[:marker], "\n") + 1
+	prefix := strings.TrimSpace(outside[lineStart:marker])
+	if strings.HasPrefix(prefix, "if ") || strings.HasPrefix(prefix, "if(") {
+		t.Fatalf("cluster barrier follows a one-line conditional: %q", prefix)
+	}
 }
 
 func assertLaunchCheckBeforeSync(t *testing.T, source, launch string) {
@@ -311,18 +391,6 @@ func cOutsideStringLiterals(src string) string {
 		b.WriteByte(ch)
 	}
 	return b.String()
-}
-
-func TestInheritedLockRejectsPresenceOnlyValue(t *testing.T) {
-	_, err := cudalock.Inherited(func(k string) string {
-		if k == "GPU_LOCK_HELD" {
-			return "1"
-		}
-		return ""
-	})
-	if err == nil {
-		t.Fatal("presence-only lock value accepted")
-	}
 }
 
 func mustEmit(s string, err error) string {
@@ -403,6 +471,23 @@ func TestMapSharedRankRejectsSmallOrUnalignedU32Region(t *testing.T) {
 	}
 	if _, _, err := c.MapSharedRank("%r1", "%r2", tooSmallPlan, tooSmall, "%r3"); err == nil {
 		t.Fatal("one-byte region accepted for u32 access")
+	}
+	unalignedPlan, err := cudashared.NewPlan(limits)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := unalignedPlan.Add(cudashared.Request{Name: "pad", Size: 5, Alignment: 1}); err != nil {
+		t.Fatal(err)
+	}
+	unalignedRegion, err := unalignedPlan.Add(cudashared.Request{Name: "word", Size: 4, Alignment: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unalignedRegion.Offset != 5 {
+		t.Fatalf("unaligned fixture offset = %d, want 5", unalignedRegion.Offset)
+	}
+	if _, _, err := c.MapSharedRank("%r1", "%r2", unalignedPlan, unalignedRegion, "%r3"); err == nil {
+		t.Fatal("unaligned mapped region accepted")
 	}
 	unaligned := ClusterPtr{reg: "%r7", region: cudashared.Region{Name: "unaligned", Offset: 1, Size: 4}, scope: c}
 	if _, err := c.EmitLoadU32("%r1", unaligned); err == nil {
@@ -523,6 +608,13 @@ func TestMapSharedRankTakesAnAddressNotAnOffset(t *testing.T) {
 	}
 	if want := "mov.u32 %r8, smem+1024;"; addr != want {
 		t.Fatalf("offset address = %q, want %q", addr, want)
+	}
+	addr, err = EmitSharedAddr("%r8", "%r1", plan, second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "add.u32 %r8, %r1, 1024;"; addr != want {
+		t.Fatalf("offset register address = %q, want %q", addr, want)
 	}
 	if _, _, err := c.MapSharedRank("%r1", "", plan, region, "%r2"); err == nil {
 		t.Error("MapSharedRank with no base operand = nil error, want failure")

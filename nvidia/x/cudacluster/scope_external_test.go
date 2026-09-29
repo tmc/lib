@@ -58,10 +58,18 @@ func TestUncheckedScopesCannotEmitOrMap(t *testing.T) {
 			_, err := c.EmitReadU32("%r1", "%r2", "%r3", plan, region, "%r4")
 			return err
 		}},
+		{"nil load", func(c *cudacluster.Cluster) error {
+			_, err := c.EmitLoadU32("%r1", readOnly)
+			return err
+		}},
+		{"nil store", func(c *cudacluster.Cluster) error {
+			_, err := c.EmitStoreU32(writable, "%r1")
+			return err
+		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c := &zero
-			if tc.name == "nil map" || tc.name == "nil read" {
+			if tc.name == "nil map" || tc.name == "nil read" || tc.name == "nil load" || tc.name == "nil store" {
 				c = nilScope
 			}
 			if err := tc.call(c); err == nil {

@@ -7,6 +7,8 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudashared"
 )
 
+const fixtureLaunchFailureCode = 6
+
 // Mutant names a deliberate defect injected into the reduction fixture.
 //
 // Each one exists to make a passing test falsifiable. A DSMEM implementation
@@ -122,7 +124,7 @@ __global__ void __cluster_dims__(%d, 1, 1) dsmem_reduce(unsigned *out) {
 	asm volatile("barrier.cluster.arrive;\nbarrier.cluster.wait;" ::: "memory");
 }
 	`, clusterSize, sharedAddr, sync, readAsm, rankArg)
-	return b.String(), nil
+	return strings.TrimRight(b.String(), "\t\r\n") + "\n", nil
 }
 
 // ExpectedReduction returns the total the unmutated fixture must produce: the
@@ -159,10 +161,10 @@ int main() {
   if (cudaMalloc(&d, sizeof h) != cudaSuccess) return 2;
   if (cudaMemset(d, 0, sizeof h) != cudaSuccess) return 3;
   oracle<<<%d,32>>>(d);
-  if (cudaGetLastError() != cudaSuccess) return 6;
+  if (cudaGetLastError() != cudaSuccess) return %d;
   if (cudaDeviceSynchronize() != cudaSuccess) return 4;
   if (cudaMemcpy(&h,d,sizeof h,cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
   printf("total %%u\n", h); cudaFree(d); return 0;
 }
-`, clusterSize, clusterSize)
+`, clusterSize, clusterSize, fixtureLaunchFailureCode)
 }
