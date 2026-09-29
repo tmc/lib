@@ -14,6 +14,8 @@ import (
 	"strings"
 	"text/tabwriter"
 	"time"
+
+	"github.com/tmc/lib/nvidia/x/cudacapture"
 )
 
 // Ab runs a matched A/B: it captures a base and a target command back to
@@ -45,6 +47,12 @@ import (
 // through sh -c before each capture, and a nonzero exit stops the run
 // before that capture: a script that waits until no other compute process
 // holds the GPU is the usual check.
+//
+// Each capture records the CUPTI library its agent loaded. Ab prints its
+// version per capture and warns when the captures loaded different ones: a
+// process can load a CUPTI of its own, as a Python environment's
+// nvidia-cuda-cupti wheel does, and its records are then not the same
+// instrument's as the other arm's.
 //
 // Each capture's range edges carry the SM and memory clocks, temperature
 // and power NVML reported. Ab prints them per capture and warns when the
@@ -209,6 +217,50 @@ type abRun struct {
 	KernelNanos int64          `json:"kernel_exclusive_ns"`
 	IdleNanos   int64          `json:"idle_ns"`
 	Clocks      *compareClocks `json:"clocks"`
+
+	// CUPTI is the CUPTI library the capture's agent loaded, or nil when
+	// the capture does not record it.
+	CUPTI *abCUPTI `json:"cupti,omitempty"`
+}
+
+// abCUPTI is the CUPTI library a capture's agent loaded.
+type abCUPTI struct {
+	// Runtime is the loaded library's cuptiGetVersion, and Compile the
+	// CUPTI_API_VERSION the agent was built against.
+	Runtime uint32 `json:"runtime"`
+	Compile uint32 `json:"compile"`
+	Library string `json:"library,omitempty"`
+}
+
+// captureCUPTI returns the CUPTI library cap's agent reported loading in its
+// capability record, or nil when the capture does not say.
+func captureCUPTI(cap *cudacapture.Capture) *abCUPTI {
+	var status struct {
+		Status struct {
+			Capability struct {
+				Runtime uint32 `json:"runtime_cupti"`
+				Compile uint32 `json:"compile_cupti"`
+				Library string `json:"library"`
+			} `json:"capability"`
+		} `json:"status"`
+	}
+	if json.Unmarshal(cap.Files["capture-status.json"], &status) != nil || status.Status.Capability.Runtime == 0 {
+		return nil
+	}
+	c := status.Status.Capability
+	return &abCUPTI{Runtime: c.Runtime, Compile: c.Compile, Library: c.Library}
+}
+
+// version formats a CUPTI version: CUDA 13 and later encode it as
+// major*10000 + minor*100 + patch, and earlier releases as a bare API number.
+func (c *abCUPTI) version() string {
+	if c == nil {
+		return "-"
+	}
+	if v := c.Runtime; v >= 130000 {
+		return fmt.Sprintf("%d.%d.%d", v/10000, v/100%100, v%100)
+	}
+	return fmt.Sprintf("api %d", c.Runtime)
 }
 
 // abDelta is one comparison of an A/B: its identity terms and the files
@@ -287,6 +339,7 @@ func runAB(opts *abOptions, stdout, stderr io.Writer) error {
 		sides[r.Arm] = s
 		r.WindowNanos, r.BusyNanos, r.KernelNanos, r.IdleNanos = s.WindowNanos, s.BusyNanos, s.KernelNanos, s.IdleNanos
 		r.Clocks = s.Clocks
+		r.CUPTI = captureCUPTI(cap)
 	}
 	arms := []string{armTarget}
 	if opts.control {
@@ -480,7 +533,7 @@ var (
 // abWarnings compares the GPU state of the target and control with that of
 // the base, edge by edge.
 func abWarnings(runs []*abRun, opts *abOptions) []string {
-	var warnings []string
+	warnings := cuptiWarnings(runs)
 	var base *abRun
 	for _, r := range runs {
 		if r.Clocks != nil && r.Clocks.NotRecorded != "" {
@@ -518,6 +571,28 @@ func abWarnings(runs []*abRun, opts *abOptions) []string {
 	return warnings
 }
 
+// cuptiWarnings warns when the captures did not all load the same CUPTI
+// library, or when a capture does not say which it loaded.
+func cuptiWarnings(runs []*abRun) []string {
+	var warnings []string
+	var first *abRun
+	for _, r := range runs {
+		if r.CUPTI == nil {
+			warnings = append(warnings, fmt.Sprintf("%s: CUPTI version not recorded", r.Arm))
+			continue
+		}
+		if first == nil {
+			first = r
+			continue
+		}
+		if *r.CUPTI != *first.CUPTI {
+			warnings = append(warnings, fmt.Sprintf("CUPTI DIFFERS: %s loaded CUPTI %s (%s) and %s loaded CUPTI %s (%s); the arms were not measured by the same CUPTI",
+				first.Arm, first.CUPTI.version(), first.CUPTI.Library, r.Arm, r.CUPTI.version(), r.CUPTI.Library))
+		}
+	}
+	return warnings
+}
+
 // edgeCell formats a reading at the start and stop edges as "start/stop".
 func edgeCell(c *compareClocks, field func(gpuReading) *uint32, scale uint32) string {
 	cell := func(s *gpuEdgeSample) string {
@@ -545,13 +620,13 @@ func (rep *abReport) write(w io.Writer) error {
 	}
 	fmt.Fprintln(w)
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', tabwriter.AlignRight)
-	fmt.Fprintln(tw, "arm\twindow ms\tbusy ms\tkernel ms\tidle ms\tsm MHz\tmem MHz\ttemp C\tpower W\tcapture s\t")
+	fmt.Fprintln(tw, "arm\twindow ms\tbusy ms\tkernel ms\tidle ms\tsm MHz\tmem MHz\ttemp C\tpower W\tcapture s\tcupti\t")
 	for _, r := range rep.Runs {
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%.1f\t\n", r.Arm,
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%.1f\t%s\t\n", r.Arm,
 			abMillis(r.WindowNanos), abMillis(r.BusyNanos), abMillis(r.KernelNanos), abMillis(r.IdleNanos),
 			edgeCell(r.Clocks, smClockField, 1), edgeCell(r.Clocks, memClockField, 1),
 			edgeCell(r.Clocks, tempField, 1), edgeCell(r.Clocks, powerField, 1000),
-			time.Duration(r.WallNanos).Seconds())
+			time.Duration(r.WallNanos).Seconds(), r.CUPTI.version())
 	}
 	if err := tw.Flush(); err != nil {
 		return err

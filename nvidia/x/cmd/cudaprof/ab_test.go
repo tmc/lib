@@ -69,13 +69,13 @@ func TestParseABArgs(t *testing.T) {
 }
 
 // fakeABCapture writes a synthetic capture for each command: the command is
-// "spin N SM TEMP", one kernel of N ns in a range whose edges read SM MHz
-// and TEMP C.
+// "spin N SM TEMP [CUPTI]", one kernel of N ns in a range whose edges read SM
+// MHz and TEMP C, captured by an agent that loaded CUPTI version CUPTI.
 func fakeABCapture(t *testing.T, seen *[]string) func(flags []string, out, log string, command []string) error {
 	return func(flags []string, out, log string, command []string) error {
 		*seen = append(*seen, filepath.Base(out))
-		var n, sm, temp uint64
-		if _, err := fmt.Sscanf(strings.Join(command, " "), "spin %d %d %d", &n, &sm, &temp); err != nil {
+		var n, sm, temp, cupti uint64
+		if _, err := fmt.Sscanf(strings.Join(command, " ")+" 0", "spin %d %d %d %d", &n, &sm, &temp, &cupti); err != nil {
 			t.Fatal(err)
 		}
 		sample := map[string]any{"sampled_at": 1, "lag_nanos": 1000, "devices": []any{
@@ -85,6 +85,9 @@ func fakeABCapture(t *testing.T, seen *[]string) func(flags []string, out, log s
 		status["phase_receipt"].(map[string]any)["edges"] = []any{
 			map[string]any{"sequence": 1, "timestamp": 1000, "edge": "start", "api": "cuProfilerStart", "gpu": sample},
 			map[string]any{"sequence": 2, "timestamp": 1000 + n + 100, "edge": "stop", "api": "cuProfilerStop", "gpu": sample},
+		}
+		if cupti != 0 {
+			status["capability"] = map[string]any{"runtime_cupti": cupti, "compile_cupti": 130400, "library": fmt.Sprintf("/cupti-%d/libcupti.so.13", cupti)}
 		}
 		c := compareCapture([]rec{{subtype: "kernel", name: "k", start: 1050, end: 1050 + n}}, status)
 		f, err := os.Create(out)
@@ -170,6 +173,71 @@ func TestRunAB(t *testing.T) {
 	}
 	if seen != nil {
 		t.Errorf("rerun captured %v", seen)
+	}
+}
+
+func TestRunABCUPTI(t *testing.T) {
+	tests := []struct {
+		name         string
+		base, target string
+		want         []string // lines of ab.txt
+		wantNot      string
+	}{
+		{
+			name: "same CUPTI",
+			base: "spin 1000 2522 50 130400", target: "spin 900 2522 50 130400",
+			want:    []string{"base 0.001 0.001 0.001 0.000 2522/2522 8533/8533 50/50 90/90", "13.4.0"},
+			wantNot: "warning:",
+		},
+		{
+			name: "different CUPTI",
+			base: "spin 1000 2522 50 130400", target: "spin 900 2522 50 130001",
+			want: []string{
+				"13.0.1",
+				"warning: CUPTI DIFFERS: base loaded CUPTI 13.4.0 (/cupti-130400/libcupti.so.13) and target loaded CUPTI 13.0.1 (/cupti-130001/libcupti.so.13); the arms were not measured by the same CUPTI",
+				"base -> target",
+			},
+		},
+		{
+			name: "not recorded",
+			base: "spin 1000 2522 50 130400", target: "spin 900 2522 50",
+			want: []string{"warning: target: CUPTI version not recorded"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			var seen []string
+			opts, err := parseABArgs([]string{"-o", dir, "-base", tt.base, "-target", tt.target}, io.Discard)
+			if err != nil {
+				t.Fatal(err)
+			}
+			opts.capture = fakeABCapture(t, &seen)
+			var stdout bytes.Buffer
+			if err := runAB(opts, &stdout, io.Discard); err != nil {
+				t.Fatalf("a CUPTI difference must not refuse the comparison: %v", err)
+			}
+			out := squash(stdout.String())
+			for _, want := range tt.want {
+				if !strings.Contains(out, squash(want)) {
+					t.Errorf("output lacks %q:\n%s", want, stdout.String())
+				}
+			}
+			if tt.wantNot != "" && strings.Contains(out, tt.wantNot) {
+				t.Errorf("output mentions %q:\n%s", tt.wantNot, stdout.String())
+			}
+			var rep abReport
+			data, err := os.ReadFile(filepath.Join(dir, "ab.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := json.Unmarshal(data, &rep); err != nil {
+				t.Fatal(err)
+			}
+			if c := rep.Runs[0].CUPTI; c == nil || c.Runtime != 130400 || c.Library != "/cupti-130400/libcupti.so.13" {
+				t.Errorf("base cupti = %+v, want runtime 130400", c)
+			}
+		})
 	}
 }
 
