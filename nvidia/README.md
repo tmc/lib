@@ -143,7 +143,7 @@ writing.
 was actually generated from. Those are the two different questions: what a
 package is supposed to be generated from, and what it was.
 
-### v0.2.0 preparation: reproduction check
+### v0.1.0 preparation: reproduction check
 
 On 2026-09-27, `nvidia-reproduce -closure` reported all 35 packages
 reproduced, all 35 repository input sets pinned, and zero incomplete header
