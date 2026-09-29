@@ -459,9 +459,15 @@ func campaignVariantRoot() (string, error) {
 }
 
 func defaultDeviceProbe() bool {
-	if runtime.GOOS != "linux" {
+	return deviceNodeAvailable(runtime.GOOS, func(path string) error {
+		_, err := os.Stat(path)
+		return err
+	})
+}
+
+func deviceNodeAvailable(goos string, stat func(string) error) bool {
+	if goos != "linux" || stat == nil {
 		return false
 	}
-	_, err := os.Stat("/dev/nvidiactl")
-	return err == nil
+	return stat("/dev/nvidiactl") == nil
 }

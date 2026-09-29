@@ -324,24 +324,31 @@ func TestPerturb_InlineAsmInjectionStaysOutsideMarkers(t *testing.T) {
 .visible .entry inline(){
 // begin inline asm
     atom.global.add.u32 %r, [%rd], 1;
+    atom.global.add.u32 %r, [%rd], 1;
 // end inline asm
     ret;
 }
 `
-	r, err := cudaschedule.Perturb(inline, cudaschedule.Options{Seed: 1, Intensity: 1})
-	if err != nil {
-		t.Fatal(err)
-	}
-	begin := strings.Index(r.PTX, "// begin inline asm")
-	end := strings.Index(r.PTX, "// end inline asm")
-	for offset := strings.Index(r.PTX, "nanosleep.u32"); offset >= 0; offset = strings.Index(r.PTX[offset+1:], "nanosleep.u32") {
-		if offset > begin && offset < end {
-			t.Fatalf("injected nanosleep inside inline asm markers:\n%s", r.PTX)
+	for seed := uint64(0); seed < 256; seed++ {
+		r, err := cudaschedule.Perturb(inline, cudaschedule.Options{Seed: seed, Intensity: 2})
+		if err != nil {
+			t.Fatal(err)
 		}
-		if offset+1 >= len(r.PTX) {
-			break
+		if r.Report.SitesTotal != 2 || r.Report.SitesInjected != 2 {
+			t.Fatalf("seed %d sites = %d/%d, want 2/2", seed, r.Report.SitesInjected, r.Report.SitesTotal)
 		}
-		// This case has a single schedule site, so no additional occurrence exists.
-		break
+		begin := strings.Index(r.PTX, "// begin inline asm")
+		end := strings.Index(r.PTX, "// end inline asm")
+		for offset := 0; ; {
+			i := strings.Index(r.PTX[offset:], "nanosleep.u32")
+			if i < 0 {
+				break
+			}
+			i += offset
+			if i > begin && i < end {
+				t.Fatalf("seed %d injected nanosleep inside inline asm markers:\n%s", seed, r.PTX)
+			}
+			offset = i + len("nanosleep.u32")
+		}
 	}
 }

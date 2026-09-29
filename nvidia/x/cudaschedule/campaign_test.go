@@ -155,7 +155,7 @@ func TestCampaign_DefaultRunnerUsesVariant(t *testing.T) {
 		DeviceProbe: func() bool { return true },
 		BuildVariant: func(_ context.Context, _ uint64, _ bool, ptxPath string) (string, []string, error) {
 			builds++
-			return "/bin/sh", []string{"-c", `cksum "$1"`, "variant-hash"}, nil
+			return "/bin/sh", []string{"-c", `cksum < "$1"`, "variant-hash"}, nil
 		},
 	}
 	report, err := cudaschedule.RunCampaign(ctx, opts)
@@ -165,10 +165,66 @@ func TestCampaign_DefaultRunnerUsesVariant(t *testing.T) {
 	if report.BaselineVerdict != cudaschedule.VerdictPass || len(report.Seeds) != 3 || builds != 4 {
 		t.Fatalf("baseline/seeds/builds = %v/%d/%d, want Pass/3/4", report.BaselineVerdict, len(report.Seeds), builds)
 	}
+	seen := make(map[string]uint64)
 	for _, seed := range report.Seeds {
 		if seed.Run.Stdout == report.Baseline.Stdout {
-			t.Errorf("seed %d executable saw pristine PTX: %q", seed.Seed, seed.Run.Stdout)
+			t.Errorf("seed %d executable saw pristine PTX digest: %q", seed.Seed, seed.Run.Stdout)
 		}
+		if previous, ok := seen[seed.Run.Stdout]; ok {
+			t.Errorf("seeds %d and %d produced the same variant content digest %q", previous, seed.Seed, seed.Run.Stdout)
+		}
+		seen[seed.Run.Stdout] = seed.Seed
+	}
+}
+
+func TestCampaign_CompareOutputUsesBaselineAtCampaignLevel(t *testing.T) {
+	for _, compare := range []bool{false, true} {
+		t.Run(fmt.Sprintf("compare=%t", compare), func(t *testing.T) {
+			report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
+				PTXSource: CAMPAIGN_PTX, SeedStart: 1, SeedEnd: 2, Intensity: 2,
+				ConfirmRuns: 1, CompareOutput: compare,
+				RunVariant: func(_ context.Context, _ uint64, pristine bool, _ string) (cudaschedule.RunRecord, error) {
+					output := "variant stdout"
+					if pristine {
+						output = "baseline stdout"
+					}
+					return cudaschedule.RunRecord{Exited: true, Stdout: output}, nil
+				},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(report.Seeds) != 1 {
+				t.Fatalf("seed rows = %d, want 1", len(report.Seeds))
+			}
+			want := cudaschedule.VerdictPass
+			if compare {
+				want = cudaschedule.VerdictOutputChanged
+			}
+			if got := report.Seeds[0].Verdict; got != want {
+				t.Fatalf("CompareOutput=%t verdict = %v, want %v", compare, got, want)
+			}
+		})
+	}
+}
+
+func TestCampaign_ExecPathWatchdogRecordsTimeout(t *testing.T) {
+	report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
+		PTXSource: CAMPAIGN_PTX, SeedStart: 3, SeedEnd: 4, Intensity: 2,
+		ConfirmRuns: 1, Timeout: 100 * time.Millisecond, PristineTimeout: 10 * time.Second,
+		DeviceProbe: func() bool { return true },
+		BuildVariant: func(_ context.Context, _ uint64, pristine bool, _ string) (string, []string, error) {
+			if pristine {
+				return "/bin/sh", []string{"-c", "echo PASS"}, nil
+			}
+			return "/bin/sh", []string{"-c", "exec sleep 1"}, nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Seeds) != 1 || report.Seeds[0].Verdict != cudaschedule.VerdictHang || report.Seeds[0].Run == nil || !report.Seeds[0].Run.TimedOut {
+		t.Fatalf("exec-path watchdog result = %+v", report.Seeds)
 	}
 }
 
