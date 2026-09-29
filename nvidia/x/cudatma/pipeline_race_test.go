@@ -132,6 +132,34 @@ func TestAsyncCopyPipeline_WrongParityDoesNotRetire(t *testing.T) {
 	}
 }
 
+func TestAsyncCopyPipeline_WaitParityFlipsAfterCompletedPhase(t *testing.T) {
+	p, err := NewAsyncCopyPipeline(1, 128)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for phase := 0; phase < 2; phase++ {
+		if err := p.ArriveExpectTx(0, 128); err != nil {
+			t.Fatal(err)
+		}
+		if err := p.CompleteTx(0, 128); err != nil {
+			t.Fatal(err)
+		}
+		wrong := phase ^ 1
+		if err := p.WaitParity(0, wrong); err != nil {
+			t.Fatal(err)
+		}
+		if got := p.CheckHazards(); len(got) != phase+1 {
+			t.Fatalf("phase %d wrong parity hazards = %v, want %d total", phase, got, phase+1)
+		}
+		if err := p.WaitParity(0, phase); err != nil {
+			t.Fatal(err)
+		}
+		if got := p.CheckHazards(); len(got) != phase+1 {
+			t.Fatalf("phase %d correct parity changed hazards: %v", phase, got)
+		}
+	}
+}
+
 func TestTMASharedSourceIsWAR(t *testing.T) {
 	bad, err := GenerateTMASharedReadWriteScenario(false)
 	if err != nil {

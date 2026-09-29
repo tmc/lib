@@ -91,35 +91,44 @@ func TestCorpus_UVMHostDeviceCoherenceRace(t *testing.T) {
 }
 
 func TestCorpus_ByteIndependenceFalsePositive(t *testing.T) {
-	corpus := NewRaceCorpus()
-	res, err := corpus.EvaluateCase("false_positives/shared_bytewise_readwrite", false, "sm_90")
-	if err != nil {
-		t.Fatalf("EvaluateCase false_positives: %v", err)
+	for _, tc := range NewRaceCorpus().TestCases() {
+		if tc.Category != CategoryFalsePositives {
+			continue
+		}
+		t.Run(tc.Name, func(t *testing.T) {
+			res, err := NewRaceCorpus().EvaluateCase(tc.Name, false, "sm_90")
+			if err != nil {
+				t.Fatalf("EvaluateCase: %v", err)
+			}
+			if res.HasRace || !res.Passed() {
+				t.Fatalf("false-positive result = %+v", res)
+			}
+			accesses, err := caseAccesses(tc.Name, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if accesses[0].ThreadID != 0 || accesses[1].ThreadID != 32 || accesses[0].SizeBytes != 1 || accesses[1].SizeBytes != 1 || accesses[1].Offset != accesses[0].Offset+1 || accesses[0].Offset&^3 != accesses[1].Offset&^3 {
+				t.Fatalf("access placement = %+v, want threads 0/32 on adjacent bytes in one word", accesses)
+			}
+			records, err := evaluateRecords("sm_90", accesses)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(records) != 1 || !records[0].WordConflict || records[0].ByteConflict || records[0].IsRace {
+				t.Fatalf("false-positive model records = %+v, want one word-only non-race", records)
+			}
+		})
 	}
-	if res.HasRace {
-		t.Errorf("false positive: byte-independent accesses incorrectly reported as data race")
-	}
-	if !res.Passed() {
-		t.Errorf("expected false positive test case to pass validation")
-	}
-	tc, _ := corpus.Lookup("false_positives/shared_bytewise_readwrite")
-	accesses, err := caseAccesses(tc.Name, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	m := cudashared.NewHazardMatrix("sm_90")
+}
+
+func evaluateRecords(arch string, accesses []cudashared.MemoryAccess) ([]cudashared.HazardRecord, error) {
+	m := cudashared.NewHazardMatrix(arch)
 	for _, a := range accesses {
 		if err := m.AddAccess(a); err != nil {
-			t.Fatal(err)
+			return nil, err
 		}
 	}
-	records, err := m.Evaluate()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(records) != 1 || !records[0].WordConflict || records[0].ByteConflict {
-		t.Fatalf("false-positive model records = %+v, want exactly one word-only conflict", records)
-	}
+	return m.Evaluate()
 }
 
 func TestCorpus_HardwareRequirementPendingReport(t *testing.T) {
@@ -133,6 +142,9 @@ func TestCorpus_HardwareRequirementPendingReport(t *testing.T) {
 	}
 	if !res.HardwarePending {
 		t.Errorf("expected HardwarePending == true on evaluation result")
+	}
+	if res.Error == nil || !errors.Is(res.Error, cudaerrors.ErrHardwarePending) {
+		t.Errorf("pending result error = %v, want ErrHardwarePending", res.Error)
 	}
 }
 
@@ -662,6 +674,70 @@ func TestControl_NonOneExitIsNotDetection(t *testing.T) {
 	}
 }
 
+func TestRunExternalCandidateUnknownExitAndOutput(t *testing.T) {
+	c := NewRaceCorpus()
+	root := makeCorpusBinaries(t, c, "sm_90")
+	t.Setenv("CUHADRON_BINARY_ROOT", root)
+	cmd := `sh -c 'case "$1" in */FIXED=0/memcpy/shared_readwrite_race.sm90.out) echo planted; exit 1;; */FIXED=0/memcpy/shared_writewrite_race.sm90.out) echo candidate-output; exit 2;; *) exit 0;; esac' sh`
+	results, err := c.RunExternal(context.Background(), cmd, false, "sm_90")
+	if err == nil {
+		t.Fatal("candidate exit 2 was accepted")
+	}
+	for _, result := range results {
+		switch result.TestCase {
+		case "cudatrial/planted-race-control":
+			if !result.HasRace || result.Output != "planted\n" {
+				t.Fatalf("control result = %+v", result)
+			}
+		case "memcpy/shared_writewrite_race":
+			if !result.UnknownExit || result.Error == nil || result.HasRace || result.Output != "candidate-output\n" {
+				t.Fatalf("candidate exit 2 result = %+v", result)
+			}
+		}
+	}
+}
+
+func TestRunExternalMultigpuRowsAreUnmodelledWithoutExecution(t *testing.T) {
+	c := NewRaceCorpus()
+	root := makeCorpusBinaries(t, c, "sm_90")
+	t.Setenv("CUHADRON_BINARY_ROOT", root)
+	results, err := c.RunExternal(context.Background(), `sh -c 'case "$1" in */multigpu/*) echo multigpu-ran; exit 1;; *) exit 1;; esac' sh`, false, "sm_90")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, result := range results {
+		if result.Category != CategoryMultiGPU {
+			continue
+		}
+		if !result.Unmodelled || result.HasRace || result.Output != "" {
+			t.Errorf("multigpu row ran or was modeled: %+v", result)
+		}
+	}
+}
+
+func TestEvaluateAllJoinsCaseErrorsAndSuffixArchitectures(t *testing.T) {
+	c := NewRaceCorpus()
+	_, err := c.EvaluateAll(false, "sm_80")
+	if err == nil || !strings.Contains(err.Error(), "multigpu/global_writewrite_race") || !errors.Is(err, cudaerrors.ErrHardwarePending) {
+		t.Fatalf("sm_80 errors = %v, want joined multigpu and pending errors", err)
+	}
+	for _, arch := range []string{"sm_90a", "sm_121a"} {
+		rows, _ := c.EvaluateAll(false, arch)
+		for _, row := range rows {
+			if row.HardwarePending {
+				t.Errorf("EvaluateAll(%q) marked %s pending: %v", arch, row.TestCase, row.Error)
+			}
+		}
+	}
+}
+
+func TestPassedRejectsFalsePositiveRace(t *testing.T) {
+	result := EvaluationResult{Category: CategoryFalsePositives, HasRace: true}
+	if result.Passed() {
+		t.Fatal("false-positive row with a race was accepted")
+	}
+}
+
 func TestConformanceRateRejectsMismatchedExecConfiguration(t *testing.T) {
 	c := NewRaceCorpus()
 	configuration := "FIXED=0;ARCH=sm_90"
@@ -675,6 +751,22 @@ func TestConformanceRateRejectsMismatchedExecConfiguration(t *testing.T) {
 	}
 	if _, err := c.ConformanceRate(results, control); err == nil {
 		t.Fatal("mismatched exec-control configuration accepted")
+	}
+}
+
+func TestConformanceRateRejectsFixedFieldThatDisagreesWithConfiguration(t *testing.T) {
+	c := NewRaceCorpus()
+	configuration := "FIXED=1;ARCH=sm_90"
+	results := validConformanceResults(c, configuration)
+	for i := range results {
+		if results[i].TestCase == c.cases[0].Name {
+			results[i].Fixed = false
+			results[i].HasRace = true
+			break
+		}
+	}
+	if _, err := c.ConformanceRate(results, makeExecControl(t, configuration)); err == nil {
+		t.Fatal("row with FIXED=0 and a race was accepted under FIXED=1 configuration")
 	}
 }
 

@@ -304,3 +304,19 @@ func TestHazardMatrix_SynchronizedOverlapIsClean(t *testing.T) {
 		t.Fatalf("different-stage overlap = %v, %v; want clean", hasRace, err)
 	}
 }
+
+func TestHazardMatrix_ClusterScopeSharedWithinCTAIsClean(t *testing.T) {
+	m := NewHazardMatrix("sm_90")
+	for _, access := range []MemoryAccess{
+		{Scope: ScopeCluster, ThreadID: 0, BlockID: 0, ClusterID: 1, Space: MemoryShared, Offset: 0x600, SizeBytes: 4, IsWrite: true, Stage: 0},
+		{Scope: ScopeCluster, ThreadID: 1, BlockID: 0, ClusterID: 1, Space: MemoryShared, Offset: 0x600, SizeBytes: 4, Stage: 0},
+	} {
+		if err := m.AddAccess(access); err != nil {
+			t.Fatal(err)
+		}
+	}
+	hasRace, err := m.HasRace()
+	if err != nil || hasRace {
+		t.Fatalf("same-CTA shared overlap at cluster scope = %v, %v; want clean", hasRace, err)
+	}
+}

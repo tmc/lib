@@ -572,6 +572,10 @@ func (c *RaceCorpus) ConformanceRate(results []EvaluationResult, control ExecCon
 	if current.configuration != control.configuration {
 		return summary, fmt.Errorf("exec-control evidence configuration changed from %q to %q", control.configuration, current.configuration)
 	}
+	expectedFixed, ok := configuredFixed(control.configuration)
+	if !ok {
+		return summary, fmt.Errorf("exec-control configuration %q has no valid FIXED setting", control.configuration)
+	}
 	want := make(map[string]bool, len(c.cases))
 	for _, tc := range c.cases {
 		want[tc.Name] = true
@@ -595,6 +599,9 @@ func (c *RaceCorpus) ConformanceRate(results []EvaluationResult, control ExecCon
 		seen[r.TestCase] = true
 		if r.Configuration != control.configuration {
 			return summary, fmt.Errorf("result %q configuration %q does not match exec-control %q", r.TestCase, r.Configuration, control.configuration)
+		}
+		if r.Fixed != expectedFixed {
+			return summary, fmt.Errorf("result %q FIXED=%t does not match configuration FIXED=%t", r.TestCase, r.Fixed, expectedFixed)
 		}
 		summary.Total++
 		switch {
@@ -623,4 +630,15 @@ func (c *RaceCorpus) ConformanceRate(results []EvaluationResult, control ExecCon
 	}
 	summary.Rate = float64(summary.Passed) / float64(summary.Total)
 	return summary, nil
+}
+
+func configuredFixed(configuration string) (bool, bool) {
+	switch {
+	case strings.HasPrefix(configuration, "FIXED=0;"):
+		return false, true
+	case strings.HasPrefix(configuration, "FIXED=1;"):
+		return true, true
+	default:
+		return false, false
+	}
 }
