@@ -35,6 +35,7 @@ type dependencyResult struct {
 	Ranges       []timeline.Range       `json:"application_ranges"`
 	Endpoints    []dependencyEndpoint   `json:"delivery_endpoint_observations"`
 	Limits       string                 `json:"limits"`
+	Invariant    *dependency.Selection  `json:"controlled_request_invariant,omitempty"`
 }
 
 // runDependencyCommand inventories retained nodes without manufacturing edges
@@ -54,13 +55,15 @@ func runDependencyCommand(args []string) error {
 	htmlPath := fs.String("html", "", "write standalone dependency inventory HTML")
 	maxRecords := fs.Int64("max-records", 0, "journal record limit")
 	journalBytes := fs.Int64("journal-bytes", 0, "decompressed journal byte limit")
+	token := fs.Int("token", -1, "select one controlled delivered token with a unique scoped marker")
+	expectedActivities := fs.Int("expected-activities", 0, "independent device-record invariant for the complete selected request")
 	if err = fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}
 		return err
 	}
-	if fs.NArg() != 1 || *maxRecords < 0 || *journalBytes < 0 {
+	if fs.NArg() != 1 || *maxRecords < 0 || *journalBytes < 0 || *token < -1 || *expectedActivities < 0 || (*token >= 0) != (*expectedActivities > 0) {
 		return fmt.Errorf("usage: cudaprof dependency capture.pprof")
 	}
 	cap, sha, err := readAlignmentCapture(fs.Arg(0), limits)
@@ -72,11 +75,31 @@ func runDependencyCommand(args []string) error {
 		return err
 	}
 	graph, endpoints := dependencyInventory(records)
+	var invariant *dependency.Selection
+	if *token >= 0 {
+		for _, endpoint := range endpoints {
+			if endpoint.Status != "observed" || endpoint.Metadata.Event != "delivered" || endpoint.Metadata.Token == nil || *endpoint.Metadata.Token != *token {
+				continue
+			}
+			if invariant != nil {
+				return fmt.Errorf("dependency: selected token has multiple scoped delivery markers")
+			}
+			invariant = &dependency.Selection{Journal: endpoint.Journal, Process: endpoint.Process, Thread: endpoint.Thread, Token: *token, ExpectedActivities: *expectedActivities}
+		}
+		if invariant == nil {
+			return fmt.Errorf("dependency: selected token lacks a scoped delivered marker")
+		}
+		graph = dependency.Delivery(records, *invariant)
+		if status.RunCompleteness != runComplete {
+			graph.Complete = false
+			graph.Missing = append(graph.Missing, "collector completeness does not qualify the controlled request")
+		}
+	}
 	report, err := dependency.Analyze(graph)
 	if err != nil {
 		return err
 	}
-	result := dependencyResult{1, fs.Arg(0), sha, status.RunCompleteness, report, timeline.Correlations(records, "driver"), records.Ranges, endpoints, "submission context, delivery markers and application ranges are observations, not dependency edges; no complete critical path or causal attribution is established"}
+	result := dependencyResult{1, fs.Arg(0), sha, status.RunCompleteness, report, timeline.Correlations(records, "driver"), records.Ranges, endpoints, "native dependency edges require successful paired callbacks and explicit identities; a qualified critical path applies only to the selected controlled request and independent count, not application-wide coverage or engine causal attribution", invariant}
 	if *htmlPath != "" {
 		f, err := os.Create(*htmlPath)
 		if err != nil {
@@ -112,22 +135,7 @@ func runDependencyCommand(args []string) error {
 }
 
 func dependencyInventory(records timeline.Records) (dependency.Graph, []dependencyEndpoint) {
-	graph := dependency.Graph{Nodes: []dependency.Node{}, Edges: []dependency.Edge{}, Missing: []string{"retained activity stream IDs do not establish an explicit submission sequence", "event handle identities and wait-to-record edges are not retained", "graph membership and replay submission links do not retain graph dependency edges", "a selected delivery start and host materialization dependencies are unverified"}}
-	for i, a := range records.Activities {
-		if a.End < a.Start || a.Start < 0 {
-			graph.Missing = append(graph.Missing, fmt.Sprintf("invalid activity interval %d", i))
-			continue
-		}
-		if a.Journal == "" {
-			graph.Missing = append(graph.Missing, fmt.Sprintf("activity %d lacks journal clock identity", i))
-			continue
-		}
-		record := fmt.Sprintf("%s:activity:%d", a.Journal, i)
-		if a.Sequence != 0 {
-			record = fmt.Sprintf("%s:record:%d", a.Journal, a.Sequence)
-		}
-		graph.Nodes = append(graph.Nodes, dependency.Node{ID: fmt.Sprintf("activity:%d", i), Record: record, Clock: a.Journal, Start: a.Start, End: a.End})
-	}
+	graph := dependency.Observe(records)
 	endpoints := []dependencyEndpoint{}
 	observed := 0
 	for i, m := range records.Markers {
