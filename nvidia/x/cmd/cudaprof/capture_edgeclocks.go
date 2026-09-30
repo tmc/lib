@@ -40,6 +40,13 @@ import (
 
 // gpuEdgeSample is the GPU state read for one capture-range edge.
 type gpuEdgeSample struct {
+	// Query timestamps describe host reads, not sensor observation times.
+	TimestampDomain      string `json:"timestamp_domain,omitempty"`
+	SensorObservation    string `json:"sensor_observation,omitempty"`
+	SensorRefresh        string `json:"sensor_refresh,omitempty"`
+	RequestedPollNanos   uint64 `json:"requested_poll_nanos,omitempty"`
+	ObservedPollGapNanos uint64 `json:"observed_poll_gap_nanos,omitempty"`
+
 	// SampledAt is CLOCK_MONOTONIC in the controller when the reads began,
 	// LagNanos is SampledAt minus the edge's timestamp, and ReadNanos is how
 	// long the reads of every device took.
@@ -151,6 +158,7 @@ type edgeClocks struct {
 	read        func() []gpuReading
 	closeGPU    func()
 	unavailable string
+	pollGap     uint64
 	watching    bool
 	stop        chan struct{}
 	done        chan map[edgeKey]*gpuEdgeSample
@@ -209,6 +217,7 @@ func (c *edgeClocks) run(pattern string) {
 			j.f.Close()
 		}
 	}()
+	var previousPoll uint64
 	tick := time.NewTicker(edgePollInterval)
 	defer tick.Stop()
 	for {
@@ -217,6 +226,12 @@ func (c *edgeClocks) run(pattern string) {
 		case <-c.stop:
 			stopping = true
 		case <-tick.C:
+		}
+		if now, ok := monotonicNanos(); ok {
+			if previousPoll != 0 && now >= previousPoll {
+				c.pollGap = now - previousPoll
+			}
+			previousPoll = now
 		}
 		if paths, err := filepath.Glob(pattern); err == nil {
 			for _, path := range paths {
@@ -253,7 +268,21 @@ func (c *edgeClocks) sample(edge uint64) *gpuEdgeSample {
 	}
 	devices := c.read()
 	t1, _ := monotonicNanos()
-	return &gpuEdgeSample{SampledAt: t0, LagNanos: int64(t0 - edge), ReadNanos: t1 - t0, Devices: devices}
+	return newGPUEdgeSample(edge, t0, t1, c.pollGap, devices)
+}
+
+// newGPUEdgeSample keeps query time separate from unavailable sensor time.
+func newGPUEdgeSample(edge, start, end, pollGap uint64, devices []gpuReading) *gpuEdgeSample {
+	if start < edge || end < start || start-edge > uint64(1<<63-1) {
+		return &gpuEdgeSample{Unavailable: "invalid CLOCK_MONOTONIC query interval"}
+	}
+	return &gpuEdgeSample{
+		TimestampDomain:    "CLOCK_MONOTONIC",
+		SensorObservation:  "unavailable: NVML readings have no sensor observation timestamp",
+		SensorRefresh:      "unmeasured: polling cadence is not sensor refresh cadence",
+		RequestedPollNanos: uint64(edgePollInterval), ObservedPollGapNanos: pollGap,
+		SampledAt: start, LagNanos: int64(start - edge), ReadNanos: end - start, Devices: devices,
+	}
 }
 
 // journalFollower reads a journal that is still being written, returning
