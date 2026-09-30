@@ -41,3 +41,12 @@ go test ./x/cudaprof/gaps -run 'TestCountsMemsetsAsBusy|TestGapEvidenceLimits'
 The first test reconstructs a journal with memset between kernels. The second
 merges overlapping streams and a memset, clips synchronization to the gap,
 and retains the gap's unknown cause and activity-bounded window.
+
+`correlation_match_pct` uses the same strict API linkage rules as `correlate`.
+`api_timing_association_pct` separately counts unique API IDs in the selected
+process-generation journal and domain, including graph timing associations.
+A graph timing association does not identify graph construction or replay
+provenance. Reused IDs within a journal and domain remain unmatched. API record
+counts include both domains and repeated calls; they are not unique ID counts.
+Use `--api-domain=driver` (the default) or `--api-domain=runtime` explicitly when
+comparing host timing. Neither percentage establishes a cause for a gap.

@@ -291,6 +291,8 @@ func TestGapsParseArgs(t *testing.T) {
 		{name: "path only", args: []string{"c.pprof"}, want: gapOptions{capturePath: "c.pprof", warmupMS: 200}},
 		{name: "json", args: []string{"--json", "c.pprof"}, want: gapOptions{capturePath: "c.pprof", warmupMS: 200, json: true}},
 		{name: "warmup", args: []string{"--warmup-ms=12.5", "c.pprof"}, want: gapOptions{capturePath: "c.pprof", warmupMS: 12.5}},
+		{name: "API domain", args: []string{"--api-domain=runtime", "c.pprof"}, want: gapOptions{capturePath: "c.pprof", warmupMS: 200, apiDomain: "runtime"}},
+		{name: "bad API domain", args: []string{"--api-domain=both", "c.pprof"}, wantErr: "invalid API domain"},
 		{name: "max records", args: []string{"--max-records=7", "c.pprof"}, want: gapOptions{capturePath: "c.pprof", warmupMS: 200, maxRecords: 7}},
 		{name: "journal bytes", args: []string{"--journal-bytes=7", "c.pprof"}, want: gapOptions{capturePath: "c.pprof", warmupMS: 200, journalBytes: 7}},
 		{name: "bad journal bytes", args: []string{"--journal-bytes=0", "c.pprof"}, wantErr: "invalid journal bytes"},

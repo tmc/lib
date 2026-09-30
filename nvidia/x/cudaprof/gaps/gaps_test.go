@@ -175,7 +175,7 @@ func TestHostClassification(t *testing.T) {
 			if tt.api != nil {
 				apis[2] = *tt.api
 			}
-			s := computeStats(acts, apis, "overall", gapSpans{})
+			s := computeTestStats(acts, apis, "overall", gapSpans{})
 			if s.GapCount != 1 || s.IdleNanos != tt.wantIdle {
 				t.Fatalf("gaps = %d idle = %d, want 1 gap of %d", s.GapCount, s.IdleNanos, tt.wantIdle)
 			}
@@ -794,7 +794,7 @@ func TestUnattributedIdleNamesNoMechanism(t *testing.T) {
 		{Start: 400_000, End: 500_000, Correlation: 3},
 	}
 	apis := map[uint32]timeline.Span{2: {Start: 10_000, End: 50_000}} // host ahead
-	s := computeStats(acts, apis, "overall", gapSpans{})
+	s := computeTestStats(acts, apis, "overall", gapSpans{})
 	if s.GapCount != 2 || s.IdleNanos != 200_000 {
 		t.Fatalf("gaps/idle = %d/%d, want 2/200000", s.GapCount, s.IdleNanos)
 	}
@@ -911,7 +911,7 @@ func TestGapEvidenceLimits(t *testing.T) {
 		{Start: 150, End: 250, Stream: 2, Subtype: "memset"},
 		{Start: 300, End: 400, Stream: 1, Correlation: 1},
 	}
-	stats := computeStats(acts, map[uint32]timeline.Span{1: {Start: 260, End: 280}}, "overall", gapSpans{
+	stats := computeTestStats(acts, map[uint32]timeline.Span{1: {Start: 260, End: 280}}, "overall", gapSpans{
 		sync: []timeline.Span{{Start: 0, End: 500}},
 	})
 	if stats.ActiveNanos != 250 || stats.IdleNanos != 50 || stats.SpanNanos != 300 {
@@ -928,5 +928,58 @@ func TestGapEvidenceLimits(t *testing.T) {
 func TestSteadyEmpty(t *testing.T) {
 	if got := Steady(nil, 0, nil); len(got) != 0 {
 		t.Fatalf("empty steady activities = %v", got)
+	}
+}
+
+func computeTestStats(acts []timeline.Activity, apis map[uint32]timeline.Span, label string, spans gapSpans) *Stats {
+	return computeStats(acts, func(a timeline.Activity) (timeline.Span, bool) {
+		api, ok := apis[a.Correlation]
+		return api, ok
+	}, label, spans)
+}
+
+func TestTimingAPIs(t *testing.T) {
+	r := timeline.Records{Calls: []timeline.Call{
+		{Journal: "one", Domain: "driver", Correlation: 7, Start: 10, End: 20},
+		{Journal: "two", Domain: "driver", Correlation: 7, Start: 30, End: 40},
+		{Journal: "one", Domain: "runtime", Correlation: 7, Start: 50, End: 60},
+		{Journal: "one", Domain: "driver", Correlation: 8, Start: 70, End: 80},
+		{Journal: "one", Domain: "driver", Correlation: 8, Start: 90, End: 100},
+	}}
+	tests := []struct {
+		name, journal, domain, subtype string
+		correlation                    uint32
+		graph                          uint32
+		wantStart                      int64
+		want                           bool
+	}{
+		{"first generation", "one", "driver", "kernel", 7, 0, 10, true},
+		{"second generation", "two", "driver", "kernel", 7, 0, 30, true},
+		{"runtime domain", "one", "runtime", "kernel", 7, 0, 50, true},
+		{"graph timing only", "one", "driver", "kernel", 7, 1, 10, true},
+		{"missing journal", "", "driver", "kernel", 7, 0, 0, false},
+		{"missing call", "three", "driver", "kernel", 7, 0, 0, false},
+		{"reused ID", "one", "driver", "kernel", 8, 0, 0, false},
+		{"runtime transfer unsupported", "one", "runtime", "memcpy", 7, 0, 0, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := timeline.Activity{Journal: tt.journal, Correlation: tt.correlation, GraphID: tt.graph, Subtype: tt.subtype}
+			span, ok := timingAPIs(r, tt.domain)(a)
+			if ok != tt.want || ok && span.Start != tt.wantStart {
+				t.Fatalf("timing API = %+v, %v; want start %d, %v", span, ok, tt.wantStart, tt.want)
+			}
+		})
+	}
+}
+
+func TestGraphCorrelationMeaning(t *testing.T) {
+	b := journaltest.New().GraphNode(0, 1, 100, 200, 7, 1).API(70, 80, 7).Finalize()
+	r, err := Analyze(journaltest.Capture(map[string][]byte{"capture.journal": b}, nil), Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Correlated != 0 || r.TimingAssociated != 100 || r.APIDomain != "driver" {
+		t.Fatalf("graph association = %+v", r)
 	}
 }

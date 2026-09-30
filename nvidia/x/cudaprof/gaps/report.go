@@ -9,9 +9,16 @@ type Report struct {
 	Capture    string             `json:"capture"`
 	Journals   []timeline.Journal `json:"journals"`
 	Activities int                `json:"activities"`
-	APIRecords int                `json:"api_records"`
-	Correlated float64            `json:"correlation_match_pct"`
-	WarmupMS   float64            `json:"warmup_ms"`
+	// APIRecords counts retained calls across domains, including repeated IDs.
+	APIRecords int `json:"api_records"`
+	// Correlated uses the strict timeline.Correlations API linkage rules.
+	Correlated float64 `json:"correlation_match_pct"`
+	// TimingAssociated counts unique domain-scoped calls for timing context.
+	// Graph IDs are allowed but do not establish replay provenance.
+	TimingAssociated   float64 `json:"api_timing_association_pct"`
+	APIDomain          string  `json:"api_domain"`
+	CorrelationMeaning string  `json:"api_timing_association_meaning"`
+	WarmupMS           float64 `json:"warmup_ms"`
 	// WarmupUntil, when set, replaces WarmupMS: the steady-state window
 	// begins at the first kernel whose name matches it.
 	WarmupUntil string   `json:"warmup_until,omitempty"`
