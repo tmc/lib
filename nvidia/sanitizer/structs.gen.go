@@ -23,7 +23,8 @@ type CallbackData struct {
 //
 // Data passed into a context resource callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainResource] and cbid equal to [CbidResourceContextCreationStarting], [CbidResourceContextCreationFinished], [CbidResourceContextDestroyStarting] or [CbidResourceContextDestroyFinished]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type ResourceContextData struct {
-	Context      driver.Context
+	Context driver.Context
+	// Zero on releases before CUDA 13.1.
 	GreenContext GreenContext
 	Device       Device
 }
@@ -32,7 +33,8 @@ type ResourceContextData struct {
 //
 // Data passed into a stream resource callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainResource] and cbid equal to [CbidResourceStreamCreated], [CbidResourceStreamDestroyStarting] or [CbidResourceStreamDestroyFinished]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type ResourceStreamData struct {
-	Context      driver.Context
+	Context driver.Context
+	// Zero on releases before CUDA 13.1.
 	GreenContext GreenContext
 	Stream       driver.Stream
 	HStream      StreamHandle
@@ -116,9 +118,10 @@ type ResourceVirtualRange struct {
 //
 // Data passed into a synchronization callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainSynchronize]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type SynchronizeData struct {
-	Context      driver.Context
-	Stream       driver.Stream
-	HStream      StreamHandle
+	Context driver.Context
+	Stream  driver.Stream
+	HStream StreamHandle
+	// Zero on releases before CUDA 13.1.
 	GreenContext GreenContext
 }
 
@@ -141,6 +144,8 @@ type LaunchData struct {
 	ApiContext   driver.Context
 	ApiStream    driver.Stream
 	HApiStream   StreamHandle
+	// Zero on releases before CUDA 13.4.
+	SplitLaunchPart uint32
 }
 
 // MemcpyData represents data passed into a memcpy callback function.
@@ -163,6 +168,23 @@ type MemcpyData struct {
 	DstPitch   uint64
 	IsAsync    uint32
 	Direction  MemcpyDirection
+	// Zero on releases before CUDA 12.4.
+	ApiContext driver.Context
+	// Zero on releases before CUDA 12.4.
+	ApiStream driver.Stream
+	// Zero on releases before CUDA 12.4.
+	HApiStream StreamHandle
+}
+
+// BatchMemcpyItemEndData represents data passed into a item batch memcpy end callback function.
+type BatchMemcpyItemEndData struct {
+	ApiContext driver.Context
+	ApiStream  driver.Stream
+	HApiStream StreamHandle
+}
+
+// BatchMultiEntryPushData represents data passed into a batch memcpy multientry push begin/end function.
+type BatchMultiEntryPushData struct {
 	ApiContext driver.Context
 	ApiStream  driver.Stream
 	HApiStream StreamHandle
@@ -188,12 +210,13 @@ type MemsetData struct {
 //
 // Data passed into a batch memop callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainBatchMemop]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type BatchMemopData struct {
-	Context         driver.Context
-	Stream          driver.Stream
-	HStream         StreamHandle
-	Address         uint64
-	Value           uint64
-	Type            BatchMemopType
+	Context driver.Context
+	Stream  driver.Stream
+	HStream StreamHandle
+	Address uint64
+	Value   uint64
+	Type    BatchMemopType
+	// Zero on releases before CUDA 13.1.
 	AtomicOperation BatchMemopAtomicOp
 }
 
@@ -276,8 +299,9 @@ type GraphLaunchData struct {
 //
 // Data passed into an event callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal tp [CbDomainEvents]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type EventData struct {
-	Event    driver.Event
-	Context  driver.Context
+	Event   driver.Event
+	Context driver.Context
+	// Zero on releases before CUDA 13.1.
 	GreenCtx GreenContext
 	Stream   driver.Stream
 	HStream  StreamHandle

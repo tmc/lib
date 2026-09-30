@@ -224,8 +224,8 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(SynchronizeData{}.GreenContext); got != 24 {
 		t.Errorf("offsetof(SynchronizeData.GreenContext) = %d, want 24", got)
 	}
-	if got := unsafe.Sizeof(LaunchData{}); got != 136 {
-		t.Errorf("sizeof(LaunchData) = %d, want 136", got)
+	if got := unsafe.Sizeof(LaunchData{}); got != 144 {
+		t.Errorf("sizeof(LaunchData) = %d, want 144", got)
 	}
 	if got := unsafe.Alignof(LaunchData{}); got != 8 {
 		t.Errorf("alignof(LaunchData) = %d, want 8", got)
@@ -274,6 +274,9 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Offsetof(LaunchData{}.HApiStream); got != 128 {
 		t.Errorf("offsetof(LaunchData.HApiStream) = %d, want 128", got)
+	}
+	if got := unsafe.Offsetof(LaunchData{}.SplitLaunchPart); got != 136 {
+		t.Errorf("offsetof(LaunchData.SplitLaunchPart) = %d, want 136", got)
 	}
 	if got := unsafe.Sizeof(MemcpyData{}); got != 144 {
 		t.Errorf("sizeof(MemcpyData) = %d, want 144", got)
@@ -337,6 +340,36 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Offsetof(MemcpyData{}.HApiStream); got != 136 {
 		t.Errorf("offsetof(MemcpyData.HApiStream) = %d, want 136", got)
+	}
+	if got := unsafe.Sizeof(BatchMemcpyItemEndData{}); got != 24 {
+		t.Errorf("sizeof(BatchMemcpyItemEndData) = %d, want 24", got)
+	}
+	if got := unsafe.Alignof(BatchMemcpyItemEndData{}); got != 8 {
+		t.Errorf("alignof(BatchMemcpyItemEndData) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(BatchMemcpyItemEndData{}.ApiContext); got != 0 {
+		t.Errorf("offsetof(BatchMemcpyItemEndData.ApiContext) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(BatchMemcpyItemEndData{}.ApiStream); got != 8 {
+		t.Errorf("offsetof(BatchMemcpyItemEndData.ApiStream) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(BatchMemcpyItemEndData{}.HApiStream); got != 16 {
+		t.Errorf("offsetof(BatchMemcpyItemEndData.HApiStream) = %d, want 16", got)
+	}
+	if got := unsafe.Sizeof(BatchMultiEntryPushData{}); got != 24 {
+		t.Errorf("sizeof(BatchMultiEntryPushData) = %d, want 24", got)
+	}
+	if got := unsafe.Alignof(BatchMultiEntryPushData{}); got != 8 {
+		t.Errorf("alignof(BatchMultiEntryPushData) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(BatchMultiEntryPushData{}.ApiContext); got != 0 {
+		t.Errorf("offsetof(BatchMultiEntryPushData.ApiContext) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(BatchMultiEntryPushData{}.ApiStream); got != 8 {
+		t.Errorf("offsetof(BatchMultiEntryPushData.ApiStream) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(BatchMultiEntryPushData{}.HApiStream); got != 16 {
+		t.Errorf("offsetof(BatchMultiEntryPushData.HApiStream) = %d, want 16", got)
 	}
 	if got := unsafe.Sizeof(MemsetData{}); got != 72 {
 		t.Errorf("sizeof(MemsetData) = %d, want 72", got)
@@ -454,8 +487,8 @@ func TestGeneratedLayouts(t *testing.T) {
 		if got := uintptr(unsafe.Pointer(v.LaunchData())) - uintptr(unsafe.Pointer(&v)); got != 32 {
 			t.Errorf("offset of GraphNodeLaunchData.LaunchData() = %d, want 32", got)
 		}
-		if got := unsafe.Sizeof(*v.LaunchData()); got != 136 {
-			t.Errorf("sizeof(*GraphNodeLaunchData.LaunchData()) = %d, want 136", got)
+		if got := unsafe.Sizeof(*v.LaunchData()); got != 144 {
+			t.Errorf("sizeof(*GraphNodeLaunchData.LaunchData()) = %d, want 144", got)
 		}
 	}
 	{ // GraphNodeLaunchData.MemAllocData

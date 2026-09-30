@@ -831,14 +831,14 @@ const (
 	DriverCBIDCuMulticastBindMemV2                                 DriverAPICBID = 820
 	DriverCBIDCuMulticastBindAddrV2                                DriverAPICBID = 821
 	DriverCBIDCuDevSmResourceSplit                                 DriverAPICBID = 822
-	DriverCBIDCuSubgridScheduleCreate                              DriverAPICBID = 823
-	DriverCBIDCuSubgridWorkerGridCreate                            DriverAPICBID = 824
-	DriverCBIDCuSubgridWorksetCreate                               DriverAPICBID = 825
-	DriverCBIDCuSubgridCreate                                      DriverAPICBID = 826
-	DriverCBIDCuSubgridScheduleFinalize                            DriverAPICBID = 827
-	DriverCBIDCuSubgridScheduleLaunch                              DriverAPICBID = 828
-	DriverCBIDCuSubgridScheduleLaunchPtsz                          DriverAPICBID = 829
-	DriverCBIDCuSubgridScheduleDestroy                             DriverAPICBID = 830
+	DriverCBIDReserved823                                          DriverAPICBID = 823
+	DriverCBIDReserved824                                          DriverAPICBID = 824
+	DriverCBIDReserved825                                          DriverAPICBID = 825
+	DriverCBIDReserved826                                          DriverAPICBID = 826
+	DriverCBIDReserved827                                          DriverAPICBID = 827
+	DriverCBIDReserved828                                          DriverAPICBID = 828
+	DriverCBIDReserved829                                          DriverAPICBID = 829
+	DriverCBIDReserved830                                          DriverAPICBID = 830
 	DriverCBIDCuLaunchHostFuncV2                                   DriverAPICBID = 831
 	DriverCBIDCuLaunchHostFuncV2Ptsz                               DriverAPICBID = 832
 	DriverCBIDCuFuncGetDeviceCodeInfo                              DriverAPICBID = 833
@@ -868,8 +868,32 @@ const (
 	DriverCBIDCuLogicalEndpointImport                              DriverAPICBID = 857
 	DriverCBIDCuLogicalEndpointGetLimits                           DriverAPICBID = 858
 	DriverCBIDCuLogicalEndpointQuery                               DriverAPICBID = 859
-	DriverCBIDSize                                                 DriverAPICBID = 860
+	DriverCBIDCuMemGetLocationInfo                                 DriverAPICBID = 860
+	DriverCBIDCuCheckpointOperationComplete                        DriverAPICBID = 861
+	DriverCBIDReserved862                                          DriverAPICBID = 862
+	DriverCBIDCuGraphAddNodeV3                                     DriverAPICBID = 863
+	DriverCBIDCuGraphNodeSetParamsV2                               DriverAPICBID = 864
+	DriverCBIDCuDeviceGetFabricClusterUuid                         DriverAPICBID = 865
+	DriverCBIDCuDeviceGetCliqueCount                               DriverAPICBID = 866
+	DriverCBIDCuDeviceGetCliqueInfo                                DriverAPICBID = 867
+	DriverCBIDSize                                                 DriverAPICBID = 868
 	DriverCBIDForceInt                                             DriverAPICBID = 0x7fffffff
+	// Deprecated: NVIDIA withdrew the API behind SANITIZER_CBID_DRIVER_API_cuSubgridScheduleCreate in CUDA 13.4 and left slot 823 allocated, as DriverCBIDReserved823. The value has not moved and still identifies the same call on a driver that implements it, so the name is kept for code built against CUDA 13.1.
+	DriverCBIDCuSubgridScheduleCreate DriverAPICBID = 823
+	// Deprecated: NVIDIA withdrew the API behind SANITIZER_CBID_DRIVER_API_cuSubgridWorkerGridCreate in CUDA 13.4 and left slot 824 allocated, as DriverCBIDReserved824. The value has not moved and still identifies the same call on a driver that implements it, so the name is kept for code built against CUDA 13.1.
+	DriverCBIDCuSubgridWorkerGridCreate DriverAPICBID = 824
+	// Deprecated: NVIDIA withdrew the API behind SANITIZER_CBID_DRIVER_API_cuSubgridWorksetCreate in CUDA 13.4 and left slot 825 allocated, as DriverCBIDReserved825. The value has not moved and still identifies the same call on a driver that implements it, so the name is kept for code built against CUDA 13.1.
+	DriverCBIDCuSubgridWorksetCreate DriverAPICBID = 825
+	// Deprecated: NVIDIA withdrew the API behind SANITIZER_CBID_DRIVER_API_cuSubgridCreate in CUDA 13.4 and left slot 826 allocated, as DriverCBIDReserved826. The value has not moved and still identifies the same call on a driver that implements it, so the name is kept for code built against CUDA 13.1.
+	DriverCBIDCuSubgridCreate DriverAPICBID = 826
+	// Deprecated: NVIDIA withdrew the API behind SANITIZER_CBID_DRIVER_API_cuSubgridScheduleFinalize in CUDA 13.4 and left slot 827 allocated, as DriverCBIDReserved827. The value has not moved and still identifies the same call on a driver that implements it, so the name is kept for code built against CUDA 13.1.
+	DriverCBIDCuSubgridScheduleFinalize DriverAPICBID = 827
+	// Deprecated: NVIDIA withdrew the API behind SANITIZER_CBID_DRIVER_API_cuSubgridScheduleLaunch in CUDA 13.4 and left slot 828 allocated, as DriverCBIDReserved828. The value has not moved and still identifies the same call on a driver that implements it, so the name is kept for code built against CUDA 13.1.
+	DriverCBIDCuSubgridScheduleLaunch DriverAPICBID = 828
+	// Deprecated: NVIDIA withdrew the API behind SANITIZER_CBID_DRIVER_API_cuSubgridScheduleLaunch_ptsz in CUDA 13.4 and left slot 829 allocated, as DriverCBIDReserved829. The value has not moved and still identifies the same call on a driver that implements it, so the name is kept for code built against CUDA 13.1.
+	DriverCBIDCuSubgridScheduleLaunchPtsz DriverAPICBID = 829
+	// Deprecated: NVIDIA withdrew the API behind SANITIZER_CBID_DRIVER_API_cuSubgridScheduleDestroy in CUDA 13.4 and left slot 830 allocated, as DriverCBIDReserved830. The value has not moved and still identifies the same call on a driver that implements it, so the name is kept for code built against CUDA 13.1.
+	DriverCBIDCuSubgridScheduleDestroy DriverAPICBID = 830
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -2521,22 +2545,22 @@ func (e DriverAPICBID) String() string {
 		return "DriverCBIDCuMulticastBindAddrV2"
 	case DriverCBIDCuDevSmResourceSplit:
 		return "DriverCBIDCuDevSmResourceSplit"
-	case DriverCBIDCuSubgridScheduleCreate:
-		return "DriverCBIDCuSubgridScheduleCreate"
-	case DriverCBIDCuSubgridWorkerGridCreate:
-		return "DriverCBIDCuSubgridWorkerGridCreate"
-	case DriverCBIDCuSubgridWorksetCreate:
-		return "DriverCBIDCuSubgridWorksetCreate"
-	case DriverCBIDCuSubgridCreate:
-		return "DriverCBIDCuSubgridCreate"
-	case DriverCBIDCuSubgridScheduleFinalize:
-		return "DriverCBIDCuSubgridScheduleFinalize"
-	case DriverCBIDCuSubgridScheduleLaunch:
-		return "DriverCBIDCuSubgridScheduleLaunch"
-	case DriverCBIDCuSubgridScheduleLaunchPtsz:
-		return "DriverCBIDCuSubgridScheduleLaunchPtsz"
-	case DriverCBIDCuSubgridScheduleDestroy:
-		return "DriverCBIDCuSubgridScheduleDestroy"
+	case DriverCBIDReserved823:
+		return "DriverCBIDReserved823"
+	case DriverCBIDReserved824:
+		return "DriverCBIDReserved824"
+	case DriverCBIDReserved825:
+		return "DriverCBIDReserved825"
+	case DriverCBIDReserved826:
+		return "DriverCBIDReserved826"
+	case DriverCBIDReserved827:
+		return "DriverCBIDReserved827"
+	case DriverCBIDReserved828:
+		return "DriverCBIDReserved828"
+	case DriverCBIDReserved829:
+		return "DriverCBIDReserved829"
+	case DriverCBIDReserved830:
+		return "DriverCBIDReserved830"
 	case DriverCBIDCuLaunchHostFuncV2:
 		return "DriverCBIDCuLaunchHostFuncV2"
 	case DriverCBIDCuLaunchHostFuncV2Ptsz:
@@ -2595,6 +2619,22 @@ func (e DriverAPICBID) String() string {
 		return "DriverCBIDCuLogicalEndpointGetLimits"
 	case DriverCBIDCuLogicalEndpointQuery:
 		return "DriverCBIDCuLogicalEndpointQuery"
+	case DriverCBIDCuMemGetLocationInfo:
+		return "DriverCBIDCuMemGetLocationInfo"
+	case DriverCBIDCuCheckpointOperationComplete:
+		return "DriverCBIDCuCheckpointOperationComplete"
+	case DriverCBIDReserved862:
+		return "DriverCBIDReserved862"
+	case DriverCBIDCuGraphAddNodeV3:
+		return "DriverCBIDCuGraphAddNodeV3"
+	case DriverCBIDCuGraphNodeSetParamsV2:
+		return "DriverCBIDCuGraphNodeSetParamsV2"
+	case DriverCBIDCuDeviceGetFabricClusterUuid:
+		return "DriverCBIDCuDeviceGetFabricClusterUuid"
+	case DriverCBIDCuDeviceGetCliqueCount:
+		return "DriverCBIDCuDeviceGetCliqueCount"
+	case DriverCBIDCuDeviceGetCliqueInfo:
+		return "DriverCBIDCuDeviceGetCliqueInfo"
 	case DriverCBIDSize:
 		return "DriverCBIDSize"
 	case DriverCBIDForceInt:
@@ -3108,8 +3148,132 @@ const (
 	RuntimeCBIDCudaMemcpy3DWithAttributesAsync                        RuntimeAPICBID = 556
 	RuntimeCBIDCudaMemcpy3DWithAttributesAsyncPtsz                    RuntimeAPICBID = 557
 	RuntimeCBIDCudaGraphNodeGetParams                                 RuntimeAPICBID = 558
-	RuntimeCBIDSize                                                   RuntimeAPICBID = 559
+	RuntimeCBIDReserved559                                            RuntimeAPICBID = 559
+	RuntimeCBIDReserved560                                            RuntimeAPICBID = 560
+	RuntimeCBIDReserved561                                            RuntimeAPICBID = 561
+	RuntimeCBIDCudaStreamBeginRecaptureToGraph                        RuntimeAPICBID = 562
+	RuntimeCBIDCudaStreamBeginRecaptureToGraphPtsz                    RuntimeAPICBID = 563
+	RuntimeCBIDCuda564                                                RuntimeAPICBID = 564
+	RuntimeCBIDCudaMemGetLocationInfo                                 RuntimeAPICBID = 565
+	RuntimeCBIDSize                                                   RuntimeAPICBID = 566
 	RuntimeCBIDForceInt                                               RuntimeAPICBID = 0x7fffffff
+	// RuntimeCBIDCudaBindSurfaceToArray is SANITIZER_CBID_RUNTIME_API_cudaBindSurfaceToArray, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 61 for it.
+	RuntimeCBIDCudaBindSurfaceToArray RuntimeAPICBID = 786493
+	// RuntimeCBIDCudaBindTexture is SANITIZER_CBID_RUNTIME_API_cudaBindTexture, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 55 for it.
+	RuntimeCBIDCudaBindTexture RuntimeAPICBID = 786487
+	// RuntimeCBIDCudaBindTexture2D is SANITIZER_CBID_RUNTIME_API_cudaBindTexture2D, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 56 for it.
+	RuntimeCBIDCudaBindTexture2D RuntimeAPICBID = 786488
+	// RuntimeCBIDCudaBindTextureToArray is SANITIZER_CBID_RUNTIME_API_cudaBindTextureToArray, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 57 for it.
+	RuntimeCBIDCudaBindTextureToArray RuntimeAPICBID = 786489
+	// RuntimeCBIDCudaBindTextureToMipmappedArray is SANITIZER_CBID_RUNTIME_API_cudaBindTextureToMipmappedArray, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 195 for it.
+	RuntimeCBIDCudaBindTextureToMipmappedArray RuntimeAPICBID = 786627
+	// RuntimeCBIDCudaEventElapsedTimeV2 is SANITIZER_CBID_RUNTIME_API_cudaEventElapsedTime_v2, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 486 for it.
+	RuntimeCBIDCudaEventElapsedTimeV2 RuntimeAPICBID = 786918
+	// RuntimeCBIDCudaGetDevicePropertiesV1 is SANITIZER_CBID_RUNTIME_API_cudaGetDeviceProperties_v1, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 4 for it.
+	RuntimeCBIDCudaGetDevicePropertiesV1 RuntimeAPICBID = 786436
+	// RuntimeCBIDCudaGetSurfaceReference is SANITIZER_CBID_RUNTIME_API_cudaGetSurfaceReference, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 62 for it.
+	RuntimeCBIDCudaGetSurfaceReference RuntimeAPICBID = 786494
+	// RuntimeCBIDCudaGetTextureAlignmentOffset is SANITIZER_CBID_RUNTIME_API_cudaGetTextureAlignmentOffset, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 59 for it.
+	RuntimeCBIDCudaGetTextureAlignmentOffset RuntimeAPICBID = 786491
+	// RuntimeCBIDCudaGetTextureReference is SANITIZER_CBID_RUNTIME_API_cudaGetTextureReference, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 60 for it.
+	RuntimeCBIDCudaGetTextureReference RuntimeAPICBID = 786492
+	// RuntimeCBIDCudaGraphAddDependenciesV2 is SANITIZER_CBID_RUNTIME_API_cudaGraphAddDependencies_v2, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 458 for it.
+	RuntimeCBIDCudaGraphAddDependenciesV2 RuntimeAPICBID = 786890
+	// RuntimeCBIDCudaGraphAddNodeV2 is SANITIZER_CBID_RUNTIME_API_cudaGraphAddNode_v2, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 460 for it.
+	RuntimeCBIDCudaGraphAddNodeV2 RuntimeAPICBID = 786892
+	// RuntimeCBIDCudaGraphGetEdgesV2 is SANITIZER_CBID_RUNTIME_API_cudaGraphGetEdges_v2, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 455 for it.
+	RuntimeCBIDCudaGraphGetEdgesV2 RuntimeAPICBID = 786887
+	// RuntimeCBIDCudaGraphNodeGetDependenciesV2 is SANITIZER_CBID_RUNTIME_API_cudaGraphNodeGetDependencies_v2, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 456 for it.
+	RuntimeCBIDCudaGraphNodeGetDependenciesV2 RuntimeAPICBID = 786888
+	// RuntimeCBIDCudaGraphNodeGetDependentNodesV2 is SANITIZER_CBID_RUNTIME_API_cudaGraphNodeGetDependentNodes_v2, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 457 for it.
+	RuntimeCBIDCudaGraphNodeGetDependentNodesV2 RuntimeAPICBID = 786889
+	// RuntimeCBIDCudaGraphRemoveDependenciesV2 is SANITIZER_CBID_RUNTIME_API_cudaGraphRemoveDependencies_v2, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 459 for it.
+	RuntimeCBIDCudaGraphRemoveDependenciesV2 RuntimeAPICBID = 786891
+	// RuntimeCBIDCudaLaunchCooperativeKernelMultiDevice is SANITIZER_CBID_RUNTIME_API_cudaLaunchCooperativeKernelMultiDevice, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 272 for it.
+	RuntimeCBIDCudaLaunchCooperativeKernelMultiDevice RuntimeAPICBID = 786704
+	// RuntimeCBIDCudaMemAdviseV1 is SANITIZER_CBID_RUNTIME_API_cudaMemAdvise_v1, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 254 for it.
+	RuntimeCBIDCudaMemAdviseV1 RuntimeAPICBID = 786686
+	// RuntimeCBIDCudaMemPrefetchAsyncPtszV1 is SANITIZER_CBID_RUNTIME_API_cudaMemPrefetchAsync_ptsz_v1, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 253 for it.
+	RuntimeCBIDCudaMemPrefetchAsyncPtszV1 RuntimeAPICBID = 786685
+	// RuntimeCBIDCudaMemPrefetchAsyncV1 is SANITIZER_CBID_RUNTIME_API_cudaMemPrefetchAsync_v1, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 252 for it.
+	RuntimeCBIDCudaMemPrefetchAsyncV1 RuntimeAPICBID = 786684
+	// RuntimeCBIDCudaSetDoubleForDevice is SANITIZER_CBID_RUNTIME_API_cudaSetDoubleForDevice, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 124 for it.
+	RuntimeCBIDCudaSetDoubleForDevice RuntimeAPICBID = 786556
+	// RuntimeCBIDCudaSetDoubleForHost is SANITIZER_CBID_RUNTIME_API_cudaSetDoubleForHost, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 125 for it.
+	RuntimeCBIDCudaSetDoubleForHost RuntimeAPICBID = 786557
+	// RuntimeCBIDCudaSignalExternalSemaphoresAsyncPtszV1 is SANITIZER_CBID_RUNTIME_API_cudaSignalExternalSemaphoresAsync_ptsz_v1, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 280 for it.
+	RuntimeCBIDCudaSignalExternalSemaphoresAsyncPtszV1 RuntimeAPICBID = 786712
+	// RuntimeCBIDCudaSignalExternalSemaphoresAsyncV1 is SANITIZER_CBID_RUNTIME_API_cudaSignalExternalSemaphoresAsync_v1, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 279 for it.
+	RuntimeCBIDCudaSignalExternalSemaphoresAsyncV1 RuntimeAPICBID = 786711
+	// RuntimeCBIDCudaStreamGetCaptureInfoV2 is SANITIZER_CBID_RUNTIME_API_cudaStreamGetCaptureInfo_v2, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 409 for it.
+	RuntimeCBIDCudaStreamGetCaptureInfoV2 RuntimeAPICBID = 786841
+	// RuntimeCBIDCudaStreamGetCaptureInfoV2Ptsz is SANITIZER_CBID_RUNTIME_API_cudaStreamGetCaptureInfo_v2_ptsz, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 410 for it.
+	RuntimeCBIDCudaStreamGetCaptureInfoV2Ptsz RuntimeAPICBID = 786842
+	// RuntimeCBIDCudaStreamGetCaptureInfoV3 is SANITIZER_CBID_RUNTIME_API_cudaStreamGetCaptureInfo_v3, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 461 for it.
+	RuntimeCBIDCudaStreamGetCaptureInfoV3 RuntimeAPICBID = 786893
+	// RuntimeCBIDCudaStreamGetCaptureInfoV3Ptsz is SANITIZER_CBID_RUNTIME_API_cudaStreamGetCaptureInfo_v3_ptsz, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 462 for it.
+	RuntimeCBIDCudaStreamGetCaptureInfoV3Ptsz RuntimeAPICBID = 786894
+	// RuntimeCBIDCudaStreamUpdateCaptureDependenciesV2 is SANITIZER_CBID_RUNTIME_API_cudaStreamUpdateCaptureDependencies_v2, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 463 for it.
+	RuntimeCBIDCudaStreamUpdateCaptureDependenciesV2 RuntimeAPICBID = 786895
+	// RuntimeCBIDCudaStreamUpdateCaptureDependenciesV2Ptsz is SANITIZER_CBID_RUNTIME_API_cudaStreamUpdateCaptureDependencies_v2_ptsz, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 464 for it.
+	RuntimeCBIDCudaStreamUpdateCaptureDependenciesV2Ptsz RuntimeAPICBID = 786896
+	// RuntimeCBIDCudaThreadExit is SANITIZER_CBID_RUNTIME_API_cudaThreadExit, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 123 for it.
+	RuntimeCBIDCudaThreadExit RuntimeAPICBID = 786555
+	// RuntimeCBIDCudaThreadGetCacheConfig is SANITIZER_CBID_RUNTIME_API_cudaThreadGetCacheConfig, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 150 for it.
+	RuntimeCBIDCudaThreadGetCacheConfig RuntimeAPICBID = 786582
+	// RuntimeCBIDCudaThreadGetLimit is SANITIZER_CBID_RUNTIME_API_cudaThreadGetLimit, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 127 for it.
+	RuntimeCBIDCudaThreadGetLimit RuntimeAPICBID = 786559
+	// RuntimeCBIDCudaThreadSetCacheConfig is SANITIZER_CBID_RUNTIME_API_cudaThreadSetCacheConfig, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 146 for it.
+	RuntimeCBIDCudaThreadSetCacheConfig RuntimeAPICBID = 786578
+	// RuntimeCBIDCudaThreadSetLimit is SANITIZER_CBID_RUNTIME_API_cudaThreadSetLimit, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 128 for it.
+	RuntimeCBIDCudaThreadSetLimit RuntimeAPICBID = 786560
+	// RuntimeCBIDCudaThreadSynchronize is SANITIZER_CBID_RUNTIME_API_cudaThreadSynchronize, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 126 for it.
+	RuntimeCBIDCudaThreadSynchronize RuntimeAPICBID = 786558
+	// RuntimeCBIDCudaUnbindTexture is SANITIZER_CBID_RUNTIME_API_cudaUnbindTexture, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 58 for it.
+	RuntimeCBIDCudaUnbindTexture RuntimeAPICBID = 786490
+	// RuntimeCBIDCudaWaitExternalSemaphoresAsyncPtszV1 is SANITIZER_CBID_RUNTIME_API_cudaWaitExternalSemaphoresAsync_ptsz_v1, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 282 for it.
+	RuntimeCBIDCudaWaitExternalSemaphoresAsyncPtszV1 RuntimeAPICBID = 786714
+	// RuntimeCBIDCudaWaitExternalSemaphoresAsyncV1 is SANITIZER_CBID_RUNTIME_API_cudaWaitExternalSemaphoresAsync_v1, which only CUDA 12 declares.
+	// CUDA 12 only: a CUDA 12 library uses 281 for it.
+	RuntimeCBIDCudaWaitExternalSemaphoresAsyncV1 RuntimeAPICBID = 786713
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -4117,12 +4281,1260 @@ func (e RuntimeAPICBID) String() string {
 		return "RuntimeCBIDCudaMemcpy3DWithAttributesAsyncPtsz"
 	case RuntimeCBIDCudaGraphNodeGetParams:
 		return "RuntimeCBIDCudaGraphNodeGetParams"
+	case RuntimeCBIDReserved559:
+		return "RuntimeCBIDReserved559"
+	case RuntimeCBIDReserved560:
+		return "RuntimeCBIDReserved560"
+	case RuntimeCBIDReserved561:
+		return "RuntimeCBIDReserved561"
+	case RuntimeCBIDCudaStreamBeginRecaptureToGraph:
+		return "RuntimeCBIDCudaStreamBeginRecaptureToGraph"
+	case RuntimeCBIDCudaStreamBeginRecaptureToGraphPtsz:
+		return "RuntimeCBIDCudaStreamBeginRecaptureToGraphPtsz"
+	case RuntimeCBIDCuda564:
+		return "RuntimeCBIDCuda564"
+	case RuntimeCBIDCudaMemGetLocationInfo:
+		return "RuntimeCBIDCudaMemGetLocationInfo"
 	case RuntimeCBIDSize:
 		return "RuntimeCBIDSize"
 	case RuntimeCBIDForceInt:
 		return "RuntimeCBIDForceInt"
+	case RuntimeCBIDCudaBindSurfaceToArray:
+		return "RuntimeCBIDCudaBindSurfaceToArray"
+	case RuntimeCBIDCudaBindTexture:
+		return "RuntimeCBIDCudaBindTexture"
+	case RuntimeCBIDCudaBindTexture2D:
+		return "RuntimeCBIDCudaBindTexture2D"
+	case RuntimeCBIDCudaBindTextureToArray:
+		return "RuntimeCBIDCudaBindTextureToArray"
+	case RuntimeCBIDCudaBindTextureToMipmappedArray:
+		return "RuntimeCBIDCudaBindTextureToMipmappedArray"
+	case RuntimeCBIDCudaEventElapsedTimeV2:
+		return "RuntimeCBIDCudaEventElapsedTimeV2"
+	case RuntimeCBIDCudaGetDevicePropertiesV1:
+		return "RuntimeCBIDCudaGetDevicePropertiesV1"
+	case RuntimeCBIDCudaGetSurfaceReference:
+		return "RuntimeCBIDCudaGetSurfaceReference"
+	case RuntimeCBIDCudaGetTextureAlignmentOffset:
+		return "RuntimeCBIDCudaGetTextureAlignmentOffset"
+	case RuntimeCBIDCudaGetTextureReference:
+		return "RuntimeCBIDCudaGetTextureReference"
+	case RuntimeCBIDCudaGraphAddDependenciesV2:
+		return "RuntimeCBIDCudaGraphAddDependenciesV2"
+	case RuntimeCBIDCudaGraphAddNodeV2:
+		return "RuntimeCBIDCudaGraphAddNodeV2"
+	case RuntimeCBIDCudaGraphGetEdgesV2:
+		return "RuntimeCBIDCudaGraphGetEdgesV2"
+	case RuntimeCBIDCudaGraphNodeGetDependenciesV2:
+		return "RuntimeCBIDCudaGraphNodeGetDependenciesV2"
+	case RuntimeCBIDCudaGraphNodeGetDependentNodesV2:
+		return "RuntimeCBIDCudaGraphNodeGetDependentNodesV2"
+	case RuntimeCBIDCudaGraphRemoveDependenciesV2:
+		return "RuntimeCBIDCudaGraphRemoveDependenciesV2"
+	case RuntimeCBIDCudaLaunchCooperativeKernelMultiDevice:
+		return "RuntimeCBIDCudaLaunchCooperativeKernelMultiDevice"
+	case RuntimeCBIDCudaMemAdviseV1:
+		return "RuntimeCBIDCudaMemAdviseV1"
+	case RuntimeCBIDCudaMemPrefetchAsyncPtszV1:
+		return "RuntimeCBIDCudaMemPrefetchAsyncPtszV1"
+	case RuntimeCBIDCudaMemPrefetchAsyncV1:
+		return "RuntimeCBIDCudaMemPrefetchAsyncV1"
+	case RuntimeCBIDCudaSetDoubleForDevice:
+		return "RuntimeCBIDCudaSetDoubleForDevice"
+	case RuntimeCBIDCudaSetDoubleForHost:
+		return "RuntimeCBIDCudaSetDoubleForHost"
+	case RuntimeCBIDCudaSignalExternalSemaphoresAsyncPtszV1:
+		return "RuntimeCBIDCudaSignalExternalSemaphoresAsyncPtszV1"
+	case RuntimeCBIDCudaSignalExternalSemaphoresAsyncV1:
+		return "RuntimeCBIDCudaSignalExternalSemaphoresAsyncV1"
+	case RuntimeCBIDCudaStreamGetCaptureInfoV2:
+		return "RuntimeCBIDCudaStreamGetCaptureInfoV2"
+	case RuntimeCBIDCudaStreamGetCaptureInfoV2Ptsz:
+		return "RuntimeCBIDCudaStreamGetCaptureInfoV2Ptsz"
+	case RuntimeCBIDCudaStreamGetCaptureInfoV3:
+		return "RuntimeCBIDCudaStreamGetCaptureInfoV3"
+	case RuntimeCBIDCudaStreamGetCaptureInfoV3Ptsz:
+		return "RuntimeCBIDCudaStreamGetCaptureInfoV3Ptsz"
+	case RuntimeCBIDCudaStreamUpdateCaptureDependenciesV2:
+		return "RuntimeCBIDCudaStreamUpdateCaptureDependenciesV2"
+	case RuntimeCBIDCudaStreamUpdateCaptureDependenciesV2Ptsz:
+		return "RuntimeCBIDCudaStreamUpdateCaptureDependenciesV2Ptsz"
+	case RuntimeCBIDCudaThreadExit:
+		return "RuntimeCBIDCudaThreadExit"
+	case RuntimeCBIDCudaThreadGetCacheConfig:
+		return "RuntimeCBIDCudaThreadGetCacheConfig"
+	case RuntimeCBIDCudaThreadGetLimit:
+		return "RuntimeCBIDCudaThreadGetLimit"
+	case RuntimeCBIDCudaThreadSetCacheConfig:
+		return "RuntimeCBIDCudaThreadSetCacheConfig"
+	case RuntimeCBIDCudaThreadSetLimit:
+		return "RuntimeCBIDCudaThreadSetLimit"
+	case RuntimeCBIDCudaThreadSynchronize:
+		return "RuntimeCBIDCudaThreadSynchronize"
+	case RuntimeCBIDCudaUnbindTexture:
+		return "RuntimeCBIDCudaUnbindTexture"
+	case RuntimeCBIDCudaWaitExternalSemaphoresAsyncPtszV1:
+		return "RuntimeCBIDCudaWaitExternalSemaphoresAsyncPtszV1"
+	case RuntimeCBIDCudaWaitExternalSemaphoresAsyncV1:
+		return "RuntimeCBIDCudaWaitExternalSemaphoresAsyncV1"
 	}
 	return fmt.Sprintf("RuntimeAPICBID(%d)", e)
+}
+
+// runtimeAPICBIDFrom12 maps each value a CUDA 12 library uses for a RuntimeAPICBID to
+// the constant of the same C name, from the 12.9 header.
+var runtimeAPICBIDFrom12 = [...]RuntimeAPICBID{
+	0:   RuntimeCBIDInvalid,
+	1:   RuntimeCBIDCudaDriverGetVersion,
+	2:   RuntimeCBIDCudaRuntimeGetVersion,
+	3:   RuntimeCBIDCudaGetDeviceCount,
+	4:   RuntimeCBIDCudaGetDevicePropertiesV1,
+	5:   RuntimeCBIDCudaChooseDevice,
+	6:   RuntimeCBIDCudaGetChannelDesc,
+	7:   RuntimeCBIDCudaCreateChannelDesc,
+	8:   12<<16 | 8,
+	9:   12<<16 | 9,
+	10:  RuntimeCBIDCudaGetLastError,
+	11:  RuntimeCBIDCudaPeekAtLastError,
+	12:  RuntimeCBIDCudaGetErrorString,
+	13:  12<<16 | 13,
+	14:  RuntimeCBIDCudaFuncSetCacheConfig,
+	15:  RuntimeCBIDCudaFuncGetAttributes,
+	16:  RuntimeCBIDCudaSetDevice,
+	17:  RuntimeCBIDCudaGetDevice,
+	18:  RuntimeCBIDCudaSetValidDevices,
+	19:  RuntimeCBIDCudaSetDeviceFlags,
+	20:  RuntimeCBIDCudaMalloc,
+	21:  RuntimeCBIDCudaMallocPitch,
+	22:  RuntimeCBIDCudaFree,
+	23:  RuntimeCBIDCudaMallocArray,
+	24:  RuntimeCBIDCudaFreeArray,
+	25:  RuntimeCBIDCudaMallocHost,
+	26:  RuntimeCBIDCudaFreeHost,
+	27:  RuntimeCBIDCudaHostAlloc,
+	28:  RuntimeCBIDCudaHostGetDevicePointer,
+	29:  RuntimeCBIDCudaHostGetFlags,
+	30:  RuntimeCBIDCudaMemGetInfo,
+	31:  RuntimeCBIDCudaMemcpy,
+	32:  RuntimeCBIDCudaMemcpy2D,
+	33:  RuntimeCBIDCudaMemcpyToArray,
+	34:  RuntimeCBIDCudaMemcpy2DToArray,
+	35:  RuntimeCBIDCudaMemcpyFromArray,
+	36:  RuntimeCBIDCudaMemcpy2DFromArray,
+	37:  RuntimeCBIDCudaMemcpyArrayToArray,
+	38:  RuntimeCBIDCudaMemcpy2DArrayToArray,
+	39:  RuntimeCBIDCudaMemcpyToSymbol,
+	40:  RuntimeCBIDCudaMemcpyFromSymbol,
+	41:  RuntimeCBIDCudaMemcpyAsync,
+	42:  RuntimeCBIDCudaMemcpyToArrayAsync,
+	43:  RuntimeCBIDCudaMemcpyFromArrayAsync,
+	44:  RuntimeCBIDCudaMemcpy2DAsync,
+	45:  RuntimeCBIDCudaMemcpy2DToArrayAsync,
+	46:  RuntimeCBIDCudaMemcpy2DFromArrayAsync,
+	47:  RuntimeCBIDCudaMemcpyToSymbolAsync,
+	48:  RuntimeCBIDCudaMemcpyFromSymbolAsync,
+	49:  RuntimeCBIDCudaMemset,
+	50:  RuntimeCBIDCudaMemset2D,
+	51:  RuntimeCBIDCudaMemsetAsync,
+	52:  RuntimeCBIDCudaMemset2DAsync,
+	53:  RuntimeCBIDCudaGetSymbolAddress,
+	54:  RuntimeCBIDCudaGetSymbolSize,
+	55:  RuntimeCBIDCudaBindTexture,
+	56:  RuntimeCBIDCudaBindTexture2D,
+	57:  RuntimeCBIDCudaBindTextureToArray,
+	58:  RuntimeCBIDCudaUnbindTexture,
+	59:  RuntimeCBIDCudaGetTextureAlignmentOffset,
+	60:  RuntimeCBIDCudaGetTextureReference,
+	61:  RuntimeCBIDCudaBindSurfaceToArray,
+	62:  RuntimeCBIDCudaGetSurfaceReference,
+	63:  RuntimeCBIDCudaGLSetGLDevice,
+	64:  RuntimeCBIDCudaGLRegisterBufferObject,
+	65:  RuntimeCBIDCudaGLMapBufferObject,
+	66:  RuntimeCBIDCudaGLUnmapBufferObject,
+	67:  RuntimeCBIDCudaGLUnregisterBufferObject,
+	68:  RuntimeCBIDCudaGLSetBufferObjectMapFlags,
+	69:  RuntimeCBIDCudaGLMapBufferObjectAsync,
+	70:  RuntimeCBIDCudaGLUnmapBufferObjectAsync,
+	71:  RuntimeCBIDCudaWGLGetDevice,
+	72:  RuntimeCBIDCudaGraphicsGLRegisterImage,
+	73:  RuntimeCBIDCudaGraphicsGLRegisterBuffer,
+	74:  RuntimeCBIDCudaGraphicsUnregisterResource,
+	75:  RuntimeCBIDCudaGraphicsResourceSetMapFlags,
+	76:  RuntimeCBIDCudaGraphicsMapResources,
+	77:  RuntimeCBIDCudaGraphicsUnmapResources,
+	78:  RuntimeCBIDCudaGraphicsResourceGetMappedPointer,
+	79:  RuntimeCBIDCudaGraphicsSubResourceGetMappedArray,
+	80:  RuntimeCBIDCudaVDPAUGetDevice,
+	81:  RuntimeCBIDCudaVDPAUSetVDPAUDevice,
+	82:  RuntimeCBIDCudaGraphicsVDPAURegisterVideoSurface,
+	83:  RuntimeCBIDCudaGraphicsVDPAURegisterOutputSurface,
+	84:  RuntimeCBIDCudaD3D11GetDevice,
+	85:  RuntimeCBIDCudaD3D11GetDevices,
+	86:  RuntimeCBIDCudaD3D11SetDirect3DDevice,
+	87:  RuntimeCBIDCudaGraphicsD3D11RegisterResource,
+	88:  RuntimeCBIDCudaD3D10GetDevice,
+	89:  RuntimeCBIDCudaD3D10GetDevices,
+	90:  RuntimeCBIDCudaD3D10SetDirect3DDevice,
+	91:  RuntimeCBIDCudaGraphicsD3D10RegisterResource,
+	92:  RuntimeCBIDCudaD3D10RegisterResource,
+	93:  RuntimeCBIDCudaD3D10UnregisterResource,
+	94:  RuntimeCBIDCudaD3D10MapResources,
+	95:  RuntimeCBIDCudaD3D10UnmapResources,
+	96:  RuntimeCBIDCudaD3D10ResourceSetMapFlags,
+	97:  RuntimeCBIDCudaD3D10ResourceGetSurfaceDimensions,
+	98:  RuntimeCBIDCudaD3D10ResourceGetMappedArray,
+	99:  RuntimeCBIDCudaD3D10ResourceGetMappedPointer,
+	100: RuntimeCBIDCudaD3D10ResourceGetMappedSize,
+	101: RuntimeCBIDCudaD3D10ResourceGetMappedPitch,
+	102: RuntimeCBIDCudaD3D9GetDevice,
+	103: RuntimeCBIDCudaD3D9GetDevices,
+	104: RuntimeCBIDCudaD3D9SetDirect3DDevice,
+	105: RuntimeCBIDCudaD3D9GetDirect3DDevice,
+	106: RuntimeCBIDCudaGraphicsD3D9RegisterResource,
+	107: RuntimeCBIDCudaD3D9RegisterResource,
+	108: RuntimeCBIDCudaD3D9UnregisterResource,
+	109: RuntimeCBIDCudaD3D9MapResources,
+	110: RuntimeCBIDCudaD3D9UnmapResources,
+	111: RuntimeCBIDCudaD3D9ResourceSetMapFlags,
+	112: RuntimeCBIDCudaD3D9ResourceGetSurfaceDimensions,
+	113: RuntimeCBIDCudaD3D9ResourceGetMappedArray,
+	114: RuntimeCBIDCudaD3D9ResourceGetMappedPointer,
+	115: RuntimeCBIDCudaD3D9ResourceGetMappedSize,
+	116: RuntimeCBIDCudaD3D9ResourceGetMappedPitch,
+	117: RuntimeCBIDCudaD3D9Begin,
+	118: RuntimeCBIDCudaD3D9End,
+	119: RuntimeCBIDCudaD3D9RegisterVertexBuffer,
+	120: RuntimeCBIDCudaD3D9UnregisterVertexBuffer,
+	121: RuntimeCBIDCudaD3D9MapVertexBuffer,
+	122: RuntimeCBIDCudaD3D9UnmapVertexBuffer,
+	123: RuntimeCBIDCudaThreadExit,
+	124: RuntimeCBIDCudaSetDoubleForDevice,
+	125: RuntimeCBIDCudaSetDoubleForHost,
+	126: RuntimeCBIDCudaThreadSynchronize,
+	127: RuntimeCBIDCudaThreadGetLimit,
+	128: RuntimeCBIDCudaThreadSetLimit,
+	129: RuntimeCBIDCudaStreamCreate,
+	130: 12<<16 | 130,
+	131: RuntimeCBIDCudaStreamSynchronize,
+	132: RuntimeCBIDCudaStreamQuery,
+	133: RuntimeCBIDCudaEventCreate,
+	134: RuntimeCBIDCudaEventCreateWithFlags,
+	135: RuntimeCBIDCudaEventRecord,
+	136: RuntimeCBIDCudaEventDestroy,
+	137: RuntimeCBIDCudaEventSynchronize,
+	138: RuntimeCBIDCudaEventQuery,
+	139: RuntimeCBIDCudaEventElapsedTime,
+	140: RuntimeCBIDCudaMalloc3D,
+	141: RuntimeCBIDCudaMalloc3DArray,
+	142: RuntimeCBIDCudaMemset3D,
+	143: RuntimeCBIDCudaMemset3DAsync,
+	144: RuntimeCBIDCudaMemcpy3D,
+	145: RuntimeCBIDCudaMemcpy3DAsync,
+	146: RuntimeCBIDCudaThreadSetCacheConfig,
+	147: RuntimeCBIDCudaStreamWaitEvent,
+	148: RuntimeCBIDCudaD3D11GetDirect3DDevice,
+	149: RuntimeCBIDCudaD3D10GetDirect3DDevice,
+	150: RuntimeCBIDCudaThreadGetCacheConfig,
+	151: RuntimeCBIDCudaPointerGetAttributes,
+	152: RuntimeCBIDCudaHostRegister,
+	153: RuntimeCBIDCudaHostUnregister,
+	154: RuntimeCBIDCudaDeviceCanAccessPeer,
+	155: RuntimeCBIDCudaDeviceEnablePeerAccess,
+	156: RuntimeCBIDCudaDeviceDisablePeerAccess,
+	157: 12<<16 | 157,
+	158: 12<<16 | 158,
+	159: 12<<16 | 159,
+	160: RuntimeCBIDCudaMemcpyPeer,
+	161: RuntimeCBIDCudaMemcpyPeerAsync,
+	162: RuntimeCBIDCudaMemcpy3DPeer,
+	163: RuntimeCBIDCudaMemcpy3DPeerAsync,
+	164: RuntimeCBIDCudaDeviceReset,
+	165: RuntimeCBIDCudaDeviceSynchronize,
+	166: RuntimeCBIDCudaDeviceGetLimit,
+	167: RuntimeCBIDCudaDeviceSetLimit,
+	168: RuntimeCBIDCudaDeviceGetCacheConfig,
+	169: RuntimeCBIDCudaDeviceSetCacheConfig,
+	170: 12<<16 | 170,
+	171: RuntimeCBIDCudaProfilerStart,
+	172: RuntimeCBIDCudaProfilerStop,
+	173: RuntimeCBIDCudaDeviceGetByPCIBusId,
+	174: RuntimeCBIDCudaDeviceGetPCIBusId,
+	175: RuntimeCBIDCudaGLGetDevices,
+	176: RuntimeCBIDCudaIpcGetEventHandle,
+	177: RuntimeCBIDCudaIpcOpenEventHandle,
+	178: RuntimeCBIDCudaIpcGetMemHandle,
+	179: RuntimeCBIDCudaIpcOpenMemHandle,
+	180: RuntimeCBIDCudaIpcCloseMemHandle,
+	181: RuntimeCBIDCudaArrayGetInfo,
+	182: RuntimeCBIDCudaFuncSetSharedMemConfig,
+	183: RuntimeCBIDCudaDeviceGetSharedMemConfig,
+	184: RuntimeCBIDCudaDeviceSetSharedMemConfig,
+	185: RuntimeCBIDCudaCreateTextureObject,
+	186: RuntimeCBIDCudaDestroyTextureObject,
+	187: RuntimeCBIDCudaGetTextureObjectResourceDesc,
+	188: RuntimeCBIDCudaGetTextureObjectTextureDesc,
+	189: RuntimeCBIDCudaCreateSurfaceObject,
+	190: RuntimeCBIDCudaDestroySurfaceObject,
+	191: RuntimeCBIDCudaGetSurfaceObjectResourceDesc,
+	192: RuntimeCBIDCudaMallocMipmappedArray,
+	193: RuntimeCBIDCudaGetMipmappedArrayLevel,
+	194: RuntimeCBIDCudaFreeMipmappedArray,
+	195: RuntimeCBIDCudaBindTextureToMipmappedArray,
+	196: RuntimeCBIDCudaGraphicsResourceGetMappedMipmappedArray,
+	197: RuntimeCBIDCudaStreamAddCallback,
+	198: RuntimeCBIDCudaStreamCreateWithFlags,
+	199: RuntimeCBIDCudaGetTextureObjectResourceViewDesc,
+	200: RuntimeCBIDCudaDeviceGetAttribute,
+	201: RuntimeCBIDCudaStreamDestroy,
+	202: RuntimeCBIDCudaStreamCreateWithPriority,
+	203: RuntimeCBIDCudaStreamGetPriority,
+	204: RuntimeCBIDCudaStreamGetFlags,
+	205: RuntimeCBIDCudaDeviceGetStreamPriorityRange,
+	206: RuntimeCBIDCudaMallocManaged,
+	207: 12<<16 | 207,
+	208: RuntimeCBIDCudaStreamAttachMemAsync,
+	209: RuntimeCBIDCudaGetErrorName,
+	210: RuntimeCBIDCudaOccupancyMaxActiveBlocksPerMultiprocessor,
+	211: RuntimeCBIDCudaLaunchKernel,
+	212: RuntimeCBIDCudaGetDeviceFlags,
+	213: 12<<16 | 213,
+	214: RuntimeCBIDCudaLaunchKernelPtsz,
+	215: RuntimeCBIDCudaMemcpyPtds,
+	216: RuntimeCBIDCudaMemcpy2DPtds,
+	217: RuntimeCBIDCudaMemcpyToArrayPtds,
+	218: RuntimeCBIDCudaMemcpy2DToArrayPtds,
+	219: RuntimeCBIDCudaMemcpyFromArrayPtds,
+	220: RuntimeCBIDCudaMemcpy2DFromArrayPtds,
+	221: RuntimeCBIDCudaMemcpyArrayToArrayPtds,
+	222: RuntimeCBIDCudaMemcpy2DArrayToArrayPtds,
+	223: RuntimeCBIDCudaMemcpyToSymbolPtds,
+	224: RuntimeCBIDCudaMemcpyFromSymbolPtds,
+	225: RuntimeCBIDCudaMemcpyAsyncPtsz,
+	226: RuntimeCBIDCudaMemcpyToArrayAsyncPtsz,
+	227: RuntimeCBIDCudaMemcpyFromArrayAsyncPtsz,
+	228: RuntimeCBIDCudaMemcpy2DAsyncPtsz,
+	229: RuntimeCBIDCudaMemcpy2DToArrayAsyncPtsz,
+	230: RuntimeCBIDCudaMemcpy2DFromArrayAsyncPtsz,
+	231: RuntimeCBIDCudaMemcpyToSymbolAsyncPtsz,
+	232: RuntimeCBIDCudaMemcpyFromSymbolAsyncPtsz,
+	233: RuntimeCBIDCudaMemsetPtds,
+	234: RuntimeCBIDCudaMemset2DPtds,
+	235: RuntimeCBIDCudaMemsetAsyncPtsz,
+	236: RuntimeCBIDCudaMemset2DAsyncPtsz,
+	237: RuntimeCBIDCudaStreamGetPriorityPtsz,
+	238: RuntimeCBIDCudaStreamGetFlagsPtsz,
+	239: RuntimeCBIDCudaStreamSynchronizePtsz,
+	240: RuntimeCBIDCudaStreamQueryPtsz,
+	241: RuntimeCBIDCudaStreamAttachMemAsyncPtsz,
+	242: RuntimeCBIDCudaEventRecordPtsz,
+	243: RuntimeCBIDCudaMemset3DPtds,
+	244: RuntimeCBIDCudaMemset3DAsyncPtsz,
+	245: RuntimeCBIDCudaMemcpy3DPtds,
+	246: RuntimeCBIDCudaMemcpy3DAsyncPtsz,
+	247: RuntimeCBIDCudaStreamWaitEventPtsz,
+	248: RuntimeCBIDCudaStreamAddCallbackPtsz,
+	249: RuntimeCBIDCudaMemcpy3DPeerPtds,
+	250: RuntimeCBIDCudaMemcpy3DPeerAsyncPtsz,
+	251: RuntimeCBIDCudaOccupancyMaxActiveBlocksPerMultiprocessorWithFlags,
+	252: RuntimeCBIDCudaMemPrefetchAsyncV1,
+	253: RuntimeCBIDCudaMemPrefetchAsyncPtszV1,
+	254: RuntimeCBIDCudaMemAdviseV1,
+	255: RuntimeCBIDCudaDeviceGetP2PAttribute,
+	256: RuntimeCBIDCudaGraphicsEGLRegisterImage,
+	257: RuntimeCBIDCudaEGLStreamConsumerConnect,
+	258: RuntimeCBIDCudaEGLStreamConsumerDisconnect,
+	259: RuntimeCBIDCudaEGLStreamConsumerAcquireFrame,
+	260: RuntimeCBIDCudaEGLStreamConsumerReleaseFrame,
+	261: RuntimeCBIDCudaEGLStreamProducerConnect,
+	262: RuntimeCBIDCudaEGLStreamProducerDisconnect,
+	263: RuntimeCBIDCudaEGLStreamProducerPresentFrame,
+	264: RuntimeCBIDCudaEGLStreamProducerReturnFrame,
+	265: RuntimeCBIDCudaGraphicsResourceGetMappedEglFrame,
+	266: RuntimeCBIDCudaMemRangeGetAttribute,
+	267: RuntimeCBIDCudaMemRangeGetAttributes,
+	268: RuntimeCBIDCudaEGLStreamConsumerConnectWithFlags,
+	269: RuntimeCBIDCudaLaunchCooperativeKernel,
+	270: RuntimeCBIDCudaLaunchCooperativeKernelPtsz,
+	271: RuntimeCBIDCudaEventCreateFromEGLSync,
+	272: RuntimeCBIDCudaLaunchCooperativeKernelMultiDevice,
+	273: RuntimeCBIDCudaFuncSetAttribute,
+	274: RuntimeCBIDCudaImportExternalMemory,
+	275: RuntimeCBIDCudaExternalMemoryGetMappedBuffer,
+	276: RuntimeCBIDCudaExternalMemoryGetMappedMipmappedArray,
+	277: RuntimeCBIDCudaDestroyExternalMemory,
+	278: RuntimeCBIDCudaImportExternalSemaphore,
+	279: RuntimeCBIDCudaSignalExternalSemaphoresAsyncV1,
+	280: RuntimeCBIDCudaSignalExternalSemaphoresAsyncPtszV1,
+	281: RuntimeCBIDCudaWaitExternalSemaphoresAsyncV1,
+	282: RuntimeCBIDCudaWaitExternalSemaphoresAsyncPtszV1,
+	283: RuntimeCBIDCudaDestroyExternalSemaphore,
+	284: RuntimeCBIDCudaLaunchHostFunc,
+	285: RuntimeCBIDCudaLaunchHostFuncPtsz,
+	286: RuntimeCBIDCudaGraphCreate,
+	287: RuntimeCBIDCudaGraphKernelNodeGetParams,
+	288: RuntimeCBIDCudaGraphKernelNodeSetParams,
+	289: RuntimeCBIDCudaGraphAddKernelNode,
+	290: RuntimeCBIDCudaGraphAddMemcpyNode,
+	291: RuntimeCBIDCudaGraphMemcpyNodeGetParams,
+	292: RuntimeCBIDCudaGraphMemcpyNodeSetParams,
+	293: RuntimeCBIDCudaGraphAddMemsetNode,
+	294: RuntimeCBIDCudaGraphMemsetNodeGetParams,
+	295: RuntimeCBIDCudaGraphMemsetNodeSetParams,
+	296: RuntimeCBIDCudaGraphAddHostNode,
+	297: RuntimeCBIDCudaGraphHostNodeGetParams,
+	298: RuntimeCBIDCudaGraphAddChildGraphNode,
+	299: RuntimeCBIDCudaGraphChildGraphNodeGetGraph,
+	300: RuntimeCBIDCudaGraphAddEmptyNode,
+	301: RuntimeCBIDCudaGraphClone,
+	302: RuntimeCBIDCudaGraphNodeFindInClone,
+	303: RuntimeCBIDCudaGraphNodeGetType,
+	304: RuntimeCBIDCudaGraphGetRootNodes,
+	305: RuntimeCBIDCudaGraphNodeGetDependencies,
+	306: RuntimeCBIDCudaGraphNodeGetDependentNodes,
+	307: RuntimeCBIDCudaGraphAddDependencies,
+	308: RuntimeCBIDCudaGraphRemoveDependencies,
+	309: RuntimeCBIDCudaGraphDestroyNode,
+	310: 12<<16 | 310,
+	311: RuntimeCBIDCudaGraphLaunch,
+	312: RuntimeCBIDCudaGraphLaunchPtsz,
+	313: RuntimeCBIDCudaGraphExecDestroy,
+	314: RuntimeCBIDCudaGraphDestroy,
+	315: RuntimeCBIDCudaStreamBeginCapture,
+	316: RuntimeCBIDCudaStreamBeginCapturePtsz,
+	317: RuntimeCBIDCudaStreamIsCapturing,
+	318: RuntimeCBIDCudaStreamIsCapturingPtsz,
+	319: RuntimeCBIDCudaStreamEndCapture,
+	320: RuntimeCBIDCudaStreamEndCapturePtsz,
+	321: RuntimeCBIDCudaGraphHostNodeSetParams,
+	322: RuntimeCBIDCudaGraphGetNodes,
+	323: RuntimeCBIDCudaGraphGetEdges,
+	324: RuntimeCBIDCudaStreamGetCaptureInfo,
+	325: RuntimeCBIDCudaStreamGetCaptureInfoPtsz,
+	326: RuntimeCBIDCudaGraphExecKernelNodeSetParams,
+	327: RuntimeCBIDCudaThreadExchangeStreamCaptureMode,
+	328: RuntimeCBIDCudaDeviceGetNvSciSyncAttributes,
+	329: RuntimeCBIDCudaOccupancyAvailableDynamicSMemPerBlock,
+	330: 12<<16 | 330,
+	331: 12<<16 | 331,
+	332: RuntimeCBIDCudaGraphExecMemcpyNodeSetParams,
+	333: RuntimeCBIDCudaGraphExecMemsetNodeSetParams,
+	334: RuntimeCBIDCudaGraphExecHostNodeSetParams,
+	335: RuntimeCBIDCudaGraphExecUpdate,
+	336: RuntimeCBIDCudaGetFuncBySymbol,
+	337: RuntimeCBIDCudaCtxResetPersistingL2Cache,
+	338: RuntimeCBIDCudaGraphKernelNodeCopyAttributes,
+	339: RuntimeCBIDCudaGraphKernelNodeGetAttribute,
+	340: RuntimeCBIDCudaGraphKernelNodeSetAttribute,
+	341: RuntimeCBIDCudaStreamCopyAttributes,
+	342: RuntimeCBIDCudaStreamCopyAttributesPtsz,
+	343: RuntimeCBIDCudaStreamGetAttribute,
+	344: RuntimeCBIDCudaStreamGetAttributePtsz,
+	345: RuntimeCBIDCudaStreamSetAttribute,
+	346: RuntimeCBIDCudaStreamSetAttributePtsz,
+	347: RuntimeCBIDCudaDeviceGetTexture1DLinearMaxWidth,
+	348: RuntimeCBIDCudaGraphUpload,
+	349: RuntimeCBIDCudaGraphUploadPtsz,
+	350: RuntimeCBIDCudaGraphAddMemcpyNodeToSymbol,
+	351: RuntimeCBIDCudaGraphAddMemcpyNodeFromSymbol,
+	352: RuntimeCBIDCudaGraphAddMemcpyNode1D,
+	353: RuntimeCBIDCudaGraphMemcpyNodeSetParamsToSymbol,
+	354: RuntimeCBIDCudaGraphMemcpyNodeSetParamsFromSymbol,
+	355: RuntimeCBIDCudaGraphMemcpyNodeSetParams1D,
+	356: RuntimeCBIDCudaGraphExecMemcpyNodeSetParamsToSymbol,
+	357: RuntimeCBIDCudaGraphExecMemcpyNodeSetParamsFromSymbol,
+	358: RuntimeCBIDCudaGraphExecMemcpyNodeSetParams1D,
+	359: RuntimeCBIDCudaArrayGetSparseProperties,
+	360: RuntimeCBIDCudaMipmappedArrayGetSparseProperties,
+	361: RuntimeCBIDCudaGraphExecChildGraphNodeSetParams,
+	362: RuntimeCBIDCudaGraphAddEventRecordNode,
+	363: RuntimeCBIDCudaGraphEventRecordNodeGetEvent,
+	364: RuntimeCBIDCudaGraphEventRecordNodeSetEvent,
+	365: RuntimeCBIDCudaGraphAddEventWaitNode,
+	366: RuntimeCBIDCudaGraphEventWaitNodeGetEvent,
+	367: RuntimeCBIDCudaGraphEventWaitNodeSetEvent,
+	368: RuntimeCBIDCudaGraphExecEventRecordNodeSetEvent,
+	369: RuntimeCBIDCudaGraphExecEventWaitNodeSetEvent,
+	370: RuntimeCBIDCudaEventRecordWithFlags,
+	371: RuntimeCBIDCudaEventRecordWithFlagsPtsz,
+	372: RuntimeCBIDCudaDeviceGetDefaultMemPool,
+	373: RuntimeCBIDCudaMallocAsync,
+	374: RuntimeCBIDCudaMallocAsyncPtsz,
+	375: RuntimeCBIDCudaFreeAsync,
+	376: RuntimeCBIDCudaFreeAsyncPtsz,
+	377: RuntimeCBIDCudaMemPoolTrimTo,
+	378: RuntimeCBIDCudaMemPoolSetAttribute,
+	379: RuntimeCBIDCudaMemPoolGetAttribute,
+	380: RuntimeCBIDCudaMemPoolSetAccess,
+	381: RuntimeCBIDCudaArrayGetPlane,
+	382: RuntimeCBIDCudaMemPoolGetAccess,
+	383: RuntimeCBIDCudaMemPoolCreate,
+	384: RuntimeCBIDCudaMemPoolDestroy,
+	385: RuntimeCBIDCudaDeviceSetMemPool,
+	386: RuntimeCBIDCudaDeviceGetMemPool,
+	387: RuntimeCBIDCudaMemPoolExportToShareableHandle,
+	388: RuntimeCBIDCudaMemPoolImportFromShareableHandle,
+	389: RuntimeCBIDCudaMemPoolExportPointer,
+	390: RuntimeCBIDCudaMemPoolImportPointer,
+	391: RuntimeCBIDCudaMallocFromPoolAsync,
+	392: RuntimeCBIDCudaMallocFromPoolAsyncPtsz,
+	393: RuntimeCBIDCudaSignalExternalSemaphoresAsync,
+	394: RuntimeCBIDCudaSignalExternalSemaphoresAsyncPtsz,
+	395: RuntimeCBIDCudaWaitExternalSemaphoresAsync,
+	396: RuntimeCBIDCudaWaitExternalSemaphoresAsyncPtsz,
+	397: RuntimeCBIDCudaGraphAddExternalSemaphoresSignalNode,
+	398: RuntimeCBIDCudaGraphExternalSemaphoresSignalNodeGetParams,
+	399: RuntimeCBIDCudaGraphExternalSemaphoresSignalNodeSetParams,
+	400: RuntimeCBIDCudaGraphAddExternalSemaphoresWaitNode,
+	401: RuntimeCBIDCudaGraphExternalSemaphoresWaitNodeGetParams,
+	402: RuntimeCBIDCudaGraphExternalSemaphoresWaitNodeSetParams,
+	403: RuntimeCBIDCudaGraphExecExternalSemaphoresSignalNodeSetParams,
+	404: RuntimeCBIDCudaGraphExecExternalSemaphoresWaitNodeSetParams,
+	405: RuntimeCBIDCudaDeviceFlushGPUDirectRDMAWrites,
+	406: RuntimeCBIDCudaGetDriverEntryPoint,
+	407: RuntimeCBIDCudaGetDriverEntryPointPtsz,
+	408: RuntimeCBIDCudaGraphDebugDotPrint,
+	409: RuntimeCBIDCudaStreamGetCaptureInfoV2,
+	410: RuntimeCBIDCudaStreamGetCaptureInfoV2Ptsz,
+	411: RuntimeCBIDCudaStreamUpdateCaptureDependencies,
+	412: RuntimeCBIDCudaStreamUpdateCaptureDependenciesPtsz,
+	413: RuntimeCBIDCudaUserObjectCreate,
+	414: RuntimeCBIDCudaUserObjectRetain,
+	415: RuntimeCBIDCudaUserObjectRelease,
+	416: RuntimeCBIDCudaGraphRetainUserObject,
+	417: RuntimeCBIDCudaGraphReleaseUserObject,
+	418: RuntimeCBIDCudaGraphInstantiateWithFlags,
+	419: RuntimeCBIDCudaGraphAddMemAllocNode,
+	420: RuntimeCBIDCudaGraphMemAllocNodeGetParams,
+	421: RuntimeCBIDCudaGraphAddMemFreeNode,
+	422: RuntimeCBIDCudaGraphMemFreeNodeGetParams,
+	423: RuntimeCBIDCudaDeviceGraphMemTrim,
+	424: RuntimeCBIDCudaDeviceGetGraphMemAttribute,
+	425: RuntimeCBIDCudaDeviceSetGraphMemAttribute,
+	426: RuntimeCBIDCudaGraphNodeSetEnabled,
+	427: RuntimeCBIDCudaGraphNodeGetEnabled,
+	428: RuntimeCBIDCudaArrayGetMemoryRequirements,
+	429: RuntimeCBIDCudaMipmappedArrayGetMemoryRequirements,
+	430: RuntimeCBIDCudaLaunchKernelExC,
+	431: RuntimeCBIDCudaLaunchKernelExCPtsz,
+	432: RuntimeCBIDCudaOccupancyMaxPotentialClusterSize,
+	433: RuntimeCBIDCudaOccupancyMaxActiveClusters,
+	434: 12<<16 | 434,
+	435: 12<<16 | 435,
+	436: RuntimeCBIDCudaGraphInstantiateWithParams,
+	437: RuntimeCBIDCudaGraphInstantiateWithParamsPtsz,
+	438: RuntimeCBIDCudaGraphExecGetFlags,
+	439: RuntimeCBIDCudaGetKernel,
+	440: RuntimeCBIDCudaGetDeviceProperties,
+	441: RuntimeCBIDCudaStreamGetId,
+	442: RuntimeCBIDCudaStreamGetIdPtsz,
+	443: RuntimeCBIDCudaGraphInstantiate,
+	444: RuntimeCBIDCudaInitDevice,
+	445: RuntimeCBIDCudaGraphAddNode,
+	446: RuntimeCBIDCudaGraphNodeSetParams,
+	447: RuntimeCBIDCudaGraphExecNodeSetParams,
+	448: RuntimeCBIDCudaMemAdvise,
+	449: RuntimeCBIDCudaMemPrefetchAsync,
+	450: RuntimeCBIDCudaMemPrefetchAsyncPtsz,
+	451: RuntimeCBIDCudaFuncGetName,
+	452: RuntimeCBIDCudaStreamBeginCaptureToGraph,
+	453: RuntimeCBIDCudaStreamBeginCaptureToGraphPtsz,
+	454: RuntimeCBIDCudaGraphConditionalHandleCreate,
+	455: RuntimeCBIDCudaGraphGetEdgesV2,
+	456: RuntimeCBIDCudaGraphNodeGetDependenciesV2,
+	457: RuntimeCBIDCudaGraphNodeGetDependentNodesV2,
+	458: RuntimeCBIDCudaGraphAddDependenciesV2,
+	459: RuntimeCBIDCudaGraphRemoveDependenciesV2,
+	460: RuntimeCBIDCudaGraphAddNodeV2,
+	461: RuntimeCBIDCudaStreamGetCaptureInfoV3,
+	462: RuntimeCBIDCudaStreamGetCaptureInfoV3Ptsz,
+	463: RuntimeCBIDCudaStreamUpdateCaptureDependenciesV2,
+	464: RuntimeCBIDCudaStreamUpdateCaptureDependenciesV2Ptsz,
+	465: RuntimeCBIDCudaDeviceRegisterAsyncNotification,
+	466: RuntimeCBIDCudaDeviceUnregisterAsyncNotification,
+	467: RuntimeCBIDCudaFuncGetParamInfo,
+	468: RuntimeCBIDCudaGetDriverEntryPointByVersion,
+	469: RuntimeCBIDCudaGetDriverEntryPointByVersionPtsz,
+	470: RuntimeCBIDCudaLibraryLoadData,
+	471: RuntimeCBIDCudaLibraryLoadFromFile,
+	472: RuntimeCBIDCudaLibraryUnload,
+	473: RuntimeCBIDCudaLibraryGetKernel,
+	474: RuntimeCBIDCudaLibraryGetGlobal,
+	475: RuntimeCBIDCudaLibraryGetManaged,
+	476: RuntimeCBIDCudaLibraryGetUnifiedFunction,
+	477: RuntimeCBIDCudaLibraryGetKernelCount,
+	478: RuntimeCBIDCudaLibraryEnumerateKernels,
+	479: RuntimeCBIDCudaKernelSetAttributeForDevice,
+	480: RuntimeCBIDCudaStreamGetDevice,
+	481: RuntimeCBIDCudaStreamGetDevicePtsz,
+	482: RuntimeCBIDCudaMemcpyBatchAsync,
+	483: RuntimeCBIDCudaMemcpyBatchAsyncPtsz,
+	484: RuntimeCBIDCudaMemcpy3DBatchAsync,
+	485: RuntimeCBIDCudaMemcpy3DBatchAsyncPtsz,
+	486: RuntimeCBIDCudaEventElapsedTimeV2,
+}
+
+// runtimeAPICBIDTo12 maps each RuntimeAPICBID below 567 to the value a CUDA 12
+// library uses for it, or -1 if it has none.
+var runtimeAPICBIDTo12 = [...]int32{
+	0:   0,
+	1:   1,
+	2:   2,
+	3:   3,
+	4:   -1,
+	5:   5,
+	6:   6,
+	7:   7,
+	8:   -1,
+	9:   -1,
+	10:  10,
+	11:  11,
+	12:  12,
+	13:  -1,
+	14:  14,
+	15:  15,
+	16:  16,
+	17:  17,
+	18:  18,
+	19:  19,
+	20:  20,
+	21:  21,
+	22:  22,
+	23:  23,
+	24:  24,
+	25:  25,
+	26:  26,
+	27:  27,
+	28:  28,
+	29:  29,
+	30:  30,
+	31:  31,
+	32:  32,
+	33:  33,
+	34:  34,
+	35:  35,
+	36:  36,
+	37:  37,
+	38:  38,
+	39:  39,
+	40:  40,
+	41:  41,
+	42:  42,
+	43:  43,
+	44:  44,
+	45:  45,
+	46:  46,
+	47:  47,
+	48:  48,
+	49:  49,
+	50:  50,
+	51:  51,
+	52:  52,
+	53:  53,
+	54:  54,
+	55:  -1,
+	56:  -1,
+	57:  -1,
+	58:  -1,
+	59:  -1,
+	60:  -1,
+	61:  -1,
+	62:  -1,
+	63:  63,
+	64:  64,
+	65:  65,
+	66:  66,
+	67:  67,
+	68:  68,
+	69:  69,
+	70:  70,
+	71:  71,
+	72:  72,
+	73:  73,
+	74:  74,
+	75:  75,
+	76:  76,
+	77:  77,
+	78:  78,
+	79:  79,
+	80:  80,
+	81:  81,
+	82:  82,
+	83:  83,
+	84:  84,
+	85:  85,
+	86:  86,
+	87:  87,
+	88:  88,
+	89:  89,
+	90:  90,
+	91:  91,
+	92:  92,
+	93:  93,
+	94:  94,
+	95:  95,
+	96:  96,
+	97:  97,
+	98:  98,
+	99:  99,
+	100: 100,
+	101: 101,
+	102: 102,
+	103: 103,
+	104: 104,
+	105: 105,
+	106: 106,
+	107: 107,
+	108: 108,
+	109: 109,
+	110: 110,
+	111: 111,
+	112: 112,
+	113: 113,
+	114: 114,
+	115: 115,
+	116: 116,
+	117: 117,
+	118: 118,
+	119: 119,
+	120: 120,
+	121: 121,
+	122: 122,
+	123: -1,
+	124: -1,
+	125: -1,
+	126: -1,
+	127: -1,
+	128: -1,
+	129: 129,
+	130: -1,
+	131: 131,
+	132: 132,
+	133: 133,
+	134: 134,
+	135: 135,
+	136: 136,
+	137: 137,
+	138: 138,
+	139: -1,
+	140: 140,
+	141: 141,
+	142: 142,
+	143: 143,
+	144: 144,
+	145: 145,
+	146: -1,
+	147: 147,
+	148: 148,
+	149: 149,
+	150: -1,
+	151: 151,
+	152: 152,
+	153: 153,
+	154: 154,
+	155: 155,
+	156: 156,
+	157: -1,
+	158: -1,
+	159: -1,
+	160: 160,
+	161: 161,
+	162: 162,
+	163: 163,
+	164: 164,
+	165: 165,
+	166: 166,
+	167: 167,
+	168: 168,
+	169: 169,
+	170: -1,
+	171: 171,
+	172: 172,
+	173: 173,
+	174: 174,
+	175: 175,
+	176: 176,
+	177: 177,
+	178: 178,
+	179: 179,
+	180: 180,
+	181: 181,
+	182: 182,
+	183: 183,
+	184: 184,
+	185: 185,
+	186: 186,
+	187: 187,
+	188: 188,
+	189: 189,
+	190: 190,
+	191: 191,
+	192: 192,
+	193: 193,
+	194: 194,
+	195: -1,
+	196: 196,
+	197: 197,
+	198: 198,
+	199: 199,
+	200: 200,
+	201: 201,
+	202: 202,
+	203: 203,
+	204: 204,
+	205: 205,
+	206: 206,
+	207: -1,
+	208: 208,
+	209: 209,
+	210: 210,
+	211: 211,
+	212: 212,
+	213: -1,
+	214: 214,
+	215: 215,
+	216: 216,
+	217: 217,
+	218: 218,
+	219: 219,
+	220: 220,
+	221: 221,
+	222: 222,
+	223: 223,
+	224: 224,
+	225: 225,
+	226: 226,
+	227: 227,
+	228: 228,
+	229: 229,
+	230: 230,
+	231: 231,
+	232: 232,
+	233: 233,
+	234: 234,
+	235: 235,
+	236: 236,
+	237: 237,
+	238: 238,
+	239: 239,
+	240: 240,
+	241: 241,
+	242: 242,
+	243: 243,
+	244: 244,
+	245: 245,
+	246: 246,
+	247: 247,
+	248: 248,
+	249: 249,
+	250: 250,
+	251: 251,
+	252: -1,
+	253: -1,
+	254: -1,
+	255: 255,
+	256: 256,
+	257: 257,
+	258: 258,
+	259: 259,
+	260: 260,
+	261: 261,
+	262: 262,
+	263: 263,
+	264: 264,
+	265: 265,
+	266: 266,
+	267: 267,
+	268: 268,
+	269: 269,
+	270: 270,
+	271: 271,
+	272: -1,
+	273: 273,
+	274: 274,
+	275: 275,
+	276: 276,
+	277: 277,
+	278: 278,
+	279: -1,
+	280: -1,
+	281: -1,
+	282: -1,
+	283: 283,
+	284: 284,
+	285: 285,
+	286: 286,
+	287: 287,
+	288: 288,
+	289: 289,
+	290: 290,
+	291: 291,
+	292: 292,
+	293: 293,
+	294: 294,
+	295: 295,
+	296: 296,
+	297: 297,
+	298: 298,
+	299: 299,
+	300: 300,
+	301: 301,
+	302: 302,
+	303: 303,
+	304: 304,
+	305: -1,
+	306: -1,
+	307: -1,
+	308: -1,
+	309: 309,
+	310: -1,
+	311: 311,
+	312: 312,
+	313: 313,
+	314: 314,
+	315: 315,
+	316: 316,
+	317: 317,
+	318: 318,
+	319: 319,
+	320: 320,
+	321: 321,
+	322: 322,
+	323: -1,
+	324: -1,
+	325: -1,
+	326: 326,
+	327: 327,
+	328: 328,
+	329: 329,
+	330: -1,
+	331: -1,
+	332: 332,
+	333: 333,
+	334: 334,
+	335: 335,
+	336: 336,
+	337: 337,
+	338: 338,
+	339: 339,
+	340: 340,
+	341: 341,
+	342: 342,
+	343: 343,
+	344: 344,
+	345: 345,
+	346: 346,
+	347: 347,
+	348: 348,
+	349: 349,
+	350: 350,
+	351: 351,
+	352: 352,
+	353: 353,
+	354: 354,
+	355: 355,
+	356: 356,
+	357: 357,
+	358: 358,
+	359: 359,
+	360: 360,
+	361: 361,
+	362: 362,
+	363: 363,
+	364: 364,
+	365: 365,
+	366: 366,
+	367: 367,
+	368: 368,
+	369: 369,
+	370: 370,
+	371: 371,
+	372: 372,
+	373: 373,
+	374: 374,
+	375: 375,
+	376: 376,
+	377: 377,
+	378: 378,
+	379: 379,
+	380: 380,
+	381: 381,
+	382: 382,
+	383: 383,
+	384: 384,
+	385: 385,
+	386: 386,
+	387: 387,
+	388: 388,
+	389: 389,
+	390: 390,
+	391: 391,
+	392: 392,
+	393: 393,
+	394: 394,
+	395: 395,
+	396: 396,
+	397: 397,
+	398: 398,
+	399: 399,
+	400: 400,
+	401: 401,
+	402: 402,
+	403: 403,
+	404: 404,
+	405: 405,
+	406: 406,
+	407: 407,
+	408: 408,
+	409: -1,
+	410: -1,
+	411: -1,
+	412: -1,
+	413: 413,
+	414: 414,
+	415: 415,
+	416: 416,
+	417: 417,
+	418: 418,
+	419: 419,
+	420: 420,
+	421: 421,
+	422: 422,
+	423: 423,
+	424: 424,
+	425: 425,
+	426: 426,
+	427: 427,
+	428: 428,
+	429: 429,
+	430: 430,
+	431: 431,
+	432: 432,
+	433: 433,
+	434: -1,
+	435: -1,
+	436: 436,
+	437: 437,
+	438: 438,
+	439: 439,
+	440: 440,
+	441: 441,
+	442: 442,
+	443: 443,
+	444: 444,
+	445: -1,
+	446: 446,
+	447: 447,
+	448: 448,
+	449: 449,
+	450: 450,
+	451: 451,
+	452: 452,
+	453: 453,
+	454: 454,
+	455: 323,
+	456: 305,
+	457: 306,
+	458: 307,
+	459: 308,
+	460: 445,
+	461: 324,
+	462: 325,
+	463: 411,
+	464: 412,
+	465: 465,
+	466: 466,
+	467: 467,
+	468: 468,
+	469: 469,
+	470: 470,
+	471: 471,
+	472: 472,
+	473: 473,
+	474: 474,
+	475: 475,
+	476: 476,
+	477: 477,
+	478: 478,
+	479: 479,
+	480: 480,
+	481: 481,
+	482: -1,
+	483: -1,
+	484: -1,
+	485: -1,
+	486: 139,
+	487: -1,
+	488: -1,
+	489: -1,
+	490: -1,
+	491: -1,
+	492: -1,
+	493: -1,
+	494: -1,
+	495: -1,
+	496: -1,
+	497: -1,
+	498: -1,
+	499: -1,
+	500: -1,
+	501: -1,
+	502: -1,
+	503: -1,
+	504: -1,
+	505: -1,
+	506: -1,
+	507: -1,
+	508: -1,
+	509: 482,
+	510: 483,
+	511: 484,
+	512: 485,
+	513: -1,
+	514: -1,
+	515: -1,
+	516: -1,
+	517: -1,
+	518: -1,
+	519: -1,
+	520: -1,
+	521: -1,
+	522: -1,
+	523: -1,
+	524: -1,
+	525: -1,
+	526: -1,
+	527: -1,
+	528: -1,
+	529: -1,
+	530: -1,
+	531: -1,
+	532: -1,
+	533: -1,
+	534: -1,
+	535: -1,
+	536: -1,
+	537: -1,
+	538: -1,
+	539: -1,
+	540: -1,
+	541: -1,
+	542: -1,
+	543: -1,
+	544: -1,
+	545: -1,
+	546: -1,
+	547: -1,
+	548: -1,
+	549: -1,
+	550: -1,
+	551: -1,
+	552: -1,
+	553: -1,
+	554: -1,
+	555: -1,
+	556: -1,
+	557: -1,
+	558: -1,
+	559: -1,
+	560: -1,
+	561: -1,
+	562: -1,
+	563: -1,
+	564: -1,
+	565: -1,
+	566: -1,
+}
+
+// runtimeAPICBIDFromLib returns the RuntimeAPICBID for v, a value a library of the
+// given major delivers. A value keeps its C name across majors, so a
+// renumbered one becomes this package's constant of that name. A value
+// no enumerator of an older major names becomes major<<16 | v.
+func runtimeAPICBIDFromLib(major int, v uint32) RuntimeAPICBID {
+	if v < 1<<16 {
+		switch major {
+		case 12:
+			if v < uint32(len(runtimeAPICBIDFrom12)) {
+				return runtimeAPICBIDFrom12[v]
+			}
+			return RuntimeAPICBID(12<<16 | v)
+		}
+	}
+	return RuntimeAPICBID(v)
+}
+
+// runtimeAPICBIDToLib returns the value a library of the given major uses
+// for v, and false if that major has none.
+func runtimeAPICBIDToLib(major int, v RuntimeAPICBID) (uint32, bool) {
+	if v < 0 {
+		return 0, false
+	}
+	if v >= 1<<16 {
+		switch v >> 16 {
+		case 12:
+			if int(v>>16) != major {
+				return 0, false
+			}
+			return uint32(v & (1<<16 - 1)), true
+		}
+		return uint32(v), true
+	}
+	switch major {
+	case 12:
+		if int(v) < len(runtimeAPICBIDTo12) && runtimeAPICBIDTo12[v] >= 0 {
+			return uint32(runtimeAPICBIDTo12[v]), true
+		}
+		return 0, false
+	}
+	return uint32(v), true
+}
+
+// runtimeAPICBIDLibMajor returns the major of a loaded library, from valid,
+// which reports whether the library accepts a RuntimeAPICBID. Each major's
+// releases accept values below SANITIZER_CBID_RUNTIME_API_SIZE, and the ranges do not overlap.
+// It reports false for a library older than release 12.2.
+func runtimeAPICBIDLibMajor(valid func(uint32) bool) (int, bool) {
+	if !valid(447) {
+		return 0, false
+	}
+	if !valid(487) {
+		return 12, true
+	}
+	return 13, true
+}
+
+// runtimeAPICBIDLibSize reports the callback ID range size of a loaded library.
+func runtimeAPICBIDLibSize(valid func(uint32) bool) (int, bool) {
+	if !valid(447) {
+		return 0, false
+	}
+	if valid(447) && !valid(448) {
+		return 448, true
+	}
+	if valid(464) && !valid(465) {
+		return 465, true
+	}
+	if valid(467) && !valid(468) {
+		return 468, true
+	}
+	if valid(479) && !valid(480) {
+		return 480, true
+	}
+	if valid(486) && !valid(487) {
+		return 487, true
+	}
+	if valid(522) && !valid(523) {
+		return 523, true
+	}
+	if valid(549) && !valid(550) {
+		return 550, true
+	}
+	if valid(558) && !valid(559) {
+		return 559, true
+	}
+	if valid(565) && !valid(566) {
+		return 566, true
+	}
+	return 0, false
 }
 
 // PatchResult represents sanitizer patch result codes.
@@ -4155,16 +5567,17 @@ func (e PatchResult) String() string {
 type DeviceMemoryFlags int32
 
 const (
-	MemoryDeviceFlagNone     DeviceMemoryFlags = 0    // Empty flag.
-	MemoryDeviceFlagRead     DeviceMemoryFlags = 0x1  // Specifies that the access is a read.
-	MemoryDeviceFlagWrite    DeviceMemoryFlags = 0x2  // Specifies that the access is a write.
-	MemoryDeviceFlagAtomsys  DeviceMemoryFlags = 0x4  // Specifies that the access is a system-scoped atomic.
-	MemoryDeviceFlagPrefetch DeviceMemoryFlags = 0x8  // Specifies that the access is a cache prefetch.
-	MemoryDeviceFlagScopeCta DeviceMemoryFlags = 0x10 // Specifies that the access is strong with CTA scope.
-	MemoryDeviceFlagScopeSm  DeviceMemoryFlags = 0x20 // Specifies that the access is strong with SM scope.
-	MemoryDeviceFlagScopeGpu DeviceMemoryFlags = 0x40 // Specifies that the access is strong with GPU scope.
-	MemoryDeviceFlagScopeSys DeviceMemoryFlags = 0x80 // Specifies that the access is strong with system scope.
-	MemoryDeviceFlagForceInt DeviceMemoryFlags = 0x7fffffff
+	MemoryDeviceFlagNone            DeviceMemoryFlags = 0      // Empty flag.
+	MemoryDeviceFlagRead            DeviceMemoryFlags = 1 << 0 // Specifies that the access is a read.
+	MemoryDeviceFlagWrite           DeviceMemoryFlags = 1 << 1 // Specifies that the access is a write.
+	MemoryDeviceFlagAtomsys         DeviceMemoryFlags = 1 << 2 // Specifies that the access is a system-scoped atomic.
+	MemoryDeviceFlagPrefetch        DeviceMemoryFlags = 1 << 3 // Specifies that the access is a cache prefetch.
+	MemoryDeviceFlagScopeCta        DeviceMemoryFlags = 1 << 4 // Specifies that the access is strong with CTA scope.
+	MemoryDeviceFlagScopeSm         DeviceMemoryFlags = 1 << 5 // Specifies that the access is strong with SM scope.
+	MemoryDeviceFlagScopeGpu        DeviceMemoryFlags = 1 << 6 // Specifies that the access is strong with GPU scope.
+	MemoryDeviceFlagScopeSys        DeviceMemoryFlags = 1 << 7 // Specifies that the access is strong with system scope.
+	MemoryDeviceFlagAtomicWriteOnly DeviceMemoryFlags = 1 << 8 // Specifies that the access is atomic but it only writes the memory.
+	MemoryDeviceFlagForceInt        DeviceMemoryFlags = 0x7fffffff
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -4188,6 +5601,8 @@ func (e DeviceMemoryFlags) String() string {
 		return "MemoryDeviceFlagScopeGpu"
 	case MemoryDeviceFlagScopeSys:
 		return "MemoryDeviceFlagScopeSys"
+	case MemoryDeviceFlagAtomicWriteOnly:
+		return "MemoryDeviceFlagAtomicWriteOnly"
 	case MemoryDeviceFlagForceInt:
 		return "MemoryDeviceFlagForceInt"
 	}
@@ -4247,20 +5662,21 @@ func (e CallFlags) String() string {
 
 // CudaBarrierInstructionKind represents CUDA Barrier action kind.
 //
-// Refer to the CUDA Barrier interface section of the CUDA toolkit documentation for a more extensive description of these actions.
+// Refer to the CUDA Barrier interface section of the CUDA toolkit documentation for a more extensive description of these actions. The \b data argument passed to SanitizerCallbackCudaBarrier and SanitizerCallbackCudaBarrierAttempt carries kind-specific information, as documented per-value below. Action kinds that do not document a use of \b data should treat its value as unspecified.
 type CudaBarrierInstructionKind int32
 
 const (
-	CudaBarrierInvalid              CudaBarrierInstructionKind = 0 // Invalid action ID.
-	CudaBarrierInit                 CudaBarrierInstructionKind = 1 // Barrier initialization.
-	CudaBarrierArrive               CudaBarrierInstructionKind = 2 // Barrier arrive operation. On Hopper and newer architectures, barrier data is the count argument to the arrive-on operation.
-	CudaBarrierArriveDrop           CudaBarrierInstructionKind = 3 // Barrier arrive and drop operation. On Hopper and newer architectures, barrier data is the count argument to the arrive-on operation.
-	CudaBarrierArriveNocomplete     CudaBarrierInstructionKind = 4 // Barrier arrive operation without phase completion. Barrier data is the count argument to the arrive-on operation.
-	CudaBarrierArriveDropNocomplete CudaBarrierInstructionKind = 5 // Barrier arrive and drop operation without phase completion. Barrier data is the count argument to the arrive-on operation.
-	CudaBarrierWait                 CudaBarrierInstructionKind = 6 // Barrier wait operation.
-	CudaBarrierInvalidate           CudaBarrierInstructionKind = 7 // Barrier invalidation.
-	CudaBarrierCpAsyncArrive        CudaBarrierInstructionKind = 8 // Barrier arrive operation issued from cp.async.mbarrier.arrive.
-	CudaBarrierCpAsyncArriveNoInc   CudaBarrierInstructionKind = 9 // Barrier arrive operation issued from cp.async.mbarrier.arrive.noinc.
+	CudaBarrierInvalid              CudaBarrierInstructionKind = 0  // Invalid action ID.
+	CudaBarrierInit                 CudaBarrierInstructionKind = 1  // Barrier initialization.
+	CudaBarrierArrive               CudaBarrierInstructionKind = 2  // Barrier arrive operation. On Hopper and newer architectures, Barrier data is the count argument to the arrive-on operation.
+	CudaBarrierArriveDrop           CudaBarrierInstructionKind = 3  // Barrier arrive and drop operation. On Hopper and newer architectures, Barrier data is the count argument to the arrive-on operation.
+	CudaBarrierArriveNocomplete     CudaBarrierInstructionKind = 4  // Barrier arrive operation without phase completion. Barrier data is the count argument to the arrive-on operation.
+	CudaBarrierArriveDropNocomplete CudaBarrierInstructionKind = 5  // Barrier arrive and drop operation without phase completion. Barrier data is the count argument to the arrive-on operation.
+	CudaBarrierWait                 CudaBarrierInstructionKind = 6  // Barrier wait operation.
+	CudaBarrierInvalidate           CudaBarrierInstructionKind = 7  // Barrier invalidation.
+	CudaBarrierCpAsyncArrive        CudaBarrierInstructionKind = 8  // Barrier arrive operation issued from cp.async.mbarrier.arrive. Barrier data is the count argument to the arrive-on operation.
+	CudaBarrierCpAsyncArriveNoInc   CudaBarrierInstructionKind = 9  // Barrier arrive operation issued from cp.async.mbarrier.arrive.noinc. Barrier data is the count argument to the arrive-on operation.
+	CudaBarrierCompleteTx           CudaBarrierInstructionKind = 10 // Barrier complete transaction operation. Barrier data is the transaction count argument to the arrive-on operation.
 	CudaBarrierForceInt             CudaBarrierInstructionKind = 0x7fffffff
 )
 
@@ -4287,10 +5703,42 @@ func (e CudaBarrierInstructionKind) String() string {
 		return "CudaBarrierCpAsyncArrive"
 	case CudaBarrierCpAsyncArriveNoInc:
 		return "CudaBarrierCpAsyncArriveNoInc"
+	case CudaBarrierCompleteTx:
+		return "CudaBarrierCompleteTx"
 	case CudaBarrierForceInt:
 		return "CudaBarrierForceInt"
 	}
 	return fmt.Sprintf("CudaBarrierInstructionKind(%d)", e)
+}
+
+// CudaBarrierFlags represents flags describing a CUDA Barrier action.
+//
+// Flags describing a CUDA Barrier action. These values are to be or-combined in the value of \b flags for a SanitizerCallbackCudaBarrier or SanitizerCallbackCudaBarrierAttempt callback.
+type CudaBarrierFlags int32
+
+const (
+	CudaBarrierFlagNone        CudaBarrierFlags = 0   // Empty flag.
+	CudaBarrierFlagUniform     CudaBarrierFlags = 0x1 // Set when the arrive operation is issued once for the whole warp rather than once per thread. All participating threads in the warp share the same \b barrier address.
+	CudaBarrierFlagMulticast   CudaBarrierFlags = 0x2 // Set when the arrive operation is a multicast variant. The multicast target mask is provided in \b multicastMask of the callback.
+	CudaBarrierFlagUsePopCount CudaBarrierFlags = 0x4 // Specifies that data is a per-thread arrival count rather than a per-warp total. Can only be set when [CudaBarrierFlagUniform] is also set.
+	CudaBarrierFlagForceInt    CudaBarrierFlags = 0x7fffffff
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e CudaBarrierFlags) String() string {
+	switch e {
+	case CudaBarrierFlagNone:
+		return "CudaBarrierFlagNone"
+	case CudaBarrierFlagUniform:
+		return "CudaBarrierFlagUniform"
+	case CudaBarrierFlagMulticast:
+		return "CudaBarrierFlagMulticast"
+	case CudaBarrierFlagUsePopCount:
+		return "CudaBarrierFlagUsePopCount"
+	case CudaBarrierFlagForceInt:
+		return "CudaBarrierFlagForceInt"
+	}
+	return fmt.Sprintf("CudaBarrierFlags(%d)", e)
 }
 
 // CacheControlInstructionKind represents cache control action.
@@ -4938,10 +6386,14 @@ func (e CallbackIdLaunch) String() string {
 type CallbackIdMemcpy int32
 
 const (
-	CbidMemcpyInvalid  CallbackIdMemcpy = 0 // Invalid memcpy callback ID.
-	CbidMemcpyStarting CallbackIdMemcpy = 1 // A memcpy operation was initiated.
-	CbidMemcpySize     CallbackIdMemcpy = 2
-	CbidMemcpyForceInt CallbackIdMemcpy = 0x7fffffff
+	CbidMemcpyInvalid                  CallbackIdMemcpy = 0 // Invalid memcpy callback ID.
+	CbidMemcpyStarting                 CallbackIdMemcpy = 1 // A memcpy operation was initiated.
+	CbidMemcpyBatchItemStarting        CallbackIdMemcpy = 2 // A memcopy batch item operation was initiated.
+	CbidMemcpyBatchItemEnd             CallbackIdMemcpy = 3 // A memcopy batch item operation was finished.
+	CbidMemcpyBatchMultiEntryPushBegin CallbackIdMemcpy = 4 // A memcopy batch multientry push has started
+	CbidMemcpyBatchMultiEntryPushEnd   CallbackIdMemcpy = 5 // A memcopy batch multientry push has finished
+	CbidMemcpySize                     CallbackIdMemcpy = 6
+	CbidMemcpyForceInt                 CallbackIdMemcpy = 0x7fffffff
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -4951,6 +6403,14 @@ func (e CallbackIdMemcpy) String() string {
 		return "CbidMemcpyInvalid"
 	case CbidMemcpyStarting:
 		return "CbidMemcpyStarting"
+	case CbidMemcpyBatchItemStarting:
+		return "CbidMemcpyBatchItemStarting"
+	case CbidMemcpyBatchItemEnd:
+		return "CbidMemcpyBatchItemEnd"
+	case CbidMemcpyBatchMultiEntryPushBegin:
+		return "CbidMemcpyBatchMultiEntryPushBegin"
+	case CbidMemcpyBatchMultiEntryPushEnd:
+		return "CbidMemcpyBatchMultiEntryPushEnd"
 	case CbidMemcpySize:
 		return "CbidMemcpySize"
 	case CbidMemcpyForceInt:

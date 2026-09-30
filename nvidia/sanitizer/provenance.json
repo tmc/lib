@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "generator": "github.com/tmc/libgen/cmd/sanitizer-survey",
-  "upstream_version": "13.3.27",
+  "upstream_version": "13.4",
   "version_source": "explicit generator flag; not independently verified",
   "cwd": ".",
   "argv": [
@@ -11,49 +11,467 @@
     "-header",
     "sanitizer.h",
     "-upstream-version",
-    "13.3.27",
+    "13.4",
+    "-release-header",
+    "sanitizer.h",
+    "-release-header",
+    "sanitizer.h",
+    "-release-header",
+    "sanitizer.h",
+    "-release-header",
+    "sanitizer.h",
+    "-release-header",
+    "sanitizer.h",
+    "-release-header",
+    "sanitizer.h",
+    "-release-header",
+    "sanitizer.h",
+    "-release-header",
+    "sanitizer.h",
+    "-release-header",
+    "sanitizer.h",
+    "-release-header",
+    "sanitizer.h",
+    "-release-header",
+    "sanitizer.h",
     "-output",
     "${OUTPUT_DIR}"
   ],
   "inputs": [
     {
-      "path": "sanitizer.h",
+      "path": "pinned/sanitizer/cuda-12.2/sanitizer.h",
+      "sha256": "c08737d830082b56f4cbcfd78b8fb0d74c3aec6ac34b6a1c2d7001d06f5f778c"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.2/sanitizer_barrier.h",
+      "sha256": "6ca30067858dd7587fe00e1d671667dff39534a8c387b2d93022baef8fd92602"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.2/sanitizer_callbacks.h",
+      "sha256": "067250a3f50ed227a236ef1b4c8b4c87ca4c6023d9e57ee84ad633d3c99d3783"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.2/sanitizer_driver_cbid.h",
+      "sha256": "d21f3c223569b1959b45bf45ae57daddc525dc539ab2c7d6bbf66f30d780007f"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.2/sanitizer_memory.h",
+      "sha256": "a032751e8366f40035d7e93bfd790a5b64db44dbc12f88461e0d2c1dbae70b55"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.2/sanitizer_patching.h",
+      "sha256": "e22b15e0ab0966aa8d96bbcaf08f2daad855d2c1cfb86530e25ba6a51d190e3a"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.2/sanitizer_result.h",
+      "sha256": "0029185b66334640a5745b13f43bc6837f0200013133a0f90c3a95f958138964"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.2/sanitizer_runtime_cbid.h",
+      "sha256": "3cbfc4deb1004c08f366e2014364ab16b238c7dc4bca4a61e7d4a80485dec716"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.2/sanitizer_stream.h",
+      "sha256": "d9c944f6d11836b51cdd445cd70a279c2cc68ef69b59921a004cd08d341d6bfe"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.3/sanitizer.h",
+      "sha256": "c08737d830082b56f4cbcfd78b8fb0d74c3aec6ac34b6a1c2d7001d06f5f778c"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.3/sanitizer_barrier.h",
+      "sha256": "6ca30067858dd7587fe00e1d671667dff39534a8c387b2d93022baef8fd92602"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.3/sanitizer_callbacks.h",
+      "sha256": "25efd79185cc32cc8b14d15a493137d0d5ef1315086ab0189c8d410645717ca2"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.3/sanitizer_driver_cbid.h",
+      "sha256": "dd653d324c91b8e5446e064fdaf0207ac85093122c714113651406c15774f0d7"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.3/sanitizer_memory.h",
+      "sha256": "a032751e8366f40035d7e93bfd790a5b64db44dbc12f88461e0d2c1dbae70b55"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.3/sanitizer_patching.h",
+      "sha256": "c078be9f8c680b03f7a5244d9175bdd894b79f11d8564ad13b7d57040a9b64fd"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.3/sanitizer_result.h",
+      "sha256": "0029185b66334640a5745b13f43bc6837f0200013133a0f90c3a95f958138964"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.3/sanitizer_runtime_cbid.h",
+      "sha256": "6ae362cfaa52c0e7018e94915dfb6bc1d5264c287db287c939e98b02f32d5e92"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.3/sanitizer_stream.h",
+      "sha256": "d9c944f6d11836b51cdd445cd70a279c2cc68ef69b59921a004cd08d341d6bfe"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.4/sanitizer.h",
+      "sha256": "c08737d830082b56f4cbcfd78b8fb0d74c3aec6ac34b6a1c2d7001d06f5f778c"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.4/sanitizer_barrier.h",
+      "sha256": "6ca30067858dd7587fe00e1d671667dff39534a8c387b2d93022baef8fd92602"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.4/sanitizer_callbacks.h",
+      "sha256": "76bec6939f01f948d03c6ea8cbc22d36a7654fbccc01f6e4081e913f0f31b472"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.4/sanitizer_driver_cbid.h",
+      "sha256": "c1e194e915d1bb11cc94e50fa340597de280bd578a9403738b16c2df876cf599"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.4/sanitizer_memory.h",
+      "sha256": "a032751e8366f40035d7e93bfd790a5b64db44dbc12f88461e0d2c1dbae70b55"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.4/sanitizer_patching.h",
+      "sha256": "c078be9f8c680b03f7a5244d9175bdd894b79f11d8564ad13b7d57040a9b64fd"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.4/sanitizer_result.h",
+      "sha256": "0029185b66334640a5745b13f43bc6837f0200013133a0f90c3a95f958138964"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.4/sanitizer_runtime_cbid.h",
+      "sha256": "602d592a5341df24fb0287dd0b0a43b8d0577e657638dd008f6e3703e367ce63"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.4/sanitizer_stream.h",
+      "sha256": "d9c944f6d11836b51cdd445cd70a279c2cc68ef69b59921a004cd08d341d6bfe"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.5/sanitizer.h",
+      "sha256": "c08737d830082b56f4cbcfd78b8fb0d74c3aec6ac34b6a1c2d7001d06f5f778c"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.5/sanitizer_barrier.h",
+      "sha256": "46f315dd8fc4aae4c65275f8056aa34995ab0536aeb3e3c5948e08023baed2dd"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.5/sanitizer_callbacks.h",
+      "sha256": "d59265d1d964f44e78c395d5cb0c5d6d4f10940a8e6201a9024b9b44ca1568bf"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.5/sanitizer_driver_cbid.h",
+      "sha256": "fcea8429292a4c768d6d3c2283c967f16d856106fff3882b122984f2610a149a"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.5/sanitizer_memory.h",
+      "sha256": "d69d8c009a293c860c9ebd3574f8a4ceb3b93b0603a6924aaa8fb6db45452c30"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.5/sanitizer_patching.h",
+      "sha256": "9311b6d46949a41e1931bbcb79b5cef94e7e182ee464432ed2cf12ad5934a446"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.5/sanitizer_result.h",
+      "sha256": "036946cf6f95e01a17a2d2091ad2be43716013633b0193182b17481a8c350a4b"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.5/sanitizer_runtime_cbid.h",
+      "sha256": "602d592a5341df24fb0287dd0b0a43b8d0577e657638dd008f6e3703e367ce63"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.5/sanitizer_stream.h",
+      "sha256": "3c2ea08cec8accda60978f785f22339e10f5d819b099380f5eb4a1990c4eb28d"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.6/sanitizer.h",
+      "sha256": "c08737d830082b56f4cbcfd78b8fb0d74c3aec6ac34b6a1c2d7001d06f5f778c"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.6/sanitizer_barrier.h",
+      "sha256": "46f315dd8fc4aae4c65275f8056aa34995ab0536aeb3e3c5948e08023baed2dd"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.6/sanitizer_callbacks.h",
+      "sha256": "d59265d1d964f44e78c395d5cb0c5d6d4f10940a8e6201a9024b9b44ca1568bf"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.6/sanitizer_driver_cbid.h",
+      "sha256": "d31f5daa650256a6b0247ceb9a7a63780f8aa8c357220ea7fb86e7eff3a20f47"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.6/sanitizer_memory.h",
+      "sha256": "d69d8c009a293c860c9ebd3574f8a4ceb3b93b0603a6924aaa8fb6db45452c30"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.6/sanitizer_patching.h",
+      "sha256": "9311b6d46949a41e1931bbcb79b5cef94e7e182ee464432ed2cf12ad5934a446"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.6/sanitizer_result.h",
+      "sha256": "036946cf6f95e01a17a2d2091ad2be43716013633b0193182b17481a8c350a4b"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.6/sanitizer_runtime_cbid.h",
+      "sha256": "8b99247e9cd4190dcf280791b1e4d9018ba3adc21beff3d0f7f7d60c729d4547"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.6/sanitizer_stream.h",
+      "sha256": "3c2ea08cec8accda60978f785f22339e10f5d819b099380f5eb4a1990c4eb28d"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.8/sanitizer.h",
+      "sha256": "c08737d830082b56f4cbcfd78b8fb0d74c3aec6ac34b6a1c2d7001d06f5f778c"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.8/sanitizer_barrier.h",
+      "sha256": "46f315dd8fc4aae4c65275f8056aa34995ab0536aeb3e3c5948e08023baed2dd"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.8/sanitizer_callbacks.h",
+      "sha256": "d59265d1d964f44e78c395d5cb0c5d6d4f10940a8e6201a9024b9b44ca1568bf"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.8/sanitizer_driver_cbid.h",
+      "sha256": "93897a3b83c9231e9fd082ec2641b362ba2364e394e71fbc48c300f2ea125822"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.8/sanitizer_memory.h",
+      "sha256": "d69d8c009a293c860c9ebd3574f8a4ceb3b93b0603a6924aaa8fb6db45452c30"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.8/sanitizer_patching.h",
+      "sha256": "884980903f2a796393dfa14a238c693bc84b65af9d4c0cae4d7434c42d5f5dc0"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.8/sanitizer_result.h",
+      "sha256": "036946cf6f95e01a17a2d2091ad2be43716013633b0193182b17481a8c350a4b"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.8/sanitizer_runtime_cbid.h",
+      "sha256": "8b99247e9cd4190dcf280791b1e4d9018ba3adc21beff3d0f7f7d60c729d4547"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.8/sanitizer_stream.h",
+      "sha256": "3c2ea08cec8accda60978f785f22339e10f5d819b099380f5eb4a1990c4eb28d"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.9/sanitizer.h",
+      "sha256": "c08737d830082b56f4cbcfd78b8fb0d74c3aec6ac34b6a1c2d7001d06f5f778c"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.9/sanitizer_barrier.h",
+      "sha256": "925cdb09dc957972ce451acd9e311f83275cf7c6089274194a0a75652561bf48"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.9/sanitizer_callbacks.h",
+      "sha256": "495b2790f24ffe340d7cc1d69683c4a1ac6cad611e62f059f464e50956650baf"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.9/sanitizer_driver_cbid.h",
+      "sha256": "37d42f68617d1d4d7b39d70815d0ff0e58d317c03182ce7945c6c7efe0cdb59f"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.9/sanitizer_memory.h",
+      "sha256": "32d5684ff17d7e1c083dea19d20ab6a6e84a7585ff0e89e7102f47f7a2e70b16"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.9/sanitizer_patching.h",
+      "sha256": "66d6f509d440395c490331b571e04a69c83cfa339e7063e4024d0c2469ca9e48"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.9/sanitizer_result.h",
+      "sha256": "8ae49f03f525fdac50ed6db98273461dbf43a42624802e3a1317111567de9466"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.9/sanitizer_runtime_cbid.h",
+      "sha256": "de1b6752951037b3eca113b9352624d26c28dbe7fe19cce8739afaf323798a29"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-12.9/sanitizer_stream.h",
+      "sha256": "1e955cdd502a3cf494ec37134cb34a8b6e8c5a252d8787a03a9a10ed93e3493d"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.0/sanitizer.h",
+      "sha256": "c08737d830082b56f4cbcfd78b8fb0d74c3aec6ac34b6a1c2d7001d06f5f778c"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.0/sanitizer_barrier.h",
+      "sha256": "925cdb09dc957972ce451acd9e311f83275cf7c6089274194a0a75652561bf48"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.0/sanitizer_callbacks.h",
+      "sha256": "495b2790f24ffe340d7cc1d69683c4a1ac6cad611e62f059f464e50956650baf"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.0/sanitizer_driver_cbid.h",
+      "sha256": "33307619d44d5b2f9dc3d78505769b4522cbd5575a459bb9534e5d756ab649ed"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.0/sanitizer_memory.h",
+      "sha256": "32d5684ff17d7e1c083dea19d20ab6a6e84a7585ff0e89e7102f47f7a2e70b16"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.0/sanitizer_patching.h",
+      "sha256": "6d1ed7433123cf6f868ce65c82c9f593dcd57470a3770dc205d81c773701ca14"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.0/sanitizer_result.h",
+      "sha256": "8ae49f03f525fdac50ed6db98273461dbf43a42624802e3a1317111567de9466"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.0/sanitizer_runtime_cbid.h",
+      "sha256": "bec76bf5698cc44ee8d62cb29f483b8fdca4cb9f81127377bd7ff58ef0345cc2"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.0/sanitizer_stream.h",
+      "sha256": "1e955cdd502a3cf494ec37134cb34a8b6e8c5a252d8787a03a9a10ed93e3493d"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.1/sanitizer.h",
+      "sha256": "c08737d830082b56f4cbcfd78b8fb0d74c3aec6ac34b6a1c2d7001d06f5f778c"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.1/sanitizer_barrier.h",
+      "sha256": "925cdb09dc957972ce451acd9e311f83275cf7c6089274194a0a75652561bf48"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.1/sanitizer_callbacks.h",
+      "sha256": "41fb04aa6812f1455fa5b2460c10e9b5d086dab8d11849581715329886ef8fac"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.1/sanitizer_driver_cbid.h",
+      "sha256": "14da3aff9431a05a0bfad24b91b3a923d329136ed28bbdc7c8b13abdd3dd0645"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.1/sanitizer_memory.h",
+      "sha256": "32d5684ff17d7e1c083dea19d20ab6a6e84a7585ff0e89e7102f47f7a2e70b16"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.1/sanitizer_patching.h",
+      "sha256": "239ffe6ce3192528cc56a55da99aaa806b283935f0d80156921db6076414a8dd"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.1/sanitizer_result.h",
+      "sha256": "8ae49f03f525fdac50ed6db98273461dbf43a42624802e3a1317111567de9466"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.1/sanitizer_runtime_cbid.h",
+      "sha256": "629f74dff20aa8dc02d33dfd5a3876dab3245d301997cff97c3950833f67aa32"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.1/sanitizer_stream.h",
+      "sha256": "1e955cdd502a3cf494ec37134cb34a8b6e8c5a252d8787a03a9a10ed93e3493d"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.2/sanitizer.h",
       "sha256": "34f9100d71cc5cceafd67c5f297c6d8ca3c975f64e87d16aa0c19bea6c6bd515"
     },
     {
-      "path": "sanitizer_barrier.h",
+      "path": "pinned/sanitizer/cuda-13.2/sanitizer_barrier.h",
       "sha256": "19a7f8c87fb9d35b8bf57e8817492c70b1fbfd5b5e681befcdba127a641fcfbf"
     },
     {
-      "path": "sanitizer_callbacks.h",
-      "sha256": "627b37b97e88214d3878e17ab9e80f87407fcb67bedb9b250d9683f3a0e74019"
+      "path": "pinned/sanitizer/cuda-13.2/sanitizer_callbacks.h",
+      "sha256": "7aa075ebf90bce89b709d467ad8f55126e35f034718d8bc14b81ee6747106117"
     },
     {
-      "path": "sanitizer_driver_cbid.h",
-      "sha256": "ca5345d1fb7f00a574d13ccf524ef2e9029f4797e4ad64ae7f723477a06051b0"
+      "path": "pinned/sanitizer/cuda-13.2/sanitizer_driver_cbid.h",
+      "sha256": "14da3aff9431a05a0bfad24b91b3a923d329136ed28bbdc7c8b13abdd3dd0645"
     },
     {
-      "path": "sanitizer_memory.h",
+      "path": "pinned/sanitizer/cuda-13.2/sanitizer_memory.h",
       "sha256": "d09b60e86dd77b1853f04d109dfd82d90f0bd06b772c2327966f080676ec8c36"
     },
     {
-      "path": "sanitizer_patching.h",
-      "sha256": "6992c4ad49305bc002ad17d3687ce948aaf0faaf4ab1e389c9dab020395c2ef7"
+      "path": "pinned/sanitizer/cuda-13.2/sanitizer_patching.h",
+      "sha256": "3431ced19cf438a4e4a8af83d0bdca0296f3cfbd43f46fc78a3345cc762a5138"
     },
     {
-      "path": "sanitizer_result.h",
+      "path": "pinned/sanitizer/cuda-13.2/sanitizer_result.h",
       "sha256": "c4570f868f57ad19c9d17fcc3b2bcdfecb49f107bc25aa6c595a8ed95b463d95"
     },
     {
-      "path": "sanitizer_runtime_cbid.h",
+      "path": "pinned/sanitizer/cuda-13.2/sanitizer_runtime_cbid.h",
       "sha256": "075ca15a2ff56bfd773d3517911837ded4db35115c34499cc5c37ecd0576f28a"
     },
     {
-      "path": "sanitizer_stream.h",
+      "path": "pinned/sanitizer/cuda-13.2/sanitizer_stream.h",
+      "sha256": "8562bc83ccf6eb1d993bf8a19c6fd54e883ce8a67ba7f25b23925d1f6306bee3"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.3/sanitizer.h",
+      "sha256": "34f9100d71cc5cceafd67c5f297c6d8ca3c975f64e87d16aa0c19bea6c6bd515"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.3/sanitizer_barrier.h",
+      "sha256": "19a7f8c87fb9d35b8bf57e8817492c70b1fbfd5b5e681befcdba127a641fcfbf"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.3/sanitizer_callbacks.h",
+      "sha256": "627b37b97e88214d3878e17ab9e80f87407fcb67bedb9b250d9683f3a0e74019"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.3/sanitizer_driver_cbid.h",
+      "sha256": "ca5345d1fb7f00a574d13ccf524ef2e9029f4797e4ad64ae7f723477a06051b0"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.3/sanitizer_memory.h",
+      "sha256": "d09b60e86dd77b1853f04d109dfd82d90f0bd06b772c2327966f080676ec8c36"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.3/sanitizer_patching.h",
+      "sha256": "6992c4ad49305bc002ad17d3687ce948aaf0faaf4ab1e389c9dab020395c2ef7"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.3/sanitizer_result.h",
+      "sha256": "c4570f868f57ad19c9d17fcc3b2bcdfecb49f107bc25aa6c595a8ed95b463d95"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.3/sanitizer_runtime_cbid.h",
+      "sha256": "075ca15a2ff56bfd773d3517911837ded4db35115c34499cc5c37ecd0576f28a"
+    },
+    {
+      "path": "pinned/sanitizer/cuda-13.3/sanitizer_stream.h",
+      "sha256": "8562bc83ccf6eb1d993bf8a19c6fd54e883ce8a67ba7f25b23925d1f6306bee3"
+    },
+    {
+      "path": "sanitizer/sanitizer.h",
+      "sha256": "34f9100d71cc5cceafd67c5f297c6d8ca3c975f64e87d16aa0c19bea6c6bd515"
+    },
+    {
+      "path": "sanitizer/sanitizer_barrier.h",
+      "sha256": "19a7f8c87fb9d35b8bf57e8817492c70b1fbfd5b5e681befcdba127a641fcfbf"
+    },
+    {
+      "path": "sanitizer/sanitizer_callbacks.h",
+      "sha256": "2ec7ffb2ab57d60eb598157ae328672b4194648096b792bb478b40b48d72f647"
+    },
+    {
+      "path": "sanitizer/sanitizer_driver_cbid.h",
+      "sha256": "5fc200a2694167108c2aa810aa28faf2a4eb4e2a6249546493ca0f6f046927e5"
+    },
+    {
+      "path": "sanitizer/sanitizer_memory.h",
+      "sha256": "d09b60e86dd77b1853f04d109dfd82d90f0bd06b772c2327966f080676ec8c36"
+    },
+    {
+      "path": "sanitizer/sanitizer_patching.h",
+      "sha256": "c8f624394e45f942e53ffe7c37e0f0dcc59fd4074d68341e74845a6a34ff4c9d"
+    },
+    {
+      "path": "sanitizer/sanitizer_result.h",
+      "sha256": "c4570f868f57ad19c9d17fcc3b2bcdfecb49f107bc25aa6c595a8ed95b463d95"
+    },
+    {
+      "path": "sanitizer/sanitizer_runtime_cbid.h",
+      "sha256": "ab5720589fc34ec77170d2c00c90790038ecdd5a42c1286971437661faf6e6d4"
+    },
+    {
+      "path": "sanitizer/sanitizer_stream.h",
       "sha256": "8562bc83ccf6eb1d993bf8a19c6fd54e883ce8a67ba7f25b23925d1f6306bee3"
     }
   ],
-  "source_hash": "4d2054c0a60dfc1e54d01a92aa5a539017e888accef6b00f03eb0d24352c8020",
+  "source_hash": "59cd6f414d7f0ebe8cd7f9b18349ee3154a6b14e9db66069fdfd359ef5b075f5",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records portable argument names; host-specific paths are intentionally redacted.",

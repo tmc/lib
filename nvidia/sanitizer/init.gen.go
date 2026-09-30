@@ -296,7 +296,7 @@ func pkgConfigHint() string {
 func libraryNames() []string {
 	switch runtime.GOOS {
 	case "linux":
-		return []string{"/usr/local/cuda-13/compute-sanitizer/libsanitizer-public.so", "/usr/local/cuda/compute-sanitizer/libsanitizer-public.so", "/opt/cuda/compute-sanitizer/libsanitizer-public.so", "libsanitizer-public.so"}
+		return []string{"/usr/local/cuda-13/compute-sanitizer/libsanitizer-public.so", "/usr/local/cuda-12/compute-sanitizer/libsanitizer-public.so", "/usr/local/cuda/compute-sanitizer/libsanitizer-public.so", "/opt/cuda/compute-sanitizer/libsanitizer-public.so", "libsanitizer-public.so"}
 	default:
 		return nil
 	}
