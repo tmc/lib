@@ -62,6 +62,9 @@ type captureRecordPayload struct {
 	ExternalID          uint64     `json:"external_id"`
 	Domain              string     `json:"domain"`
 	LifecycleEvent      string     `json:"lifecycle_event"`
+	DependencyEvent     string     `json:"dependency_event"`
+	Site                string     `json:"site"`
+	Ordinal             uint64     `json:"ordinal"`
 	CallbackID          uint32     `json:"callback_id"`
 	ProcessID           uint32     `json:"process_id"`
 	ThreadID            uint32     `json:"thread_id"`
@@ -1040,7 +1043,7 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 			// own cost, a sync window is the host waiting, and a graph trace
 			// spans the kernel records of the nodes it replayed -- counting
 			// that one would charge the same device time twice.
-			if payload.Subtype == "overhead" || payload.Subtype == "graph_trace" || payload.Subtype == "sync" {
+			if payload.Subtype == "unified_memory" || payload.Subtype == "overhead" || payload.Subtype == "graph_trace" || payload.Subtype == "sync" {
 				activities = append(activities, captureActivity{
 					Subtype:      payload.Subtype,
 					Valid:        payload.Valid && payload.Start != 0 && payload.End >= payload.Start && payload.End-payload.Start <= math.MaxInt64,
@@ -1155,8 +1158,20 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 				})
 			}
 		case wire.KindAPI:
-			if terminal || !state.bootstrap || !state.capability || (payload.Kind != "api" && payload.Kind != "graph_lifecycle") {
+			if terminal || !state.bootstrap || !state.capability || (payload.Kind != "api" && payload.Kind != "graph_lifecycle" && payload.Kind != "dependency" && payload.Kind != "memory_policy") {
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("untyped or out-of-order API record")
+			}
+			if payload.Kind == "memory_policy" {
+				if payload.End < payload.Start || payload.End > math.MaxInt64 {
+					return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("invalid memory policy timestamp")
+				}
+				continue
+			}
+			if payload.Kind == "dependency" {
+				if payload.DependencyEvent == "" || payload.Ordinal == 0 || (payload.Site != "enter" && payload.Site != "exit") || (payload.Domain != "driver" && payload.Domain != "runtime") || payload.End < payload.Start || payload.End > math.MaxInt64 {
+					return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("invalid dependency metadata")
+				}
+				continue
 			}
 			if payload.Kind == "graph_lifecycle" {
 				// Lifecycle callbacks share the API wire kind, but are metadata.

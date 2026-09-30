@@ -341,7 +341,7 @@ func measure(records timeline.Records, refs []Reference) Metrics {
 			}
 		case "range":
 			r := records.Ranges[ref.Index]
-			if r.End > r.Start {
+			if r.Journal != "" && r.Start >= 0 && r.End > r.Start {
 				m.HostRanges = append(m.HostRanges, Interval{r.Journal, r.Start, r.End})
 			}
 		}
