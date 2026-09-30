@@ -21,6 +21,7 @@ var ErrNotMarker = errors.New("not an application marker")
 // Operation is an application-defined name, not an inferred kernel identity.
 type Metadata struct {
 	Phase           string  `json:"phase"`
+	Event           string  `json:"event,omitempty"`
 	Token           *int    `json:"token,omitempty"`
 	Layer           *int    `json:"layer,omitempty"`
 	Operation       string  `json:"operation,omitempty"`
@@ -30,7 +31,7 @@ type Metadata struct {
 	Materialization *bool   `json:"materialization,omitempty"`
 }
 
-// Encode validates m and returns an NVTX range message.
+// Encode validates m and returns an NVTX message.
 func Encode(m Metadata) (string, error) {
 	if err := validate(m); err != nil {
 		return "", err
@@ -71,7 +72,7 @@ func Parse(message string) (Metadata, error) {
 			return m, errors.New("parse marker: duplicate or invalid field")
 		}
 		switch key {
-		case "phase", "token", "layer", "operation", "dtype", "cache_length", "lookahead", "materialization":
+		case "phase", "token", "layer", "operation", "dtype", "cache_length", "lookahead", "materialization", "event":
 		default:
 			return m, fmt.Errorf("parse marker: unknown field %q", key)
 		}
@@ -103,6 +104,12 @@ func Parse(message string) (Metadata, error) {
 }
 
 func validate(m Metadata) error {
+	if m.Event != "" && m.Event != "delivered" && m.Event != "eos" && m.Event != "token_limit" {
+		return errors.New("marker event must be delivered, eos or token_limit")
+	}
+	if m.Event != "" && m.Token == nil {
+		return errors.New("marker event requires token")
+	}
 	if m.Phase != "prefill" && m.Phase != "decode" {
 		return errors.New("marker phase must be prefill or decode")
 	}
