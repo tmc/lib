@@ -7,7 +7,7 @@
 set -eu
 module=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 src=$(CDPATH= cd -- "${FFI_SRC:-$module/../../ffi}" && pwd)
-revision=900e84d07cb4b0b3647410ad9ada98cf00d22317
+revision=966f69c14c4e06a02708e3b1669fdfbafbeebf84
 if ! git -C "$src" cat-file -e "$revision^{commit}" 2>/dev/null; then
     echo "ffi: $src does not have revision $revision; fetch it" >&2
     exit 1
