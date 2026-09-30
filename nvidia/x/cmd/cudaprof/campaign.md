@@ -43,7 +43,7 @@ retained steady iteration window. Work crossing either selected window edge
 is refused rather than clipped or silently omitted. Failed blocks and reasons remain in
 `campaign.json`; fewer than three qualified blocks refuses an interval.
 
-The delivery effect compares the block's two target steady device windows
+The device-window effect compares the block's two target steady device windows
 with its two reference windows. It is separate from summed kernel duration.
 The deterministic percentile bootstrap resamples whole independent block
 effects, not launches, and reports a conditional 95% interval. Its unverified

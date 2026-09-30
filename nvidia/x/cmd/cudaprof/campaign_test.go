@@ -64,7 +64,7 @@ func TestCampaignOrder(t *testing.T) {
 	if r.Interval == nil || r.Interval.Blocks != 3 || r.Interval.Median != 10 {
 		t.Fatalf("interval = %+v", r.Interval)
 	}
-	if r.Blocks[0].DeliveryEffectPct == nil || *r.Blocks[0].DeliveryEffectPct != 10 || len(r.Blocks[0].OverheadPct) != 2 {
+	if r.Blocks[0].DeviceWindowEffectPct == nil || *r.Blocks[0].DeviceWindowEffectPct != 10 || len(r.Blocks[0].OverheadPct) != 2 {
 		t.Fatalf("qualified block effects = %+v", r.Blocks[0])
 	}
 	if len(r.Blocks[0].Runs) != 8 || r.EnvironmentSHA256 == "" || r.ArtifactSHA256["base_binary"] == "" {
@@ -110,7 +110,7 @@ func TestCampaignExclusions(t *testing.T) {
 			if err := json.Unmarshal(out.Bytes(), &r); err != nil {
 				t.Fatal(err)
 			}
-			if r.Interval != nil || len(r.Blocks) != 3 || len(r.Blocks[0].Excluded) == 0 || r.Blocks[0].DeliveryEffectPct != nil || r.Blocks[0].OverheadPct != nil {
+			if r.Interval != nil || len(r.Blocks) != 3 || len(r.Blocks[0].Excluded) == 0 || r.Blocks[0].DeviceWindowEffectPct != nil || r.Blocks[0].OverheadPct != nil {
 				t.Fatalf("receipt = %+v", r)
 			}
 		})
