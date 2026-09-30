@@ -1,25 +1,28 @@
 {
   "schema_version": 1,
   "generator": "github.com/tmc/libgen/cmd/cusparse-survey",
-  "upstream_version": "unrecorded",
-  "version_source": "unrecorded",
+  "upstream_version": "13.4",
+  "version_source": "explicit generator flag; not independently verified",
   "cwd": ".",
   "argv": [
     "cusparse-survey",
+    "-allow-missing-contract",
     "-header",
     "cusparse.h",
-    "-headers-dir",
+    "-cuda-headers",
     "cuda-headers",
+    "-upstream-version",
+    "13.4",
     "-output",
     "${OUTPUT_DIR}"
   ],
   "inputs": [
     {
       "path": "cusparse.h",
-      "sha256": "446549afb6720ec5d56e85648c03b4dbfa9d9bda8d29acdbed3b6fdbb0912fcb"
+      "sha256": "65749b43a6acd035d3923e718f9a8f18d49d1e76d35dad85ea5331d1a851073b"
     }
   ],
-  "source_hash": "e910a71673d329045868a6bb979dd4f8fe0eaf80e0d2ef9acfec3c60f0598e34",
+  "source_hash": "c6e40396d48fab66529a9626d95e0effd1bd79942586fd5e05e94ef07f0f3d97",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records portable argument names; host-specific paths are intentionally redacted.",

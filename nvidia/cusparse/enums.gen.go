@@ -377,6 +377,28 @@ func (e SpMVAlg) String() string {
 	return fmt.Sprintf("SpMVAlg(%d)", e)
 }
 
+// SpMVOpAlg represents cusparseSpMVOpAlg_t.
+type SpMVOpAlg int32
+
+const (
+	SpmvopAlgDefault SpMVOpAlg = 0
+	SpmvopALG1       SpMVOpAlg = 1
+	SpmvopALG2       SpMVOpAlg = 2
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e SpMVOpAlg) String() string {
+	switch e {
+	case SpmvopAlgDefault:
+		return "SpmvopAlgDefault"
+	case SpmvopALG1:
+		return "SpmvopALG1"
+	case SpmvopALG2:
+		return "SpmvopALG2"
+	}
+	return fmt.Sprintf("SpMVOpAlg(%d)", e)
+}
+
 // SpSVAlg represents cusparseSpSVAlg_t.
 type SpSVAlg int32
 
@@ -519,6 +541,25 @@ func (e SpGEMMAlg) String() string {
 		return "SpgemmALG3"
 	}
 	return fmt.Sprintf("SpGEMMAlg(%d)", e)
+}
+
+// SpGEAMAlg represents cusparseSpGEAMAlg_t.
+type SpGEAMAlg int32
+
+const (
+	SpgeamAlgDefault SpGEAMAlg = 0
+	SpgeamALG1       SpGEAMAlg = 1
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e SpGEAMAlg) String() string {
+	switch e {
+	case SpgeamAlgDefault:
+		return "SpgeamAlgDefault"
+	case SpgeamALG1:
+		return "SpgeamALG1"
+	}
+	return fmt.Sprintf("SpGEAMAlg(%d)", e)
 }
 
 // SDDMMAlg represents cusparseSDDMMAlg_t.

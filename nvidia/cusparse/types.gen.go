@@ -77,6 +77,8 @@ const (
 	R6F_E3M2 DataType = 32
 	// real as a nv_fp4_e2m1
 	R4F_E2M1 DataType = 33
+	// real as an unsigned nv_fp8_ue5m3
+	R8FUe5m3 DataType = 34
 )
 
 // FILE is an opaque C standard I/O stream.

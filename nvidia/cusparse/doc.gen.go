@@ -136,10 +136,6 @@
 //   - [Handle.SpGEMMEstimateMemory]: performs the multiplication of two sparse matrices matA and matB.
 //   - [SpGEMMDescr.GEMMGetNumProducts]: performs the multiplication of two sparse matrices matA and matB.
 //   - [Handle.SpGEMMWorkEstimation]: performs the multiplication of two sparse matrices matA and matB.
-//   - [Handle.SpGEMMreuseCompute]: performs the multiplication of two sparse matrices matA and matB where the structure of the output matrix matC can be reused for multiple computations with different values.
-//   - [Handle.SpGEMMreuseCopy]: performs the multiplication of two sparse matrices matA and matB where the structure of the output matrix matC can be reused for multiple computations with different values.
-//   - [Handle.SpGEMMreuseNnz]: performs the multiplication of two sparse matrices matA and matB where the structure of the output matrix matC can be reused for multiple computations with different values.
-//   - [Handle.SpGEMMreuseWorkEstimation]: performs the multiplication of two sparse matrices matA and matB where the structure of the output matrix matC can be reused for multiple computations with different values.
 //
 // # Sparse Matrix-Matrix Operations
 //

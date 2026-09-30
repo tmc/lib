@@ -1027,14 +1027,14 @@ func fnspMVOp(a0 Handle, a1 SpMVOpPlan, a2 unsafe.Pointer, a3 unsafe.Pointer, a4
 }
 
 // fnspMVOpBufferSize calls cusparseSpMVOp_bufferSize.
-func fnspMVOpBufferSize(a0 Handle, a1 Operation, a2 ConstSpMatDescr, a3 ConstDnVecDescr, a4 DnVecDescr, a5 DnVecDescr, a6 DataType, a7 *uint) Result {
-	r1, _ := ffiCallWidths8(symspMVOpBufferSize, 0, 0x300c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+func fnspMVOpBufferSize(a0 Handle, a1 Operation, a2 ConstSpMatDescr, a3 ConstDnVecDescr, a4 DnVecDescr, a5 DnVecDescr, a6 DataType, a7 SpMVOpAlg, a8 *uint) Result {
+	r1, _ := ffiCallWidths9(symspMVOpBufferSize, 0, 0xf00c, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
 	return Result(r1)
 }
 
 // fnspMVOpCreateDescr calls cusparseSpMVOp_createDescr.
-func fnspMVOpCreateDescr(a0 Handle, a1 *SpMVOpDescr, a2 Operation, a3 ConstSpMatDescr, a4 ConstDnVecDescr, a5 DnVecDescr, a6 DnVecDescr, a7 DataType, a8 uintptr) Result {
-	r1, _ := ffiCallWidths9(symspMVOpCreateDescr, 0, 0xc030, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+func fnspMVOpCreateDescr(a0 Handle, a1 *SpMVOpDescr, a2 Operation, a3 ConstSpMatDescr, a4 ConstDnVecDescr, a5 DnVecDescr, a6 DnVecDescr, a7 DataType, a8 SpMVOpAlg, a9 uintptr) Result {
+	r1, _ := ffiCallWidths10(symspMVOpCreateDescr, 0, 0x3c030, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
 	return Result(r1)
 }
 
@@ -3701,6 +3701,8 @@ func spGEMMWorkEstimation(handle Handle, opA Operation, opB Operation, alpha Sca
 // The kinds of alpha and beta must match computeType; a host [Scalar] of
 // another kind is a *[ScalarError].
 //
+// Deprecated: This function is deprecated.
+//
 // Wraps cusparseSpGEMMreuseCompute, bound as cusparseSpGEMMreuse_compute.
 func spGEMMreuseCompute(handle Handle, opA Operation, opB Operation, alpha Scalar, matA ConstSpMatDescr, matB ConstSpMatDescr, beta Scalar, matC SpMatDescr, computeType DataType, alg SpGEMMAlg, spgemmDescr SpGEMMDescr) error {
 	if err := checkLibSym("cusparseSpGEMMreuse_compute"); err != nil {
@@ -3756,6 +3758,8 @@ func spGEMMreuseCompute(handle Handle, opA Operation, opB Operation, alpha Scala
 //
 // Please visit cuSPARSE Library Samples - cusparseSpGEMMreuse for a code example.
 //
+// Deprecated: This function is deprecated.
+//
 // Wraps cusparseSpGEMMreuseCopy, bound as cusparseSpGEMMreuse_copy.
 func spGEMMreuseCopy(handle Handle, opA Operation, opB Operation, matA ConstSpMatDescr, matB ConstSpMatDescr, matC SpMatDescr, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize5 *uint, externalBuffer5 driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpGEMMreuse_copy"); err != nil {
@@ -3803,6 +3807,8 @@ func spGEMMreuseCopy(handle Handle, opA Operation, opB Operation, matA ConstSpMa
 //
 // Please visit cuSPARSE Library Samples - cusparseSpGEMMreuse for a code example.
 //
+// Deprecated: This function is deprecated.
+//
 // Wraps cusparseSpGEMMreuseNnz, bound as cusparseSpGEMMreuse_nnz.
 func spGEMMreuseNnz(handle Handle, opA Operation, opB Operation, matA ConstSpMatDescr, matB ConstSpMatDescr, matC SpMatDescr, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize2 *uint, externalBuffer2 driver.DevicePtr, bufferSize3 *uint, externalBuffer3 driver.DevicePtr, bufferSize4 *uint, externalBuffer4 driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpGEMMreuse_nnz"); err != nil {
@@ -3849,6 +3855,8 @@ func spGEMMreuseNnz(handle Handle, opA Operation, opB Operation, matA ConstSpMat
 //   - Hardware Memory Compression
 //
 // Please visit cuSPARSE Library Samples - cusparseSpGEMMreuse for a code example.
+//
+// Deprecated: This function is deprecated.
 //
 // Wraps cusparseSpGEMMreuseWorkEstimation, bound as cusparseSpGEMMreuse_workEstimation.
 func spGEMMreuseWorkEstimation(handle Handle, opA Operation, opB Operation, matA ConstSpMatDescr, matB ConstSpMatDescr, matC SpMatDescr, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize1 *uint, externalBuffer1 driver.DevicePtr) error {
@@ -4363,9 +4371,9 @@ var slotSpMVBufferSize outSlot[uint]
 //   - A: CUDA_R_64F; X/Y/Z/computeType: CUDA_R_64F
 //
 // [Handle.SpMVOp] supports the following algorithms:
-//   - CUSPARSE_SPMVOP_ALG_DEFAULT: Default algorithm; currently equivalent to CUSPARSE_SPMVOP_ALG1.
-//   - CUSPARSE_SPMVOP_ALG1: Deterministic algorithm. Supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan, either in-place or via [SpMatDescr.CsrSetPointers].
-//   - CUSPARSE_SPMVOP_ALG2: Alternative deterministic algorithm. Compared to CUSPARSE_SPMVOP_ALG1, it may offer higher performance at the cost of significantly more buffer usage and more expensive preprocessing in [Handle.SpMVOpCreateDescr]. Does not support updating the values of matA between calls without rebuilding the descriptor and the execution plan.
+//   - [SpmvopAlgDefault]: Default algorithm; currently equivalent to [SpmvopALG1].
+//   - [SpmvopALG1]: Deterministic algorithm. Supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan, either in-place or via [SpMatDescr.CsrSetPointers].
+//   - [SpmvopALG2]: Alternative deterministic algorithm. Compared to [SpmvopALG1], it may offer higher performance at the cost of significantly more buffer usage and more expensive preprocessing in [Handle.SpMVOpCreateDescr]. Does not support updating the values of matA between calls without rebuilding the descriptor and the execution plan.
 //
 // The function [Handle.SpMVOpBufferSize] returns the size of the workspace needed by [Handle.SpMVOpCreateDescr] and [Handle.SpMVOp]. Currently, it accepts NULL for vecX, vecY and vecZ.
 // The function [Handle.SpMVOpCreateDescr] prepares the internal data represented by the descriptor which is needed by [Handle.SpMVOpCreatePlan] and [Handle.SpMVOp]. The passed-in device buffer must remain valid and unmodified until the associated descriptor is destroyed. It supports passing dummy vecX, vecY and vecZ objects, as long as their data type attributes are valid. Other attributes are ignored during the descriptor creation. If epilogueLTOBuffer is NULL or epilogueLTOBufferSize is 0, the built-in default epilogue will be employed without Link-Time-Optimization (LTO):
@@ -4379,7 +4387,7 @@ var slotSpMVBufferSize outSlot[uint]
 //   - It provides improved numerical accuracy than [Handle.SpMV] due to the fact that accumulation is partially performed using Kahan’s summation.
 //   - The routine produces deterministic (bit-wise) results for each run, assuming that the epilogue function is deterministic.
 //   - In general, it is significantly faster than [Handle.SpMV] with the deterministic algorithm [SpmvCsrALG2], at the cost of more buffer usage.
-//   - CUSPARSE_SPMVOP_ALG1 (and CUSPARSE_SPMVOP_ALG_DEFAULT) supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan. The updated values can be provided in-place (by modifying the device memory previously registered in the matrix descriptor) or by calling [SpMatDescr.CsrSetPointers] with the new value pointer before each [Handle.SpMVOp] call.
+//   - [SpmvopALG1] (and [SpmvopAlgDefault]) supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan. The updated values can be provided in-place (by modifying the device memory previously registered in the matrix descriptor) or by calling [SpMatDescr.CsrSetPointers] with the new value pointer before each [Handle.SpMVOp] call.
 //   - The routine supports asynchronous execution.
 //   - The routine allows the indices of matA to be unsorted.
 //   - It supports CUDA graph capture optimizations.
@@ -4413,17 +4421,18 @@ func spMVOp(handle Handle, plan SpMVOpPlan, alpha Scalar, beta Scalar, vecX Cons
 //   - vecY: Dense vector Y
 //   - vecZ: Dense vector Z
 //   - computeType: Datatype in which the computation is executed
+//   - alg: Algorithm for the computation (see algorithm table above)
 //   - bufferSize: Workspace size
 //
 // Wraps cusparseSpMVOpBufferSize, bound as cusparseSpMVOp_bufferSize.
-func spMVOpBufferSize(handle Handle, opA Operation, matA ConstSpMatDescr, vecX ConstDnVecDescr, vecY DnVecDescr, vecZ DnVecDescr, computeType DataType) (uint, error) {
+func spMVOpBufferSize(handle Handle, opA Operation, matA ConstSpMatDescr, vecX ConstDnVecDescr, vecY DnVecDescr, vecZ DnVecDescr, computeType DataType, alg SpMVOpAlg) (uint, error) {
 	if err := checkLibSym("cusparseSpMVOp_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	out := slotSpMVOpBufferSize.get()
 	defer slotSpMVOpBufferSize.put(out)
-	if err := toError(fnspMVOpBufferSize(handle, opA, matA, vecX, vecY, vecZ, computeType, out), "cusparseSpMVOp_bufferSize"); err != nil {
+	if err := toError(fnspMVOpBufferSize(handle, opA, matA, vecX, vecY, vecZ, computeType, alg, out), "cusparseSpMVOp_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -4463,9 +4472,9 @@ var slotSpMVOpBufferSize outSlot[uint]
 //   - A: CUDA_R_64F; X/Y/Z/computeType: CUDA_R_64F
 //
 // [Handle.SpMVOp] supports the following algorithms:
-//   - CUSPARSE_SPMVOP_ALG_DEFAULT: Default algorithm; currently equivalent to CUSPARSE_SPMVOP_ALG1.
-//   - CUSPARSE_SPMVOP_ALG1: Deterministic algorithm. Supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan, either in-place or via [SpMatDescr.CsrSetPointers].
-//   - CUSPARSE_SPMVOP_ALG2: Alternative deterministic algorithm. Compared to CUSPARSE_SPMVOP_ALG1, it may offer higher performance at the cost of significantly more buffer usage and more expensive preprocessing in [Handle.SpMVOpCreateDescr]. Does not support updating the values of matA between calls without rebuilding the descriptor and the execution plan.
+//   - [SpmvopAlgDefault]: Default algorithm; currently equivalent to [SpmvopALG1].
+//   - [SpmvopALG1]: Deterministic algorithm. Supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan, either in-place or via [SpMatDescr.CsrSetPointers].
+//   - [SpmvopALG2]: Alternative deterministic algorithm. Compared to [SpmvopALG1], it may offer higher performance at the cost of significantly more buffer usage and more expensive preprocessing in [Handle.SpMVOpCreateDescr]. Does not support updating the values of matA between calls without rebuilding the descriptor and the execution plan.
 //
 // The function [Handle.SpMVOpBufferSize] returns the size of the workspace needed by [Handle.SpMVOpCreateDescr] and [Handle.SpMVOp]. Currently, it accepts NULL for vecX, vecY and vecZ.
 // The function [Handle.SpMVOpCreateDescr] prepares the internal data represented by the descriptor which is needed by [Handle.SpMVOpCreatePlan] and [Handle.SpMVOp]. The passed-in device buffer must remain valid and unmodified until the associated descriptor is destroyed. It supports passing dummy vecX, vecY and vecZ objects, as long as their data type attributes are valid. Other attributes are ignored during the descriptor creation. If epilogueLTOBuffer is NULL or epilogueLTOBufferSize is 0, the built-in default epilogue will be employed without Link-Time-Optimization (LTO):
@@ -4479,7 +4488,7 @@ var slotSpMVOpBufferSize outSlot[uint]
 //   - It provides improved numerical accuracy than [Handle.SpMV] due to the fact that accumulation is partially performed using Kahan’s summation.
 //   - The routine produces deterministic (bit-wise) results for each run, assuming that the epilogue function is deterministic.
 //   - In general, it is significantly faster than [Handle.SpMV] with the deterministic algorithm [SpmvCsrALG2], at the cost of more buffer usage.
-//   - CUSPARSE_SPMVOP_ALG1 (and CUSPARSE_SPMVOP_ALG_DEFAULT) supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan. The updated values can be provided in-place (by modifying the device memory previously registered in the matrix descriptor) or by calling [SpMatDescr.CsrSetPointers] with the new value pointer before each [Handle.SpMVOp] call.
+//   - [SpmvopALG1] (and [SpmvopAlgDefault]) supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan. The updated values can be provided in-place (by modifying the device memory previously registered in the matrix descriptor) or by calling [SpMatDescr.CsrSetPointers] with the new value pointer before each [Handle.SpMVOp] call.
 //   - The routine supports asynchronous execution.
 //   - The routine allows the indices of matA to be unsorted.
 //   - It supports CUDA graph capture optimizations.
@@ -4493,17 +4502,18 @@ var slotSpMVOpBufferSize outSlot[uint]
 //   - vecY: Dense vector Y
 //   - vecZ: Dense vector Z
 //   - computeType: Datatype in which the computation is executed
+//   - alg: Algorithm for the computation (see algorithm table above)
 //   - buffer: Pointer to a workspace buffer of at least bufferSize bytes
 //
 // Wraps cusparseSpMVOpCreateDescr, bound as cusparseSpMVOp_createDescr.
-func spMVOpCreateDescr(handle Handle, opA Operation, matA ConstSpMatDescr, vecX ConstDnVecDescr, vecY DnVecDescr, vecZ DnVecDescr, computeType DataType, buffer driver.DevicePtr) (SpMVOpDescr, error) {
+func spMVOpCreateDescr(handle Handle, opA Operation, matA ConstSpMatDescr, vecX ConstDnVecDescr, vecY DnVecDescr, vecZ DnVecDescr, computeType DataType, alg SpMVOpAlg, buffer driver.DevicePtr) (SpMVOpDescr, error) {
 	if err := checkLibSym("cusparseSpMVOp_createDescr"); err != nil {
 		var zero SpMVOpDescr
 		return zero, err
 	}
 	out := slotSpMVOpCreateDescr.get()
 	defer slotSpMVOpCreateDescr.put(out)
-	if err := toError(fnspMVOpCreateDescr(handle, out, opA, matA, vecX, vecY, vecZ, computeType, uintptr(buffer)), "cusparseSpMVOp_createDescr"); err != nil {
+	if err := toError(fnspMVOpCreateDescr(handle, out, opA, matA, vecX, vecY, vecZ, computeType, alg, uintptr(buffer)), "cusparseSpMVOp_createDescr"); err != nil {
 		var zero SpMVOpDescr
 		return zero, err
 	}
@@ -4543,9 +4553,9 @@ var slotSpMVOpCreateDescr outSlot[SpMVOpDescr]
 //   - A: CUDA_R_64F; X/Y/Z/computeType: CUDA_R_64F
 //
 // [Handle.SpMVOp] supports the following algorithms:
-//   - CUSPARSE_SPMVOP_ALG_DEFAULT: Default algorithm; currently equivalent to CUSPARSE_SPMVOP_ALG1.
-//   - CUSPARSE_SPMVOP_ALG1: Deterministic algorithm. Supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan, either in-place or via [SpMatDescr.CsrSetPointers].
-//   - CUSPARSE_SPMVOP_ALG2: Alternative deterministic algorithm. Compared to CUSPARSE_SPMVOP_ALG1, it may offer higher performance at the cost of significantly more buffer usage and more expensive preprocessing in [Handle.SpMVOpCreateDescr]. Does not support updating the values of matA between calls without rebuilding the descriptor and the execution plan.
+//   - [SpmvopAlgDefault]: Default algorithm; currently equivalent to [SpmvopALG1].
+//   - [SpmvopALG1]: Deterministic algorithm. Supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan, either in-place or via [SpMatDescr.CsrSetPointers].
+//   - [SpmvopALG2]: Alternative deterministic algorithm. Compared to [SpmvopALG1], it may offer higher performance at the cost of significantly more buffer usage and more expensive preprocessing in [Handle.SpMVOpCreateDescr]. Does not support updating the values of matA between calls without rebuilding the descriptor and the execution plan.
 //
 // The function [Handle.SpMVOpBufferSize] returns the size of the workspace needed by [Handle.SpMVOpCreateDescr] and [Handle.SpMVOp]. Currently, it accepts NULL for vecX, vecY and vecZ.
 // The function [Handle.SpMVOpCreateDescr] prepares the internal data represented by the descriptor which is needed by [Handle.SpMVOpCreatePlan] and [Handle.SpMVOp]. The passed-in device buffer must remain valid and unmodified until the associated descriptor is destroyed. It supports passing dummy vecX, vecY and vecZ objects, as long as their data type attributes are valid. Other attributes are ignored during the descriptor creation. If epilogueLTOBuffer is NULL or epilogueLTOBufferSize is 0, the built-in default epilogue will be employed without Link-Time-Optimization (LTO):
@@ -4559,7 +4569,7 @@ var slotSpMVOpCreateDescr outSlot[SpMVOpDescr]
 //   - It provides improved numerical accuracy than [Handle.SpMV] due to the fact that accumulation is partially performed using Kahan’s summation.
 //   - The routine produces deterministic (bit-wise) results for each run, assuming that the epilogue function is deterministic.
 //   - In general, it is significantly faster than [Handle.SpMV] with the deterministic algorithm [SpmvCsrALG2], at the cost of more buffer usage.
-//   - CUSPARSE_SPMVOP_ALG1 (and CUSPARSE_SPMVOP_ALG_DEFAULT) supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan. The updated values can be provided in-place (by modifying the device memory previously registered in the matrix descriptor) or by calling [SpMatDescr.CsrSetPointers] with the new value pointer before each [Handle.SpMVOp] call.
+//   - [SpmvopALG1] (and [SpmvopAlgDefault]) supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan. The updated values can be provided in-place (by modifying the device memory previously registered in the matrix descriptor) or by calling [SpMatDescr.CsrSetPointers] with the new value pointer before each [Handle.SpMVOp] call.
 //   - The routine supports asynchronous execution.
 //   - The routine allows the indices of matA to be unsorted.
 //   - It supports CUDA graph capture optimizations.
@@ -4617,9 +4627,9 @@ var slotSpMVOpCreatePlan outSlot[SpMVOpPlan]
 //   - A: CUDA_R_64F; X/Y/Z/computeType: CUDA_R_64F
 //
 // [Handle.SpMVOp] supports the following algorithms:
-//   - CUSPARSE_SPMVOP_ALG_DEFAULT: Default algorithm; currently equivalent to CUSPARSE_SPMVOP_ALG1.
-//   - CUSPARSE_SPMVOP_ALG1: Deterministic algorithm. Supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan, either in-place or via [SpMatDescr.CsrSetPointers].
-//   - CUSPARSE_SPMVOP_ALG2: Alternative deterministic algorithm. Compared to CUSPARSE_SPMVOP_ALG1, it may offer higher performance at the cost of significantly more buffer usage and more expensive preprocessing in [Handle.SpMVOpCreateDescr]. Does not support updating the values of matA between calls without rebuilding the descriptor and the execution plan.
+//   - [SpmvopAlgDefault]: Default algorithm; currently equivalent to [SpmvopALG1].
+//   - [SpmvopALG1]: Deterministic algorithm. Supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan, either in-place or via [SpMatDescr.CsrSetPointers].
+//   - [SpmvopALG2]: Alternative deterministic algorithm. Compared to [SpmvopALG1], it may offer higher performance at the cost of significantly more buffer usage and more expensive preprocessing in [Handle.SpMVOpCreateDescr]. Does not support updating the values of matA between calls without rebuilding the descriptor and the execution plan.
 //
 // The function [Handle.SpMVOpBufferSize] returns the size of the workspace needed by [Handle.SpMVOpCreateDescr] and [Handle.SpMVOp]. Currently, it accepts NULL for vecX, vecY and vecZ.
 // The function [Handle.SpMVOpCreateDescr] prepares the internal data represented by the descriptor which is needed by [Handle.SpMVOpCreatePlan] and [Handle.SpMVOp]. The passed-in device buffer must remain valid and unmodified until the associated descriptor is destroyed. It supports passing dummy vecX, vecY and vecZ objects, as long as their data type attributes are valid. Other attributes are ignored during the descriptor creation. If epilogueLTOBuffer is NULL or epilogueLTOBufferSize is 0, the built-in default epilogue will be employed without Link-Time-Optimization (LTO):
@@ -4633,7 +4643,7 @@ var slotSpMVOpCreatePlan outSlot[SpMVOpPlan]
 //   - It provides improved numerical accuracy than [Handle.SpMV] due to the fact that accumulation is partially performed using Kahan’s summation.
 //   - The routine produces deterministic (bit-wise) results for each run, assuming that the epilogue function is deterministic.
 //   - In general, it is significantly faster than [Handle.SpMV] with the deterministic algorithm [SpmvCsrALG2], at the cost of more buffer usage.
-//   - CUSPARSE_SPMVOP_ALG1 (and CUSPARSE_SPMVOP_ALG_DEFAULT) supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan. The updated values can be provided in-place (by modifying the device memory previously registered in the matrix descriptor) or by calling [SpMatDescr.CsrSetPointers] with the new value pointer before each [Handle.SpMVOp] call.
+//   - [SpmvopALG1] (and [SpmvopAlgDefault]) supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan. The updated values can be provided in-place (by modifying the device memory previously registered in the matrix descriptor) or by calling [SpMatDescr.CsrSetPointers] with the new value pointer before each [Handle.SpMVOp] call.
 //   - The routine supports asynchronous execution.
 //   - The routine allows the indices of matA to be unsorted.
 //   - It supports CUDA graph capture optimizations.
@@ -4679,9 +4689,9 @@ func spMVOpDestroyDescr(desc SpMVOpDescr) error {
 //   - A: CUDA_R_64F; X/Y/Z/computeType: CUDA_R_64F
 //
 // [Handle.SpMVOp] supports the following algorithms:
-//   - CUSPARSE_SPMVOP_ALG_DEFAULT: Default algorithm; currently equivalent to CUSPARSE_SPMVOP_ALG1.
-//   - CUSPARSE_SPMVOP_ALG1: Deterministic algorithm. Supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan, either in-place or via [SpMatDescr.CsrSetPointers].
-//   - CUSPARSE_SPMVOP_ALG2: Alternative deterministic algorithm. Compared to CUSPARSE_SPMVOP_ALG1, it may offer higher performance at the cost of significantly more buffer usage and more expensive preprocessing in [Handle.SpMVOpCreateDescr]. Does not support updating the values of matA between calls without rebuilding the descriptor and the execution plan.
+//   - [SpmvopAlgDefault]: Default algorithm; currently equivalent to [SpmvopALG1].
+//   - [SpmvopALG1]: Deterministic algorithm. Supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan, either in-place or via [SpMatDescr.CsrSetPointers].
+//   - [SpmvopALG2]: Alternative deterministic algorithm. Compared to [SpmvopALG1], it may offer higher performance at the cost of significantly more buffer usage and more expensive preprocessing in [Handle.SpMVOpCreateDescr]. Does not support updating the values of matA between calls without rebuilding the descriptor and the execution plan.
 //
 // The function [Handle.SpMVOpBufferSize] returns the size of the workspace needed by [Handle.SpMVOpCreateDescr] and [Handle.SpMVOp]. Currently, it accepts NULL for vecX, vecY and vecZ.
 // The function [Handle.SpMVOpCreateDescr] prepares the internal data represented by the descriptor which is needed by [Handle.SpMVOpCreatePlan] and [Handle.SpMVOp]. The passed-in device buffer must remain valid and unmodified until the associated descriptor is destroyed. It supports passing dummy vecX, vecY and vecZ objects, as long as their data type attributes are valid. Other attributes are ignored during the descriptor creation. If epilogueLTOBuffer is NULL or epilogueLTOBufferSize is 0, the built-in default epilogue will be employed without Link-Time-Optimization (LTO):
@@ -4695,7 +4705,7 @@ func spMVOpDestroyDescr(desc SpMVOpDescr) error {
 //   - It provides improved numerical accuracy than [Handle.SpMV] due to the fact that accumulation is partially performed using Kahan’s summation.
 //   - The routine produces deterministic (bit-wise) results for each run, assuming that the epilogue function is deterministic.
 //   - In general, it is significantly faster than [Handle.SpMV] with the deterministic algorithm [SpmvCsrALG2], at the cost of more buffer usage.
-//   - CUSPARSE_SPMVOP_ALG1 (and CUSPARSE_SPMVOP_ALG_DEFAULT) supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan. The updated values can be provided in-place (by modifying the device memory previously registered in the matrix descriptor) or by calling [SpMatDescr.CsrSetPointers] with the new value pointer before each [Handle.SpMVOp] call.
+//   - [SpmvopALG1] (and [SpmvopAlgDefault]) supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan. The updated values can be provided in-place (by modifying the device memory previously registered in the matrix descriptor) or by calling [SpMatDescr.CsrSetPointers] with the new value pointer before each [Handle.SpMVOp] call.
 //   - The routine supports asynchronous execution.
 //   - The routine allows the indices of matA to be unsorted.
 //   - It supports CUDA graph capture optimizations.
@@ -4743,9 +4753,9 @@ func spMVOpDestroyPlan(plan SpMVOpPlan) error {
 //   - A: CUDA_R_64F; X/Y/Z/computeType: CUDA_R_64F
 //
 // [Handle.SpMVOp] supports the following algorithms:
-//   - CUSPARSE_SPMVOP_ALG_DEFAULT: Default algorithm; currently equivalent to CUSPARSE_SPMVOP_ALG1.
-//   - CUSPARSE_SPMVOP_ALG1: Deterministic algorithm. Supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan, either in-place or via [SpMatDescr.CsrSetPointers].
-//   - CUSPARSE_SPMVOP_ALG2: Alternative deterministic algorithm. Compared to CUSPARSE_SPMVOP_ALG1, it may offer higher performance at the cost of significantly more buffer usage and more expensive preprocessing in [Handle.SpMVOpCreateDescr]. Does not support updating the values of matA between calls without rebuilding the descriptor and the execution plan.
+//   - [SpmvopAlgDefault]: Default algorithm; currently equivalent to [SpmvopALG1].
+//   - [SpmvopALG1]: Deterministic algorithm. Supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan, either in-place or via [SpMatDescr.CsrSetPointers].
+//   - [SpmvopALG2]: Alternative deterministic algorithm. Compared to [SpmvopALG1], it may offer higher performance at the cost of significantly more buffer usage and more expensive preprocessing in [Handle.SpMVOpCreateDescr]. Does not support updating the values of matA between calls without rebuilding the descriptor and the execution plan.
 //
 // The function [Handle.SpMVOpBufferSize] returns the size of the workspace needed by [Handle.SpMVOpCreateDescr] and [Handle.SpMVOp]. Currently, it accepts NULL for vecX, vecY and vecZ.
 // The function [Handle.SpMVOpCreateDescr] prepares the internal data represented by the descriptor which is needed by [Handle.SpMVOpCreatePlan] and [Handle.SpMVOp]. The passed-in device buffer must remain valid and unmodified until the associated descriptor is destroyed. It supports passing dummy vecX, vecY and vecZ objects, as long as their data type attributes are valid. Other attributes are ignored during the descriptor creation. If epilogueLTOBuffer is NULL or epilogueLTOBufferSize is 0, the built-in default epilogue will be employed without Link-Time-Optimization (LTO):
@@ -4759,7 +4769,7 @@ func spMVOpDestroyPlan(plan SpMVOpPlan) error {
 //   - It provides improved numerical accuracy than [Handle.SpMV] due to the fact that accumulation is partially performed using Kahan’s summation.
 //   - The routine produces deterministic (bit-wise) results for each run, assuming that the epilogue function is deterministic.
 //   - In general, it is significantly faster than [Handle.SpMV] with the deterministic algorithm [SpmvCsrALG2], at the cost of more buffer usage.
-//   - CUSPARSE_SPMVOP_ALG1 (and CUSPARSE_SPMVOP_ALG_DEFAULT) supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan. The updated values can be provided in-place (by modifying the device memory previously registered in the matrix descriptor) or by calling [SpMatDescr.CsrSetPointers] with the new value pointer before each [Handle.SpMVOp] call.
+//   - [SpmvopALG1] (and [SpmvopAlgDefault]) supports updating the values of matA between calls to [Handle.SpMVOp] without rebuilding the descriptor or the execution plan. The updated values can be provided in-place (by modifying the device memory previously registered in the matrix descriptor) or by calling [SpMatDescr.CsrSetPointers] with the new value pointer before each [Handle.SpMVOp] call.
 //   - The routine supports asynchronous execution.
 //   - The routine allows the indices of matA to be unsorted.
 //   - It supports CUDA graph capture optimizations.

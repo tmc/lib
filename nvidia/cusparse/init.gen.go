@@ -178,7 +178,81 @@ func loadLocked(path string) error {
 		return libErr
 	}
 	registerFuncs()
+	if libErr = checkVersion(); libErr != nil {
+		closeLibrary(lib)
+		lib = 0
+		libPath = ""
+		present = make(map[string]bool)
+		unbound = make(map[string]error)
+		clearFuncs()
+		return libErr
+	}
 	ready.Store(true)
+	return nil
+}
+
+// VersionMismatchError reports that the shared library that opened is not
+// from the version train cusparse was generated for. dlsym matches on name
+// alone, so a library from a neighbouring train opens and resolves nearly
+// every symbol; asking it its own version is what tells the two apart.
+type VersionMismatchError struct {
+	Path string // the library that was opened
+	Want int    // major version these bindings were generated for
+	Got  int    // major version the library reports
+	Raw  int    // the version value the library reported, undecoded
+}
+
+// Error reports which library was opened and the two majors that disagree.
+//
+// A decoder is only a decoder for the version schemes it was measured
+// against, and a library from a train that predates the scheme can report
+// a value it does not decode. Naming a major of 0 in that case would
+// attribute to the library a claim it never made, so the raw value is
+// reported instead.
+func (e *VersionMismatchError) Error() string {
+	if e.Got == 0 {
+		return fmt.Sprintf("cusparse: %s reported version %d, which does not decode as a version these bindings recognise; they require major %d", e.Path, e.Raw, e.Want)
+	}
+	return fmt.Sprintf("cusparse: %s reports version major %d, these bindings require %d", e.Path, e.Got, e.Want)
+}
+
+// checkVersion asks the loaded library its version through cusparseGetProperty and
+// compares the major against 12, the soname major these bindings were
+// generated against. It runs under loadMu, after registerFuncs, so it
+// calls the bound pointer directly rather than the exported wrapper.
+//
+// A library that does not export the entry point, or that fails the call,
+// is admitted. Absence is what an installation older than the entry point
+// looks like, and refusing on it would reject working hosts to catch a
+// case the soname already covers.
+func checkVersion() error {
+	if symGetProperty == 0 {
+		return nil
+	}
+	var out0 int32
+	if err := toError(fnGetProperty(0, &out0), "cusparseGetProperty"); err != nil {
+		return nil
+	}
+	raw := int(out0)
+	got := raw
+	if got != 12 {
+		return &VersionMismatchError{Path: libPath, Want: 12, Got: got, Raw: raw}
+	}
+	minor := -1
+	var outMinor int32
+	if toError(fnGetProperty(1, &outMinor), "cusparseGetProperty") == nil {
+		minor = int(outMinor)
+	}
+	cuda := 0
+	switch {
+	case minor >= 6:
+		cuda = 13
+	case minor >= 0:
+		cuda = 12
+	}
+	if driver := driverVersion(); cuda > 0 && driver > 0 && cuda > driver/1000 {
+		return fmt.Errorf("cusparse: %s is version %d (minor %d) from CUDA %d, driver supports CUDA %d.%d", libPath, raw, minor, cuda, driver/1000, driver%1000/10)
+	}
 	return nil
 }
 
@@ -290,6 +364,30 @@ func pkgConfigHint() string {
 		return ""
 	}
 	return "pkg-config reports " + pkg + " in " + dir
+}
+
+// driverVersion returns the CUDA version the installed driver supports,
+// as cuDriverGetVersion reports it (13000 for 13.0), or 0 when there is no
+// driver to ask.
+func driverVersion() int {
+	if runtime.GOOS != "linux" {
+		return 0
+	}
+	name := "libcuda.so.1"
+	h, err := openDynamicLibrary(name)
+	if err != nil {
+		return 0
+	}
+	defer closeLibrary(h)
+	sym, err := lookupLibrarySymbol(h, "cuDriverGetVersion")
+	if err != nil || sym == 0 {
+		return 0
+	}
+	var v int32
+	if r, _, _ := purego.SyscallN(sym, uintptr(unsafe.Pointer(&v))); r != 0 {
+		return 0
+	}
+	return int(v)
 }
 
 // libraryNames returns the platform-specific shared library names to try.

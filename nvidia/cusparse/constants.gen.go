@@ -4,13 +4,13 @@ package cusparse
 
 const (
 	// Version is CUSPARSE_VERSION. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [Handle.Version] reports that.
-	Version = 12709
+	Version = 12806
 	// VerBuild is CUSPARSE_VER_BUILD. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [Handle.Version] reports that.
-	VerBuild = 17
+	VerBuild = 49
 	// VerMajor is CUSPARSE_VER_MAJOR. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [Handle.Version] reports that.
 	VerMajor = 12
 	// VerMinor is CUSPARSE_VER_MINOR. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [Handle.Version] reports that.
-	VerMinor = 7
+	VerMinor = 8
 	// VerPatch is CUSPARSE_VER_PATCH. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [Handle.Version] reports that.
-	VerPatch = 9
+	VerPatch = 6
 )

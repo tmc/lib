@@ -62,6 +62,9 @@ type SpSMDescr uintptr
 // SpGEMMDescr is an opaque handle for cusparseSpGEMMDescr_t.
 type SpGEMMDescr uintptr
 
+// SpGEAMDescr is an opaque handle for cusparseSpGEAMDescr_t.
+type SpGEAMDescr uintptr
+
 // SpMMOpPlan is an opaque handle for cusparseSpMMOpPlan_t.
 type SpMMOpPlan uintptr
 
