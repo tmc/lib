@@ -12,7 +12,7 @@ func TestParse(t *testing.T) {
 	}{
 		{"missing", "", false, true},
 		{"inferred", "arg_reduce", false, true},
-		{"unsupported", `cudaprof:v2 {"phase":"decode"}`, false, true},
+		{"unsupported", `cudaprof:v2 {"phase":"decode"}`, false, false},
 		{"phase", `cudaprof:v1 {"phase":"decode"}`, true, false},
 		{"optional", `cudaprof:v1 {"phase":"decode","token":0,"layer":0,"lookahead":false,"materialization":true}`, true, false},
 		{"no phase", `cudaprof:v1 {}`, false, false},
@@ -57,5 +57,12 @@ func TestParseRange(t *testing.T) {
 	}
 	if _, err := ParseRange(`other cudaprof:v1 {"phase":"decode"}`); !errors.Is(err, ErrNotMarker) {
 		t.Fatal(err)
+	}
+}
+
+func TestParseRangeUnsupported(t *testing.T) {
+	_, err := ParseRange(`domain/cudaprof:v2 {"phase":"decode"}`)
+	if err == nil || errors.Is(err, ErrNotMarker) {
+		t.Fatalf("unsupported version error = %v", err)
 	}
 }
