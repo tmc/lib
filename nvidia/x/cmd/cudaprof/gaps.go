@@ -158,9 +158,11 @@ func printGapsHelp() {
        cudaprof gaps --diff_base=base.pprof [options] target.pprof
 
 Reconstructs the device timeline from the capture journals attached to a
-capture, merges kernel and memcpy intervals across streams per device, and
-reports GPU duty cycle, the distribution of inter-activity idle gaps, and the
-host concurrency state at each gap.
+capture, merges kernel, memcpy, and memset intervals across streams per device,
+and reports recorded occupancy, inter-activity gaps, and host API timing.
+Gaps are device-wide absence of recorded activity, with unknown causes.
+Synchronization is an overlapping host interval, not device occupancy.
+The window excludes capture edges outside the first and last device activity.
 
 The analysis needs the per-record journal. pprof samples are aggregates and
 carry no timestamps, so a capture whose journal was omitted by the artifact
@@ -365,6 +367,8 @@ func (r *GapReport) text() string {
 }
 
 func writeGapStats(b *strings.Builder, s *gaps.Stats) {
+	fmt.Fprintf(b, "  scope: device-wide recorded activity; window: first activity start to last activity end\n")
+	fmt.Fprintf(b, "  gaps show no recorded work; causes remain unknown, including intervals labeled by API timing below\n")
 	fmt.Fprintf(b, "  timeline span     %12s\n", millis(s.SpanNanos))
 	fmt.Fprintf(b, "  device active     %12s  (%.2f%% of span)\n", millis(s.ActiveNanos), pct(s.ActiveNanos, s.SpanNanos))
 	fmt.Fprintf(b, "  device idle       %12s  (%.2f%% of span)\n", millis(s.IdleNanos), pct(s.IdleNanos, s.SpanNanos))

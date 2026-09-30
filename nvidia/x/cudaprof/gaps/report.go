@@ -61,25 +61,33 @@ type Device struct {
 	SteadyActivities int `json:"steady_state_activities"`
 }
 
-// Stats describes one merged device timeline.
+// Stats describes one merged timeline of recorded device activity.
+// IdleNanos measures absence of recorded activity, not proven hardware idle.
 type Stats struct {
-	Label           string       `json:"label"`
-	Activities      int          `json:"activities"`
-	MergedIntervals int          `json:"merged_intervals"`
-	SpanNanos       int64        `json:"span_ns"`
-	ActiveNanos     int64        `json:"active_ns"`
-	IdleNanos       int64        `json:"idle_ns"`
-	DutyCyclePct    float64      `json:"duty_cycle_pct"`
-	GapCount        int          `json:"gap_count"`
-	Distribution    Distribution `json:"distribution_ns"`
-	Concurrency     []Class      `json:"host_concurrency"`
-	Attribution     Attribution  `json:"idle_attribution_ns"`
-	Overlay         Overlay      `json:"idle_overlay_ns"`
+	// Scope is device-wide: intervals merge all recorded streams on the device.
+	Scope string `json:"scope"`
+	// Window is activity-bounded; capture edges before the first activity and
+	// after the last activity are excluded because their bounds are unknown.
+	Window string `json:"window"`
+	// UnknownCauseNanos is all gap time. API timing and overlapping host spans
+	// describe evidence but cannot establish the cause of a device gap.
+	UnknownCauseNanos int64        `json:"unknown_cause_ns"`
+	Label             string       `json:"label"`
+	Activities        int          `json:"activities"`
+	MergedIntervals   int          `json:"merged_intervals"`
+	SpanNanos         int64        `json:"span_ns"`
+	ActiveNanos       int64        `json:"active_ns"`
+	IdleNanos         int64        `json:"idle_ns"`
+	DutyCyclePct      float64      `json:"duty_cycle_pct"`
+	GapCount          int          `json:"gap_count"`
+	Distribution      Distribution `json:"distribution_ns"`
+	Concurrency       []Class      `json:"host_concurrency"`
+	Attribution       Attribution  `json:"idle_attribution_ns"`
+	Overlay           Overlay      `json:"idle_overlay_ns"`
 }
 
-// Overlay names the idle time that something in the journal explains
-// directly: CUPTI was flushing, the host was waiting on a synchronize, or the
-// device was between the nodes of a graph replay.
+// Overlay measures gap time overlapping journal spans. The overlap is
+// evidence of concurrency, not evidence that the span caused the gap.
 //
 // It overlays [Attribution] rather than extending it. The three numbers there
 // partition idle and sum to IdleNanos; these do not. One gap can be both host
@@ -89,17 +97,16 @@ type Stats struct {
 // two overlay figures to each other can exceed idle.
 type Overlay struct {
 	// CuptiOverheadNanos is idle time covered by a CUPTI overhead span: time
-	// the tool cost the run, which the tool would otherwise report as the
-	// program leaving the device idle. Overhead records carry a host thread
+	// associated with collection work. It does not measure the slowdown
+	// caused by that work. Overhead records carry a host thread
 	// rather than a device, so the same spans are applied to every device.
 	CuptiOverheadNanos int64 `json:"cupti_overhead"`
 	CuptiOverheadGaps  int   `json:"cupti_overhead_gap_count"`
 	// SyncNanos is idle covered by a synchronization span on this device.
 	SyncNanos int64 `json:"synchronization"`
 	SyncGaps  int   `json:"synchronization_gap_count"`
-	// GraphReplayNanos is idle inside a graph replay envelope: the device was
-	// between nodes of a launched graph, which is graph scheduling cost and
-	// not the host failing to keep up.
+	// GraphReplayNanos is gap time inside a graph replay envelope. It does
+	// not distinguish graph scheduling from missing activity evidence.
 	GraphReplayNanos int64 `json:"graph_replay"`
 	GraphReplayGaps  int   `json:"graph_replay_gap_count"`
 }
@@ -131,8 +138,10 @@ type Class struct {
 	Mean      float64 `json:"mean_ns"`
 }
 
-// Attribution splits idle time by where it was spent, as distinct from
-// which class the gap fell into.
+// Attribution partitions gap time by its position relative to a correlated
+// API interval. Historical field names describe hypotheses, not proven causes.
+// HardwareNanos is time after API return; DriverSubmitNanos overlaps the API;
+// HostBehindNanos precedes API entry. All remain causally unexplained.
 type Attribution struct {
 	HostBehindNanos   int64 `json:"host_behind"`
 	DriverSubmitNanos int64 `json:"driver_submission"`
@@ -156,10 +165,10 @@ const (
 )
 
 var classMeaning = map[string]string{
-	ClassHostAhead:  "launch returned before the previous op ended: idle is hardware queue latency",
-	ClassHostDuring: "previous op ended inside the launch call: the GPU waited on the driver",
-	ClassHostBehind: "launch started after the previous op ended: the GPU was starved by the host",
-	ClassUnmatched:  "no API record correlated to the next op: idle is unattributed",
+	ClassHostAhead:  "API returned before previous recorded activity ended: gap follows API return",
+	ClassHostDuring: "previous recorded activity ended inside the API interval: gap overlaps API execution",
+	ClassHostBehind: "API started after previous recorded activity ended: gap precedes API entry",
+	ClassUnmatched:  "no API record correlated to next recorded activity: gap timing is unattributed",
 }
 
 // Kernel is one kernel's launch count, device time, and place in the
