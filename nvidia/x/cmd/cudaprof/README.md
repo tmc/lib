@@ -549,7 +549,6 @@ cudaprof help compare       # one command's flags
 launch geometry. `correlate` exposes retained submission and NVTX links.
 `memory` reports transfer and allocation-call evidence with residency limits.
 
-- [Implementation status and remaining work](improvements.md)
 - [Existing Gemma4 diagnostic demonstration](evidence-demo.md)
 - [Application marker convention](../../cudaprof/marker/README.md)
 - [Shape comparison](shape_compare.md)
