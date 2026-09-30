@@ -18,3 +18,9 @@ func ExampleCompare() {
 	fmt.Println(report.Compatible, report.Reason)
 	// Output: false shape identity unavailable
 }
+
+func ExampleCollect() {
+	report, err := counters.Collect(nil, counters.CollectOptions{}, counters.Replay{})
+	fmt.Println(report.LockDeclared, err)
+	// Output: false counters: an existing GPU lock declaration is required
+}

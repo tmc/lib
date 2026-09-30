@@ -1,5 +1,5 @@
-// Package counters selects qualified observed launches and compares explicit
-// hardware-counter receipts. It does not collect counters or infer a hardware
-// bottleneck from elapsed time. Collection belongs in a separate replay run
-// using cuptirange, with native metric definitions and replay qualification.
+// Package counters selects qualified launches, collects native counters through
+// explicit application replay, and compares compatible counter receipts.
+// Collect uses a separate bounded user replay with native symbol/geometry and
+// application output witnesses. Counter values do not establish a bottleneck.
 package counters
