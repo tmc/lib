@@ -19,10 +19,7 @@ import (
 
 	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/cupti"
-	"github.com/tmc/lib/nvidia/driver"
-	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
-	"github.com/tmc/lib/nvidia/x/cudaoccupancy"
 	"github.com/tmc/lib/nvidia/x/cudaprof"
 	"github.com/tmc/lib/nvidia/x/cuptiactivity"
 )
@@ -767,7 +764,8 @@ func writeCapture(path string, result captureResult, budget captureArtifactBudge
 			kept = append(kept, a)
 		}
 	}
-	provData := determineCaptureProvenance(result.Capability)
+	// Artifact publication uses retained producer metadata and never probes CUDA.
+	provData := result.Capability
 	var metadata []byte
 	for {
 		result.OmittedFiles = sortedOmissions(omitted)
@@ -1096,92 +1094,4 @@ type deviceProvenance struct {
 	SMCount           int    `json:"sm_count,omitempty"`
 	MaxWarpsPerSM     int    `json:"max_warps_per_sm,omitempty"`
 	MaxBlocksPerSM    int    `json:"max_blocks_per_sm,omitempty"`
-}
-
-func queryLiveDeviceProvenanceJSON() []byte {
-	defer func() {
-		_ = recover()
-	}()
-	dev, err := cuda.NewDevice(0)
-	if err != nil || dev == nil {
-		return nil
-	}
-	defer dev.Close()
-
-	name, _ := dev.Name()
-	major, minor, _ := dev.ComputeCapability()
-	smCount, _ := dev.MultiprocessorCount()
-
-	arch := ""
-	cc := ""
-	if major > 0 {
-		arch = fmt.Sprintf("sm_%d%d", major, minor)
-		cc = fmt.Sprintf("%d.%d", major, minor)
-	}
-
-	maxWarps := 0
-	maxBlocks := 0
-	if arch != "" {
-		if occDev, err := cudaoccupancy.LookupDevice(arch); err == nil {
-			maxWarps = occDev.MaxWarpsPerSM
-			maxBlocks = occDev.MaxBlocksPerSM
-		}
-	}
-	if maxBlocks == 0 {
-		if mb, err := dev.Attribute(driver.DevAttrMaxBlocksPerMultiprocessor); err == nil && mb > 0 {
-			maxBlocks = mb
-		}
-	}
-	if maxWarps == 0 {
-		if mt, err := dev.Attribute(driver.DevAttrMaxThreadsPerMultiprocessor); err == nil && mt > 0 {
-			maxWarps = mt / 32
-		}
-	}
-
-	if arch == "" && smCount <= 0 && name == "" {
-		return nil
-	}
-
-	prov := deviceProvenance{
-		Device:            name,
-		Arch:              arch,
-		ComputeCapability: cc,
-		SMCount:           smCount,
-		MaxWarpsPerSM:     maxWarps,
-		MaxBlocksPerSM:    maxBlocks,
-	}
-	data, err := json.MarshalIndent(prov, "", "  ")
-	if err != nil {
-		return nil
-	}
-	return data
-}
-
-func determineCaptureProvenance(agentCapability []byte) []byte {
-	liveProv := queryLiveDeviceProvenanceJSON()
-	if len(liveProv) == 0 {
-		if len(agentCapability) > 0 {
-			return agentCapability
-		}
-		return nil
-	}
-	if len(agentCapability) == 0 {
-		return liveProv
-	}
-	var m map[string]any
-	if err := json.Unmarshal(liveProv, &m); err != nil {
-		return liveProv
-	}
-	var agentMap map[string]any
-	if err := json.Unmarshal(agentCapability, &agentMap); err == nil {
-		for k, v := range agentMap {
-			if _, exists := m[k]; !exists {
-				m[k] = v
-			}
-		}
-		if merged, err := json.MarshalIndent(m, "", "  "); err == nil {
-			return merged
-		}
-	}
-	return liveProv
 }
