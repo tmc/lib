@@ -439,7 +439,7 @@ func BuildActivityProfileIndex(session string, targetPID uint64, activities []Ac
 		// A graph trace is excluded for a second reason: its span contains
 		// the kernel records of the nodes it replayed, so admitting it would
 		// charge that device time twice.
-		if activity.Subtype == "external_correlation" || activity.Subtype == "overhead" || activity.Subtype == "graph_trace" || activity.Subtype == "sync" {
+		if activity.Subtype == "unified_memory" || activity.Subtype == "external_correlation" || activity.Subtype == "overhead" || activity.Subtype == "graph_trace" || activity.Subtype == "sync" {
 			continue
 		}
 		value := []int64{0, 0, 0, 1}

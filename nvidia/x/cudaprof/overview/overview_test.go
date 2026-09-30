@@ -185,3 +185,15 @@ func TestInferredBoundaryIsNotHostScope(t *testing.T) {
 		t.Fatalf("inferred boundary=%+v", r.Inferred)
 	}
 }
+
+func TestInvalidHostIntervalsExcluded(t *testing.T) {
+	records := markedRecords()
+	records.Activities = nil
+	records.Calls = nil
+	records.Ranges[0].Start = -10
+	records.Ranges[1].Journal = ""
+	report := Analyze(records, "driver", nil)
+	if report.Hierarchy.Metrics.HostUnionNanos != 0 {
+		t.Fatalf("invalid host interval counted: %+v", report.Hierarchy.Metrics)
+	}
+}
