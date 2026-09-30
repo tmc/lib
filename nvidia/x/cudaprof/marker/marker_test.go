@@ -19,6 +19,8 @@ func TestParse(t *testing.T) {
 		{"bad phase", `cudaprof:v1 {"phase":"other"}`, false, false},
 		{"negative", `cudaprof:v1 {"phase":"decode","token":-1}`, false, false},
 		{"fractional", `cudaprof:v1 {"phase":"decode","layer":1.2}`, false, false},
+		{"case alias", `cudaprof:v1 {"phase":"decode","PHASE":"prefill"}`, false, false},
+		{"case field", `cudaprof:v1 {"Phase":"decode"}`, false, false},
 		{"unknown", `cudaprof:v1 {"phase":"decode","unknown":"float32"}`, false, false},
 		{"empty dtype", `cudaprof:v1 {"phase":"decode","dtype":""}`, false, false},
 		{"negative cache", `cudaprof:v1 {"phase":"decode","cache_length":-1}`, false, false},
