@@ -49,3 +49,9 @@ func ExampleReport() {
 	fmt.Println(r.Version, len(r.Inferred))
 	// Output: 1 0
 }
+
+func ExampleToken_inferredBoundary() {
+	t := overview.Token{Provenance: "inferred kernel-marker interval", InferredBoundary: &overview.Interval{Journal: "j", Start: 10, End: 20}}
+	fmt.Println(t.InferredBoundary.End-t.InferredBoundary.Start, t.Delivery == nil)
+	// Output: 10 true
+}
