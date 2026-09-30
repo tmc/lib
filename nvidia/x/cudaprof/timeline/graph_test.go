@@ -64,3 +64,22 @@ func TestGraphLifecycleUnknownResult(t *testing.T) {
 		t.Fatalf("unknown update qualified: %+v", links)
 	}
 }
+
+func ExampleGraphEvent() {
+	success := true
+	event := GraphEvent{Journal: "process.journal", Kind: "replay", Executable: 2, Correlation: 7, Success: &success}
+	fmt.Println(event.Kind, event.Executable, event.Correlation)
+	// Output: replay 2 7
+}
+
+func ExampleGraphIdentity() {
+	identity := GraphIdentity{Journal: "process.journal", Handle: 2, Generation: 1, Version: 3}
+	fmt.Println(identity.Generation, identity.Version)
+	// Output: 1 3
+}
+
+func ExampleGraphLink() {
+	link := GraphLink{Event: 0, Status: "missing"}
+	fmt.Println(link.Event, link.Status)
+	// Output: 0 missing
+}
