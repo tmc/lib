@@ -64,6 +64,9 @@ To write the device timeline as a Perfetto trace:
   cudaprof export [-o out.pftrace] capture.pprof
   cudaprof export-compare -iteration-marker RE [-iteration-count N] -o comparison.tar base.pprof target.pprof
 
+To compare explicitly instrumented workload shapes:
+  cudaprof shape-compare [-iteration-marker RE] base.pprof target.pprof
+
 To inspect retained memory evidence:
   cudaprof memory capture.pprof
 
@@ -131,6 +134,7 @@ func commands() []command {
 		{name: "advise", usage: adviseUsage, run: func(args []string) error { return runAdviseCommand(args[1:]) }},
 		{name: "gaps", run: func(args []string) error { return runGapsCommand(args[1:]) }},
 		{name: "gemms", usage: gemmsUsage, run: runGEMMsCommand},
+		{name: "shape-compare", run: func(args []string) error { return runShapeCompareCommand(args[1:]) }},
 		{name: "memory", run: func(args []string) error { return runMemoryCommand(args[1:]) }},
 		{name: "correlate", run: func(args []string) error { return runCorrelateCommand(args[1:]) }},
 		{name: "compare", run: func(args []string) error { return runCompareCommand(args[1:], os.Stdout) }},
