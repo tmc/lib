@@ -20,6 +20,7 @@
 // cycles it spun and the global timer interval it saw.
 #include <cuda_profiler_api.h>
 #include <cuda_runtime.h>
+#include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -58,6 +59,42 @@ static void check(cudaError_t err, const char *what) {
 	}
 }
 
+// Opt-in ranges require a real provider, never a silent no-op.
+static int (*range_push)(const char *);
+static int (*range_pop)();
+static void (*mark_event)(const char *);
+static int delivery_enabled;
+
+static void marker(int token, const char *operation) {
+	if (!range_push) return;
+	char text[256];
+	snprintf(text, sizeof(text), "cudaprof:v1 {\"phase\":\"decode\",\"token\":%d,\"layer\":0,\"operation\":\"%s\",\"dtype\":\"int64\",\"cache_length\":0,\"lookahead\":false,\"materialization\":%s}", token, operation, strcmp(operation,"materialize") == 0 ? "true" : "false");
+	range_push(text);
+}
+
+// The controlled delivery variant explicitly synchronizes before the event.
+// These endpoints describe this workload, not an asynchronous completion guess.
+static void delivery_event(int token, const char *event) {
+    char text[128];
+    snprintf(text,sizeof(text),"cudaprof:v1 {\"phase\":\"decode\",\"token\":%d,\"event\":\"%s\"}",token,event);
+    mark_event(text);
+}
+
+static void deliver(int token, rec *device, rec *host, int count, long long cycles) {
+    if (!delivery_enabled) return;
+    marker(token,"materialize");
+    check(cudaDeviceSynchronize(),"token materialization");
+    check(cudaMemcpy(host,device,count*sizeof(rec),cudaMemcpyDeviceToHost),"token copy");
+    for (int i=0;i<count;i++) {
+        if (host[i].cycles < cycles || host[i].end < host[i].start) {
+            fprintf(stderr,"spin: token materialization invariant failed\n");
+            exit(1);
+        }
+    }
+    range_pop();
+    delivery_event(token,"delivered");
+}
+
 static long long now() {
 	struct timespec ts;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -70,6 +107,20 @@ static void usage() {
 }
 
 int main(int argc, char **argv) {
+	const char *delivery=getenv("CUDAPROF_SPIN_DELIVERY");
+	delivery_enabled=delivery && strcmp(delivery,"1") == 0;
+	if (getenv("CUDAPROF_SPIN_MARKERS") || delivery_enabled) {
+		void *lib = dlopen("libnvToolsExt.so.1", RTLD_NOW | RTLD_LOCAL);
+		if (lib) {
+			range_push = (int (*)(const char *))dlsym(lib, "nvtxRangePushA");
+			range_pop = (int (*)())dlsym(lib, "nvtxRangePop");
+			mark_event = (void (*)(const char *))dlsym(lib,"nvtxMarkA");
+		}
+		if (!range_push || !range_pop || (delivery_enabled && !mark_event)) {
+			fprintf(stderr, "spin: requested NVTX provider unavailable\n");
+			return 1;
+		}
+	}
 	if (argc < 4) {
 		usage();
 	}
@@ -89,6 +140,8 @@ int main(int argc, char **argv) {
 
 	rec *d;
 	check(cudaMalloc(&d, (n + 1) * sizeof(rec)), "cudaMalloc");
+    rec *delivered=delivery_enabled ? (rec *)malloc(n*sizeof(rec)) : NULL;
+    if (delivery_enabled && !delivered) { fprintf(stderr,"spin: out of memory\n"); return 1; }
 	for (int i = 0; i < 20; i++) {
 		warm<<<1, 1>>>(10000000, d + n);
 	}
@@ -99,11 +152,13 @@ int main(int argc, char **argv) {
 	if (graph) {
 		cudaGraph_t g;
 		check(cudaStreamCreateWithFlags(&s, cudaStreamNonBlocking), "cudaStreamCreate");
+		marker(0, "graph_construction");
 		check(cudaStreamBeginCapture(s, cudaStreamCaptureModeGlobal), "cudaStreamBeginCapture");
 		for (int i = 0; i < n; i++) {
 			spin<<<1, 1, 0, s>>>(cycles, d + i);
 		}
 		check(cudaStreamEndCapture(s, &g), "cudaStreamEndCapture");
+		if (range_pop) range_pop();
 		check(cudaGraphInstantiate(&exec, g, 0), "cudaGraphInstantiate");
 		check(cudaGraphUpload(exec, s), "cudaGraphUpload");
 		check(cudaStreamSynchronize(s), "cudaStreamSynchronize");
@@ -113,15 +168,22 @@ int main(int argc, char **argv) {
 	long long t0 = now();
 	if (graph) {
 		for (int i = 0; i < replays; i++) {
+			marker(i, "spin");
 			check(cudaGraphLaunch(exec, s), "cudaGraphLaunch");
+			if (range_pop) range_pop();
+			deliver(i,graph ? d : d+i,delivered,graph ? n : 1,cycles);
 		}
 	} else {
 		for (int i = 0; i < n; i++) {
+			marker(i, "spin");
 			spin<<<1, 1>>>(cycles, d + i);
+			if (range_pop) range_pop();
+			deliver(i,graph ? d : d+i,delivered,graph ? n : 1,cycles);
 		}
 	}
 	check(cudaDeviceSynchronize(), "cudaDeviceSynchronize");
 	long long t1 = now();
+	if (delivery_enabled) delivery_event((graph ? replays : n)-1,"token_limit");
 	check(cudaProfilerStop(), "cudaProfilerStop");
 	check(cudaGetLastError(), "launch");
 
@@ -131,7 +193,20 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 	check(cudaMemcpy(h, d, n * sizeof(rec), cudaMemcpyDeviceToHost), "cudaMemcpy");
-	printf("{\"mode\":\"%s\",\"cycles\":%lld,\"replays\":%d,\"region_ns\":%lld,\"launches\":[", argv[1], cycles, replays, t1 - t0);
+	if (getenv("CUDAPROF_SPIN_STABLE_OUTPUT")) {
+        for (int i = 0; i < n; i++) {
+            if (h[i].cycles < cycles || h[i].end < h[i].start) {
+                fprintf(stderr, "spin: kernel invariant failed\n");
+                return 1;
+            }
+        }
+        if (delivery_enabled) printf("{\"expected_delivery_events\":%d,\"expected_terminal_events\":1,",graph ? replays : n);
+        else printf("{");
+        printf("\"mode\":\"%s\",\"cycles\":%lld,\"expected_kernel_records\":%lld,\"expected_submission_ranges\":%d}\n", argv[1], cycles, graph ? (long long)n * replays : n, graph ? replays : n);
+        return 0;
+    }
+    printf("{\"expected_kernel_records\":%lld,\"expected_submission_ranges\":%d,\"markers_enabled\":%s,", graph ? (long long)n * replays : n, graph ? replays : n, range_push ? "true" : "false");
+	printf("\"mode\":\"%s\",\"cycles\":%lld,\"replays\":%d,\"region_ns\":%lld,\"launches\":[", argv[1], cycles, replays, t1 - t0);
 	for (int i = 0; i < n; i++) {
 		printf("%s{\"cycles\":%lld,\"start\":%llu,\"end\":%llu}", i ? "," : "", h[i].cycles, h[i].start, h[i].end);
 	}
