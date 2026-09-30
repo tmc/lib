@@ -161,3 +161,27 @@ func TestDeliveryRangeDoesNotSupplyActivityContext(t *testing.T) {
 		t.Fatalf("delivery range supplied operation context: %+v", r)
 	}
 }
+
+func TestMaterializationHostRangesUseObservedSources(t *testing.T) {
+	records := markedRecords()
+	records.Ranges = append(records.Ranges, timeline.Range{Journal: "j", Process: 1, Thread: 2, Start: 8, End: 28, Name: `cudaprof:v1 {"phase":"decode","token":0,"materialization":true}`})
+	r := Analyze(records, "driver", nil)
+	token := r.Tokens[0]
+	if len(token.Materialization) != 2 || len(token.MaterializationRanges) != 1 || token.MaterializationRanges[0].Start != 8 || token.MaterializationRanges[0].End != 28 {
+		t.Fatalf("materialization=%+v", token)
+	}
+	if len(r.Tokens[1].MaterializationRanges) != 0 {
+		t.Fatal("lookahead invented materialization")
+	}
+	if token.Metrics.KernelCount != 1 {
+		t.Fatal("nested range duplicated kernel membership")
+	}
+}
+
+func TestInferredBoundaryIsNotHostScope(t *testing.T) {
+	records := timeline.Records{Activities: []timeline.Activity{{Journal: "j", Subtype: "kernel", Name: "marker", Start: 10, End: 11}, {Journal: "j", Subtype: "kernel", Name: "marker", Start: 20, End: 21}}}
+	r := Analyze(records, "driver", regexp.MustCompile("marker"))
+	if len(r.Inferred) != 1 || r.Inferred[0].InferredBoundary == nil || r.Inferred[0].InferredBoundary.Start != 10 || r.Inferred[0].InferredBoundary.End != 20 || len(r.Inferred[0].Metrics.HostRanges) != 0 {
+		t.Fatalf("inferred boundary=%+v", r.Inferred)
+	}
+}

@@ -55,19 +55,21 @@ type Node struct {
 // DeliveryLatency measures earliest observed host scope to explicit delivered
 // event, not engine request latency. Nil is unavailable, never zero.
 type Token struct {
-	ID              string      `json:"id"`
-	Journal         string      `json:"journal"`
-	Phase           string      `json:"phase"`
-	Index           int         `json:"token"`
-	Provenance      string      `json:"provenance"`
-	Metrics         Metrics     `json:"metrics"`
-	References      []Reference `json:"references"`
-	Crossing        []Reference `json:"crossing_records"`
-	Materialization []Reference `json:"materialization"`
-	Delivery        *int64      `json:"delivered_at_ns,omitempty"`
-	DeliveryLatency *int64      `json:"host_scope_to_delivery_ns,omitempty"`
-	EndReason       string      `json:"end_reason,omitempty"`
-	Availability    []string    `json:"unavailable"`
+	InferredBoundary      *Interval   `json:"inferred_boundary,omitempty"`
+	ID                    string      `json:"id"`
+	Journal               string      `json:"journal"`
+	Phase                 string      `json:"phase"`
+	Index                 int         `json:"token"`
+	Provenance            string      `json:"provenance"`
+	Metrics               Metrics     `json:"metrics"`
+	References            []Reference `json:"references"`
+	Crossing              []Reference `json:"crossing_records"`
+	MaterializationRanges []Interval  `json:"materialization_host_ranges"`
+	Materialization       []Reference `json:"materialization"`
+	Delivery              *int64      `json:"delivered_at_ns,omitempty"`
+	DeliveryLatency       *int64      `json:"host_scope_to_delivery_ns,omitempty"`
+	EndReason             string      `json:"end_reason,omitempty"`
+	Availability          []string    `json:"unavailable"`
 }
 
 // Report is a versioned token and hierarchy view. It retains unattributed work
@@ -222,6 +224,7 @@ func Analyze(records timeline.Records, domain string, inferred *regexp.Regexp) R
 	}
 	for _, t := range tokens {
 		t.Metrics = measure(records, t.References)
+		t.MaterializationRanges = measure(records, t.Materialization).HostRanges
 		if t.Delivery == nil {
 			t.Availability = append(t.Availability, "delivery event")
 		}
@@ -420,6 +423,7 @@ func infer(records timeline.Records, re *regexp.Regexp) []Token {
 					t.References = append(t.References, ref)
 				}
 			}
+			t.InferredBoundary = &Interval{Journal: journal, Start: start, End: end}
 			t.Metrics = measure(records, t.References)
 			out = append(out, t)
 		}
