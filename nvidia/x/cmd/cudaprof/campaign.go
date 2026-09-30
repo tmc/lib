@@ -65,11 +65,11 @@ type campaignRun struct {
 }
 
 type campaignBlock struct {
-	Number            int           `json:"number"`
-	Runs              []campaignRun `json:"runs"`
-	Excluded          []string      `json:"excluded,omitempty"`
-	DeliveryEffectPct *float64      `json:"delivery_effect_pct,omitempty"`
-	OverheadPct       []*float64    `json:"profile_overhead_pct,omitempty"`
+	Number                int           `json:"number"`
+	Runs                  []campaignRun `json:"runs"`
+	Excluded              []string      `json:"excluded,omitempty"`
+	DeviceWindowEffectPct *float64      `json:"device_window_effect_pct,omitempty"`
+	OverheadPct           []*float64    `json:"profile_overhead_pct,omitempty"`
 }
 
 type campaignInterval struct {
@@ -361,7 +361,7 @@ func runCampaign(o *campaignOptions, stdout io.Writer) error {
 				b.Excluded = append(b.Excluded, "empty reference window")
 			} else {
 				effect := (float64(windows[1]-windows[0]) + float64(windows[2]-windows[3])) / float64(windows[0]+windows[3]) * 100
-				b.DeliveryEffectPct = &effect
+				b.DeviceWindowEffectPct = &effect
 				effects = append(effects, effect)
 				b.OverheadPct = make([]*float64, 2)
 				for arm, positions := range [][2]int{{0, 3}, {1, 2}} {
