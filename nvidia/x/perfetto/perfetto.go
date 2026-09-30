@@ -25,6 +25,7 @@ const (
 
 	ClockRealtime            = 1
 	ClockMonotonic           = 3
+	ClockBoottime            = 6
 	ClockGPU                 = 64
 	FieldTrackDescUUID       = 1
 	FieldTrackDescName       = 2
@@ -134,6 +135,9 @@ func NewBoolAnnotation(name string, val bool) DebugAnnotation {
 
 // Writer encodes and writes Perfetto binary trace files.
 type Writer struct {
+	// TimestampClockID, when nonzero, sets the clock of timestamped packets.
+	// Set it before writing. Zero preserves the protocol default.
+	TimestampClockID   uint64
 	mu                 sync.Mutex
 	w                  io.Writer
 	buf                bytes.Buffer
@@ -148,6 +152,9 @@ func NewWriter(w io.Writer) *Writer {
 }
 
 func (pw *Writer) writePacket(packetBody []byte, clearIncrementalState bool) error {
+	if pw.TimestampClockID != 0 {
+		packetBody = append(packetBody, encodeVarint(FieldPacketTimestampClockId, pw.TimestampClockID)...)
+	}
 	pw.mu.Lock()
 	defer pw.mu.Unlock()
 	emitClear := clearIncrementalState && !pw.hasEmittedSeqFlags
@@ -318,11 +325,7 @@ func (pw *Writer) WriteCounterValue(trackUUID uint64, tsNs uint64, val int64) er
 	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, DefaultSequenceID)...)
 	packetBody = append(packetBody, encodeLengthDelimited(FieldPacketTrackEvent, body)...)
 
-	packet := encodeLengthDelimited(FieldTracePacket, packetBody)
-
-	pw.mu.Lock()
-	defer pw.mu.Unlock()
-	return writeFull(pw.w, packet)
+	return pw.writePacket(packetBody, false)
 }
 
 // WriteDoubleCounterValue records a floating point counter value on a counter track at tsNs.
@@ -343,11 +346,7 @@ func (pw *Writer) WriteDoubleCounterValue(trackUUID uint64, tsNs uint64, val flo
 	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, DefaultSequenceID)...)
 	packetBody = append(packetBody, encodeLengthDelimited(FieldPacketTrackEvent, body)...)
 
-	packet := encodeLengthDelimited(FieldTracePacket, packetBody)
-
-	pw.mu.Lock()
-	defer pw.mu.Unlock()
-	return writeFull(pw.w, packet)
+	return pw.writePacket(packetBody, false)
 }
 
 // WriteSliceBegin records the start of a timed slice on trackUUID at timestamp ns.
@@ -366,11 +365,7 @@ func (pw *Writer) WriteSliceEnd(trackUUID uint64, tsNs uint64) error {
 	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, DefaultSequenceID)...)
 	packetBody = append(packetBody, encodeLengthDelimited(FieldPacketTrackEvent, body)...)
 
-	packet := encodeLengthDelimited(FieldTracePacket, packetBody)
-
-	pw.mu.Lock()
-	defer pw.mu.Unlock()
-	return writeFull(pw.w, packet)
+	return pw.writePacket(packetBody, false)
 }
 
 // WriteInstant records an instant marker event on trackUUID at timestamp ns.
@@ -390,11 +385,7 @@ func (pw *Writer) WriteInstant(trackUUID uint64, tsNs uint64, name string, categ
 	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, DefaultSequenceID)...)
 	packetBody = append(packetBody, encodeLengthDelimited(FieldPacketTrackEvent, body)...)
 
-	packet := encodeLengthDelimited(FieldTracePacket, packetBody)
-
-	pw.mu.Lock()
-	defer pw.mu.Unlock()
-	return writeFull(pw.w, packet)
+	return pw.writePacket(packetBody, false)
 }
 
 func encodeDebugAnnotation(da DebugAnnotation) []byte {

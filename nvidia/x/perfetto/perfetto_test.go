@@ -184,3 +184,26 @@ func TestProcessThreadAndCounterTracks(t *testing.T) {
 		t.Fatal("expected non-empty output")
 	}
 }
+
+// Every timestamped packet must carry the same clock, including slice ends.
+// Mixed clocks cause a manifest offset to move only half of each slice.
+func TestTimestampClockID(t *testing.T) {
+	var buf bytes.Buffer
+	w := perfetto.NewWriter(&buf)
+	w.TimestampClockID = perfetto.ClockBoottime
+	writes := []func() error{
+		func() error { return w.WriteSliceBegin(1, 100, "slice", "test") },
+		func() error { return w.WriteSliceEnd(1, 200) },
+		func() error { return w.WriteInstant(1, 300, "point", "test") },
+		func() error { return w.WriteCounterValue(2, 400, 1) },
+		func() error { return w.WriteDoubleCounterValue(3, 500, 1.5) },
+	}
+	for _, write := range writes {
+		if err := write(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := countPacketVarintField(t, buf.Bytes(), perfetto.FieldPacketTimestampClockId, perfetto.ClockBoottime); got != len(writes) {
+		t.Fatalf("clock packets=%d want %d", got, len(writes))
+	}
+}
