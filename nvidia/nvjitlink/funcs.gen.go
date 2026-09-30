@@ -23,6 +23,8 @@ var (
 	symgetInfoLogSize     uintptr
 	symgetLinkedCubin     uintptr
 	symgetLinkedCubinSize uintptr
+	symgetLinkedLTOIR     uintptr
+	symgetLinkedLTOIRSize uintptr
 	symgetLinkedPtx       uintptr
 	symgetLinkedPtxSize   uintptr
 	fnVersion             func(*uint32, *uint32) Result
@@ -100,113 +102,125 @@ func (s *outSlot[T]) put(p *T) {
 	s.pool.Put(p)
 }
 
-// fnaddData calls __nvJitLinkAddData_13_2.
+// fnaddData calls the first of __nvJitLinkAddData_13_4, __nvJitLinkAddData_13_3, __nvJitLinkAddData_13_2, __nvJitLinkAddData_13_1, __nvJitLinkAddData_13_0 that the library exports.
 func fnaddData(a0 Handle, a1 InputType, a2 unsafe.Pointer, a3 uint, a4 *byte) Result {
 	r1, _ := ffiCallWidths5(symaddData, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
-// fnaddFile calls __nvJitLinkAddFile_13_2.
+// fnaddFile calls the first of __nvJitLinkAddFile_13_4, __nvJitLinkAddFile_13_3, __nvJitLinkAddFile_13_2, __nvJitLinkAddFile_13_1, __nvJitLinkAddFile_13_0 that the library exports.
 func fnaddFile(a0 Handle, a1 InputType, a2 *byte) Result {
 	r1, _ := ffiCallWidths3(symaddFile, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
-// fncomplete calls __nvJitLinkComplete_13_2.
+// fncomplete calls the first of __nvJitLinkComplete_13_4, __nvJitLinkComplete_13_3, __nvJitLinkComplete_13_2, __nvJitLinkComplete_13_1, __nvJitLinkComplete_13_0 that the library exports.
 func fncomplete(a0 Handle) Result {
 	r1, _ := ffiCall1(symcomplete, 0, uintptr(a0))
 	return Result(r1)
 }
 
-// fnCreate calls __nvJitLinkCreate_13_2.
+// fnCreate calls the first of __nvJitLinkCreate_13_4, __nvJitLinkCreate_13_3, __nvJitLinkCreate_13_2, __nvJitLinkCreate_13_1, __nvJitLinkCreate_13_0 that the library exports.
 func fnCreate(a0 *Handle, a1 uint32, a2 **byte) Result {
 	r1, _ := ffiCallWidths3(symCreate, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
-// fndestroy calls __nvJitLinkDestroy_13_2.
+// fndestroy calls the first of __nvJitLinkDestroy_13_4, __nvJitLinkDestroy_13_3, __nvJitLinkDestroy_13_2, __nvJitLinkDestroy_13_1, __nvJitLinkDestroy_13_0 that the library exports.
 func fndestroy(a0 *Handle) Result {
 	r1, _ := ffiCall1(symdestroy, 0, uintptr(unsafe.Pointer(a0)))
 	return Result(r1)
 }
 
-// fngetErrorLog calls __nvJitLinkGetErrorLog_13_2.
+// fngetErrorLog calls the first of __nvJitLinkGetErrorLog_13_4, __nvJitLinkGetErrorLog_13_3, __nvJitLinkGetErrorLog_13_2, __nvJitLinkGetErrorLog_13_1, __nvJitLinkGetErrorLog_13_0 that the library exports.
 func fngetErrorLog(a0 Handle, a1 *byte) Result {
 	r1, _ := ffiCall2(symgetErrorLog, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
-// fngetErrorLogSize calls __nvJitLinkGetErrorLogSize_13_2.
+// fngetErrorLogSize calls the first of __nvJitLinkGetErrorLogSize_13_4, __nvJitLinkGetErrorLogSize_13_3, __nvJitLinkGetErrorLogSize_13_2, __nvJitLinkGetErrorLogSize_13_1, __nvJitLinkGetErrorLogSize_13_0 that the library exports.
 func fngetErrorLogSize(a0 Handle, a1 *uint) Result {
 	r1, _ := ffiCall2(symgetErrorLogSize, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
-// fngetInfoLog calls __nvJitLinkGetInfoLog_13_2.
+// fngetInfoLog calls the first of __nvJitLinkGetInfoLog_13_4, __nvJitLinkGetInfoLog_13_3, __nvJitLinkGetInfoLog_13_2, __nvJitLinkGetInfoLog_13_1, __nvJitLinkGetInfoLog_13_0 that the library exports.
 func fngetInfoLog(a0 Handle, a1 *byte) Result {
 	r1, _ := ffiCall2(symgetInfoLog, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
-// fngetInfoLogSize calls __nvJitLinkGetInfoLogSize_13_2.
+// fngetInfoLogSize calls the first of __nvJitLinkGetInfoLogSize_13_4, __nvJitLinkGetInfoLogSize_13_3, __nvJitLinkGetInfoLogSize_13_2, __nvJitLinkGetInfoLogSize_13_1, __nvJitLinkGetInfoLogSize_13_0 that the library exports.
 func fngetInfoLogSize(a0 Handle, a1 *uint) Result {
 	r1, _ := ffiCall2(symgetInfoLogSize, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
-// fngetLinkedCubin calls __nvJitLinkGetLinkedCubin_13_2.
+// fngetLinkedCubin calls the first of __nvJitLinkGetLinkedCubin_13_4, __nvJitLinkGetLinkedCubin_13_3, __nvJitLinkGetLinkedCubin_13_2, __nvJitLinkGetLinkedCubin_13_1, __nvJitLinkGetLinkedCubin_13_0 that the library exports.
 func fngetLinkedCubin(a0 Handle, a1 unsafe.Pointer) Result {
 	r1, _ := ffiCall2(symgetLinkedCubin, 0, uintptr(a0), uintptr(a1))
 	return Result(r1)
 }
 
-// fngetLinkedCubinSize calls __nvJitLinkGetLinkedCubinSize_13_2.
+// fngetLinkedCubinSize calls the first of __nvJitLinkGetLinkedCubinSize_13_4, __nvJitLinkGetLinkedCubinSize_13_3, __nvJitLinkGetLinkedCubinSize_13_2, __nvJitLinkGetLinkedCubinSize_13_1, __nvJitLinkGetLinkedCubinSize_13_0 that the library exports.
 func fngetLinkedCubinSize(a0 Handle, a1 *uint) Result {
 	r1, _ := ffiCall2(symgetLinkedCubinSize, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
-// fngetLinkedPtx calls __nvJitLinkGetLinkedPtx_13_2.
+// fngetLinkedLTOIR calls the first of __nvJitLinkGetLinkedLTOIR_13_4, __nvJitLinkGetLinkedLTOIR_13_3, __nvJitLinkGetLinkedLTOIR_13_2, __nvJitLinkGetLinkedLTOIR_13_1, __nvJitLinkGetLinkedLTOIR_13_0 that the library exports.
+func fngetLinkedLTOIR(a0 Handle, a1 uintptr) Result {
+	r1, _ := ffiCall2(symgetLinkedLTOIR, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fngetLinkedLTOIRSize calls the first of __nvJitLinkGetLinkedLTOIRSize_13_4, __nvJitLinkGetLinkedLTOIRSize_13_3, __nvJitLinkGetLinkedLTOIRSize_13_2, __nvJitLinkGetLinkedLTOIRSize_13_1, __nvJitLinkGetLinkedLTOIRSize_13_0 that the library exports.
+func fngetLinkedLTOIRSize(a0 Handle, a1 *uint) Result {
+	r1, _ := ffiCall2(symgetLinkedLTOIRSize, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetLinkedPtx calls the first of __nvJitLinkGetLinkedPtx_13_4, __nvJitLinkGetLinkedPtx_13_3, __nvJitLinkGetLinkedPtx_13_2, __nvJitLinkGetLinkedPtx_13_1, __nvJitLinkGetLinkedPtx_13_0 that the library exports.
 func fngetLinkedPtx(a0 Handle, a1 *byte) Result {
 	r1, _ := ffiCall2(symgetLinkedPtx, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
-// fngetLinkedPtxSize calls __nvJitLinkGetLinkedPtxSize_13_2.
+// fngetLinkedPtxSize calls the first of __nvJitLinkGetLinkedPtxSize_13_4, __nvJitLinkGetLinkedPtxSize_13_3, __nvJitLinkGetLinkedPtxSize_13_2, __nvJitLinkGetLinkedPtxSize_13_1, __nvJitLinkGetLinkedPtxSize_13_0 that the library exports.
 func fngetLinkedPtxSize(a0 Handle, a1 *uint) Result {
 	r1, _ := ffiCall2(symgetLinkedPtxSize, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
-// addData wraps nvJitLinkAddData, bound as __nvJitLinkAddData_13_2.
+// addData wraps nvJitLinkAddData, bound to the first of __nvJitLinkAddData_13_4, __nvJitLinkAddData_13_3, __nvJitLinkAddData_13_2, __nvJitLinkAddData_13_1, __nvJitLinkAddData_13_0 that the library exports, or else to nvJitLinkAddData in a library whose version was verified.
 func addData(handle Handle, inputType InputType, data unsafe.Pointer, size uint, name string) error {
-	if err := checkLibSym("__nvJitLinkAddData_13_2"); err != nil {
+	if err := checkLibChain(&chainNvJitLinkAddData); err != nil {
 		return err
 	}
 	cstr_name := append([]byte(name), 0)
-	return toError(fnaddData(handle, inputType, data, size, &cstr_name[0]), "__nvJitLinkAddData_13_2")
+	return toError(fnaddData(handle, inputType, data, size, &cstr_name[0]), chainNvJitLinkAddData.bound)
 }
 
-// addFile wraps nvJitLinkAddFile, bound as __nvJitLinkAddFile_13_2.
+// addFile wraps nvJitLinkAddFile, bound to the first of __nvJitLinkAddFile_13_4, __nvJitLinkAddFile_13_3, __nvJitLinkAddFile_13_2, __nvJitLinkAddFile_13_1, __nvJitLinkAddFile_13_0 that the library exports, or else to nvJitLinkAddFile in a library whose version was verified.
 func addFile(handle Handle, inputType InputType, fileName string) error {
-	if err := checkLibSym("__nvJitLinkAddFile_13_2"); err != nil {
+	if err := checkLibChain(&chainNvJitLinkAddFile); err != nil {
 		return err
 	}
 	cstr_fileName := append([]byte(fileName), 0)
-	return toError(fnaddFile(handle, inputType, &cstr_fileName[0]), "__nvJitLinkAddFile_13_2")
+	return toError(fnaddFile(handle, inputType, &cstr_fileName[0]), chainNvJitLinkAddFile.bound)
 }
 
-// complete wraps nvJitLinkComplete, bound as __nvJitLinkComplete_13_2.
+// complete wraps nvJitLinkComplete, bound to the first of __nvJitLinkComplete_13_4, __nvJitLinkComplete_13_3, __nvJitLinkComplete_13_2, __nvJitLinkComplete_13_1, __nvJitLinkComplete_13_0 that the library exports, or else to nvJitLinkComplete in a library whose version was verified.
 func complete(handle Handle) error {
-	if err := checkLibSym("__nvJitLinkComplete_13_2"); err != nil {
+	if err := checkLibChain(&chainNvJitLinkComplete); err != nil {
 		return err
 	}
-	return toError(fncomplete(handle), "__nvJitLinkComplete_13_2")
+	return toError(fncomplete(handle), chainNvJitLinkComplete.bound)
 }
 
-// Create wraps nvJitLinkCreate, bound as __nvJitLinkCreate_13_2.
+// Create wraps nvJitLinkCreate, bound to the first of __nvJitLinkCreate_13_4, __nvJitLinkCreate_13_3, __nvJitLinkCreate_13_2, __nvJitLinkCreate_13_1, __nvJitLinkCreate_13_0 that the library exports, or else to nvJitLinkCreate in a library whose version was verified.
 func Create(options ...string) (Handle, error) {
-	if err := checkLibSym("__nvJitLinkCreate_13_2"); err != nil {
+	if err := checkLibChain(&chainNvJitLinkCreate); err != nil {
 		return 0, err
 	}
 	var carg_options **byte
@@ -222,7 +236,7 @@ func Create(options ...string) (Handle, error) {
 	}
 	out := slotCreate.get()
 	defer slotCreate.put(out)
-	if err := toError(fnCreate(out, uint32(len(options)), carg_options), "__nvJitLinkCreate_13_2"); err != nil {
+	if err := toError(fnCreate(out, uint32(len(options)), carg_options), chainNvJitLinkCreate.bound); err != nil {
 		return 0, err
 	}
 	return *out, nil
@@ -230,17 +244,17 @@ func Create(options ...string) (Handle, error) {
 
 var slotCreate outSlot[Handle]
 
-// destroy wraps nvJitLinkDestroy, bound as __nvJitLinkDestroy_13_2.
+// destroy wraps nvJitLinkDestroy, bound to the first of __nvJitLinkDestroy_13_4, __nvJitLinkDestroy_13_3, __nvJitLinkDestroy_13_2, __nvJitLinkDestroy_13_1, __nvJitLinkDestroy_13_0 that the library exports, or else to nvJitLinkDestroy in a library whose version was verified.
 func destroy(handle *Handle) error {
-	if err := checkLibSym("__nvJitLinkDestroy_13_2"); err != nil {
+	if err := checkLibChain(&chainNvJitLinkDestroy); err != nil {
 		return err
 	}
-	return toError(fndestroy(handle), "__nvJitLinkDestroy_13_2")
+	return toError(fndestroy(handle), chainNvJitLinkDestroy.bound)
 }
 
-// getErrorLog wraps nvJitLinkGetErrorLog, bound as __nvJitLinkGetErrorLog_13_2.
+// getErrorLog wraps nvJitLinkGetErrorLog, bound to the first of __nvJitLinkGetErrorLog_13_4, __nvJitLinkGetErrorLog_13_3, __nvJitLinkGetErrorLog_13_2, __nvJitLinkGetErrorLog_13_1, __nvJitLinkGetErrorLog_13_0 that the library exports, or else to nvJitLinkGetErrorLog in a library whose version was verified.
 func getErrorLog(handle Handle) (string, error) {
-	if err := checkLibSym("__nvJitLinkGetErrorLog_13_2"); err != nil {
+	if err := checkLibChain(&chainNvJitLinkGetErrorLog); err != nil {
 		return "", err
 	}
 	size, err := getErrorLogSize(handle)
@@ -251,7 +265,7 @@ func getErrorLog(handle Handle) (string, error) {
 		return "", nil
 	}
 	buf := make([]byte, size)
-	if err := toError(fngetErrorLog(handle, &buf[0]), "__nvJitLinkGetErrorLog_13_2"); err != nil {
+	if err := toError(fngetErrorLog(handle, &buf[0]), chainNvJitLinkGetErrorLog.bound); err != nil {
 		return "", fmt.Errorf("geterrorlog: %w", err)
 	}
 	if size > 0 && buf[size-1] == 0 {
@@ -260,18 +274,18 @@ func getErrorLog(handle Handle) (string, error) {
 	return string(buf[:size]), nil
 }
 
-// getErrorLogSize wraps nvJitLinkGetErrorLogSize, bound as __nvJitLinkGetErrorLogSize_13_2.
+// getErrorLogSize wraps nvJitLinkGetErrorLogSize, bound to the first of __nvJitLinkGetErrorLogSize_13_4, __nvJitLinkGetErrorLogSize_13_3, __nvJitLinkGetErrorLogSize_13_2, __nvJitLinkGetErrorLogSize_13_1, __nvJitLinkGetErrorLogSize_13_0 that the library exports, or else to nvJitLinkGetErrorLogSize in a library whose version was verified.
 //
 // The size counts the terminating NUL that [Handle.ErrorLog] drops, so it is one more
 // than the length of that result.
 func getErrorLogSize(handle Handle) (uint, error) {
-	if err := checkLibSym("__nvJitLinkGetErrorLogSize_13_2"); err != nil {
+	if err := checkLibChain(&chainNvJitLinkGetErrorLogSize); err != nil {
 		var zero uint
 		return zero, err
 	}
 	out := slotGetErrorLogSize.get()
 	defer slotGetErrorLogSize.put(out)
-	if err := toError(fngetErrorLogSize(handle, out), "__nvJitLinkGetErrorLogSize_13_2"); err != nil {
+	if err := toError(fngetErrorLogSize(handle, out), chainNvJitLinkGetErrorLogSize.bound); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -280,9 +294,9 @@ func getErrorLogSize(handle Handle) (uint, error) {
 
 var slotGetErrorLogSize outSlot[uint]
 
-// getInfoLog wraps nvJitLinkGetInfoLog, bound as __nvJitLinkGetInfoLog_13_2.
+// getInfoLog wraps nvJitLinkGetInfoLog, bound to the first of __nvJitLinkGetInfoLog_13_4, __nvJitLinkGetInfoLog_13_3, __nvJitLinkGetInfoLog_13_2, __nvJitLinkGetInfoLog_13_1, __nvJitLinkGetInfoLog_13_0 that the library exports, or else to nvJitLinkGetInfoLog in a library whose version was verified.
 func getInfoLog(handle Handle) (string, error) {
-	if err := checkLibSym("__nvJitLinkGetInfoLog_13_2"); err != nil {
+	if err := checkLibChain(&chainNvJitLinkGetInfoLog); err != nil {
 		return "", err
 	}
 	size, err := getInfoLogSize(handle)
@@ -293,7 +307,7 @@ func getInfoLog(handle Handle) (string, error) {
 		return "", nil
 	}
 	buf := make([]byte, size)
-	if err := toError(fngetInfoLog(handle, &buf[0]), "__nvJitLinkGetInfoLog_13_2"); err != nil {
+	if err := toError(fngetInfoLog(handle, &buf[0]), chainNvJitLinkGetInfoLog.bound); err != nil {
 		return "", fmt.Errorf("getinfolog: %w", err)
 	}
 	if size > 0 && buf[size-1] == 0 {
@@ -302,18 +316,18 @@ func getInfoLog(handle Handle) (string, error) {
 	return string(buf[:size]), nil
 }
 
-// getInfoLogSize wraps nvJitLinkGetInfoLogSize, bound as __nvJitLinkGetInfoLogSize_13_2.
+// getInfoLogSize wraps nvJitLinkGetInfoLogSize, bound to the first of __nvJitLinkGetInfoLogSize_13_4, __nvJitLinkGetInfoLogSize_13_3, __nvJitLinkGetInfoLogSize_13_2, __nvJitLinkGetInfoLogSize_13_1, __nvJitLinkGetInfoLogSize_13_0 that the library exports, or else to nvJitLinkGetInfoLogSize in a library whose version was verified.
 //
 // The size counts the terminating NUL that [Handle.InfoLog] drops, so it is one more
 // than the length of that result.
 func getInfoLogSize(handle Handle) (uint, error) {
-	if err := checkLibSym("__nvJitLinkGetInfoLogSize_13_2"); err != nil {
+	if err := checkLibChain(&chainNvJitLinkGetInfoLogSize); err != nil {
 		var zero uint
 		return zero, err
 	}
 	out := slotGetInfoLogSize.get()
 	defer slotGetInfoLogSize.put(out)
-	if err := toError(fngetInfoLogSize(handle, out), "__nvJitLinkGetInfoLogSize_13_2"); err != nil {
+	if err := toError(fngetInfoLogSize(handle, out), chainNvJitLinkGetInfoLogSize.bound); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -322,9 +336,9 @@ func getInfoLogSize(handle Handle) (uint, error) {
 
 var slotGetInfoLogSize outSlot[uint]
 
-// getLinkedCubin wraps nvJitLinkGetLinkedCubin, bound as __nvJitLinkGetLinkedCubin_13_2.
+// getLinkedCubin wraps nvJitLinkGetLinkedCubin, bound to the first of __nvJitLinkGetLinkedCubin_13_4, __nvJitLinkGetLinkedCubin_13_3, __nvJitLinkGetLinkedCubin_13_2, __nvJitLinkGetLinkedCubin_13_1, __nvJitLinkGetLinkedCubin_13_0 that the library exports, or else to nvJitLinkGetLinkedCubin in a library whose version was verified.
 func getLinkedCubin(handle Handle) ([]byte, error) {
-	if err := checkLibSym("__nvJitLinkGetLinkedCubin_13_2"); err != nil {
+	if err := checkLibChain(&chainNvJitLinkGetLinkedCubin); err != nil {
 		return nil, err
 	}
 	size, err := getLinkedCubinSize(handle)
@@ -335,21 +349,21 @@ func getLinkedCubin(handle Handle) ([]byte, error) {
 		return nil, nil
 	}
 	buf := make([]byte, size)
-	if err := toError(fngetLinkedCubin(handle, unsafe.Pointer(&buf[0])), "__nvJitLinkGetLinkedCubin_13_2"); err != nil {
+	if err := toError(fngetLinkedCubin(handle, unsafe.Pointer(&buf[0])), chainNvJitLinkGetLinkedCubin.bound); err != nil {
 		return nil, fmt.Errorf("getlinkedcubin: %w", err)
 	}
 	return buf[:size], nil
 }
 
-// getLinkedCubinSize wraps nvJitLinkGetLinkedCubinSize, bound as __nvJitLinkGetLinkedCubinSize_13_2.
+// getLinkedCubinSize wraps nvJitLinkGetLinkedCubinSize, bound to the first of __nvJitLinkGetLinkedCubinSize_13_4, __nvJitLinkGetLinkedCubinSize_13_3, __nvJitLinkGetLinkedCubinSize_13_2, __nvJitLinkGetLinkedCubinSize_13_1, __nvJitLinkGetLinkedCubinSize_13_0 that the library exports, or else to nvJitLinkGetLinkedCubinSize in a library whose version was verified.
 func getLinkedCubinSize(handle Handle) (uint, error) {
-	if err := checkLibSym("__nvJitLinkGetLinkedCubinSize_13_2"); err != nil {
+	if err := checkLibChain(&chainNvJitLinkGetLinkedCubinSize); err != nil {
 		var zero uint
 		return zero, err
 	}
 	out := slotGetLinkedCubinSize.get()
 	defer slotGetLinkedCubinSize.put(out)
-	if err := toError(fngetLinkedCubinSize(handle, out), "__nvJitLinkGetLinkedCubinSize_13_2"); err != nil {
+	if err := toError(fngetLinkedCubinSize(handle, out), chainNvJitLinkGetLinkedCubinSize.bound); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -358,11 +372,36 @@ func getLinkedCubinSize(handle Handle) (uint, error) {
 
 var slotGetLinkedCubinSize outSlot[uint]
 
-// getLinkedPtx wraps nvJitLinkGetLinkedPtx, bound as __nvJitLinkGetLinkedPtx_13_2.
+// getLinkedLTOIR wraps nvJitLinkGetLinkedLTOIR, bound to the first of __nvJitLinkGetLinkedLTOIR_13_4, __nvJitLinkGetLinkedLTOIR_13_3, __nvJitLinkGetLinkedLTOIR_13_2, __nvJitLinkGetLinkedLTOIR_13_1, __nvJitLinkGetLinkedLTOIR_13_0 that the library exports, or else to nvJitLinkGetLinkedLTOIR in a library whose version was verified.
+func getLinkedLTOIR(handle Handle, ltoir uintptr) error {
+	if err := checkLibChain(&chainNvJitLinkGetLinkedLTOIR); err != nil {
+		return err
+	}
+	return toError(fngetLinkedLTOIR(handle, ltoir), chainNvJitLinkGetLinkedLTOIR.bound)
+}
+
+// getLinkedLTOIRSize wraps nvJitLinkGetLinkedLTOIRSize, bound to the first of __nvJitLinkGetLinkedLTOIRSize_13_4, __nvJitLinkGetLinkedLTOIRSize_13_3, __nvJitLinkGetLinkedLTOIRSize_13_2, __nvJitLinkGetLinkedLTOIRSize_13_1, __nvJitLinkGetLinkedLTOIRSize_13_0 that the library exports, or else to nvJitLinkGetLinkedLTOIRSize in a library whose version was verified.
+func getLinkedLTOIRSize(handle Handle) (uint, error) {
+	if err := checkLibChain(&chainNvJitLinkGetLinkedLTOIRSize); err != nil {
+		var zero uint
+		return zero, err
+	}
+	out := slotGetLinkedLTOIRSize.get()
+	defer slotGetLinkedLTOIRSize.put(out)
+	if err := toError(fngetLinkedLTOIRSize(handle, out), chainNvJitLinkGetLinkedLTOIRSize.bound); err != nil {
+		var zero uint
+		return zero, err
+	}
+	return *out, nil
+}
+
+var slotGetLinkedLTOIRSize outSlot[uint]
+
+// getLinkedPtx wraps nvJitLinkGetLinkedPtx, bound to the first of __nvJitLinkGetLinkedPtx_13_4, __nvJitLinkGetLinkedPtx_13_3, __nvJitLinkGetLinkedPtx_13_2, __nvJitLinkGetLinkedPtx_13_1, __nvJitLinkGetLinkedPtx_13_0 that the library exports, or else to nvJitLinkGetLinkedPtx in a library whose version was verified.
 //
 // The result does not include the C string's terminating NUL.
 func getLinkedPtx(handle Handle) ([]byte, error) {
-	if err := checkLibSym("__nvJitLinkGetLinkedPtx_13_2"); err != nil {
+	if err := checkLibChain(&chainNvJitLinkGetLinkedPtx); err != nil {
 		return nil, err
 	}
 	size, err := getLinkedPtxSize(handle)
@@ -373,7 +412,7 @@ func getLinkedPtx(handle Handle) ([]byte, error) {
 		return nil, nil
 	}
 	buf := make([]byte, size)
-	if err := toError(fngetLinkedPtx(handle, &buf[0]), "__nvJitLinkGetLinkedPtx_13_2"); err != nil {
+	if err := toError(fngetLinkedPtx(handle, &buf[0]), chainNvJitLinkGetLinkedPtx.bound); err != nil {
 		return nil, fmt.Errorf("getlinkedptx: %w", err)
 	}
 	if size > 0 && buf[size-1] == 0 {
@@ -382,18 +421,18 @@ func getLinkedPtx(handle Handle) ([]byte, error) {
 	return buf[:size], nil
 }
 
-// getLinkedPtxSize wraps nvJitLinkGetLinkedPtxSize, bound as __nvJitLinkGetLinkedPtxSize_13_2.
+// getLinkedPtxSize wraps nvJitLinkGetLinkedPtxSize, bound to the first of __nvJitLinkGetLinkedPtxSize_13_4, __nvJitLinkGetLinkedPtxSize_13_3, __nvJitLinkGetLinkedPtxSize_13_2, __nvJitLinkGetLinkedPtxSize_13_1, __nvJitLinkGetLinkedPtxSize_13_0 that the library exports, or else to nvJitLinkGetLinkedPtxSize in a library whose version was verified.
 //
 // The size counts the terminating NUL that [Handle.LinkedPtx] drops, so it is one more
 // than the length of that result.
 func getLinkedPtxSize(handle Handle) (uint, error) {
-	if err := checkLibSym("__nvJitLinkGetLinkedPtxSize_13_2"); err != nil {
+	if err := checkLibChain(&chainNvJitLinkGetLinkedPtxSize); err != nil {
 		var zero uint
 		return zero, err
 	}
 	out := slotGetLinkedPtxSize.get()
 	defer slotGetLinkedPtxSize.put(out)
-	if err := toError(fngetLinkedPtxSize(handle, out), "__nvJitLinkGetLinkedPtxSize_13_2"); err != nil {
+	if err := toError(fngetLinkedPtxSize(handle, out), chainNvJitLinkGetLinkedPtxSize.bound); err != nil {
 		var zero uint
 		return zero, err
 	}

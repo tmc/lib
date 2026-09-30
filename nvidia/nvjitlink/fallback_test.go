@@ -19,10 +19,10 @@ const stubEnv = "NVJITLINK_FALLBACK_STUB"
 // the loader nothing to fall back to.
 //
 // Every nvJitLink entry point is an inline function that forwards to a symbol
-// carrying the toolkit version, so this package binds __nvJitLinkCreate_13_2.
+// carrying the toolkit version, so this package binds __nvJitLinkCreate_13_4.
 // Libraries from CUDA 12.1 onward also export an unsuffixed nvJitLinkCreate,
 // which the loader binds instead once the library's version checks out. CUDA
-// 12.0 and 12.2 export neither that alias nor the _13_2 symbol, so by
+// 12.0 and 12.2 export neither that alias nor the _13_4 symbol, so by
 // construction the fallback cannot rescue them and the call must fail.
 //
 // What is worth pinning is that it fails well: a *SymbolError naming the
@@ -41,8 +41,8 @@ func TestNoFallbackFailsCleanly(t *testing.T) {
 		t.Fatal("Create succeeded against a library exporting no usable symbol")
 	} else if se := new(nvjitlink.SymbolError); !errors.As(err, &se) {
 		t.Fatalf("Create returned %v (%T), want *SymbolError", err, err)
-	} else if se.Symbol != "__nvJitLinkCreate_13_2" {
-		t.Errorf("SymbolError.Symbol = %q, want %q", se.Symbol, "__nvJitLinkCreate_13_2")
+	} else if se.Symbol != "__nvJitLinkCreate_13_4" {
+		t.Errorf("SymbolError.Symbol = %q, want %q", se.Symbol, "__nvJitLinkCreate_13_4")
 	} else {
 		t.Logf("Create failed cleanly: %v", err)
 	}
@@ -90,8 +90,8 @@ func TestNoFallbackWithoutVersionCheck(t *testing.T) {
 	if !errors.As(err, &se) {
 		t.Fatalf("Create returned %v (%T), want *SymbolError", err, err)
 	}
-	if se.Symbol != "__nvJitLinkCreate_13_2" {
-		t.Errorf("SymbolError.Symbol = %q, want %q", se.Symbol, "__nvJitLinkCreate_13_2")
+	if se.Symbol != "__nvJitLinkCreate_13_4" {
+		t.Errorf("SymbolError.Symbol = %q, want %q", se.Symbol, "__nvJitLinkCreate_13_4")
 	}
 	if nvjitlink.HasCreate() {
 		t.Error("HasCreate = true in a library whose version was not checked")
@@ -105,7 +105,7 @@ func TestNoFallbackWithoutVersionCheck(t *testing.T) {
 // refused outright, fallback or not.
 func TestVersionMismatchRejected(t *testing.T) {
 	if os.Getenv(stubEnv) == "" {
-		reexecWithStub(t, "testdata/stubalias.c", "-DNVJITLINK_STUB_MAJOR=12")
+		reexecWithStub(t, "testdata/stubalias.c", "-DNVJITLINK_STUB_MAJOR=11", "-DNVJITLINK_STUB_MINOR=2")
 		return
 	}
 	_, err := nvjitlink.Create()
@@ -113,8 +113,8 @@ func TestVersionMismatchRejected(t *testing.T) {
 	if !errors.As(err, &vm) {
 		t.Fatalf("Create returned %v (%T), want *VersionMismatchError", err, err)
 	}
-	if vm.Got != 12 || vm.Want != 13 {
-		t.Errorf("VersionMismatchError Got, Want = %d, %d; want 12, 13", vm.Got, vm.Want)
+	if vm.Got != 11 || vm.Want != 13 {
+		t.Errorf("VersionMismatchError Got, Want = %d, %d; want 11, 13", vm.Got, vm.Want)
 	}
 	if nvjitlink.Loaded() {
 		t.Error("a library of the wrong major stayed loaded")

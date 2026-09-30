@@ -173,19 +173,8 @@ func loadLocked(path string) error {
 		libErr = errors.New("nvjitlink: bindings disabled via CODEGEN_SKIP_BINDINGS")
 		return libErr
 	}
-	lib, libPath, libErr = openLibrary(path)
-	if libErr != nil {
-		return libErr
-	}
-	registerFuncs()
 	var verified bool
-	if verified, libErr = checkVersion(); libErr != nil {
-		closeLibrary(lib)
-		lib = 0
-		libPath = ""
-		present = make(map[string]bool)
-		unbound = make(map[string]error)
-		clearFuncs()
+	if verified, libErr = openLibrary(path); libErr != nil {
 		return libErr
 	}
 	if verified {
@@ -215,13 +204,13 @@ type VersionMismatchError struct {
 // reported instead.
 func (e *VersionMismatchError) Error() string {
 	if e.Got == 0 {
-		return fmt.Sprintf("nvjitlink: %s reported version %d, which does not decode as a version these bindings recognise; they require major %d", e.Path, e.Raw, e.Want)
+		return fmt.Sprintf("nvjitlink: %s reported version %d, which does not decode as a version these bindings recognise; they accept major %d or 12", e.Path, e.Raw, e.Want)
 	}
-	return fmt.Sprintf("nvjitlink: %s reports version major %d, these bindings require %d", e.Path, e.Got, e.Want)
+	return fmt.Sprintf("nvjitlink: %s reports version major %d, these bindings accept major %d or 12", e.Path, e.Got, e.Want)
 }
 
 // checkVersion asks the loaded library its version through nvJitLinkVersion and
-// compares the major against 13, the soname major these bindings were
+// checks the major against 13 or 12, which these bindings accept.
 // generated against. It runs under loadMu, after registerFuncs, so it
 // calls the bound pointer directly rather than the exported wrapper.
 //
@@ -244,36 +233,65 @@ func checkVersion() (bool, error) {
 	}
 	raw := int(out0)
 	got := raw
-	if got != 13 {
+	if got == 12 && int(out1) < 2 {
+		return false, fmt.Errorf("nvjitlink: %s reports version %d.%d, minimum supported minor is %d", libPath, got, int(out1), 2)
+	}
+	if got != 13 && got != 12 {
 		return false, &VersionMismatchError{Path: libPath, Want: 13, Got: got, Raw: raw}
 	}
 	return true, nil
 }
 
-// openLibrary attempts to load the nvJitLink shared library and reports the
-// path it was opened from. An explicit path wins; otherwise it checks the
-// library path environment variable, then platform-specific default names.
-func openLibrary(path string) (uintptr, string, error) {
+// openLibrary opens the nvJitLink shared library, binds its symbols, and
+// checks its version. An explicit path wins; otherwise it checks the library
+// path environment variable, then each default candidate in turn, skipping
+// one whose version these bindings do not accept.
+//
+// It reports whether checkVersion verified the library it opened.
+func openLibrary(path string) (bool, error) {
 	if path == "" {
 		path = os.Getenv("NVJITLINK_LIB_PATH")
 	}
 	if path != "" {
 		h, err := openDynamicLibrary(path)
-		if err == nil {
-			return h, path, nil
+		if err != nil {
+			return false, newLibraryError(path, []LibraryAttempt{{Name: path, Err: err}})
 		}
-		return 0, "", newLibraryError(path, []LibraryAttempt{{Name: path, Err: err}})
+		return admit(h, path)
 	}
 	names := libraryNames()
 	var attempts []LibraryAttempt
 	for _, name := range names {
 		h, err := openDynamicLibrary(name)
+		if err != nil {
+			attempts = append(attempts, LibraryAttempt{Name: name, Err: err})
+			continue
+		}
+		verified, err := admit(h, name)
 		if err == nil {
-			return h, name, nil
+			return verified, nil
 		}
 		attempts = append(attempts, LibraryAttempt{Name: name, Err: err})
 	}
-	return 0, "", newLibraryError("", attempts)
+	return false, newLibraryError("", attempts)
+}
+
+// admit makes the library at h, opened as name, the loaded library and
+// checks its version. It closes a library the check refuses.
+func admit(h uintptr, name string) (bool, error) {
+	lib, libPath = h, name
+	registerFuncs()
+	verified, err := checkVersion()
+	if err != nil {
+		closeLibrary(lib)
+		lib = 0
+		libPath = ""
+		present = make(map[string]bool)
+		unbound = make(map[string]error)
+		clearFuncs()
+		return false, err
+	}
+	return verified, nil
 }
 
 // LibraryAttempt records one failed attempt to open the shared library.
@@ -364,7 +382,7 @@ func pkgConfigHint() string {
 func libraryNames() []string {
 	switch runtime.GOOS {
 	case "linux":
-		return []string{"libnvJitLink.so.13"}
+		return []string{"libnvJitLink.so.13", "libnvJitLink.so.12"}
 	case "darwin":
 		return []string{"libnvJitLink.dylib"}
 	case "windows":
@@ -491,38 +509,158 @@ func checkLibSym(symbol string) error {
 	return nil
 }
 
+// A symbolChain lists the symbols one function may bind, newest first, and
+// records the one that bound. A function the header declares under several
+// versions with one prototype binds the newest version the library exports.
+type symbolChain struct {
+	symbols  []string
+	fallback string // tried last, only in a library whose version was verified
+	bound    string // the symbol that bound, or ""
+}
+
+// missing returns the *SymbolError for a chain that bound nothing. It names
+// the first symbol the library exports but that could not be bound, or else
+// the newest symbol.
+func (c *symbolChain) missing() error {
+	for _, s := range c.symbols {
+		if err := unbound[s]; err != nil {
+			return &SymbolError{Symbol: s, Err: err}
+		}
+	}
+	if err := unbound[c.fallback]; c.fallback != "" && err != nil {
+		return &SymbolError{Symbol: c.fallback, Err: err}
+	}
+	return &SymbolError{Symbol: c.symbols[0]}
+}
+
+// checkLibChain loads the library if necessary and reports whether any of
+// c's symbols bound. It returns the load error if the library is
+// unavailable, or *SymbolError if none of the symbols is callable.
+func checkLibChain(c *symbolChain) error {
+	if err := checkLib(); err != nil {
+		return err
+	}
+	if c.bound == "" {
+		return c.missing()
+	}
+	return nil
+}
+
+// registerSymChain resolves the first of c's symbols the library exports.
+func registerSymChain(c *symbolChain) uintptr {
+	for _, s := range c.symbols {
+		if sym := registerSym(s); sym != 0 {
+			c.bound = s
+			return sym
+		}
+	}
+	return 0
+}
+
+var (
+	chainNvJitLinkAddData            = symbolChain{symbols: []string{"__nvJitLinkAddData_13_4", "__nvJitLinkAddData_13_3", "__nvJitLinkAddData_13_2", "__nvJitLinkAddData_13_1", "__nvJitLinkAddData_13_0"}, fallback: "nvJitLinkAddData"}
+	chainNvJitLinkAddFile            = symbolChain{symbols: []string{"__nvJitLinkAddFile_13_4", "__nvJitLinkAddFile_13_3", "__nvJitLinkAddFile_13_2", "__nvJitLinkAddFile_13_1", "__nvJitLinkAddFile_13_0"}, fallback: "nvJitLinkAddFile"}
+	chainNvJitLinkComplete           = symbolChain{symbols: []string{"__nvJitLinkComplete_13_4", "__nvJitLinkComplete_13_3", "__nvJitLinkComplete_13_2", "__nvJitLinkComplete_13_1", "__nvJitLinkComplete_13_0"}, fallback: "nvJitLinkComplete"}
+	chainNvJitLinkCreate             = symbolChain{symbols: []string{"__nvJitLinkCreate_13_4", "__nvJitLinkCreate_13_3", "__nvJitLinkCreate_13_2", "__nvJitLinkCreate_13_1", "__nvJitLinkCreate_13_0"}, fallback: "nvJitLinkCreate"}
+	chainNvJitLinkDestroy            = symbolChain{symbols: []string{"__nvJitLinkDestroy_13_4", "__nvJitLinkDestroy_13_3", "__nvJitLinkDestroy_13_2", "__nvJitLinkDestroy_13_1", "__nvJitLinkDestroy_13_0"}, fallback: "nvJitLinkDestroy"}
+	chainNvJitLinkGetErrorLog        = symbolChain{symbols: []string{"__nvJitLinkGetErrorLog_13_4", "__nvJitLinkGetErrorLog_13_3", "__nvJitLinkGetErrorLog_13_2", "__nvJitLinkGetErrorLog_13_1", "__nvJitLinkGetErrorLog_13_0"}, fallback: "nvJitLinkGetErrorLog"}
+	chainNvJitLinkGetErrorLogSize    = symbolChain{symbols: []string{"__nvJitLinkGetErrorLogSize_13_4", "__nvJitLinkGetErrorLogSize_13_3", "__nvJitLinkGetErrorLogSize_13_2", "__nvJitLinkGetErrorLogSize_13_1", "__nvJitLinkGetErrorLogSize_13_0"}, fallback: "nvJitLinkGetErrorLogSize"}
+	chainNvJitLinkGetInfoLog         = symbolChain{symbols: []string{"__nvJitLinkGetInfoLog_13_4", "__nvJitLinkGetInfoLog_13_3", "__nvJitLinkGetInfoLog_13_2", "__nvJitLinkGetInfoLog_13_1", "__nvJitLinkGetInfoLog_13_0"}, fallback: "nvJitLinkGetInfoLog"}
+	chainNvJitLinkGetInfoLogSize     = symbolChain{symbols: []string{"__nvJitLinkGetInfoLogSize_13_4", "__nvJitLinkGetInfoLogSize_13_3", "__nvJitLinkGetInfoLogSize_13_2", "__nvJitLinkGetInfoLogSize_13_1", "__nvJitLinkGetInfoLogSize_13_0"}, fallback: "nvJitLinkGetInfoLogSize"}
+	chainNvJitLinkGetLinkedCubin     = symbolChain{symbols: []string{"__nvJitLinkGetLinkedCubin_13_4", "__nvJitLinkGetLinkedCubin_13_3", "__nvJitLinkGetLinkedCubin_13_2", "__nvJitLinkGetLinkedCubin_13_1", "__nvJitLinkGetLinkedCubin_13_0"}, fallback: "nvJitLinkGetLinkedCubin"}
+	chainNvJitLinkGetLinkedCubinSize = symbolChain{symbols: []string{"__nvJitLinkGetLinkedCubinSize_13_4", "__nvJitLinkGetLinkedCubinSize_13_3", "__nvJitLinkGetLinkedCubinSize_13_2", "__nvJitLinkGetLinkedCubinSize_13_1", "__nvJitLinkGetLinkedCubinSize_13_0"}, fallback: "nvJitLinkGetLinkedCubinSize"}
+	chainNvJitLinkGetLinkedLTOIR     = symbolChain{symbols: []string{"__nvJitLinkGetLinkedLTOIR_13_4", "__nvJitLinkGetLinkedLTOIR_13_3", "__nvJitLinkGetLinkedLTOIR_13_2", "__nvJitLinkGetLinkedLTOIR_13_1", "__nvJitLinkGetLinkedLTOIR_13_0"}, fallback: "nvJitLinkGetLinkedLTOIR"}
+	chainNvJitLinkGetLinkedLTOIRSize = symbolChain{symbols: []string{"__nvJitLinkGetLinkedLTOIRSize_13_4", "__nvJitLinkGetLinkedLTOIRSize_13_3", "__nvJitLinkGetLinkedLTOIRSize_13_2", "__nvJitLinkGetLinkedLTOIRSize_13_1", "__nvJitLinkGetLinkedLTOIRSize_13_0"}, fallback: "nvJitLinkGetLinkedLTOIRSize"}
+	chainNvJitLinkGetLinkedPtx       = symbolChain{symbols: []string{"__nvJitLinkGetLinkedPtx_13_4", "__nvJitLinkGetLinkedPtx_13_3", "__nvJitLinkGetLinkedPtx_13_2", "__nvJitLinkGetLinkedPtx_13_1", "__nvJitLinkGetLinkedPtx_13_0"}, fallback: "nvJitLinkGetLinkedPtx"}
+	chainNvJitLinkGetLinkedPtxSize   = symbolChain{symbols: []string{"__nvJitLinkGetLinkedPtxSize_13_4", "__nvJitLinkGetLinkedPtxSize_13_3", "__nvJitLinkGetLinkedPtxSize_13_2", "__nvJitLinkGetLinkedPtxSize_13_1", "__nvJitLinkGetLinkedPtxSize_13_0"}, fallback: "nvJitLinkGetLinkedPtxSize"}
+)
+
+// chains maps a C function name to its symbolChain.
+var chains = map[string]*symbolChain{
+	"nvJitLinkAddData":            &chainNvJitLinkAddData,
+	"nvJitLinkAddFile":            &chainNvJitLinkAddFile,
+	"nvJitLinkComplete":           &chainNvJitLinkComplete,
+	"nvJitLinkCreate":             &chainNvJitLinkCreate,
+	"nvJitLinkDestroy":            &chainNvJitLinkDestroy,
+	"nvJitLinkGetErrorLog":        &chainNvJitLinkGetErrorLog,
+	"nvJitLinkGetErrorLogSize":    &chainNvJitLinkGetErrorLogSize,
+	"nvJitLinkGetInfoLog":         &chainNvJitLinkGetInfoLog,
+	"nvJitLinkGetInfoLogSize":     &chainNvJitLinkGetInfoLogSize,
+	"nvJitLinkGetLinkedCubin":     &chainNvJitLinkGetLinkedCubin,
+	"nvJitLinkGetLinkedCubinSize": &chainNvJitLinkGetLinkedCubinSize,
+	"nvJitLinkGetLinkedLTOIR":     &chainNvJitLinkGetLinkedLTOIR,
+	"nvJitLinkGetLinkedLTOIRSize": &chainNvJitLinkGetLinkedLTOIRSize,
+	"nvJitLinkGetLinkedPtx":       &chainNvJitLinkGetLinkedPtx,
+	"nvJitLinkGetLinkedPtxSize":   &chainNvJitLinkGetLinkedPtxSize,
+}
+
+// BoundSymbol returns the symbol the loaded library bound for the C
+// function name, loading the library first if necessary, or "" if none
+// bound. It answers for the functions that bind the first of several
+// symbols the library exports: BoundSymbol("nvJitLinkAddData") returns
+// "__nvJitLinkAddData_13_4" when the library exports it, and an older
+// spelling otherwise. It returns "" for any other name.
+func BoundSymbol(name string) string {
+	if err := checkLib(); err != nil {
+		return ""
+	}
+	if c := chains[name]; c != nil {
+		return c.bound
+	}
+	return ""
+}
+
 // registerFuncs binds all raw function pointers to their library symbols.
 func registerFuncs() {
-	symaddData = registerSym("__nvJitLinkAddData_13_2")
-	symaddFile = registerSym("__nvJitLinkAddFile_13_2")
-	symcomplete = registerSym("__nvJitLinkComplete_13_2")
-	symCreate = registerSym("__nvJitLinkCreate_13_2")
-	symdestroy = registerSym("__nvJitLinkDestroy_13_2")
-	symgetErrorLog = registerSym("__nvJitLinkGetErrorLog_13_2")
-	symgetErrorLogSize = registerSym("__nvJitLinkGetErrorLogSize_13_2")
-	symgetInfoLog = registerSym("__nvJitLinkGetInfoLog_13_2")
-	symgetInfoLogSize = registerSym("__nvJitLinkGetInfoLogSize_13_2")
-	symgetLinkedCubin = registerSym("__nvJitLinkGetLinkedCubin_13_2")
-	symgetLinkedCubinSize = registerSym("__nvJitLinkGetLinkedCubinSize_13_2")
-	symgetLinkedPtx = registerSym("__nvJitLinkGetLinkedPtx_13_2")
-	symgetLinkedPtxSize = registerSym("__nvJitLinkGetLinkedPtxSize_13_2")
+	symaddData = registerSymChain(&chainNvJitLinkAddData)
+	symaddFile = registerSymChain(&chainNvJitLinkAddFile)
+	symcomplete = registerSymChain(&chainNvJitLinkComplete)
+	symCreate = registerSymChain(&chainNvJitLinkCreate)
+	symdestroy = registerSymChain(&chainNvJitLinkDestroy)
+	symgetErrorLog = registerSymChain(&chainNvJitLinkGetErrorLog)
+	symgetErrorLogSize = registerSymChain(&chainNvJitLinkGetErrorLogSize)
+	symgetInfoLog = registerSymChain(&chainNvJitLinkGetInfoLog)
+	symgetInfoLogSize = registerSymChain(&chainNvJitLinkGetInfoLogSize)
+	symgetLinkedCubin = registerSymChain(&chainNvJitLinkGetLinkedCubin)
+	symgetLinkedCubinSize = registerSymChain(&chainNvJitLinkGetLinkedCubinSize)
+	symgetLinkedLTOIR = registerSymChain(&chainNvJitLinkGetLinkedLTOIR)
+	symgetLinkedLTOIRSize = registerSymChain(&chainNvJitLinkGetLinkedLTOIRSize)
+	symgetLinkedPtx = registerSymChain(&chainNvJitLinkGetLinkedPtx)
+	symgetLinkedPtxSize = registerSymChain(&chainNvJitLinkGetLinkedPtxSize)
 	register(&fnVersion, "nvJitLinkVersion")
 }
 
 // clearFuncs unbinds all raw function pointers.
 func clearFuncs() {
+	chainNvJitLinkAddData.bound = ""
 	symaddData = 0
+	chainNvJitLinkAddFile.bound = ""
 	symaddFile = 0
+	chainNvJitLinkComplete.bound = ""
 	symcomplete = 0
+	chainNvJitLinkCreate.bound = ""
 	symCreate = 0
+	chainNvJitLinkDestroy.bound = ""
 	symdestroy = 0
+	chainNvJitLinkGetErrorLog.bound = ""
 	symgetErrorLog = 0
+	chainNvJitLinkGetErrorLogSize.bound = ""
 	symgetErrorLogSize = 0
+	chainNvJitLinkGetInfoLog.bound = ""
 	symgetInfoLog = 0
+	chainNvJitLinkGetInfoLogSize.bound = ""
 	symgetInfoLogSize = 0
+	chainNvJitLinkGetLinkedCubin.bound = ""
 	symgetLinkedCubin = 0
+	chainNvJitLinkGetLinkedCubinSize.bound = ""
 	symgetLinkedCubinSize = 0
+	chainNvJitLinkGetLinkedLTOIR.bound = ""
+	symgetLinkedLTOIR = 0
+	chainNvJitLinkGetLinkedLTOIRSize.bound = ""
+	symgetLinkedLTOIRSize = 0
+	chainNvJitLinkGetLinkedPtx.bound = ""
 	symgetLinkedPtx = 0
+	chainNvJitLinkGetLinkedPtxSize.bound = ""
 	symgetLinkedPtxSize = 0
 	fnVersion = nil
 }
@@ -534,133 +672,209 @@ func clearFuncs() {
 // not verified it could bind an entry point from another train.
 func registerFallbacks() {
 	if symaddData == 0 {
-		symaddData = registerSymFallback("__nvJitLinkAddData_13_2", "nvJitLinkAddData")
+		symaddData = registerSymFallback(&chainNvJitLinkAddData)
 	}
 	if symaddFile == 0 {
-		symaddFile = registerSymFallback("__nvJitLinkAddFile_13_2", "nvJitLinkAddFile")
+		symaddFile = registerSymFallback(&chainNvJitLinkAddFile)
 	}
 	if symcomplete == 0 {
-		symcomplete = registerSymFallback("__nvJitLinkComplete_13_2", "nvJitLinkComplete")
+		symcomplete = registerSymFallback(&chainNvJitLinkComplete)
 	}
 	if symCreate == 0 {
-		symCreate = registerSymFallback("__nvJitLinkCreate_13_2", "nvJitLinkCreate")
+		symCreate = registerSymFallback(&chainNvJitLinkCreate)
 	}
 	if symdestroy == 0 {
-		symdestroy = registerSymFallback("__nvJitLinkDestroy_13_2", "nvJitLinkDestroy")
+		symdestroy = registerSymFallback(&chainNvJitLinkDestroy)
 	}
 	if symgetErrorLog == 0 {
-		symgetErrorLog = registerSymFallback("__nvJitLinkGetErrorLog_13_2", "nvJitLinkGetErrorLog")
+		symgetErrorLog = registerSymFallback(&chainNvJitLinkGetErrorLog)
 	}
 	if symgetErrorLogSize == 0 {
-		symgetErrorLogSize = registerSymFallback("__nvJitLinkGetErrorLogSize_13_2", "nvJitLinkGetErrorLogSize")
+		symgetErrorLogSize = registerSymFallback(&chainNvJitLinkGetErrorLogSize)
 	}
 	if symgetInfoLog == 0 {
-		symgetInfoLog = registerSymFallback("__nvJitLinkGetInfoLog_13_2", "nvJitLinkGetInfoLog")
+		symgetInfoLog = registerSymFallback(&chainNvJitLinkGetInfoLog)
 	}
 	if symgetInfoLogSize == 0 {
-		symgetInfoLogSize = registerSymFallback("__nvJitLinkGetInfoLogSize_13_2", "nvJitLinkGetInfoLogSize")
+		symgetInfoLogSize = registerSymFallback(&chainNvJitLinkGetInfoLogSize)
 	}
 	if symgetLinkedCubin == 0 {
-		symgetLinkedCubin = registerSymFallback("__nvJitLinkGetLinkedCubin_13_2", "nvJitLinkGetLinkedCubin")
+		symgetLinkedCubin = registerSymFallback(&chainNvJitLinkGetLinkedCubin)
 	}
 	if symgetLinkedCubinSize == 0 {
-		symgetLinkedCubinSize = registerSymFallback("__nvJitLinkGetLinkedCubinSize_13_2", "nvJitLinkGetLinkedCubinSize")
+		symgetLinkedCubinSize = registerSymFallback(&chainNvJitLinkGetLinkedCubinSize)
+	}
+	if symgetLinkedLTOIR == 0 {
+		symgetLinkedLTOIR = registerSymFallback(&chainNvJitLinkGetLinkedLTOIR)
+	}
+	if symgetLinkedLTOIRSize == 0 {
+		symgetLinkedLTOIRSize = registerSymFallback(&chainNvJitLinkGetLinkedLTOIRSize)
 	}
 	if symgetLinkedPtx == 0 {
-		symgetLinkedPtx = registerSymFallback("__nvJitLinkGetLinkedPtx_13_2", "nvJitLinkGetLinkedPtx")
+		symgetLinkedPtx = registerSymFallback(&chainNvJitLinkGetLinkedPtx)
 	}
 	if symgetLinkedPtxSize == 0 {
-		symgetLinkedPtxSize = registerSymFallback("__nvJitLinkGetLinkedPtxSize_13_2", "nvJitLinkGetLinkedPtxSize")
+		symgetLinkedPtxSize = registerSymFallback(&chainNvJitLinkGetLinkedPtxSize)
 	}
 }
 
-// registerSymFallback resolves name, the unversioned spelling of symbol,
-// and records presence under symbol, as registerSym would have.
-func registerSymFallback(symbol, name string) uintptr {
-	sym, err := lookupLibrarySymbol(lib, name)
-	if err != nil || sym == 0 {
-		return 0
+// registerSymFallback resolves c's unversioned fallback, if the library
+// exports it.
+func registerSymFallback(c *symbolChain) uintptr {
+	sym := registerSym(c.fallback)
+	if sym != 0 {
+		c.bound = c.fallback
 	}
-	present[symbol] = true
 	return sym
 }
 
-// HasAddData reports whether nvJitLinkAddData bound, through __nvJitLinkAddData_13_2 or the
-// unversioned nvJitLinkAddData, which is bound only in a library whose version was verified.
+// HasAddData reports whether nvJitLinkAddData bound, through any of
+// __nvJitLinkAddData_13_4, __nvJitLinkAddData_13_3,
+// __nvJitLinkAddData_13_2, __nvJitLinkAddData_13_1,
+// __nvJitLinkAddData_13_0 or the unversioned nvJitLinkAddData, which is
+// bound only in a library whose version was verified. BoundSymbol reports
+// which.
 func HasAddData() bool {
-	return Has("__nvJitLinkAddData_13_2")
+	return BoundSymbol("nvJitLinkAddData") != ""
 }
 
-// HasAddFile reports whether nvJitLinkAddFile bound, through __nvJitLinkAddFile_13_2 or the
-// unversioned nvJitLinkAddFile, which is bound only in a library whose version was verified.
+// HasAddFile reports whether nvJitLinkAddFile bound, through any of
+// __nvJitLinkAddFile_13_4, __nvJitLinkAddFile_13_3,
+// __nvJitLinkAddFile_13_2, __nvJitLinkAddFile_13_1,
+// __nvJitLinkAddFile_13_0 or the unversioned nvJitLinkAddFile, which is
+// bound only in a library whose version was verified. BoundSymbol reports
+// which.
 func HasAddFile() bool {
-	return Has("__nvJitLinkAddFile_13_2")
+	return BoundSymbol("nvJitLinkAddFile") != ""
 }
 
-// HasComplete reports whether nvJitLinkComplete bound, through __nvJitLinkComplete_13_2 or the
-// unversioned nvJitLinkComplete, which is bound only in a library whose version was verified.
+// HasComplete reports whether nvJitLinkComplete bound, through any of
+// __nvJitLinkComplete_13_4, __nvJitLinkComplete_13_3,
+// __nvJitLinkComplete_13_2, __nvJitLinkComplete_13_1,
+// __nvJitLinkComplete_13_0 or the unversioned nvJitLinkComplete, which is
+// bound only in a library whose version was verified. BoundSymbol reports
+// which.
 func HasComplete() bool {
-	return Has("__nvJitLinkComplete_13_2")
+	return BoundSymbol("nvJitLinkComplete") != ""
 }
 
-// HasCreate reports whether nvJitLinkCreate bound, through __nvJitLinkCreate_13_2 or the
-// unversioned nvJitLinkCreate, which is bound only in a library whose version was verified.
+// HasCreate reports whether nvJitLinkCreate bound, through any of
+// __nvJitLinkCreate_13_4, __nvJitLinkCreate_13_3, __nvJitLinkCreate_13_2,
+// __nvJitLinkCreate_13_1, __nvJitLinkCreate_13_0 or the unversioned
+// nvJitLinkCreate, which is bound only in a library whose version was
+// verified. BoundSymbol reports which.
 func HasCreate() bool {
-	return Has("__nvJitLinkCreate_13_2")
+	return BoundSymbol("nvJitLinkCreate") != ""
 }
 
-// HasDestroy reports whether nvJitLinkDestroy bound, through __nvJitLinkDestroy_13_2 or the
-// unversioned nvJitLinkDestroy, which is bound only in a library whose version was verified.
+// HasDestroy reports whether nvJitLinkDestroy bound, through any of
+// __nvJitLinkDestroy_13_4, __nvJitLinkDestroy_13_3,
+// __nvJitLinkDestroy_13_2, __nvJitLinkDestroy_13_1,
+// __nvJitLinkDestroy_13_0 or the unversioned nvJitLinkDestroy, which is
+// bound only in a library whose version was verified. BoundSymbol reports
+// which.
 func HasDestroy() bool {
-	return Has("__nvJitLinkDestroy_13_2")
+	return BoundSymbol("nvJitLinkDestroy") != ""
 }
 
-// HasGetErrorLog reports whether nvJitLinkGetErrorLog bound, through __nvJitLinkGetErrorLog_13_2 or the
-// unversioned nvJitLinkGetErrorLog, which is bound only in a library whose version was verified.
+// HasGetErrorLog reports whether nvJitLinkGetErrorLog bound, through any
+// of __nvJitLinkGetErrorLog_13_4, __nvJitLinkGetErrorLog_13_3,
+// __nvJitLinkGetErrorLog_13_2, __nvJitLinkGetErrorLog_13_1,
+// __nvJitLinkGetErrorLog_13_0 or the unversioned nvJitLinkGetErrorLog,
+// which is bound only in a library whose version was verified. BoundSymbol
+// reports which.
 func HasGetErrorLog() bool {
-	return Has("__nvJitLinkGetErrorLog_13_2")
+	return BoundSymbol("nvJitLinkGetErrorLog") != ""
 }
 
-// HasGetErrorLogSize reports whether nvJitLinkGetErrorLogSize bound, through __nvJitLinkGetErrorLogSize_13_2 or the
-// unversioned nvJitLinkGetErrorLogSize, which is bound only in a library whose version was verified.
+// HasGetErrorLogSize reports whether nvJitLinkGetErrorLogSize bound,
+// through any of __nvJitLinkGetErrorLogSize_13_4,
+// __nvJitLinkGetErrorLogSize_13_3, __nvJitLinkGetErrorLogSize_13_2,
+// __nvJitLinkGetErrorLogSize_13_1, __nvJitLinkGetErrorLogSize_13_0 or the
+// unversioned nvJitLinkGetErrorLogSize, which is bound only in a library
+// whose version was verified. BoundSymbol reports which.
 func HasGetErrorLogSize() bool {
-	return Has("__nvJitLinkGetErrorLogSize_13_2")
+	return BoundSymbol("nvJitLinkGetErrorLogSize") != ""
 }
 
-// HasGetInfoLog reports whether nvJitLinkGetInfoLog bound, through __nvJitLinkGetInfoLog_13_2 or the
-// unversioned nvJitLinkGetInfoLog, which is bound only in a library whose version was verified.
+// HasGetInfoLog reports whether nvJitLinkGetInfoLog bound, through any of
+// __nvJitLinkGetInfoLog_13_4, __nvJitLinkGetInfoLog_13_3,
+// __nvJitLinkGetInfoLog_13_2, __nvJitLinkGetInfoLog_13_1,
+// __nvJitLinkGetInfoLog_13_0 or the unversioned nvJitLinkGetInfoLog, which
+// is bound only in a library whose version was verified. BoundSymbol
+// reports which.
 func HasGetInfoLog() bool {
-	return Has("__nvJitLinkGetInfoLog_13_2")
+	return BoundSymbol("nvJitLinkGetInfoLog") != ""
 }
 
-// HasGetInfoLogSize reports whether nvJitLinkGetInfoLogSize bound, through __nvJitLinkGetInfoLogSize_13_2 or the
-// unversioned nvJitLinkGetInfoLogSize, which is bound only in a library whose version was verified.
+// HasGetInfoLogSize reports whether nvJitLinkGetInfoLogSize bound, through
+// any of __nvJitLinkGetInfoLogSize_13_4, __nvJitLinkGetInfoLogSize_13_3,
+// __nvJitLinkGetInfoLogSize_13_2, __nvJitLinkGetInfoLogSize_13_1,
+// __nvJitLinkGetInfoLogSize_13_0 or the unversioned
+// nvJitLinkGetInfoLogSize, which is bound only in a library whose version
+// was verified. BoundSymbol reports which.
 func HasGetInfoLogSize() bool {
-	return Has("__nvJitLinkGetInfoLogSize_13_2")
+	return BoundSymbol("nvJitLinkGetInfoLogSize") != ""
 }
 
-// HasGetLinkedCubin reports whether nvJitLinkGetLinkedCubin bound, through __nvJitLinkGetLinkedCubin_13_2 or the
-// unversioned nvJitLinkGetLinkedCubin, which is bound only in a library whose version was verified.
+// HasGetLinkedCubin reports whether nvJitLinkGetLinkedCubin bound, through
+// any of __nvJitLinkGetLinkedCubin_13_4, __nvJitLinkGetLinkedCubin_13_3,
+// __nvJitLinkGetLinkedCubin_13_2, __nvJitLinkGetLinkedCubin_13_1,
+// __nvJitLinkGetLinkedCubin_13_0 or the unversioned
+// nvJitLinkGetLinkedCubin, which is bound only in a library whose version
+// was verified. BoundSymbol reports which.
 func HasGetLinkedCubin() bool {
-	return Has("__nvJitLinkGetLinkedCubin_13_2")
+	return BoundSymbol("nvJitLinkGetLinkedCubin") != ""
 }
 
-// HasGetLinkedCubinSize reports whether nvJitLinkGetLinkedCubinSize bound, through __nvJitLinkGetLinkedCubinSize_13_2 or the
-// unversioned nvJitLinkGetLinkedCubinSize, which is bound only in a library whose version was verified.
+// HasGetLinkedCubinSize reports whether nvJitLinkGetLinkedCubinSize bound,
+// through any of __nvJitLinkGetLinkedCubinSize_13_4,
+// __nvJitLinkGetLinkedCubinSize_13_3, __nvJitLinkGetLinkedCubinSize_13_2,
+// __nvJitLinkGetLinkedCubinSize_13_1, __nvJitLinkGetLinkedCubinSize_13_0
+// or the unversioned nvJitLinkGetLinkedCubinSize, which is bound only in a
+// library whose version was verified. BoundSymbol reports which.
 func HasGetLinkedCubinSize() bool {
-	return Has("__nvJitLinkGetLinkedCubinSize_13_2")
+	return BoundSymbol("nvJitLinkGetLinkedCubinSize") != ""
 }
 
-// HasGetLinkedPtx reports whether nvJitLinkGetLinkedPtx bound, through __nvJitLinkGetLinkedPtx_13_2 or the
-// unversioned nvJitLinkGetLinkedPtx, which is bound only in a library whose version was verified.
+// HasGetLinkedLTOIR reports whether nvJitLinkGetLinkedLTOIR bound, through
+// any of __nvJitLinkGetLinkedLTOIR_13_4, __nvJitLinkGetLinkedLTOIR_13_3,
+// __nvJitLinkGetLinkedLTOIR_13_2, __nvJitLinkGetLinkedLTOIR_13_1,
+// __nvJitLinkGetLinkedLTOIR_13_0 or the unversioned
+// nvJitLinkGetLinkedLTOIR, which is bound only in a library whose version
+// was verified. BoundSymbol reports which.
+func HasGetLinkedLTOIR() bool {
+	return BoundSymbol("nvJitLinkGetLinkedLTOIR") != ""
+}
+
+// HasGetLinkedLTOIRSize reports whether nvJitLinkGetLinkedLTOIRSize bound,
+// through any of __nvJitLinkGetLinkedLTOIRSize_13_4,
+// __nvJitLinkGetLinkedLTOIRSize_13_3, __nvJitLinkGetLinkedLTOIRSize_13_2,
+// __nvJitLinkGetLinkedLTOIRSize_13_1, __nvJitLinkGetLinkedLTOIRSize_13_0
+// or the unversioned nvJitLinkGetLinkedLTOIRSize, which is bound only in a
+// library whose version was verified. BoundSymbol reports which.
+func HasGetLinkedLTOIRSize() bool {
+	return BoundSymbol("nvJitLinkGetLinkedLTOIRSize") != ""
+}
+
+// HasGetLinkedPtx reports whether nvJitLinkGetLinkedPtx bound, through any
+// of __nvJitLinkGetLinkedPtx_13_4, __nvJitLinkGetLinkedPtx_13_3,
+// __nvJitLinkGetLinkedPtx_13_2, __nvJitLinkGetLinkedPtx_13_1,
+// __nvJitLinkGetLinkedPtx_13_0 or the unversioned nvJitLinkGetLinkedPtx,
+// which is bound only in a library whose version was verified. BoundSymbol
+// reports which.
 func HasGetLinkedPtx() bool {
-	return Has("__nvJitLinkGetLinkedPtx_13_2")
+	return BoundSymbol("nvJitLinkGetLinkedPtx") != ""
 }
 
-// HasGetLinkedPtxSize reports whether nvJitLinkGetLinkedPtxSize bound, through __nvJitLinkGetLinkedPtxSize_13_2 or the
-// unversioned nvJitLinkGetLinkedPtxSize, which is bound only in a library whose version was verified.
+// HasGetLinkedPtxSize reports whether nvJitLinkGetLinkedPtxSize bound,
+// through any of __nvJitLinkGetLinkedPtxSize_13_4,
+// __nvJitLinkGetLinkedPtxSize_13_3, __nvJitLinkGetLinkedPtxSize_13_2,
+// __nvJitLinkGetLinkedPtxSize_13_1, __nvJitLinkGetLinkedPtxSize_13_0 or
+// the unversioned nvJitLinkGetLinkedPtxSize, which is bound only in a
+// library whose version was verified. BoundSymbol reports which.
 func HasGetLinkedPtxSize() bool {
-	return Has("__nvJitLinkGetLinkedPtxSize_13_2")
+	return BoundSymbol("nvJitLinkGetLinkedPtxSize") != ""
 }
 
 // HasVersion reports whether nvJitLinkVersion resolved in the loaded library.

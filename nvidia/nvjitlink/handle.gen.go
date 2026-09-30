@@ -4,34 +4,34 @@ package nvjitlink
 
 import "unsafe"
 
-// AddData wraps nvJitLinkAddData, bound as __nvJitLinkAddData_13_2.
+// AddData wraps nvJitLinkAddData, bound to the first of __nvJitLinkAddData_13_4, __nvJitLinkAddData_13_3, __nvJitLinkAddData_13_2, __nvJitLinkAddData_13_1, __nvJitLinkAddData_13_0 that the library exports, or else to nvJitLinkAddData in a library whose version was verified.
 func (h Handle) AddData(inputType InputType, data unsafe.Pointer, size uint, name string) error {
 	return addData(h, inputType, data, size, name)
 }
 
-// AddFile wraps nvJitLinkAddFile, bound as __nvJitLinkAddFile_13_2.
+// AddFile wraps nvJitLinkAddFile, bound to the first of __nvJitLinkAddFile_13_4, __nvJitLinkAddFile_13_3, __nvJitLinkAddFile_13_2, __nvJitLinkAddFile_13_1, __nvJitLinkAddFile_13_0 that the library exports, or else to nvJitLinkAddFile in a library whose version was verified.
 func (h Handle) AddFile(inputType InputType, fileName string) error {
 	return addFile(h, inputType, fileName)
 }
 
-// Complete wraps nvJitLinkComplete, bound as __nvJitLinkComplete_13_2.
+// Complete wraps nvJitLinkComplete, bound to the first of __nvJitLinkComplete_13_4, __nvJitLinkComplete_13_3, __nvJitLinkComplete_13_2, __nvJitLinkComplete_13_1, __nvJitLinkComplete_13_0 that the library exports, or else to nvJitLinkComplete in a library whose version was verified.
 func (h Handle) Complete() error {
 	return complete(h)
 }
 
-// Destroy wraps nvJitLinkDestroy, bound as __nvJitLinkDestroy_13_2.
+// Destroy wraps nvJitLinkDestroy, bound to the first of __nvJitLinkDestroy_13_4, __nvJitLinkDestroy_13_3, __nvJitLinkDestroy_13_2, __nvJitLinkDestroy_13_1, __nvJitLinkDestroy_13_0 that the library exports, or else to nvJitLinkDestroy in a library whose version was verified.
 //
 // It is not named Close because it takes a pointer to the handle.
 func (h *Handle) Destroy() error {
 	return destroy(h)
 }
 
-// ErrorLog wraps nvJitLinkGetErrorLog, bound as __nvJitLinkGetErrorLog_13_2.
+// ErrorLog wraps nvJitLinkGetErrorLog, bound to the first of __nvJitLinkGetErrorLog_13_4, __nvJitLinkGetErrorLog_13_3, __nvJitLinkGetErrorLog_13_2, __nvJitLinkGetErrorLog_13_1, __nvJitLinkGetErrorLog_13_0 that the library exports, or else to nvJitLinkGetErrorLog in a library whose version was verified.
 func (h Handle) ErrorLog() (string, error) {
 	return getErrorLog(h)
 }
 
-// ErrorLogSize wraps nvJitLinkGetErrorLogSize, bound as __nvJitLinkGetErrorLogSize_13_2.
+// ErrorLogSize wraps nvJitLinkGetErrorLogSize, bound to the first of __nvJitLinkGetErrorLogSize_13_4, __nvJitLinkGetErrorLogSize_13_3, __nvJitLinkGetErrorLogSize_13_2, __nvJitLinkGetErrorLogSize_13_1, __nvJitLinkGetErrorLogSize_13_0 that the library exports, or else to nvJitLinkGetErrorLogSize in a library whose version was verified.
 //
 // The size counts the terminating NUL that [Handle.ErrorLog] drops, so it is one more
 // than the length of that result.
@@ -39,12 +39,12 @@ func (h Handle) ErrorLogSize() (uint, error) {
 	return getErrorLogSize(h)
 }
 
-// InfoLog wraps nvJitLinkGetInfoLog, bound as __nvJitLinkGetInfoLog_13_2.
+// InfoLog wraps nvJitLinkGetInfoLog, bound to the first of __nvJitLinkGetInfoLog_13_4, __nvJitLinkGetInfoLog_13_3, __nvJitLinkGetInfoLog_13_2, __nvJitLinkGetInfoLog_13_1, __nvJitLinkGetInfoLog_13_0 that the library exports, or else to nvJitLinkGetInfoLog in a library whose version was verified.
 func (h Handle) InfoLog() (string, error) {
 	return getInfoLog(h)
 }
 
-// InfoLogSize wraps nvJitLinkGetInfoLogSize, bound as __nvJitLinkGetInfoLogSize_13_2.
+// InfoLogSize wraps nvJitLinkGetInfoLogSize, bound to the first of __nvJitLinkGetInfoLogSize_13_4, __nvJitLinkGetInfoLogSize_13_3, __nvJitLinkGetInfoLogSize_13_2, __nvJitLinkGetInfoLogSize_13_1, __nvJitLinkGetInfoLogSize_13_0 that the library exports, or else to nvJitLinkGetInfoLogSize in a library whose version was verified.
 //
 // The size counts the terminating NUL that [Handle.InfoLog] drops, so it is one more
 // than the length of that result.
@@ -52,24 +52,34 @@ func (h Handle) InfoLogSize() (uint, error) {
 	return getInfoLogSize(h)
 }
 
-// LinkedCubin wraps nvJitLinkGetLinkedCubin, bound as __nvJitLinkGetLinkedCubin_13_2.
+// LinkedCubin wraps nvJitLinkGetLinkedCubin, bound to the first of __nvJitLinkGetLinkedCubin_13_4, __nvJitLinkGetLinkedCubin_13_3, __nvJitLinkGetLinkedCubin_13_2, __nvJitLinkGetLinkedCubin_13_1, __nvJitLinkGetLinkedCubin_13_0 that the library exports, or else to nvJitLinkGetLinkedCubin in a library whose version was verified.
 func (h Handle) LinkedCubin() ([]byte, error) {
 	return getLinkedCubin(h)
 }
 
-// LinkedCubinSize wraps nvJitLinkGetLinkedCubinSize, bound as __nvJitLinkGetLinkedCubinSize_13_2.
+// LinkedCubinSize wraps nvJitLinkGetLinkedCubinSize, bound to the first of __nvJitLinkGetLinkedCubinSize_13_4, __nvJitLinkGetLinkedCubinSize_13_3, __nvJitLinkGetLinkedCubinSize_13_2, __nvJitLinkGetLinkedCubinSize_13_1, __nvJitLinkGetLinkedCubinSize_13_0 that the library exports, or else to nvJitLinkGetLinkedCubinSize in a library whose version was verified.
 func (h Handle) LinkedCubinSize() (uint, error) {
 	return getLinkedCubinSize(h)
 }
 
-// LinkedPtx wraps nvJitLinkGetLinkedPtx, bound as __nvJitLinkGetLinkedPtx_13_2.
+// LinkedLTOIR wraps nvJitLinkGetLinkedLTOIR, bound to the first of __nvJitLinkGetLinkedLTOIR_13_4, __nvJitLinkGetLinkedLTOIR_13_3, __nvJitLinkGetLinkedLTOIR_13_2, __nvJitLinkGetLinkedLTOIR_13_1, __nvJitLinkGetLinkedLTOIR_13_0 that the library exports, or else to nvJitLinkGetLinkedLTOIR in a library whose version was verified.
+func (h Handle) LinkedLTOIR(ltoir uintptr) error {
+	return getLinkedLTOIR(h, ltoir)
+}
+
+// LinkedLTOIRSize wraps nvJitLinkGetLinkedLTOIRSize, bound to the first of __nvJitLinkGetLinkedLTOIRSize_13_4, __nvJitLinkGetLinkedLTOIRSize_13_3, __nvJitLinkGetLinkedLTOIRSize_13_2, __nvJitLinkGetLinkedLTOIRSize_13_1, __nvJitLinkGetLinkedLTOIRSize_13_0 that the library exports, or else to nvJitLinkGetLinkedLTOIRSize in a library whose version was verified.
+func (h Handle) LinkedLTOIRSize() (uint, error) {
+	return getLinkedLTOIRSize(h)
+}
+
+// LinkedPtx wraps nvJitLinkGetLinkedPtx, bound to the first of __nvJitLinkGetLinkedPtx_13_4, __nvJitLinkGetLinkedPtx_13_3, __nvJitLinkGetLinkedPtx_13_2, __nvJitLinkGetLinkedPtx_13_1, __nvJitLinkGetLinkedPtx_13_0 that the library exports, or else to nvJitLinkGetLinkedPtx in a library whose version was verified.
 //
 // The result does not include the C string's terminating NUL.
 func (h Handle) LinkedPtx() ([]byte, error) {
 	return getLinkedPtx(h)
 }
 
-// LinkedPtxSize wraps nvJitLinkGetLinkedPtxSize, bound as __nvJitLinkGetLinkedPtxSize_13_2.
+// LinkedPtxSize wraps nvJitLinkGetLinkedPtxSize, bound to the first of __nvJitLinkGetLinkedPtxSize_13_4, __nvJitLinkGetLinkedPtxSize_13_3, __nvJitLinkGetLinkedPtxSize_13_2, __nvJitLinkGetLinkedPtxSize_13_1, __nvJitLinkGetLinkedPtxSize_13_0 that the library exports, or else to nvJitLinkGetLinkedPtxSize in a library whose version was verified.
 //
 // The size counts the terminating NUL that [Handle.LinkedPtx] drops, so it is one more
 // than the length of that result.

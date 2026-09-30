@@ -10,18 +10,16 @@
     "nvJitLink.h",
     "-headers-dir",
     "cuda-headers",
-    "-docs-dir",
-    "docs",
     "-output",
     "${OUTPUT_DIR}"
   ],
   "inputs": [
     {
       "path": "nvJitLink.h",
-      "sha256": "6bd4880984986486e2cee5ddfe848d82efcf2be8454dcad4499b3bc41939b871"
+      "sha256": "4837ebb7294c5956360b940d747ff5f46067cfe855dc00bbd2d9d736bbc8faa5"
     }
   ],
-  "source_hash": "8d2f0e22b938c6d5994585bfa2c7df638a7b3936a2d3176d010e42e5f0bac1dc",
+  "source_hash": "fd3eeb638341b85cfd298a3920707723a3239561a1369684606fc36f2a1570bf",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records portable argument names; host-specific paths are intentionally redacted.",
