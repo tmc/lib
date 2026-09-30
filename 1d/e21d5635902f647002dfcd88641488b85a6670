@@ -4,3 +4,5 @@ tty: not a tty pid: 7605 ITERM_SESSION_ID: w8t3p6:241C535C-E85E-44BB-9285-43BE8B
 session=8bc9bbf9-7254-414c-bfc5-2030e14950b0
 
 rebuilt on df7a71b67 as b8d63df92 2026-09-29 17:48:52 -0700; tree differs from 9acacd064 only by df7a71b67 (generate.go, scripts/ffi.sh)
+
+rebuilt on e55d4ce68 as 1de21d563 2026-09-29 18:12:08 -0700; tree differs from b8d63df92 only by e55d4ce68 (internal/ffi re-eject)
