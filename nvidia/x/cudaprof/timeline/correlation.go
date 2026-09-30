@@ -34,6 +34,7 @@ type Correlation struct {
 // process and thread. Crossing ranges and equally narrow candidates remain
 // ambiguous. An operation that submits on another thread needs explicit
 // instrumentation on that thread; temporal overlap alone never links it.
+// Ranges with missing process or thread identity are unsupported.
 // Metadata comes only from the selected innermost range, with no inheritance
 // from outer ranges. Missing optional fields remain missing. Conflicting
 // explicitly supplied fields in enclosing markers remain ambiguous.
@@ -73,7 +74,7 @@ func Correlations(records Records, domain string) []Correlation {
 			}
 			m.Call, m.APIStatus = ids[0], "matched"
 			c := records.Calls[m.Call]
-			if c.End < c.Start {
+			if c.Process == 0 || c.Thread == 0 || c.End < c.Start {
 				m.RangeStatus = "unsupported"
 				break
 			}
@@ -84,6 +85,28 @@ func Correlations(records Records, domain string) []Correlation {
 				}
 			}
 			if len(candidates) == 0 {
+				break
+			}
+			// An invalid ancestor makes its nested context ambiguous too.
+			// Crossing ranges need not enclose the entire API call.
+			crossed := false
+			for _, j := range candidates {
+				r := records.Ranges[j]
+				for _, s := range records.Ranges {
+					if s.Journal != r.Journal || s.Process != r.Process || s.Thread != r.Thread || s.End <= s.Start {
+						continue
+					}
+					if r.Start < s.Start && s.Start < r.End && r.End < s.End || s.Start < r.Start && r.Start < s.End && s.End < r.End {
+						crossed = true
+						break
+					}
+				}
+				if crossed {
+					break
+				}
+			}
+			if crossed {
+				m.RangeStatus = "ambiguous"
 				break
 			}
 			// A unique minimum must be contained by every other candidate.
