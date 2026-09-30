@@ -104,6 +104,9 @@ To collect an interleaved correctness-gated campaign inside one GPU lock:
 To inspect available dependency evidence:
   cudaprof dependency capture.pprof
 
+To run a controlled native capability probe inside a GPU lock:
+  cudaprof probe [-um | -metrics names] [-managed]
+
 To print the build of this cudaprof:
   cudaprof version
 
@@ -138,6 +141,7 @@ func commands() []command {
 		{name: "comparison-summary", run: func(args []string) error { return runComparisonSummaryCommand(args[1:], os.Stdout) }},
 		{name: "campaign", run: func(args []string) error { return runCampaignCommand(args[1:], os.Stdout) }},
 		{name: "dependency", run: func(args []string) error { return runDependencyCommand(args[1:]) }},
+		{name: "probe", run: func(args []string) error { return runProbeCommand(args[1:]) }},
 		{name: "capture", run: func(args []string) error { return runCaptureCommand(args[1:]) }},
 		{name: "inspect", usage: inspectUsage, run: func(args []string) error { return runInspectCommand(args[1:]) }},
 		{name: "export-compare", run: func(args []string) error { return runExportCompareCommand(args[1:]) }},
