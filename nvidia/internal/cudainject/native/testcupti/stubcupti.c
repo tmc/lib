@@ -11,6 +11,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 #include <time.h>
 
@@ -32,6 +33,7 @@ static size_t record_size(CUpti_ActivityKind kind) {
 	case CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL: n = sizeof(TEST_KERNEL_TYPE); break;
 	case CUPTI_ACTIVITY_KIND_MEMCPY: n = sizeof(CUpti_ActivityMemcpy6); break;
 	case CUPTI_ACTIVITY_KIND_MEMSET: n = sizeof(CUpti_ActivityMemset4); break;
+	case CUPTI_ACTIVITY_KIND_UNIFIED_MEMORY_COUNTER: n = sizeof(CUpti_ActivityUnifiedMemoryCounter3); break;
 	case CUPTI_ACTIVITY_KIND_OVERHEAD: n = sizeof(CUpti_ActivityOverhead); break;
 	case CUPTI_ACTIVITY_KIND_SYNCHRONIZATION: n = sizeof(CUpti_ActivitySynchronization); break;
 	case CUPTI_ACTIVITY_KIND_GRAPH_TRACE: n = sizeof(CUpti_ActivityGraphTrace); break;
@@ -88,6 +90,10 @@ static int kind_enabled(CUpti_ActivityKind kind) {
 }
 
 CUptiResult cuptiActivityEnable(CUpti_ActivityKind kind) {
+    if (kind==CUPTI_ACTIVITY_KIND_UNIFIED_MEMORY_COUNTER) {
+        const char *value=getenv("CUDAPROF_TEST_UM_ENABLE_RESULT");
+        if(value!=NULL && strtol(value,NULL,10)!=0)return (CUptiResult)strtol(value,NULL,10);
+    }
 	unsigned at = next_call_sequence();
 	unsigned unset = 0;
 	/* Only the FIRST enable matters: the requirement is that no record can be
@@ -674,6 +680,11 @@ CUptiResult cuptiActivityGetStructSize(CUpti_ActivityKind kind, uint32_t flags, 
 	(void)flags;
 	if (size == NULL) return CUPTI_ERROR_INVALID_PARAMETER;
 	switch (kind) {
+	case CUPTI_ACTIVITY_KIND_UNIFIED_MEMORY_COUNTER:
+		*size = sizeof(CUpti_ActivityUnifiedMemoryCounter3);
+        const char *memory_size=getenv("CUDAPROF_TEST_UM_STRUCT_SIZE");
+        if(memory_size!=NULL)*size=(size_t)strtoul(memory_size,NULL,10);
+		return CUPTI_SUCCESS;
 	case CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL:
 	case CUPTI_ACTIVITY_KIND_KERNEL:
 		*size = sizeof(TEST_KERNEL_TYPE);
@@ -766,6 +777,11 @@ CUptiResult cudaprof_test_mock_short_graph_trace_struct_size(CUpti_ActivityKind 
 	(void)flags;
 	if (size == NULL) return CUPTI_ERROR_INVALID_PARAMETER;
 	switch (kind) {
+	case CUPTI_ACTIVITY_KIND_UNIFIED_MEMORY_COUNTER:
+		*size = sizeof(CUpti_ActivityUnifiedMemoryCounter3);
+        const char *memory_size=getenv("CUDAPROF_TEST_UM_STRUCT_SIZE");
+        if(memory_size!=NULL)*size=(size_t)strtoul(memory_size,NULL,10);
+		return CUPTI_SUCCESS;
 	case CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL:
 	case CUPTI_ACTIVITY_KIND_KERNEL:
 		*size = sizeof(TEST_KERNEL_TYPE);
@@ -924,4 +940,72 @@ void cudaprof_test_graph_runtime_replay(void) {
  int success=0;
  CUpti_CallbackData call={0};call.callbackSite=CUPTI_API_EXIT;call.functionName="cudaGraphLaunch";call.functionParams=&runtime_launch;call.functionReturnValue=&success;call.correlationId=3;call.contextUid=3;
  subscriber_cb(subscriber_data,CUPTI_CB_DOMAIN_RUNTIME_API,CUPTI_RUNTIME_TRACE_CBID_cudaGraphLaunch_v10000,&call);
+}
+
+static void dependency_call(unsigned cbid, const char *name, const void *params, unsigned correlation) {
+ if (!subscriber_live || !subscriber_cb || !cudaprof_test_callback_enabled(CUPTI_CB_DOMAIN_DRIVER_API,cbid)) return;
+ CUresult success=CUDA_SUCCESS;
+ CUpti_CallbackData call={0}; call.functionName=name;call.functionParams=params;call.correlationId=correlation;call.contextUid=3;
+ call.callbackSite=CUPTI_API_ENTER;subscriber_cb(subscriber_data,CUPTI_CB_DOMAIN_DRIVER_API,cbid,&call);
+ call.callbackSite=CUPTI_API_EXIT;call.functionReturnValue=&success;subscriber_cb(subscriber_data,CUPTI_CB_DOMAIN_DRIVER_API,cbid,&call);
+}
+
+void cudaprof_test_dependencies(void) {
+ CUstream a=(CUstream)(uintptr_t)0x101,b=(CUstream)(uintptr_t)0x102;
+ CUevent event=(CUevent)(uintptr_t)0x201;
+ cuStreamCreate_params create={&a,1};dependency_call(124,"cuStreamCreate",&create,1);
+ create.phStream=&b;dependency_call(124,"cuStreamCreate",&create,2);
+ cuEventCreate_params ce={&event,0};dependency_call(118,"cuEventCreate",&ce,3);
+ cuLaunchKernel_params launch={0};launch.hStream=a;dependency_call(307,"cuLaunchKernel",&launch,4);
+ cuEventRecord_params record={event,a};dependency_call(119,"cuEventRecord",&record,5);
+ cuStreamWaitEvent_params wait={b,event,0};dependency_call(295,"cuStreamWaitEvent",&wait,6);
+ launch.hStream=b;dependency_call(307,"cuLaunchKernel",&launch,7);
+ cuStreamSynchronize_params sync={b};dependency_call(126,"cuStreamSynchronize",&sync,8);
+}
+
+/* Optional memory controls exercise the real producer without CUDA. */
+CUptiResult cuptiActivityConfigureUnifiedMemoryCounter(CUpti_ActivityUnifiedMemoryCounterConfig *config, uint32_t count) {
+ if (config == NULL || count != 1) return CUPTI_ERROR_INVALID_PARAMETER;
+ const char *result = getenv("CUDAPROF_TEST_UM_RESULT");
+ return result == NULL ? CUPTI_SUCCESS : (CUptiResult)strtol(result,NULL,10);
+}
+int cudaprof_test_memory(void) {
+ if (request_cb == NULL || complete_cb == NULL) return -1;
+ if (!kind_enabled(CUPTI_ACTIVITY_KIND_UNIFIED_MEMORY_COUNTER)) return 0;
+ uint8_t *buffer=NULL;size_t size=0,max_records=0;
+ request_cb(&buffer,&size,&max_records);
+ if(buffer==NULL || size<2*sizeof(CUpti_ActivityUnifiedMemoryCounter3))return 0;
+ CUpti_ActivityUnifiedMemoryCounter3 *records=(void *)buffer;
+ memset(records,0,2*sizeof(*records));
+ records[0].kind=CUPTI_ACTIVITY_KIND_UNIFIED_MEMORY_COUNTER;
+ records[0].counterKind=CUPTI_ACTIVITY_UNIFIED_MEMORY_COUNTER_KIND_BYTES_TRANSFER_HTOD;
+ records[0].start=100;records[0].end=150;records[0].value=4096;records[0].address=0x1000;records[0].srcId=0;records[0].dstId=2;records[0].streamId=999;records[0].processId=(uint32_t)getpid();
+ records[1].kind=CUPTI_ACTIVITY_KIND_UNIFIED_MEMORY_COUNTER;
+ records[1].counterKind=CUPTI_ACTIVITY_UNIFIED_MEMORY_COUNTER_KIND_CPU_PAGE_FAULT_COUNT;
+ records[1].start=200;records[1].end=1;records[1].value=0xfeed;records[1].address=0x2000;records[1].streamId=999;records[1].processId=(uint32_t)getpid();
+ complete_cb(NULL,999,buffer,size,2*sizeof(*records));
+ return 2;
+}
+void cudaprof_test_memory_policy(void) {
+ if(!subscriber_live||!subscriber_cb)return;
+ int32_t value=-1;CUresult success=0;
+ cuMemRangeGetAttribute_params query={&value,sizeof(value),4,0x1000,4096};
+ CUpti_CallbackData call={0};call.callbackSite=CUPTI_API_EXIT;call.functionParams=&query;call.functionReturnValue=&success;call.correlationId=17;call.contextUid=3;
+ subscriber_cb(subscriber_data,CUPTI_CB_DOMAIN_DRIVER_API,CUPTI_DRIVER_TRACE_CBID_cuMemRangeGetAttribute,&call);
+ CUresult failure=1;call.functionReturnValue=&failure;
+ subscriber_cb(subscriber_data,CUPTI_CB_DOMAIN_DRIVER_API,CUPTI_DRIVER_TRACE_CBID_cuMemRangeGetAttribute,&call);
+ cuMemPrefetchAsync_v2_params prefetch={0};prefetch.devPtr=0x1000;prefetch.count=4096;prefetch.location.type=1;prefetch.location.id=2;
+ call.functionParams=&prefetch;call.functionReturnValue=&success;
+ subscriber_cb(subscriber_data,CUPTI_CB_DOMAIN_DRIVER_API,CUPTI_DRIVER_TRACE_CBID_cuMemPrefetchAsync_v2,&call);
+}
+
+void cudaprof_test_graph_child(void) {
+ CUgraph child=(CUgraph)(uintptr_t)0x101,parent=(CUgraph)(uintptr_t)0x102,clone=(CUgraph)(uintptr_t)0x103;
+ CUgraphNode node=(CUgraphNode)(uintptr_t)0x301;CUgraphExec exec=(CUgraphExec)(uintptr_t)0x201;
+ cuGraphCreate_params create={&child,0};graph_call(501,"cuGraphCreate",&create,1);create.phGraph=&parent;graph_call(501,"cuGraphCreate",&create,2);
+ cuGraphAddChildGraphNode_params add={&node,parent,NULL,0,child};graph_call(525,"cuGraphAddChildGraphNode",&add,3);
+ cuGraphInstantiateWithFlags_params instantiate={&exec,parent,0};graph_call(643,"cuGraphInstantiateWithFlags",&instantiate,4);
+ cuGraphDestroy_params destroy={child};graph_call(517,"cuGraphDestroy",&destroy,5);create.phGraph=&child;graph_call(501,"cuGraphCreate",&create,6);
+ cuGraphClone_params copied={&clone,parent};graph_call(523,"cuGraphClone",&copied,7);
+ cuGraphLaunch_params launch={exec,0};graph_call(514,"cuGraphLaunch",&launch,8);
 }

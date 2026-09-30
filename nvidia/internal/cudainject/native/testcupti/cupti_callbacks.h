@@ -52,7 +52,11 @@ typedef enum {
 
 typedef enum {
 	CUPTI_DRIVER_TRACE_CBID_cuGraphCreate = 501,
-	CUPTI_DRIVER_TRACE_CBID_cuStreamEndCapture = 497,
+	CUPTI_DRIVER_TRACE_CBID_cuMemRangeGetAttribute=471,
+ CUPTI_DRIVER_TRACE_CBID_cuMemAdvise_v2=715,
+ CUPTI_DRIVER_TRACE_CBID_cuMemPrefetchAsync_v2=716,
+ CUPTI_DRIVER_TRACE_CBID_cuMemPrefetchAsync_v2_ptsz=717,
+ CUPTI_DRIVER_TRACE_CBID_cuStreamEndCapture = 497,
 	CUPTI_DRIVER_TRACE_CBID_cuStreamEndCapture_ptsz = 498,
 	CUPTI_DRIVER_TRACE_CBID_cuGraphInstantiate = 513,
 	CUPTI_DRIVER_TRACE_CBID_cuGraphInstantiate_v2 = 578,
@@ -110,6 +114,18 @@ typedef struct CUfunc_st *CUfunction;
 typedef struct CUlib_st *CUlibrary;
 typedef struct CUkern_st *CUkernel;
 typedef struct CUstream_st *CUstream;
+typedef struct CUevent_st *CUevent;
+typedef struct { CUevent *phEvent; unsigned int Flags; } cuEventCreate_params;
+typedef struct { CUevent hEvent; CUstream hStream; } cuEventRecord_params;
+typedef struct { CUevent hEvent; CUstream hStream; unsigned int flags; } cuEventRecordWithFlags_params;
+typedef struct { CUevent hEvent; } cuEventSynchronize_params;
+typedef struct { CUevent hEvent; } cuEventDestroy_v2_params;
+typedef struct { CUstream *phStream; unsigned int Flags; } cuStreamCreate_params;
+typedef struct { CUstream *phStream; unsigned int flags; int priority; } cuStreamCreateWithPriority_params;
+typedef struct { CUstream hStream; } cuStreamSynchronize_params;
+typedef struct { CUstream hStream; } cuStreamDestroy_v2_params;
+typedef struct { CUstream hStream; CUevent hEvent; unsigned int Flags; } cuStreamWaitEvent_params;
+typedef struct { void *dstHost; unsigned long long srcDevice; size_t ByteCount; CUstream hStream; } cuMemcpyDtoHAsync_v2_params;
 typedef struct CUlaunchConfig_st CUlaunchConfig;
 typedef struct cudaLaunchConfig_st cudaLaunchConfig_t;
 typedef struct { unsigned int x, y, z; } dim3;
@@ -263,7 +279,17 @@ typedef struct { CUgraphExec *phGraphExec; CUgraph hGraph; void *instantiatePara
 typedef cuGraphInstantiateWithParams_params cuGraphInstantiateWithParams_ptsz_params;
 typedef struct { CUgraphExec hGraph; CUstream hStream; } cuGraphLaunch_params;
 typedef struct { CUgraphExec hGraphExec; CUstream hStream; } cuGraphLaunch_ptsz_params;
+typedef uint64_t CUdeviceptr;
+typedef int CUmem_range_attribute;
+typedef int CUmem_advise;
+typedef struct {int type,id;} CUmemLocation;
+typedef struct {void *data;size_t dataSize;CUmem_range_attribute attribute;CUdeviceptr devPtr;size_t count;} cuMemRangeGetAttribute_params;
+typedef struct {CUdeviceptr devPtr;size_t count;CUmem_advise advice;CUmemLocation location;} cuMemAdvise_v2_params;
+typedef struct {CUdeviceptr devPtr;size_t count;CUmemLocation location;unsigned flags;CUstream hStream;} cuMemPrefetchAsync_v2_params;
 typedef struct { CUgraphExec hGraphExec; } cuGraphExecDestroy_params;
+typedef struct { CUgraph *phGraphClone; CUgraph originalGraph; } cuGraphClone_params;
+typedef struct { CUgraphNode *phGraphNode; CUgraph hGraph; const CUgraphNode *dependencies; size_t numDependencies; CUgraph childGraph; } cuGraphAddChildGraphNode_params;
+typedef struct { CUgraphNode hNode; CUgraph *phGraph; } cuGraphChildGraphNodeGetGraph_params;
 typedef struct { CUgraph hGraph; } cuGraphDestroy_params;
 typedef int CUgraphExecUpdateResult;
 typedef struct { CUgraphExecUpdateResult result; CUgraphNode errorNode, errorFromNode; } CUgraphExecUpdateResultInfo;

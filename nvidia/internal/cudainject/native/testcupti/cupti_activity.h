@@ -29,6 +29,7 @@ typedef enum {
 	CUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION = 7,
 	CUPTI_ACTIVITY_KIND_MARKER = 12,
 	CUPTI_ACTIVITY_KIND_OVERHEAD = 17,
+ CUPTI_ACTIVITY_KIND_UNIFIED_MEMORY_COUNTER = 25,
 	CUPTI_ACTIVITY_KIND_SYNCHRONIZATION = 38,
 	CUPTI_ACTIVITY_KIND_GRAPH_TRACE = 51,
 	/* A kind the producer has no decode branch for, and never will. CUPTI's
@@ -207,6 +208,19 @@ typedef struct {
 	const char *name;
 	const char *domain;
 } CUpti_ActivityMarker2;
+
+typedef enum {
+ CUPTI_ACTIVITY_UNIFIED_MEMORY_COUNTER_KIND_BYTES_TRANSFER_HTOD=1,
+ CUPTI_ACTIVITY_UNIFIED_MEMORY_COUNTER_KIND_BYTES_TRANSFER_DTOH=2,
+ CUPTI_ACTIVITY_UNIFIED_MEMORY_COUNTER_KIND_CPU_PAGE_FAULT_COUNT=3,
+ CUPTI_ACTIVITY_UNIFIED_MEMORY_COUNTER_KIND_GPU_PAGE_FAULT=4
+} CUpti_ActivityUnifiedMemoryCounterKind;
+typedef enum {CUPTI_ACTIVITY_UNIFIED_MEMORY_COUNTER_SCOPE_PROCESS_ALL_DEVICES=2} CUpti_ActivityUnifiedMemoryCounterScope;
+typedef struct {CUpti_ActivityUnifiedMemoryCounterScope scope;CUpti_ActivityUnifiedMemoryCounterKind kind;uint32_t deviceId,enable;} CUpti_ActivityUnifiedMemoryCounterConfig;
+typedef struct {
+ CUpti_ActivityKind kind; CUpti_ActivityUnifiedMemoryCounterKind counterKind;
+ uint64_t value,start,end,address;uint32_t srcId,dstId,streamId,processId,flags,pad;uint64_t processors[5];
+} CUpti_ActivityUnifiedMemoryCounter3;
 
 typedef uint64_t (CUPTIAPI *CUpti_TimestampCallbackFunc)(void);
 typedef void (CUPTIAPI *CUpti_BuffersCallbackRequestFunc)(uint8_t **buffer, size_t *size, size_t *maxNumRecords);

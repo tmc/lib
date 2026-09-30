@@ -184,6 +184,7 @@ type capture struct {
 	// graphNodes are the kernel records that name a graph node.
 	graphNodes     []graphNodeKernel
 	graphLifecycle []timeline.GraphEvent
+	dependencies   []timeline.DependencyEvent
 	syncs          []syncRecord
 	hosts          []hostSampleRecord
 	modules        []moduleRecord
@@ -592,20 +593,31 @@ func decode(t *testing.T, path, wantRevision string) capture {
 			c.modules = append(c.modules, m)
 		case kindAPI:
 			var e struct {
-				Kind        string
-				Domain      string
-				Event       string `json:"lifecycle_event"`
-				Graph       uint64 `json:"graph_handle"`
-				Executable  uint64 `json:"executable_handle"`
-				Correlation uint32
-				Start, End  int64
-				Success     *bool
+				Kind            string
+				Domain          string
+				Event           string `json:"lifecycle_event"`
+				Graph           uint64 `json:"graph_handle"`
+				Executable      uint64 `json:"executable_handle"`
+				Source          uint64 `json:"source_graph_handle"`
+				Node            uint64 `json:"node_handle"`
+				TimestampDomain string `json:"timestamp_domain"`
+				Correlation     uint32
+				Start, End      int64
+				Success         *bool
 			}
 			if err := json.Unmarshal(r.Payload, &e); err != nil {
 				t.Fatal(err)
 			}
 			if e.Kind == "graph_lifecycle" {
-				c.graphLifecycle = append(c.graphLifecycle, timeline.GraphEvent{Journal: path, Domain: e.Domain, Kind: e.Event, Graph: e.Graph, Executable: e.Executable, Correlation: e.Correlation, Start: e.Start, End: e.End, Success: e.Success})
+				c.graphLifecycle = append(c.graphLifecycle, timeline.GraphEvent{Journal: path, Domain: e.Domain, TimestampDomain: e.TimestampDomain, Kind: e.Event, Graph: e.Graph, Executable: e.Executable, SourceGraphHandle: e.Source, NodeHandle: e.Node, Correlation: e.Correlation, Start: e.Start, End: e.End, Success: e.Success})
+			}
+			if e.Kind == "dependency" {
+				var d timeline.DependencyEvent
+				if err := json.Unmarshal(r.Payload, &d); err != nil {
+					t.Fatal(err)
+				}
+				d.Journal, d.Sequence = path, r.Sequence
+				c.dependencies = append(c.dependencies, d)
 			}
 		case kindHost:
 			var h hostSampleRecord
@@ -3861,5 +3873,71 @@ func TestGraphRuntimeReplay(t *testing.T) {
 	links := timeline.GraphLifecycle(c.graphLifecycle)
 	if c.graphLifecycle[3].Domain != "runtime" || c.graphLifecycle[3].Correlation != c.graphLifecycle[2].Correlation || links[3].Status != "matched" || links[2].Status != "matched" || links[3].Executable != links[2].Executable {
 		t.Fatalf("runtime handle identity lost or domains collided: events=%+v links=%+v", c.graphLifecycle, links)
+	}
+}
+
+func TestDependencyCallbacks(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		flags   []string
+		enabled bool
+	}{{"off", nil, false}, {"cuda12", nil, true}, {"cuda13", cuda13Build, true}} {
+		t.Run(tc.name, func(t *testing.T) {
+			bin := controlBinary(t, tc.flags...)
+			env := []string{"CUDAPROF_DEPENDENCIES=0"}
+			if tc.enabled {
+				env = []string{"CUDAPROF_DEPENDENCIES=1"}
+			}
+			_, status, captures := runBuilt(t, bin, env, "dependencies")
+			c := only(t, captures)
+			if !status.Exited() || status.ExitStatus() != 0 {
+				t.Fatalf("status=%v", status)
+			}
+			want := 0
+			if tc.enabled {
+				want = 16
+			}
+			if len(c.dependencies) != want {
+				t.Fatalf("receipts=%d, want %d", len(c.dependencies), want)
+			}
+			if !tc.enabled {
+				return
+			}
+			if !bytes.Contains(c.capabilityJSON, []byte(`"dependencies":"collected"`)) {
+				t.Fatalf("capability=%s", c.capabilityJSON)
+			}
+			for i, e := range c.dependencies {
+				if e.Ordinal != uint64(i+1) || e.TimestampDomain != "monotonic" || e.Correlation != uint32(i/2+1) {
+					t.Fatalf("receipt %d=%+v", i, e)
+				}
+				if i%2 == 1 && (e.Success == nil || !*e.Success) {
+					t.Fatalf("missing exit result: %+v", e)
+				}
+			}
+		})
+	}
+}
+
+func TestGraphChildCallbacks(t *testing.T) {
+	for _, flags := range [][]string{nil, cuda13Build} {
+		bin := controlBinary(t, flags...)
+		_, status, captures := runBuilt(t, bin, []string{"CUDAPROF_GRAPH_LIFECYCLE=1"}, "graph-child")
+		c := only(t, captures)
+		if !status.Exited() || status.ExitStatus() != 0 || len(c.graphLifecycle) != 8 {
+			t.Fatalf("status=%v events=%+v", status, c.graphLifecycle)
+		}
+		links := timeline.GraphLifecycle(c.graphLifecycle)
+		replay := links[7]
+		if replay.Status != "matched" || len(replay.Children) != 1 || replay.Children[0].Handle != 0x101 || replay.Children[0].Generation != 1 {
+			t.Fatalf("replay=%+v", replay)
+		}
+		if links[6].Status != "matched" || len(links[6].Children) != 1 || links[6].Children[0] != replay.Children[0] {
+			t.Fatalf("clone=%+v", links[6])
+		}
+		for _, e := range c.graphLifecycle {
+			if e.TimestampDomain != "monotonic" {
+				t.Fatalf("clock=%q", e.TimestampDomain)
+			}
+		}
 	}
 }
