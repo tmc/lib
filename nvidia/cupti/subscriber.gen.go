@@ -3,6 +3,7 @@
 package cupti
 
 import (
+	"github.com/tmc/lib/nvidia/driver"
 	"unsafe"
 )
 
@@ -43,6 +44,46 @@ func (s Subscriber) ActivityDisableV2(kind ActivityKind, pActivityConfig *Activi
 // Wraps cuptiActivityEnableAndDump_v2.
 func (s Subscriber) ActivityEnableAndDumpV2(kind ActivityKind, activityConfig *ActivityConfig) error {
 	return activityEnableAndDumpV2(s, kind, activityConfig)
+}
+
+// ActivityEnableDriverApiV2 controls the collection of activity records for specific CUDA Driver APIs for a given subscriber.
+//
+// This is the per-subscriber version of [ActivityEnableDriverApi]. It allows each subscriber to independently enable or disable tracing of specific CUDA Driver APIs.
+//
+// Note: This API is supported with user-defined activity records (see [Subscriber.ActivityEnableV2] with [ActivityConfig].fieldSelection). When using user-defined records, the activity kind must first be registered via [Subscriber.ActivityEnableV2] before calling this API to control per-cbid collection. Support for cbid filtering with user-defined records requires CUPTI_API_VERSION 130400 or later.
+//
+// Note: If cbid-level filtering is only needed at enable time and does not change thereafter, the [ActivityApiCbidOptions] allowlist/denylist passed through [Subscriber.ActivityEnableV2] is a simpler alternative to calling this API per cbid.
+//
+//   - cbid: callback id of the CUDA Driver API
+//   - enable: is a boolean, denoting whether to enable or disable the collection
+//
+// Errors:
+//   - [ErrInvalidParameter]: if the subscriber handle is invalid or cbid is out of range
+//   - [ErrNotInitialized]
+//
+// Wraps cuptiActivityEnableDriverApi_v2.
+func (s Subscriber) ActivityEnableDriverApiV2(cbid uint32, enable uint8) error {
+	return activityEnableDriverApiV2(s, cbid, enable)
+}
+
+// ActivityEnableRuntimeApiV2 controls the collection of activity records for specific CUDA Runtime APIs for a given subscriber.
+//
+// This is the per-subscriber version of [ActivityEnableRuntimeApi]. It allows each subscriber to independently enable or disable tracing of specific CUDA Runtime APIs.
+//
+// Note: This API is supported with user-defined activity records (see [Subscriber.ActivityEnableV2] with [ActivityConfig].fieldSelection). When using user-defined records, the activity kind must first be registered via [Subscriber.ActivityEnableV2] before calling this API to control per-cbid collection. Support for cbid filtering with user-defined records requires CUPTI_API_VERSION 130400 or later.
+//
+// Note: If cbid-level filtering is only needed at enable time and does not change thereafter, the [ActivityApiCbidOptions] allowlist/denylist passed through [Subscriber.ActivityEnableV2] is a simpler alternative to calling this API per cbid.
+//
+//   - cbid: callback id of the CUDA Runtime API
+//   - enable: is a boolean, denoting whether to enable or disable the collection
+//
+// Errors:
+//   - [ErrInvalidParameter]: if the subscriber handle is invalid or cbid is out of range
+//   - [ErrNotInitialized]
+//
+// Wraps cuptiActivityEnableRuntimeApi_v2.
+func (s Subscriber) ActivityEnableRuntimeApiV2(cbid uint32, enable uint8) error {
+	return activityEnableRuntimeApiV2(s, cbid, enable)
 }
 
 // ActivityEnableV2 enables collection of a specific kind of activity record for the subscriber.
@@ -99,6 +140,76 @@ func (s Subscriber) ActivityGetAttributeV2(attr ActivityAttribute, valueSize *ui
 // Wraps cuptiActivityGetEnabledKinds.
 func (s Subscriber) ActivityGetEnabledKinds(buffer *ActivityKind, bufferSize *uint32) (uint32, error) {
 	return activityGetEnabledKinds(s, buffer, bufferSize)
+}
+
+// ActivityGetNextRecordV2 iterates over the activity records in the supplied buffer.
+//
+// This function is similar to [ActivityGetNextRecord] and accepts a subscriber handle. It should be used instead of [ActivityGetNextRecord] when using subscriber-aware V2 APIs.
+//
+//   - buffer: The buffer containing activity records
+//   - validBufferSizeBytes: The number of valid bytes in the buffer
+//   - record: Inputs the previous record returned by [Subscriber.ActivityGetNextRecordV2] and returns the next activity record from the buffer. If input value is NULL, returns the first activity record in the buffer
+//
+// Errors:
+//   - [ErrInvalidKind]: if activity record is either incomplete or invalid
+//   - [ErrInvalidParameter]: if subscriber, buffer or record is NULL.
+//   - [ErrMaxLimitReached]: if no more records in the buffer
+//   - [ErrNotInitialized]
+//
+// Wraps cuptiActivityGetNextRecord_v2.
+func (s Subscriber) ActivityGetNextRecordV2(buffer *uint8, validBufferSizeBytes uint, record **Activity) error {
+	return activityGetNextRecordV2(s, buffer, validBufferSizeBytes, record)
+}
+
+// ActivityGetNumDroppedRecordsV2 gets the number of dropped activity records for a specific subscriber.
+//
+// This is the per-subscriber version of [ActivityGetNumDroppedRecords].
+//
+// Note: This API resets the subscriber’s dropped record count to 0 after reading.
+//
+//   - context: CUDA context (reserved for future use)
+//   - streamId: Stream ID (reserved for future use)
+//   - dropped: Returns the number of dropped records
+//
+// Errors:
+//   - [ErrInvalidParameter]: if subscriber or dropped is NULL
+//
+// Wraps cuptiActivityGetNumDroppedRecords_v2.
+func (s Subscriber) ActivityGetNumDroppedRecordsV2(context driver.Context, streamId uint32) (uint, error) {
+	return activityGetNumDroppedRecordsV2(s, context, streamId)
+}
+
+// ActivityPopExternalCorrelationIdV2 pops an external correlation id for a specific subscriber.
+//
+// Subscriber aware V2 version of [ActivityPopExternalCorrelationId].
+// This allows each subscriber to maintain its own external correlation context.
+//
+//   - kind: The kind of external API to pop correlation for
+//   - lastId: Returns the last external correlation id popped, can be NULL
+//
+// Errors:
+//   - [ErrInvalidParameter]: if subscriber or kind is invalid.
+//   - [ErrQueueEmpty]: No external id is currently associated with kind for this subscriber.
+//
+// Wraps cuptiActivityPopExternalCorrelationId_v2.
+func (s Subscriber) ActivityPopExternalCorrelationIdV2(kind ExternalCorrelationKind) (uint64, error) {
+	return activityPopExternalCorrelationIdV2(s, kind)
+}
+
+// ActivityPushExternalCorrelationIdV2 pushes an external correlation id for a specific subscriber.
+//
+// Subscriber aware V2 version of [ActivityPushExternalCorrelationId].
+// This allows each subscriber to maintain its own external correlation context.
+//
+//   - kind: The kind of external API activities should be correlated with
+//   - id: External correlation id
+//
+// Errors:
+//   - [ErrInvalidParameter]: if subscriber or kind is invalid.
+//
+// Wraps cuptiActivityPushExternalCorrelationId_v2.
+func (s Subscriber) ActivityPushExternalCorrelationIdV2(kind ExternalCorrelationKind, id uint64) error {
+	return activityPushExternalCorrelationIdV2(s, kind, id)
 }
 
 // ActivityRegisterCallbacksV2 registers callback functions with CUPTI for activity buffer handling for the subscriber.
@@ -227,6 +338,21 @@ func (s Subscriber) EnableDomain(enable uint32, domain CallbackDomain) error {
 // Wraps cuptiGetEnabledCallbacks.
 func (s Subscriber) EnabledCallbacks(domain CallbackDomain, buffer *uint32, bufferSize *uint32) (uint32, error) {
 	return getEnabledCallbacks(s, domain, buffer, bufferSize)
+}
+
+// TimestampV2 gets the CUPTI timestamp.
+//
+// If a subscriber registers a particular timestamp callback, this API will use that callback to get the timestamp. In CUDA 13.3, this API falls back to [GetTimestamp]. In CUDA 13.4 and later, this API provides the timestamp callback registered by the requesting subscriber.
+// Returns a timestamp normalized to correspond with the start and end timestamps reported in the CUPTI activity records. The timestamp is reported in nanoseconds.
+//
+//   - timestamp: Returns the CUPTI timestamp
+//
+// Errors:
+//   - [ErrInvalidParameter]: if timestamp is NULL or subscriber is NULL
+//
+// Wraps cuptiGetTimestamp_v2.
+func (s Subscriber) TimestampV2() (uint64, error) {
+	return getTimestampV2(s)
 }
 
 // Unsubscribe unregisters a callback subscriber.

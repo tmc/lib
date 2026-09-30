@@ -206,7 +206,7 @@ const (
 	CbidStateInvalid CallbackIdState = 0 // Invalid state callback ID.
 	// CbidStateFatalError: Notification of fatal errors - high impact, non-recoverable When encountered, CUPTI automatically invokes [Finalize] User can control behavior of the application in future from receiving this callback - such as continuing without profiling, or terminating the whole application.
 	CbidStateFatalError CallbackIdState = 1
-	// CbidStateError: Notification of non fatal errors - high impact, but recoverable This notification is not issued in the current release.
+	// CbidStateError: Notification of non fatal errors - high impact, but recoverable
 	CbidStateError    CallbackIdState = 2
 	CbidStateWarning  CallbackIdState = 3 // Notification of warnings - low impact, recoverable.
 	CbidStateSize     CallbackIdState = 4
@@ -880,16 +880,16 @@ func (e MetricPropertyID) String() string {
 
 // ActivityKind represents the kinds of activity records.
 //
-// Each activity record kind represents information about a GPU or an activity occurring on a CPU or GPU. Each kind is associated with a activity record structure that holds the information associated with the kind. See also [Activity] See also [ActivityAPI] See also [ActivityContext] See also [ActivityContext2] See also [ActivityContext3] See also [ActivityContext4] See also [ActivityDevice] See also [ActivityDevice2] See also [ActivityDevice3] See also [ActivityDevice4] See also [ActivityDevice5] See also [ActivityDevice6] See also CUpti_ActivityDeviceAttribute See also [ActivityEvent] See also [ActivityEventInstance] See also [ActivityKernel] See also [ActivityKernel2] See also [ActivityKernel3] See also [ActivityKernel4] See also [ActivityKernel5] See also [ActivityKernel6] See also [ActivityKernel7] See also [ActivityKernel8] See also [ActivityKernel9] See also [ActivityKernel10] See also [ActivityKernel11] See also CUpti_ActivityKernel12 See also CUpti_ActivityKernel13 See also [ActivityCdpKernel] See also [ActivityPreemption] See also [ActivityMemcpy] See also [ActivityMemcpy3] See also [ActivityMemcpy4] See also [ActivityMemcpy5] See also [ActivityMemcpy6] See also CUpti_ActivityMemcpy7 See also [ActivityMemcpy2] See also [ActivityMemcpyPtoP2] See also [ActivityMemcpyPtoP3] See also [ActivityMemcpyPtoP4] See also [ActivityMemset] See also [ActivityMemset2] See also [ActivityMemset3] See also [ActivityMemset4] See also CUpti_ActivityMemset5 See also [ActivityMemory] See also [ActivityMemory2] See also [ActivityMemory3] See also [ActivityMemory4] See also [ActivityMemoryPool] See also [ActivityMemoryPool2] See also [ActivityMemoryPool3] See also [ActivityMetric] See also [ActivityMetricInstance] See also [ActivityName] See also [ActivityMarker] See also [ActivityMarker2] See also [ActivityMarkerData] See also [ActivitySourceLocator] See also [ActivityGlobalAccess] See also [ActivityGlobalAccess2] See also [ActivityGlobalAccess3] See also [ActivityBranch] See also [ActivityBranch2] See also [ActivityOverhead3] See also [ActivityEnvironment] See also [ActivityInstructionExecution] See also [ActivityUnifiedMemoryCounter] See also [ActivityFunction] See also [ActivityModule] See also [ActivitySharedAccess] See also [ActivityPCSampling] See also [ActivityPCSampling2] See also [ActivityPCSampling3] See also [ActivityPCSamplingRecordInfo] See also [ActivityCudaEvent2] See also [ActivityStream] See also [ActivitySynchronization2] See also [ActivityInstructionCorrelation] See also [ActivityExternalCorrelation] See also [ActivityUnifiedMemoryCounter3] See also [ActivityOpenAccData] See also [ActivityOpenAccLaunch] See also [ActivityOpenAccOther] See also [ActivityOpenMp] See also [ActivityNvLink] See also [ActivityNvLink2] See also [ActivityNvLink3] See also [ActivityNvLink4] See also [ActivityNvLink5] See also [ActivityPcie] See also [ActivityConfidentialComputeRotation] See also [ActivityComputeEngineCtxSwitch]
+// Each activity record kind represents information about a GPU or an activity occurring on a CPU or GPU. Each kind is associated with a activity record structure that holds the information associated with the kind. See also [Activity] See also [ActivityAPI] See also [ActivityContext] See also [ActivityContext2] See also [ActivityContext3] See also [ActivityContext4] See also [ActivityDevice] See also [ActivityDevice2] See also [ActivityDevice3] See also [ActivityDevice4] See also [ActivityDevice5] See also [ActivityDevice6] See also CUpti_ActivityDeviceAttribute See also [ActivityEvent] See also [ActivityEventInstance] See also [ActivityKernel] See also [ActivityKernel2] See also [ActivityKernel3] See also [ActivityKernel4] See also [ActivityKernel5] See also [ActivityKernel6] See also [ActivityKernel7] See also [ActivityKernel8] See also [ActivityKernel9] See also [ActivityKernel10] See also [ActivityKernel11] See also [ActivityKernel12] See also [ActivityKernel13] See also [ActivityCdpKernel] See also [ActivityPreemption] See also [ActivityMemcpy] See also [ActivityMemcpy3] See also [ActivityMemcpy4] See also [ActivityMemcpy5] See also [ActivityMemcpy6] See also [ActivityMemcpy7] See also [ActivityMemcpy2] See also [ActivityMemcpyPtoP2] See also [ActivityMemcpyPtoP3] See also [ActivityMemcpyPtoP4] See also [ActivityMemset] See also [ActivityMemset2] See also [ActivityMemset3] See also [ActivityMemset4] See also [ActivityMemset5] See also [ActivityMemory] See also [ActivityMemory2] See also [ActivityMemory3] See also [ActivityMemory4] See also [ActivityMemoryPool] See also [ActivityMemoryPool2] See also [ActivityMemoryPool3] See also [ActivityMetric] See also [ActivityMetricInstance] See also [ActivityName] See also [ActivityMarker] See also [ActivityMarker2] See also [ActivityMarkerData] See also [ActivitySourceLocator] See also [ActivityGlobalAccess] See also [ActivityGlobalAccess2] See also [ActivityGlobalAccess3] See also [ActivityBranch] See also [ActivityBranch2] See also [ActivityOverhead3] See also [ActivityEnvironment] See also [ActivityInstructionExecution] See also [ActivityUnifiedMemoryCounter] See also [ActivityFunction] See also [ActivityModule] See also [ActivitySharedAccess] See also [ActivityPCSampling] See also [ActivityPCSampling2] See also [ActivityPCSampling3] See also [ActivityPCSamplingRecordInfo] See also [ActivityCudaEvent2] See also [ActivityStream] See also [ActivitySynchronization2] See also [ActivityInstructionCorrelation] See also [ActivityExternalCorrelation] See also [ActivityUnifiedMemoryCounter3] See also [ActivityOpenAccData] See also [ActivityOpenAccLaunch] See also [ActivityOpenAccOther] See also [ActivityOpenMp] See also [ActivityNvLink] See also [ActivityNvLink2] See also [ActivityNvLink3] See also [ActivityNvLink4] See also [ActivityNvLink5] See also [ActivityPcie] See also [ActivityConfidentialComputeRotation] See also [ActivityComputeEngineCtxSwitch]
 type ActivityKind int32
 
 const (
 	ActivityKindInvalid ActivityKind = 0 // The activity record is invalid.
-	// ActivityKindMemcpy: A host<->host, host<->device, or device<->device memory copy. For peer to peer memory copy, use the kind [ActivityKindMemcpy2]. The corresponding activity record structure is [ActivityMemcpy6].
+	// ActivityKindMemcpy: A host<->host, host<->device, or device<->device memory copy. For peer to peer memory copy, use the kind [ActivityKindMemcpy2]. The corresponding activity record structure is [ActivityMemcpy7].
 	ActivityKindMemcpy ActivityKind = 1
-	// ActivityKindMemset: A memory set executing on the GPU. The corresponding activity record structure is [ActivityMemset4].
+	// ActivityKindMemset: A memory set executing on the GPU. The corresponding activity record structure is [ActivityMemset5].
 	ActivityKindMemset ActivityKind = 2
-	// ActivityKindKernel: A kernel executing on the GPU. This activity kind may significantly change the overall performance characteristics of the application because all kernel executions are serialized on the GPU. Other activity kind for kernel [ActivityKindConcurrentKernel] doesn't break kernel concurrency. The corresponding activity record structure is [ActivityKernel11].
+	// ActivityKindKernel: A kernel executing on the GPU. This activity kind may significantly change the overall performance characteristics of the application because all kernel executions are serialized on the GPU. Other activity kind for kernel [ActivityKindConcurrentKernel] doesn't break kernel concurrency. The corresponding activity record structure is [ActivityKernel13]
 	ActivityKindKernel ActivityKind = 3
 	// ActivityKindDriver: A CUDA driver API function execution. The corresponding activity record structure is [ActivityAPI].
 	ActivityKindDriver ActivityKind = 4
@@ -903,7 +903,7 @@ const (
 	ActivityKindDevice ActivityKind = 8
 	// ActivityKindContext: Information about a CUDA context. The corresponding activity record structure is [ActivityContext4].
 	ActivityKindContext ActivityKind = 9
-	// ActivityKindConcurrentKernel: A kernel executing on the GPU. This activity kind doesn't break kernel concurrency. The corresponding activity record structure is [ActivityKernel11].
+	// ActivityKindConcurrentKernel: A kernel executing on the GPU. This activity kind doesn't break kernel concurrency. The corresponding activity record structure is [ActivityKernel13].
 	ActivityKindConcurrentKernel ActivityKind = 10
 	// ActivityKindName: Resource naming done via NVTX APIs for thread, device, context, etc. The corresponding activity record structure is [ActivityName].
 	ActivityKindName ActivityKind = 11
@@ -1001,7 +1001,7 @@ const (
 	ActivityKindComputeEngineCtxSwitch ActivityKind = 57
 	// ActivityKindHostLaunch: An activity kind denoting the launch of a host function through cu(da)LaunchHostFunc API. The corresponding activity record structure is [ActivityHostLaunch].
 	ActivityKindHostLaunch ActivityKind = 58
-	// ActivityKindGreenContext: An activity kind denoting the allocation of a green context. The corresponding activity record structure is [ActivityGreenContext].
+	// ActivityKindGreenContext: An activity kind denoting the allocation of a green context. The corresponding activity record structure is [ActivityGreenContext3].
 	ActivityKindGreenContext ActivityKind = 59
 	ActivityKindCount        ActivityKind = 60 // Count of supported activity kinds.
 	ActivityKindForceInt     ActivityKind = 0x7fffffff
@@ -2242,6 +2242,10 @@ const (
 	MemcpyFieldIsDeviceLaunched ActivityMemcpyFieldIds = 16
 	// MemcpyFieldCopyCount: uint64_t copyCount; Number of individual memcpy operations traced in this record.
 	MemcpyFieldCopyCount ActivityMemcpyFieldIds = 17
+	// MemcpyFieldSourceGraphId: uint32_t sourceGraphId; The unique graph ID of the node from which the memcpy node was instantiated or last updated. This field will be 0 if the memcpy is not launched through graph launch APIs.
+	MemcpyFieldSourceGraphId ActivityMemcpyFieldIds = 18
+	// MemcpyFieldSourceGraphNodeId: uint64_t sourceGraphNodeId; The unique graph node ID of the node from which the memcpy node was instantiated or last updated. This field will be 0 if the memcpy is not launched through graph launch APIs.
+	MemcpyFieldSourceGraphNodeId ActivityMemcpyFieldIds = 19
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -2283,6 +2287,10 @@ func (e ActivityMemcpyFieldIds) String() string {
 		return "MemcpyFieldIsDeviceLaunched"
 	case MemcpyFieldCopyCount:
 		return "MemcpyFieldCopyCount"
+	case MemcpyFieldSourceGraphId:
+		return "MemcpyFieldSourceGraphId"
+	case MemcpyFieldSourceGraphNodeId:
+		return "MemcpyFieldSourceGraphNodeId"
 	}
 	return fmt.Sprintf("ActivityMemcpyFieldIds(%d)", e)
 }
@@ -2413,6 +2421,10 @@ const (
 	MemsetFieldChannelType ActivityMemsetFieldIds = 14
 	// MemsetFieldIsDeviceLaunched: uint8_t isDeviceLaunched; This field is set to 1 if the kernel is part of a device launched graph.
 	MemsetFieldIsDeviceLaunched ActivityMemsetFieldIds = 15
+	// MemsetFieldSourceGraphId: uint32_t sourceGraphId; The unique graph ID of the node from which the memset node was instantiated or last updated. This field will be 0 if the memset is not launched through graph launch APIs.
+	MemsetFieldSourceGraphId ActivityMemsetFieldIds = 16
+	// MemsetFieldSourceGraphNodeId: uint64_t sourceGraphNodeId; The unique graph node ID of the node from which the memset node was instantiated or last updated. This field will be 0 if the memset is not launched through graph launch APIs.
+	MemsetFieldSourceGraphNodeId ActivityMemsetFieldIds = 17
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -2450,6 +2462,10 @@ func (e ActivityMemsetFieldIds) String() string {
 		return "MemsetFieldChannelType"
 	case MemsetFieldIsDeviceLaunched:
 		return "MemsetFieldIsDeviceLaunched"
+	case MemsetFieldSourceGraphId:
+		return "MemsetFieldSourceGraphId"
+	case MemsetFieldSourceGraphNodeId:
+		return "MemsetFieldSourceGraphNodeId"
 	}
 	return fmt.Sprintf("ActivityMemsetFieldIds(%d)", e)
 }
@@ -2655,6 +2671,39 @@ func (e FuncShmemLimitConfig) String() string {
 	return fmt.Sprintf("FuncShmemLimitConfig(%d)", e)
 }
 
+// FuncExecutionModel represents the execution model of a kernel function.
+//
+// This should be used to set executionModel field in kernel records.
+type FuncExecutionModel int32
+
+const (
+	FuncExecutionModelUnknown  FuncExecutionModel = 0
+	FuncExecutionModelSimt     FuncExecutionModel = 1
+	FuncExecutionModelTile     FuncExecutionModel = 2
+	FuncExecutionModelHybrid   FuncExecutionModel = 3
+	FuncExecutionModelSize     FuncExecutionModel = 4
+	FuncExecutionModelForceInt FuncExecutionModel = 0x7fffffff
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e FuncExecutionModel) String() string {
+	switch e {
+	case FuncExecutionModelUnknown:
+		return "FuncExecutionModelUnknown"
+	case FuncExecutionModelSimt:
+		return "FuncExecutionModelSimt"
+	case FuncExecutionModelTile:
+		return "FuncExecutionModelTile"
+	case FuncExecutionModelHybrid:
+		return "FuncExecutionModelHybrid"
+	case FuncExecutionModelSize:
+		return "FuncExecutionModelSize"
+	case FuncExecutionModelForceInt:
+		return "FuncExecutionModelForceInt"
+	}
+	return fmt.Sprintf("FuncExecutionModel(%d)", e)
+}
+
 // ActivityKernelFieldIds represents enum identifiers for fields to trace kernel operations.
 //
 // These field IDs are used to reference specific fields when dynamically selecting or parsing activity records of [ActivityKindConcurrentKernel].
@@ -2749,6 +2798,12 @@ const (
 	// KernelFieldIsDeviceLaunched: uint8_t isDeviceLaunched; This field is set to 1 if the kernel is part of a device launched graph.
 	KernelFieldIsDeviceLaunched ActivityKernelFieldIds = 44
 	KernelFieldLaunchPriority   ActivityKernelFieldIds = 45 // int32_t priority; The launch priority of the kernel.
+	// KernelFieldExecutionModel: uint32_t executionModel; The execution model of the kernel function. See also [FuncExecutionModel] for possible values.
+	KernelFieldExecutionModel ActivityKernelFieldIds = 46
+	// KernelFieldSourceGraphId: uint32_t sourceGraphId; The unique graph ID of the node from which the kernel node was instantiated or last updated. This field will be 0 if the kernel is not launched through graph launch APIs.
+	KernelFieldSourceGraphId ActivityKernelFieldIds = 47
+	// KernelFieldSourceGraphNodeId: uint64_t sourceGraphNodeId; The unique graph node ID of the node from which the kernel node was instantiated or last updated. This field will be 0 if the kernel is not launched through graph launch APIs.
+	KernelFieldSourceGraphNodeId ActivityKernelFieldIds = 48
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -2846,6 +2901,12 @@ func (e ActivityKernelFieldIds) String() string {
 		return "KernelFieldIsDeviceLaunched"
 	case KernelFieldLaunchPriority:
 		return "KernelFieldLaunchPriority"
+	case KernelFieldExecutionModel:
+		return "KernelFieldExecutionModel"
+	case KernelFieldSourceGraphId:
+		return "KernelFieldSourceGraphId"
+	case KernelFieldSourceGraphNodeId:
+		return "KernelFieldSourceGraphNodeId"
 	}
 	return fmt.Sprintf("ActivityKernelFieldIds(%d)", e)
 }
@@ -3270,6 +3331,40 @@ func (e ActivityOverheadFieldIds) String() string {
 	return fmt.Sprintf("ActivityOverheadFieldIds(%d)", e)
 }
 
+// ActivityEnvironmentFieldIds represents enum identifiers for fields in [ActivityEnvironment].
+//
+// Each enum value corresponds to a field in [ActivityEnvironment] and describes the data type and purpose of that field.
+type ActivityEnvironmentFieldIds int32
+
+const (
+	// EnvironmentFieldKind: [ActivityKind] kind; Kind of activity record: [ActivityKindEnvironment].
+	EnvironmentFieldKind     ActivityEnvironmentFieldIds = 0
+	EnvironmentFieldDeviceId ActivityEnvironmentFieldIds = 1 // uint32_t deviceId; The ID of the device
+	// EnvironmentFieldTimestamp: uint64_t timestamp; The timestamp when this sample was retrieved, in ns. A value of 0 indicates that timestamp information could not be collected for the marker.
+	EnvironmentFieldTimestamp ActivityEnvironmentFieldIds = 2
+	// EnvironmentFieldEnvironmentKind: [ActivityEnvironmentKind] environmentKind; The kind of data reported in this record.
+	EnvironmentFieldEnvironmentKind ActivityEnvironmentFieldIds = 3
+	// EnvironmentFieldEnvironmentKindData: union data; Depending on the value of environmentKind, this field contains additional information about the environment. [ActivityEnvironmentSpeedData] speed if environmentKind is [ActivityEnvironmentSpeed] [ActivityEnvironmentTemperatureData] temperature if environmentKind is [ActivityEnvironmentTemperature] [ActivityEnvironmentPowerData] power if environmentKind is [ActivityEnvironmentPower] [ActivityEnvironmentCoolingData] cooling if environmentKind is [ActivityEnvironmentCooling] The size of this field is determined by the largest structure among the possible types it can hold.
+	EnvironmentFieldEnvironmentKindData ActivityEnvironmentFieldIds = 4
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e ActivityEnvironmentFieldIds) String() string {
+	switch e {
+	case EnvironmentFieldKind:
+		return "EnvironmentFieldKind"
+	case EnvironmentFieldDeviceId:
+		return "EnvironmentFieldDeviceId"
+	case EnvironmentFieldTimestamp:
+		return "EnvironmentFieldTimestamp"
+	case EnvironmentFieldEnvironmentKind:
+		return "EnvironmentFieldEnvironmentKind"
+	case EnvironmentFieldEnvironmentKindData:
+		return "EnvironmentFieldEnvironmentKindData"
+	}
+	return fmt.Sprintf("ActivityEnvironmentFieldIds(%d)", e)
+}
+
 // ActivityUvmCounterFieldIds represents enum identifiers for fields in [ActivityUnifiedMemoryCounter3].
 //
 // Each enum value corresponds to a field in [ActivityUnifiedMemoryCounter3] and describes the data type and purpose of that field.
@@ -3638,6 +3733,363 @@ func (e OpenMpEventKind) String() string {
 	return fmt.Sprintf("OpenMpEventKind(%d)", e)
 }
 
+// ActivityOpenAccDataFieldIds represents enum identifiers for fields in [ActivityOpenAccData].
+//
+// Each enum value corresponds to a field in [ActivityOpenAccData] and documents the exact meaning of that field.
+type ActivityOpenAccDataFieldIds int32
+
+const (
+	// OpenaccDataFieldKind: [ActivityKind] kind; The activity record kind. Must be [ActivityKindOpenaccData].
+	OpenaccDataFieldKind      ActivityOpenAccDataFieldIds = 0
+	OpenaccDataFieldEventKind ActivityOpenAccDataFieldIds = 1 // [OpenAccEventKind] eventKind; CUPTI OpenACC event kind.
+	// OpenaccDataFieldParentConstruct: [OpenAccConstructKind] parentConstruct; Parent OpenACC construct kind. For PGI OpenACC runtime < 16.1, this is always [OpenaccConstructKindUnknown].
+	OpenaccDataFieldParentConstruct ActivityOpenAccDataFieldIds = 2
+	OpenaccDataFieldVersion         ActivityOpenAccDataFieldIds = 3 // uint32_t version; Version number.
+	// OpenaccDataFieldImplicit: uint32_t implicit; 1 if this is an implicit event (e.g. implicit wait), 0 otherwise.
+	OpenaccDataFieldImplicit     ActivityOpenAccDataFieldIds = 4
+	OpenaccDataFieldDeviceType   ActivityOpenAccDataFieldIds = 5 // uint32_t deviceType; OpenACC device type.
+	OpenaccDataFieldDeviceNumber ActivityOpenAccDataFieldIds = 6 // uint32_t deviceNumber; OpenACC device number.
+	OpenaccDataFieldThreadId     ActivityOpenAccDataFieldIds = 7 // uint32_t threadId; Thread ID.
+	// OpenaccDataFieldAsync: uint64_t async; Value of the async() clause of the corresponding directive.
+	OpenaccDataFieldAsync    ActivityOpenAccDataFieldIds = 8
+	OpenaccDataFieldAsyncMap ActivityOpenAccDataFieldIds = 9 // uint64_t asyncMap; Internal asynchronous queue number used.
+	// OpenaccDataFieldLineNo: uint32_t lineNo; Line number of the directive or construct start. A non-positive value indicates unknown.
+	OpenaccDataFieldLineNo ActivityOpenAccDataFieldIds = 10
+	// OpenaccDataFieldEndLineNo: uint32_t endLineNo; Line number of the end of the OpenACC construct. A non-positive value indicates unknown.
+	OpenaccDataFieldEndLineNo ActivityOpenAccDataFieldIds = 11
+	// OpenaccDataFieldFuncLineNo: uint32_t funcLineNo; First line number of the function in which the event occurred. A non-positive value indicates unknown.
+	OpenaccDataFieldFuncLineNo ActivityOpenAccDataFieldIds = 12
+	// OpenaccDataFieldFuncEndLineNo: uint32_t funcEndLineNo; Last line number of the function in which the event occurred. A non-positive value indicates unknown.
+	OpenaccDataFieldFuncEndLineNo ActivityOpenAccDataFieldIds = 13
+	OpenaccDataFieldStart         ActivityOpenAccDataFieldIds = 14 // uint64_t start; CUPTI start timestamp (in ns).
+	OpenaccDataFieldEnd           ActivityOpenAccDataFieldIds = 15 // uint64_t end; CUPTI end timestamp (in ns).
+	// OpenaccDataFieldCuDeviceId: uint32_t cuDeviceId; CUDA device ID. Valid only if deviceType is acc_device_nvidia.
+	OpenaccDataFieldCuDeviceId ActivityOpenAccDataFieldIds = 16
+	// OpenaccDataFieldCuContextId: uint32_t cuContextId; CUDA context ID. Valid only if deviceType is acc_device_nvidia.
+	OpenaccDataFieldCuContextId ActivityOpenAccDataFieldIds = 17
+	// OpenaccDataFieldCuStreamId: uint32_t cuStreamId; CUDA stream ID. Valid only if deviceType is acc_device_nvidia.
+	OpenaccDataFieldCuStreamId ActivityOpenAccDataFieldIds = 18
+	// OpenaccDataFieldCuProcessId: uint32_t cuProcessId; Process ID where the OpenACC activity is executing.
+	OpenaccDataFieldCuProcessId ActivityOpenAccDataFieldIds = 19
+	// OpenaccDataFieldCuThreadId: uint64_t cuThreadId; Thread ID where the OpenACC activity is executing.
+	OpenaccDataFieldCuThreadId ActivityOpenAccDataFieldIds = 20
+	// OpenaccDataFieldExternalId: uint32_t externalId; OpenACC correlation ID. Matches the externalId from the corresponding [ExternalCorrelationKindOpenacc] record.
+	OpenaccDataFieldExternalId ActivityOpenAccDataFieldIds = 21
+	// OpenaccDataFieldSrcFile: const char* srcFile; Pointer to a null-terminated string containing the source file name or path, if known.
+	OpenaccDataFieldSrcFile ActivityOpenAccDataFieldIds = 22
+	// OpenaccDataFieldFuncName: const char* funcName; Pointer to a null-terminated string containing the function name.
+	OpenaccDataFieldFuncName  ActivityOpenAccDataFieldIds = 23
+	OpenaccDataFieldBytes     ActivityOpenAccDataFieldIds = 24 // uint64_t bytes; Number of bytes involved in the operation.
+	OpenaccDataFieldHostPtr   ActivityOpenAccDataFieldIds = 25 // uint64_t hostPtr; Host pointer, if available.
+	OpenaccDataFieldDevicePtr ActivityOpenAccDataFieldIds = 26 // uint64_t devicePtr; Device pointer, if available.
+	// OpenaccDataFieldVarName: const char* varName; Pointer to a null-terminated string containing the variable name for which this event is triggered.
+	OpenaccDataFieldVarName ActivityOpenAccDataFieldIds = 27
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e ActivityOpenAccDataFieldIds) String() string {
+	switch e {
+	case OpenaccDataFieldKind:
+		return "OpenaccDataFieldKind"
+	case OpenaccDataFieldEventKind:
+		return "OpenaccDataFieldEventKind"
+	case OpenaccDataFieldParentConstruct:
+		return "OpenaccDataFieldParentConstruct"
+	case OpenaccDataFieldVersion:
+		return "OpenaccDataFieldVersion"
+	case OpenaccDataFieldImplicit:
+		return "OpenaccDataFieldImplicit"
+	case OpenaccDataFieldDeviceType:
+		return "OpenaccDataFieldDeviceType"
+	case OpenaccDataFieldDeviceNumber:
+		return "OpenaccDataFieldDeviceNumber"
+	case OpenaccDataFieldThreadId:
+		return "OpenaccDataFieldThreadId"
+	case OpenaccDataFieldAsync:
+		return "OpenaccDataFieldAsync"
+	case OpenaccDataFieldAsyncMap:
+		return "OpenaccDataFieldAsyncMap"
+	case OpenaccDataFieldLineNo:
+		return "OpenaccDataFieldLineNo"
+	case OpenaccDataFieldEndLineNo:
+		return "OpenaccDataFieldEndLineNo"
+	case OpenaccDataFieldFuncLineNo:
+		return "OpenaccDataFieldFuncLineNo"
+	case OpenaccDataFieldFuncEndLineNo:
+		return "OpenaccDataFieldFuncEndLineNo"
+	case OpenaccDataFieldStart:
+		return "OpenaccDataFieldStart"
+	case OpenaccDataFieldEnd:
+		return "OpenaccDataFieldEnd"
+	case OpenaccDataFieldCuDeviceId:
+		return "OpenaccDataFieldCuDeviceId"
+	case OpenaccDataFieldCuContextId:
+		return "OpenaccDataFieldCuContextId"
+	case OpenaccDataFieldCuStreamId:
+		return "OpenaccDataFieldCuStreamId"
+	case OpenaccDataFieldCuProcessId:
+		return "OpenaccDataFieldCuProcessId"
+	case OpenaccDataFieldCuThreadId:
+		return "OpenaccDataFieldCuThreadId"
+	case OpenaccDataFieldExternalId:
+		return "OpenaccDataFieldExternalId"
+	case OpenaccDataFieldSrcFile:
+		return "OpenaccDataFieldSrcFile"
+	case OpenaccDataFieldFuncName:
+		return "OpenaccDataFieldFuncName"
+	case OpenaccDataFieldBytes:
+		return "OpenaccDataFieldBytes"
+	case OpenaccDataFieldHostPtr:
+		return "OpenaccDataFieldHostPtr"
+	case OpenaccDataFieldDevicePtr:
+		return "OpenaccDataFieldDevicePtr"
+	case OpenaccDataFieldVarName:
+		return "OpenaccDataFieldVarName"
+	}
+	return fmt.Sprintf("ActivityOpenAccDataFieldIds(%d)", e)
+}
+
+// ActivityOpenAccLaunchFieldIds represents enum identifiers for fields in [ActivityOpenAccLaunch].
+//
+// Each enum value corresponds to a field in [ActivityOpenAccLaunch] and documents the exact meaning of that field.
+type ActivityOpenAccLaunchFieldIds int32
+
+const (
+	// OpenaccLaunchFieldKind: [ActivityKind] kind; The activity record kind, must be [ActivityKindOpenaccLaunch].
+	OpenaccLaunchFieldKind      ActivityOpenAccLaunchFieldIds = 0
+	OpenaccLaunchFieldEventKind ActivityOpenAccLaunchFieldIds = 1 // [OpenAccEventKind] eventKind; CUPTI OpenACC event kind.
+	// OpenaccLaunchFieldParentConstruct: [OpenAccConstructKind] parentConstruct; CUPTI OpenACC parent construct kind.
+	OpenaccLaunchFieldParentConstruct ActivityOpenAccLaunchFieldIds = 2
+	OpenaccLaunchFieldVersion         ActivityOpenAccLaunchFieldIds = 3 // uint32_t version; Version number.
+	OpenaccLaunchFieldImplicit        ActivityOpenAccLaunchFieldIds = 4 // uint32_t implicit; 1 for implicit event, 0 otherwise.
+	OpenaccLaunchFieldDeviceType      ActivityOpenAccLaunchFieldIds = 5 // uint32_t deviceType; Device type.
+	OpenaccLaunchFieldDeviceNumber    ActivityOpenAccLaunchFieldIds = 6 // uint32_t deviceNumber; Device number.
+	OpenaccLaunchFieldThreadId        ActivityOpenAccLaunchFieldIds = 7 // uint32_t threadId; Thread identifier.
+	// OpenaccLaunchFieldAsync: uint64_t async; Value of async() clause of the corresponding directive.
+	OpenaccLaunchFieldAsync         ActivityOpenAccLaunchFieldIds = 8
+	OpenaccLaunchFieldAsyncMap      ActivityOpenAccLaunchFieldIds = 9  // uint64_t asyncMap; Internal asynchronous queue number used.
+	OpenaccLaunchFieldLineNo        ActivityOpenAccLaunchFieldIds = 10 // uint32_t lineNo; Line number of the directive or construct.
+	OpenaccLaunchFieldEndLineNo     ActivityOpenAccLaunchFieldIds = 11 // uint32_t endLineNo; Line number of the end of the construct.
+	OpenaccLaunchFieldFuncLineNo    ActivityOpenAccLaunchFieldIds = 12 // uint32_t funcLineNo; Starting line number of the function.
+	OpenaccLaunchFieldFuncEndLineNo ActivityOpenAccLaunchFieldIds = 13 // uint32_t funcEndLineNo; Ending line number of the function.
+	OpenaccLaunchFieldStart         ActivityOpenAccLaunchFieldIds = 14 // uint64_t start; CUPTI start timestamp.
+	OpenaccLaunchFieldEnd           ActivityOpenAccLaunchFieldIds = 15 // uint64_t end; CUPTI end timestamp.
+	OpenaccLaunchFieldCuDeviceId    ActivityOpenAccLaunchFieldIds = 16 // uint32_t cuDeviceId; CUDA device id.
+	OpenaccLaunchFieldCuContextId   ActivityOpenAccLaunchFieldIds = 17 // uint32_t cuContextId; CUDA context id.
+	OpenaccLaunchFieldCuStreamId    ActivityOpenAccLaunchFieldIds = 18 // uint32_t cuStreamId; CUDA stream id.
+	// OpenaccLaunchFieldCuProcessId: uint32_t cuProcessId; Process id where the activity is executing.
+	OpenaccLaunchFieldCuProcessId ActivityOpenAccLaunchFieldIds = 19
+	// OpenaccLaunchFieldCuThreadId: uint64_t cuThreadId; Thread id where the activity is executing.
+	OpenaccLaunchFieldCuThreadId ActivityOpenAccLaunchFieldIds = 20
+	OpenaccLaunchFieldExternalId ActivityOpenAccLaunchFieldIds = 21 // uint32_t externalId; OpenACC correlation id.
+	// OpenaccLaunchFieldSrcFile: const char *srcFile; Pointer to null-terminated string containing source file name or path.
+	OpenaccLaunchFieldSrcFile ActivityOpenAccLaunchFieldIds = 22
+	// OpenaccLaunchFieldFuncName: const char *funcName; Pointer to null-terminated string containing function name.
+	OpenaccLaunchFieldFuncName ActivityOpenAccLaunchFieldIds = 23
+	// OpenaccLaunchFieldNumGangs: uint64_t numGangs; Number of gangs created for this kernel launch.
+	OpenaccLaunchFieldNumGangs ActivityOpenAccLaunchFieldIds = 24
+	// OpenaccLaunchFieldNumWorkers: uint64_t numWorkers; Number of workers created for this kernel launch.
+	OpenaccLaunchFieldNumWorkers ActivityOpenAccLaunchFieldIds = 25
+	// OpenaccLaunchFieldVectorLength: uint64_t vectorLength; Number of vector lanes created for this kernel launch.
+	OpenaccLaunchFieldVectorLength ActivityOpenAccLaunchFieldIds = 26
+	// OpenaccLaunchFieldKernelName: const char *kernelName; Pointer to null-terminated string containing kernel name.
+	OpenaccLaunchFieldKernelName ActivityOpenAccLaunchFieldIds = 27
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e ActivityOpenAccLaunchFieldIds) String() string {
+	switch e {
+	case OpenaccLaunchFieldKind:
+		return "OpenaccLaunchFieldKind"
+	case OpenaccLaunchFieldEventKind:
+		return "OpenaccLaunchFieldEventKind"
+	case OpenaccLaunchFieldParentConstruct:
+		return "OpenaccLaunchFieldParentConstruct"
+	case OpenaccLaunchFieldVersion:
+		return "OpenaccLaunchFieldVersion"
+	case OpenaccLaunchFieldImplicit:
+		return "OpenaccLaunchFieldImplicit"
+	case OpenaccLaunchFieldDeviceType:
+		return "OpenaccLaunchFieldDeviceType"
+	case OpenaccLaunchFieldDeviceNumber:
+		return "OpenaccLaunchFieldDeviceNumber"
+	case OpenaccLaunchFieldThreadId:
+		return "OpenaccLaunchFieldThreadId"
+	case OpenaccLaunchFieldAsync:
+		return "OpenaccLaunchFieldAsync"
+	case OpenaccLaunchFieldAsyncMap:
+		return "OpenaccLaunchFieldAsyncMap"
+	case OpenaccLaunchFieldLineNo:
+		return "OpenaccLaunchFieldLineNo"
+	case OpenaccLaunchFieldEndLineNo:
+		return "OpenaccLaunchFieldEndLineNo"
+	case OpenaccLaunchFieldFuncLineNo:
+		return "OpenaccLaunchFieldFuncLineNo"
+	case OpenaccLaunchFieldFuncEndLineNo:
+		return "OpenaccLaunchFieldFuncEndLineNo"
+	case OpenaccLaunchFieldStart:
+		return "OpenaccLaunchFieldStart"
+	case OpenaccLaunchFieldEnd:
+		return "OpenaccLaunchFieldEnd"
+	case OpenaccLaunchFieldCuDeviceId:
+		return "OpenaccLaunchFieldCuDeviceId"
+	case OpenaccLaunchFieldCuContextId:
+		return "OpenaccLaunchFieldCuContextId"
+	case OpenaccLaunchFieldCuStreamId:
+		return "OpenaccLaunchFieldCuStreamId"
+	case OpenaccLaunchFieldCuProcessId:
+		return "OpenaccLaunchFieldCuProcessId"
+	case OpenaccLaunchFieldCuThreadId:
+		return "OpenaccLaunchFieldCuThreadId"
+	case OpenaccLaunchFieldExternalId:
+		return "OpenaccLaunchFieldExternalId"
+	case OpenaccLaunchFieldSrcFile:
+		return "OpenaccLaunchFieldSrcFile"
+	case OpenaccLaunchFieldFuncName:
+		return "OpenaccLaunchFieldFuncName"
+	case OpenaccLaunchFieldNumGangs:
+		return "OpenaccLaunchFieldNumGangs"
+	case OpenaccLaunchFieldNumWorkers:
+		return "OpenaccLaunchFieldNumWorkers"
+	case OpenaccLaunchFieldVectorLength:
+		return "OpenaccLaunchFieldVectorLength"
+	case OpenaccLaunchFieldKernelName:
+		return "OpenaccLaunchFieldKernelName"
+	}
+	return fmt.Sprintf("ActivityOpenAccLaunchFieldIds(%d)", e)
+}
+
+// ActivityOpenAccOtherFieldIds represents enum identifiers for fields in [ActivityOpenAccOther].
+//
+// Each enum value corresponds to a field in [ActivityOpenAccOther] and documents the exact meaning of that field.
+type ActivityOpenAccOtherFieldIds int32
+
+const (
+	// OpenaccOtherFieldKind: [ActivityKind] kind; The activity record kind, must be [ActivityKindOpenaccOther].
+	OpenaccOtherFieldKind      ActivityOpenAccOtherFieldIds = 0
+	OpenaccOtherFieldEventKind ActivityOpenAccOtherFieldIds = 1 // [OpenAccEventKind] eventKind; CUPTI OpenACC event kind.
+	// OpenaccOtherFieldParentConstruct: [OpenAccConstructKind] parentConstruct; CUPTI OpenACC parent construct kind.
+	OpenaccOtherFieldParentConstruct ActivityOpenAccOtherFieldIds = 2
+	OpenaccOtherFieldVersion         ActivityOpenAccOtherFieldIds = 3 // uint32_t version; Version number.
+	OpenaccOtherFieldImplicit        ActivityOpenAccOtherFieldIds = 4 // uint32_t implicit; 1 for implicit event, 0 otherwise.
+	OpenaccOtherFieldDeviceType      ActivityOpenAccOtherFieldIds = 5 // uint32_t deviceType; Device type.
+	OpenaccOtherFieldDeviceNumber    ActivityOpenAccOtherFieldIds = 6 // uint32_t deviceNumber; Device number.
+	OpenaccOtherFieldThreadId        ActivityOpenAccOtherFieldIds = 7 // uint32_t threadId; Thread identifier.
+	// OpenaccOtherFieldAsync: uint64_t async; Value of async() clause of the corresponding directive.
+	OpenaccOtherFieldAsync         ActivityOpenAccOtherFieldIds = 8
+	OpenaccOtherFieldAsyncMap      ActivityOpenAccOtherFieldIds = 9  // uint64_t asyncMap; Internal asynchronous queue number used.
+	OpenaccOtherFieldLineNo        ActivityOpenAccOtherFieldIds = 10 // uint32_t lineNo; Line number of the directive or construct.
+	OpenaccOtherFieldEndLineNo     ActivityOpenAccOtherFieldIds = 11 // uint32_t endLineNo; Line number of the end of the construct.
+	OpenaccOtherFieldFuncLineNo    ActivityOpenAccOtherFieldIds = 12 // uint32_t funcLineNo; Starting line number of the function.
+	OpenaccOtherFieldFuncEndLineNo ActivityOpenAccOtherFieldIds = 13 // uint32_t funcEndLineNo; Ending line number of the function.
+	OpenaccOtherFieldStart         ActivityOpenAccOtherFieldIds = 14 // uint64_t start; CUPTI start timestamp.
+	OpenaccOtherFieldEnd           ActivityOpenAccOtherFieldIds = 15 // uint64_t end; CUPTI end timestamp.
+	OpenaccOtherFieldCuDeviceId    ActivityOpenAccOtherFieldIds = 16 // uint32_t cuDeviceId; CUDA device id.
+	OpenaccOtherFieldCuContextId   ActivityOpenAccOtherFieldIds = 17 // uint32_t cuContextId; CUDA context id.
+	OpenaccOtherFieldCuStreamId    ActivityOpenAccOtherFieldIds = 18 // uint32_t cuStreamId; CUDA stream id.
+	// OpenaccOtherFieldCuProcessId: uint32_t cuProcessId; Process id where the activity is executing.
+	OpenaccOtherFieldCuProcessId ActivityOpenAccOtherFieldIds = 19
+	// OpenaccOtherFieldCuThreadId: uint64_t cuThreadId; Thread id where the activity is executing.
+	OpenaccOtherFieldCuThreadId ActivityOpenAccOtherFieldIds = 20
+	OpenaccOtherFieldExternalId ActivityOpenAccOtherFieldIds = 21 // uint32_t externalId; OpenACC correlation id.
+	// OpenaccOtherFieldSrcFile: const char *srcFile; Pointer to null-terminated string containing source file name or path.
+	OpenaccOtherFieldSrcFile ActivityOpenAccOtherFieldIds = 22
+	// OpenaccOtherFieldFuncName: const char *funcName; Pointer to null-terminated string containing function name.
+	OpenaccOtherFieldFuncName ActivityOpenAccOtherFieldIds = 23
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e ActivityOpenAccOtherFieldIds) String() string {
+	switch e {
+	case OpenaccOtherFieldKind:
+		return "OpenaccOtherFieldKind"
+	case OpenaccOtherFieldEventKind:
+		return "OpenaccOtherFieldEventKind"
+	case OpenaccOtherFieldParentConstruct:
+		return "OpenaccOtherFieldParentConstruct"
+	case OpenaccOtherFieldVersion:
+		return "OpenaccOtherFieldVersion"
+	case OpenaccOtherFieldImplicit:
+		return "OpenaccOtherFieldImplicit"
+	case OpenaccOtherFieldDeviceType:
+		return "OpenaccOtherFieldDeviceType"
+	case OpenaccOtherFieldDeviceNumber:
+		return "OpenaccOtherFieldDeviceNumber"
+	case OpenaccOtherFieldThreadId:
+		return "OpenaccOtherFieldThreadId"
+	case OpenaccOtherFieldAsync:
+		return "OpenaccOtherFieldAsync"
+	case OpenaccOtherFieldAsyncMap:
+		return "OpenaccOtherFieldAsyncMap"
+	case OpenaccOtherFieldLineNo:
+		return "OpenaccOtherFieldLineNo"
+	case OpenaccOtherFieldEndLineNo:
+		return "OpenaccOtherFieldEndLineNo"
+	case OpenaccOtherFieldFuncLineNo:
+		return "OpenaccOtherFieldFuncLineNo"
+	case OpenaccOtherFieldFuncEndLineNo:
+		return "OpenaccOtherFieldFuncEndLineNo"
+	case OpenaccOtherFieldStart:
+		return "OpenaccOtherFieldStart"
+	case OpenaccOtherFieldEnd:
+		return "OpenaccOtherFieldEnd"
+	case OpenaccOtherFieldCuDeviceId:
+		return "OpenaccOtherFieldCuDeviceId"
+	case OpenaccOtherFieldCuContextId:
+		return "OpenaccOtherFieldCuContextId"
+	case OpenaccOtherFieldCuStreamId:
+		return "OpenaccOtherFieldCuStreamId"
+	case OpenaccOtherFieldCuProcessId:
+		return "OpenaccOtherFieldCuProcessId"
+	case OpenaccOtherFieldCuThreadId:
+		return "OpenaccOtherFieldCuThreadId"
+	case OpenaccOtherFieldExternalId:
+		return "OpenaccOtherFieldExternalId"
+	case OpenaccOtherFieldSrcFile:
+		return "OpenaccOtherFieldSrcFile"
+	case OpenaccOtherFieldFuncName:
+		return "OpenaccOtherFieldFuncName"
+	}
+	return fmt.Sprintf("ActivityOpenAccOtherFieldIds(%d)", e)
+}
+
+// ActivityOpenMpFieldIds represents enum identifiers for fields in [ActivityOpenMp].
+//
+// This activity record records OpenMP activity information.
+type ActivityOpenMpFieldIds int32
+
+const (
+	// OpenmpFieldKind: [ActivityKind] kind; Kind of this activity record. Always [ActivityKindOpenmp].
+	OpenmpFieldKind ActivityOpenMpFieldIds = 0
+	// OpenmpFieldEventKind: [OpenMpEventKind] eventKind; CUPTI OpenMP event kind (. See also [OpenMpEventKind])
+	OpenmpFieldEventKind ActivityOpenMpFieldIds = 1
+	OpenmpFieldStart     ActivityOpenMpFieldIds = 2 // uint64_t start; CUPTI start timestamp
+	OpenmpFieldEnd       ActivityOpenMpFieldIds = 3 // uint64_t end; CUPTI end timestamp
+	// OpenmpFieldCuThreadId: uint64_t cuThreadId; The ID of the thread where the OpenMP activity is executing.
+	OpenmpFieldCuThreadId ActivityOpenMpFieldIds = 4
+	// OpenmpFieldCuProcessId: uint32_t cuProcessId; The ID of the process where the OpenMP activity is executing.
+	OpenmpFieldCuProcessId ActivityOpenMpFieldIds = 5
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e ActivityOpenMpFieldIds) String() string {
+	switch e {
+	case OpenmpFieldKind:
+		return "OpenmpFieldKind"
+	case OpenmpFieldEventKind:
+		return "OpenmpFieldEventKind"
+	case OpenmpFieldStart:
+		return "OpenmpFieldStart"
+	case OpenmpFieldEnd:
+		return "OpenmpFieldEnd"
+	case OpenmpFieldCuThreadId:
+		return "OpenmpFieldCuThreadId"
+	case OpenmpFieldCuProcessId:
+		return "OpenmpFieldCuProcessId"
+	}
+	return fmt.Sprintf("ActivityOpenMpFieldIds(%d)", e)
+}
+
 // ExternalCorrelationKind represents the kind of external APIs supported for correlation.
 //
 // Custom correlation kinds are reserved for usage in external tools. See also [ActivityExternalCorrelation]
@@ -3733,6 +4185,65 @@ func (e DevType) String() string {
 	return fmt.Sprintf("DevType(%d)", e)
 }
 
+// ActivityNvLinkFieldIds represents enum identifiers for fields in [ActivityNvLink5].
+//
+// Each enum value corresponds to a field in [ActivityNvLink5] and describes the data type and purpose of that field.
+type ActivityNvLinkFieldIds int32
+
+const (
+	// NvlinkFieldKind: [ActivityKind] kind; Kind of activity record: [ActivityKindNvlink].
+	NvlinkFieldKind          ActivityNvLinkFieldIds = 0
+	NvlinkFieldNvlinkVersion ActivityNvLinkFieldIds = 1 // uint32_t nvlinkVersion; NvLink version.
+	NvlinkFieldTypeDEV0      ActivityNvLinkFieldIds = 2 // [DevType] typeDev0; Type of device 0.
+	NvlinkFieldTypeDEV1      ActivityNvLinkFieldIds = 3 // [DevType] typeDev1; Type of device 1.
+	// NvlinkFieldIdDEV0: union idDev0; If typeDev0 is [DevTypeGpu], UUID for device 0. If typeDev0 is [DevTypeNpu], [ActivityNvLinkNpu] for NPU.
+	NvlinkFieldIdDEV0 ActivityNvLinkFieldIds = 4
+	// NvlinkFieldIdDEV1: union idDev1; If typeDev1 is [DevTypeGpu], UUID for device 1. If typeDev1 is [DevTypeNpu], [ActivityNvLinkNpu] for NPU.
+	NvlinkFieldIdDEV1 ActivityNvLinkFieldIds = 5
+	// NvlinkFieldFlag: uint32_t flag; Flag gives capabilities of the link ([LinkFlag]).
+	NvlinkFieldFlag ActivityNvLinkFieldIds = 6
+	// NvlinkFieldPhysicalNvlinkCount: uint32_t physicalNvLinkCount; Number of physical NVLinks present between two devices.
+	NvlinkFieldPhysicalNvlinkCount ActivityNvLinkFieldIds = 7
+	// NvlinkFieldPortDEV0: uint32_t* portDev0; Port numbers for NVLinks connected to device 0.
+	NvlinkFieldPortDEV0 ActivityNvLinkFieldIds = 8
+	// NvlinkFieldPortDEV1: uint32_t* portDev1; Port numbers for NVLinks connected to device 1.
+	NvlinkFieldPortDEV1  ActivityNvLinkFieldIds = 9
+	NvlinkFieldBandwidth ActivityNvLinkFieldIds = 10 // uint64_t bandwidth; Bandwidth of NVLink in kbytes/sec.
+	// NvlinkFieldNvswitchConnected: uint8_t nvswitchConnected; NVSwitch is connected as an intermediate node.
+	NvlinkFieldNvswitchConnected ActivityNvLinkFieldIds = 11
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e ActivityNvLinkFieldIds) String() string {
+	switch e {
+	case NvlinkFieldKind:
+		return "NvlinkFieldKind"
+	case NvlinkFieldNvlinkVersion:
+		return "NvlinkFieldNvlinkVersion"
+	case NvlinkFieldTypeDEV0:
+		return "NvlinkFieldTypeDEV0"
+	case NvlinkFieldTypeDEV1:
+		return "NvlinkFieldTypeDEV1"
+	case NvlinkFieldIdDEV0:
+		return "NvlinkFieldIdDEV0"
+	case NvlinkFieldIdDEV1:
+		return "NvlinkFieldIdDEV1"
+	case NvlinkFieldFlag:
+		return "NvlinkFieldFlag"
+	case NvlinkFieldPhysicalNvlinkCount:
+		return "NvlinkFieldPhysicalNvlinkCount"
+	case NvlinkFieldPortDEV0:
+		return "NvlinkFieldPortDEV0"
+	case NvlinkFieldPortDEV1:
+		return "NvlinkFieldPortDEV1"
+	case NvlinkFieldBandwidth:
+		return "NvlinkFieldBandwidth"
+	case NvlinkFieldNvswitchConnected:
+		return "NvlinkFieldNvswitchConnected"
+	}
+	return fmt.Sprintf("ActivityNvLinkFieldIds(%d)", e)
+}
+
 // PcieDeviceType represents field to differentiate whether PCIE Activity record is of a GPU or a PCI Bridge.
 type PcieDeviceType int32
 
@@ -3753,6 +4264,55 @@ func (e PcieDeviceType) String() string {
 		return "PcieDeviceTypeForceInt"
 	}
 	return fmt.Sprintf("PcieDeviceType(%d)", e)
+}
+
+// ActivityPcieFieldIds represents enum identifiers for fields in [ActivityPcie].
+//
+// Each enum value corresponds to a field in [ActivityPcie] and describes the data type and purpose of that field.
+type ActivityPcieFieldIds int32
+
+const (
+	// PcieFieldKind: [ActivityKind] kind; Kind of activity record: [ActivityKindPcie].
+	PcieFieldKind ActivityPcieFieldIds = 0
+	// PcieFieldType: [PcieDeviceType] type; Type of device in topology, [PcieDeviceType].
+	PcieFieldType ActivityPcieFieldIds = 1
+	// PcieFieldId: union id; A unique identifier for GPU or Bridge in Topology. CUdevice devId if type is [PcieDeviceTypeGpu] uint32_t bridgeId if type is [PcieDeviceTypeBridge]
+	PcieFieldId ActivityPcieFieldIds = 2
+	// PcieFieldDomain: uint32_t domain; Domain for the GPU or Bridge, required to identify which PCIE bus it belongs to in multiple NUMA systems.
+	PcieFieldDomain         ActivityPcieFieldIds = 3
+	PcieFieldPcieGeneration ActivityPcieFieldIds = 4 // uint16_t pcieGeneration; PCIE Generation of GPU or Bridge.
+	// PcieFieldLinkRate: uint16_t linkRate; Link rate of the GPU or bridge in gigatransfers per second (GT/s).
+	PcieFieldLinkRate  ActivityPcieFieldIds = 5
+	PcieFieldLinkWidth ActivityPcieFieldIds = 6 // uint16_t linkWidth; Link width of the GPU or bridge.
+	// PcieFieldUpstreamBus: uint16_t upstreamBus; Upstream bus ID for the GPU or PCI bridge. Required to identify which bus it is connected to in the topology.
+	PcieFieldUpstreamBus ActivityPcieFieldIds = 7
+	// PcieFieldAttr: union attr; Attributes for more information about GPU (gpuAttr) or PCI Bridge (bridgeAttr). [ActivityPcieGpuAttr] gpuAttr if type is [PcieDeviceTypeGpu] [ActivityPcieBridgeAttr] bridgeAttr if type is [PcieDeviceTypeBridge] The size of this field is determined by the largest structure among the possible types it can hold.
+	PcieFieldAttr ActivityPcieFieldIds = 8
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e ActivityPcieFieldIds) String() string {
+	switch e {
+	case PcieFieldKind:
+		return "PcieFieldKind"
+	case PcieFieldType:
+		return "PcieFieldType"
+	case PcieFieldId:
+		return "PcieFieldId"
+	case PcieFieldDomain:
+		return "PcieFieldDomain"
+	case PcieFieldPcieGeneration:
+		return "PcieFieldPcieGeneration"
+	case PcieFieldLinkRate:
+		return "PcieFieldLinkRate"
+	case PcieFieldLinkWidth:
+		return "PcieFieldLinkWidth"
+	case PcieFieldUpstreamBus:
+		return "PcieFieldUpstreamBus"
+	case PcieFieldAttr:
+		return "PcieFieldAttr"
+	}
+	return fmt.Sprintf("ActivityPcieFieldIds(%d)", e)
 }
 
 // PcieGen represents PCIE Generation.
@@ -4345,6 +4905,16 @@ const (
 	GreenContextFieldLogicalTpcMaskSize ActivityGreenContextFieldIds = 6
 	// GreenContextFieldLogicalTpcMask: uint32_t logicalTpcMask[32]; The logical TPC mask for the green context.
 	GreenContextFieldLogicalTpcMask ActivityGreenContextFieldIds = 7
+	// GreenContextFieldWorkqueueResourceId: uint64_t workqueueResourceId; The work queue resource ID associated with the green context. Refer Param CUdevWorkqueueConfigScope: in cuda.h for possible values.
+	GreenContextFieldWorkqueueResourceId ActivityGreenContextFieldIds = 8
+	// GreenContextFieldWorkqueueConcurrencyLimit: uint32_t workqueueConcurrencyLimit; The concurrency limit for the work queue associated with the green context.
+	GreenContextFieldWorkqueueConcurrencyLimit ActivityGreenContextFieldIds = 9
+	// GreenContextFieldWorkqueueSharingScope: uint32_t workqueueSharingScope; The sharing scope for the work queue associated with the green context.
+	GreenContextFieldWorkqueueSharingScope ActivityGreenContextFieldIds = 10
+	// GreenContextFieldWorkqueueChannelCount: uint32_t workqueueChannelCount; The number of HW channels assigned to this green context’s work queue.
+	GreenContextFieldWorkqueueChannelCount ActivityGreenContextFieldIds = 11
+	// GreenContextFieldWorkqueueChannelIds: uint32_t workqueueChannelIds[32]; Array of HW channel IDs assigned to this green context’s work queue.
+	GreenContextFieldWorkqueueChannelIds ActivityGreenContextFieldIds = 12
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -4366,6 +4936,16 @@ func (e ActivityGreenContextFieldIds) String() string {
 		return "GreenContextFieldLogicalTpcMaskSize"
 	case GreenContextFieldLogicalTpcMask:
 		return "GreenContextFieldLogicalTpcMask"
+	case GreenContextFieldWorkqueueResourceId:
+		return "GreenContextFieldWorkqueueResourceId"
+	case GreenContextFieldWorkqueueConcurrencyLimit:
+		return "GreenContextFieldWorkqueueConcurrencyLimit"
+	case GreenContextFieldWorkqueueSharingScope:
+		return "GreenContextFieldWorkqueueSharingScope"
+	case GreenContextFieldWorkqueueChannelCount:
+		return "GreenContextFieldWorkqueueChannelCount"
+	case GreenContextFieldWorkqueueChannelIds:
+		return "GreenContextFieldWorkqueueChannelIds"
 	}
 	return fmt.Sprintf("ActivityGreenContextFieldIds(%d)", e)
 }
@@ -4398,7 +4978,7 @@ const (
 	ActivityAttrPerThreadActivityBuffer ActivityAttribute = 9
 	// ActivityAttrDeviceBufferSizeDeviceGraphs: The device memory size (in bytes) reserved for storing profiling data for device graph operations for each buffer on a context. The value is a size_t. Having larger buffer size means less flush operations but consumes more device memory. This value only applies to new allocations. Set this value before initializing CUDA or before creating a context to ensure it is considered for the following allocations. The default value is 16777216 (16MB). Note: The actual amount of device memory per context reserved by CUPTI might be larger.
 	ActivityAttrDeviceBufferSizeDeviceGraphs ActivityAttribute = 10
-	// ActivityAttrUserDefinedRecords: Enable user-defined activity records. The value is a uint8_t. When this attribute is enabled, CUPTI activity records will contain only the fields that are enabled for collection by the user. This can help to reduce the size of each activity record and decrease the overall memory consumption for activity collection. This attribute must be set before enabling any CUPTI activity kinds. The activity kinds should be enabled/disabled using CUPTI API [Subscriber.ActivityEnableV2] and [Subscriber.ActivityDisableV2] respectively. Minimum CUPTI Version: CUPTI_API_VERSION 130200 (CUDA 13.2) — beta. Productized (no longer beta) in CUPTI_API_VERSION 130300 (CUDA 13.3). The CUPTI version can be queried using [GetVersion] API. Refer these links for online documentation: CUPTI Activity User-Defined Records: https://docs.nvidia.com/cupti/main/main.html#cupti-user-defined-activity-records Tutorial: https://docs.nvidia.com/cupti/tutorial/tutorial.html#tutorial-activity-user-defined-records Refer sample cupti_user_defined_records for usage. The default value is 0 i.e. CUPTI will provide records with all fields.
+	// ActivityAttrUserDefinedRecords: Enable user-defined activity records. The value is a uint8_t. When this attribute is enabled, CUPTI activity records will contain only the fields that are enabled for collection by the user. This can help to reduce the size of each activity record and decrease the overall memory consumption for activity collection. This attribute must be set before enabling any CUPTI activity kinds. The activity kinds should be enabled/disabled using CUPTI API [Subscriber.ActivityEnableV2] and [Subscriber.ActivityDisableV2] respectively. Minimum CUPTI Version: CUPTI_API_VERSION 130200 (CUDA 13.2). The CUPTI version can be queried using [GetVersion] API. Refer these links for online documentation: CUPTI Activity User-Defined Records: https://docs.nvidia.com/cupti/main/main.html#cupti-user-defined-activity-records Tutorial: https://docs.nvidia.com/cupti/tutorial/tutorial.html#tutorial-activity-user-defined-records Refer sample cupti_user_defined_records for usage. The default value is 0 i.e. CUPTI will provide records with all fields.
 	ActivityAttrUserDefinedRecords ActivityAttribute = 11
 	// ActivityAttrMultipleSubscriberState: Allow multiple subscribers. The value is a uint8_t. If 0, only a single subscriber is allowed. If 1, multiple subscribers are allowed. If 2, this option has not been set by a prior subscriber, if there were any. In this case, the subscriber is free to set it during [SubscribeV2] call. Note that this attribute cannot be set by [ActivitySetAttribute] or [Subscriber.ActivitySetAttributeV2]. It can however be queried using [Subscriber.ActivityGetAttributeV2].
 	ActivityAttrMultipleSubscriberState ActivityAttribute = 12
@@ -4415,14 +4995,21 @@ const (
 	// ActivityAttrEnableKernelLaunchAttributes: Get the launch attributes for kernel enabled flag (for the specified subscriber). The value is a uint8_t. This can be used to toggle collecting launch attributes for kernel records. By default, this flag is set to 0. If this flag is set to 1, launch attributes are collected for kernel records. Note that this attribute can be set by [Subscriber.ActivitySetAttributeV2] and queried using [Subscriber.ActivityGetAttributeV2] for the specified subscriber.
 	ActivityAttrEnableKernelLaunchAttributes ActivityAttribute = 18
 	// ActivityAttrEnableDeviceGraphTrace: Get the device graph trace enabled flag (for the specified subscriber). The value is a uint8_t. This can be used to toggle collecting device graph trace for graph records. By default, this flag is set to 0. If this flag is set to 1, device graph trace is collected for graph records. Note that this attribute can be set by [Subscriber.ActivitySetAttributeV2] and queried using [Subscriber.ActivityGetAttributeV2] for the specified subscriber.
-	ActivityAttrEnableDeviceGraphTrace               ActivityAttribute = 19
-	ActivityAttrEnableMultiSubscriberGraphLevelTrace ActivityAttribute = 20
+	ActivityAttrEnableDeviceGraphTrace ActivityAttribute = 19
+	// ActivityAttrEnableMultiSubscriberGraphTrace: Get the multi-subscriber graph level trace enabled flag. The value is a uint8_t. This attribute is only relevant for multi-subscriber mode. CUPTI currently does not support different subscribers to ask for node level trace and graph level trace concurrently. If this flag is disabled, body nodes of a graph are reported under normal concurrent kernel/ memcpy/ memset records. If this flag is enabled, body nodes of a graph are not reported under normal concurrent kernel/ memcpy/ memset records, but the graph is entirely reported as part of a single graph trace record(if [ActivityKindGraphTrace] is enabled for the subscriber). Note that this behavior is consistent across all subscribers, regardless of which activities each subscriber is enabling. If 0, multi-subscriber graph level trace is disabled. If 1, multi-subscriber graph level trace is enabled. The default value is 0. Note that this attribute can be set by [Subscriber.ActivitySetAttributeV2] and queried using [Subscriber.ActivityGetAttributeV2] for the specified subscriber. However, this attribute must be set before enabling any activity kind by any subscriber. This attribute is not subscriber specific, and the subscriber parameter is ignored. All subscribers will share the same multi-subscriber graph level trace enabled flag.
+	ActivityAttrEnableMultiSubscriberGraphTrace ActivityAttribute = 20
 	// ActivityAttrThreadIdType: Get or set the thread ID type (for the specified subscriber). The value is a [ActivityThreadIdType]. This attribute specifies the method used by CUPTI to obtain thread IDs. The default value is [ActivityThreadIdTypeDefault]. Note that this attribute can be set by [Subscriber.ActivitySetAttributeV2] and queried using [Subscriber.ActivityGetAttributeV2] for the specified subscriber.
 	ActivityAttrThreadIdType ActivityAttribute = 21
 	// ActivityAttrTimestampCallback: Get or set the timestamp callback function (for the specified subscriber). The value is a [TimestampCallbackFunc]. This attribute allows registering a custom timestamp callback function that CUPTI will use instead of its default CPU timer. The value can be NULL to unregister the callback. Note that this attribute can be set by [Subscriber.ActivitySetAttributeV2] and queried using [Subscriber.ActivityGetAttributeV2] for the specified subscriber.
-	ActivityAttrTimestampCallback    ActivityAttribute = 22
-	ActivityAttrCigMode              ActivityAttribute = 23
+	ActivityAttrTimestampCallback ActivityAttribute = 22
+	// ActivityAttrEnableCigMode: Get or set the CIG (CUDA in Graphics) mode. The value is a uint8_t. This attribute allows enabling or disabling the CIG mode. Note that this attribute can be set by [Subscriber.ActivitySetAttributeV2] and queried using [Subscriber.ActivityGetAttributeV2].
+	ActivityAttrEnableCigMode        ActivityAttribute = 23
+	ActivityAttrCount                ActivityAttribute = 24
 	ActivityAttrDeviceBufferForceInt ActivityAttribute = 0x7fffffff
+	// Deprecated: Use ActivityAttrEnableMultiSubscriberGraphTrace. CUDA 13.3 renamed CUPTI_ACTIVITY_ATTR_ENABLE_MULTI_SUBSCRIBER_GRAPH_LEVEL_TRACE; the value is unchanged.
+	ActivityAttrEnableMultiSubscriberGraphLevelTrace = ActivityAttrEnableMultiSubscriberGraphTrace
+	// Deprecated: Use ActivityAttrEnableCigMode. CUDA 13.3 renamed CUPTI_ACTIVITY_ATTR_CIG_MODE; the value is unchanged.
+	ActivityAttrCigMode = ActivityAttrEnableCigMode
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -4468,14 +5055,16 @@ func (e ActivityAttribute) String() string {
 		return "ActivityAttrEnableKernelLaunchAttributes"
 	case ActivityAttrEnableDeviceGraphTrace:
 		return "ActivityAttrEnableDeviceGraphTrace"
-	case ActivityAttrEnableMultiSubscriberGraphLevelTrace:
-		return "ActivityAttrEnableMultiSubscriberGraphLevelTrace"
+	case ActivityAttrEnableMultiSubscriberGraphTrace:
+		return "ActivityAttrEnableMultiSubscriberGraphTrace"
 	case ActivityAttrThreadIdType:
 		return "ActivityAttrThreadIdType"
 	case ActivityAttrTimestampCallback:
 		return "ActivityAttrTimestampCallback"
-	case ActivityAttrCigMode:
-		return "ActivityAttrCigMode"
+	case ActivityAttrEnableCigMode:
+		return "ActivityAttrEnableCigMode"
+	case ActivityAttrCount:
+		return "ActivityAttrCount"
 	case ActivityAttrDeviceBufferForceInt:
 		return "ActivityAttrDeviceBufferForceInt"
 	}
@@ -5007,12 +5596,12 @@ const (
 	DriverCBIDCuStreamWriteValue32Ptsz                             DriverTraceCBID = 461
 	DriverCBIDCuStreamBatchMemOp                                   DriverTraceCBID = 462
 	DriverCBIDCuStreamBatchMemOpPtsz                               DriverTraceCBID = 463
-	DriverCBIDCuNVNbufferGetPointer                                DriverTraceCBID = 464
-	DriverCBIDCuNVNtextureGetArray                                 DriverTraceCBID = 465
+	DriverCBIDReserved464                                          DriverTraceCBID = 464
+	DriverCBIDReserved465                                          DriverTraceCBID = 465
 	DriverCBIDCuNNSetAllocator                                     DriverTraceCBID = 466
 	DriverCBIDCuMemPrefetchAsync                                   DriverTraceCBID = 467
 	DriverCBIDCuMemPrefetchAsyncPtsz                               DriverTraceCBID = 468
-	DriverCBIDCuEventCreateFromNVNSync                             DriverTraceCBID = 469
+	DriverCBIDReserved469                                          DriverTraceCBID = 469
 	DriverCBIDCuEGLStreamConsumerConnectWithFlags                  DriverTraceCBID = 470
 	DriverCBIDCuMemRangeGetAttribute                               DriverTraceCBID = 471
 	DriverCBIDCuMemRangeGetAttributes                              DriverTraceCBID = 472
@@ -5329,15 +5918,15 @@ const (
 	DriverCBIDCuStreamBeginCaptureToCig                            DriverTraceCBID = 783
 	DriverCBIDCuMemPrefetchBatchAsync                              DriverTraceCBID = 784
 	DriverCBIDCuMemPrefetchBatchAsyncPtsz                          DriverTraceCBID = 785
-	DriverCBIDCuSemaphoreCreate                                    DriverTraceCBID = 786
-	DriverCBIDCuSemaphoreExport                                    DriverTraceCBID = 787
-	DriverCBIDCuSemaphoreDestroy                                   DriverTraceCBID = 788
+	DriverCBIDReserved786                                          DriverTraceCBID = 786
+	DriverCBIDReserved787                                          DriverTraceCBID = 787
+	DriverCBIDReserved788                                          DriverTraceCBID = 788
 	DriverCBIDCuMemDiscardBatchAsync                               DriverTraceCBID = 789
 	DriverCBIDCuMemDiscardBatchAsyncPtsz                           DriverTraceCBID = 790
 	DriverCBIDCuMemDiscardAndPrefetchBatchAsync                    DriverTraceCBID = 791
 	DriverCBIDCuMemDiscardAndPrefetchBatchAsyncPtsz                DriverTraceCBID = 792
-	DriverCBIDCuMultiKernelCooperativeDomainCreate                 DriverTraceCBID = 793
-	DriverCBIDCuMultiKernelCooperativeDomainDestroy                DriverTraceCBID = 794
+	DriverCBIDReserved793                                          DriverTraceCBID = 793
+	DriverCBIDReserved794                                          DriverTraceCBID = 794
 	DriverCBIDCuCtxGetDeviceV2                                     DriverTraceCBID = 795
 	DriverCBIDCuMemcpyBatchAsyncV2                                 DriverTraceCBID = 796
 	DriverCBIDCuMemcpyBatchAsyncV2Ptsz                             DriverTraceCBID = 797
@@ -5349,7 +5938,7 @@ const (
 	DriverCBIDCuMemSetMemPool                                      DriverTraceCBID = 803
 	DriverCBIDCuDeviceGetP2PAtomicCapabilities                     DriverTraceCBID = 804
 	DriverCBIDCuDeviceGetHostAtomicCapabilities                    DriverTraceCBID = 805
-	DriverCBIDCuDriverGetGpuCodeIsaVersion                         DriverTraceCBID = 806
+	DriverCBIDReserved806                                          DriverTraceCBID = 806
 	DriverCBIDCuStreamGetDevResource                               DriverTraceCBID = 807
 	DriverCBIDCuStreamGetDevResourcePtsz                           DriverTraceCBID = 808
 	DriverCBIDCuGraphNodeGetContainingGraph                        DriverTraceCBID = 809
@@ -5360,24 +5949,24 @@ const (
 	DriverCBIDCuStreamBeginCaptureToCigPtsz                        DriverTraceCBID = 814
 	DriverCBIDCuStreamEndCaptureToCig                              DriverTraceCBID = 815
 	DriverCBIDCuStreamEndCaptureToCigPtsz                          DriverTraceCBID = 816
-	DriverCBIDCuGraphCreateWithArguments                           DriverTraceCBID = 817
-	DriverCBIDCuGraphNodeAddRelocation                             DriverTraceCBID = 818
-	DriverCBIDCuGraphLaunchWithArguments                           DriverTraceCBID = 819
+	DriverCBIDReserved817                                          DriverTraceCBID = 817
+	DriverCBIDReserved818                                          DriverTraceCBID = 818
+	DriverCBIDReserved819                                          DriverTraceCBID = 819
 	DriverCBIDCuMulticastBindMemV2                                 DriverTraceCBID = 820
 	DriverCBIDCuMulticastBindAddrV2                                DriverTraceCBID = 821
 	DriverCBIDCuDevSmResourceSplit                                 DriverTraceCBID = 822
-	DriverCBIDCuSubgridScheduleCreate                              DriverTraceCBID = 823
-	DriverCBIDCuSubgridWorkerGridCreate                            DriverTraceCBID = 824
-	DriverCBIDCuSubgridWorksetCreate                               DriverTraceCBID = 825
-	DriverCBIDCuSubgridCreate                                      DriverTraceCBID = 826
-	DriverCBIDCuSubgridScheduleFinalize                            DriverTraceCBID = 827
-	DriverCBIDCuSubgridScheduleLaunch                              DriverTraceCBID = 828
-	DriverCBIDCuSubgridScheduleLaunchPtsz                          DriverTraceCBID = 829
-	DriverCBIDCuSubgridScheduleDestroy                             DriverTraceCBID = 830
+	DriverCBIDReserved823                                          DriverTraceCBID = 823
+	DriverCBIDReserved824                                          DriverTraceCBID = 824
+	DriverCBIDReserved825                                          DriverTraceCBID = 825
+	DriverCBIDReserved826                                          DriverTraceCBID = 826
+	DriverCBIDReserved827                                          DriverTraceCBID = 827
+	DriverCBIDReserved828                                          DriverTraceCBID = 828
+	DriverCBIDReserved829                                          DriverTraceCBID = 829
+	DriverCBIDReserved830                                          DriverTraceCBID = 830
 	DriverCBIDCuLaunchHostFuncV2                                   DriverTraceCBID = 831
 	DriverCBIDCuLaunchHostFuncV2Ptsz                               DriverTraceCBID = 832
-	DriverCBIDCuFuncGetDeviceCodeInfo                              DriverTraceCBID = 833
-	DriverCBIDCuKernelGetDeviceCodeInfo                            DriverTraceCBID = 834
+	DriverCBIDReserved833                                          DriverTraceCBID = 833
+	DriverCBIDReserved834                                          DriverTraceCBID = 834
 	DriverCBIDCuFuncGetParamCount                                  DriverTraceCBID = 835
 	DriverCBIDCuKernelGetParamCount                                DriverTraceCBID = 836
 	DriverCBIDCuMemcpyWithAttributesAsync                          DriverTraceCBID = 837
@@ -5389,8 +5978,74 @@ const (
 	DriverCBIDCuCoredumpRegisterCompleteCallback                   DriverTraceCBID = 843
 	DriverCBIDCuCoredumpDeregisterStartCallback                    DriverTraceCBID = 844
 	DriverCBIDCuCoredumpDeregisterCompleteCallback                 DriverTraceCBID = 845
-	DriverCBIDSize                                                 DriverTraceCBID = 846
+	DriverCBIDCuStreamBeginRecaptureToGraph                        DriverTraceCBID = 846
+	DriverCBIDCuStreamBeginRecaptureToGraphPtsz                    DriverTraceCBID = 847
+	DriverCBIDCuLogicalEndpointIdReserve                           DriverTraceCBID = 848
+	DriverCBIDCuLogicalEndpointIdRelease                           DriverTraceCBID = 849
+	DriverCBIDCuLogicalEndpointCreate                              DriverTraceCBID = 850
+	DriverCBIDCuLogicalEndpointAddDevice                           DriverTraceCBID = 851
+	DriverCBIDCuLogicalEndpointDestroy                             DriverTraceCBID = 852
+	DriverCBIDCuLogicalEndpointBindAddr                            DriverTraceCBID = 853
+	DriverCBIDCuLogicalEndpointBindMem                             DriverTraceCBID = 854
+	DriverCBIDCuLogicalEndpointUnbind                              DriverTraceCBID = 855
+	DriverCBIDCuLogicalEndpointExport                              DriverTraceCBID = 856
+	DriverCBIDCuLogicalEndpointImport                              DriverTraceCBID = 857
+	DriverCBIDCuLogicalEndpointGetLimits                           DriverTraceCBID = 858
+	DriverCBIDCuLogicalEndpointQuery                               DriverTraceCBID = 859
+	DriverCBIDCuMemGetLocationInfo                                 DriverTraceCBID = 860
+	DriverCBIDCuCheckpointOperationComplete                        DriverTraceCBID = 861
+	DriverCBIDReserved862                                          DriverTraceCBID = 862
+	DriverCBIDCuGraphAddNodeV3                                     DriverTraceCBID = 863
+	DriverCBIDCuGraphNodeSetParamsV2                               DriverTraceCBID = 864
+	DriverCBIDCuDeviceGetFabricClusterUuid                         DriverTraceCBID = 865
+	DriverCBIDCuDeviceGetCliqueCount                               DriverTraceCBID = 866
+	DriverCBIDCuDeviceGetCliqueInfo                                DriverTraceCBID = 867
+	DriverCBIDSize                                                 DriverTraceCBID = 868
 	DriverCBIDForceInt                                             DriverTraceCBID = 0x7fffffff
+	// Deprecated: NVIDIA withdrew the API behind CUPTI_DRIVER_TRACE_CBID_cuSemaphoreCreate in CUDA 13.3 and left slot 786 allocated, as DriverCBIDReserved786. The value has not moved and still identifies the same call on a driver that implements it, so the name is kept for code built against CUDA 13.0.
+	DriverCBIDCuSemaphoreCreate DriverTraceCBID = 786
+	// Deprecated: NVIDIA withdrew the API behind CUPTI_DRIVER_TRACE_CBID_cuSemaphoreExport in CUDA 13.3 and left slot 787 allocated, as DriverCBIDReserved787. The value has not moved and still identifies the same call on a driver that implements it, so the name is kept for code built against CUDA 13.0.
+	DriverCBIDCuSemaphoreExport DriverTraceCBID = 787
+	// Deprecated: NVIDIA withdrew the API behind CUPTI_DRIVER_TRACE_CBID_cuSemaphoreDestroy in CUDA 13.3 and left slot 788 allocated, as DriverCBIDReserved788. The value has not moved and still identifies the same call on a driver that implements it, so the name is kept for code built against CUDA 13.0.
+	DriverCBIDCuSemaphoreDestroy DriverTraceCBID = 788
+	// Deprecated: NVIDIA withdrew the API behind CUPTI_DRIVER_TRACE_CBID_cuMultiKernelCooperativeDomainCreate in CUDA 13.3 and left slot 793 allocated, as DriverCBIDReserved793. The value has not moved and still identifies the same call on a driver that implements it, so the name is kept for code built against CUDA 13.0.
+	DriverCBIDCuMultiKernelCooperativeDomainCreate DriverTraceCBID = 793
+	// Deprecated: NVIDIA withdrew the API behind CUPTI_DRIVER_TRACE_CBID_cuMultiKernelCooperativeDomainDestroy in CUDA 13.3 and left slot 794 allocated, as DriverCBIDReserved794. The value has not moved and still identifies the same call on a driver that implements it, so the name is kept for code built against CUDA 13.0.
+	DriverCBIDCuMultiKernelCooperativeDomainDestroy DriverTraceCBID = 794
+	// Deprecated: NVIDIA withdrew the API behind CUPTI_DRIVER_TRACE_CBID_cuDriverGetGpuCodeIsaVersion in CUDA 13.3 and left slot 806 allocated, as DriverCBIDReserved806. The value has not moved and still identifies the same call on a driver that implements it, so the name is kept for code built against CUDA 13.0.
+	DriverCBIDCuDriverGetGpuCodeIsaVersion DriverTraceCBID = 806
+	// Deprecated: NVIDIA withdrew the API behind CUPTI_DRIVER_TRACE_CBID_cuGraphCreateWithArguments in CUDA 13.3 and left slot 817 allocated, as DriverCBIDReserved817. The value has not moved and still identifies the same call on a driver that implements it, so the name is kept for code built against CUDA 13.1.
+	DriverCBIDCuGraphCreateWithArguments DriverTraceCBID = 817
+	// Deprecated: NVIDIA withdrew the API behind CUPTI_DRIVER_TRACE_CBID_cuGraphNodeAddRelocation in CUDA 13.3 and left slot 818 allocated, as DriverCBIDReserved818. The value has not moved and still identifies the same call on a driver that implements it, so the name is kept for code built against CUDA 13.1.
+	DriverCBIDCuGraphNodeAddRelocation DriverTraceCBID = 818
+	// Deprecated: NVIDIA withdrew the API behind CUPTI_DRIVER_TRACE_CBID_cuGraphLaunchWithArguments in CUDA 13.3 and left slot 819 allocated, as DriverCBIDReserved819. The value has not moved and still identifies the same call on a driver that implements it, so the name is kept for code built against CUDA 13.1.
+	DriverCBIDCuGraphLaunchWithArguments DriverTraceCBID = 819
+	// Deprecated: NVIDIA withdrew the API behind CUPTI_DRIVER_TRACE_CBID_cuSubgridScheduleCreate in CUDA 13.3 and left slot 823 allocated, as DriverCBIDReserved823. The value has not moved and still identifies the same call on a driver that implements it, so the name is kept for code built against CUDA 13.1.
+	DriverCBIDCuSubgridScheduleCreate DriverTraceCBID = 823
+	// Deprecated: NVIDIA withdrew the API behind CUPTI_DRIVER_TRACE_CBID_cuSubgridWorkerGridCreate in CUDA 13.3 and left slot 824 allocated, as DriverCBIDReserved824. The value has not moved and still identifies the same call on a driver that implements it, so the name is kept for code built against CUDA 13.1.
+	DriverCBIDCuSubgridWorkerGridCreate DriverTraceCBID = 824
+	// Deprecated: NVIDIA withdrew the API behind CUPTI_DRIVER_TRACE_CBID_cuSubgridWorksetCreate in CUDA 13.3 and left slot 825 allocated, as DriverCBIDReserved825. The value has not moved and still identifies the same call on a driver that implements it, so the name is kept for code built against CUDA 13.1.
+	DriverCBIDCuSubgridWorksetCreate DriverTraceCBID = 825
+	// Deprecated: NVIDIA withdrew the API behind CUPTI_DRIVER_TRACE_CBID_cuSubgridCreate in CUDA 13.3 and left slot 826 allocated, as DriverCBIDReserved826. The value has not moved and still identifies the same call on a driver that implements it, so the name is kept for code built against CUDA 13.1.
+	DriverCBIDCuSubgridCreate DriverTraceCBID = 826
+	// Deprecated: NVIDIA withdrew the API behind CUPTI_DRIVER_TRACE_CBID_cuSubgridScheduleFinalize in CUDA 13.3 and left slot 827 allocated, as DriverCBIDReserved827. The value has not moved and still identifies the same call on a driver that implements it, so the name is kept for code built against CUDA 13.1.
+	DriverCBIDCuSubgridScheduleFinalize DriverTraceCBID = 827
+	// Deprecated: NVIDIA withdrew the API behind CUPTI_DRIVER_TRACE_CBID_cuSubgridScheduleLaunch in CUDA 13.3 and left slot 828 allocated, as DriverCBIDReserved828. The value has not moved and still identifies the same call on a driver that implements it, so the name is kept for code built against CUDA 13.1.
+	DriverCBIDCuSubgridScheduleLaunch DriverTraceCBID = 828
+	// Deprecated: NVIDIA withdrew the API behind CUPTI_DRIVER_TRACE_CBID_cuSubgridScheduleLaunch_ptsz in CUDA 13.3 and left slot 829 allocated, as DriverCBIDReserved829. The value has not moved and still identifies the same call on a driver that implements it, so the name is kept for code built against CUDA 13.1.
+	DriverCBIDCuSubgridScheduleLaunchPtsz DriverTraceCBID = 829
+	// Deprecated: NVIDIA withdrew the API behind CUPTI_DRIVER_TRACE_CBID_cuSubgridScheduleDestroy in CUDA 13.3 and left slot 830 allocated, as DriverCBIDReserved830. The value has not moved and still identifies the same call on a driver that implements it, so the name is kept for code built against CUDA 13.1.
+	DriverCBIDCuSubgridScheduleDestroy DriverTraceCBID = 830
+	// Deprecated: NVIDIA withdrew the API behind CUPTI_DRIVER_TRACE_CBID_cuFuncGetDeviceCodeInfo in CUDA 13.3 and left slot 833 allocated, as DriverCBIDReserved833. The value has not moved and still identifies the same call on a driver that implements it, so the name is kept for code built against CUDA 13.1.
+	DriverCBIDCuFuncGetDeviceCodeInfo DriverTraceCBID = 833
+	// Deprecated: NVIDIA withdrew the API behind CUPTI_DRIVER_TRACE_CBID_cuKernelGetDeviceCodeInfo in CUDA 13.3 and left slot 834 allocated, as DriverCBIDReserved834. The value has not moved and still identifies the same call on a driver that implements it, so the name is kept for code built against CUDA 13.1.
+	DriverCBIDCuKernelGetDeviceCodeInfo DriverTraceCBID = 834
+	// CUDA 12 only. The callback ID value is unchanged.
+	DriverCBIDCuNVNbufferGetPointer DriverTraceCBID = 464
+	// CUDA 12 only. The callback ID value is unchanged.
+	DriverCBIDCuNVNtextureGetArray DriverTraceCBID = 465
+	// CUDA 12 only. The callback ID value is unchanged.
+	DriverCBIDCuEventCreateFromNVNSync DriverTraceCBID = 469
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -6324,18 +6979,18 @@ func (e DriverTraceCBID) String() string {
 		return "DriverCBIDCuStreamBatchMemOp"
 	case DriverCBIDCuStreamBatchMemOpPtsz:
 		return "DriverCBIDCuStreamBatchMemOpPtsz"
-	case DriverCBIDCuNVNbufferGetPointer:
-		return "DriverCBIDCuNVNbufferGetPointer"
-	case DriverCBIDCuNVNtextureGetArray:
-		return "DriverCBIDCuNVNtextureGetArray"
+	case DriverCBIDReserved464:
+		return "DriverCBIDReserved464"
+	case DriverCBIDReserved465:
+		return "DriverCBIDReserved465"
 	case DriverCBIDCuNNSetAllocator:
 		return "DriverCBIDCuNNSetAllocator"
 	case DriverCBIDCuMemPrefetchAsync:
 		return "DriverCBIDCuMemPrefetchAsync"
 	case DriverCBIDCuMemPrefetchAsyncPtsz:
 		return "DriverCBIDCuMemPrefetchAsyncPtsz"
-	case DriverCBIDCuEventCreateFromNVNSync:
-		return "DriverCBIDCuEventCreateFromNVNSync"
+	case DriverCBIDReserved469:
+		return "DriverCBIDReserved469"
 	case DriverCBIDCuEGLStreamConsumerConnectWithFlags:
 		return "DriverCBIDCuEGLStreamConsumerConnectWithFlags"
 	case DriverCBIDCuMemRangeGetAttribute:
@@ -6968,12 +7623,12 @@ func (e DriverTraceCBID) String() string {
 		return "DriverCBIDCuMemPrefetchBatchAsync"
 	case DriverCBIDCuMemPrefetchBatchAsyncPtsz:
 		return "DriverCBIDCuMemPrefetchBatchAsyncPtsz"
-	case DriverCBIDCuSemaphoreCreate:
-		return "DriverCBIDCuSemaphoreCreate"
-	case DriverCBIDCuSemaphoreExport:
-		return "DriverCBIDCuSemaphoreExport"
-	case DriverCBIDCuSemaphoreDestroy:
-		return "DriverCBIDCuSemaphoreDestroy"
+	case DriverCBIDReserved786:
+		return "DriverCBIDReserved786"
+	case DriverCBIDReserved787:
+		return "DriverCBIDReserved787"
+	case DriverCBIDReserved788:
+		return "DriverCBIDReserved788"
 	case DriverCBIDCuMemDiscardBatchAsync:
 		return "DriverCBIDCuMemDiscardBatchAsync"
 	case DriverCBIDCuMemDiscardBatchAsyncPtsz:
@@ -6982,10 +7637,10 @@ func (e DriverTraceCBID) String() string {
 		return "DriverCBIDCuMemDiscardAndPrefetchBatchAsync"
 	case DriverCBIDCuMemDiscardAndPrefetchBatchAsyncPtsz:
 		return "DriverCBIDCuMemDiscardAndPrefetchBatchAsyncPtsz"
-	case DriverCBIDCuMultiKernelCooperativeDomainCreate:
-		return "DriverCBIDCuMultiKernelCooperativeDomainCreate"
-	case DriverCBIDCuMultiKernelCooperativeDomainDestroy:
-		return "DriverCBIDCuMultiKernelCooperativeDomainDestroy"
+	case DriverCBIDReserved793:
+		return "DriverCBIDReserved793"
+	case DriverCBIDReserved794:
+		return "DriverCBIDReserved794"
 	case DriverCBIDCuCtxGetDeviceV2:
 		return "DriverCBIDCuCtxGetDeviceV2"
 	case DriverCBIDCuMemcpyBatchAsyncV2:
@@ -7008,8 +7663,8 @@ func (e DriverTraceCBID) String() string {
 		return "DriverCBIDCuDeviceGetP2PAtomicCapabilities"
 	case DriverCBIDCuDeviceGetHostAtomicCapabilities:
 		return "DriverCBIDCuDeviceGetHostAtomicCapabilities"
-	case DriverCBIDCuDriverGetGpuCodeIsaVersion:
-		return "DriverCBIDCuDriverGetGpuCodeIsaVersion"
+	case DriverCBIDReserved806:
+		return "DriverCBIDReserved806"
 	case DriverCBIDCuStreamGetDevResource:
 		return "DriverCBIDCuStreamGetDevResource"
 	case DriverCBIDCuStreamGetDevResourcePtsz:
@@ -7030,42 +7685,42 @@ func (e DriverTraceCBID) String() string {
 		return "DriverCBIDCuStreamEndCaptureToCig"
 	case DriverCBIDCuStreamEndCaptureToCigPtsz:
 		return "DriverCBIDCuStreamEndCaptureToCigPtsz"
-	case DriverCBIDCuGraphCreateWithArguments:
-		return "DriverCBIDCuGraphCreateWithArguments"
-	case DriverCBIDCuGraphNodeAddRelocation:
-		return "DriverCBIDCuGraphNodeAddRelocation"
-	case DriverCBIDCuGraphLaunchWithArguments:
-		return "DriverCBIDCuGraphLaunchWithArguments"
+	case DriverCBIDReserved817:
+		return "DriverCBIDReserved817"
+	case DriverCBIDReserved818:
+		return "DriverCBIDReserved818"
+	case DriverCBIDReserved819:
+		return "DriverCBIDReserved819"
 	case DriverCBIDCuMulticastBindMemV2:
 		return "DriverCBIDCuMulticastBindMemV2"
 	case DriverCBIDCuMulticastBindAddrV2:
 		return "DriverCBIDCuMulticastBindAddrV2"
 	case DriverCBIDCuDevSmResourceSplit:
 		return "DriverCBIDCuDevSmResourceSplit"
-	case DriverCBIDCuSubgridScheduleCreate:
-		return "DriverCBIDCuSubgridScheduleCreate"
-	case DriverCBIDCuSubgridWorkerGridCreate:
-		return "DriverCBIDCuSubgridWorkerGridCreate"
-	case DriverCBIDCuSubgridWorksetCreate:
-		return "DriverCBIDCuSubgridWorksetCreate"
-	case DriverCBIDCuSubgridCreate:
-		return "DriverCBIDCuSubgridCreate"
-	case DriverCBIDCuSubgridScheduleFinalize:
-		return "DriverCBIDCuSubgridScheduleFinalize"
-	case DriverCBIDCuSubgridScheduleLaunch:
-		return "DriverCBIDCuSubgridScheduleLaunch"
-	case DriverCBIDCuSubgridScheduleLaunchPtsz:
-		return "DriverCBIDCuSubgridScheduleLaunchPtsz"
-	case DriverCBIDCuSubgridScheduleDestroy:
-		return "DriverCBIDCuSubgridScheduleDestroy"
+	case DriverCBIDReserved823:
+		return "DriverCBIDReserved823"
+	case DriverCBIDReserved824:
+		return "DriverCBIDReserved824"
+	case DriverCBIDReserved825:
+		return "DriverCBIDReserved825"
+	case DriverCBIDReserved826:
+		return "DriverCBIDReserved826"
+	case DriverCBIDReserved827:
+		return "DriverCBIDReserved827"
+	case DriverCBIDReserved828:
+		return "DriverCBIDReserved828"
+	case DriverCBIDReserved829:
+		return "DriverCBIDReserved829"
+	case DriverCBIDReserved830:
+		return "DriverCBIDReserved830"
 	case DriverCBIDCuLaunchHostFuncV2:
 		return "DriverCBIDCuLaunchHostFuncV2"
 	case DriverCBIDCuLaunchHostFuncV2Ptsz:
 		return "DriverCBIDCuLaunchHostFuncV2Ptsz"
-	case DriverCBIDCuFuncGetDeviceCodeInfo:
-		return "DriverCBIDCuFuncGetDeviceCodeInfo"
-	case DriverCBIDCuKernelGetDeviceCodeInfo:
-		return "DriverCBIDCuKernelGetDeviceCodeInfo"
+	case DriverCBIDReserved833:
+		return "DriverCBIDReserved833"
+	case DriverCBIDReserved834:
+		return "DriverCBIDReserved834"
 	case DriverCBIDCuFuncGetParamCount:
 		return "DriverCBIDCuFuncGetParamCount"
 	case DriverCBIDCuKernelGetParamCount:
@@ -7088,6 +7743,50 @@ func (e DriverTraceCBID) String() string {
 		return "DriverCBIDCuCoredumpDeregisterStartCallback"
 	case DriverCBIDCuCoredumpDeregisterCompleteCallback:
 		return "DriverCBIDCuCoredumpDeregisterCompleteCallback"
+	case DriverCBIDCuStreamBeginRecaptureToGraph:
+		return "DriverCBIDCuStreamBeginRecaptureToGraph"
+	case DriverCBIDCuStreamBeginRecaptureToGraphPtsz:
+		return "DriverCBIDCuStreamBeginRecaptureToGraphPtsz"
+	case DriverCBIDCuLogicalEndpointIdReserve:
+		return "DriverCBIDCuLogicalEndpointIdReserve"
+	case DriverCBIDCuLogicalEndpointIdRelease:
+		return "DriverCBIDCuLogicalEndpointIdRelease"
+	case DriverCBIDCuLogicalEndpointCreate:
+		return "DriverCBIDCuLogicalEndpointCreate"
+	case DriverCBIDCuLogicalEndpointAddDevice:
+		return "DriverCBIDCuLogicalEndpointAddDevice"
+	case DriverCBIDCuLogicalEndpointDestroy:
+		return "DriverCBIDCuLogicalEndpointDestroy"
+	case DriverCBIDCuLogicalEndpointBindAddr:
+		return "DriverCBIDCuLogicalEndpointBindAddr"
+	case DriverCBIDCuLogicalEndpointBindMem:
+		return "DriverCBIDCuLogicalEndpointBindMem"
+	case DriverCBIDCuLogicalEndpointUnbind:
+		return "DriverCBIDCuLogicalEndpointUnbind"
+	case DriverCBIDCuLogicalEndpointExport:
+		return "DriverCBIDCuLogicalEndpointExport"
+	case DriverCBIDCuLogicalEndpointImport:
+		return "DriverCBIDCuLogicalEndpointImport"
+	case DriverCBIDCuLogicalEndpointGetLimits:
+		return "DriverCBIDCuLogicalEndpointGetLimits"
+	case DriverCBIDCuLogicalEndpointQuery:
+		return "DriverCBIDCuLogicalEndpointQuery"
+	case DriverCBIDCuMemGetLocationInfo:
+		return "DriverCBIDCuMemGetLocationInfo"
+	case DriverCBIDCuCheckpointOperationComplete:
+		return "DriverCBIDCuCheckpointOperationComplete"
+	case DriverCBIDReserved862:
+		return "DriverCBIDReserved862"
+	case DriverCBIDCuGraphAddNodeV3:
+		return "DriverCBIDCuGraphAddNodeV3"
+	case DriverCBIDCuGraphNodeSetParamsV2:
+		return "DriverCBIDCuGraphNodeSetParamsV2"
+	case DriverCBIDCuDeviceGetFabricClusterUuid:
+		return "DriverCBIDCuDeviceGetFabricClusterUuid"
+	case DriverCBIDCuDeviceGetCliqueCount:
+		return "DriverCBIDCuDeviceGetCliqueCount"
+	case DriverCBIDCuDeviceGetCliqueInfo:
+		return "DriverCBIDCuDeviceGetCliqueInfo"
 	case DriverCBIDSize:
 		return "DriverCBIDSize"
 	case DriverCBIDForceInt:
@@ -7631,8 +8330,8 @@ const (
 	RuntimeCBIDCudaExecutionCtxGetDevResourceV13010                        RuntimeTraceCBID = 528
 	RuntimeCBIDCudaExecutionCtxGetDeviceV13010                             RuntimeTraceCBID = 529
 	RuntimeCBIDCudaExecutionCtxGetIdV13010                                 RuntimeTraceCBID = 530
-	RuntimeCBIDCuda531V13010                                               RuntimeTraceCBID = 531
-	RuntimeCBIDCuda532V13010                                               RuntimeTraceCBID = 532
+	RuntimeCBIDCuda531                                                     RuntimeTraceCBID = 531
+	RuntimeCBIDCuda532                                                     RuntimeTraceCBID = 532
 	RuntimeCBIDCudaExecutionCtxStreamCreateV13010                          RuntimeTraceCBID = 533
 	RuntimeCBIDCudaExecutionCtxSynchronizeV13010                           RuntimeTraceCBID = 534
 	RuntimeCBIDCudaGraphConditionalHandleCreateV2V13010                    RuntimeTraceCBID = 535
@@ -7645,22 +8344,57 @@ const (
 	RuntimeCBIDCudaGraphExecGetIdV13010                                    RuntimeTraceCBID = 542
 	RuntimeCBIDCudaExecutionCtxRecordEventV13010                           RuntimeTraceCBID = 543
 	RuntimeCBIDCudaExecutionCtxWaitEventV13010                             RuntimeTraceCBID = 544
-	RuntimeCBIDCuda545V13010                                               RuntimeTraceCBID = 545
-	RuntimeCBIDCuda546V13010                                               RuntimeTraceCBID = 546
-	RuntimeCBIDCuda547V13010                                               RuntimeTraceCBID = 547
+	RuntimeCBIDCuda545                                                     RuntimeTraceCBID = 545
+	RuntimeCBIDCuda546                                                     RuntimeTraceCBID = 546
+	RuntimeCBIDCuda547                                                     RuntimeTraceCBID = 547
 	RuntimeCBIDCudaDeviceGetExecutionCtxV13010                             RuntimeTraceCBID = 548
 	RuntimeCBIDCudaDevSmResourceSplitV13010                                RuntimeTraceCBID = 549
 	RuntimeCBIDCudaLaunchHostFuncV2V13020                                  RuntimeTraceCBID = 550
 	RuntimeCBIDCudaLaunchHostFuncV2PtszV13020                              RuntimeTraceCBID = 551
 	RuntimeCBIDCudaFuncGetParamCountV13020                                 RuntimeTraceCBID = 552
-	RuntimeCBIDCuda553V13020                                               RuntimeTraceCBID = 553
+	RuntimeCBIDCuda553                                                     RuntimeTraceCBID = 553
 	RuntimeCBIDCudaMemcpyWithAttributesAsyncV13020                         RuntimeTraceCBID = 554
 	RuntimeCBIDCudaMemcpyWithAttributesAsyncPtszV13020                     RuntimeTraceCBID = 555
 	RuntimeCBIDCudaMemcpy3DWithAttributesAsyncV13020                       RuntimeTraceCBID = 556
 	RuntimeCBIDCudaMemcpy3DWithAttributesAsyncPtszV13020                   RuntimeTraceCBID = 557
 	RuntimeCBIDCudaGraphNodeGetParamsV13020                                RuntimeTraceCBID = 558
-	RuntimeCBIDSize                                                        RuntimeTraceCBID = 559
+	RuntimeCBIDCuda559                                                     RuntimeTraceCBID = 559
+	RuntimeCBIDCuda560                                                     RuntimeTraceCBID = 560
+	RuntimeCBIDCuda561                                                     RuntimeTraceCBID = 561
+	RuntimeCBIDCudaStreamBeginRecaptureToGraphV13030                       RuntimeTraceCBID = 562
+	RuntimeCBIDCudaStreamBeginRecaptureToGraphPtszV13030                   RuntimeTraceCBID = 563
+	RuntimeCBIDCuda564                                                     RuntimeTraceCBID = 564
+	RuntimeCBIDCudaMemGetLocationInfoV13040                                RuntimeTraceCBID = 565
+	RuntimeCBIDSize                                                        RuntimeTraceCBID = 566
 	RuntimeCBIDForceInt                                                    RuntimeTraceCBID = 0x7fffffff
+	// Deprecated: Use RuntimeCBIDCuda531. CUDA 13.4 renamed CUPTI_RUNTIME_TRACE_CBID_cuda531_v13010; the value is unchanged.
+	RuntimeCBIDCuda531V13010 = RuntimeCBIDCuda531
+	// Deprecated: Use RuntimeCBIDCuda532. CUDA 13.4 renamed CUPTI_RUNTIME_TRACE_CBID_cuda532_v13010; the value is unchanged.
+	RuntimeCBIDCuda532V13010 = RuntimeCBIDCuda532
+	// Deprecated: Use RuntimeCBIDCuda545. CUDA 13.4 renamed CUPTI_RUNTIME_TRACE_CBID_cuda545_v13010; the value is unchanged.
+	RuntimeCBIDCuda545V13010 = RuntimeCBIDCuda545
+	// Deprecated: Use RuntimeCBIDCuda546. CUDA 13.4 renamed CUPTI_RUNTIME_TRACE_CBID_cuda546_v13010; the value is unchanged.
+	RuntimeCBIDCuda546V13010 = RuntimeCBIDCuda546
+	// Deprecated: Use RuntimeCBIDCuda547. CUDA 13.4 renamed CUPTI_RUNTIME_TRACE_CBID_cuda547_v13010; the value is unchanged.
+	RuntimeCBIDCuda547V13010 = RuntimeCBIDCuda547
+	// Deprecated: Use RuntimeCBIDCuda553. CUDA 13.4 renamed CUPTI_RUNTIME_TRACE_CBID_cuda553_v13020; the value is unchanged.
+	RuntimeCBIDCuda553V13020 = RuntimeCBIDCuda553
+	// CUDA 12 only. The callback ID value is unchanged.
+	RuntimeCBIDCudaSignalExternalSemaphoresAsyncV2V11020 = RuntimeCBIDCudaSignalExternalSemaphoresAsyncV11020
+	// CUDA 12 only. The callback ID value is unchanged.
+	RuntimeCBIDCudaSignalExternalSemaphoresAsyncV2PtszV11020 = RuntimeCBIDCudaSignalExternalSemaphoresAsyncPtszV11020
+	// CUDA 12 only. The callback ID value is unchanged.
+	RuntimeCBIDCudaWaitExternalSemaphoresAsyncV2V11020 = RuntimeCBIDCudaWaitExternalSemaphoresAsyncV11020
+	// CUDA 12 only. The callback ID value is unchanged.
+	RuntimeCBIDCudaWaitExternalSemaphoresAsyncV2PtszV11020 = RuntimeCBIDCudaWaitExternalSemaphoresAsyncPtszV11020
+	// CUDA 12 only. The callback ID value is unchanged.
+	RuntimeCBIDCudaGetDevicePropertiesV2V12000 = RuntimeCBIDCudaGetDevicePropertiesV12000
+	// CUDA 12 only. The callback ID value is unchanged.
+	RuntimeCBIDCudaMemAdviseV2V12020 = RuntimeCBIDCudaMemAdviseV12020
+	// CUDA 12 only. The callback ID value is unchanged.
+	RuntimeCBIDCudaMemPrefetchAsyncV2V12020 = RuntimeCBIDCudaMemPrefetchAsyncV12020
+	// CUDA 12 only. The callback ID value is unchanged.
+	RuntimeCBIDCudaMemPrefetchAsyncV2PtszV12020 = RuntimeCBIDCudaMemPrefetchAsyncPtszV12020
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -8728,10 +9462,10 @@ func (e RuntimeTraceCBID) String() string {
 		return "RuntimeCBIDCudaExecutionCtxGetDeviceV13010"
 	case RuntimeCBIDCudaExecutionCtxGetIdV13010:
 		return "RuntimeCBIDCudaExecutionCtxGetIdV13010"
-	case RuntimeCBIDCuda531V13010:
-		return "RuntimeCBIDCuda531V13010"
-	case RuntimeCBIDCuda532V13010:
-		return "RuntimeCBIDCuda532V13010"
+	case RuntimeCBIDCuda531:
+		return "RuntimeCBIDCuda531"
+	case RuntimeCBIDCuda532:
+		return "RuntimeCBIDCuda532"
 	case RuntimeCBIDCudaExecutionCtxStreamCreateV13010:
 		return "RuntimeCBIDCudaExecutionCtxStreamCreateV13010"
 	case RuntimeCBIDCudaExecutionCtxSynchronizeV13010:
@@ -8756,12 +9490,12 @@ func (e RuntimeTraceCBID) String() string {
 		return "RuntimeCBIDCudaExecutionCtxRecordEventV13010"
 	case RuntimeCBIDCudaExecutionCtxWaitEventV13010:
 		return "RuntimeCBIDCudaExecutionCtxWaitEventV13010"
-	case RuntimeCBIDCuda545V13010:
-		return "RuntimeCBIDCuda545V13010"
-	case RuntimeCBIDCuda546V13010:
-		return "RuntimeCBIDCuda546V13010"
-	case RuntimeCBIDCuda547V13010:
-		return "RuntimeCBIDCuda547V13010"
+	case RuntimeCBIDCuda545:
+		return "RuntimeCBIDCuda545"
+	case RuntimeCBIDCuda546:
+		return "RuntimeCBIDCuda546"
+	case RuntimeCBIDCuda547:
+		return "RuntimeCBIDCuda547"
 	case RuntimeCBIDCudaDeviceGetExecutionCtxV13010:
 		return "RuntimeCBIDCudaDeviceGetExecutionCtxV13010"
 	case RuntimeCBIDCudaDevSmResourceSplitV13010:
@@ -8772,8 +9506,8 @@ func (e RuntimeTraceCBID) String() string {
 		return "RuntimeCBIDCudaLaunchHostFuncV2PtszV13020"
 	case RuntimeCBIDCudaFuncGetParamCountV13020:
 		return "RuntimeCBIDCudaFuncGetParamCountV13020"
-	case RuntimeCBIDCuda553V13020:
-		return "RuntimeCBIDCuda553V13020"
+	case RuntimeCBIDCuda553:
+		return "RuntimeCBIDCuda553"
 	case RuntimeCBIDCudaMemcpyWithAttributesAsyncV13020:
 		return "RuntimeCBIDCudaMemcpyWithAttributesAsyncV13020"
 	case RuntimeCBIDCudaMemcpyWithAttributesAsyncPtszV13020:
@@ -8784,6 +9518,20 @@ func (e RuntimeTraceCBID) String() string {
 		return "RuntimeCBIDCudaMemcpy3DWithAttributesAsyncPtszV13020"
 	case RuntimeCBIDCudaGraphNodeGetParamsV13020:
 		return "RuntimeCBIDCudaGraphNodeGetParamsV13020"
+	case RuntimeCBIDCuda559:
+		return "RuntimeCBIDCuda559"
+	case RuntimeCBIDCuda560:
+		return "RuntimeCBIDCuda560"
+	case RuntimeCBIDCuda561:
+		return "RuntimeCBIDCuda561"
+	case RuntimeCBIDCudaStreamBeginRecaptureToGraphV13030:
+		return "RuntimeCBIDCudaStreamBeginRecaptureToGraphV13030"
+	case RuntimeCBIDCudaStreamBeginRecaptureToGraphPtszV13030:
+		return "RuntimeCBIDCudaStreamBeginRecaptureToGraphPtszV13030"
+	case RuntimeCBIDCuda564:
+		return "RuntimeCBIDCuda564"
+	case RuntimeCBIDCudaMemGetLocationInfoV13040:
+		return "RuntimeCBIDCudaMemGetLocationInfoV13040"
 	case RuntimeCBIDSize:
 		return "RuntimeCBIDSize"
 	case RuntimeCBIDForceInt:
@@ -9032,6 +9780,8 @@ const (
 	ProfilerConfigurationDisabled ProfilerSupportLevel = 2
 	// ProfilerConfigurationSupported: Profiling is supported. For specific feature fields, this means that the current configuration of this feature works with profiling. For instance, SLI-enabled devices do not support profiling, and this value would only be returned for devices which are not SLI-enabled.
 	ProfilerConfigurationSupported ProfilerSupportLevel = 3
+	// ProfilerConfigurationLimitedSupport: Profiling is supported, but only for a limited set of metrics.
+	ProfilerConfigurationLimitedSupport ProfilerSupportLevel = 4
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -9045,6 +9795,8 @@ func (e ProfilerSupportLevel) String() string {
 		return "ProfilerConfigurationDisabled"
 	case ProfilerConfigurationSupported:
 		return "ProfilerConfigurationSupported"
+	case ProfilerConfigurationLimitedSupport:
+		return "ProfilerConfigurationLimitedSupport"
 	}
 	return fmt.Sprintf("ProfilerSupportLevel(%d)", e)
 }
@@ -9075,6 +9827,69 @@ func (e ProfilerApi) String() string {
 		return "ProfilerUnknown"
 	}
 	return fmt.Sprintf("ProfilerApi(%d)", e)
+}
+
+// ClockControlMode represents clock control modes.
+//
+// Determines the frequency to which GPU clocks are pinned for a profiling session. Locking clocks produces reproducible metric values across kernel launches and replay passes. Clock locking is device-global -- affects all contexts on the GPU. It is not supported on platforms where the underlying driver clock-control operation is unavailable, such as MIG-partitioned devices. To skip clock locking entirely, simply do not call [ClockControlLock]. Numeric values start at 1 so that an uninitialized / zero-valued [ClockControlMode] is rejected with [ErrInvalidParameter] rather than silently locking clocks. \since CUDA 13.4.
+type ClockControlMode int32
+
+const (
+	// ClockControlModeBase: Lock GPU clocks to the base (rated TDP) frequency. Exact clock domains that are pinned may depend on the driver and board configuration.
+	ClockControlModeBase ClockControlMode = 1
+	// ClockControlModeBoost: Lock GPU clocks to the boost frequency. Returns an error if boost locking is not supported by the driver or platform -- no automatic fallback to base. Clients that want a fallback can retry with [ClockControlModeBase] on error.
+	ClockControlModeBoost    ClockControlMode = 2
+	ClockControlModeForceInt ClockControlMode = 0x7fffffff
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e ClockControlMode) String() string {
+	switch e {
+	case ClockControlModeBase:
+		return "ClockControlModeBase"
+	case ClockControlModeBoost:
+		return "ClockControlModeBoost"
+	case ClockControlModeForceInt:
+		return "ClockControlModeForceInt"
+	}
+	return fmt.Sprintf("ClockControlMode(%d)", e)
+}
+
+// ClockControlStatus represents device clock-control status.
+//
+// This status describes the device-global clock-control state reported by the driver for the GPU associated with a CUDA context. It does not describe CUPTI ownership. For example, [ClockControlStatusLocked] can be returned for a lock created by CUPTI, by another profiling tool, or by an administrator through an external mechanism such as nvidia-smi. Tools can query this state before calling [ClockControlLock] to make an informed policy decision. A common use case is MIG: CUPTI cannot create a new clock lock on MIG-partitioned devices, but a tool may still choose to run if this API reports that clocks are already externally locked. A status of [ClockControlStatusUnlocked] only means the driver currently reports no explicit clock lock. It does not guarantee fixed, deterministic, or non-boosting clocks. \since CUDA 13.4.
+type ClockControlStatus int32
+
+const (
+	ClockControlStatusUnlocked ClockControlStatus = 1 // The driver reports no explicit clock lock for this device.
+	// ClockControlStatusLocked: The driver reports that clocks are locked to a fixed level. This may be a CUPTI-owned lock or an externally-created lock.
+	ClockControlStatusLocked ClockControlStatus = 2
+	// ClockControlStatusLockedToFloor: The driver reports that clocks are locked to a floor/minimum level.
+	ClockControlStatusLockedToFloor ClockControlStatus = 3
+	// ClockControlStatusBoostEnabled: The driver reports that boost behavior is enabled by clock control.
+	ClockControlStatusBoostEnabled ClockControlStatus = 4
+	// ClockControlStatusBoostDisabled: The driver reports that boost behavior is disabled by clock control.
+	ClockControlStatusBoostDisabled ClockControlStatus = 5
+	ClockControlStatusForceInt      ClockControlStatus = 0x7fffffff
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e ClockControlStatus) String() string {
+	switch e {
+	case ClockControlStatusUnlocked:
+		return "ClockControlStatusUnlocked"
+	case ClockControlStatusLocked:
+		return "ClockControlStatusLocked"
+	case ClockControlStatusLockedToFloor:
+		return "ClockControlStatusLockedToFloor"
+	case ClockControlStatusBoostEnabled:
+		return "ClockControlStatusBoostEnabled"
+	case ClockControlStatusBoostDisabled:
+		return "ClockControlStatusBoostDisabled"
+	case ClockControlStatusForceInt:
+		return "ClockControlStatusForceInt"
+	}
+	return fmt.Sprintf("ClockControlStatus(%d)", e)
 }
 
 // MetricType specifies the metric type (CUpti_MetricType).
@@ -9144,6 +9959,35 @@ func (e ProfilerType) String() string {
 		return "ProfilerTypeProfilerInvalid"
 	}
 	return fmt.Sprintf("ProfilerType(%d)", e)
+}
+
+// CacheControlMode represents cache control modes for Range Profiler replay passes.
+//
+// Cache control resets supported GPU cache state before each profiling pass so replayed passes start from comparable cache state. The default is NONE so zero-initialized enable parameters preserve previous behavior. Currently, L2 cache state is supported. Since CUDA 13.4.
+type CacheControlMode int32
+
+const (
+	// CacheControlModeNone: Disable cache control. Replay passes may observe cache state from earlier passes, matching behavior before this field was added.
+	CacheControlModeNone CacheControlMode = 0
+	// CacheControlModeAll: Reset all cache state supported by this CUPTI version before each pass. Currently, this resets supported L2 cache state.
+	CacheControlModeAll      CacheControlMode = 1
+	CacheControlModeL2       CacheControlMode = 2 // Reset supported L2 cache state before each pass.
+	CacheControlModeForceInt CacheControlMode = 0x7fffffff
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e CacheControlMode) String() string {
+	switch e {
+	case CacheControlModeNone:
+		return "CacheControlModeNone"
+	case CacheControlModeAll:
+		return "CacheControlModeAll"
+	case CacheControlModeL2:
+		return "CacheControlModeL2"
+	case CacheControlModeForceInt:
+		return "CacheControlModeForceInt"
+	}
+	return fmt.Sprintf("CacheControlMode(%d)", e)
 }
 
 // PCSamplingCollectionMode represents PC Sampling collection mode.
@@ -9364,7 +10208,7 @@ func (e CheckpointOptimizations) String() string {
 
 // Sentinel values and limits from the CUPTI headers.
 const (
-	ApiVersion                  = 130200
+	ApiVersion                  = 130400
 	AutoBoostInvalidClientPid   = 0
 	CorrelationIdUnknown        = 0
 	DecompressedBytesUnknown    = 0
@@ -9373,9 +10217,7 @@ const (
 	FunctionIndexIdInvalid      = 0
 	GridIdUnknown               = 0
 	InvalidChannelId            = 0xFFFFFFFF
-	InvalidContextId            = 0
 	InvalidDeviceId             = 0xFFFFFFFF
-	InvalidStreamId             = 0
 	MaxGpus                     = 32
 	MaxNvlinkPorts              = 256
 	NvlinkInvalidPort           = 0xFFFFFFFF

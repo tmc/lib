@@ -437,77 +437,86 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(Activity{}.Kind); got != 0 {
 		t.Errorf("offsetof(Activity.Kind) = %d, want 0", got)
 	}
-	if got := unsafe.Sizeof(ActivityMemcpy6{}); got != 96 {
-		t.Errorf("sizeof(ActivityMemcpy6) = %d, want 96", got)
+	if got := unsafe.Sizeof(ActivityMemcpy7{}); got != 112 {
+		t.Errorf("sizeof(ActivityMemcpy7) = %d, want 112", got)
 	}
-	if got := unsafe.Alignof(ActivityMemcpy6{}); got != 8 {
-		t.Errorf("alignof(ActivityMemcpy6) = %d, want 8", got)
+	if got := unsafe.Alignof(ActivityMemcpy7{}); got != 8 {
+		t.Errorf("alignof(ActivityMemcpy7) = %d, want 8", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemcpy6{}.Kind); got != 0 {
-		t.Errorf("offsetof(ActivityMemcpy6.Kind) = %d, want 0", got)
+	if got := unsafe.Offsetof(ActivityMemcpy7{}.Kind); got != 0 {
+		t.Errorf("offsetof(ActivityMemcpy7.Kind) = %d, want 0", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemcpy6{}.CopyKind); got != 4 {
-		t.Errorf("offsetof(ActivityMemcpy6.CopyKind) = %d, want 4", got)
+	if got := unsafe.Offsetof(ActivityMemcpy7{}.CopyKind); got != 4 {
+		t.Errorf("offsetof(ActivityMemcpy7.CopyKind) = %d, want 4", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemcpy6{}.SrcKind); got != 5 {
-		t.Errorf("offsetof(ActivityMemcpy6.SrcKind) = %d, want 5", got)
+	if got := unsafe.Offsetof(ActivityMemcpy7{}.SrcKind); got != 5 {
+		t.Errorf("offsetof(ActivityMemcpy7.SrcKind) = %d, want 5", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemcpy6{}.DstKind); got != 6 {
-		t.Errorf("offsetof(ActivityMemcpy6.DstKind) = %d, want 6", got)
+	if got := unsafe.Offsetof(ActivityMemcpy7{}.DstKind); got != 6 {
+		t.Errorf("offsetof(ActivityMemcpy7.DstKind) = %d, want 6", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemcpy6{}.Flags); got != 7 {
-		t.Errorf("offsetof(ActivityMemcpy6.Flags) = %d, want 7", got)
+	if got := unsafe.Offsetof(ActivityMemcpy7{}.Flags); got != 7 {
+		t.Errorf("offsetof(ActivityMemcpy7.Flags) = %d, want 7", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemcpy6{}.Bytes); got != 8 {
-		t.Errorf("offsetof(ActivityMemcpy6.Bytes) = %d, want 8", got)
+	if got := unsafe.Offsetof(ActivityMemcpy7{}.Bytes); got != 8 {
+		t.Errorf("offsetof(ActivityMemcpy7.Bytes) = %d, want 8", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemcpy6{}.Start); got != 16 {
-		t.Errorf("offsetof(ActivityMemcpy6.Start) = %d, want 16", got)
+	if got := unsafe.Offsetof(ActivityMemcpy7{}.Start); got != 16 {
+		t.Errorf("offsetof(ActivityMemcpy7.Start) = %d, want 16", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemcpy6{}.End); got != 24 {
-		t.Errorf("offsetof(ActivityMemcpy6.End) = %d, want 24", got)
+	if got := unsafe.Offsetof(ActivityMemcpy7{}.End); got != 24 {
+		t.Errorf("offsetof(ActivityMemcpy7.End) = %d, want 24", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemcpy6{}.DeviceId); got != 32 {
-		t.Errorf("offsetof(ActivityMemcpy6.DeviceId) = %d, want 32", got)
+	if got := unsafe.Offsetof(ActivityMemcpy7{}.DeviceId); got != 32 {
+		t.Errorf("offsetof(ActivityMemcpy7.DeviceId) = %d, want 32", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemcpy6{}.ContextId); got != 36 {
-		t.Errorf("offsetof(ActivityMemcpy6.ContextId) = %d, want 36", got)
+	if got := unsafe.Offsetof(ActivityMemcpy7{}.ContextId); got != 36 {
+		t.Errorf("offsetof(ActivityMemcpy7.ContextId) = %d, want 36", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemcpy6{}.StreamId); got != 40 {
-		t.Errorf("offsetof(ActivityMemcpy6.StreamId) = %d, want 40", got)
+	if got := unsafe.Offsetof(ActivityMemcpy7{}.StreamId); got != 40 {
+		t.Errorf("offsetof(ActivityMemcpy7.StreamId) = %d, want 40", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemcpy6{}.CorrelationId); got != 44 {
-		t.Errorf("offsetof(ActivityMemcpy6.CorrelationId) = %d, want 44", got)
+	if got := unsafe.Offsetof(ActivityMemcpy7{}.CorrelationId); got != 44 {
+		t.Errorf("offsetof(ActivityMemcpy7.CorrelationId) = %d, want 44", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemcpy6{}.RuntimeCorrelationId); got != 48 {
-		t.Errorf("offsetof(ActivityMemcpy6.RuntimeCorrelationId) = %d, want 48", got)
+	if got := unsafe.Offsetof(ActivityMemcpy7{}.RuntimeCorrelationId); got != 48 {
+		t.Errorf("offsetof(ActivityMemcpy7.RuntimeCorrelationId) = %d, want 48", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemcpy6{}.Pad); got != 52 {
-		t.Errorf("offsetof(ActivityMemcpy6.Pad) = %d, want 52", got)
+	if got := unsafe.Offsetof(ActivityMemcpy7{}.Pad); got != 52 {
+		t.Errorf("offsetof(ActivityMemcpy7.Pad) = %d, want 52", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemcpy6{}.Reserved0); got != 56 {
-		t.Errorf("offsetof(ActivityMemcpy6.Reserved0) = %d, want 56", got)
+	if got := unsafe.Offsetof(ActivityMemcpy7{}.Reserved0); got != 56 {
+		t.Errorf("offsetof(ActivityMemcpy7.Reserved0) = %d, want 56", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemcpy6{}.GraphNodeId); got != 64 {
-		t.Errorf("offsetof(ActivityMemcpy6.GraphNodeId) = %d, want 64", got)
+	if got := unsafe.Offsetof(ActivityMemcpy7{}.GraphNodeId); got != 64 {
+		t.Errorf("offsetof(ActivityMemcpy7.GraphNodeId) = %d, want 64", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemcpy6{}.GraphId); got != 72 {
-		t.Errorf("offsetof(ActivityMemcpy6.GraphId) = %d, want 72", got)
+	if got := unsafe.Offsetof(ActivityMemcpy7{}.GraphId); got != 72 {
+		t.Errorf("offsetof(ActivityMemcpy7.GraphId) = %d, want 72", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemcpy6{}.ChannelID); got != 76 {
-		t.Errorf("offsetof(ActivityMemcpy6.ChannelID) = %d, want 76", got)
+	if got := unsafe.Offsetof(ActivityMemcpy7{}.ChannelID); got != 76 {
+		t.Errorf("offsetof(ActivityMemcpy7.ChannelID) = %d, want 76", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemcpy6{}.ChannelType); got != 80 {
-		t.Errorf("offsetof(ActivityMemcpy6.ChannelType) = %d, want 80", got)
+	if got := unsafe.Offsetof(ActivityMemcpy7{}.ChannelType); got != 80 {
+		t.Errorf("offsetof(ActivityMemcpy7.ChannelType) = %d, want 80", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemcpy6{}.IsDeviceLaunched); got != 84 {
-		t.Errorf("offsetof(ActivityMemcpy6.IsDeviceLaunched) = %d, want 84", got)
+	if got := unsafe.Offsetof(ActivityMemcpy7{}.IsDeviceLaunched); got != 84 {
+		t.Errorf("offsetof(ActivityMemcpy7.IsDeviceLaunched) = %d, want 84", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemcpy6{}.Pad2); got != 85 {
-		t.Errorf("offsetof(ActivityMemcpy6.Pad2) = %d, want 85", got)
+	if got := unsafe.Offsetof(ActivityMemcpy7{}.Pad2); got != 85 {
+		t.Errorf("offsetof(ActivityMemcpy7.Pad2) = %d, want 85", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemcpy6{}.CopyCount); got != 88 {
-		t.Errorf("offsetof(ActivityMemcpy6.CopyCount) = %d, want 88", got)
+	if got := unsafe.Offsetof(ActivityMemcpy7{}.CopyCount); got != 88 {
+		t.Errorf("offsetof(ActivityMemcpy7.CopyCount) = %d, want 88", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemcpy7{}.SourceGraphId); got != 96 {
+		t.Errorf("offsetof(ActivityMemcpy7.SourceGraphId) = %d, want 96", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemcpy7{}.Pad3); got != 100 {
+		t.Errorf("offsetof(ActivityMemcpy7.Pad3) = %d, want 100", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemcpy7{}.SourceGraphNodeId); got != 104 {
+		t.Errorf("offsetof(ActivityMemcpy7.SourceGraphNodeId) = %d, want 104", got)
 	}
 	if got := unsafe.Sizeof(ActivityMemcpyPtoP4{}); got != 96 {
 		t.Errorf("sizeof(ActivityMemcpyPtoP4) = %d, want 96", got)
@@ -578,68 +587,77 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(ActivityMemcpyPtoP4{}.ChannelType); got != 88 {
 		t.Errorf("offsetof(ActivityMemcpyPtoP4.ChannelType) = %d, want 88", got)
 	}
-	if got := unsafe.Sizeof(ActivityMemset4{}); got != 88 {
-		t.Errorf("sizeof(ActivityMemset4) = %d, want 88", got)
+	if got := unsafe.Sizeof(ActivityMemset5{}); got != 104 {
+		t.Errorf("sizeof(ActivityMemset5) = %d, want 104", got)
 	}
-	if got := unsafe.Alignof(ActivityMemset4{}); got != 8 {
-		t.Errorf("alignof(ActivityMemset4) = %d, want 8", got)
+	if got := unsafe.Alignof(ActivityMemset5{}); got != 8 {
+		t.Errorf("alignof(ActivityMemset5) = %d, want 8", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemset4{}.Kind); got != 0 {
-		t.Errorf("offsetof(ActivityMemset4.Kind) = %d, want 0", got)
+	if got := unsafe.Offsetof(ActivityMemset5{}.Kind); got != 0 {
+		t.Errorf("offsetof(ActivityMemset5.Kind) = %d, want 0", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemset4{}.Value); got != 4 {
-		t.Errorf("offsetof(ActivityMemset4.Value) = %d, want 4", got)
+	if got := unsafe.Offsetof(ActivityMemset5{}.Value); got != 4 {
+		t.Errorf("offsetof(ActivityMemset5.Value) = %d, want 4", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemset4{}.Bytes); got != 8 {
-		t.Errorf("offsetof(ActivityMemset4.Bytes) = %d, want 8", got)
+	if got := unsafe.Offsetof(ActivityMemset5{}.Bytes); got != 8 {
+		t.Errorf("offsetof(ActivityMemset5.Bytes) = %d, want 8", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemset4{}.Start); got != 16 {
-		t.Errorf("offsetof(ActivityMemset4.Start) = %d, want 16", got)
+	if got := unsafe.Offsetof(ActivityMemset5{}.Start); got != 16 {
+		t.Errorf("offsetof(ActivityMemset5.Start) = %d, want 16", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemset4{}.End); got != 24 {
-		t.Errorf("offsetof(ActivityMemset4.End) = %d, want 24", got)
+	if got := unsafe.Offsetof(ActivityMemset5{}.End); got != 24 {
+		t.Errorf("offsetof(ActivityMemset5.End) = %d, want 24", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemset4{}.DeviceId); got != 32 {
-		t.Errorf("offsetof(ActivityMemset4.DeviceId) = %d, want 32", got)
+	if got := unsafe.Offsetof(ActivityMemset5{}.DeviceId); got != 32 {
+		t.Errorf("offsetof(ActivityMemset5.DeviceId) = %d, want 32", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemset4{}.ContextId); got != 36 {
-		t.Errorf("offsetof(ActivityMemset4.ContextId) = %d, want 36", got)
+	if got := unsafe.Offsetof(ActivityMemset5{}.ContextId); got != 36 {
+		t.Errorf("offsetof(ActivityMemset5.ContextId) = %d, want 36", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemset4{}.StreamId); got != 40 {
-		t.Errorf("offsetof(ActivityMemset4.StreamId) = %d, want 40", got)
+	if got := unsafe.Offsetof(ActivityMemset5{}.StreamId); got != 40 {
+		t.Errorf("offsetof(ActivityMemset5.StreamId) = %d, want 40", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemset4{}.CorrelationId); got != 44 {
-		t.Errorf("offsetof(ActivityMemset4.CorrelationId) = %d, want 44", got)
+	if got := unsafe.Offsetof(ActivityMemset5{}.CorrelationId); got != 44 {
+		t.Errorf("offsetof(ActivityMemset5.CorrelationId) = %d, want 44", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemset4{}.Flags); got != 48 {
-		t.Errorf("offsetof(ActivityMemset4.Flags) = %d, want 48", got)
+	if got := unsafe.Offsetof(ActivityMemset5{}.Flags); got != 48 {
+		t.Errorf("offsetof(ActivityMemset5.Flags) = %d, want 48", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemset4{}.MemoryKind); got != 50 {
-		t.Errorf("offsetof(ActivityMemset4.MemoryKind) = %d, want 50", got)
+	if got := unsafe.Offsetof(ActivityMemset5{}.MemoryKind); got != 50 {
+		t.Errorf("offsetof(ActivityMemset5.MemoryKind) = %d, want 50", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemset4{}.Pad); got != 52 {
-		t.Errorf("offsetof(ActivityMemset4.Pad) = %d, want 52", got)
+	if got := unsafe.Offsetof(ActivityMemset5{}.Pad); got != 52 {
+		t.Errorf("offsetof(ActivityMemset5.Pad) = %d, want 52", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemset4{}.Reserved0); got != 56 {
-		t.Errorf("offsetof(ActivityMemset4.Reserved0) = %d, want 56", got)
+	if got := unsafe.Offsetof(ActivityMemset5{}.Reserved0); got != 56 {
+		t.Errorf("offsetof(ActivityMemset5.Reserved0) = %d, want 56", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemset4{}.GraphNodeId); got != 64 {
-		t.Errorf("offsetof(ActivityMemset4.GraphNodeId) = %d, want 64", got)
+	if got := unsafe.Offsetof(ActivityMemset5{}.GraphNodeId); got != 64 {
+		t.Errorf("offsetof(ActivityMemset5.GraphNodeId) = %d, want 64", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemset4{}.GraphId); got != 72 {
-		t.Errorf("offsetof(ActivityMemset4.GraphId) = %d, want 72", got)
+	if got := unsafe.Offsetof(ActivityMemset5{}.GraphId); got != 72 {
+		t.Errorf("offsetof(ActivityMemset5.GraphId) = %d, want 72", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemset4{}.ChannelID); got != 76 {
-		t.Errorf("offsetof(ActivityMemset4.ChannelID) = %d, want 76", got)
+	if got := unsafe.Offsetof(ActivityMemset5{}.ChannelID); got != 76 {
+		t.Errorf("offsetof(ActivityMemset5.ChannelID) = %d, want 76", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemset4{}.ChannelType); got != 80 {
-		t.Errorf("offsetof(ActivityMemset4.ChannelType) = %d, want 80", got)
+	if got := unsafe.Offsetof(ActivityMemset5{}.ChannelType); got != 80 {
+		t.Errorf("offsetof(ActivityMemset5.ChannelType) = %d, want 80", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemset4{}.IsDeviceLaunched); got != 84 {
-		t.Errorf("offsetof(ActivityMemset4.IsDeviceLaunched) = %d, want 84", got)
+	if got := unsafe.Offsetof(ActivityMemset5{}.IsDeviceLaunched); got != 84 {
+		t.Errorf("offsetof(ActivityMemset5.IsDeviceLaunched) = %d, want 84", got)
 	}
-	if got := unsafe.Offsetof(ActivityMemset4{}.Pad2); got != 85 {
-		t.Errorf("offsetof(ActivityMemset4.Pad2) = %d, want 85", got)
+	if got := unsafe.Offsetof(ActivityMemset5{}.Pad2); got != 85 {
+		t.Errorf("offsetof(ActivityMemset5.Pad2) = %d, want 85", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemset5{}.SourceGraphId); got != 88 {
+		t.Errorf("offsetof(ActivityMemset5.SourceGraphId) = %d, want 88", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemset5{}.Pad3); got != 92 {
+		t.Errorf("offsetof(ActivityMemset5.Pad3) = %d, want 92", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemset5{}.SourceGraphNodeId); got != 96 {
+		t.Errorf("offsetof(ActivityMemset5.SourceGraphNodeId) = %d, want 96", got)
 	}
 	if got := unsafe.Sizeof(ActivityMemory{}); got != 80 {
 		t.Errorf("sizeof(ActivityMemory) = %d, want 80", got)
@@ -791,155 +809,170 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(ActivityMemoryPool3{}.Pad2); got != 73 {
 		t.Errorf("offsetof(ActivityMemoryPool3.Pad2) = %d, want 73", got)
 	}
-	if got := unsafe.Sizeof(ActivityKernel11{}); got != 224 {
-		t.Errorf("sizeof(ActivityKernel11) = %d, want 224", got)
+	if got := unsafe.Sizeof(ActivityKernel13{}); got != 248 {
+		t.Errorf("sizeof(ActivityKernel13) = %d, want 248", got)
 	}
-	if got := unsafe.Alignof(ActivityKernel11{}); got != 8 {
-		t.Errorf("alignof(ActivityKernel11) = %d, want 8", got)
+	if got := unsafe.Alignof(ActivityKernel13{}); got != 8 {
+		t.Errorf("alignof(ActivityKernel13) = %d, want 8", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.Kind); got != 0 {
-		t.Errorf("offsetof(ActivityKernel11.Kind) = %d, want 0", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.Kind); got != 0 {
+		t.Errorf("offsetof(ActivityKernel13.Kind) = %d, want 0", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.CacheConfig); got != 4 {
-		t.Errorf("offsetof(ActivityKernel11.CacheConfig) = %d, want 4", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.CacheConfig); got != 4 {
+		t.Errorf("offsetof(ActivityKernel13.CacheConfig) = %d, want 4", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.SharedMemoryConfig); got != 5 {
-		t.Errorf("offsetof(ActivityKernel11.SharedMemoryConfig) = %d, want 5", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.SharedMemoryConfig); got != 5 {
+		t.Errorf("offsetof(ActivityKernel13.SharedMemoryConfig) = %d, want 5", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.RegistersPerThread); got != 6 {
-		t.Errorf("offsetof(ActivityKernel11.RegistersPerThread) = %d, want 6", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.RegistersPerThread); got != 6 {
+		t.Errorf("offsetof(ActivityKernel13.RegistersPerThread) = %d, want 6", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.PartitionedGlobalCacheRequested); got != 8 {
-		t.Errorf("offsetof(ActivityKernel11.PartitionedGlobalCacheRequested) = %d, want 8", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.PartitionedGlobalCacheRequested); got != 8 {
+		t.Errorf("offsetof(ActivityKernel13.PartitionedGlobalCacheRequested) = %d, want 8", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.PartitionedGlobalCacheExecuted); got != 12 {
-		t.Errorf("offsetof(ActivityKernel11.PartitionedGlobalCacheExecuted) = %d, want 12", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.PartitionedGlobalCacheExecuted); got != 12 {
+		t.Errorf("offsetof(ActivityKernel13.PartitionedGlobalCacheExecuted) = %d, want 12", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.Start); got != 16 {
-		t.Errorf("offsetof(ActivityKernel11.Start) = %d, want 16", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.Start); got != 16 {
+		t.Errorf("offsetof(ActivityKernel13.Start) = %d, want 16", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.End); got != 24 {
-		t.Errorf("offsetof(ActivityKernel11.End) = %d, want 24", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.End); got != 24 {
+		t.Errorf("offsetof(ActivityKernel13.End) = %d, want 24", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.Completed); got != 32 {
-		t.Errorf("offsetof(ActivityKernel11.Completed) = %d, want 32", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.Completed); got != 32 {
+		t.Errorf("offsetof(ActivityKernel13.Completed) = %d, want 32", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.DeviceId); got != 40 {
-		t.Errorf("offsetof(ActivityKernel11.DeviceId) = %d, want 40", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.DeviceId); got != 40 {
+		t.Errorf("offsetof(ActivityKernel13.DeviceId) = %d, want 40", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.ContextId); got != 44 {
-		t.Errorf("offsetof(ActivityKernel11.ContextId) = %d, want 44", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.ContextId); got != 44 {
+		t.Errorf("offsetof(ActivityKernel13.ContextId) = %d, want 44", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.StreamId); got != 48 {
-		t.Errorf("offsetof(ActivityKernel11.StreamId) = %d, want 48", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.StreamId); got != 48 {
+		t.Errorf("offsetof(ActivityKernel13.StreamId) = %d, want 48", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.GridX); got != 52 {
-		t.Errorf("offsetof(ActivityKernel11.GridX) = %d, want 52", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.GridX); got != 52 {
+		t.Errorf("offsetof(ActivityKernel13.GridX) = %d, want 52", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.GridY); got != 56 {
-		t.Errorf("offsetof(ActivityKernel11.GridY) = %d, want 56", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.GridY); got != 56 {
+		t.Errorf("offsetof(ActivityKernel13.GridY) = %d, want 56", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.GridZ); got != 60 {
-		t.Errorf("offsetof(ActivityKernel11.GridZ) = %d, want 60", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.GridZ); got != 60 {
+		t.Errorf("offsetof(ActivityKernel13.GridZ) = %d, want 60", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.BlockX); got != 64 {
-		t.Errorf("offsetof(ActivityKernel11.BlockX) = %d, want 64", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.BlockX); got != 64 {
+		t.Errorf("offsetof(ActivityKernel13.BlockX) = %d, want 64", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.BlockY); got != 68 {
-		t.Errorf("offsetof(ActivityKernel11.BlockY) = %d, want 68", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.BlockY); got != 68 {
+		t.Errorf("offsetof(ActivityKernel13.BlockY) = %d, want 68", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.BlockZ); got != 72 {
-		t.Errorf("offsetof(ActivityKernel11.BlockZ) = %d, want 72", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.BlockZ); got != 72 {
+		t.Errorf("offsetof(ActivityKernel13.BlockZ) = %d, want 72", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.StaticSharedMemory); got != 76 {
-		t.Errorf("offsetof(ActivityKernel11.StaticSharedMemory) = %d, want 76", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.StaticSharedMemory); got != 76 {
+		t.Errorf("offsetof(ActivityKernel13.StaticSharedMemory) = %d, want 76", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.DynamicSharedMemory); got != 80 {
-		t.Errorf("offsetof(ActivityKernel11.DynamicSharedMemory) = %d, want 80", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.DynamicSharedMemory); got != 80 {
+		t.Errorf("offsetof(ActivityKernel13.DynamicSharedMemory) = %d, want 80", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.LocalMemoryPerThread); got != 84 {
-		t.Errorf("offsetof(ActivityKernel11.LocalMemoryPerThread) = %d, want 84", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.LocalMemoryPerThread); got != 84 {
+		t.Errorf("offsetof(ActivityKernel13.LocalMemoryPerThread) = %d, want 84", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.LocalMemoryTotal); got != 88 {
-		t.Errorf("offsetof(ActivityKernel11.LocalMemoryTotal) = %d, want 88", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.LocalMemoryTotal); got != 88 {
+		t.Errorf("offsetof(ActivityKernel13.LocalMemoryTotal) = %d, want 88", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.CorrelationId); got != 92 {
-		t.Errorf("offsetof(ActivityKernel11.CorrelationId) = %d, want 92", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.CorrelationId); got != 92 {
+		t.Errorf("offsetof(ActivityKernel13.CorrelationId) = %d, want 92", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.GridId); got != 96 {
-		t.Errorf("offsetof(ActivityKernel11.GridId) = %d, want 96", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.GridId); got != 96 {
+		t.Errorf("offsetof(ActivityKernel13.GridId) = %d, want 96", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.Name); got != 104 {
-		t.Errorf("offsetof(ActivityKernel11.Name) = %d, want 104", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.Name); got != 104 {
+		t.Errorf("offsetof(ActivityKernel13.Name) = %d, want 104", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.Reserved0); got != 112 {
-		t.Errorf("offsetof(ActivityKernel11.Reserved0) = %d, want 112", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.Reserved0); got != 112 {
+		t.Errorf("offsetof(ActivityKernel13.Reserved0) = %d, want 112", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.Queued); got != 120 {
-		t.Errorf("offsetof(ActivityKernel11.Queued) = %d, want 120", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.Queued); got != 120 {
+		t.Errorf("offsetof(ActivityKernel13.Queued) = %d, want 120", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.Submitted); got != 128 {
-		t.Errorf("offsetof(ActivityKernel11.Submitted) = %d, want 128", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.Submitted); got != 128 {
+		t.Errorf("offsetof(ActivityKernel13.Submitted) = %d, want 128", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.LaunchType); got != 136 {
-		t.Errorf("offsetof(ActivityKernel11.LaunchType) = %d, want 136", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.LaunchType); got != 136 {
+		t.Errorf("offsetof(ActivityKernel13.LaunchType) = %d, want 136", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.IsSharedMemoryCarveoutRequested); got != 137 {
-		t.Errorf("offsetof(ActivityKernel11.IsSharedMemoryCarveoutRequested) = %d, want 137", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.IsSharedMemoryCarveoutRequested); got != 137 {
+		t.Errorf("offsetof(ActivityKernel13.IsSharedMemoryCarveoutRequested) = %d, want 137", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.SharedMemoryCarveoutRequested); got != 138 {
-		t.Errorf("offsetof(ActivityKernel11.SharedMemoryCarveoutRequested) = %d, want 138", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.SharedMemoryCarveoutRequested); got != 138 {
+		t.Errorf("offsetof(ActivityKernel13.SharedMemoryCarveoutRequested) = %d, want 138", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.Padding); got != 139 {
-		t.Errorf("offsetof(ActivityKernel11.Padding) = %d, want 139", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.Padding); got != 139 {
+		t.Errorf("offsetof(ActivityKernel13.Padding) = %d, want 139", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.SharedMemoryExecuted); got != 140 {
-		t.Errorf("offsetof(ActivityKernel11.SharedMemoryExecuted) = %d, want 140", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.SharedMemoryExecuted); got != 140 {
+		t.Errorf("offsetof(ActivityKernel13.SharedMemoryExecuted) = %d, want 140", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.GraphNodeId); got != 144 {
-		t.Errorf("offsetof(ActivityKernel11.GraphNodeId) = %d, want 144", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.GraphNodeId); got != 144 {
+		t.Errorf("offsetof(ActivityKernel13.GraphNodeId) = %d, want 144", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.ShmemLimitConfig); got != 152 {
-		t.Errorf("offsetof(ActivityKernel11.ShmemLimitConfig) = %d, want 152", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.ShmemLimitConfig); got != 152 {
+		t.Errorf("offsetof(ActivityKernel13.ShmemLimitConfig) = %d, want 152", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.GraphId); got != 156 {
-		t.Errorf("offsetof(ActivityKernel11.GraphId) = %d, want 156", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.GraphId); got != 156 {
+		t.Errorf("offsetof(ActivityKernel13.GraphId) = %d, want 156", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.PAccessPolicyWindow); got != 160 {
-		t.Errorf("offsetof(ActivityKernel11.PAccessPolicyWindow) = %d, want 160", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.PAccessPolicyWindow); got != 160 {
+		t.Errorf("offsetof(ActivityKernel13.PAccessPolicyWindow) = %d, want 160", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.ChannelID); got != 168 {
-		t.Errorf("offsetof(ActivityKernel11.ChannelID) = %d, want 168", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.ChannelID); got != 168 {
+		t.Errorf("offsetof(ActivityKernel13.ChannelID) = %d, want 168", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.ChannelType); got != 172 {
-		t.Errorf("offsetof(ActivityKernel11.ChannelType) = %d, want 172", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.ChannelType); got != 172 {
+		t.Errorf("offsetof(ActivityKernel13.ChannelType) = %d, want 172", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.Cluster); got != 176 {
-		t.Errorf("offsetof(ActivityKernel11.Cluster) = %d, want 176", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.Cluster); got != 176 {
+		t.Errorf("offsetof(ActivityKernel13.Cluster) = %d, want 176", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.ClusterSchedulingPolicy); got != 188 {
-		t.Errorf("offsetof(ActivityKernel11.ClusterSchedulingPolicy) = %d, want 188", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.ClusterSchedulingPolicy); got != 188 {
+		t.Errorf("offsetof(ActivityKernel13.ClusterSchedulingPolicy) = %d, want 188", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.LocalMemoryTotalV2); got != 192 {
-		t.Errorf("offsetof(ActivityKernel11.LocalMemoryTotalV2) = %d, want 192", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.LocalMemoryTotalV2); got != 192 {
+		t.Errorf("offsetof(ActivityKernel13.LocalMemoryTotalV2) = %d, want 192", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.MaxPotentialClusterSize); got != 200 {
-		t.Errorf("offsetof(ActivityKernel11.MaxPotentialClusterSize) = %d, want 200", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.MaxPotentialClusterSize); got != 200 {
+		t.Errorf("offsetof(ActivityKernel13.MaxPotentialClusterSize) = %d, want 200", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.MaxActiveClusters); got != 204 {
-		t.Errorf("offsetof(ActivityKernel11.MaxActiveClusters) = %d, want 204", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.MaxActiveClusters); got != 204 {
+		t.Errorf("offsetof(ActivityKernel13.MaxActiveClusters) = %d, want 204", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.IsDeviceLaunched); got != 208 {
-		t.Errorf("offsetof(ActivityKernel11.IsDeviceLaunched) = %d, want 208", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.IsDeviceLaunched); got != 208 {
+		t.Errorf("offsetof(ActivityKernel13.IsDeviceLaunched) = %d, want 208", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.Padding3); got != 209 {
-		t.Errorf("offsetof(ActivityKernel11.Padding3) = %d, want 209", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.Padding3); got != 209 {
+		t.Errorf("offsetof(ActivityKernel13.Padding3) = %d, want 209", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.Priority); got != 216 {
-		t.Errorf("offsetof(ActivityKernel11.Priority) = %d, want 216", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.Priority); got != 216 {
+		t.Errorf("offsetof(ActivityKernel13.Priority) = %d, want 216", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.Padding4); got != 220 {
-		t.Errorf("offsetof(ActivityKernel11.Padding4) = %d, want 220", got)
+	if got := unsafe.Offsetof(ActivityKernel13{}.Padding4); got != 220 {
+		t.Errorf("offsetof(ActivityKernel13.Padding4) = %d, want 220", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel13{}.ExecutionModel); got != 224 {
+		t.Errorf("offsetof(ActivityKernel13.ExecutionModel) = %d, want 224", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel13{}.Padding5); got != 228 {
+		t.Errorf("offsetof(ActivityKernel13.Padding5) = %d, want 228", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel13{}.SourceGraphId); got != 232 {
+		t.Errorf("offsetof(ActivityKernel13.SourceGraphId) = %d, want 232", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel13{}.Padding6); got != 236 {
+		t.Errorf("offsetof(ActivityKernel13.Padding6) = %d, want 236", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel13{}.SourceGraphNodeId); got != 240 {
+		t.Errorf("offsetof(ActivityKernel13.SourceGraphNodeId) = %d, want 240", got)
 	}
 	if got := unsafe.Sizeof(ActivityCdpKernel{}); got != 144 {
 		t.Errorf("sizeof(ActivityCdpKernel) = %d, want 144", got)
@@ -1084,6 +1117,36 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Offsetof(ActivityAPI{}.ReturnValue); got != 36 {
 		t.Errorf("offsetof(ActivityAPI.ReturnValue) = %d, want 36", got)
+	}
+	if got := unsafe.Sizeof(ActivityApiCbidOptions{}); got != 32 {
+		t.Errorf("sizeof(ActivityApiCbidOptions) = %d, want 32", got)
+	}
+	if got := unsafe.Alignof(ActivityApiCbidOptions{}); got != 8 {
+		t.Errorf("alignof(ActivityApiCbidOptions) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(ActivityApiCbidOptions{}.StructSize); got != 0 {
+		t.Errorf("offsetof(ActivityApiCbidOptions.StructSize) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(ActivityApiCbidOptions{}.PCbids); got != 8 {
+		t.Errorf("offsetof(ActivityApiCbidOptions.PCbids) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(ActivityApiCbidOptions{}.NumCbids); got != 16 {
+		t.Errorf("offsetof(ActivityApiCbidOptions.NumCbids) = %d, want 16", got)
+	}
+	if got := unsafe.Offsetof(ActivityApiCbidOptions{}.Enable); got != 24 {
+		t.Errorf("offsetof(ActivityApiCbidOptions.Enable) = %d, want 24", got)
+	}
+	if got := unsafe.Sizeof(ActivityApiOptions{}); got != 16 {
+		t.Errorf("sizeof(ActivityApiOptions) = %d, want 16", got)
+	}
+	if got := unsafe.Alignof(ActivityApiOptions{}); got != 8 {
+		t.Errorf("alignof(ActivityApiOptions) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(ActivityApiOptions{}.StructSize); got != 0 {
+		t.Errorf("offsetof(ActivityApiOptions.StructSize) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(ActivityApiOptions{}.PCbidOptions); got != 8 {
+		t.Errorf("offsetof(ActivityApiOptions.PCbidOptions) = %d, want 8", got)
 	}
 	if got := unsafe.Sizeof(ActivityEvent{}); got != 24 {
 		t.Errorf("sizeof(ActivityEvent) = %d, want 24", got)
@@ -1549,6 +1612,57 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Offsetof(ActivityOverhead3{}.OverheadData); got != 48 {
 		t.Errorf("offsetof(ActivityOverhead3.OverheadData) = %d, want 48", got)
+	}
+	if got := unsafe.Sizeof(ActivityEnvironmentSpeedData{}); got != 20 {
+		t.Errorf("sizeof(ActivityEnvironmentSpeedData) = %d, want 20", got)
+	}
+	if got := unsafe.Alignof(ActivityEnvironmentSpeedData{}); got != 4 {
+		t.Errorf("alignof(ActivityEnvironmentSpeedData) = %d, want 4", got)
+	}
+	if got := unsafe.Offsetof(ActivityEnvironmentSpeedData{}.SmClock); got != 0 {
+		t.Errorf("offsetof(ActivityEnvironmentSpeedData.SmClock) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(ActivityEnvironmentSpeedData{}.MemoryClock); got != 4 {
+		t.Errorf("offsetof(ActivityEnvironmentSpeedData.MemoryClock) = %d, want 4", got)
+	}
+	if got := unsafe.Offsetof(ActivityEnvironmentSpeedData{}.PcieLinkGen); got != 8 {
+		t.Errorf("offsetof(ActivityEnvironmentSpeedData.PcieLinkGen) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(ActivityEnvironmentSpeedData{}.PcieLinkWidth); got != 12 {
+		t.Errorf("offsetof(ActivityEnvironmentSpeedData.PcieLinkWidth) = %d, want 12", got)
+	}
+	if got := unsafe.Offsetof(ActivityEnvironmentSpeedData{}.ClocksThrottleReasons); got != 16 {
+		t.Errorf("offsetof(ActivityEnvironmentSpeedData.ClocksThrottleReasons) = %d, want 16", got)
+	}
+	if got := unsafe.Sizeof(ActivityEnvironmentTemperatureData{}); got != 4 {
+		t.Errorf("sizeof(ActivityEnvironmentTemperatureData) = %d, want 4", got)
+	}
+	if got := unsafe.Alignof(ActivityEnvironmentTemperatureData{}); got != 4 {
+		t.Errorf("alignof(ActivityEnvironmentTemperatureData) = %d, want 4", got)
+	}
+	if got := unsafe.Offsetof(ActivityEnvironmentTemperatureData{}.GpuTemperature); got != 0 {
+		t.Errorf("offsetof(ActivityEnvironmentTemperatureData.GpuTemperature) = %d, want 0", got)
+	}
+	if got := unsafe.Sizeof(ActivityEnvironmentPowerData{}); got != 8 {
+		t.Errorf("sizeof(ActivityEnvironmentPowerData) = %d, want 8", got)
+	}
+	if got := unsafe.Alignof(ActivityEnvironmentPowerData{}); got != 4 {
+		t.Errorf("alignof(ActivityEnvironmentPowerData) = %d, want 4", got)
+	}
+	if got := unsafe.Offsetof(ActivityEnvironmentPowerData{}.Power); got != 0 {
+		t.Errorf("offsetof(ActivityEnvironmentPowerData.Power) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(ActivityEnvironmentPowerData{}.PowerLimit); got != 4 {
+		t.Errorf("offsetof(ActivityEnvironmentPowerData.PowerLimit) = %d, want 4", got)
+	}
+	if got := unsafe.Sizeof(ActivityEnvironmentCoolingData{}); got != 4 {
+		t.Errorf("sizeof(ActivityEnvironmentCoolingData) = %d, want 4", got)
+	}
+	if got := unsafe.Alignof(ActivityEnvironmentCoolingData{}); got != 4 {
+		t.Errorf("alignof(ActivityEnvironmentCoolingData) = %d, want 4", got)
+	}
+	if got := unsafe.Offsetof(ActivityEnvironmentCoolingData{}.FanSpeed); got != 0 {
+		t.Errorf("offsetof(ActivityEnvironmentCoolingData.FanSpeed) = %d, want 0", got)
 	}
 	if got := unsafe.Sizeof(ActivityEnvironment{}); got != 40 {
 		t.Errorf("sizeof(ActivityEnvironment) = %d, want 40", got)
@@ -2306,6 +2420,18 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(ActivityExternalCorrelation{}.Reserved); got != 20 {
 		t.Errorf("offsetof(ActivityExternalCorrelation.Reserved) = %d, want 20", got)
 	}
+	if got := unsafe.Sizeof(ActivityNvLinkNpu{}); got != 8 {
+		t.Errorf("sizeof(ActivityNvLinkNpu) = %d, want 8", got)
+	}
+	if got := unsafe.Alignof(ActivityNvLinkNpu{}); got != 4 {
+		t.Errorf("alignof(ActivityNvLinkNpu) = %d, want 4", got)
+	}
+	if got := unsafe.Offsetof(ActivityNvLinkNpu{}.Index); got != 0 {
+		t.Errorf("offsetof(ActivityNvLinkNpu.Index) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(ActivityNvLinkNpu{}.DomainId); got != 4 {
+		t.Errorf("offsetof(ActivityNvLinkNpu.DomainId) = %d, want 4", got)
+	}
 	if got := unsafe.Sizeof(ActivityNvLink5{}); got != 88 {
 		t.Errorf("sizeof(ActivityNvLink5) = %d, want 88", got)
 	}
@@ -2350,6 +2476,36 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Offsetof(ActivityNvLink5{}.Pad); got != 81 {
 		t.Errorf("offsetof(ActivityNvLink5.Pad) = %d, want 81", got)
+	}
+	if got := unsafe.Sizeof(ActivityPcieGpuAttr{}); got != 144 {
+		t.Errorf("sizeof(ActivityPcieGpuAttr) = %d, want 144", got)
+	}
+	if got := unsafe.Alignof(ActivityPcieGpuAttr{}); got != 4 {
+		t.Errorf("alignof(ActivityPcieGpuAttr) = %d, want 4", got)
+	}
+	if got := unsafe.Offsetof(ActivityPcieGpuAttr{}.UuidDev); got != 0 {
+		t.Errorf("offsetof(ActivityPcieGpuAttr.UuidDev) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(ActivityPcieGpuAttr{}.PeerDev); got != 16 {
+		t.Errorf("offsetof(ActivityPcieGpuAttr.PeerDev) = %d, want 16", got)
+	}
+	if got := unsafe.Sizeof(ActivityPcieBridgeAttr{}); got != 8 {
+		t.Errorf("sizeof(ActivityPcieBridgeAttr) = %d, want 8", got)
+	}
+	if got := unsafe.Alignof(ActivityPcieBridgeAttr{}); got != 2 {
+		t.Errorf("alignof(ActivityPcieBridgeAttr) = %d, want 2", got)
+	}
+	if got := unsafe.Offsetof(ActivityPcieBridgeAttr{}.SecondaryBus); got != 0 {
+		t.Errorf("offsetof(ActivityPcieBridgeAttr.SecondaryBus) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(ActivityPcieBridgeAttr{}.DeviceId); got != 2 {
+		t.Errorf("offsetof(ActivityPcieBridgeAttr.DeviceId) = %d, want 2", got)
+	}
+	if got := unsafe.Offsetof(ActivityPcieBridgeAttr{}.VendorId); got != 4 {
+		t.Errorf("offsetof(ActivityPcieBridgeAttr.VendorId) = %d, want 4", got)
+	}
+	if got := unsafe.Offsetof(ActivityPcieBridgeAttr{}.Pad0); got != 6 {
+		t.Errorf("offsetof(ActivityPcieBridgeAttr.Pad0) = %d, want 6", got)
 	}
 	if got := unsafe.Sizeof(ActivityPcie{}); got != 168 {
 		t.Errorf("sizeof(ActivityPcie) = %d, want 168", got)
@@ -2777,41 +2933,59 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(ActivityHostLaunch{}.End); got != 40 {
 		t.Errorf("offsetof(ActivityHostLaunch.End) = %d, want 40", got)
 	}
-	if got := unsafe.Sizeof(ActivityGreenContext{}); got != 152 {
-		t.Errorf("sizeof(ActivityGreenContext) = %d, want 152", got)
+	if got := unsafe.Sizeof(ActivityGreenContext3{}); got != 304 {
+		t.Errorf("sizeof(ActivityGreenContext3) = %d, want 304", got)
 	}
-	if got := unsafe.Alignof(ActivityGreenContext{}); got != 8 {
-		t.Errorf("alignof(ActivityGreenContext) = %d, want 8", got)
+	if got := unsafe.Alignof(ActivityGreenContext3{}); got != 8 {
+		t.Errorf("alignof(ActivityGreenContext3) = %d, want 8", got)
 	}
-	if got := unsafe.Offsetof(ActivityGreenContext{}.Kind); got != 0 {
-		t.Errorf("offsetof(ActivityGreenContext.Kind) = %d, want 0", got)
+	if got := unsafe.Offsetof(ActivityGreenContext3{}.Kind); got != 0 {
+		t.Errorf("offsetof(ActivityGreenContext3.Kind) = %d, want 0", got)
 	}
-	if got := unsafe.Offsetof(ActivityGreenContext{}.ContextId); got != 4 {
-		t.Errorf("offsetof(ActivityGreenContext.ContextId) = %d, want 4", got)
+	if got := unsafe.Offsetof(ActivityGreenContext3{}.ContextId); got != 4 {
+		t.Errorf("offsetof(ActivityGreenContext3.ContextId) = %d, want 4", got)
 	}
-	if got := unsafe.Offsetof(ActivityGreenContext{}.ParentContextId); got != 8 {
-		t.Errorf("offsetof(ActivityGreenContext.ParentContextId) = %d, want 8", got)
+	if got := unsafe.Offsetof(ActivityGreenContext3{}.ParentContextId); got != 8 {
+		t.Errorf("offsetof(ActivityGreenContext3.ParentContextId) = %d, want 8", got)
 	}
-	if got := unsafe.Offsetof(ActivityGreenContext{}.DeviceId); got != 12 {
-		t.Errorf("offsetof(ActivityGreenContext.DeviceId) = %d, want 12", got)
+	if got := unsafe.Offsetof(ActivityGreenContext3{}.DeviceId); got != 12 {
+		t.Errorf("offsetof(ActivityGreenContext3.DeviceId) = %d, want 12", got)
 	}
-	if got := unsafe.Offsetof(ActivityGreenContext{}.NumTpcs); got != 16 {
-		t.Errorf("offsetof(ActivityGreenContext.NumTpcs) = %d, want 16", got)
+	if got := unsafe.Offsetof(ActivityGreenContext3{}.NumTpcs); got != 16 {
+		t.Errorf("offsetof(ActivityGreenContext3.NumTpcs) = %d, want 16", got)
 	}
-	if got := unsafe.Offsetof(ActivityGreenContext{}.NumMultiprocessors); got != 20 {
-		t.Errorf("offsetof(ActivityGreenContext.NumMultiprocessors) = %d, want 20", got)
+	if got := unsafe.Offsetof(ActivityGreenContext3{}.NumMultiprocessors); got != 20 {
+		t.Errorf("offsetof(ActivityGreenContext3.NumMultiprocessors) = %d, want 20", got)
 	}
-	if got := unsafe.Offsetof(ActivityGreenContext{}.LogicalTpcMaskSize); got != 22 {
-		t.Errorf("offsetof(ActivityGreenContext.LogicalTpcMaskSize) = %d, want 22", got)
+	if got := unsafe.Offsetof(ActivityGreenContext3{}.LogicalTpcMaskSize); got != 22 {
+		t.Errorf("offsetof(ActivityGreenContext3.LogicalTpcMaskSize) = %d, want 22", got)
 	}
-	if got := unsafe.Offsetof(ActivityGreenContext{}.Padding); got != 23 {
-		t.Errorf("offsetof(ActivityGreenContext.Padding) = %d, want 23", got)
+	if got := unsafe.Offsetof(ActivityGreenContext3{}.Padding); got != 23 {
+		t.Errorf("offsetof(ActivityGreenContext3.Padding) = %d, want 23", got)
 	}
-	if got := unsafe.Offsetof(ActivityGreenContext{}.LogicalTpcMask); got != 24 {
-		t.Errorf("offsetof(ActivityGreenContext.LogicalTpcMask) = %d, want 24", got)
+	if got := unsafe.Offsetof(ActivityGreenContext3{}.LogicalTpcMask); got != 24 {
+		t.Errorf("offsetof(ActivityGreenContext3.LogicalTpcMask) = %d, want 24", got)
 	}
-	if got := unsafe.Sizeof(ActivityConfig{}); got != 32 {
-		t.Errorf("sizeof(ActivityConfig) = %d, want 32", got)
+	if got := unsafe.Offsetof(ActivityGreenContext3{}.WorkqueueResourceId); got != 152 {
+		t.Errorf("offsetof(ActivityGreenContext3.WorkqueueResourceId) = %d, want 152", got)
+	}
+	if got := unsafe.Offsetof(ActivityGreenContext3{}.WorkqueueConcurrencyLimit); got != 160 {
+		t.Errorf("offsetof(ActivityGreenContext3.WorkqueueConcurrencyLimit) = %d, want 160", got)
+	}
+	if got := unsafe.Offsetof(ActivityGreenContext3{}.WorkqueueSharingScope); got != 164 {
+		t.Errorf("offsetof(ActivityGreenContext3.WorkqueueSharingScope) = %d, want 164", got)
+	}
+	if got := unsafe.Offsetof(ActivityGreenContext3{}.WorkqueueChannelCount); got != 168 {
+		t.Errorf("offsetof(ActivityGreenContext3.WorkqueueChannelCount) = %d, want 168", got)
+	}
+	if got := unsafe.Offsetof(ActivityGreenContext3{}.Padding2); got != 172 {
+		t.Errorf("offsetof(ActivityGreenContext3.Padding2) = %d, want 172", got)
+	}
+	if got := unsafe.Offsetof(ActivityGreenContext3{}.WorkqueueChannelIds); got != 176 {
+		t.Errorf("offsetof(ActivityGreenContext3.WorkqueueChannelIds) = %d, want 176", got)
+	}
+	if got := unsafe.Sizeof(ActivityConfig{}); got != 40 {
+		t.Errorf("sizeof(ActivityConfig) = %d, want 40", got)
 	}
 	if got := unsafe.Alignof(ActivityConfig{}); got != 8 {
 		t.Errorf("alignof(ActivityConfig) = %d, want 8", got)
@@ -2821,6 +2995,9 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Offsetof(ActivityConfig{}.FieldSelection); got != 8 {
 		t.Errorf("offsetof(ActivityConfig.FieldSelection) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(ActivityConfig{}.PKindOptions); got != 32 {
+		t.Errorf("offsetof(ActivityConfig.PKindOptions) = %d, want 32", got)
 	}
 	if got := unsafe.Sizeof(BufferCallbackRequestInfo{}); got != 8 {
 		t.Errorf("sizeof(BufferCallbackRequestInfo) = %d, want 8", got)
@@ -4475,6 +4652,312 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(ActivityKernel10{}.Padding3); got != 209 {
 		t.Errorf("offsetof(ActivityKernel10.Padding3) = %d, want 209", got)
 	}
+	if got := unsafe.Sizeof(ActivityKernel11{}); got != 224 {
+		t.Errorf("sizeof(ActivityKernel11) = %d, want 224", got)
+	}
+	if got := unsafe.Alignof(ActivityKernel11{}); got != 8 {
+		t.Errorf("alignof(ActivityKernel11) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.Kind); got != 0 {
+		t.Errorf("offsetof(ActivityKernel11.Kind) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.CacheConfig); got != 4 {
+		t.Errorf("offsetof(ActivityKernel11.CacheConfig) = %d, want 4", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.SharedMemoryConfig); got != 5 {
+		t.Errorf("offsetof(ActivityKernel11.SharedMemoryConfig) = %d, want 5", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.RegistersPerThread); got != 6 {
+		t.Errorf("offsetof(ActivityKernel11.RegistersPerThread) = %d, want 6", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.PartitionedGlobalCacheRequested); got != 8 {
+		t.Errorf("offsetof(ActivityKernel11.PartitionedGlobalCacheRequested) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.PartitionedGlobalCacheExecuted); got != 12 {
+		t.Errorf("offsetof(ActivityKernel11.PartitionedGlobalCacheExecuted) = %d, want 12", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.Start); got != 16 {
+		t.Errorf("offsetof(ActivityKernel11.Start) = %d, want 16", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.End); got != 24 {
+		t.Errorf("offsetof(ActivityKernel11.End) = %d, want 24", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.Completed); got != 32 {
+		t.Errorf("offsetof(ActivityKernel11.Completed) = %d, want 32", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.DeviceId); got != 40 {
+		t.Errorf("offsetof(ActivityKernel11.DeviceId) = %d, want 40", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.ContextId); got != 44 {
+		t.Errorf("offsetof(ActivityKernel11.ContextId) = %d, want 44", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.StreamId); got != 48 {
+		t.Errorf("offsetof(ActivityKernel11.StreamId) = %d, want 48", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.GridX); got != 52 {
+		t.Errorf("offsetof(ActivityKernel11.GridX) = %d, want 52", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.GridY); got != 56 {
+		t.Errorf("offsetof(ActivityKernel11.GridY) = %d, want 56", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.GridZ); got != 60 {
+		t.Errorf("offsetof(ActivityKernel11.GridZ) = %d, want 60", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.BlockX); got != 64 {
+		t.Errorf("offsetof(ActivityKernel11.BlockX) = %d, want 64", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.BlockY); got != 68 {
+		t.Errorf("offsetof(ActivityKernel11.BlockY) = %d, want 68", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.BlockZ); got != 72 {
+		t.Errorf("offsetof(ActivityKernel11.BlockZ) = %d, want 72", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.StaticSharedMemory); got != 76 {
+		t.Errorf("offsetof(ActivityKernel11.StaticSharedMemory) = %d, want 76", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.DynamicSharedMemory); got != 80 {
+		t.Errorf("offsetof(ActivityKernel11.DynamicSharedMemory) = %d, want 80", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.LocalMemoryPerThread); got != 84 {
+		t.Errorf("offsetof(ActivityKernel11.LocalMemoryPerThread) = %d, want 84", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.LocalMemoryTotal); got != 88 {
+		t.Errorf("offsetof(ActivityKernel11.LocalMemoryTotal) = %d, want 88", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.CorrelationId); got != 92 {
+		t.Errorf("offsetof(ActivityKernel11.CorrelationId) = %d, want 92", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.GridId); got != 96 {
+		t.Errorf("offsetof(ActivityKernel11.GridId) = %d, want 96", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.Name); got != 104 {
+		t.Errorf("offsetof(ActivityKernel11.Name) = %d, want 104", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.Reserved0); got != 112 {
+		t.Errorf("offsetof(ActivityKernel11.Reserved0) = %d, want 112", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.Queued); got != 120 {
+		t.Errorf("offsetof(ActivityKernel11.Queued) = %d, want 120", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.Submitted); got != 128 {
+		t.Errorf("offsetof(ActivityKernel11.Submitted) = %d, want 128", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.LaunchType); got != 136 {
+		t.Errorf("offsetof(ActivityKernel11.LaunchType) = %d, want 136", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.IsSharedMemoryCarveoutRequested); got != 137 {
+		t.Errorf("offsetof(ActivityKernel11.IsSharedMemoryCarveoutRequested) = %d, want 137", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.SharedMemoryCarveoutRequested); got != 138 {
+		t.Errorf("offsetof(ActivityKernel11.SharedMemoryCarveoutRequested) = %d, want 138", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.Padding); got != 139 {
+		t.Errorf("offsetof(ActivityKernel11.Padding) = %d, want 139", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.SharedMemoryExecuted); got != 140 {
+		t.Errorf("offsetof(ActivityKernel11.SharedMemoryExecuted) = %d, want 140", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.GraphNodeId); got != 144 {
+		t.Errorf("offsetof(ActivityKernel11.GraphNodeId) = %d, want 144", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.ShmemLimitConfig); got != 152 {
+		t.Errorf("offsetof(ActivityKernel11.ShmemLimitConfig) = %d, want 152", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.GraphId); got != 156 {
+		t.Errorf("offsetof(ActivityKernel11.GraphId) = %d, want 156", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.PAccessPolicyWindow); got != 160 {
+		t.Errorf("offsetof(ActivityKernel11.PAccessPolicyWindow) = %d, want 160", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.ChannelID); got != 168 {
+		t.Errorf("offsetof(ActivityKernel11.ChannelID) = %d, want 168", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.ChannelType); got != 172 {
+		t.Errorf("offsetof(ActivityKernel11.ChannelType) = %d, want 172", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.Cluster); got != 176 {
+		t.Errorf("offsetof(ActivityKernel11.Cluster) = %d, want 176", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.ClusterSchedulingPolicy); got != 188 {
+		t.Errorf("offsetof(ActivityKernel11.ClusterSchedulingPolicy) = %d, want 188", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.LocalMemoryTotalV2); got != 192 {
+		t.Errorf("offsetof(ActivityKernel11.LocalMemoryTotalV2) = %d, want 192", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.MaxPotentialClusterSize); got != 200 {
+		t.Errorf("offsetof(ActivityKernel11.MaxPotentialClusterSize) = %d, want 200", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.MaxActiveClusters); got != 204 {
+		t.Errorf("offsetof(ActivityKernel11.MaxActiveClusters) = %d, want 204", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.IsDeviceLaunched); got != 208 {
+		t.Errorf("offsetof(ActivityKernel11.IsDeviceLaunched) = %d, want 208", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.Padding3); got != 209 {
+		t.Errorf("offsetof(ActivityKernel11.Padding3) = %d, want 209", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.Priority); got != 216 {
+		t.Errorf("offsetof(ActivityKernel11.Priority) = %d, want 216", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel11{}.Padding4); got != 220 {
+		t.Errorf("offsetof(ActivityKernel11.Padding4) = %d, want 220", got)
+	}
+	if got := unsafe.Sizeof(ActivityKernel12{}); got != 232 {
+		t.Errorf("sizeof(ActivityKernel12) = %d, want 232", got)
+	}
+	if got := unsafe.Alignof(ActivityKernel12{}); got != 8 {
+		t.Errorf("alignof(ActivityKernel12) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.Kind); got != 0 {
+		t.Errorf("offsetof(ActivityKernel12.Kind) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.CacheConfig); got != 4 {
+		t.Errorf("offsetof(ActivityKernel12.CacheConfig) = %d, want 4", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.SharedMemoryConfig); got != 5 {
+		t.Errorf("offsetof(ActivityKernel12.SharedMemoryConfig) = %d, want 5", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.RegistersPerThread); got != 6 {
+		t.Errorf("offsetof(ActivityKernel12.RegistersPerThread) = %d, want 6", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.PartitionedGlobalCacheRequested); got != 8 {
+		t.Errorf("offsetof(ActivityKernel12.PartitionedGlobalCacheRequested) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.PartitionedGlobalCacheExecuted); got != 12 {
+		t.Errorf("offsetof(ActivityKernel12.PartitionedGlobalCacheExecuted) = %d, want 12", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.Start); got != 16 {
+		t.Errorf("offsetof(ActivityKernel12.Start) = %d, want 16", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.End); got != 24 {
+		t.Errorf("offsetof(ActivityKernel12.End) = %d, want 24", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.Completed); got != 32 {
+		t.Errorf("offsetof(ActivityKernel12.Completed) = %d, want 32", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.DeviceId); got != 40 {
+		t.Errorf("offsetof(ActivityKernel12.DeviceId) = %d, want 40", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.ContextId); got != 44 {
+		t.Errorf("offsetof(ActivityKernel12.ContextId) = %d, want 44", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.StreamId); got != 48 {
+		t.Errorf("offsetof(ActivityKernel12.StreamId) = %d, want 48", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.GridX); got != 52 {
+		t.Errorf("offsetof(ActivityKernel12.GridX) = %d, want 52", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.GridY); got != 56 {
+		t.Errorf("offsetof(ActivityKernel12.GridY) = %d, want 56", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.GridZ); got != 60 {
+		t.Errorf("offsetof(ActivityKernel12.GridZ) = %d, want 60", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.BlockX); got != 64 {
+		t.Errorf("offsetof(ActivityKernel12.BlockX) = %d, want 64", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.BlockY); got != 68 {
+		t.Errorf("offsetof(ActivityKernel12.BlockY) = %d, want 68", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.BlockZ); got != 72 {
+		t.Errorf("offsetof(ActivityKernel12.BlockZ) = %d, want 72", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.StaticSharedMemory); got != 76 {
+		t.Errorf("offsetof(ActivityKernel12.StaticSharedMemory) = %d, want 76", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.DynamicSharedMemory); got != 80 {
+		t.Errorf("offsetof(ActivityKernel12.DynamicSharedMemory) = %d, want 80", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.LocalMemoryPerThread); got != 84 {
+		t.Errorf("offsetof(ActivityKernel12.LocalMemoryPerThread) = %d, want 84", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.LocalMemoryTotal); got != 88 {
+		t.Errorf("offsetof(ActivityKernel12.LocalMemoryTotal) = %d, want 88", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.CorrelationId); got != 92 {
+		t.Errorf("offsetof(ActivityKernel12.CorrelationId) = %d, want 92", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.GridId); got != 96 {
+		t.Errorf("offsetof(ActivityKernel12.GridId) = %d, want 96", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.Name); got != 104 {
+		t.Errorf("offsetof(ActivityKernel12.Name) = %d, want 104", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.Reserved0); got != 112 {
+		t.Errorf("offsetof(ActivityKernel12.Reserved0) = %d, want 112", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.Queued); got != 120 {
+		t.Errorf("offsetof(ActivityKernel12.Queued) = %d, want 120", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.Submitted); got != 128 {
+		t.Errorf("offsetof(ActivityKernel12.Submitted) = %d, want 128", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.LaunchType); got != 136 {
+		t.Errorf("offsetof(ActivityKernel12.LaunchType) = %d, want 136", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.IsSharedMemoryCarveoutRequested); got != 137 {
+		t.Errorf("offsetof(ActivityKernel12.IsSharedMemoryCarveoutRequested) = %d, want 137", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.SharedMemoryCarveoutRequested); got != 138 {
+		t.Errorf("offsetof(ActivityKernel12.SharedMemoryCarveoutRequested) = %d, want 138", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.Padding); got != 139 {
+		t.Errorf("offsetof(ActivityKernel12.Padding) = %d, want 139", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.SharedMemoryExecuted); got != 140 {
+		t.Errorf("offsetof(ActivityKernel12.SharedMemoryExecuted) = %d, want 140", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.GraphNodeId); got != 144 {
+		t.Errorf("offsetof(ActivityKernel12.GraphNodeId) = %d, want 144", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.ShmemLimitConfig); got != 152 {
+		t.Errorf("offsetof(ActivityKernel12.ShmemLimitConfig) = %d, want 152", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.GraphId); got != 156 {
+		t.Errorf("offsetof(ActivityKernel12.GraphId) = %d, want 156", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.PAccessPolicyWindow); got != 160 {
+		t.Errorf("offsetof(ActivityKernel12.PAccessPolicyWindow) = %d, want 160", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.ChannelID); got != 168 {
+		t.Errorf("offsetof(ActivityKernel12.ChannelID) = %d, want 168", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.ChannelType); got != 172 {
+		t.Errorf("offsetof(ActivityKernel12.ChannelType) = %d, want 172", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.Cluster); got != 176 {
+		t.Errorf("offsetof(ActivityKernel12.Cluster) = %d, want 176", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.ClusterSchedulingPolicy); got != 188 {
+		t.Errorf("offsetof(ActivityKernel12.ClusterSchedulingPolicy) = %d, want 188", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.LocalMemoryTotalV2); got != 192 {
+		t.Errorf("offsetof(ActivityKernel12.LocalMemoryTotalV2) = %d, want 192", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.MaxPotentialClusterSize); got != 200 {
+		t.Errorf("offsetof(ActivityKernel12.MaxPotentialClusterSize) = %d, want 200", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.MaxActiveClusters); got != 204 {
+		t.Errorf("offsetof(ActivityKernel12.MaxActiveClusters) = %d, want 204", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.IsDeviceLaunched); got != 208 {
+		t.Errorf("offsetof(ActivityKernel12.IsDeviceLaunched) = %d, want 208", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.Padding3); got != 209 {
+		t.Errorf("offsetof(ActivityKernel12.Padding3) = %d, want 209", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.Priority); got != 216 {
+		t.Errorf("offsetof(ActivityKernel12.Priority) = %d, want 216", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.Padding4); got != 220 {
+		t.Errorf("offsetof(ActivityKernel12.Padding4) = %d, want 220", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.ExecutionModel); got != 224 {
+		t.Errorf("offsetof(ActivityKernel12.ExecutionModel) = %d, want 224", got)
+	}
+	if got := unsafe.Offsetof(ActivityKernel12{}.Padding5); got != 228 {
+		t.Errorf("offsetof(ActivityKernel12.Padding5) = %d, want 228", got)
+	}
 	if got := unsafe.Sizeof(ActivityMemcpy{}); got != 64 {
 		t.Errorf("sizeof(ActivityMemcpy) = %d, want 64", got)
 	}
@@ -4969,6 +5452,69 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Offsetof(ActivityMemset3{}.Padding); got != 76 {
 		t.Errorf("offsetof(ActivityMemset3.Padding) = %d, want 76", got)
+	}
+	if got := unsafe.Sizeof(ActivityMemset4{}); got != 88 {
+		t.Errorf("sizeof(ActivityMemset4) = %d, want 88", got)
+	}
+	if got := unsafe.Alignof(ActivityMemset4{}); got != 8 {
+		t.Errorf("alignof(ActivityMemset4) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemset4{}.Kind); got != 0 {
+		t.Errorf("offsetof(ActivityMemset4.Kind) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemset4{}.Value); got != 4 {
+		t.Errorf("offsetof(ActivityMemset4.Value) = %d, want 4", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemset4{}.Bytes); got != 8 {
+		t.Errorf("offsetof(ActivityMemset4.Bytes) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemset4{}.Start); got != 16 {
+		t.Errorf("offsetof(ActivityMemset4.Start) = %d, want 16", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemset4{}.End); got != 24 {
+		t.Errorf("offsetof(ActivityMemset4.End) = %d, want 24", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemset4{}.DeviceId); got != 32 {
+		t.Errorf("offsetof(ActivityMemset4.DeviceId) = %d, want 32", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemset4{}.ContextId); got != 36 {
+		t.Errorf("offsetof(ActivityMemset4.ContextId) = %d, want 36", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemset4{}.StreamId); got != 40 {
+		t.Errorf("offsetof(ActivityMemset4.StreamId) = %d, want 40", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemset4{}.CorrelationId); got != 44 {
+		t.Errorf("offsetof(ActivityMemset4.CorrelationId) = %d, want 44", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemset4{}.Flags); got != 48 {
+		t.Errorf("offsetof(ActivityMemset4.Flags) = %d, want 48", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemset4{}.MemoryKind); got != 50 {
+		t.Errorf("offsetof(ActivityMemset4.MemoryKind) = %d, want 50", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemset4{}.Pad); got != 52 {
+		t.Errorf("offsetof(ActivityMemset4.Pad) = %d, want 52", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemset4{}.Reserved0); got != 56 {
+		t.Errorf("offsetof(ActivityMemset4.Reserved0) = %d, want 56", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemset4{}.GraphNodeId); got != 64 {
+		t.Errorf("offsetof(ActivityMemset4.GraphNodeId) = %d, want 64", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemset4{}.GraphId); got != 72 {
+		t.Errorf("offsetof(ActivityMemset4.GraphId) = %d, want 72", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemset4{}.ChannelID); got != 76 {
+		t.Errorf("offsetof(ActivityMemset4.ChannelID) = %d, want 76", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemset4{}.ChannelType); got != 80 {
+		t.Errorf("offsetof(ActivityMemset4.ChannelType) = %d, want 80", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemset4{}.IsDeviceLaunched); got != 84 {
+		t.Errorf("offsetof(ActivityMemset4.IsDeviceLaunched) = %d, want 84", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemset4{}.Pad2); got != 85 {
+		t.Errorf("offsetof(ActivityMemset4.Pad2) = %d, want 85", got)
 	}
 	if got := unsafe.Sizeof(ActivityMemory2{}); got != 112 {
 		t.Errorf("sizeof(ActivityMemory2) = %d, want 112", got)
@@ -5876,6 +6422,78 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(ActivityMemcpy5{}.Pad2); got != 84 {
 		t.Errorf("offsetof(ActivityMemcpy5.Pad2) = %d, want 84", got)
 	}
+	if got := unsafe.Sizeof(ActivityMemcpy6{}); got != 96 {
+		t.Errorf("sizeof(ActivityMemcpy6) = %d, want 96", got)
+	}
+	if got := unsafe.Alignof(ActivityMemcpy6{}); got != 8 {
+		t.Errorf("alignof(ActivityMemcpy6) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemcpy6{}.Kind); got != 0 {
+		t.Errorf("offsetof(ActivityMemcpy6.Kind) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemcpy6{}.CopyKind); got != 4 {
+		t.Errorf("offsetof(ActivityMemcpy6.CopyKind) = %d, want 4", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemcpy6{}.SrcKind); got != 5 {
+		t.Errorf("offsetof(ActivityMemcpy6.SrcKind) = %d, want 5", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemcpy6{}.DstKind); got != 6 {
+		t.Errorf("offsetof(ActivityMemcpy6.DstKind) = %d, want 6", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemcpy6{}.Flags); got != 7 {
+		t.Errorf("offsetof(ActivityMemcpy6.Flags) = %d, want 7", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemcpy6{}.Bytes); got != 8 {
+		t.Errorf("offsetof(ActivityMemcpy6.Bytes) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemcpy6{}.Start); got != 16 {
+		t.Errorf("offsetof(ActivityMemcpy6.Start) = %d, want 16", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemcpy6{}.End); got != 24 {
+		t.Errorf("offsetof(ActivityMemcpy6.End) = %d, want 24", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemcpy6{}.DeviceId); got != 32 {
+		t.Errorf("offsetof(ActivityMemcpy6.DeviceId) = %d, want 32", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemcpy6{}.ContextId); got != 36 {
+		t.Errorf("offsetof(ActivityMemcpy6.ContextId) = %d, want 36", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemcpy6{}.StreamId); got != 40 {
+		t.Errorf("offsetof(ActivityMemcpy6.StreamId) = %d, want 40", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemcpy6{}.CorrelationId); got != 44 {
+		t.Errorf("offsetof(ActivityMemcpy6.CorrelationId) = %d, want 44", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemcpy6{}.RuntimeCorrelationId); got != 48 {
+		t.Errorf("offsetof(ActivityMemcpy6.RuntimeCorrelationId) = %d, want 48", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemcpy6{}.Pad); got != 52 {
+		t.Errorf("offsetof(ActivityMemcpy6.Pad) = %d, want 52", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemcpy6{}.Reserved0); got != 56 {
+		t.Errorf("offsetof(ActivityMemcpy6.Reserved0) = %d, want 56", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemcpy6{}.GraphNodeId); got != 64 {
+		t.Errorf("offsetof(ActivityMemcpy6.GraphNodeId) = %d, want 64", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemcpy6{}.GraphId); got != 72 {
+		t.Errorf("offsetof(ActivityMemcpy6.GraphId) = %d, want 72", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemcpy6{}.ChannelID); got != 76 {
+		t.Errorf("offsetof(ActivityMemcpy6.ChannelID) = %d, want 76", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemcpy6{}.ChannelType); got != 80 {
+		t.Errorf("offsetof(ActivityMemcpy6.ChannelType) = %d, want 80", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemcpy6{}.IsDeviceLaunched); got != 84 {
+		t.Errorf("offsetof(ActivityMemcpy6.IsDeviceLaunched) = %d, want 84", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemcpy6{}.Pad2); got != 85 {
+		t.Errorf("offsetof(ActivityMemcpy6.Pad2) = %d, want 85", got)
+	}
+	if got := unsafe.Offsetof(ActivityMemcpy6{}.CopyCount); got != 88 {
+		t.Errorf("offsetof(ActivityMemcpy6.CopyCount) = %d, want 88", got)
+	}
 	if got := unsafe.Sizeof(ActivityMarkerData{}); got != 32 {
 		t.Errorf("sizeof(ActivityMarkerData) = %d, want 32", got)
 	}
@@ -5902,6 +6520,81 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Offsetof(ActivityMarkerData{}.Category); got != 28 {
 		t.Errorf("offsetof(ActivityMarkerData.Category) = %d, want 28", got)
+	}
+	if got := unsafe.Sizeof(ActivityGreenContext{}); got != 152 {
+		t.Errorf("sizeof(ActivityGreenContext) = %d, want 152", got)
+	}
+	if got := unsafe.Alignof(ActivityGreenContext{}); got != 8 {
+		t.Errorf("alignof(ActivityGreenContext) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(ActivityGreenContext{}.Kind); got != 0 {
+		t.Errorf("offsetof(ActivityGreenContext.Kind) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(ActivityGreenContext{}.ContextId); got != 4 {
+		t.Errorf("offsetof(ActivityGreenContext.ContextId) = %d, want 4", got)
+	}
+	if got := unsafe.Offsetof(ActivityGreenContext{}.ParentContextId); got != 8 {
+		t.Errorf("offsetof(ActivityGreenContext.ParentContextId) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(ActivityGreenContext{}.DeviceId); got != 12 {
+		t.Errorf("offsetof(ActivityGreenContext.DeviceId) = %d, want 12", got)
+	}
+	if got := unsafe.Offsetof(ActivityGreenContext{}.NumTpcs); got != 16 {
+		t.Errorf("offsetof(ActivityGreenContext.NumTpcs) = %d, want 16", got)
+	}
+	if got := unsafe.Offsetof(ActivityGreenContext{}.NumMultiprocessors); got != 20 {
+		t.Errorf("offsetof(ActivityGreenContext.NumMultiprocessors) = %d, want 20", got)
+	}
+	if got := unsafe.Offsetof(ActivityGreenContext{}.LogicalTpcMaskSize); got != 22 {
+		t.Errorf("offsetof(ActivityGreenContext.LogicalTpcMaskSize) = %d, want 22", got)
+	}
+	if got := unsafe.Offsetof(ActivityGreenContext{}.Padding); got != 23 {
+		t.Errorf("offsetof(ActivityGreenContext.Padding) = %d, want 23", got)
+	}
+	if got := unsafe.Offsetof(ActivityGreenContext{}.LogicalTpcMask); got != 24 {
+		t.Errorf("offsetof(ActivityGreenContext.LogicalTpcMask) = %d, want 24", got)
+	}
+	if got := unsafe.Sizeof(ActivityGreenContext2{}); got != 168 {
+		t.Errorf("sizeof(ActivityGreenContext2) = %d, want 168", got)
+	}
+	if got := unsafe.Alignof(ActivityGreenContext2{}); got != 8 {
+		t.Errorf("alignof(ActivityGreenContext2) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(ActivityGreenContext2{}.Kind); got != 0 {
+		t.Errorf("offsetof(ActivityGreenContext2.Kind) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(ActivityGreenContext2{}.ContextId); got != 4 {
+		t.Errorf("offsetof(ActivityGreenContext2.ContextId) = %d, want 4", got)
+	}
+	if got := unsafe.Offsetof(ActivityGreenContext2{}.ParentContextId); got != 8 {
+		t.Errorf("offsetof(ActivityGreenContext2.ParentContextId) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(ActivityGreenContext2{}.DeviceId); got != 12 {
+		t.Errorf("offsetof(ActivityGreenContext2.DeviceId) = %d, want 12", got)
+	}
+	if got := unsafe.Offsetof(ActivityGreenContext2{}.NumTpcs); got != 16 {
+		t.Errorf("offsetof(ActivityGreenContext2.NumTpcs) = %d, want 16", got)
+	}
+	if got := unsafe.Offsetof(ActivityGreenContext2{}.NumMultiprocessors); got != 20 {
+		t.Errorf("offsetof(ActivityGreenContext2.NumMultiprocessors) = %d, want 20", got)
+	}
+	if got := unsafe.Offsetof(ActivityGreenContext2{}.LogicalTpcMaskSize); got != 22 {
+		t.Errorf("offsetof(ActivityGreenContext2.LogicalTpcMaskSize) = %d, want 22", got)
+	}
+	if got := unsafe.Offsetof(ActivityGreenContext2{}.Padding); got != 23 {
+		t.Errorf("offsetof(ActivityGreenContext2.Padding) = %d, want 23", got)
+	}
+	if got := unsafe.Offsetof(ActivityGreenContext2{}.LogicalTpcMask); got != 24 {
+		t.Errorf("offsetof(ActivityGreenContext2.LogicalTpcMask) = %d, want 24", got)
+	}
+	if got := unsafe.Offsetof(ActivityGreenContext2{}.WorkqueueResourceId); got != 152 {
+		t.Errorf("offsetof(ActivityGreenContext2.WorkqueueResourceId) = %d, want 152", got)
+	}
+	if got := unsafe.Offsetof(ActivityGreenContext2{}.WorkqueueConcurrencyLimit); got != 160 {
+		t.Errorf("offsetof(ActivityGreenContext2.WorkqueueConcurrencyLimit) = %d, want 160", got)
+	}
+	if got := unsafe.Offsetof(ActivityGreenContext2{}.WorkqueueSharingScope); got != 164 {
+		t.Errorf("offsetof(ActivityGreenContext2.WorkqueueSharingScope) = %d, want 164", got)
 	}
 	if got := unsafe.Sizeof(ProfilerInitializeParams{}); got != 16 {
 		t.Errorf("sizeof(ProfilerInitializeParams) = %d, want 16", got)
@@ -6731,6 +7424,27 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(ProfilerHostGetMetricsInSinglePassSetParams{}.PMetricsBuffer); got != 56 {
 		t.Errorf("offsetof(ProfilerHostGetMetricsInSinglePassSetParams.PMetricsBuffer) = %d, want 56", got)
 	}
+	if got := unsafe.Sizeof(ProfilerHostSetDevicePartitionInfoParams{}); got != 40 {
+		t.Errorf("sizeof(ProfilerHostSetDevicePartitionInfoParams) = %d, want 40", got)
+	}
+	if got := unsafe.Alignof(ProfilerHostSetDevicePartitionInfoParams{}); got != 8 {
+		t.Errorf("alignof(ProfilerHostSetDevicePartitionInfoParams) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(ProfilerHostSetDevicePartitionInfoParams{}.StructSize); got != 0 {
+		t.Errorf("offsetof(ProfilerHostSetDevicePartitionInfoParams.StructSize) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(ProfilerHostSetDevicePartitionInfoParams{}.PPriv); got != 8 {
+		t.Errorf("offsetof(ProfilerHostSetDevicePartitionInfoParams.PPriv) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(ProfilerHostSetDevicePartitionInfoParams{}.PHostObject); got != 16 {
+		t.Errorf("offsetof(ProfilerHostSetDevicePartitionInfoParams.PHostObject) = %d, want 16", got)
+	}
+	if got := unsafe.Offsetof(ProfilerHostSetDevicePartitionInfoParams{}.PDevicePartitionInfo); got != 24 {
+		t.Errorf("offsetof(ProfilerHostSetDevicePartitionInfoParams.PDevicePartitionInfo) = %d, want 24", got)
+	}
+	if got := unsafe.Offsetof(ProfilerHostSetDevicePartitionInfoParams{}.DevicePartitionInfoSize); got != 32 {
+		t.Errorf("offsetof(ProfilerHostSetDevicePartitionInfoParams.DevicePartitionInfoSize) = %d, want 32", got)
+	}
 	if got := unsafe.Sizeof(RangeProfilerSetConfigParams{}); got != 96 {
 		t.Errorf("sizeof(RangeProfilerSetConfigParams) = %d, want 96", got)
 	}
@@ -6779,8 +7493,8 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(RangeProfilerSetConfigParams{}.TargetNestingLevel); got != 88 {
 		t.Errorf("offsetof(RangeProfilerSetConfigParams.TargetNestingLevel) = %d, want 88", got)
 	}
-	if got := unsafe.Sizeof(RangeProfilerEnableParams{}); got != 32 {
-		t.Errorf("sizeof(RangeProfilerEnableParams) = %d, want 32", got)
+	if got := unsafe.Sizeof(RangeProfilerEnableParams{}); got != 40 {
+		t.Errorf("sizeof(RangeProfilerEnableParams) = %d, want 40", got)
 	}
 	if got := unsafe.Alignof(RangeProfilerEnableParams{}); got != 8 {
 		t.Errorf("alignof(RangeProfilerEnableParams) = %d, want 8", got)
@@ -6796,6 +7510,9 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Offsetof(RangeProfilerEnableParams{}.PRangeProfilerObject); got != 24 {
 		t.Errorf("offsetof(RangeProfilerEnableParams.PRangeProfilerObject) = %d, want 24", got)
+	}
+	if got := unsafe.Offsetof(RangeProfilerEnableParams{}.CacheControlMode); got != 32 {
+		t.Errorf("offsetof(RangeProfilerEnableParams.CacheControlMode) = %d, want 32", got)
 	}
 	if got := unsafe.Sizeof(RangeProfilerDisableParams{}); got != 24 {
 		t.Errorf("sizeof(RangeProfilerDisableParams) = %d, want 24", got)
@@ -7000,6 +7717,27 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Offsetof(RangeProfilerCounterDataGetRangeInfoParams{}.RangeName); got != 48 {
 		t.Errorf("offsetof(RangeProfilerCounterDataGetRangeInfoParams.RangeName) = %d, want 48", got)
+	}
+	if got := unsafe.Sizeof(RangeProfilerGetDevicePartitionInfoParams{}); got != 40 {
+		t.Errorf("sizeof(RangeProfilerGetDevicePartitionInfoParams) = %d, want 40", got)
+	}
+	if got := unsafe.Alignof(RangeProfilerGetDevicePartitionInfoParams{}); got != 8 {
+		t.Errorf("alignof(RangeProfilerGetDevicePartitionInfoParams) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(RangeProfilerGetDevicePartitionInfoParams{}.StructSize); got != 0 {
+		t.Errorf("offsetof(RangeProfilerGetDevicePartitionInfoParams.StructSize) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(RangeProfilerGetDevicePartitionInfoParams{}.PPriv); got != 8 {
+		t.Errorf("offsetof(RangeProfilerGetDevicePartitionInfoParams.PPriv) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(RangeProfilerGetDevicePartitionInfoParams{}.PRangeProfilerObject); got != 16 {
+		t.Errorf("offsetof(RangeProfilerGetDevicePartitionInfoParams.PRangeProfilerObject) = %d, want 16", got)
+	}
+	if got := unsafe.Offsetof(RangeProfilerGetDevicePartitionInfoParams{}.DevicePartitionInfoSize); got != 24 {
+		t.Errorf("offsetof(RangeProfilerGetDevicePartitionInfoParams.DevicePartitionInfoSize) = %d, want 24", got)
+	}
+	if got := unsafe.Offsetof(RangeProfilerGetDevicePartitionInfoParams{}.PDevicePartitionInfo); got != 32 {
+		t.Errorf("offsetof(RangeProfilerGetDevicePartitionInfoParams.PDevicePartitionInfo) = %d, want 32", got)
 	}
 	if got := unsafe.Sizeof(PCSamplingStallReason{}); got != 8 {
 		t.Errorf("sizeof(PCSamplingStallReason) = %d, want 8", got)

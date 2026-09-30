@@ -52,10 +52,12 @@
 //   - [ActivityEnableCudaEventDeviceTimestamps]: Enable/Disable collecting device timestamp for [ActivityKindCudaEvent] record.
 //   - [ActivityEnableDeviceGraph]: Controls the collection of records for device launched graphs.
 //   - [ActivityEnableDriverApi]: Controls the collection of activity records for specific CUDA Driver APIs.
+//   - [Subscriber.ActivityEnableDriverApiV2]: Controls the collection of activity records for specific CUDA Driver APIs for a given subscriber.
 //   - [ActivityEnableHWTrace]: Enables CUDA kernel timestamp collection via Hardware Event System (HES).
 //   - [ActivityEnableLatencyTimestamps]: Controls the collection of queued and submitted timestamps for kernels.
 //   - [ActivityEnableLaunchAttributes]: Controls the collection of launch attributes for kernels.
 //   - [ActivityEnableRuntimeApi]: Controls the collection of activity records for specific CUDA Runtime APIs.
+//   - [Subscriber.ActivityEnableRuntimeApiV2]: Controls the collection of activity records for specific CUDA Runtime APIs for a given subscriber.
 //   - [Subscriber.ActivityEnableV2]: Enable collection of a specific kind of activity record for the subscriber.
 //   - [ActivityFlush]: Wait for all activity records to be delivered via the completion callback.
 //   - [ActivityFlushAll]: Request to deliver activity records via the buffer completion callback.
@@ -64,10 +66,14 @@
 //   - [Subscriber.ActivityGetAttributeV2]: Read an activity API attribute.
 //   - [Subscriber.ActivityGetEnabledKinds]: Get the enabled activity kinds for a subscriber.
 //   - [ActivityGetNextRecord]: Iterate over the activity records in a buffer.
+//   - [Subscriber.ActivityGetNextRecordV2]: Iterate over the activity records in the supplied buffer.
 //   - [ActivityGetNumDroppedRecords]: Get the number of activity records that were dropped of insufficient buffer space.
+//   - [Subscriber.ActivityGetNumDroppedRecordsV2]: Get the number of dropped activity records for a specific subscriber.
 //   - [ActivityGetStructSize]: Get the size of the activity struct for a given CUPTI version.
 //   - [ActivityPopExternalCorrelationId]: Pop an external correlation id for the calling thread.
+//   - [Subscriber.ActivityPopExternalCorrelationIdV2]: Pop an external correlation id for a specific subscriber.
 //   - [ActivityPushExternalCorrelationId]: Push an external correlation id for the calling thread.
+//   - [Subscriber.ActivityPushExternalCorrelationIdV2]: Push an external correlation id for a specific subscriber.
 //   - [ActivityRegisterCallbacks]: Registers callback functions with CUPTI for activity buffer handling.
 //   - [Subscriber.ActivityRegisterCallbacksV2]: Registers callback functions with CUPTI for activity buffer handling for the subscriber.
 //   - [ActivityRegisterTimestampCallback]: Registers callback function with CUPTI for providing timestamp.
@@ -80,10 +86,17 @@
 //   - [CheckpointRestore]: Restore a checkpoint to the device associated with its context.
 //   - [CheckpointSave]: Initialize and save a checkpoint of the device state associated with the handle context.
 //
+// # CUPTI Clock Control API
+//
+//   - [ClockControlGetStatus]: Query the device-global GPU clock-control status.
+//   - [ClockControlLock]: Lock GPU clocks to the requested frequency.
+//   - [ClockControlUnlock]: Unlock GPU clocks previously locked via [ClockControlLock].
+//
 // # CUPTI Activity API
 //
 //   - [ComputeCapabilitySupported]: Check support for a compute capability.
 //   - [GetAutoBoostState]: Get auto boost state.
+//   - [GetCudaEventId]: Get the unique ID of a CUDA event.
 //   - [GetLastError]: Returns the last error from a cupti call or callback.
 //   - [GetThreadIdType]: Get the thread-id type.
 //   - [IsTracingSessionRunning]: Check whether a CUPTI tracing session is still running.
@@ -173,6 +186,7 @@
 // # Timestamps
 //
 //   - [GetTimestamp]: Get the CUPTI timestamp.
+//   - [Subscriber.TimestampV2]: Get the CUPTI timestamp.
 //
 // # Version Queries
 //
@@ -250,6 +264,7 @@
 //   - [ProfilerHostGetSubMetrics]: Get the list of supported sub-metrics for the metric.
 //   - [ProfilerHostGetSupportedChips]: Get the list of supported chips.
 //   - [ProfilerHostInitialize]: Create and initialize the profiler host object ([ProfilerHost]).
+//   - [ProfilerHostSetDevicePartitionInfo]: Set the device partition information for metric evaluation on Green Contexts.
 //   - [ProfilerInitialize]: Initializes the profiler interface.
 //   - [ProfilerIsPassCollected]: Asynchronous call to query if the submitted pass to GPU is collected.
 //   - [ProfilerPopRange]: Range API’s : Pop user range.
@@ -266,6 +281,7 @@
 //   - [RangeProfilerEnable]: Create a range profiler object and enable range profiling on the CUDA context.
 //   - [RangeProfilerGetCounterDataInfo]: Get the number of ranges stored in the counter data image.
 //   - [RangeProfilerGetCounterDataSize]: Get the size of the counter data image required to store the profiling data for the ranges profiled.
+//   - [RangeProfilerGetDevicePartitionInfo]: Get the device partition information for a Green Context.
 //   - [RangeProfilerPopRange]: pop the current range to the Range Profiler.
 //   - [RangeProfilerPushRange]: Add a new range to the Range Profiler with a given range name.
 //   - [RangeProfilerSetConfig]: Set the configuration for range profiler like maximum number of ranges per pass, number of nesting levels, range and replay mode and the config image which has scheduling info for metric collection.

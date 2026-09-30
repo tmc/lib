@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "generator": "github.com/tmc/libgen/cmd/cupti-survey",
-  "upstream_version": "13.2.0",
+  "upstream_version": "13.4",
   "version_source": "explicit generator flag; not independently verified",
   "cwd": ".",
   "argv": [
@@ -10,92 +10,1044 @@
     "cupti.h",
     "-headers-dir",
     "cuda-headers",
-    "-docs-dir",
-    "docs",
+    "-floor-header",
+    "cupti.h",
+    "-history-header",
+    "cupti.h",
+    "-history-header",
+    "cupti.h",
+    "-history-header",
+    "cupti.h",
+    "-history-header",
+    "cupti.h",
+    "-history-header",
+    "cupti.h",
+    "-history-header",
+    "cupti.h",
+    "-history-header",
+    "cupti.h",
+    "-history-header",
+    "cupti.h",
+    "-history-header",
+    "cupti.h",
+    "-history-header",
+    "cupti.h",
     "-upstream-version",
-    "13.2.0",
+    "13.4",
     "-output",
     "${OUTPUT_DIR}"
   ],
   "inputs": [
     {
-      "path": "cupti.h",
+      "path": "cupti/cupti.h",
       "sha256": "2b0a3268524bf80c13ffb173b7271295ee81161d220ea28951d748d5af26bd0e"
     },
     {
-      "path": "cupti_activity.h",
-      "sha256": "a0c33d2f92e73d221406d5996f3fbf9b232e02a6522a44996aa6c210e640ad4d"
+      "path": "cupti/cupti_activity.h",
+      "sha256": "ff3b1a42a7f553917471e163321b7ad3cf023233abd150f0c460fba56e62328c"
     },
     {
-      "path": "cupti_activity_deprecated.h",
-      "sha256": "592835010b1b2b5fb8544572cf1efe1539e0ad45b0e939561a5cc2a7b74aacab"
+      "path": "cupti/cupti_activity_deprecated.h",
+      "sha256": "48ead5967e2b9497e93dc7211244bfdf3730d261a703f53fa685bf8036db426e"
     },
     {
-      "path": "cupti_callbacks.h",
-      "sha256": "467dc10e2c8dd54eadbd06460d6c4ae338878247b5945efd4d8767a030c906ff"
+      "path": "cupti/cupti_callbacks.h",
+      "sha256": "91596b1b244a40fe872e44d2c6b7248c002b2d1f8c20e0c71d3a9665f78d1ece"
     },
     {
-      "path": "cupti_checkpoint.h",
-      "sha256": "ad3cfc2685b1a844815f26565216491a6e31798731e0e24eb49ecb775dd3fdbd"
+      "path": "cupti/cupti_checkpoint.h",
+      "sha256": "4266976f733b55c0e1c67a2158396d1051575cab82aadd148cf4d2f541abebb4"
     },
     {
-      "path": "cupti_driver_cbid.h",
-      "sha256": "a466a41d811a5848a30f34d60b8286b461fa679550190c2f20192ca5b12bdb25"
+      "path": "cupti/cupti_driver_cbid.h",
+      "sha256": "4fd9ffc1abbbb9a66ff7c3392bacde6dce30aadd4cf4ae888e36546f0d23ed6b"
     },
     {
-      "path": "cupti_events.h",
+      "path": "cupti/cupti_events.h",
       "sha256": "8de8e51ce0a6e6f60764e1fb76ca0a12cdbae3eb53d8ac62c637d3e68bf926af"
     },
     {
-      "path": "cupti_metrics.h",
+      "path": "cupti/cupti_metrics.h",
       "sha256": "9190a8697f5ffbec3614fd2b0b7e8e379a54393a962c604b57f8b2ddc8a069d4"
     },
     {
-      "path": "cupti_nvtx_cbid.h",
+      "path": "cupti/cupti_nvtx_cbid.h",
       "sha256": "633a2107c2f2f1a82f10d8af8b4f487d87ff7ecc6ede938dc411dfdb6a7a4e9a"
     },
     {
-      "path": "cupti_pcsampling.h",
+      "path": "cupti/cupti_pcsampling.h",
       "sha256": "c9c2474f7e8398f21a5731ec077c718d792117211f30224e9772db0ac1c58320"
     },
     {
-      "path": "cupti_pmsampling.h",
-      "sha256": "53de6128ec0891949b18d54fd7541298c6b007ca9d26c96363fb54258e2f79d7"
+      "path": "cupti/cupti_pmsampling.h",
+      "sha256": "c3608944fd809745d70f9b131f39628482e8e3ae3a066f65d40be62b2123a6b9"
     },
     {
-      "path": "cupti_profiler_host.h",
-      "sha256": "8913cfad9b09f01c30ef857577483d087ef0b67ecbfa15fc62058d3068534a35"
+      "path": "cupti/cupti_profiler_host.h",
+      "sha256": "debbeb8dd5970a538a98f43aea31bc667f6d958af6152751a8f502dd74d5f7a4"
     },
     {
-      "path": "cupti_profiler_target.h",
-      "sha256": "2aac4e121b85139483a7ee9105802a70e0610a20f3276d78fc4780b1b0d89b2d"
+      "path": "cupti/cupti_profiler_target.h",
+      "sha256": "176003273e4d9155bd7f47a2d97b50cf2b1bf0b873b4b9e5ebd951b00f22b782"
     },
     {
-      "path": "cupti_range_profiler.h",
-      "sha256": "b9ee5b500fb7c42c00b501b20dee4ed5de6b02645b55b72b5ca7c84dde313352"
+      "path": "cupti/cupti_range_profiler.h",
+      "sha256": "1d50b97dfa3ca133ecf2766bb2e16b44fb94559fa4b2b4228a37df3620c4500f"
     },
     {
-      "path": "cupti_result.h",
-      "sha256": "b20dded3b2734bbc91a503ae2400e33274eda09b7b1ea25c71f87e153848b8be"
+      "path": "cupti/cupti_result.h",
+      "sha256": "2205d2281efd7103a80c09a7e38f0a23523ba73c2b91f3f60d05a18a2f90e571"
     },
     {
-      "path": "cupti_runtime_cbid.h",
-      "sha256": "9ace1de8e0a4192da7b5848994106e91dbdbd49bb5b56395de7e9480bc9c397b"
+      "path": "cupti/cupti_runtime_cbid.h",
+      "sha256": "52e7bd666e366415bb50c68dfd7bd669e757d9bf6ea8f7a6a4b14fcfca344616"
     },
     {
-      "path": "cupti_sass_metrics.h",
+      "path": "cupti/cupti_sass_metrics.h",
       "sha256": "dd15bdb2726e15074e86b127df00c93abbb4e6ad15ff3b2c5aba83eedbd524ac"
     },
     {
-      "path": "cupti_target.h",
+      "path": "cupti/cupti_target.h",
       "sha256": "c78573d54a5bea6f62c6656998668a425743598408dce67ea1c1171b334ad041"
     },
     {
-      "path": "cupti_version.h",
-      "sha256": "bf9475286bc81085097d4f493154aa6040ea0b1db62ff690791d3a1a81f0c85a"
+      "path": "cupti/cupti_version.h",
+      "sha256": "c069af552cb74b132475d7f6b04c474ad69871f137cd3614e719b0a1ec68c382"
+    },
+    {
+      "path": "cupti/generated_cuda_meta.h",
+      "sha256": "e916367fb3b21ad1a60a09712413b638862861917bc640a219a2cd2ca6a471dc"
+    },
+    {
+      "path": "cupti/generated_cuda_runtime_api_meta.h",
+      "sha256": "1248955da505b1880165c8bec88ad72c9e8aaed42397f65b670d25d01d14d2f1"
+    },
+    {
+      "path": "cupti/generated_nvtx_meta.h",
+      "sha256": "df876f59dc7c201b301f908a0d362622f662241259b404f1c20e5648f3c4d9c3"
+    },
+    {
+      "path": "driver/cuda.h",
+      "sha256": "7a79d67ca888061b1dfbe4739b51ad64f85a2f3ad874947ce09b2c635b4c7072"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.2/cupti.h",
+      "sha256": "2645720064c8318cf09bad9d7d5a9ab379cc7082e180ffd6773e9f878fcd103d"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.2/cupti_activity.h",
+      "sha256": "d68094612d1fdcc4a602623c912d08e7fc176e63a64f9264fe87b935997314d4"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.2/cupti_callbacks.h",
+      "sha256": "b494c4a71aadcdc5b69a3d221efb6fafe7d0bda1561ddc4a6cc6a56e1e86cfc5"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.2/cupti_checkpoint.h",
+      "sha256": "ad3cfc2685b1a844815f26565216491a6e31798731e0e24eb49ecb775dd3fdbd"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.2/cupti_driver_cbid.h",
+      "sha256": "89d9960e1e7e2fb94a192652a7a15504ce9b2f513e99a151cc8712937ad33ea7"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.2/cupti_events.h",
+      "sha256": "7fb94b1a60f67bc173bcc8518279f4fafed4d2f4e95248901c8a50c6001119bd"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.2/cupti_metrics.h",
+      "sha256": "88b00e943adc6c712c20852682ad13a7564e63d3b73addf08f6f9b23c8986d2b"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.2/cupti_nvtx_cbid.h",
+      "sha256": "fdaccfb51d60e2a8afbd7eea6ef1d1520d111c2585ee210e2721cc37da997bd1"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.2/cupti_pcsampling.h",
+      "sha256": "b93fc3b453740727ba003b717ca5d401cf0172b15e7e8b5ff95b53b8a406271d"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.2/cupti_profiler_target.h",
+      "sha256": "26c71ea03ba196558d13368ed31c53f35749e7936b6c5d14b51249822b743ff1"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.2/cupti_result.h",
+      "sha256": "6be0b863b2c06028824f59e039fa03b938b6b2d106d584da7f0c27e947cbf8b5"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.2/cupti_runtime_cbid.h",
+      "sha256": "3ead7ac07f6d8e1cd5d7cf608ba2a7606558cbaad1cf4ac3d1d8e470d825de41"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.2/cupti_sass_metrics.h",
+      "sha256": "03f4d009a3ebd7853e376109cf37e62817a06038fd9ca41cfe0cfed1b8f0da25"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.2/cupti_target.h",
+      "sha256": "c78573d54a5bea6f62c6656998668a425743598408dce67ea1c1171b334ad041"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.2/cupti_version.h",
+      "sha256": "58e254ee16674f231068d0445497df6c685c295d0fcebe588a7af47907990299"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.2/generated_cuda_meta.h",
+      "sha256": "1f91afd8a7817e48165304c3c0bc168c23058af57e49f3c08dd21c443f341c7a"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.2/generated_cuda_runtime_api_meta.h",
+      "sha256": "f8719c2561284c738247916a2463b0cf26e255381dd648d9829b7fe0057fa77a"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.3/cupti.h",
+      "sha256": "2645720064c8318cf09bad9d7d5a9ab379cc7082e180ffd6773e9f878fcd103d"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.3/cupti_activity.h",
+      "sha256": "a6751988d07a5b4bcefc32ce0186461ec9de85f9f82204240c19e26e291ff9cf"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.3/cupti_activity_deprecated.h",
+      "sha256": "bbaa07dbc7fa644c5d84ddd73391a297fe096f05edffa29c1500748072944626"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.3/cupti_callbacks.h",
+      "sha256": "a965f6aae3acc1e52945083b827c0520187a94c64d0b70364a91aeb0cb4d3747"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.3/cupti_checkpoint.h",
+      "sha256": "ad3cfc2685b1a844815f26565216491a6e31798731e0e24eb49ecb775dd3fdbd"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.3/cupti_driver_cbid.h",
+      "sha256": "e1c802fdbfe200636e206cc29f3c630cbf177b6b423e375cf04a7094ba8eb186"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.3/cupti_events.h",
+      "sha256": "7fb94b1a60f67bc173bcc8518279f4fafed4d2f4e95248901c8a50c6001119bd"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.3/cupti_metrics.h",
+      "sha256": "88b00e943adc6c712c20852682ad13a7564e63d3b73addf08f6f9b23c8986d2b"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.3/cupti_nvtx_cbid.h",
+      "sha256": "fdaccfb51d60e2a8afbd7eea6ef1d1520d111c2585ee210e2721cc37da997bd1"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.3/cupti_pcsampling.h",
+      "sha256": "b93fc3b453740727ba003b717ca5d401cf0172b15e7e8b5ff95b53b8a406271d"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.3/cupti_profiler_target.h",
+      "sha256": "26c71ea03ba196558d13368ed31c53f35749e7936b6c5d14b51249822b743ff1"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.3/cupti_result.h",
+      "sha256": "6be0b863b2c06028824f59e039fa03b938b6b2d106d584da7f0c27e947cbf8b5"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.3/cupti_runtime_cbid.h",
+      "sha256": "2d99852d1b38aa14d583cdcd28f69fb1c782e6ab6529c28e3bca6c1e969ea879"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.3/cupti_sass_metrics.h",
+      "sha256": "03f4d009a3ebd7853e376109cf37e62817a06038fd9ca41cfe0cfed1b8f0da25"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.3/cupti_target.h",
+      "sha256": "c78573d54a5bea6f62c6656998668a425743598408dce67ea1c1171b334ad041"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.3/cupti_version.h",
+      "sha256": "79cc994d9f2ef573f67761b04b425752a3c7883b502cb03ea7e10b424a375eed"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.3/generated_cuda_meta.h",
+      "sha256": "42e6db76e17b4e68236151ec19adc8d798c18d92a25cfd3fe919df22642e4400"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.3/generated_cuda_runtime_api_meta.h",
+      "sha256": "1eb6a4cbf85a004b5ef8c1e8ef33295ff4f8b7f546832eacdd0b74856d4b17fc"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.4/cupti.h",
+      "sha256": "2645720064c8318cf09bad9d7d5a9ab379cc7082e180ffd6773e9f878fcd103d"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.4/cupti_activity.h",
+      "sha256": "441ed562b762381a5d1ff2db5dbda8f82706b619e4dfe344d82aaafa341b37b4"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.4/cupti_activity_deprecated.h",
+      "sha256": "ad826ca002710360534f9d3ea2537c118712cdd95706945b4750132c6deb5483"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.4/cupti_callbacks.h",
+      "sha256": "ceb11545bd21b9b49f0faf505261ec2622fca007efab2b8a19c4d5462850ae77"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.4/cupti_checkpoint.h",
+      "sha256": "ad3cfc2685b1a844815f26565216491a6e31798731e0e24eb49ecb775dd3fdbd"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.4/cupti_driver_cbid.h",
+      "sha256": "7472b241865b05b765c62c7316422834783921f197760ae2ca337506ed62ea0e"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.4/cupti_events.h",
+      "sha256": "7fb94b1a60f67bc173bcc8518279f4fafed4d2f4e95248901c8a50c6001119bd"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.4/cupti_metrics.h",
+      "sha256": "88b00e943adc6c712c20852682ad13a7564e63d3b73addf08f6f9b23c8986d2b"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.4/cupti_nvtx_cbid.h",
+      "sha256": "fdaccfb51d60e2a8afbd7eea6ef1d1520d111c2585ee210e2721cc37da997bd1"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.4/cupti_pcsampling.h",
+      "sha256": "c9c2474f7e8398f21a5731ec077c718d792117211f30224e9772db0ac1c58320"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.4/cupti_profiler_target.h",
+      "sha256": "26c71ea03ba196558d13368ed31c53f35749e7936b6c5d14b51249822b743ff1"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.4/cupti_result.h",
+      "sha256": "6be0b863b2c06028824f59e039fa03b938b6b2d106d584da7f0c27e947cbf8b5"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.4/cupti_runtime_cbid.h",
+      "sha256": "d75a5797431d993b7152781e97eaeee0976a5af17f804206d786901314727f32"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.4/cupti_sass_metrics.h",
+      "sha256": "dd15bdb2726e15074e86b127df00c93abbb4e6ad15ff3b2c5aba83eedbd524ac"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.4/cupti_target.h",
+      "sha256": "c78573d54a5bea6f62c6656998668a425743598408dce67ea1c1171b334ad041"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.4/cupti_version.h",
+      "sha256": "b2377e694a131a4116caf036554588a59c17c9701a725a82f206f0367b8ae43d"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.4/generated_cuda_meta.h",
+      "sha256": "85ac18a437b4c696831439c295723dd498f0091c566fe012d054bcc9d50c8317"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.4/generated_cuda_runtime_api_meta.h",
+      "sha256": "0fc09b00ddfe8cbb85d8a19fb011d71042d280bf762ab500883bee81613c07c3"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.5/cupti.h",
+      "sha256": "2645720064c8318cf09bad9d7d5a9ab379cc7082e180ffd6773e9f878fcd103d"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.5/cupti_activity.h",
+      "sha256": "762128fc3e52f8c09820a83811fd5bc292a45323011f28fd4aeac2ac944dd8f8"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.5/cupti_activity_deprecated.h",
+      "sha256": "dc39d75925ce45f824953d5eb16ffdd67a3698b87e45a441ea094cbde7c97d40"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.5/cupti_callbacks.h",
+      "sha256": "ceb11545bd21b9b49f0faf505261ec2622fca007efab2b8a19c4d5462850ae77"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.5/cupti_checkpoint.h",
+      "sha256": "ad3cfc2685b1a844815f26565216491a6e31798731e0e24eb49ecb775dd3fdbd"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.5/cupti_driver_cbid.h",
+      "sha256": "4f78c3d63cbbb7d54a281e24636925cc614f94504e857d626d7af6c50176fdb4"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.5/cupti_events.h",
+      "sha256": "7fb94b1a60f67bc173bcc8518279f4fafed4d2f4e95248901c8a50c6001119bd"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.5/cupti_metrics.h",
+      "sha256": "88b00e943adc6c712c20852682ad13a7564e63d3b73addf08f6f9b23c8986d2b"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.5/cupti_nvtx_cbid.h",
+      "sha256": "fdaccfb51d60e2a8afbd7eea6ef1d1520d111c2585ee210e2721cc37da997bd1"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.5/cupti_pcsampling.h",
+      "sha256": "c9c2474f7e8398f21a5731ec077c718d792117211f30224e9772db0ac1c58320"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.5/cupti_profiler_target.h",
+      "sha256": "26c71ea03ba196558d13368ed31c53f35749e7936b6c5d14b51249822b743ff1"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.5/cupti_result.h",
+      "sha256": "6be0b863b2c06028824f59e039fa03b938b6b2d106d584da7f0c27e947cbf8b5"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.5/cupti_runtime_cbid.h",
+      "sha256": "8c441d2ce24fdfe4ce2c1939706bf74240a1cdee7c022966ef08d8da11700440"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.5/cupti_sass_metrics.h",
+      "sha256": "dd15bdb2726e15074e86b127df00c93abbb4e6ad15ff3b2c5aba83eedbd524ac"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.5/cupti_target.h",
+      "sha256": "c78573d54a5bea6f62c6656998668a425743598408dce67ea1c1171b334ad041"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.5/cupti_version.h",
+      "sha256": "3439e4f01a7bf6005466e1b744ba6fab1affe35596ef11c9ff8c10d7ab191320"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.5/generated_cuda_meta.h",
+      "sha256": "00dbbcba234cb6e7cd61231f7718f8cc13213e3e381ab1f3dee354d789183424"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.5/generated_cuda_runtime_api_meta.h",
+      "sha256": "ac39de4dbaaf25b732863007653e23aef10c6c16ee66eead2ce6b356973e0b4b"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.6/cupti.h",
+      "sha256": "2645720064c8318cf09bad9d7d5a9ab379cc7082e180ffd6773e9f878fcd103d"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.6/cupti_activity.h",
+      "sha256": "46dd04c7089a1aa21ee91224ef9717f04532faf08bda050ce4b08bdb18daaf1c"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.6/cupti_activity_deprecated.h",
+      "sha256": "a4144650f00668df2219f79b14f509b2be863a6cefb1dfa7b05760101f9d6679"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.6/cupti_callbacks.h",
+      "sha256": "1165e4f010a08b383a74a7fec94eee0b379786afe3af335aa354c76b20526afb"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.6/cupti_checkpoint.h",
+      "sha256": "ad3cfc2685b1a844815f26565216491a6e31798731e0e24eb49ecb775dd3fdbd"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.6/cupti_driver_cbid.h",
+      "sha256": "764fde88971f1f6c999ad2ea545381302779d41f344e7898ee975e1f6741c990"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.6/cupti_events.h",
+      "sha256": "7fb94b1a60f67bc173bcc8518279f4fafed4d2f4e95248901c8a50c6001119bd"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.6/cupti_metrics.h",
+      "sha256": "88b00e943adc6c712c20852682ad13a7564e63d3b73addf08f6f9b23c8986d2b"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.6/cupti_nvtx_cbid.h",
+      "sha256": "fdaccfb51d60e2a8afbd7eea6ef1d1520d111c2585ee210e2721cc37da997bd1"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.6/cupti_pcsampling.h",
+      "sha256": "c9c2474f7e8398f21a5731ec077c718d792117211f30224e9772db0ac1c58320"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.6/cupti_pmsampling.h",
+      "sha256": "28fd30604ca429117f5e486f7aca0102e2d49a34d0440860120d3c7873ae2769"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.6/cupti_profiler_host.h",
+      "sha256": "32491f5e528146b44be0d7da3c58ae1380f8cff8299b18815964c18b1cb23139"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.6/cupti_profiler_target.h",
+      "sha256": "31d2eeb4879fc1d31323bc2c71ed0b3b736e0a6dc5460151dc6c4092a69d32ce"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.6/cupti_range_profiler.h",
+      "sha256": "b9ee5b500fb7c42c00b501b20dee4ed5de6b02645b55b72b5ca7c84dde313352"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.6/cupti_result.h",
+      "sha256": "6be0b863b2c06028824f59e039fa03b938b6b2d106d584da7f0c27e947cbf8b5"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.6/cupti_runtime_cbid.h",
+      "sha256": "9867b8e2074a24ae84ff38a28d7afb9ec9519dc21692c925d960fb8e4b25a8d8"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.6/cupti_sass_metrics.h",
+      "sha256": "dd15bdb2726e15074e86b127df00c93abbb4e6ad15ff3b2c5aba83eedbd524ac"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.6/cupti_target.h",
+      "sha256": "c78573d54a5bea6f62c6656998668a425743598408dce67ea1c1171b334ad041"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.6/cupti_version.h",
+      "sha256": "2dc516e90731956373e73a6e5ca5d5377a76ed2b176a59a47141aeb5921ab6e2"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.6/generated_cuda_meta.h",
+      "sha256": "00dbbcba234cb6e7cd61231f7718f8cc13213e3e381ab1f3dee354d789183424"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.6/generated_cuda_runtime_api_meta.h",
+      "sha256": "ac39de4dbaaf25b732863007653e23aef10c6c16ee66eead2ce6b356973e0b4b"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.8/cupti.h",
+      "sha256": "2645720064c8318cf09bad9d7d5a9ab379cc7082e180ffd6773e9f878fcd103d"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.8/cupti_activity.h",
+      "sha256": "809286946d8989f5b7e8bc7eba325c28196752b34ea13c5aaf9d64dbc1ab52d5"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.8/cupti_activity_deprecated.h",
+      "sha256": "074a78cdb965daf527d63d089931ba4086e9a7a1e2c3ccbe5f4db56667fb7e51"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.8/cupti_callbacks.h",
+      "sha256": "699f9213460c15f4fd47e521e4c1dba0f834ca91cc8de492009c37cdd3fb382b"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.8/cupti_checkpoint.h",
+      "sha256": "ad3cfc2685b1a844815f26565216491a6e31798731e0e24eb49ecb775dd3fdbd"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.8/cupti_driver_cbid.h",
+      "sha256": "9a404d3d890b7dc1318506450e8d2260795a1c95860f6bce31db73695fa51149"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.8/cupti_events.h",
+      "sha256": "f35c1cbc5bef1e3f1198409b6c4a7915f823248403a02ffcd4586fab39c5ba96"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.8/cupti_metrics.h",
+      "sha256": "ce67d9c6ae55914269e938fba171243fda32711370d7307d54d8684256e188de"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.8/cupti_nvtx_cbid.h",
+      "sha256": "fdaccfb51d60e2a8afbd7eea6ef1d1520d111c2585ee210e2721cc37da997bd1"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.8/cupti_pcsampling.h",
+      "sha256": "c9c2474f7e8398f21a5731ec077c718d792117211f30224e9772db0ac1c58320"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.8/cupti_pmsampling.h",
+      "sha256": "53de6128ec0891949b18d54fd7541298c6b007ca9d26c96363fb54258e2f79d7"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.8/cupti_profiler_host.h",
+      "sha256": "32491f5e528146b44be0d7da3c58ae1380f8cff8299b18815964c18b1cb23139"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.8/cupti_profiler_target.h",
+      "sha256": "31d2eeb4879fc1d31323bc2c71ed0b3b736e0a6dc5460151dc6c4092a69d32ce"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.8/cupti_range_profiler.h",
+      "sha256": "b9ee5b500fb7c42c00b501b20dee4ed5de6b02645b55b72b5ca7c84dde313352"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.8/cupti_result.h",
+      "sha256": "c50a81b1946889c05259d935959004fd67998fcf0c2c7e82953a39f28b21c7ef"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.8/cupti_runtime_cbid.h",
+      "sha256": "059267cecbdfd918d194728484f8c293409d8cb23dfcbfa70a54f07b8bfd3547"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.8/cupti_sass_metrics.h",
+      "sha256": "dd15bdb2726e15074e86b127df00c93abbb4e6ad15ff3b2c5aba83eedbd524ac"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.8/cupti_target.h",
+      "sha256": "c78573d54a5bea6f62c6656998668a425743598408dce67ea1c1171b334ad041"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.8/cupti_version.h",
+      "sha256": "2855e68c1e28fa2646bcef256bd49ff54ae0e2ae2cae61229a7c5b3c2c9dd8df"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.8/generated_cuda_meta.h",
+      "sha256": "0c37607d6f38195b6c19bafb75a3497219a66434bfc5fbc31ef1429b72353847"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.8/generated_cuda_runtime_api_meta.h",
+      "sha256": "0aece2683c0ed8c877de96822c62aa8bbdcf41f60d9b3a77f3062b8402be7e78"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.9/cupti.h",
+      "sha256": "2645720064c8318cf09bad9d7d5a9ab379cc7082e180ffd6773e9f878fcd103d"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.9/cupti_activity.h",
+      "sha256": "8f1be5852d80b06abbe2e5be103ae897a8c16477146968f04fe7b137007f12e6"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.9/cupti_activity_deprecated.h",
+      "sha256": "074a78cdb965daf527d63d089931ba4086e9a7a1e2c3ccbe5f4db56667fb7e51"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.9/cupti_callbacks.h",
+      "sha256": "699f9213460c15f4fd47e521e4c1dba0f834ca91cc8de492009c37cdd3fb382b"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.9/cupti_checkpoint.h",
+      "sha256": "ad3cfc2685b1a844815f26565216491a6e31798731e0e24eb49ecb775dd3fdbd"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.9/cupti_driver_cbid.h",
+      "sha256": "7f1db3d6cf6566283d6d32d55c0472adf63d70ce8b086dd532d6190178199fe1"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.9/cupti_events.h",
+      "sha256": "f35c1cbc5bef1e3f1198409b6c4a7915f823248403a02ffcd4586fab39c5ba96"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.9/cupti_metrics.h",
+      "sha256": "ce67d9c6ae55914269e938fba171243fda32711370d7307d54d8684256e188de"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.9/cupti_nvtx_cbid.h",
+      "sha256": "fdaccfb51d60e2a8afbd7eea6ef1d1520d111c2585ee210e2721cc37da997bd1"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.9/cupti_pcsampling.h",
+      "sha256": "c9c2474f7e8398f21a5731ec077c718d792117211f30224e9772db0ac1c58320"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.9/cupti_pmsampling.h",
+      "sha256": "53de6128ec0891949b18d54fd7541298c6b007ca9d26c96363fb54258e2f79d7"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.9/cupti_profiler_host.h",
+      "sha256": "32491f5e528146b44be0d7da3c58ae1380f8cff8299b18815964c18b1cb23139"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.9/cupti_profiler_target.h",
+      "sha256": "31d2eeb4879fc1d31323bc2c71ed0b3b736e0a6dc5460151dc6c4092a69d32ce"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.9/cupti_range_profiler.h",
+      "sha256": "b9ee5b500fb7c42c00b501b20dee4ed5de6b02645b55b72b5ca7c84dde313352"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.9/cupti_result.h",
+      "sha256": "c50a81b1946889c05259d935959004fd67998fcf0c2c7e82953a39f28b21c7ef"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.9/cupti_runtime_cbid.h",
+      "sha256": "15d16a6e185990a01110266a64e3155dfc281e60c512c0dd4d246b6e8e77b3ba"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.9/cupti_sass_metrics.h",
+      "sha256": "dd15bdb2726e15074e86b127df00c93abbb4e6ad15ff3b2c5aba83eedbd524ac"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.9/cupti_target.h",
+      "sha256": "c78573d54a5bea6f62c6656998668a425743598408dce67ea1c1171b334ad041"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.9/cupti_version.h",
+      "sha256": "f4e267df16488bf98980f77f3cde772c64a5edc5d76bdab61de0aabb8f7cce17"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.9/generated_cuda_meta.h",
+      "sha256": "f478caf7935cb90c1666a3b615f9d7b14fbf7c655d2a574b76fd6b5982f71f9b"
+    },
+    {
+      "path": "pinned/cupti/cuda-12.9/generated_cuda_runtime_api_meta.h",
+      "sha256": "7f70edac8505935751be24d3bc696cde2267dfd753ba0d99fe2c27a09d4c2ea3"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.0/cupti.h",
+      "sha256": "2b0a3268524bf80c13ffb173b7271295ee81161d220ea28951d748d5af26bd0e"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.0/cupti_activity.h",
+      "sha256": "914cd60f2d76af0d9d3c8d680d14099922aedaebcd8156111c6a070bda6b3fff"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.0/cupti_activity_deprecated.h",
+      "sha256": "5af03458a91accb30a42b58df09a5989df56c8be4edd6e6521fc2f0778575ca8"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.0/cupti_callbacks.h",
+      "sha256": "b2f82221fb03ecb2b2a27afa2d64284babdf49fee1a3a2811258d473285e1105"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.0/cupti_checkpoint.h",
+      "sha256": "ad3cfc2685b1a844815f26565216491a6e31798731e0e24eb49ecb775dd3fdbd"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.0/cupti_driver_cbid.h",
+      "sha256": "8d203d94c8be9af5ed34db316a4fd483c66a5b946c6bf91b5c77e12eff9511de"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.0/cupti_events.h",
+      "sha256": "8de8e51ce0a6e6f60764e1fb76ca0a12cdbae3eb53d8ac62c637d3e68bf926af"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.0/cupti_metrics.h",
+      "sha256": "9190a8697f5ffbec3614fd2b0b7e8e379a54393a962c604b57f8b2ddc8a069d4"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.0/cupti_nvtx_cbid.h",
+      "sha256": "fdaccfb51d60e2a8afbd7eea6ef1d1520d111c2585ee210e2721cc37da997bd1"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.0/cupti_pcsampling.h",
+      "sha256": "c9c2474f7e8398f21a5731ec077c718d792117211f30224e9772db0ac1c58320"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.0/cupti_pmsampling.h",
+      "sha256": "53de6128ec0891949b18d54fd7541298c6b007ca9d26c96363fb54258e2f79d7"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.0/cupti_profiler_host.h",
+      "sha256": "87ca2a11d1b3861e19c4b44d517c9b7dde594b7b0ac48ab499b3cace95e826ff"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.0/cupti_profiler_target.h",
+      "sha256": "c1e442632c23380062e62e18008cc8c43e417f8d3f1140aaded22765beacd930"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.0/cupti_range_profiler.h",
+      "sha256": "b9ee5b500fb7c42c00b501b20dee4ed5de6b02645b55b72b5ca7c84dde313352"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.0/cupti_result.h",
+      "sha256": "9c68cf59e13e2772c4dc6811dab48210a8a6068b9c0f2ed4532e2ddc32702c9e"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.0/cupti_runtime_cbid.h",
+      "sha256": "4b497c907a116db81a0b6cb363193b069f55410bbda0b34c8ed4638aee5d8910"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.0/cupti_sass_metrics.h",
+      "sha256": "dd15bdb2726e15074e86b127df00c93abbb4e6ad15ff3b2c5aba83eedbd524ac"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.0/cupti_target.h",
+      "sha256": "c78573d54a5bea6f62c6656998668a425743598408dce67ea1c1171b334ad041"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.0/cupti_version.h",
+      "sha256": "2bff898187efdab865528d617b9405e104fd8dc510d2937bab5bd04bb5632238"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.0/generated_cuda_meta.h",
+      "sha256": "28d1995d602631c146a246a3328e07f3f632aceb2bfd75981a9a705c4d04c68c"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.0/generated_cuda_runtime_api_meta.h",
+      "sha256": "00017b01a927a606efc56714d9aa8f5ace86960077d3329333a9e82906d6dea0"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.1/cupti.h",
+      "sha256": "2b0a3268524bf80c13ffb173b7271295ee81161d220ea28951d748d5af26bd0e"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.1/cupti_activity.h",
+      "sha256": "1061e039ae4ebee6fdae73950233f324a4826d492fdad62f09caba7410c22b77"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.1/cupti_activity_deprecated.h",
+      "sha256": "8a02698b56d25955dbea1ce3076828e3872c40f40b098d6a840781e08c1b0a8c"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.1/cupti_callbacks.h",
+      "sha256": "b2f82221fb03ecb2b2a27afa2d64284babdf49fee1a3a2811258d473285e1105"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.1/cupti_checkpoint.h",
+      "sha256": "ad3cfc2685b1a844815f26565216491a6e31798731e0e24eb49ecb775dd3fdbd"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.1/cupti_driver_cbid.h",
+      "sha256": "a466a41d811a5848a30f34d60b8286b461fa679550190c2f20192ca5b12bdb25"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.1/cupti_events.h",
+      "sha256": "8de8e51ce0a6e6f60764e1fb76ca0a12cdbae3eb53d8ac62c637d3e68bf926af"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.1/cupti_metrics.h",
+      "sha256": "9190a8697f5ffbec3614fd2b0b7e8e379a54393a962c604b57f8b2ddc8a069d4"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.1/cupti_nvtx_cbid.h",
+      "sha256": "633a2107c2f2f1a82f10d8af8b4f487d87ff7ecc6ede938dc411dfdb6a7a4e9a"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.1/cupti_pcsampling.h",
+      "sha256": "c9c2474f7e8398f21a5731ec077c718d792117211f30224e9772db0ac1c58320"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.1/cupti_pmsampling.h",
+      "sha256": "53de6128ec0891949b18d54fd7541298c6b007ca9d26c96363fb54258e2f79d7"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.1/cupti_profiler_host.h",
+      "sha256": "aa88bbaddcdf2abb6d11ad6596f57e6c2deca22fca01df3d84a5e4bf3a4ec00d"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.1/cupti_profiler_target.h",
+      "sha256": "2aac4e121b85139483a7ee9105802a70e0610a20f3276d78fc4780b1b0d89b2d"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.1/cupti_range_profiler.h",
+      "sha256": "b9ee5b500fb7c42c00b501b20dee4ed5de6b02645b55b72b5ca7c84dde313352"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.1/cupti_result.h",
+      "sha256": "b20dded3b2734bbc91a503ae2400e33274eda09b7b1ea25c71f87e153848b8be"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.1/cupti_runtime_cbid.h",
+      "sha256": "011ccd8ca802d32b2a9fede0b9a7cf7ccf3ff35a96ebe4139e5cdca14e33b8f4"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.1/cupti_sass_metrics.h",
+      "sha256": "dd15bdb2726e15074e86b127df00c93abbb4e6ad15ff3b2c5aba83eedbd524ac"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.1/cupti_target.h",
+      "sha256": "c78573d54a5bea6f62c6656998668a425743598408dce67ea1c1171b334ad041"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.1/cupti_version.h",
+      "sha256": "f0ab896097c1711dc4b6cd053eb4b0bc88bf55fbe37068bb37261941cce046ec"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.1/generated_cuda_meta.h",
+      "sha256": "af51b14a236a90722f115bcd581647a56a534deb806aa18d98b863abf4c6b5e5"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.1/generated_cuda_runtime_api_meta.h",
+      "sha256": "7d4f567ca103cd264a62d5826e2614d95795dc6e7c48db323ab9e49cc0cc7b8b"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.2/cupti.h",
+      "sha256": "2b0a3268524bf80c13ffb173b7271295ee81161d220ea28951d748d5af26bd0e"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.2/cupti_activity.h",
+      "sha256": "ebc0a37219ecc853ad395356059cb533bf6f2758321ce50dad20fe2077419518"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.2/cupti_activity_deprecated.h",
+      "sha256": "6fcf761d6b05370c92c2c6f226318b3e59ae835eea2f3f80f1be3a659ad7ea56"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.2/cupti_callbacks.h",
+      "sha256": "467dc10e2c8dd54eadbd06460d6c4ae338878247b5945efd4d8767a030c906ff"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.2/cupti_checkpoint.h",
+      "sha256": "edec416aa7dc1981759651eabe88aab31cd0769cd4366c3163625d63d2b4683c"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.2/cupti_driver_cbid.h",
+      "sha256": "a466a41d811a5848a30f34d60b8286b461fa679550190c2f20192ca5b12bdb25"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.2/cupti_events.h",
+      "sha256": "8de8e51ce0a6e6f60764e1fb76ca0a12cdbae3eb53d8ac62c637d3e68bf926af"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.2/cupti_metrics.h",
+      "sha256": "9190a8697f5ffbec3614fd2b0b7e8e379a54393a962c604b57f8b2ddc8a069d4"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.2/cupti_nvtx_cbid.h",
+      "sha256": "633a2107c2f2f1a82f10d8af8b4f487d87ff7ecc6ede938dc411dfdb6a7a4e9a"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.2/cupti_pcsampling.h",
+      "sha256": "c9c2474f7e8398f21a5731ec077c718d792117211f30224e9772db0ac1c58320"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.2/cupti_pmsampling.h",
+      "sha256": "53de6128ec0891949b18d54fd7541298c6b007ca9d26c96363fb54258e2f79d7"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.2/cupti_profiler_host.h",
+      "sha256": "8913cfad9b09f01c30ef857577483d087ef0b67ecbfa15fc62058d3068534a35"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.2/cupti_profiler_target.h",
+      "sha256": "1f3799b1015942502813cb0c12716b7163e0689fdfe95d0bdc2465cdf28d0657"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.2/cupti_range_profiler.h",
+      "sha256": "b9ee5b500fb7c42c00b501b20dee4ed5de6b02645b55b72b5ca7c84dde313352"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.2/cupti_result.h",
+      "sha256": "b20dded3b2734bbc91a503ae2400e33274eda09b7b1ea25c71f87e153848b8be"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.2/cupti_runtime_cbid.h",
+      "sha256": "9ace1de8e0a4192da7b5848994106e91dbdbd49bb5b56395de7e9480bc9c397b"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.2/cupti_sass_metrics.h",
+      "sha256": "dd15bdb2726e15074e86b127df00c93abbb4e6ad15ff3b2c5aba83eedbd524ac"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.2/cupti_target.h",
+      "sha256": "c78573d54a5bea6f62c6656998668a425743598408dce67ea1c1171b334ad041"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.2/cupti_version.h",
+      "sha256": "151dda5f4a01507a1cc7c418ae49d6f5a46caa0fc1e2cc1148fae2cd62996a69"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.2/generated_cuda_meta.h",
+      "sha256": "74385318d40eb7b1467c84d0aea5b5901fde04e27617efcf6589180ef5cc6a48"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.2/generated_cuda_runtime_api_meta.h",
+      "sha256": "2441318b44d6f582e783d47a97d80f9c80c2c5d27c4905b45f00bad960efe15c"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.3/cupti.h",
+      "sha256": "2b0a3268524bf80c13ffb173b7271295ee81161d220ea28951d748d5af26bd0e"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.3/cupti_activity.h",
+      "sha256": "306ed811227ae7a0a154fd27f977c72e0e5ea0082f63d5395624f6abfd44596a"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.3/cupti_activity_deprecated.h",
+      "sha256": "cf930a89a337c5ba76b73e61d31e3cee76bc5b056a98c3de63ca17b153cde262"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.3/cupti_callbacks.h",
+      "sha256": "c0147bf1a2ee213b97fbe4e788a4c89ecfd55a5c3bede50214103f143f9249a0"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.3/cupti_checkpoint.h",
+      "sha256": "4266976f733b55c0e1c67a2158396d1051575cab82aadd148cf4d2f541abebb4"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.3/cupti_driver_cbid.h",
+      "sha256": "d4997cbb0b4643a48898d10c336ec0f5c3fe2b1a338b1d832ed5faa7494197f1"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.3/cupti_events.h",
+      "sha256": "8de8e51ce0a6e6f60764e1fb76ca0a12cdbae3eb53d8ac62c637d3e68bf926af"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.3/cupti_metrics.h",
+      "sha256": "9190a8697f5ffbec3614fd2b0b7e8e379a54393a962c604b57f8b2ddc8a069d4"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.3/cupti_nvtx_cbid.h",
+      "sha256": "633a2107c2f2f1a82f10d8af8b4f487d87ff7ecc6ede938dc411dfdb6a7a4e9a"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.3/cupti_pcsampling.h",
+      "sha256": "c9c2474f7e8398f21a5731ec077c718d792117211f30224e9772db0ac1c58320"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.3/cupti_pmsampling.h",
+      "sha256": "c3608944fd809745d70f9b131f39628482e8e3ae3a066f65d40be62b2123a6b9"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.3/cupti_profiler_host.h",
+      "sha256": "debbeb8dd5970a538a98f43aea31bc667f6d958af6152751a8f502dd74d5f7a4"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.3/cupti_profiler_target.h",
+      "sha256": "7af2691b15fdabb43d5314cec656454bb4c2a804d3e17f5f98500fc8aa0f8537"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.3/cupti_range_profiler.h",
+      "sha256": "c01f435805cc02ec9a210541af9925d0c1a23370f6185054fca22a0dca9876d6"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.3/cupti_result.h",
+      "sha256": "16ef400771ab213243d76d49372b7d4409eb0ff685238aee20b8ad1ee30bbaee"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.3/cupti_runtime_cbid.h",
+      "sha256": "9ace1de8e0a4192da7b5848994106e91dbdbd49bb5b56395de7e9480bc9c397b"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.3/cupti_sass_metrics.h",
+      "sha256": "dd15bdb2726e15074e86b127df00c93abbb4e6ad15ff3b2c5aba83eedbd524ac"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.3/cupti_target.h",
+      "sha256": "c78573d54a5bea6f62c6656998668a425743598408dce67ea1c1171b334ad041"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.3/cupti_version.h",
+      "sha256": "64e69e72b7e8ccd3ce6818bc0d9bd380068ad3935cbd09211a4cf6b8abd16d07"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.3/generated_cuda_meta.h",
+      "sha256": "c3e2bb756a595da776095177bbc169fd6692f54ec31481ccf0d60be41a718542"
+    },
+    {
+      "path": "pinned/cupti/cuda-13.3/generated_cuda_runtime_api_meta.h",
+      "sha256": "2f5f7d8b0f7358d088b7258935affc733931db8272bed48a21bc95286c20ef0c"
+    },
+    {
+      "path": "pinned/driver/cuda-12.2/cuda.h",
+      "sha256": "a2b4436404c3a9a4231d667c811f24e9ddac256ab3f30c7a486120550abd78d5"
+    },
+    {
+      "path": "pinned/driver/cuda-12.3/cuda.h",
+      "sha256": "da37ad1f695dfebe30a9d0856c0eacb002b8eaa11e43bdd338feaed25a622cdb"
+    },
+    {
+      "path": "pinned/driver/cuda-12.4/cuda.h",
+      "sha256": "dbd3ae3677ecf076f6b2a0971d42b2dd5b9d5f1ccdf34e74774a16fc2df7cac1"
+    },
+    {
+      "path": "pinned/driver/cuda-12.5/cuda.h",
+      "sha256": "52b817f04d0a2a436c544875a29c073bbd1554160330c9244020e4f9e04df13e"
+    },
+    {
+      "path": "pinned/driver/cuda-12.6/cuda.h",
+      "sha256": "7313ec1a0642c1a02736b6178136eaa9df5e048a8b9707e43ad2119c1c677bcb"
+    },
+    {
+      "path": "pinned/driver/cuda-12.8/cuda.h",
+      "sha256": "4568cc9e7a321e47707cd6403980f21ac2e2e55170500d0e0a3f54feb03a9acb"
+    },
+    {
+      "path": "pinned/driver/cuda-12.9/cuda.h",
+      "sha256": "fda3285d055a9f05e40cd76352f9f073d0ab45d42fb5bb0db4bb33b0df506d28"
+    },
+    {
+      "path": "pinned/driver/cuda-13.0/cuda.h",
+      "sha256": "64025f81a9d6d2b10e9e11654f3523e5b046d01b883f0b9ca474e463274b80d4"
+    },
+    {
+      "path": "pinned/driver/cuda-13.1/cuda.h",
+      "sha256": "756c5d0b68c4bf33d279419d5db479d63263abe80c1e476f8899f4b077215bf5"
+    },
+    {
+      "path": "pinned/driver/cuda-13.2/cuda.h",
+      "sha256": "673873a292718591d75ea3c2e65330b1f8f8278eac3c96b32245418fb0817851"
+    },
+    {
+      "path": "pinned/driver/cuda-13.3/cuda.h",
+      "sha256": "31df84e16179b6d97db4b3c0bae7697392a370b41983f4a8962f0e5a8069b577"
     }
   ],
-  "source_hash": "48ec1a63ef9cdcf065a23af5e08362e78fd10501b57687816ff913343f5cef58",
+  "source_hash": "d96fcf57d7aa086ba69cbd44734b44012e745ce6a45a59f0a521f2f5308e185c",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records portable argument names; host-specific paths are intentionally redacted.",

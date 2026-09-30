@@ -11,8 +11,9 @@ import (
 //
 // Data passed into a runtime or driver API callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainDriverApi] or [CbDomainRuntimeApi]. The callback data is valid only within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of that data. For example, if you make a shallow copy of [CallbackData] within a callback, you cannot dereference functionParams outside of that callback to access the function parameters. functionName is an exception: the string pointed to by functionName is a global constant and so may be accessed outside of the callback.
 type CallbackData struct {
-	CallbackSite        ApiCallbackSite
-	FunctionName        uintptr
+	CallbackSite ApiCallbackSite
+	FunctionName uintptr
+	// Points to the parameter layout of the loaded CUDA release. In CUDA 13.0, cudaGraphKernelNodeCopyAttributes_v11000_params swaps hSrc and hDst.
 	FunctionParams      uintptr
 	FunctionReturnValue uintptr
 	SymbolName          uintptr
@@ -271,10 +272,10 @@ type Activity struct {
 	Kind ActivityKind
 }
 
-// ActivityMemcpy6 represents the activity record for memory copies.
+// ActivityMemcpy7 represents the activity record for memory copies (version 7).
 //
 // This activity record represents a memory copy ([ActivityKindMemcpy]).
-type ActivityMemcpy6 struct {
+type ActivityMemcpy7 struct {
 	Kind                 ActivityKind
 	CopyKind             uint8
 	SrcKind              uint8
@@ -297,6 +298,9 @@ type ActivityMemcpy6 struct {
 	IsDeviceLaunched     uint8
 	Pad2                 [3]uint8
 	CopyCount            uint64
+	SourceGraphId        uint32
+	Pad3                 uint32
+	SourceGraphNodeId    uint64
 }
 
 // ActivityMemcpyPtoP4 represents the activity record for peer-to-peer memory copies.
@@ -326,29 +330,32 @@ type ActivityMemcpyPtoP4 struct {
 	ChannelType   ChannelType
 }
 
-// ActivityMemset4 represents the activity record for memset.
+// ActivityMemset5 represents the activity record for memset (version 5).
 //
 // This activity record represents a memory set operation ([ActivityKindMemset]).
-type ActivityMemset4 struct {
-	Kind             ActivityKind
-	Value            uint32
-	Bytes            uint64
-	Start            uint64
-	End              uint64
-	DeviceId         uint32
-	ContextId        uint32
-	StreamId         uint32
-	CorrelationId    uint32
-	Flags            uint16
-	MemoryKind       uint16
-	Pad              uint32
-	Reserved0        uintptr
-	GraphNodeId      uint64
-	GraphId          uint32
-	ChannelID        uint32
-	ChannelType      ChannelType
-	IsDeviceLaunched uint8
-	Pad2             [3]uint8
+type ActivityMemset5 struct {
+	Kind              ActivityKind
+	Value             uint32
+	Bytes             uint64
+	Start             uint64
+	End               uint64
+	DeviceId          uint32
+	ContextId         uint32
+	StreamId          uint32
+	CorrelationId     uint32
+	Flags             uint16
+	MemoryKind        uint16
+	Pad               uint32
+	Reserved0         uintptr
+	GraphNodeId       uint64
+	GraphId           uint32
+	ChannelID         uint32
+	ChannelType       ChannelType
+	IsDeviceLaunched  uint8
+	Pad2              [3]uint8
+	SourceGraphId     uint32
+	Pad3              uint32
+	SourceGraphNodeId uint64
 }
 
 // ActivityMemory represents the activity record for memory.
@@ -417,10 +424,10 @@ type ActivityMemoryPool3 struct {
 	Pad2                    [7]uint8
 }
 
-// ActivityKernel11 represents the activity record for kernel.
+// ActivityKernel13 represents the activity record for kernel (version 13).
 //
-// This activity record represents a kernel execution ([ActivityKindKernel] and [ActivityKindConcurrentKernel]).
-type ActivityKernel11 struct {
+// This activity record represents a kernel execution ([ActivityKindKernel] and [ActivityKindConcurrentKernel]). This version adds source graph node ID and source graph ID fields.
+type ActivityKernel13 struct {
 	Kind                            ActivityKind
 	CacheConfig                     [1]byte
 	SharedMemoryConfig              uint8
@@ -469,6 +476,11 @@ type ActivityKernel11 struct {
 	Padding3                        [7]uint8
 	Priority                        int32
 	Padding4                        uint32
+	ExecutionModel                  uint32
+	Padding5                        uint32
+	SourceGraphId                   uint32
+	Padding6                        uint32
+	SourceGraphNodeId               uint64
 }
 
 // ActivityCdpKernel represents the activity record for CDP (CUDA Dynamic Parallelism) kernel.
@@ -529,6 +541,24 @@ type ActivityAPI struct {
 	ThreadId      uint32
 	CorrelationId uint32
 	ReturnValue   uint32
+}
+
+// ActivityApiCbidOptions represents per-cbid enable/disable options for API activity kinds.
+//
+// When enable = 1 (allowlist), records are generated only for the cbids listed in pCbids. When enable = 0 (denylist), records are generated for all cbids except those listed.
+type ActivityApiCbidOptions struct {
+	StructSize uint
+	PCbids     uintptr
+	NumCbids   uint
+	Enable     uint8
+}
+
+// ActivityApiOptions represents kind-specific options for API activity kinds (RUNTIME, DRIVER).
+//
+// Pass a pointer to this struct via [ActivityConfig].pKindOptions when calling [Subscriber.ActivityEnableV2] to enable only a subset of cbids (allowlist) or to exclude specific noisy cbids (denylist). Supported only for [ActivityKindRuntime] and [ActivityKindDriver].
+type ActivityApiOptions struct {
+	StructSize   uint
+	PCbidOptions uintptr
 }
 
 // ActivityEvent represents the activity record for a CUPTI event.
@@ -736,6 +766,33 @@ type ActivityOverhead3 struct {
 	CorrelationId uint32
 	Reserved0     uint32
 	OverheadData  uintptr
+}
+
+// ActivityEnvironmentSpeedData represents data returned for [ActivityEnvironmentSpeed] environment kind.
+type ActivityEnvironmentSpeedData struct {
+	SmClock               uint32
+	MemoryClock           uint32
+	PcieLinkGen           uint32
+	PcieLinkWidth         uint32
+	ClocksThrottleReasons EnvironmentClocksThrottleReason
+}
+
+// ActivityEnvironmentTemperatureData represents data returned for [ActivityEnvironmentTemperature] environment kind.
+type ActivityEnvironmentTemperatureData struct {
+	GpuTemperature uint32
+}
+
+// ActivityEnvironmentPowerData represents data returned for [ActivityEnvironmentPower] environment kind.
+//
+// The power in milliwatts consumed by GPU and associated circuitry. The power in milliwatts that will trigger power management algorithm.
+type ActivityEnvironmentPowerData struct {
+	Power      uint32
+	PowerLimit uint32
+}
+
+// ActivityEnvironmentCoolingData represents data returned for [ActivityEnvironmentCooling] environment kind.
+type ActivityEnvironmentCoolingData struct {
+	FanSpeed uint32
 }
 
 // ActivityEnvironment represents the activity record for CUPTI environmental data.
@@ -1064,6 +1121,14 @@ type ActivityExternalCorrelation struct {
 	Reserved      uint32
 }
 
+// ActivityNvLinkNpu represents NPU identifier for NVLink connections.
+//
+// This structure identifies an NPU by index and domain ID.
+type ActivityNvLinkNpu struct {
+	Index    uint32
+	DomainId uint32
+}
+
 // ActivityNvLink5 represents NVLink information.
 //
 // This structure gives capabilities of each logical NVLink connection between two devices, gpu<->gpu or gpu<->CPU which can be used to understand the topology.
@@ -1081,6 +1146,20 @@ type ActivityNvLink5 struct {
 	Bandwidth           uint64
 	NvswitchConnected   uint8
 	Pad                 [7]uint8
+}
+
+// ActivityPcieGpuAttr represents attributes for more information about GPU (gpuAttr).
+type ActivityPcieGpuAttr struct {
+	UuidDev [16]byte
+	PeerDev [32]Device
+}
+
+// ActivityPcieBridgeAttr represents attributes for more information about PCI Bridge (bridgeAttr).
+type ActivityPcieBridgeAttr struct {
+	SecondaryBus uint16
+	DeviceId     uint16
+	VendorId     uint16
+	Pad0         uint16
 }
 
 // ActivityPcie represents PCI devices information required to construct topology.
@@ -1276,26 +1355,32 @@ type ActivityHostLaunch struct {
 	End           uint64
 }
 
-// ActivityGreenContext represents the activity record for a green context.
+// ActivityGreenContext3 represents the activity record for a green context (version 3).
 //
-// The corresponding activity kind is [ActivityKindGreenContext]. Green contexts enable resource partitioning by allocating a subset of SMs (Streaming Multiprocessors) from the GPU to a context. \par TPC (Thread Processing Cluster) Thread Processing Clusters are hardware units within a GPC (Graphics Processing Cluster). Each TPC contains one or more SMs, along with texture units, L1 cache, instruction cache, and constant cache. Green contexts allocate resources at the TPC level.
-type ActivityGreenContext struct {
-	_                  [0]uint64
-	Kind               ActivityKind
-	ContextId          uint32
-	ParentContextId    uint32
-	DeviceId           uint32
-	NumTpcs            uint32
-	NumMultiprocessors uint16
-	LogicalTpcMaskSize uint8
-	Padding            uint8
-	LogicalTpcMask     [32]uint32
+// This activity record represents information about a green context ([ActivityKindGreenContext]). This is an enhanced version of [ActivityGreenContext2] that adds work queue channel information fields. The corresponding activity kind is [ActivityKindGreenContext]. Green contexts enable resource partitioning by allocating a subset of SMs (Streaming Multiprocessors) from the GPU to a context. \par TPC (Thread Processing Cluster) Thread Processing Clusters are hardware units within a GPC (Graphics Processing Cluster). Each TPC contains one or more SMs, along with texture units, L1 cache, instruction cache, and constant cache. Green contexts allocate resources at the TPC level.
+type ActivityGreenContext3 struct {
+	Kind                      ActivityKind
+	ContextId                 uint32
+	ParentContextId           uint32
+	DeviceId                  uint32
+	NumTpcs                   uint32
+	NumMultiprocessors        uint16
+	LogicalTpcMaskSize        uint8
+	Padding                   uint8
+	LogicalTpcMask            [32]uint32
+	WorkqueueResourceId       uint64
+	WorkqueueConcurrencyLimit uint32
+	WorkqueueSharingScope     uint32
+	WorkqueueChannelCount     uint32
+	Padding2                  uint32
+	WorkqueueChannelIds       [32]uint32
 }
 
 // ActivityConfig represents activity configuration.
 type ActivityConfig struct {
 	StructSize     uint
 	FieldSelection ActivityFieldSelection
+	PKindOptions   uintptr
 }
 
 // BufferCallbackRequestInfo represents CUpti_BufferCallbackRequestInfo.
@@ -1941,6 +2026,118 @@ type ActivityKernel10 struct {
 	Padding3                        [7]uint8
 }
 
+// ActivityKernel11 represents the activity record for kernel (version 11).
+//
+// This activity record represents a kernel execution ([ActivityKindKernel] and [ActivityKindConcurrentKernel]).
+type ActivityKernel11 struct {
+	Kind                            ActivityKind
+	CacheConfig                     [1]byte
+	SharedMemoryConfig              uint8
+	RegistersPerThread              uint16
+	PartitionedGlobalCacheRequested ActivityPartitionedGlobalCacheConfig
+	PartitionedGlobalCacheExecuted  ActivityPartitionedGlobalCacheConfig
+	Start                           uint64
+	End                             uint64
+	Completed                       uint64
+	DeviceId                        uint32
+	ContextId                       uint32
+	StreamId                        uint32
+	GridX                           int32
+	GridY                           int32
+	GridZ                           int32
+	BlockX                          int32
+	BlockY                          int32
+	BlockZ                          int32
+	StaticSharedMemory              int32
+	DynamicSharedMemory             int32
+	LocalMemoryPerThread            uint32
+	LocalMemoryTotal                uint32
+	CorrelationId                   uint32
+	GridId                          int64
+	Name                            uintptr
+	Reserved0                       uintptr
+	Queued                          uint64
+	Submitted                       uint64
+	LaunchType                      uint8
+	IsSharedMemoryCarveoutRequested uint8
+	SharedMemoryCarveoutRequested   uint8
+	Padding                         uint8
+	SharedMemoryExecuted            uint32
+	GraphNodeId                     uint64
+	ShmemLimitConfig                FuncShmemLimitConfig
+	GraphId                         uint32
+	PAccessPolicyWindow             uintptr
+	ChannelID                       uint32
+	ChannelType                     ChannelType
+	Cluster                         Dim3
+	ClusterSchedulingPolicy         uint32
+	LocalMemoryTotalV2              uint64
+	MaxPotentialClusterSize         uint32
+	MaxActiveClusters               uint32
+	IsDeviceLaunched                uint8
+	Padding3                        [7]uint8
+	Priority                        int32
+	Padding4                        uint32
+}
+
+// ActivityKernel12 represents the activity record for kernel (version 12).
+//
+// This activity record represents a kernel execution ([ActivityKindKernel] and [ActivityKindConcurrentKernel]). This version adds execution model for the kernel function. [ActivityKernel13]
+//
+// Deprecated: This type is deprecated.
+type ActivityKernel12 struct {
+	Kind                            ActivityKind
+	CacheConfig                     [1]byte
+	SharedMemoryConfig              uint8
+	RegistersPerThread              uint16
+	PartitionedGlobalCacheRequested ActivityPartitionedGlobalCacheConfig
+	PartitionedGlobalCacheExecuted  ActivityPartitionedGlobalCacheConfig
+	Start                           uint64
+	End                             uint64
+	Completed                       uint64
+	DeviceId                        uint32
+	ContextId                       uint32
+	StreamId                        uint32
+	GridX                           int32
+	GridY                           int32
+	GridZ                           int32
+	BlockX                          int32
+	BlockY                          int32
+	BlockZ                          int32
+	StaticSharedMemory              int32
+	DynamicSharedMemory             int32
+	LocalMemoryPerThread            uint32
+	LocalMemoryTotal                uint32
+	CorrelationId                   uint32
+	GridId                          int64
+	Name                            uintptr
+	Reserved0                       uintptr
+	Queued                          uint64
+	Submitted                       uint64
+	LaunchType                      uint8
+	IsSharedMemoryCarveoutRequested uint8
+	SharedMemoryCarveoutRequested   uint8
+	Padding                         uint8
+	SharedMemoryExecuted            uint32
+	GraphNodeId                     uint64
+	ShmemLimitConfig                FuncShmemLimitConfig
+	GraphId                         uint32
+	PAccessPolicyWindow             uintptr
+	ChannelID                       uint32
+	ChannelType                     ChannelType
+	Cluster                         Dim3
+	ClusterSchedulingPolicy         uint32
+	LocalMemoryTotalV2              uint64
+	MaxPotentialClusterSize         uint32
+	MaxActiveClusters               uint32
+	IsDeviceLaunched                uint8
+	Padding3                        [7]uint8
+	Priority                        int32
+	Padding4                        uint32
+	ExecutionModel                  uint32
+	Padding5                        uint32
+}
+
 // ActivityMemcpy represents the activity record for memory copies.
 //
 // This activity record represents a memory copy ([ActivityKindMemcpy]).
@@ -2156,6 +2353,33 @@ type ActivityMemset3 struct {
 	GraphNodeId   uint64
 	GraphId       uint32
 	Padding       uint32
+}
+
+// ActivityMemset4 represents the activity record for memset (version 4).
+//
+// This activity record represents a memory set operation ([ActivityKindMemset]). [ActivityMemset5]
+//
+// Deprecated: This type is deprecated.
+type ActivityMemset4 struct {
+	Kind             ActivityKind
+	Value            uint32
+	Bytes            uint64
+	Start            uint64
+	End              uint64
+	DeviceId         uint32
+	ContextId        uint32
+	StreamId         uint32
+	CorrelationId    uint32
+	Flags            uint16
+	MemoryKind       uint16
+	Pad              uint32
+	Reserved0        uintptr
+	GraphNodeId      uint64
+	GraphId          uint32
+	ChannelID        uint32
+	ChannelType      ChannelType
+	IsDeviceLaunched uint8
+	Pad2             [3]uint8
 }
 
 // ActivityMemory2 represents the activity record for memory.
@@ -2402,6 +2626,8 @@ type ActivityNvLink struct {
 //
 // This structure gives capabilities of each logical NVLink connection between two devices, gpu<->gpu or gpu<->CPU which can be used to understand the topology. NvLink information is now reported using the [ActivityNvLink5] activity record.
 //
+// Its layout differs across the releases this package supports, and this type has the newest. No supported release produces it.
+//
 // Deprecated: This type is deprecated in CUDA 10.0.
 type ActivityNvLink2 struct {
 	Kind                ActivityKind
@@ -2420,6 +2646,8 @@ type ActivityNvLink2 struct {
 // ActivityNvLink3 represents NVLink information.
 //
 // This structure gives capabilities of each logical NVLink connection between two devices, gpu<->gpu or gpu<->CPU which can be used to understand the topology. NvLink information is now reported using the [ActivityNvLink5] activity record.
+//
+// Its layout differs across the releases this package supports, and this type has the newest. No supported release produces it.
 type ActivityNvLink3 struct {
 	Kind                ActivityKind
 	NvlinkVersion       uint32
@@ -2594,6 +2822,36 @@ type ActivityMemcpy5 struct {
 	Pad2                 uint32
 }
 
+// ActivityMemcpy6 represents the activity record for memory copies (version 6).
+//
+// This activity record represents a memory copy ([ActivityKindMemcpy]). [ActivityMemcpy7]
+//
+// Deprecated: This type is deprecated.
+type ActivityMemcpy6 struct {
+	Kind                 ActivityKind
+	CopyKind             uint8
+	SrcKind              uint8
+	DstKind              uint8
+	Flags                uint8
+	Bytes                uint64
+	Start                uint64
+	End                  uint64
+	DeviceId             uint32
+	ContextId            uint32
+	StreamId             uint32
+	CorrelationId        uint32
+	RuntimeCorrelationId uint32
+	Pad                  uint32
+	Reserved0            uintptr
+	GraphNodeId          uint64
+	GraphId              uint32
+	ChannelID            uint32
+	ChannelType          ChannelType
+	IsDeviceLaunched     uint8
+	Pad2                 [3]uint8
+	CopyCount            uint64
+}
+
 // ActivityMarkerData represents the activity record providing detailed information for a marker.
 //
 // User must enable [ActivityKindMarker] as well to get records for marker data. The marker data contains color, payload, and category. ([ActivityKindMarkerData]).
@@ -2607,6 +2865,40 @@ type ActivityMarkerData struct {
 	Payload     [1]uint64
 	Color       uint32
 	Category    uint32
+}
+
+// ActivityGreenContext represents the activity record for a green context.
+//
+// This activity record represents information about a green context ([ActivityKindGreenContext]). Green context activity is now reported using [ActivityGreenContext2] record.
+type ActivityGreenContext struct {
+	_                  [0]uint64
+	Kind               ActivityKind
+	ContextId          uint32
+	ParentContextId    uint32
+	DeviceId           uint32
+	NumTpcs            uint32
+	NumMultiprocessors uint16
+	LogicalTpcMaskSize uint8
+	Padding            uint8
+	LogicalTpcMask     [32]uint32
+}
+
+// ActivityGreenContext2 represents the activity record for a green context (version 2).
+//
+// This activity record represents information about a green context ([ActivityKindGreenContext]). This is an enhanced version of [ActivityGreenContext] that adds work queue configuration fields. The corresponding activity kind is [ActivityKindGreenContext]. Green contexts enable resource partitioning by allocating a subset of SMs (Streaming Multiprocessors) from the GPU to a context. \par TPC (Thread Processing Cluster) Thread Processing Clusters are hardware units within a GPC (Graphics Processing Cluster). Each TPC contains one or more SMs, along with texture units, L1 cache, instruction cache, and constant cache. Green contexts allocate resources at the TPC level.
+type ActivityGreenContext2 struct {
+	Kind                      ActivityKind
+	ContextId                 uint32
+	ParentContextId           uint32
+	DeviceId                  uint32
+	NumTpcs                   uint32
+	NumMultiprocessors        uint16
+	LogicalTpcMaskSize        uint8
+	Padding                   uint8
+	LogicalTpcMask            [32]uint32
+	WorkqueueResourceId       uint64
+	WorkqueueConcurrencyLimit uint32
+	WorkqueueSharingScope     uint32
 }
 
 // ProfilerInitializeParams represents default parameter for [ProfilerInitialize].
@@ -2957,6 +3249,15 @@ type ProfilerHostGetMetricsInSinglePassSetParams struct {
 	PMetricsBuffer              uintptr
 }
 
+// ProfilerHostSetDevicePartitionInfoParams represents params for [ProfilerHostSetDevicePartitionInfo].
+type ProfilerHostSetDevicePartitionInfoParams struct {
+	StructSize              uint
+	PPriv                   uintptr
+	PHostObject             uintptr
+	PDevicePartitionInfo    uintptr
+	DevicePartitionInfoSize uint
+}
+
 // RangeProfilerSetConfigParams represents params for [RangeProfilerSetConfig].
 type RangeProfilerSetConfigParams struct {
 	StructSize           uint
@@ -2981,6 +3282,7 @@ type RangeProfilerEnableParams struct {
 	PPriv                uintptr
 	Ctx                  driver.Context
 	PRangeProfilerObject uintptr
+	CacheControlMode     CacheControlMode
 }
 
 // RangeProfilerDisableParams represents params for [RangeProfilerDisable].
@@ -3069,6 +3371,15 @@ type RangeProfilerCounterDataGetRangeInfoParams struct {
 	RangeIndex           uint
 	RangeDelimiter       uintptr
 	RangeName            uintptr
+}
+
+// RangeProfilerGetDevicePartitionInfoParams represents params for [RangeProfilerGetDevicePartitionInfo].
+type RangeProfilerGetDevicePartitionInfoParams struct {
+	StructSize              uint
+	PPriv                   uintptr
+	PRangeProfilerObject    uintptr
+	DevicePartitionInfoSize uint
+	PDevicePartitionInfo    uintptr
 }
 
 // PCSamplingStallReason represents PC Sampling stall reasons.

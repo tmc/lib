@@ -40,6 +40,11 @@ var (
 	// unbound records symbols the library exports that could not be bound,
 	// keyed by symbol name. It follows the same locking discipline as present.
 	unbound = make(map[string]error)
+
+	// libVersion is the version the library reported through cuptiGetVersion,
+	// undecoded, or 0 if it reported none. It follows the locking discipline
+	// of present.
+	libVersion int
 )
 
 // SymbolError reports that a symbol is not callable.
@@ -227,6 +232,7 @@ func (e *VersionMismatchError) Error() string {
 // looks like, and refusing on it would reject working hosts to catch a
 // case the soname already covers.
 func checkVersion() error {
+	libVersion = 0
 	if fnGetVersion == nil {
 		return nil
 	}
@@ -235,12 +241,245 @@ func checkVersion() error {
 		return nil
 	}
 	raw := int(out0)
-	if raw > 0 && raw < 1000 {
+	libVersion = raw
+	if raw >= 20 && raw < 1000 {
 		return nil
 	}
 	got := raw / 10000
 	if got != 13 {
 		return &VersionMismatchError{Path: libPath, Want: 13, Got: got, Raw: raw}
+	}
+	return nil
+}
+
+// InvalidContextId returns the value of CUPTI_INVALID_CONTEXT_ID for the loaded library,
+// by the version cuptiGetVersion reports:
+//
+//   - 0xFFFFFFFF before version 130200
+//   - 0 from version 130200
+//
+// It loads the library if necessary. When no library loads, or the
+// library reports no version, it returns the oldest release's value.
+func InvalidContextId() uint32 {
+	if checkLib() != nil {
+		return 0xFFFFFFFF
+	}
+	if libVersion >= 130200 {
+		return 0
+	}
+	return 0xFFFFFFFF
+}
+
+// InvalidStreamId returns the value of CUPTI_INVALID_STREAM_ID for the loaded library,
+// by the version cuptiGetVersion reports:
+//
+//   - 0xFFFFFFFF before version 130200
+//   - 0 from version 130200
+//
+// It loads the library if necessary. When no library loads, or the
+// library reports no version, it returns the oldest release's value.
+func InvalidStreamId() uint32 {
+	if checkLib() != nil {
+		return 0xFFFFFFFF
+	}
+	if libVersion >= 130200 {
+		return 0
+	}
+	return 0xFFFFFFFF
+}
+
+// Record returns the record that begins with r, as a pointer to the type
+// its Kind selects in the loaded library, by the version cuptiGetVersion
+// reports. The pointer aliases r. Record returns nil if no library loads,
+// or for a Kind this package does not decode, such as an unknown one.
+// A library newer than any version this package knows is taken to
+// write the newest record this package knows for each Kind.
+func (r *Activity) Record() any {
+	if checkLib() != nil {
+		return nil
+	}
+	switch r.Kind {
+	case ActivityKindMemcpy:
+		if libVersion >= 130400 {
+			return (*ActivityMemcpy7)(unsafe.Pointer(r))
+		}
+		if libVersion >= 26 {
+			return (*ActivityMemcpy6)(unsafe.Pointer(r))
+		}
+		return (*ActivityMemcpy5)(unsafe.Pointer(r))
+	case ActivityKindMemset:
+		if libVersion >= 130400 {
+			return (*ActivityMemset5)(unsafe.Pointer(r))
+		}
+		return (*ActivityMemset4)(unsafe.Pointer(r))
+	case ActivityKindKernel, ActivityKindConcurrentKernel:
+		if libVersion >= 130400 {
+			return (*ActivityKernel13)(unsafe.Pointer(r))
+		}
+		if libVersion >= 130300 {
+			return (*ActivityKernel12)(unsafe.Pointer(r))
+		}
+		if libVersion >= 130100 {
+			return (*ActivityKernel11)(unsafe.Pointer(r))
+		}
+		if libVersion >= 130000 {
+			return (*ActivityKernel10)(unsafe.Pointer(r))
+		}
+		return (*ActivityKernel9)(unsafe.Pointer(r))
+	case ActivityKindDriver, ActivityKindRuntime, ActivityKindInternalLaunchApi:
+		return (*ActivityAPI)(unsafe.Pointer(r))
+	case ActivityKindEvent:
+		return (*ActivityEvent)(unsafe.Pointer(r))
+	case ActivityKindMetric:
+		return (*ActivityMetric)(unsafe.Pointer(r))
+	case ActivityKindDevice:
+		if libVersion >= 130200 {
+			return (*ActivityDevice6)(unsafe.Pointer(r))
+		}
+		return (*ActivityDevice5)(unsafe.Pointer(r))
+	case ActivityKindContext:
+		if libVersion >= 130100 {
+			return (*ActivityContext4)(unsafe.Pointer(r))
+		}
+		if libVersion >= 23 {
+			return (*ActivityContext3)(unsafe.Pointer(r))
+		}
+		if libVersion >= 22 {
+			return (*ActivityContext2)(unsafe.Pointer(r))
+		}
+		return (*ActivityContext)(unsafe.Pointer(r))
+	case ActivityKindName:
+		return (*ActivityName)(unsafe.Pointer(r))
+	case ActivityKindMarker:
+		return (*ActivityMarker2)(unsafe.Pointer(r))
+	case ActivityKindMarkerData:
+		if libVersion >= 130000 {
+			return (*ActivityMarkerData2)(unsafe.Pointer(r))
+		}
+		return (*ActivityMarkerData)(unsafe.Pointer(r))
+	case ActivityKindSourceLocator:
+		return (*ActivitySourceLocator)(unsafe.Pointer(r))
+	case ActivityKindGlobalAccess:
+		return (*ActivityGlobalAccess3)(unsafe.Pointer(r))
+	case ActivityKindBranch:
+		return (*ActivityBranch2)(unsafe.Pointer(r))
+	case ActivityKindOverhead:
+		if libVersion >= 22 {
+			return (*ActivityOverhead3)(unsafe.Pointer(r))
+		}
+		if libVersion >= 21 {
+			return (*ActivityOverhead2)(unsafe.Pointer(r))
+		}
+		return (*ActivityOverhead)(unsafe.Pointer(r))
+	case ActivityKindCdpKernel:
+		return (*ActivityCdpKernel)(unsafe.Pointer(r))
+	case ActivityKindPreemption:
+		return (*ActivityPreemption)(unsafe.Pointer(r))
+	case ActivityKindEnvironment:
+		return (*ActivityEnvironment)(unsafe.Pointer(r))
+	case ActivityKindEventInstance:
+		return (*ActivityEventInstance)(unsafe.Pointer(r))
+	case ActivityKindMemcpy2:
+		return (*ActivityMemcpyPtoP4)(unsafe.Pointer(r))
+	case ActivityKindMetricInstance:
+		return (*ActivityMetricInstance)(unsafe.Pointer(r))
+	case ActivityKindInstructionExecution:
+		return (*ActivityInstructionExecution)(unsafe.Pointer(r))
+	case ActivityKindUnifiedMemoryCounter:
+		if libVersion >= 26 {
+			return (*ActivityUnifiedMemoryCounter3)(unsafe.Pointer(r))
+		}
+		return (*ActivityUnifiedMemoryCounter2)(unsafe.Pointer(r))
+	case ActivityKindFunction:
+		return (*ActivityFunction)(unsafe.Pointer(r))
+	case ActivityKindModule:
+		return (*ActivityModule)(unsafe.Pointer(r))
+	case ActivityKindDeviceAttribute:
+		return (*ActivityDeviceAttribute)(unsafe.Pointer(r))
+	case ActivityKindSharedAccess:
+		return (*ActivitySharedAccess)(unsafe.Pointer(r))
+	case ActivityKindPcSampling:
+		return (*ActivityPCSampling3)(unsafe.Pointer(r))
+	case ActivityKindPcSamplingRecordInfo:
+		return (*ActivityPCSamplingRecordInfo)(unsafe.Pointer(r))
+	case ActivityKindInstructionCorrelation:
+		return (*ActivityInstructionCorrelation)(unsafe.Pointer(r))
+	case ActivityKindOpenaccData:
+		return (*ActivityOpenAccData)(unsafe.Pointer(r))
+	case ActivityKindOpenaccLaunch:
+		return (*ActivityOpenAccLaunch)(unsafe.Pointer(r))
+	case ActivityKindOpenaccOther:
+		return (*ActivityOpenAccOther)(unsafe.Pointer(r))
+	case ActivityKindCudaEvent:
+		if libVersion >= 26 {
+			return (*ActivityCudaEvent2)(unsafe.Pointer(r))
+		}
+		return (*ActivityCudaEvent)(unsafe.Pointer(r))
+	case ActivityKindStream:
+		return (*ActivityStream)(unsafe.Pointer(r))
+	case ActivityKindSynchronization:
+		if libVersion >= 26 {
+			return (*ActivitySynchronization2)(unsafe.Pointer(r))
+		}
+		return (*ActivitySynchronization)(unsafe.Pointer(r))
+	case ActivityKindExternalCorrelation:
+		return (*ActivityExternalCorrelation)(unsafe.Pointer(r))
+	case ActivityKindNvlink:
+		if libVersion >= 130200 {
+			return (*ActivityNvLink5)(unsafe.Pointer(r))
+		}
+		return (*ActivityNvLink4)(unsafe.Pointer(r))
+	case ActivityKindInstantaneousEvent:
+		return (*ActivityInstantaneousEvent)(unsafe.Pointer(r))
+	case ActivityKindInstantaneousEventInstance:
+		return (*ActivityInstantaneousEventInstance)(unsafe.Pointer(r))
+	case ActivityKindInstantaneousMetric:
+		return (*ActivityInstantaneousMetric)(unsafe.Pointer(r))
+	case ActivityKindInstantaneousMetricInstance:
+		return (*ActivityInstantaneousMetricInstance)(unsafe.Pointer(r))
+	case ActivityKindMemory:
+		return (*ActivityMemory)(unsafe.Pointer(r))
+	case ActivityKindPcie:
+		return (*ActivityPcie)(unsafe.Pointer(r))
+	case ActivityKindOpenmp:
+		return (*ActivityOpenMp)(unsafe.Pointer(r))
+	case ActivityKindMemory2:
+		if libVersion >= 24 {
+			return (*ActivityMemory4)(unsafe.Pointer(r))
+		}
+		return (*ActivityMemory3)(unsafe.Pointer(r))
+	case ActivityKindMemoryPool:
+		if libVersion >= 130000 {
+			return (*ActivityMemoryPool3)(unsafe.Pointer(r))
+		}
+		return (*ActivityMemoryPool2)(unsafe.Pointer(r))
+	case ActivityKindGraphTrace:
+		if libVersion >= 21 {
+			return (*ActivityGraphTrace2)(unsafe.Pointer(r))
+		}
+		return (*ActivityGraphTrace)(unsafe.Pointer(r))
+	case ActivityKindJit:
+		if libVersion >= 130100 {
+			return (*ActivityJit2)(unsafe.Pointer(r))
+		}
+		return (*ActivityJit)(unsafe.Pointer(r))
+	case ActivityKindDeviceGraphTrace:
+		return (*ActivityDeviceGraphTrace)(unsafe.Pointer(r))
+	case ActivityKindMemDecompress:
+		return (*ActivityMemDecompress)(unsafe.Pointer(r))
+	case ActivityKindConfidentialComputeRotation:
+		return (*ActivityConfidentialComputeRotation)(unsafe.Pointer(r))
+	case ActivityKindGraphHostNode:
+		return (*ActivityGraphHostNode)(unsafe.Pointer(r))
+	case ActivityKindComputeEngineCtxSwitch:
+		return (*ActivityComputeEngineCtxSwitch)(unsafe.Pointer(r))
+	case ActivityKindHostLaunch:
+		return (*ActivityHostLaunch)(unsafe.Pointer(r))
+	case ActivityKindGreenContext:
+		if libVersion >= 130400 {
+			return (*ActivityGreenContext3)(unsafe.Pointer(r))
+		}
+		return (*ActivityGreenContext2)(unsafe.Pointer(r))
 	}
 	return nil
 }
@@ -562,10 +801,12 @@ func registerFuncs() {
 	symActivityEnableCudaEventDeviceTimestamps = registerSym("cuptiActivityEnableCudaEventDeviceTimestamps")
 	symActivityEnableDeviceGraph = registerSym("cuptiActivityEnableDeviceGraph")
 	symActivityEnableDriverApi = registerSym("cuptiActivityEnableDriverApi")
+	symactivityEnableDriverApiV2 = registerSym("cuptiActivityEnableDriverApi_v2")
 	symActivityEnableHWTrace = registerSym("cuptiActivityEnableHWTrace")
 	symActivityEnableLatencyTimestamps = registerSym("cuptiActivityEnableLatencyTimestamps")
 	symActivityEnableLaunchAttributes = registerSym("cuptiActivityEnableLaunchAttributes")
 	symActivityEnableRuntimeApi = registerSym("cuptiActivityEnableRuntimeApi")
+	symactivityEnableRuntimeApiV2 = registerSym("cuptiActivityEnableRuntimeApi_v2")
 	symactivityEnableV2 = registerSym("cuptiActivityEnable_v2")
 	symActivityFlush = registerSym("cuptiActivityFlush")
 	symActivityFlushAll = registerSym("cuptiActivityFlushAll")
@@ -574,10 +815,14 @@ func registerFuncs() {
 	symactivityGetAttributeV2 = registerSym("cuptiActivityGetAttribute_v2")
 	symactivityGetEnabledKinds = registerSym("cuptiActivityGetEnabledKinds")
 	symActivityGetNextRecord = registerSym("cuptiActivityGetNextRecord")
+	symactivityGetNextRecordV2 = registerSym("cuptiActivityGetNextRecord_v2")
 	symActivityGetNumDroppedRecords = registerSym("cuptiActivityGetNumDroppedRecords")
+	symactivityGetNumDroppedRecordsV2 = registerSym("cuptiActivityGetNumDroppedRecords_v2")
 	symActivityGetStructSize = registerSym("cuptiActivityGetStructSize")
 	symActivityPopExternalCorrelationId = registerSym("cuptiActivityPopExternalCorrelationId")
+	symactivityPopExternalCorrelationIdV2 = registerSym("cuptiActivityPopExternalCorrelationId_v2")
 	symActivityPushExternalCorrelationId = registerSym("cuptiActivityPushExternalCorrelationId")
+	symactivityPushExternalCorrelationIdV2 = registerSym("cuptiActivityPushExternalCorrelationId_v2")
 	symActivityRegisterCallbacks = registerSym("cuptiActivityRegisterCallbacks")
 	symactivityRegisterCallbacksV2 = registerSym("cuptiActivityRegisterCallbacks_v2")
 	symActivityRegisterTimestampCallback = registerSym("cuptiActivityRegisterTimestampCallback")
@@ -586,6 +831,9 @@ func registerFuncs() {
 	symCheckpointFree = registerSym("cuptiCheckpointFree")
 	symCheckpointRestore = registerSym("cuptiCheckpointRestore")
 	symCheckpointSave = registerSym("cuptiCheckpointSave")
+	symClockControlGetStatus = registerSym("cuptiClockControlGetStatus")
+	symClockControlLock = registerSym("cuptiClockControlLock")
+	symClockControlUnlock = registerSym("cuptiClockControlUnlock")
 	symComputeCapabilitySupported = registerSym("cuptiComputeCapabilitySupported")
 	symDeviceEnumEventDomains = registerSym("cuptiDeviceEnumEventDomains")
 	symDeviceEnumMetrics = registerSym("cuptiDeviceEnumMetrics")
@@ -630,6 +878,7 @@ func registerFuncs() {
 	symgetCallbackState = registerSym("cuptiGetCallbackState")
 	symGetContextId = registerSym("cuptiGetContextId")
 	symGetCubinCrc = registerSym("cuptiGetCubinCrc")
+	symGetCudaEventId = registerSym("cuptiGetCudaEventId")
 	symGetDeviceId = registerSym("cuptiGetDeviceId")
 	symgetEnabledCallbacks = registerSym("cuptiGetEnabledCallbacks")
 	symGetGraphExecId = registerSym("cuptiGetGraphExecId")
@@ -643,6 +892,7 @@ func registerFuncs() {
 	symGetStreamIdEx = registerSym("cuptiGetStreamIdEx")
 	symGetThreadIdType = registerSym("cuptiGetThreadIdType")
 	symGetTimestamp = registerSym("cuptiGetTimestamp")
+	symgetTimestampV2 = registerSym("cuptiGetTimestamp_v2")
 	register(&fnGetVersion, "cuptiGetVersion")
 	symIsTracingSessionRunning = registerSym("cuptiIsTracingSessionRunning")
 	symKernelReplaySubscribeUpdate = registerSym("cuptiKernelReplaySubscribeUpdate")
@@ -705,6 +955,7 @@ func registerFuncs() {
 	symProfilerHostGetSubMetrics = registerSym("cuptiProfilerHostGetSubMetrics")
 	symProfilerHostGetSupportedChips = registerSym("cuptiProfilerHostGetSupportedChips")
 	symProfilerHostInitialize = registerSym("cuptiProfilerHostInitialize")
+	symProfilerHostSetDevicePartitionInfo = registerSym("cuptiProfilerHostSetDevicePartitionInfo")
 	symProfilerInitialize = registerSym("cuptiProfilerInitialize")
 	symProfilerIsPassCollected = registerSym("cuptiProfilerIsPassCollected")
 	symProfilerPopRange = registerSym("cuptiProfilerPopRange")
@@ -718,6 +969,7 @@ func registerFuncs() {
 	symRangeProfilerEnable = registerSym("cuptiRangeProfilerEnable")
 	symRangeProfilerGetCounterDataInfo = registerSym("cuptiRangeProfilerGetCounterDataInfo")
 	symRangeProfilerGetCounterDataSize = registerSym("cuptiRangeProfilerGetCounterDataSize")
+	symRangeProfilerGetDevicePartitionInfo = registerSym("cuptiRangeProfilerGetDevicePartitionInfo")
 	symRangeProfilerPopRange = registerSym("cuptiRangeProfilerPopRange")
 	symRangeProfilerPushRange = registerSym("cuptiRangeProfilerPushRange")
 	symRangeProfilerSetConfig = registerSym("cuptiRangeProfilerSetConfig")
@@ -759,10 +1011,12 @@ func clearFuncs() {
 	symActivityEnableCudaEventDeviceTimestamps = 0
 	symActivityEnableDeviceGraph = 0
 	symActivityEnableDriverApi = 0
+	symactivityEnableDriverApiV2 = 0
 	symActivityEnableHWTrace = 0
 	symActivityEnableLatencyTimestamps = 0
 	symActivityEnableLaunchAttributes = 0
 	symActivityEnableRuntimeApi = 0
+	symactivityEnableRuntimeApiV2 = 0
 	symactivityEnableV2 = 0
 	symActivityFlush = 0
 	symActivityFlushAll = 0
@@ -771,10 +1025,14 @@ func clearFuncs() {
 	symactivityGetAttributeV2 = 0
 	symactivityGetEnabledKinds = 0
 	symActivityGetNextRecord = 0
+	symactivityGetNextRecordV2 = 0
 	symActivityGetNumDroppedRecords = 0
+	symactivityGetNumDroppedRecordsV2 = 0
 	symActivityGetStructSize = 0
 	symActivityPopExternalCorrelationId = 0
+	symactivityPopExternalCorrelationIdV2 = 0
 	symActivityPushExternalCorrelationId = 0
+	symactivityPushExternalCorrelationIdV2 = 0
 	symActivityRegisterCallbacks = 0
 	symactivityRegisterCallbacksV2 = 0
 	symActivityRegisterTimestampCallback = 0
@@ -783,6 +1041,9 @@ func clearFuncs() {
 	symCheckpointFree = 0
 	symCheckpointRestore = 0
 	symCheckpointSave = 0
+	symClockControlGetStatus = 0
+	symClockControlLock = 0
+	symClockControlUnlock = 0
 	symComputeCapabilitySupported = 0
 	symDeviceEnumEventDomains = 0
 	symDeviceEnumMetrics = 0
@@ -827,6 +1088,7 @@ func clearFuncs() {
 	symgetCallbackState = 0
 	symGetContextId = 0
 	symGetCubinCrc = 0
+	symGetCudaEventId = 0
 	symGetDeviceId = 0
 	symgetEnabledCallbacks = 0
 	symGetGraphExecId = 0
@@ -840,6 +1102,7 @@ func clearFuncs() {
 	symGetStreamIdEx = 0
 	symGetThreadIdType = 0
 	symGetTimestamp = 0
+	symgetTimestampV2 = 0
 	fnGetVersion = nil
 	symIsTracingSessionRunning = 0
 	symKernelReplaySubscribeUpdate = 0
@@ -902,6 +1165,7 @@ func clearFuncs() {
 	symProfilerHostGetSubMetrics = 0
 	symProfilerHostGetSupportedChips = 0
 	symProfilerHostInitialize = 0
+	symProfilerHostSetDevicePartitionInfo = 0
 	symProfilerInitialize = 0
 	symProfilerIsPassCollected = 0
 	symProfilerPopRange = 0
@@ -915,6 +1179,7 @@ func clearFuncs() {
 	symRangeProfilerEnable = 0
 	symRangeProfilerGetCounterDataInfo = 0
 	symRangeProfilerGetCounterDataSize = 0
+	symRangeProfilerGetDevicePartitionInfo = 0
 	symRangeProfilerPopRange = 0
 	symRangeProfilerPushRange = 0
 	symRangeProfilerSetConfig = 0
@@ -1018,6 +1283,11 @@ func HasActivityEnableDriverApi() bool {
 	return Has("cuptiActivityEnableDriverApi")
 }
 
+// HasActivityEnableDriverApiV2 reports whether cuptiActivityEnableDriverApi_v2 resolved in the loaded library.
+func HasActivityEnableDriverApiV2() bool {
+	return Has("cuptiActivityEnableDriverApi_v2")
+}
+
 // HasActivityEnableHWTrace reports whether cuptiActivityEnableHWTrace resolved in the loaded library.
 func HasActivityEnableHWTrace() bool {
 	return Has("cuptiActivityEnableHWTrace")
@@ -1036,6 +1306,11 @@ func HasActivityEnableLaunchAttributes() bool {
 // HasActivityEnableRuntimeApi reports whether cuptiActivityEnableRuntimeApi resolved in the loaded library.
 func HasActivityEnableRuntimeApi() bool {
 	return Has("cuptiActivityEnableRuntimeApi")
+}
+
+// HasActivityEnableRuntimeApiV2 reports whether cuptiActivityEnableRuntimeApi_v2 resolved in the loaded library.
+func HasActivityEnableRuntimeApiV2() bool {
+	return Has("cuptiActivityEnableRuntimeApi_v2")
 }
 
 // HasActivityEnableV2 reports whether cuptiActivityEnable_v2 resolved in the loaded library.
@@ -1078,9 +1353,19 @@ func HasActivityGetNextRecord() bool {
 	return Has("cuptiActivityGetNextRecord")
 }
 
+// HasActivityGetNextRecordV2 reports whether cuptiActivityGetNextRecord_v2 resolved in the loaded library.
+func HasActivityGetNextRecordV2() bool {
+	return Has("cuptiActivityGetNextRecord_v2")
+}
+
 // HasActivityGetNumDroppedRecords reports whether cuptiActivityGetNumDroppedRecords resolved in the loaded library.
 func HasActivityGetNumDroppedRecords() bool {
 	return Has("cuptiActivityGetNumDroppedRecords")
+}
+
+// HasActivityGetNumDroppedRecordsV2 reports whether cuptiActivityGetNumDroppedRecords_v2 resolved in the loaded library.
+func HasActivityGetNumDroppedRecordsV2() bool {
+	return Has("cuptiActivityGetNumDroppedRecords_v2")
 }
 
 // HasActivityGetStructSize reports whether cuptiActivityGetStructSize resolved in the loaded library.
@@ -1093,9 +1378,19 @@ func HasActivityPopExternalCorrelationId() bool {
 	return Has("cuptiActivityPopExternalCorrelationId")
 }
 
+// HasActivityPopExternalCorrelationIdV2 reports whether cuptiActivityPopExternalCorrelationId_v2 resolved in the loaded library.
+func HasActivityPopExternalCorrelationIdV2() bool {
+	return Has("cuptiActivityPopExternalCorrelationId_v2")
+}
+
 // HasActivityPushExternalCorrelationId reports whether cuptiActivityPushExternalCorrelationId resolved in the loaded library.
 func HasActivityPushExternalCorrelationId() bool {
 	return Has("cuptiActivityPushExternalCorrelationId")
+}
+
+// HasActivityPushExternalCorrelationIdV2 reports whether cuptiActivityPushExternalCorrelationId_v2 resolved in the loaded library.
+func HasActivityPushExternalCorrelationIdV2() bool {
+	return Has("cuptiActivityPushExternalCorrelationId_v2")
 }
 
 // HasActivityRegisterCallbacks reports whether cuptiActivityRegisterCallbacks resolved in the loaded library.
@@ -1136,6 +1431,21 @@ func HasCheckpointRestore() bool {
 // HasCheckpointSave reports whether cuptiCheckpointSave resolved in the loaded library.
 func HasCheckpointSave() bool {
 	return Has("cuptiCheckpointSave")
+}
+
+// HasClockControlGetStatus reports whether cuptiClockControlGetStatus resolved in the loaded library.
+func HasClockControlGetStatus() bool {
+	return Has("cuptiClockControlGetStatus")
+}
+
+// HasClockControlLock reports whether cuptiClockControlLock resolved in the loaded library.
+func HasClockControlLock() bool {
+	return Has("cuptiClockControlLock")
+}
+
+// HasClockControlUnlock reports whether cuptiClockControlUnlock resolved in the loaded library.
+func HasClockControlUnlock() bool {
+	return Has("cuptiClockControlUnlock")
 }
 
 // HasComputeCapabilitySupported reports whether cuptiComputeCapabilitySupported resolved in the loaded library.
@@ -1358,6 +1668,11 @@ func HasGetCubinCrc() bool {
 	return Has("cuptiGetCubinCrc")
 }
 
+// HasGetCudaEventId reports whether cuptiGetCudaEventId resolved in the loaded library.
+func HasGetCudaEventId() bool {
+	return Has("cuptiGetCudaEventId")
+}
+
 // HasGetDeviceId reports whether cuptiGetDeviceId resolved in the loaded library.
 func HasGetDeviceId() bool {
 	return Has("cuptiGetDeviceId")
@@ -1421,6 +1736,11 @@ func HasGetThreadIdType() bool {
 // HasGetTimestamp reports whether cuptiGetTimestamp resolved in the loaded library.
 func HasGetTimestamp() bool {
 	return Has("cuptiGetTimestamp")
+}
+
+// HasGetTimestampV2 reports whether cuptiGetTimestamp_v2 resolved in the loaded library.
+func HasGetTimestampV2() bool {
+	return Has("cuptiGetTimestamp_v2")
 }
 
 // HasGetVersion reports whether cuptiGetVersion resolved in the loaded library.
@@ -1733,6 +2053,11 @@ func HasProfilerHostInitialize() bool {
 	return Has("cuptiProfilerHostInitialize")
 }
 
+// HasProfilerHostSetDevicePartitionInfo reports whether cuptiProfilerHostSetDevicePartitionInfo resolved in the loaded library.
+func HasProfilerHostSetDevicePartitionInfo() bool {
+	return Has("cuptiProfilerHostSetDevicePartitionInfo")
+}
+
 // HasProfilerInitialize reports whether cuptiProfilerInitialize resolved in the loaded library.
 func HasProfilerInitialize() bool {
 	return Has("cuptiProfilerInitialize")
@@ -1796,6 +2121,11 @@ func HasRangeProfilerGetCounterDataInfo() bool {
 // HasRangeProfilerGetCounterDataSize reports whether cuptiRangeProfilerGetCounterDataSize resolved in the loaded library.
 func HasRangeProfilerGetCounterDataSize() bool {
 	return Has("cuptiRangeProfilerGetCounterDataSize")
+}
+
+// HasRangeProfilerGetDevicePartitionInfo reports whether cuptiRangeProfilerGetDevicePartitionInfo resolved in the loaded library.
+func HasRangeProfilerGetDevicePartitionInfo() bool {
+	return Has("cuptiRangeProfilerGetDevicePartitionInfo")
 }
 
 // HasRangeProfilerPopRange reports whether cuptiRangeProfilerPopRange resolved in the loaded library.
