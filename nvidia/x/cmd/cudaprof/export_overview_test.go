@@ -48,3 +48,22 @@ func TestExportObservedAndInferredEvents(t *testing.T) {
 		}
 	}
 }
+
+func TestExportOverviewReferencesOnce(t *testing.T) {
+	const count = 500
+	records := timeline.Records{}
+	for i := 0; i < count; i++ {
+		records.Activities = append(records.Activities, timeline.Activity{Journal: "j", Name: "spin", Subtype: "kernel", Start: int64(i*3 + 1), End: int64(i*3 + 2)})
+	}
+	r := overview.Analyze(records, "driver", nil)
+	var b bytes.Buffer
+	if err := writeOverviewTrace(&b, r, 1, 1<<48); err != nil {
+		t.Fatal(err)
+	}
+	if got := bytes.Count(b.Bytes(), []byte("raw_references")); got != count+2 {
+		t.Fatalf("reference annotations=%d want %d", got, count+2)
+	}
+	if b.Len() > count*3000 {
+		t.Fatalf("summary repeats group evidence: %d bytes", b.Len())
+	}
+}
