@@ -39,6 +39,7 @@ import (
 type exportOptions struct {
 	demangle      bool
 	summary       bool
+	telemetry     bool
 	summaryDomain string
 	summaryMarker *regexp.Regexp
 	capturePath   string
@@ -79,6 +80,13 @@ func runExportCommand(args []string) error {
 	if err != nil {
 		return decodeRemedy(cap, err, maxRecords, journalBytes)
 	}
+	var telemetry []capturePhaseEdge
+	if opts.telemetry {
+		telemetry, err = telemetryEdges(cap)
+		if err != nil {
+			return err
+		}
+	}
 	f, err := os.Create(opts.outPath)
 	if err != nil {
 		return fmt.Errorf("create trace %s: %w", opts.outPath, err)
@@ -95,6 +103,9 @@ func runExportCommand(args []string) error {
 			origin := traceOrigin(records)
 			err = writeOverviewTrace(f, overview.Analyze(decoded, opts.summaryDomain, opts.summaryMarker), origin, 1<<48)
 		}
+	}
+	if err == nil && opts.telemetry {
+		err = writeTelemetryTrace(f, telemetry, traceOrigin(records), 2<<48)
 	}
 	if err != nil {
 		f.Close()
@@ -144,6 +155,8 @@ func parseExportArgs(rawArgs []string) (exportOptions, error) {
 			opts.summaryDomain = args[i]
 		case strings.HasPrefix(arg, "-summary-domain="):
 			opts.summaryDomain = strings.TrimPrefix(arg, "-summary-domain=")
+		case arg == "-telemetry" || arg == "--telemetry":
+			opts.telemetry = true
 		case arg == "-summary" || arg == "--summary":
 			opts.summary = true
 		case arg == "-demangle" || arg == "--demangle":
@@ -209,6 +222,7 @@ synchronization packet is emitted, so this trace must not be merged with a
 host trace taken from another clock.
 
 Options:
+  -telemetry        append bounded NVML query intervals, without interpolation
   -summary          append observed hierarchy and token overview tracks
   -summary-domain driver|runtime  API domain for explicit context (default driver)
   -summary-marker RE  append separately labeled inferred kernel intervals

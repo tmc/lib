@@ -28,3 +28,9 @@ mapping has pairing uncertainty of half `read_nanos` and assumes no wall-clock
 step during capture. That pairing does not establish when a sensor observed
 its value. These receipts are not a continuous telemetry track; a timeline
 export must not interpolate them into per-kernel measurements.
+
+`cudaprof export -telemetry` appends one bounded host-query slice per retained
+edge receipt. It requires explicit unified CLOCK_MONOTONIC capability and
+query timestamps; old or unsupported receipts are refused. The annotations
+retain device UUID, readings, errors, lag, poll gaps, and unavailable sensor
+time. These slices do not interpolate readings or assign clocks to kernels.
