@@ -420,3 +420,21 @@ func TestCheckQualifyRuns(t *testing.T) {
 		})
 	}
 }
+
+func TestQualifyBlockSpread(t *testing.T) {
+	entries := campaign([4]float64{10, 11, 11, 10}, [4]float64{10, 13, 13, 10}, [4]float64{10, 110, 110, 10})
+	q := qualify(entries, 1, 0, 1)
+	s := q.Steady
+	if s.Blocks != 3 || s.Runs != 12 || s.BlockMinMS != 1 || s.BlockMaxMS != 100 || s.BlockMADMS != 2 {
+		t.Fatalf("block spread = %+v", s)
+	}
+	entries[8].HostLoad = hostLoaded
+	q = qualify(entries, 1, 0, 1)
+	s = q.Steady
+	if s.Blocks != 2 || s.Runs != 8 || s.BlockMinMS != 1 || s.BlockMaxMS != 3 || s.BlockMADMS != 1 {
+		t.Fatalf("excluded block entered spread: %+v", s)
+	}
+	if len(q.DroppedBlocks) != 1 || len(q.Captures) != 12 {
+		t.Fatalf("exclusion receipt lost: %+v", q)
+	}
+}
