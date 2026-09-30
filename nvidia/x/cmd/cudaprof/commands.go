@@ -101,6 +101,9 @@ To summarize qualified operation matching and existing alignment receipts:
 To collect an interleaved correctness-gated campaign inside one GPU lock:
   cudaprof campaign -h
 
+To inspect available dependency evidence:
+  cudaprof dependency capture.pprof
+
 To print the build of this cudaprof:
   cudaprof version
 
@@ -134,6 +137,7 @@ func commands() []command {
 		{name: "overview", run: func(args []string) error { return runOverviewCommand(args[1:]) }},
 		{name: "comparison-summary", run: func(args []string) error { return runComparisonSummaryCommand(args[1:], os.Stdout) }},
 		{name: "campaign", run: func(args []string) error { return runCampaignCommand(args[1:], os.Stdout) }},
+		{name: "dependency", run: func(args []string) error { return runDependencyCommand(args[1:]) }},
 		{name: "capture", run: func(args []string) error { return runCaptureCommand(args[1:]) }},
 		{name: "inspect", usage: inspectUsage, run: func(args []string) error { return runInspectCommand(args[1:]) }},
 		{name: "export-compare", run: func(args []string) error { return runExportCompareCommand(args[1:]) }},

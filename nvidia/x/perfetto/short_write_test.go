@@ -23,6 +23,9 @@ func TestShortWrites(t *testing.T) {
 		{"double counter", func(w *perfetto.Writer) error { return w.WriteDoubleCounterValue(1, 2, 3) }},
 		{"begin", func(w *perfetto.Writer) error { return w.WriteSliceBegin(1, 2, "slice", "category") }},
 		{"end", func(w *perfetto.Writer) error { return w.WriteSliceEnd(1, 2) }},
+		{"flow instant", func(w *perfetto.Writer) error {
+			return w.WriteFlowInstant(1, 2, "event", "category", nil, []uint64{3}, nil)
+		}},
 		{"instant", func(w *perfetto.Writer) error { return w.WriteInstant(1, 2, "event", "category") }},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
