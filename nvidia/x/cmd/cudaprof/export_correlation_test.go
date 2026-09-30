@@ -2,9 +2,10 @@ package main
 
 import (
 	"bytes"
+	"testing"
+
 	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/x/cuptiactivity"
-	"testing"
 )
 
 func TestTraceCorrelationAnnotations(t *testing.T) {
