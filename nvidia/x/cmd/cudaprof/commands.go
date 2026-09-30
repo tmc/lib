@@ -67,6 +67,9 @@ To write the device timeline as a Perfetto trace:
 To compare explicitly instrumented workload shapes:
   cudaprof shape-compare [-iteration-marker RE] base.pprof target.pprof
 
+To collect separately replayed qualified controlled GEMV counters:
+  cudaprof counter-gemv workload|collect -h
+
 To inspect retained memory evidence:
   cudaprof memory capture.pprof
 
@@ -141,6 +144,7 @@ type command struct {
 // commands returns the subcommands that run dispatches.
 func commands() []command {
 	return []command{
+		{name: "counter-gemv", run: func(args []string) error { return runCounterGEMVCommand(args[1:]) }},
 		{name: "overview", run: func(args []string) error { return runOverviewCommand(args[1:]) }},
 		{name: "comparison-summary", run: func(args []string) error { return runComparisonSummaryCommand(args[1:], os.Stdout) }},
 		{name: "campaign", run: func(args []string) error { return runCampaignCommand(args[1:], os.Stdout) }},
