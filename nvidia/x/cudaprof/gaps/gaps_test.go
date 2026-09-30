@@ -904,3 +904,29 @@ func TestUnnamedKernelRecordsAreCounted(t *testing.T) {
 		t.Errorf("census = %+v, want only the named kernel", report.Kernels)
 	}
 }
+
+func TestGapEvidenceLimits(t *testing.T) {
+	acts := []timeline.Activity{
+		{Start: 100, End: 200, Stream: 1},
+		{Start: 150, End: 250, Stream: 2, Subtype: "memset"},
+		{Start: 300, End: 400, Stream: 1, Correlation: 1},
+	}
+	stats := computeStats(acts, map[uint32]timeline.Span{1: {Start: 260, End: 280}}, "overall", gapSpans{
+		sync: []timeline.Span{{Start: 0, End: 500}},
+	})
+	if stats.ActiveNanos != 250 || stats.IdleNanos != 50 || stats.SpanNanos != 300 {
+		t.Fatalf("occupancy = %+v, want active 250, gap 50, span 300", stats)
+	}
+	if stats.UnknownCauseNanos != 50 || stats.Overlay.SyncNanos != 50 {
+		t.Fatalf("synchronization overlap resolved unknown cause: %+v", stats)
+	}
+	if stats.Scope != "device-wide recorded activity" || stats.Window != "first activity start to last activity end" {
+		t.Fatalf("missing evidence bounds: %+v", stats)
+	}
+}
+
+func TestSteadyEmpty(t *testing.T) {
+	if got := Steady(nil, 0, nil); len(got) != 0 {
+		t.Fatalf("empty steady activities = %v", got)
+	}
+}

@@ -27,7 +27,8 @@ type Options struct {
 }
 
 // Analyze reconstructs the device timeline of cap from its journals and
-// reports its duty cycle and idle gaps per device.
+// reports recorded occupancy and gaps per device. Gaps have unknown causes;
+// host timing and synchronization overlaps provide context only.
 //
 // A capture whose journals [timeline.Journals] refuses is refused with that
 // error as is, so a caller can test it against [timeline.ErrJournalOmitted]
@@ -91,12 +92,14 @@ func Analyze(cap *cudacapture.Capture, opts Options) (*Report, error) {
 		Journals:            records.Journals,
 		Activities:          len(records.Activities),
 		APIRecords:          len(records.APIs),
-		Correlated:          float64(matched) / float64(len(records.Activities)) * 100,
 		WarmupMS:            opts.WarmupMS,
 		WarmupUntil:         opts.WarmupUntil,
 		OpaqueGraphReplays:  graphsAreOpaque,
 		UnresolvedSyncs:     records.UnresolvedSyncs,
 		UnresolvedSyncNanos: records.UnresolvedNanos,
+	}
+	if len(records.Activities) != 0 {
+		report.Correlated = float64(matched) / float64(len(records.Activities)) * 100
 	}
 	report.Kernels, report.UnnamedKernelRecords = kernelCensus(records.Activities)
 	byDevice := make(map[uint32][]timeline.Activity)
@@ -141,6 +144,9 @@ func Analyze(cap *cudacapture.Capture, opts Options) (*Report, error) {
 // starting more than warmupNanos after the first activity. acts is sorted by
 // start.
 func Steady(acts []timeline.Activity, warmupNanos int64, until *regexp.Regexp) []timeline.Activity {
+	if len(acts) == 0 {
+		return nil
+	}
 	if until != nil {
 		for i, a := range acts {
 			if strings.EqualFold(a.Subtype, "kernel") && until.MatchString(a.Name) {
@@ -327,7 +333,7 @@ func computeStats(acts []timeline.Activity, apis map[uint32]timeline.Span, label
 		return nil
 	}
 	merged := mergeIntervals(acts)
-	stats := &Stats{Label: label, Activities: len(acts), MergedIntervals: len(merged)}
+	stats := &Stats{Scope: "device-wide recorded activity", Window: "first activity start to last activity end", Label: label, Activities: len(acts), MergedIntervals: len(merged)}
 	// The span runs to the greatest end, which is not the end of the last
 	// activity by start order: acts is sorted by (start, end), so a long
 	// activity containing a shorter one sorts first and its end is the larger.
@@ -374,6 +380,7 @@ func computeStats(acts []timeline.Activity, apis map[uint32]timeline.Span, label
 	for _, g := range gaps {
 		stats.IdleNanos += g
 	}
+	stats.UnknownCauseNanos = stats.IdleNanos
 	stats.GapCount = len(gaps)
 	stats.Distribution = describeGaps(gaps)
 	stats.Overlay.CuptiOverheadNanos, stats.Overlay.CuptiOverheadGaps = overlayIdle(idle, spans.overhead)
