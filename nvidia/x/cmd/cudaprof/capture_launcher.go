@@ -240,7 +240,9 @@ type captureOptions struct {
 	// enabled, cuGraphLaunch has faulted inside libcuda for a CUDA-graph MLX
 	// workload on GB10. The launcher always exports CUDAPROF_MEMSETS, so a
 	// value inherited from the caller's environment cannot turn it on.
-	Memsets bool
+	Memsets       bool
+	UnifiedMemory bool
+	MemoryPolicy  bool
 	// PCSampling turns on the agent's program-counter sampler, which is what
 	// turns a capture into per-line counts. It is off by default because it is
 	// not free: measured on GB10 it costs 25-27 microseconds of host drain per
@@ -539,6 +541,18 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 				return o, err
 			}
 			o.Memsets = v
+		case "--memory-policy", "-memory-policy":
+			v, err := captureBool(name, value, hasValue)
+			if err != nil {
+				return o, err
+			}
+			o.MemoryPolicy = v
+		case "--unified-memory", "-unified-memory":
+			v, err := captureBool(name, value, hasValue)
+			if err != nil {
+				return o, err
+			}
+			o.UnifiedMemory = v
 		case "--pcsampling", "-pcsampling":
 			v, err := captureBool(name, value, hasValue)
 			if err != nil {
@@ -1030,6 +1044,16 @@ func captureEnvironment(o captureOptions, session, dir string) []string {
 		memsets = "1"
 	}
 	env = setCaptureEnv(env, "CUDAPROF_MEMSETS", memsets)
+	unifiedMemory := "0"
+	if o.UnifiedMemory {
+		unifiedMemory = "1"
+	}
+	env = setCaptureEnv(env, "CUDAPROF_UNIFIED_MEMORY", unifiedMemory)
+	memoryPolicy := "0"
+	if o.MemoryPolicy {
+		memoryPolicy = "1"
+	}
+	env = setCaptureEnv(env, "CUDAPROF_MEMORY_POLICY", memoryPolicy)
 	if o.Inject != "" && o.InjectMode == injectModeCUDA {
 		// The driver dlopens this path from whatever directory the target
 		// runs in, so a relative one would name a different file or none.
@@ -1183,6 +1207,16 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 	}
 	// The driver loads one injection library. Replacing one the caller's
 	// environment already names would silently unload another tool.
+	unifiedMemory := "0"
+	if o.UnifiedMemory {
+		unifiedMemory = "1"
+	}
+	env = setCaptureEnv(env, "CUDAPROF_UNIFIED_MEMORY", unifiedMemory)
+	memoryPolicy := "0"
+	if o.MemoryPolicy {
+		memoryPolicy = "1"
+	}
+	env = setCaptureEnv(env, "CUDAPROF_MEMORY_POLICY", memoryPolicy)
 	if o.Inject != "" && o.InjectMode == injectModeCUDA {
 		base := o.Env
 		if base == nil {
