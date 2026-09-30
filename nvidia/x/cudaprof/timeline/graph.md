@@ -20,13 +20,22 @@ callbacks and records `graph_lifecycle=collected` with coverage
 as a failure; collection state is not a completeness gate. Handle identity is distinct from CUPTI membership
 identity. Source graph destruction does not destroy an executable's snapshot;
 executable destruction followed by reuse starts a new generation. An update
-with absent status or source poisons subsequent replay qualification. Child
-relationships remain unsupported. Unhandled successful graph APIs are retained
+with absent status or source poisons subsequent replay qualification. Successful
+child-node additions and graph clones retain explicitly observed source versions;
+`GraphLink.Children` preserves copied versions after source updates or handle
+reuse. Missing child source lifetimes poison the parent. Child dependency
+expansion requires distinct observed cloned node identities and remains partial
+when those identities are unavailable. Unhandled successful graph APIs are retained
 and invalidate known lifecycle state in that journal. Read-only query, debug
 and upload observations are retained without supplying identity. Resource
-callbacks preserve raw graph/executable/node and clone-source handles; they
+callbacks preserve raw graph/executable/node and clone-source handles and queried
+CUPTI node IDs; they
 do not invent a replay link. Complete mutation coverage is required by
 the caller; an omitted mutation cannot be detected from these events alone.
+
+Native events declare `timestamp_domain=monotonic` only when the CUPTI clock
+callback is accepted; otherwise they declare `unknown`. Older events without a
+domain retain their raw identity but cannot qualify aligned timeline placement.
 
 For a marked native control, compile `x/cmd/cudaprof/testdata/spin.cu`:
 

@@ -97,3 +97,39 @@ func TestGraphReplayCorrelationDomains(t *testing.T) {
 		t.Fatalf("duplicate runtime correlation qualified: %+v", links)
 	}
 }
+
+func TestGraphLifecycleChildSnapshots(t *testing.T) {
+	success := true
+	events := []GraphEvent{
+		{Journal: "j", Kind: "create", Graph: 1, Success: &success},
+		{Journal: "j", Kind: "update_graph", Graph: 1, Success: &success},
+		{Journal: "j", Kind: "create", Graph: 2, Success: &success},
+		{Journal: "j", Kind: "child", Graph: 2, SourceGraphHandle: 1, NodeHandle: 10, Success: &success},
+		{Journal: "j", Kind: "instantiate", Graph: 2, Executable: 3, Success: &success},
+		{Journal: "j", Kind: "update_graph", Graph: 1, Success: &success},
+		{Journal: "j", Kind: "destroy_graph", Graph: 1, Success: &success},
+		{Journal: "j", Kind: "create", Graph: 1, Success: &success},
+		{Journal: "j", Domain: "driver", Kind: "replay", Executable: 3, Correlation: 7, Success: &success},
+	}
+	links := GraphLifecycle(events)
+	replay := links[len(links)-1]
+	if replay.Status != "matched" || len(replay.Children) != 1 || replay.Children[0].Generation != 1 || replay.Children[0].Version != 2 {
+		t.Fatalf("replay=%+v", replay)
+	}
+	// A graph copied at child-node creation stays at that version even after
+	// its source graph is updated, destroyed and its handle reused.
+	events = append(events, GraphEvent{Journal: "j", Kind: "clone", Graph: 4, SourceGraphHandle: 2, Success: &success})
+	clone := GraphLifecycle(events)[len(events)-1]
+	if clone.Status != "matched" || clone.Source.Handle != 2 || len(clone.Children) != 1 || clone.Children[0].Version != 2 {
+		t.Fatalf("clone=%+v", clone)
+	}
+}
+
+func TestGraphLifecycleMissingChild(t *testing.T) {
+	success := true
+	events := []GraphEvent{{Journal: "j", Kind: "create", Graph: 1, Success: &success}, {Journal: "j", Kind: "child", Graph: 1, SourceGraphHandle: 9, NodeHandle: 2, Success: &success}, {Journal: "j", Kind: "instantiate", Graph: 1, Executable: 3, Success: &success}}
+	links := GraphLifecycle(events)
+	if links[1].Status != "missing" || links[2].Status != "ambiguous" {
+		t.Fatalf("links=%+v", links)
+	}
+}

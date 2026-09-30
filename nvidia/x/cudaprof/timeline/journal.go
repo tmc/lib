@@ -137,7 +137,9 @@ type Journal struct {
 
 // Records is everything [Decode] reads out of the journals.
 type Records struct {
-	Activities []Activity
+	UnifiedMemory  []UnifiedMemory
+	MemoryPolicies []MemoryPolicy
+	Activities     []Activity
 	// APIs holds the host API calls by correlation id. Their Device is zero
 	// and their Thread is the host thread that made the call.
 	APIs     map[uint32]Span
@@ -164,8 +166,10 @@ type Records struct {
 	Graphs    []Activity
 	// GraphLifecycle contains explicit native lifecycle receipts, when retained.
 	GraphLifecycle []GraphEvent
-	Syncs          []Span
-	rawSyncs       []rawSync
+	// Dependencies contains explicit stream, event and synchronization receipts.
+	Dependencies []DependencyEvent
+	Syncs        []Span
+	rawSyncs     []rawSync
 
 	// GraphNodes counts device records that name the graph they ran as a
 	// node of. It is what decides whether excluding the replay envelope is
@@ -386,6 +390,7 @@ type rawSync struct {
 
 // recordPayload is the subset of a typed journal payload the decoder reads.
 type recordPayload struct {
+	memoryPayload
 	Kind               string  `json:"kind"`
 	Subtype            string  `json:"subtype"`
 	Name               string  `json:"name"`
@@ -414,9 +419,12 @@ type recordPayload struct {
 	MarkerDomain       string  `json:"marker_domain"`
 	GraphID            uint32  `json:"graph_id"`
 	LifecycleEvent     string  `json:"lifecycle_event"`
+	TimestampDomain    string  `json:"timestamp_domain"`
 	NodeHandle         uint64  `json:"node_handle"`
 	SourceGraphHandle  uint64  `json:"source_graph_handle"`
 	SourceNodeHandle   uint64  `json:"source_node_handle"`
+	NodeID             uint64  `json:"node_id"`
+	SourceNodeID       uint64  `json:"source_node_id"`
 	GraphHandle        uint64  `json:"graph_handle"`
 	ExecutableHandle   uint64  `json:"executable_handle"`
 	Success            *bool   `json:"success"`
@@ -775,6 +783,9 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *Records
 			// Each is kept as a span instead and intersected with the idle
 			// gaps below, which is attribution rather than occupancy.
 			switch payload.Subtype {
+			case "unified_memory":
+				out.UnifiedMemory = append(out.UnifiedMemory, UnifiedMemory{Sequence: r.Sequence, Journal: name, Process: payload.ProcessID, Start: int64(payload.Start), End: int64(payload.End), Valid: payload.Valid, CounterKind: payload.CounterKind, Value: payload.Value, Address: payload.Address, RawEnd: payload.RawEnd, EndValid: payload.EndValid, Source: payload.Source, Destination: payload.Destination, SourceValid: payload.SourceValid, DestinationValid: payload.DestinationValid, RawStream: payload.RawStream, Flags: payload.Flags})
+				continue
 			case "overhead":
 				out.Overheads = append(out.Overheads, Span{Start: int64(payload.Start), End: int64(payload.End)})
 				continue
@@ -832,11 +843,32 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *Records
 				Module:             payload.ModuleID,
 			})
 		case wire.KindAPI:
+			if payload.Kind == "memory_policy" {
+				var event MemoryPolicy
+				if err := json.Unmarshal(r.Payload, &event); err != nil {
+					return fmt.Errorf("decode memory policy record: %w", err)
+				}
+				if event.Time < 0 {
+					return fmt.Errorf("invalid memory policy timestamp")
+				}
+				event.Journal, event.Sequence = name, r.Sequence
+				out.MemoryPolicies = append(out.MemoryPolicies, event)
+				continue
+			}
+			if payload.Kind == "dependency" {
+				var event DependencyEvent
+				if err := json.Unmarshal(r.Payload, &event); err != nil {
+					return fmt.Errorf("decode dependency record: %w", err)
+				}
+				event.Journal, event.Sequence = name, r.Sequence
+				out.Dependencies = append(out.Dependencies, event)
+				continue
+			}
 			if payload.End < payload.Start || payload.End > math.MaxInt64 {
 				continue
 			}
 			if payload.Kind == "graph_lifecycle" {
-				out.GraphLifecycle = append(out.GraphLifecycle, GraphEvent{Sequence: r.Sequence, Journal: name, Domain: payload.Domain, CallbackID: payload.CallbackID, Context: payload.Context, Process: payload.ProcessID, Thread: payload.ThreadID, NodeHandle: payload.NodeHandle, SourceGraphHandle: payload.SourceGraphHandle, SourceNodeHandle: payload.SourceNodeHandle, Kind: payload.LifecycleEvent, Graph: payload.GraphHandle, Executable: payload.ExecutableHandle, Correlation: payload.Correlation, Start: int64(payload.Start), End: int64(payload.End), Success: payload.Success, Child: payload.Child})
+				out.GraphLifecycle = append(out.GraphLifecycle, GraphEvent{Sequence: r.Sequence, Journal: name, Domain: payload.Domain, TimestampDomain: payload.TimestampDomain, CallbackID: payload.CallbackID, Context: payload.Context, Process: payload.ProcessID, Thread: payload.ThreadID, NodeHandle: payload.NodeHandle, NodeID: payload.NodeID, SourceNodeID: payload.SourceNodeID, SourceGraphHandle: payload.SourceGraphHandle, SourceNodeHandle: payload.SourceNodeHandle, Kind: payload.LifecycleEvent, Graph: payload.GraphHandle, Executable: payload.ExecutableHandle, Correlation: payload.Correlation, Start: int64(payload.Start), End: int64(payload.End), Success: payload.Success, Child: payload.Child})
 				continue
 			}
 			if payload.End < payload.Start || payload.End > math.MaxInt64 {
