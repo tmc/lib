@@ -62,6 +62,7 @@ To diff the GPU idle gaps of two captures (the axis summed kernel time cannot se
 
 To write the device timeline as a Perfetto trace:
   cudaprof export [-o out.pftrace] capture.pprof
+  cudaprof export-compare -iteration-marker RE [-iteration-count N] -o comparison.tar base.pprof target.pprof
 
 To decompose why target took longer than base, per op or stage, in exact nanoseconds:
   cudaprof compare [-phase i] [-warmup-until=RE | -warmup-ms=N] [-ops ops.txt [-ops-check]] [-stages stages.txt [-stage-entries]] [-by phase|range|module] [-templates] [-allow-unresolved] [-max-records=N] [-json] base.pprof target.pprof
@@ -114,6 +115,7 @@ func commands() []command {
 	return []command{
 		{name: "capture", run: func(args []string) error { return runCaptureCommand(args[1:]) }},
 		{name: "inspect", usage: inspectUsage, run: func(args []string) error { return runInspectCommand(args[1:]) }},
+		{name: "export-compare", run: func(args []string) error { return runExportCompareCommand(args[1:]) }},
 		{name: "export", run: func(args []string) error { return runExportCommand(args[1:]) }},
 		{name: "explain", usage: explainUsage, run: func(args []string) error { return runExplainCommand(args[1:]) }},
 		{name: "diff", usage: diffUsage, run: func(args []string) error { return runDiffCommand(args[1:]) }},

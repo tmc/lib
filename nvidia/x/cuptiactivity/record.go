@@ -16,6 +16,9 @@ import (
 // be used to compute durations. CorrelationID connects API and device records;
 // it is not a globally unique identifier across sessions or processes.
 type Record struct {
+	// DisplayName overrides the Perfetto slice label only. Name remains the
+	// record identity and is retained as the raw_symbol slice annotation.
+	DisplayName                                  string
 	Kind                                         cupti.ActivityKind
 	Name                                         string
 	Start, End                                   uint64

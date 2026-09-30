@@ -16,6 +16,7 @@ import (
 	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/internal/cudainject/wire"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof/iteration"
 	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 	"github.com/tmc/lib/nvidia/x/cuptiactivity"
 	"github.com/tmc/lib/nvidia/x/perfetto"
@@ -34,6 +35,7 @@ import (
 // not be merged with a host trace taken from another clock.
 
 type exportOptions struct {
+	demangle     bool
 	capturePath  string
 	outPath      string
 	maxRecords   int64
@@ -76,6 +78,9 @@ func runExportCommand(args []string) error {
 	if err != nil {
 		return fmt.Errorf("create trace %s: %w", opts.outPath, err)
 	}
+	if opts.demangle {
+		demangleTraceRecords(records)
+	}
 	n, err := writeTrace(f, records)
 	if err != nil {
 		f.Close()
@@ -109,6 +114,8 @@ func parseExportArgs(rawArgs []string) (exportOptions, error) {
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		switch {
+		case arg == "-demangle" || arg == "--demangle":
+			opts.demangle = true
 		case arg == "-h" || arg == "--help" || arg == "-help":
 			printExportHelp()
 			return exportOptions{}, errExportHelp
@@ -167,6 +174,7 @@ synchronization packet is emitted, so this trace must not be merged with a
 host trace taken from another clock.
 
 Options:
+  -demangle         display demangled kernel names; retain raw_symbol args
   -o <path>          output file (default: the capture path with .pftrace)
   --max-records=N    maximum journal records to decode (default: the larger of
                      1048576 and what the capture records)
@@ -696,15 +704,24 @@ func writeTrace(w io.Writer, records []traceRecord) (int, error) {
 			origin = t.rec.Start
 		}
 	}
+	return writeTraceOrigin(w, records, origin, 0, "")
+}
+
+// writeTraceOrigin keeps each record on its original clock relative to origin.
+// uuidBase separates independent exports; label makes their arm visible.
+func writeTraceOrigin(w io.Writer, records []traceRecord, origin, uuidBase uint64, label string) (int, error) {
 	uuids, names := assignTracks(records)
 	pw := perfetto.NewWriter(w)
+	if label != "" {
+		pw.TimestampClockID = perfetto.ClockBoottime
+	}
 	for i, name := range names {
-		if err := pw.WriteTrackDescriptor(uint64(i+1), name, 0); err != nil {
+		if err := pw.WriteTrackDescriptor(uuidBase+uint64(i+1), label+name, 0); err != nil {
 			return 0, fmt.Errorf("write track descriptor: %w", err)
 		}
 	}
 	for i, t := range records {
-		if err := cuptiactivity.WriteRecord(pw, uuids[i], origin, t.rec); err != nil {
+		if err := cuptiactivity.WriteRecord(pw, uuidBase+uuids[i], origin, t.rec); err != nil {
 			return len(names), fmt.Errorf("write record %d: %w", i, err)
 		}
 	}
@@ -781,4 +798,21 @@ func trackName(kind trackKind, group [2]uint32, lane int) string {
 		name += fmt.Sprintf(" (overlap %d)", lane)
 	}
 	return name
+}
+
+// demangleTraceRecords changes display labels only, caching each unique symbol.
+func demangleTraceRecords(records []traceRecord) {
+	names := make(map[string]string)
+	for i := range records {
+		r := &records[i].rec
+		if r.Kind != cupti.ActivityKindConcurrentKernel {
+			continue
+		}
+		name, ok := names[r.Name]
+		if !ok {
+			name = iteration.KernelName(r.Name)
+			names[r.Name] = name
+		}
+		r.DisplayName = name
+	}
 }
