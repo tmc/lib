@@ -14,7 +14,7 @@ go generate ./x/cmd/cudaprof   # Linux with CUDA only: builds cupti_agent.so int
 | Command | Needs |
 | --- | --- |
 | `capture`, `ab` | Linux, an NVIDIA driver, and `cupti_agent.so` built against the CUDA toolkit's CUPTI (12.x or 13.x headers; the agent refuses a runtime of another major version). Tested on an NVIDIA GB10 (arm64, SM 12.1) with CUPTI 13.0. Driver version: not recorded in the code. |
-| `gaps`, `compare`, `iterations`, `qualify`, `export`, `view`, `-top`, `-http`, `version`, `help` | Any OS. No GPU, no CUDA. |
+| `gaps`, `compare`, `shape-compare`, `correlate`, `memory`, `iterations`, `qualify`, `export`, `view`, `-top`, `-http`, `version`, `help` | Any OS. No GPU, no CUDA. |
 
 A capture is one `.pprof` file: a pprof profile of device time that also
 embeds `capture-status.json`, the per-record journals, the module images
@@ -542,3 +542,25 @@ cudaprof help compare       # one command's flags
   window.
 - Medians in the qualify breakdown are each of their own column, so the
   rows' medians do not sum to the total's median.
+
+## Workload evidence
+
+`shape-compare` joins instrumented work by explicit application metadata and
+launch geometry. `correlate` exposes retained submission and NVTX links.
+`memory` reports transfer and allocation-call evidence with residency limits.
+
+- [Implementation status and remaining work](improvements.md)
+- [Existing Gemma4 diagnostic demonstration](evidence-demo.md)
+- [Application marker convention](../../cudaprof/marker/README.md)
+- [Shape comparison](shape_compare.md)
+- [Submission links](correlation.md)
+- [Memory evidence](memory.md)
+- [Gap accounting limits](../../cudaprof/gaps/README.md)
+- [Campaign sample counts and spread](qualify-campaign.md)
+- [Targeted counter receipts](../../cudaprof/counters/README.md)
+- [Capture-edge telemetry](telemetry.md)
+
+These facilities preserve missing observations and separate collector
+completeness, workload invariants, stationarity, and shape qualification.
+Counter collection and managed-memory observation need separate controlled
+experiments; no causal interpretation follows from matched timing alone.
