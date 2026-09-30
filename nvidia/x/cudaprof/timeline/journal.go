@@ -190,6 +190,9 @@ type Records struct {
 // An Activity is one device record: a kernel, memcpy, memset, or graph
 // replay envelope.
 type Activity struct {
+	// Journal identifies the process generation that retained this record.
+	Journal string
+
 	Device      uint32
 	Start, End  int64
 	Correlation uint32
@@ -250,6 +253,8 @@ type Span struct {
 
 // A Range is one NVTX range on one host thread.
 type Range struct {
+	Journal string // process generation journal
+
 	Name            string // "domain/name" when the range has a domain
 	Process, Thread uint32
 	Start, End      int64
@@ -297,6 +302,9 @@ func pairMarkers(markers []recordPayload) ([]Range, int) {
 
 // A Call is one host driver or runtime API call.
 type Call struct {
+	Journal string // process generation journal
+	Process uint32
+
 	Domain      string // "driver" or "runtime"
 	CallbackID  uint32
 	Thread      uint32
@@ -664,6 +672,9 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *Records
 				out.Calls = append(out.Calls, calls...)
 				out.Markers = append(out.Markers, markers...)
 				ranges, unpaired := pairMarkers(nvtx)
+				for i := range ranges {
+					ranges[i].Journal = name
+				}
 				out.Ranges = append(out.Ranges, ranges...)
 				out.UnpairedMarkers += unpaired
 				for _, a := range out.Activities[firstActivity:] {
@@ -743,6 +754,7 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *Records
 				continue
 			case "graph_trace":
 				out.Graphs = append(out.Graphs, Activity{
+					Journal:     name,
 					Device:      payload.Device,
 					Start:       int64(payload.Start),
 					End:         int64(payload.End),
@@ -771,6 +783,7 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *Records
 				}
 			}
 			out.Activities = append(out.Activities, Activity{
+				Journal:      name,
 				Device:       payload.Device,
 				Start:        int64(payload.Start),
 				End:          int64(payload.End),
@@ -792,6 +805,8 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *Records
 			}
 			apis[payload.Correlation] = Span{Start: int64(payload.Start), End: int64(payload.End), Thread: payload.ThreadID}
 			calls = append(calls, Call{
+				Journal:     name,
+				Process:     payload.ProcessID,
 				Domain:      payload.Domain,
 				CallbackID:  payload.CallbackID,
 				Thread:      payload.ThreadID,

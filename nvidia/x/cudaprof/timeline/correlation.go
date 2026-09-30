@@ -1,0 +1,151 @@
+package timeline
+
+import (
+	"errors"
+
+	"github.com/tmc/lib/nvidia/x/cudaprof/marker"
+)
+
+// Correlation describes the retained host provenance of one device activity.
+// Indexes refer to Records.Activities, Records.Calls and Records.Ranges.
+// APIStatus and RangeStatus are matched, missing, ambiguous or unsupported.
+// Call and Range are -1 unless the corresponding status is matched.
+// A link identifies submission context; it does not explain kernel duration.
+type Correlation struct {
+	Metadata       *marker.Metadata `json:"metadata,omitempty"`
+	MetadataStatus string           `json:"metadata_status"`
+
+	Activity    int    `json:"activity"`
+	Call        int    `json:"call"`
+	Range       int    `json:"range"`
+	APIStatus   string `json:"api_status"`
+	RangeStatus string `json:"range_status"`
+}
+
+// Correlations joins device activities to retained calls in the selected API
+// domain ("driver" or "runtime"), within a single process-generation journal.
+// It returns one result per activity in input order. Repeated correlation IDs
+// are ambiguous; zero IDs and absent journal identity never match. A single
+// call may submit several activities, so callers must not sum its duration
+// once per activity. Graph node provenance is unsupported because replay and
+// graph construction cannot be distinguished by these retained fields.
+//
+// Range links select the innermost range enclosing the whole API call on its
+// process and thread. Crossing ranges and equally narrow candidates remain
+// ambiguous. An operation that submits on another thread needs explicit
+// instrumentation on that thread; temporal overlap alone never links it.
+// Metadata comes only from the selected innermost range, with no inheritance
+// from outer ranges. Missing optional fields remain missing. Conflicting
+// explicitly supplied fields in enclosing markers remain ambiguous.
+func Correlations(records Records, domain string) []Correlation {
+	type key struct {
+		journal     string
+		correlation uint32
+	}
+	calls := make(map[key][]int)
+	for i, c := range records.Calls {
+		if c.Journal != "" && c.Correlation != 0 && c.Domain == domain {
+			k := key{c.Journal, c.Correlation}
+			calls[k] = append(calls[k], i)
+		}
+	}
+	out := make([]Correlation, 0, len(records.Activities))
+	for i, a := range records.Activities {
+		m := Correlation{Activity: i, Call: -1, Range: -1, APIStatus: "missing", RangeStatus: "missing", MetadataStatus: "missing"}
+		switch {
+		case domain != "driver" && domain != "runtime", a.GraphID != 0, a.Subtype == "graph_trace":
+			m.APIStatus, m.RangeStatus = "unsupported", "unsupported"
+		case a.Subtype == "memcpy" || a.Subtype == "memset":
+			// Retained transfer records do not distinguish runtime identity.
+			if domain == "runtime" {
+				m.APIStatus, m.RangeStatus = "unsupported", "unsupported"
+				break
+			}
+			fallthrough
+		default:
+			ids := calls[key{a.Journal, a.Correlation}]
+			if a.Journal == "" || a.Correlation == 0 || len(ids) == 0 {
+				break
+			}
+			if len(ids) != 1 {
+				m.APIStatus, m.RangeStatus = "ambiguous", "unsupported"
+				break
+			}
+			m.Call, m.APIStatus = ids[0], "matched"
+			c := records.Calls[m.Call]
+			if c.End < c.Start {
+				m.RangeStatus = "unsupported"
+				break
+			}
+			var candidates []int
+			for j, r := range records.Ranges {
+				if r.Journal == c.Journal && r.Process == c.Process && r.Thread == c.Thread && r.Start <= c.Start && r.End >= c.End && r.End > r.Start {
+					candidates = append(candidates, j)
+				}
+			}
+			if len(candidates) == 0 {
+				break
+			}
+			// A unique minimum must be contained by every other candidate.
+			for _, j := range candidates {
+				r := records.Ranges[j]
+				inner := true
+				for _, k := range candidates {
+					if j == k {
+						continue
+					}
+					s := records.Ranges[k]
+					if r.Start < s.Start || r.End > s.End || (r.Start == s.Start && r.End == s.End) {
+						inner = false
+						break
+					}
+				}
+				if inner {
+					m.Range, m.RangeStatus = j, "matched"
+					break
+				}
+			}
+			if m.Range < 0 {
+				m.RangeStatus = "ambiguous"
+			}
+		}
+		if m.RangeStatus == "matched" {
+			meta, err := marker.ParseRange(records.Ranges[m.Range].Name)
+			switch {
+			case err == nil:
+				m.Metadata, m.MetadataStatus = &meta, "matched"
+				c := records.Calls[m.Call]
+				for _, r := range records.Ranges {
+					if r.Journal != c.Journal || r.Process != c.Process || r.Thread != c.Thread || r.Start > c.Start || r.End < c.End {
+						continue
+					}
+					outer, err := marker.ParseRange(r.Name)
+					if err == nil && conflictingMetadata(meta, outer) {
+						m.Metadata, m.MetadataStatus = nil, "ambiguous"
+						break
+					}
+					if err != nil && !errors.Is(err, marker.ErrNotMarker) {
+						m.Metadata, m.MetadataStatus = nil, "unsupported"
+						break
+					}
+				}
+			case errors.Is(err, marker.ErrNotMarker):
+			default:
+				m.MetadataStatus = "unsupported"
+			}
+		} else if m.RangeStatus != "missing" {
+			m.MetadataStatus = m.RangeStatus
+		}
+		out = append(out, m)
+	}
+	return out
+}
+
+// conflictingMetadata compares only fields explicitly supplied by both ranges.
+func conflictingMetadata(a, b marker.Metadata) bool {
+	return a.Phase != b.Phase || (a.Operation != "" && b.Operation != "" && a.Operation != b.Operation) ||
+		conflictingValue(a.Token, b.Token) || conflictingValue(a.Layer, b.Layer) || conflictingValue(a.DType, b.DType) ||
+		conflictingValue(a.CacheLength, b.CacheLength) || conflictingValue(a.Lookahead, b.Lookahead) || conflictingValue(a.Materialization, b.Materialization)
+}
+
+func conflictingValue[T comparable](a, b *T) bool { return a != nil && b != nil && *a != *b }

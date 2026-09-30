@@ -14,8 +14,9 @@ import (
 // trace; subtracting it does not establish alignment with other clock domains.
 // Use a standalone trace containing only records with that origin. This writer
 // does not emit clock synchronization packets for merging with host traces.
-// Incomplete records are rejected before writing any trace data.
-func WriteRecord(w *perfetto.Writer, track uint64, origin uint64, r Record) error {
+// Incomplete records are rejected before writing any trace data. Extra
+// annotations describe caller-supplied context; they do not alter the record.
+func WriteRecord(w *perfetto.Writer, track uint64, origin uint64, r Record, extra ...perfetto.DebugAnnotation) error {
 	if w == nil {
 		return errors.New("cuptiactivity: nil trace writer")
 	}
@@ -86,6 +87,7 @@ func WriteRecord(w *perfetto.Writer, track uint64, origin uint64, r Record) erro
 			perfetto.NewUintAnnotation("cuda_event_id", uint64(r.CudaEventID)),
 			perfetto.NewUintAnnotation("cuda_event_sync_id", r.CudaEventSyncID))
 	}
+	annotations = append(annotations, extra...)
 	if err := w.WriteSliceBeginWithAnnotations(track, r.Start-origin, name, "cupti", annotations, nil); err != nil {
 		return fmt.Errorf("cuptiactivity: write activity start: %w", err)
 	}

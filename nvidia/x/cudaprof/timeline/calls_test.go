@@ -43,8 +43,8 @@ func TestDecodeCallsAndMarkers(t *testing.T) {
 		t.Errorf("Activities = %d, want 1: a marker is not device work", len(r.Activities))
 	}
 	want := []Call{
-		{Domain: "driver", CallbackID: 243, Thread: 11, Correlation: 1, Start: 6, End: 9},
-		{Domain: "runtime", CallbackID: 131, Thread: 11, Correlation: 3, Start: 21, End: 30},
+		{Journal: "capture.journal", Domain: "driver", CallbackID: 243, Thread: 11, Correlation: 1, Start: 6, End: 9},
+		{Journal: "capture.journal", Domain: "runtime", CallbackID: 131, Thread: 11, Correlation: 3, Start: 21, End: 30},
 	}
 	if len(r.Calls) != len(want) {
 		t.Fatalf("Calls = %+v, want %+v", r.Calls, want)
