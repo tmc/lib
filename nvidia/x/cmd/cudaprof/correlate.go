@@ -32,6 +32,9 @@ func runCorrelateCommand(args []string) error {
 		}
 		return err
 	}
+	if *maxRecords < 0 || *journalBytes < 0 {
+		return fmt.Errorf("correlate: journal limits must be nonnegative")
+	}
 	if fs.NArg() != 1 {
 		return fmt.Errorf("usage: cudaprof correlate [-domain driver|runtime] capture.pprof")
 	}
