@@ -289,6 +289,15 @@ int main(int argc, char **argv) {
 	/* graph-replay offers a graph of <nodes> kernel nodes launched <replays>
 	   times, as CUPTI delivers it in whichever graph trace mode the producer
 	   chose: node kernel records, or one envelope per replay. */
+	if (strcmp(scenario, "memory") == 0) {
+        extern int cudaprof_test_memory(void);
+        extern void cudaprof_test_memory_policy(void);
+        cudaprof_test_memory_policy();
+        int offered=cudaprof_test_memory();
+        (void)cudaprof_test_offer_kernel(1);
+        printf("{\"scenario\":\"memory\",\"offered\":%d}\n",offered);
+        return 0;
+    }
 	if (strcmp(scenario, "graph-modules") == 0) {
 		cudaprof_test_graph_modules(arg_uint(argc, argv, 2, 0));
 		int offered = cudaprof_test_offer_graph_replays(2, 3);
@@ -298,6 +307,16 @@ int main(int argc, char **argv) {
 	if (strcmp(scenario,"graph-runtime-replay") == 0) {
         cudaprof_test_graph_runtime_replay();
         printf("{\"scenario\":\"graph-runtime-replay\",\"offered\":4}\n");
+        return 0;
+    }
+    if (strcmp(scenario,"dependencies") == 0) {
+        cudaprof_test_dependencies();
+        printf("{\"scenario\":\"dependencies\",\"offered\":16}\n");
+        return 0;
+    }
+    if (strcmp(scenario,"graph-child") == 0) {
+        cudaprof_test_graph_child();
+        printf("{\"scenario\":\"graph-child\",\"offered\":8}\n");
         return 0;
     }
     if (strcmp(scenario,"graph-lifecycle-updates") == 0) {
