@@ -55,8 +55,14 @@ executable update (original/v2 with explicit update result), and executable
 kernel-node parameter updates (original/v2). Successful explicit node updates
 advance the executable version and make its source graph snapshot unknown.
 Other mutations retain unsupported observations and invalidate known state.
-Runtime-domain lifecycle callbacks and recursive child graph reconstruction
-are unsupported. Driver-only observations cannot qualify mutations that bypass
+Runtime replay callbacks retain the observed `cudaGraphLaunch` (including
+ptsz) handle and runtime correlation. CUDA 13.4 `driver_types.h` defines
+`cudaGraphExec_t` as the same `CUgraphExec_st*` opaque type as driver
+`CUgraphExec`; a C11 compile-time compatibility check requires this equality.
+The link uses that exact observed handle to the retained executable lifetime,
+never a nearby driver launch. Replay correlation uniqueness includes the API
+domain. Other runtime lifecycle callbacks and recursive child graph
+reconstruction are unsupported. Driver-only observations cannot qualify mutations that bypass
 this callback domain.
 
 The producer compiled against real CUDA 13.4 headers. CPU stub controls cover
@@ -71,3 +77,16 @@ lifecycle-on runs under the same hold before quoting overhead.
 emits deterministic workload parameters and independent expected counts. Use
 this for campaign output equality; the default output includes measured timers
 and wall time and cannot serve as an equality reference.
+
+
+For explicit delivery endpoints on the controlled workload, set
+`CUDAPROF_SPIN_DELIVERY=1` together with `CUDAPROF_SPIN_STABLE_OUTPUT=1`.
+Each submission is followed by a `materialize` range with
+`materialization=true`, a successful device synchronization and blocking copy
+of the device result to host memory. The host checks cycle and timer invariants
+before emitting the instantaneous `delivered` event. A final `token_limit`
+event follows the last delivery. The independent output includes expected
+delivery and terminal counts. This opt-in variant serializes tokens and changes
+the workload; compare it only against controls with the same variant enabled.
+It supplies observed endpoints, not complete dependency coverage for another
+application.

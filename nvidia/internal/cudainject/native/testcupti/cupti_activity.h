@@ -81,6 +81,8 @@ typedef struct {
 	int32_t blockX, blockY, blockZ;
 	uint16_t registersPerThread;
 	int32_t dynamicSharedMemory;
+	uint32_t graphId;
+	uint64_t graphNodeId;
 } CUpti_ActivityKernel9;
 
 typedef struct {

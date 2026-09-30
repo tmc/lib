@@ -476,10 +476,8 @@ int cudaprof_test_offer_graph_replays(unsigned nodes, unsigned replays) {
 			k->gridX = k->gridY = k->gridZ = 1;
 			k->blockX = 32;
 			k->blockY = k->blockZ = 1;
-#if CUPTI_API_VERSION >= 130000
 			k->graphId = 5;
 			k->graphNodeId = (uint64_t)i + 1;
-#endif
 			offset += n;
 			placed++;
 		}
@@ -874,4 +872,56 @@ void cudaprof_test_graph_modules(int mutate) {
 		CUpti_CallbackData call = {0}; call.callbackSite = CUPTI_API_ENTER;
 		subscriber_cb(subscriber_data, mutate >= 1000 ? CUPTI_CB_DOMAIN_RUNTIME_API : CUPTI_CB_DOMAIN_DRIVER_API, (CUpti_CallbackId)(mutate % 1000), &call);
 	}
+}
+
+
+static void graph_call(unsigned cbid, const char *name, const void *params, unsigned correlation) {
+ if (!subscriber_live || !subscriber_cb || !cudaprof_test_callback_enabled(CUPTI_CB_DOMAIN_DRIVER_API,cbid)) return;
+ CUresult success=CUDA_SUCCESS;
+ CUpti_CallbackData call={0}; call.callbackSite=CUPTI_API_EXIT; call.functionName=name; call.functionParams=params; call.functionReturnValue=&success; call.correlationId=correlation; call.contextUid=3;
+ subscriber_cb(subscriber_data,CUPTI_CB_DOMAIN_DRIVER_API,cbid,&call);
+}
+
+void cudaprof_test_graph_lifecycle(void) {
+ CUgraph graph=(CUgraph)(uintptr_t)0x101;
+ CUgraphExec exec=(CUgraphExec)(uintptr_t)0x202;
+ cuGraphCreate_params create={&graph,0}; graph_call(501,"cuGraphCreate",&create,1);
+ cuGraphInstantiateWithFlags_params instantiate={&exec,graph,0}; graph_call(643,"cuGraphInstantiateWithFlags",&instantiate,2);
+ cuGraphLaunch_params launch={exec,0}; graph_call(514,"cuGraphLaunch",&launch,3);
+ cuGraphExecDestroy_params destroy={exec}; graph_call(516,"cuGraphExecDestroy",&destroy,4);
+ graph_call(643,"cuGraphInstantiateWithFlags",&instantiate,5);
+ graph_call(514,"cuGraphLaunch",&launch,6);
+ graph_call(516,"cuGraphExecDestroy",&destroy,7);
+ cuGraphDestroy_params destroy_graph={graph}; graph_call(517,"cuGraphDestroy",&destroy_graph,8);
+}
+
+
+void cudaprof_test_graph_updates(void) {
+ CUgraph graph=(CUgraph)(uintptr_t)0x101;
+ CUgraphExec exec=(CUgraphExec)(uintptr_t)0x202;
+ cuGraphCreate_params create={&graph,0}; graph_call(501,"cuGraphCreate",&create,1);
+ cuGraphInstantiateWithFlags_params instantiate={&exec,graph,0}; graph_call(643,"cuGraphInstantiateWithFlags",&instantiate,2);
+ CUgraphNode node=(CUgraphNode)(uintptr_t)0x303;
+ cuGraphAddKernelNode_params add={&node,graph,NULL,0,NULL}; graph_call(502,"cuGraphAddKernelNode",&add,3);
+ CUgraphExecUpdateResult result=0;
+ cuGraphExecUpdate_params update={exec,graph,NULL,&result}; graph_call(561,"cuGraphExecUpdate",&update,4);
+ cuGraphLaunch_params launch={exec,0}; graph_call(514,"cuGraphLaunch",&launch,5);
+ cuGraphExecKernelNodeSetParams_params kernel={exec,node,NULL}; graph_call(538,"cuGraphExecKernelNodeSetParams",&kernel,6);
+ graph_call(514,"cuGraphLaunch",&launch,7);
+ graph_call(586,"cuGraphExecChildGraphNodeSetParams",&kernel,8);
+ graph_call(514,"cuGraphLaunch",&launch,9);
+}
+
+
+void cudaprof_test_graph_runtime_replay(void) {
+ CUgraph graph=(CUgraph)(uintptr_t)0x101;
+ CUgraphExec exec=(CUgraphExec)(uintptr_t)0x202;
+ cuGraphCreate_params create={&graph,0}; graph_call(501,"cuGraphCreate",&create,1);
+ cuGraphInstantiateWithFlags_params instantiate={&exec,graph,0}; graph_call(643,"cuGraphInstantiateWithFlags",&instantiate,2);
+ cuGraphLaunch_params launch={exec,0}; graph_call(514,"cuGraphLaunch",&launch,3);
+ if (!subscriber_live || !subscriber_cb || !cudaprof_test_callback_enabled(CUPTI_CB_DOMAIN_RUNTIME_API,311)) return;
+ cudaGraphLaunch_v10000_params runtime_launch={exec,0};
+ int success=0;
+ CUpti_CallbackData call={0};call.callbackSite=CUPTI_API_EXIT;call.functionName="cudaGraphLaunch";call.functionParams=&runtime_launch;call.functionReturnValue=&success;call.correlationId=3;call.contextUid=3;
+ subscriber_cb(subscriber_data,CUPTI_CB_DOMAIN_RUNTIME_API,CUPTI_RUNTIME_TRACE_CBID_cudaGraphLaunch_v10000,&call);
 }

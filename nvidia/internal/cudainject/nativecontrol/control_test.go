@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/internal/cudainject/wire"
+	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 )
 
 // Record kinds, mirroring the KIND_ constants in cupti_agent.c.
@@ -181,10 +182,11 @@ type capture struct {
 	overheads      []overheadRecord
 	graphs         []graphTraceRecord
 	// graphNodes are the kernel records that name a graph node.
-	graphNodes []graphNodeKernel
-	syncs      []syncRecord
-	hosts      []hostSampleRecord
-	modules    []moduleRecord
+	graphNodes     []graphNodeKernel
+	graphLifecycle []timeline.GraphEvent
+	syncs          []syncRecord
+	hosts          []hostSampleRecord
+	modules        []moduleRecord
 	// moduleKernels are the module-chains scenario's kernel records.
 	moduleKernels []moduleKernel
 	// order is every record's kind in journal order. The producer's ordering
@@ -588,6 +590,23 @@ func decode(t *testing.T, path, wantRevision string) capture {
 				t.Fatalf("module payload %q: %v", r.Payload, err)
 			}
 			c.modules = append(c.modules, m)
+		case kindAPI:
+			var e struct {
+				Kind        string
+				Domain      string
+				Event       string `json:"lifecycle_event"`
+				Graph       uint64 `json:"graph_handle"`
+				Executable  uint64 `json:"executable_handle"`
+				Correlation uint32
+				Start, End  int64
+				Success     *bool
+			}
+			if err := json.Unmarshal(r.Payload, &e); err != nil {
+				t.Fatal(err)
+			}
+			if e.Kind == "graph_lifecycle" {
+				c.graphLifecycle = append(c.graphLifecycle, timeline.GraphEvent{Journal: path, Domain: e.Domain, Kind: e.Event, Graph: e.Graph, Executable: e.Executable, Correlation: e.Correlation, Start: e.Start, End: e.End, Success: e.Success})
+			}
 		case kindHost:
 			var h hostSampleRecord
 			if err := json.Unmarshal(r.Payload, &h); err != nil {
@@ -3261,7 +3280,7 @@ func TestGraphTracesReachTheJournal(t *testing.T) {
 }
 
 // cuda13Build is the harness built against the CUDA 13 kernel layout, the
-// first that carries graphId and graphNodeId.
+// which also carries graphId and graphNodeId.
 var cuda13Build = []string{"-DCUPTI_API_VERSION=130202"}
 
 // graphReplays is the done-test's workload: a graph of three kernel nodes
@@ -3740,5 +3759,107 @@ func TestGraphModuleIdentity(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestCUDA12GraphNodeIdentity(t *testing.T) {
+	bin := controlBinary(t)
+	_, status, captures := runBuilt(t, bin, nil, "graph-replay", strconv.Itoa(graphNodes), strconv.Itoa(graphReplays))
+	c := only(t, captures)
+	if !status.Exited() || status.ExitStatus() != 0 {
+		t.Fatalf("status = %v", status)
+	}
+	if len(c.graphNodes) != graphNodes*graphReplays {
+		t.Fatalf("graph nodes = %d, want %d", len(c.graphNodes), graphNodes*graphReplays)
+	}
+	for _, k := range c.graphNodes {
+		if k.GraphID != 5 || k.GraphNodeID == 0 {
+			t.Fatalf("lost CUDA 12 graph identity: %+v", k)
+		}
+	}
+}
+
+func TestGraphLifecycleCallbacks(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		enabled bool
+		flags   []string
+	}{
+		{"cuda12 off", false, nil}, {"cuda12 on", true, nil}, {"cuda13 on", true, cuda13Build},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			bin := controlBinary(t, tc.flags...)
+			env := []string{"CUDAPROF_GRAPH_LIFECYCLE=0"}
+			if tc.enabled {
+				env = []string{"CUDAPROF_GRAPH_LIFECYCLE=1"}
+			}
+			_, status, captures := runBuilt(t, bin, env, "graph-lifecycle")
+			c := only(t, captures)
+			if !status.Exited() || status.ExitStatus() != 0 {
+				t.Fatalf("status=%v", status)
+			}
+			if !tc.enabled {
+				if len(c.graphLifecycle) != 0 {
+					t.Fatal("collected lifecycle while disabled")
+				}
+				return
+			}
+			if !bytes.Contains(c.capabilityJSON, []byte(`"graph_lifecycle":"collected"`)) || !bytes.Contains(c.capabilityJSON, []byte(`"graph_lifecycle_coverage":"driver_partial"`)) {
+				t.Fatalf("missing capability: %s", c.capabilityJSON)
+			}
+			if len(c.graphLifecycle) != 8 {
+				t.Fatalf("events=%d, want 8", len(c.graphLifecycle))
+			}
+			links := timeline.GraphLifecycle(c.graphLifecycle)
+			for _, index := range []int{2, 5} {
+				if links[index].Status != "matched" {
+					t.Fatalf("replay %d: %+v", index, links[index])
+				}
+			}
+			if links[2].Executable.Generation != 1 || links[5].Executable.Generation != 2 {
+				t.Fatalf("reuse lost: %+v", links)
+			}
+		})
+	}
+}
+
+func TestGraphLifecycleUpdates(t *testing.T) {
+	bin := controlBinary(t, cuda13Build...)
+	_, status, captures := runBuilt(t, bin, []string{"CUDAPROF_GRAPH_LIFECYCLE=1"}, "graph-lifecycle-updates")
+	c := only(t, captures)
+	if !status.Exited() || status.ExitStatus() != 0 {
+		t.Fatalf("status=%v", status)
+	}
+	if len(c.graphLifecycle) != 9 {
+		t.Fatalf("events=%d, want 9", len(c.graphLifecycle))
+	}
+	links := timeline.GraphLifecycle(c.graphLifecycle)
+	if links[4].Status != "matched" || links[4].Executable.Version != 2 || links[4].Source.Version != 2 {
+		t.Fatalf("update lost: %+v", links[4])
+	}
+	if links[6].Status != "matched" || links[6].Executable.Version != 3 || links[6].Source.Handle != 0 {
+		t.Fatalf("node update fabricated source: %+v", links[6])
+	}
+	if links[7].Status != "unsupported" || links[8].Status != "ambiguous" {
+		t.Fatalf("child update qualified: %+v", links[7:])
+	}
+}
+
+func TestGraphRuntimeReplay(t *testing.T) {
+	bin := controlBinary(t, cuda13Build...)
+	_, status, captures := runBuilt(t, bin, []string{"CUDAPROF_GRAPH_LIFECYCLE=1"}, "graph-runtime-replay")
+	c := only(t, captures)
+	if !status.Exited() || status.ExitStatus() != 0 {
+		t.Fatalf("status=%v", status)
+	}
+	if len(c.graphLifecycle) != 4 {
+		t.Fatalf("events=%d, want 4", len(c.graphLifecycle))
+	}
+	if !bytes.Contains(c.capabilityJSON, []byte(`"graph_runtime_replay":true`)) {
+		t.Fatalf("missing capability: %s", c.capabilityJSON)
+	}
+	links := timeline.GraphLifecycle(c.graphLifecycle)
+	if c.graphLifecycle[3].Domain != "runtime" || c.graphLifecycle[3].Correlation != c.graphLifecycle[2].Correlation || links[3].Status != "matched" || links[2].Status != "matched" || links[3].Executable != links[2].Executable {
+		t.Fatalf("runtime handle identity lost or domains collided: events=%+v links=%+v", c.graphLifecycle, links)
 	}
 }
