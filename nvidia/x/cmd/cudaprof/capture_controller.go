@@ -61,6 +61,7 @@ type captureRecordPayload struct {
 	ExternalKind        uint32     `json:"external_kind"`
 	ExternalID          uint64     `json:"external_id"`
 	Domain              string     `json:"domain"`
+	LifecycleEvent      string     `json:"lifecycle_event"`
 	CallbackID          uint32     `json:"callback_id"`
 	ProcessID           uint32     `json:"process_id"`
 	ThreadID            uint32     `json:"thread_id"`
@@ -1154,8 +1155,18 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 				})
 			}
 		case wire.KindAPI:
-			if terminal || !state.bootstrap || !state.capability || payload.Kind != "api" {
+			if terminal || !state.bootstrap || !state.capability || (payload.Kind != "api" && payload.Kind != "graph_lifecycle") {
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("untyped or out-of-order API record")
+			}
+			if payload.Kind == "graph_lifecycle" {
+				// Lifecycle callbacks share the API wire kind, but are metadata.
+				// Retain their raw journal records without adding timing calls:
+				// driver observations can repeat an activity API correlation ID,
+				// and resource callbacks have no ordinary API domain.
+				if payload.LifecycleEvent == "" || (payload.Domain != "driver" && payload.Domain != "runtime" && payload.Domain != "resource") || payload.End < payload.Start || payload.End > math.MaxInt64 {
+					return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("invalid graph lifecycle metadata")
+				}
+				continue
 			}
 			if payload.Domain != "driver" && payload.Domain != "runtime" {
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("unknown API domain")
