@@ -83,3 +83,17 @@ func ExampleGraphLink() {
 	fmt.Println(link.Event, link.Status)
 	// Output: 0 missing
 }
+
+func TestGraphReplayCorrelationDomains(t *testing.T) {
+	success := true
+	events := []GraphEvent{{Journal: "j", Domain: "driver", Kind: "create", Graph: 1, Success: &success}, {Journal: "j", Domain: "driver", Kind: "instantiate", Graph: 1, Executable: 2, Success: &success}, {Journal: "j", Domain: "driver", Kind: "replay", Executable: 2, Correlation: 7, Success: &success}, {Journal: "j", Domain: "runtime", Kind: "replay", Executable: 2, Correlation: 7, Success: &success}}
+	links := GraphLifecycle(events)
+	if links[2].Status != "matched" || links[3].Status != "matched" || links[2].Executable != links[3].Executable {
+		t.Fatalf("domains collided: %+v", links)
+	}
+	events = append(events, events[3])
+	links = GraphLifecycle(events)
+	if links[2].Status != "matched" || links[3].Status != "ambiguous" || links[4].Status != "ambiguous" {
+		t.Fatalf("duplicate runtime correlation qualified: %+v", links)
+	}
+}

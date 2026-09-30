@@ -159,8 +159,8 @@ _Static_assert(sizeof(((CUDAPROF_KERNEL_TYPE *)0)->graphNodeId) == 8, "unexpecte
 #else
 #define CUDAPROF_KERNEL_TYPE CUpti_ActivityKernel9
 #define CUDAPROF_KERNEL_LAYOUT "Kernel9"
-#define CUDAPROF_GRAPH_ID(k) ((uint32_t)0)
-#define CUDAPROF_GRAPH_NODE_ID(k) ((uint64_t)0)
+#define CUDAPROF_GRAPH_ID(k) ((uint32_t)(k)->graphId)
+#define CUDAPROF_GRAPH_NODE_ID(k) ((uint64_t)(k)->graphNodeId)
 #endif
 
 _Static_assert(sizeof(CUpti_ActivityExternalCorrelation) == 24, "unexpected external correlation size");
@@ -275,6 +275,9 @@ static int callback_registered;
    cuProfilerStart directly never reaches the runtime entry point, and a gate
    that watched only the runtime would silently never open for it. */
 static CUpti_SubscriberHandle range_subscriber;
+static int graph_lifecycle_enabled;
+static int graph_lifecycle_requested;
+static unsigned graph_runtime_replay_enabled;
 static int range_subscribed;
 #define RANGE_NONE 0
 #define RANGE_GATED 1
@@ -3112,6 +3115,81 @@ static void flush_pcsampling(void) {
 	if (n > 0 && (size_t)n < sizeof(payload)) (void)queue_pending(KIND_PCSAMPLE, now_ns(), payload, (size_t)n);
 }
 
+
+
+static void graph_lifecycle_resource(CUpti_CallbackId cbid, const void *cbdata) {
+ if (!graph_lifecycle_enabled || !((cbid >= 9 && cbid <= 20) || cbid == 22 || cbid == 23)) return;
+ const CUpti_ResourceData *r=cbdata;
+ const CUpti_GraphData *g=r->resourceDescriptor;
+ if (!g) return;
+ uint64_t ts=now_ns();
+ char payload[MAX_PAYLOAD];
+ int n=snprintf(payload,sizeof(payload),"{\"kind\":\"graph_lifecycle\",\"domain\":\"resource\",\"lifecycle_event\":\"resource\",\"callback_id\":%u,\"graph_handle\":%" PRIu64 ",\"executable_handle\":%" PRIu64 ",\"node_handle\":%" PRIu64 ",\"source_graph_handle\":%" PRIu64 ",\"source_node_handle\":%" PRIu64 ",\"start\":%" PRIu64 ",\"end\":%" PRIu64 "}",(unsigned)cbid,(uint64_t)(uintptr_t)g->graph,(uint64_t)(uintptr_t)g->graphExec,(uint64_t)(uintptr_t)g->node,(uint64_t)(uintptr_t)g->originalGraph,(uint64_t)(uintptr_t)g->originalNode,ts,ts);
+ if (n>0 && (size_t)n<sizeof(payload)) (void)queue_pending(KIND_API,ts,payload,(size_t)n);
+}
+
+
+/* driver_types.h defines cudaGraphExec_t as CUgraphExec_st*, exactly the
+   driver's CUgraphExec opaque handle type. Retain that observed handle; do
+   not map a membership id or choose a nearby driver launch. */
+_Static_assert(_Generic((cudaGraphExec_t)0, CUgraphExec: 1, default: 0), "runtime graph exec handle differs from driver handle");
+static void graph_lifecycle_runtime_replay(CUpti_CallbackId cbid, const CUpti_CallbackData *data) {
+ if (!graph_lifecycle_enabled || data->callbackSite != CUPTI_API_EXIT) return;
+ uint64_t exec=0;
+ if (!data->functionParams) return;
+ if (cbid == CUPTI_RUNTIME_TRACE_CBID_cudaGraphLaunch_v10000) {
+  const cudaGraphLaunch_v10000_params *p=data->functionParams; exec=(uintptr_t)p->graphExec;
+ } else if (cbid == CUPTI_RUNTIME_TRACE_CBID_cudaGraphLaunch_ptsz_v10000) {
+  const cudaGraphLaunch_ptsz_v10000_params *p=data->functionParams; exec=(uintptr_t)p->graphExec;
+ } else return;
+ uint64_t ts=now_ns();
+ const char *success=data->functionReturnValue ? (*(const int *)data->functionReturnValue == 0 ? "true" : "false") : "null";
+ char payload[MAX_PAYLOAD];
+ int n=snprintf(payload,sizeof(payload),"{\"kind\":\"graph_lifecycle\",\"domain\":\"runtime\",\"lifecycle_event\":\"replay\",\"executable_handle\":%" PRIu64 ",\"correlation\":%u,\"callback_id\":%u,\"context\":%u,\"start\":%" PRIu64 ",\"end\":%" PRIu64 ",\"success\":%s}",exec,data->correlationId,(unsigned)cbid,data->contextUid,ts,ts,success);
+ if(n>0 && (size_t)n<sizeof(payload)) (void)queue_pending(KIND_API,ts,payload,(size_t)n);
+}
+
+/* Opt-in driver graph handle observations. These do not infer an executable
+   from a graph membership id. Unhandled graph APIs are retained explicitly. */
+static void graph_lifecycle_callback(CUpti_CallbackDomain domain, CUpti_CallbackId cbid, const CUpti_CallbackData *data) {
+ if (!graph_lifecycle_enabled || domain != CUPTI_CB_DOMAIN_DRIVER_API || data->callbackSite != CUPTI_API_EXIT) return;
+ const char *name = data->functionName;
+ if (name == NULL || (strncmp(name, "cuGraph", 7) != 0 && strncmp(name, "cuStreamEndCapture", 18) != 0)) return;
+ const char *event = "unsupported";
+ if (strstr(name,"Get") || strstr(name,"Find") || strstr(name,"Debug") || strstr(name,"Upload")) event="observe";
+ uint64_t graph = 0, exec = 0;
+ int known = data->functionReturnValue != NULL;
+ int success = known && *(const CUresult *)data->functionReturnValue == CUDA_SUCCESS;
+ const void *params = data->functionParams;
+ if (params != NULL) {
+  switch (cbid) {
+  case CUPTI_DRIVER_TRACE_CBID_cuGraphCreate: { const cuGraphCreate_params *p=params; event="create"; if (success && p->phGraph) graph=(uintptr_t)*p->phGraph; break; }
+  case CUPTI_DRIVER_TRACE_CBID_cuStreamEndCapture: { const cuStreamEndCapture_params *p=params; event="create"; if (success && p->phGraph) graph=(uintptr_t)*p->phGraph; break; }
+  case CUPTI_DRIVER_TRACE_CBID_cuStreamEndCapture_ptsz: { const cuStreamEndCapture_ptsz_params *p=params; event="create"; if (success && p->phGraph) graph=(uintptr_t)*p->phGraph; break; }
+  case CUPTI_DRIVER_TRACE_CBID_cuGraphInstantiate: { const cuGraphInstantiate_params *p=params; event="instantiate"; graph=(uintptr_t)p->hGraph; if (success && p->phGraphExec) exec=(uintptr_t)*p->phGraphExec; break; }
+  case CUPTI_DRIVER_TRACE_CBID_cuGraphInstantiate_v2: { const cuGraphInstantiate_v2_params *p=params; event="instantiate"; graph=(uintptr_t)p->hGraph; if (success && p->phGraphExec) exec=(uintptr_t)*p->phGraphExec; break; }
+  case CUPTI_DRIVER_TRACE_CBID_cuGraphInstantiateWithFlags: { const cuGraphInstantiateWithFlags_params *p=params; event="instantiate"; graph=(uintptr_t)p->hGraph; if (success && p->phGraphExec) exec=(uintptr_t)*p->phGraphExec; break; }
+  case CUPTI_DRIVER_TRACE_CBID_cuGraphInstantiateWithParams: { const cuGraphInstantiateWithParams_params *p=params; event="instantiate"; graph=(uintptr_t)p->hGraph; if (success && p->phGraphExec) exec=(uintptr_t)*p->phGraphExec; break; }
+  case CUPTI_DRIVER_TRACE_CBID_cuGraphInstantiateWithParams_ptsz: { const cuGraphInstantiateWithParams_ptsz_params *p=params; event="instantiate"; graph=(uintptr_t)p->hGraph; if (success && p->phGraphExec) exec=(uintptr_t)*p->phGraphExec; break; }
+  case CUPTI_DRIVER_TRACE_CBID_cuGraphLaunch: { const cuGraphLaunch_params *p=params; event="replay"; exec=(uintptr_t)p->hGraph; break; }
+  case CUPTI_DRIVER_TRACE_CBID_cuGraphLaunch_ptsz: { const cuGraphLaunch_ptsz_params *p=params; event="replay"; exec=(uintptr_t)p->hGraphExec; break; }
+  case CUPTI_DRIVER_TRACE_CBID_cuGraphExecDestroy: { const cuGraphExecDestroy_params *p=params; event="destroy_exec"; exec=(uintptr_t)p->hGraphExec; break; }
+  case CUPTI_DRIVER_TRACE_CBID_cuGraphDestroy: { const cuGraphDestroy_params *p=params; event="destroy_graph"; graph=(uintptr_t)p->hGraph; break; }
+  case CUPTI_DRIVER_TRACE_CBID_cuGraphExecUpdate: { const cuGraphExecUpdate_params *p=params; event="update"; graph=(uintptr_t)p->hGraph; exec=(uintptr_t)p->hGraphExec; if (success) { if (!p->updateResult_out) known=0; else success=*p->updateResult_out == 0; } break; }
+  case CUPTI_DRIVER_TRACE_CBID_cuGraphExecUpdate_v2: { const cuGraphExecUpdate_v2_params *p=params; event="update"; graph=(uintptr_t)p->hGraph; exec=(uintptr_t)p->hGraphExec; if (success) { if (!p->resultInfo) known=0; else success=p->resultInfo->result == 0; } break; }
+  case CUPTI_DRIVER_TRACE_CBID_cuGraphExecKernelNodeSetParams: { const cuGraphExecKernelNodeSetParams_params *p=params; event="update_exec"; exec=(uintptr_t)p->hGraphExec; break; }
+  case CUPTI_DRIVER_TRACE_CBID_cuGraphExecKernelNodeSetParams_v2: { const cuGraphExecKernelNodeSetParams_v2_params *p=params; event="update_exec"; exec=(uintptr_t)p->hGraphExec; break; }
+  case CUPTI_DRIVER_TRACE_CBID_cuGraphAddKernelNode: case CUPTI_DRIVER_TRACE_CBID_cuGraphAddKernelNode_v2: { const cuGraphAddKernelNode_params *p=params; event="update_graph"; graph=(uintptr_t)p->hGraph; break; }
+  }
+ }
+ /* These observation callbacks add timestamped evidence, not an API timing
+    estimate. The activity API record supplies the full interval. */
+ uint64_t ts=now_ns();
+ char payload[MAX_PAYLOAD];
+ int n=snprintf(payload,sizeof(payload), "{\"kind\":\"graph_lifecycle\",\"domain\":\"driver\",\"lifecycle_event\":\"%s\",\"graph_handle\":%" PRIu64 ",\"executable_handle\":%" PRIu64 ",\"correlation\":%u,\"callback_id\":%u,\"context\":%u,\"start\":%" PRIu64 ",\"end\":%" PRIu64 ",\"success\":%s}",event,graph,exec,data->correlationId,(unsigned)cbid,data->contextUid,ts,ts,known ? (success ? "true" : "false") : "null");
+ if (n>0 && (size_t)n<sizeof(payload)) (void)queue_pending(KIND_API,ts,payload,(size_t)n);
+}
+
 static void CUPTIAPI range_callback(void *userdata, CUpti_CallbackDomain domain, CUpti_CallbackId cbid, const void *cbdata) {
 	(void)userdata;
 	if (cbdata == NULL || atomic_load(&shutdown_started)) return;
@@ -3123,6 +3201,11 @@ static void CUPTIAPI range_callback(void *userdata, CUpti_CallbackDomain domain,
 	   resourceDescriptor -- reading cbdata itself as the module data yields a
 	   plausible-looking module id and a zero size. */
 	if (domain == CUPTI_CB_DOMAIN_RESOURCE) {
+		if (graph_lifecycle_enabled) {
+			atomic_fetch_add(&callback_active,1);
+			if (!atomic_load(&shutdown_started)) graph_lifecycle_resource(cbid,cbdata);
+			atomic_fetch_sub(&callback_active,1);
+		}
 		if (cbid == CUPTI_CBID_RESOURCE_CONTEXT_CREATED) {
 			/* The first point at which there is a context to configure. PC
 			   sampling is per context and the target's first kernel may
@@ -3166,6 +3249,14 @@ static void CUPTIAPI range_callback(void *userdata, CUpti_CallbackDomain domain,
 	}
 	if (modules_enabled && invalidate_runtime_graph(domain, cbid)) return;
 	const CUpti_CallbackData *data = (const CUpti_CallbackData *)cbdata;
+	if (graph_lifecycle_enabled) {
+		atomic_fetch_add(&callback_active, 1);
+		if (!atomic_load(&shutdown_started)) {
+			graph_lifecycle_callback(domain, cbid, data);
+			if (domain == CUPTI_CB_DOMAIN_RUNTIME_API) graph_lifecycle_runtime_replay(cbid,data);
+		}
+		atomic_fetch_sub(&callback_active, 1);
+	}
 	if (crash_depth > 0) crash_note(domain, cbid, data);
 	if (gemms_requested && domain == CUPTI_CB_DOMAIN_DRIVER_API) {
 		if (!atomic_load(&gemm_hooked)) gemm_probe();
@@ -3617,6 +3708,8 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 	   never run, has no range to gate and gating it would collect nothing. One
 	   subscription serves both, because CUPTI allows one subscriber. */
 	const char *range_env = getenv("CUDAPROF_CAPTURE_RANGE");
+	const char *graph_env = getenv("CUDAPROF_GRAPH_LIFECYCLE");
+	graph_lifecycle_requested = graph_env != NULL && strcmp(graph_env,"1") == 0;
 	int range_requested = range_env != NULL && strcmp(range_env, "cudaProfilerApi") == 0;
 	const char *finalize_env = getenv("CUDAPROF_FINALIZE");
 	int stop_requested = finalize_env != NULL && strcmp(finalize_env, "profiler-stop") == 0;
@@ -3655,7 +3748,7 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 	uint64_t depth = env_bytes("CUDAPROF_CRASH_TRACE", 0);
 	crash_depth = depth > CRASH_RING ? CRASH_RING : (unsigned)depth;
 	unsigned crash_requested = crash_depth;
-	if (range_requested || stop_requested || modules_enabled || pcsampling_requested || crash_depth > 0 || gemms_requested) {
+	if (range_requested || stop_requested || modules_enabled || pcsampling_requested || crash_depth > 0 || gemms_requested || graph_lifecycle_requested) {
 		CUptiResult sub = cuptiSubscribe(&range_subscriber, range_callback, NULL);
 		if (sub != CUPTI_SUCCESS) {
 			record_cupti_failure("cuptiSubscribe(profiler API)", sub);
@@ -3667,6 +3760,21 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 			gemms_requested = 0;
 		} else {
 			range_subscribed = 1;
+			if (graph_lifecycle_requested) {
+				CUptiResult gr = cuptiEnableDomain(1,range_subscriber,CUPTI_CB_DOMAIN_DRIVER_API);
+				if (gr == CUPTI_SUCCESS) {
+					graph_lifecycle_enabled=1;
+					CUptiResult rr=cuptiEnableCallback(1,range_subscriber,CUPTI_CB_DOMAIN_RUNTIME_API,CUPTI_RUNTIME_TRACE_CBID_cudaGraphLaunch_v10000);
+                    if (rr != CUPTI_SUCCESS) record_cupti_failure("cuptiEnableCallback(runtime graph replay)",rr);
+                    else graph_runtime_replay_enabled |= 1;
+                    rr=cuptiEnableCallback(1,range_subscriber,CUPTI_CB_DOMAIN_RUNTIME_API,CUPTI_RUNTIME_TRACE_CBID_cudaGraphLaunch_ptsz_v10000);
+                    if (rr != CUPTI_SUCCESS) record_cupti_failure("cuptiEnableCallback(runtime graph replay ptsz)",rr);
+                    else graph_runtime_replay_enabled |= 2;
+                    gr=cuptiEnableDomain(1,range_subscriber,CUPTI_CB_DOMAIN_RESOURCE);
+					if (gr != CUPTI_SUCCESS) record_cupti_failure("cuptiEnableDomain(graph resource)",gr);
+				}
+				else record_cupti_failure("cuptiEnableDomain(graph lifecycle)",gr);
+			}
 			/* Every API call rather than a chosen few: which call a target
 			   died in is not known in advance. */
 			if (crash_depth > 0) {
@@ -3802,7 +3910,7 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 			if (range_requested) range_gated = opens_armed > 0 && closes_armed > 0 ? RANGE_GATED : RANGE_UNAVAILABLE;
 			if (stop_requested) finalize_mode = closes_armed > 0 ? FINALIZE_PROFILER_STOP : FINALIZE_UNAVAILABLE;
 			if (range_gated == RANGE_GATED) (void)set_activity_collection(0);
-			else if (finalize_mode != FINALIZE_PROFILER_STOP && !modules_enabled && crash_depth == 0 && !gemms_requested) {
+			else if (finalize_mode != FINALIZE_PROFILER_STOP && !modules_enabled && crash_depth == 0 && !gemms_requested && !graph_lifecycle_enabled) {
 				(void)cuptiUnsubscribe(range_subscriber);
 				range_subscribed = 0;
 			}
@@ -3848,7 +3956,7 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 			if (n > 0 && (size_t)n < sizeof(failure)) (void)write_record(KIND_FAILURE, now_ns(), failure, (size_t)n);
 		}
 	}
-	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,%s\"layout_check\":\"%s\",\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"memsets_requested\":%s,\"overheads\":%s,\"graph_traces\":%s,\"graph_trace_mode\":\"%s\",\"synchronization\":%s,\"clocks_unified\":%s,\"cupti_clock\":\"%s\",\"device_active_note\":true,\"sigterm_finalize\":%s,\"finalize\":\"%s\",\"flush_interval_ms\":%ld,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"admit_wait_nanos\":%ld,\"host_sample\":\"%s\",\"host_sample_hz\":%d,\"host_sample_root\":\"%s\",\"host_sample_root_override\":%s,\"clock_ticks_per_second\":%ld,\"modules\":\"%s\",\"pc_sampling\":\"%s\",\"pc_sampling_period\":%u,\"crash_trace\":\"%s\",\"crash_trace_depth\":%u,\"gemms\":\"%s\",\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, agent_revision_field, layout_check, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", memset_requested ? "true" : "false", overhead_enabled ? "true" : "false", graph_trace_enabled ? "true" : "false", graph_trace_mode, sync_enabled ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "monotonic" : clock_state == AGENT_CLOCK_REFUSED ? "platform_default_callback_refused" : "platform_default_callback_unsupported", sigterm_installed ? "true" : "false", finalize_mode == FINALIZE_PROFILER_STOP ? "profiler-stop" : finalize_mode == FINALIZE_EXIT_GROUP ? "exit-group" : finalize_mode == FINALIZE_UNAVAILABLE ? "requested_unavailable" : "exit", flush_interval_ms, atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, (long)ADMIT_WAIT_NANOS, host_sample_disposition, host_sample_hz, host_sample_root, host_sample_root_override ? "true" : "false", host_sample_clk_tck, modules_enabled ? "collected" : modules_requested ? "requested_unavailable" : "off", pcsampling_requested ? "requested" : pcsampling_requested_at_start ? "requested_unavailable" : "off", pcsampling_period, crash_depth > 0 ? "armed" : crash_requested > 0 ? "requested_unavailable" : "off", crash_depth, gemms_requested ? "requested" : gemms_requested_at_start ? "requested_unavailable" : "off", cupti_library_path());
+	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,%s\"layout_check\":\"%s\",\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"memsets_requested\":%s,\"overheads\":%s,\"graph_traces\":%s,\"graph_trace_mode\":\"%s\",\"graph_lifecycle\":\"%s\",\"graph_lifecycle_coverage\":\"driver_partial\",\"graph_runtime_replay\":%s,\"synchronization\":%s,\"clocks_unified\":%s,\"cupti_clock\":\"%s\",\"device_active_note\":true,\"sigterm_finalize\":%s,\"finalize\":\"%s\",\"flush_interval_ms\":%ld,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"admit_wait_nanos\":%ld,\"host_sample\":\"%s\",\"host_sample_hz\":%d,\"host_sample_root\":\"%s\",\"host_sample_root_override\":%s,\"clock_ticks_per_second\":%ld,\"modules\":\"%s\",\"pc_sampling\":\"%s\",\"pc_sampling_period\":%u,\"crash_trace\":\"%s\",\"crash_trace_depth\":%u,\"gemms\":\"%s\",\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, agent_revision_field, layout_check, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", memset_requested ? "true" : "false", overhead_enabled ? "true" : "false", graph_trace_enabled ? "true" : "false", graph_trace_mode, graph_lifecycle_enabled ? "collected" : graph_lifecycle_requested ? "requested_unavailable" : "off", graph_runtime_replay_enabled == 3 ? "true" : "false", sync_enabled ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "monotonic" : clock_state == AGENT_CLOCK_REFUSED ? "platform_default_callback_refused" : "platform_default_callback_unsupported", sigterm_installed ? "true" : "false", finalize_mode == FINALIZE_PROFILER_STOP ? "profiler-stop" : finalize_mode == FINALIZE_EXIT_GROUP ? "exit-group" : finalize_mode == FINALIZE_UNAVAILABLE ? "requested_unavailable" : "exit", flush_interval_ms, atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, (long)ADMIT_WAIT_NANOS, host_sample_disposition, host_sample_hz, host_sample_root, host_sample_root_override ? "true" : "false", host_sample_clk_tck, modules_enabled ? "collected" : modules_requested ? "requested_unavailable" : "off", pcsampling_requested ? "requested" : pcsampling_requested_at_start ? "requested_unavailable" : "off", pcsampling_period, crash_depth > 0 ? "armed" : crash_requested > 0 ? "requested_unavailable" : "off", crash_depth, gemms_requested ? "requested" : gemms_requested_at_start ? "requested_unavailable" : "off", cupti_library_path());
 	(void)write_record(KIND_BOOTSTRAP, now_ns(), bootstrap, strlen(bootstrap));
 	int capability_written = 0;
 	if (capability_len > 0 && (size_t)capability_len < sizeof(capability))

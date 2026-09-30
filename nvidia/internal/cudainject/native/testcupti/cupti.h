@@ -13,6 +13,9 @@ CUptiResult cuptiGetResultString(CUptiResult, const char **message);
    requested shape and delivers it through the registered request/complete
    callbacks exactly as CUPTI would, including the dropped-record count the
    producer must attribute to CUPTI rather than to its own queue. */
+void cudaprof_test_graph_lifecycle(void);
+void cudaprof_test_graph_updates(void);
+void cudaprof_test_graph_runtime_replay(void);
 void cudaprof_test_set_native_dropped(size_t dropped);
 int cudaprof_test_offer(unsigned kernels, unsigned memcpys, unsigned apis, unsigned externals);
 int cudaprof_test_offer_markers(unsigned kernels, unsigned memcpys, unsigned apis, unsigned externals, unsigned markers);

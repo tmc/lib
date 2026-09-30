@@ -33,6 +33,8 @@ typedef enum {
    cuProfilerStart/Stop directly, which the runtime pair never sees. */
 typedef enum {
 	CUPTI_RUNTIME_TRACE_CBID_cudaGraphKernelNodeSetParams_v10000 = 288,
+	CUPTI_RUNTIME_TRACE_CBID_cudaGraphLaunch_v10000 = 311,
+	CUPTI_RUNTIME_TRACE_CBID_cudaGraphLaunch_ptsz_v10000 = 312,
 	CUPTI_RUNTIME_TRACE_CBID_cudaGraphExecKernelNodeSetParams_v10010 = 326,
 	CUPTI_RUNTIME_TRACE_CBID_cudaGraphExecUpdate_v10020 = 335,
 	CUPTI_RUNTIME_TRACE_CBID_cudaGraphExecChildGraphNodeSetParams_v11010 = 361,
@@ -49,6 +51,18 @@ typedef enum {
 } CUpti_runtime_api_trace_cbid_subset;
 
 typedef enum {
+	CUPTI_DRIVER_TRACE_CBID_cuGraphCreate = 501,
+	CUPTI_DRIVER_TRACE_CBID_cuStreamEndCapture = 497,
+	CUPTI_DRIVER_TRACE_CBID_cuStreamEndCapture_ptsz = 498,
+	CUPTI_DRIVER_TRACE_CBID_cuGraphInstantiate = 513,
+	CUPTI_DRIVER_TRACE_CBID_cuGraphInstantiate_v2 = 578,
+	CUPTI_DRIVER_TRACE_CBID_cuGraphInstantiateWithFlags = 643,
+	CUPTI_DRIVER_TRACE_CBID_cuGraphInstantiateWithParams = 656,
+	CUPTI_DRIVER_TRACE_CBID_cuGraphInstantiateWithParams_ptsz = 657,
+	CUPTI_DRIVER_TRACE_CBID_cuGraphLaunch = 514,
+	CUPTI_DRIVER_TRACE_CBID_cuGraphLaunch_ptsz = 515,
+	CUPTI_DRIVER_TRACE_CBID_cuGraphExecDestroy = 516,
+	CUPTI_DRIVER_TRACE_CBID_cuGraphDestroy = 517,
 	CUPTI_DRIVER_TRACE_CBID_cuGraphAddKernelNode = 502,
 	CUPTI_DRIVER_TRACE_CBID_cuGraphAddKernelNode_v2 = 689,
 	CUPTI_DRIVER_TRACE_CBID_cuGraphExecChildGraphNodeSetParams = 586,
@@ -238,5 +252,28 @@ typedef struct {
 	const test_kernel_node_params *nodeParams;
 } cuGraphAddKernelNode_params;
 typedef cuGraphAddKernelNode_params cuGraphAddKernelNode_v2_params;
+
+typedef struct { CUgraph *phGraph; unsigned flags; } cuGraphCreate_params;
+typedef struct { CUstream hStream; CUgraph *phGraph; } cuStreamEndCapture_params;
+typedef cuStreamEndCapture_params cuStreamEndCapture_ptsz_params;
+typedef struct { CUgraphExec *phGraphExec; CUgraph hGraph; CUgraphNode *phErrorNode; char *logBuffer; size_t bufferSize; } cuGraphInstantiate_params;
+typedef cuGraphInstantiate_params cuGraphInstantiate_v2_params;
+typedef struct { CUgraphExec *phGraphExec; CUgraph hGraph; unsigned long long flags; } cuGraphInstantiateWithFlags_params;
+typedef struct { CUgraphExec *phGraphExec; CUgraph hGraph; void *instantiateParams; } cuGraphInstantiateWithParams_params;
+typedef cuGraphInstantiateWithParams_params cuGraphInstantiateWithParams_ptsz_params;
+typedef struct { CUgraphExec hGraph; CUstream hStream; } cuGraphLaunch_params;
+typedef struct { CUgraphExec hGraphExec; CUstream hStream; } cuGraphLaunch_ptsz_params;
+typedef struct { CUgraphExec hGraphExec; } cuGraphExecDestroy_params;
+typedef struct { CUgraph hGraph; } cuGraphDestroy_params;
+typedef int CUgraphExecUpdateResult;
+typedef struct { CUgraphExecUpdateResult result; CUgraphNode errorNode, errorFromNode; } CUgraphExecUpdateResultInfo;
+typedef struct { CUgraphExec hGraphExec; CUgraph hGraph; CUgraphNode *hErrorNode_out; CUgraphExecUpdateResult *updateResult_out; } cuGraphExecUpdate_params;
+typedef struct { CUgraphExec hGraphExec; CUgraph hGraph; CUgraphExecUpdateResultInfo *resultInfo; } cuGraphExecUpdate_v2_params;
+typedef struct { CUgraphExec hGraphExec; CUgraphNode hNode; const test_kernel_node_params *nodeParams; } cuGraphExecKernelNodeSetParams_params;
+typedef cuGraphExecKernelNodeSetParams_params cuGraphExecKernelNodeSetParams_v2_params;
+typedef CUgraphExec cudaGraphExec_t;
+typedef CUstream cudaStream_t;
+typedef struct { cudaGraphExec_t graphExec; cudaStream_t stream; } cudaGraphLaunch_v10000_params;
+typedef cudaGraphLaunch_v10000_params cudaGraphLaunch_ptsz_v10000_params;
 CUptiResult cuptiGetGraphNodeId(CUgraphNode node, uint64_t *id);
 #endif

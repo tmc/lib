@@ -295,7 +295,22 @@ int main(int argc, char **argv) {
 		printf("{\"scenario\":\"graph-modules\",\"offered\":%d}\n", offered);
 		return 0;
 	}
-	if (strcmp(scenario, "graph-replay") == 0) {
+	if (strcmp(scenario,"graph-runtime-replay") == 0) {
+        cudaprof_test_graph_runtime_replay();
+        printf("{\"scenario\":\"graph-runtime-replay\",\"offered\":4}\n");
+        return 0;
+    }
+    if (strcmp(scenario,"graph-lifecycle-updates") == 0) {
+        cudaprof_test_graph_updates();
+        printf("{\"scenario\":\"graph-lifecycle-updates\",\"offered\":9}\n");
+        return 0;
+    }
+    if (strcmp(scenario,"graph-lifecycle") == 0) {
+        cudaprof_test_graph_lifecycle();
+        printf("{\"scenario\":\"graph-lifecycle\",\"offered\":8}\n");
+        return 0;
+    }
+    if (strcmp(scenario, "graph-replay") == 0) {
 		unsigned nodes = arg_uint(argc, argv, 2, 3);
 		unsigned replays = arg_uint(argc, argv, 3, 4);
 		int offered = cudaprof_test_offer_graph_replays(nodes, replays);

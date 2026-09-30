@@ -56,13 +56,13 @@ func GraphLifecycle(events []GraphEvent) []GraphLink {
 	execGenerations := map[key]uint64{}
 	last := map[string]int64{}
 	type submission struct {
-		journal     string
-		correlation uint32
+		journal, domain string
+		correlation     uint32
 	}
 	counts := map[submission]int{}
 	for _, e := range events {
 		if e.Kind == "replay" && e.Correlation != 0 {
-			counts[submission{e.Journal, e.Correlation}]++
+			counts[submission{e.Journal, e.Domain, e.Correlation}]++
 		}
 	}
 	out := make([]GraphLink, 0, len(events))
@@ -203,7 +203,7 @@ func GraphLifecycle(events []GraphEvent) []GraphLink {
 			link.Source = x.source
 			link.Status = "matched"
 		case "replay":
-			if counts[submission{e.Journal, e.Correlation}] > 1 {
+			if counts[submission{e.Journal, e.Domain, e.Correlation}] > 1 {
 				link.Status = "ambiguous"
 				break
 			}
