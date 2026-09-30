@@ -2,10 +2,15 @@
 // existing NVTX ranges. It requires no profiler or GPU to encode messages.
 //
 // Messages use Prefix followed by a JSON object. Phase is required; token,
-// layer, operation, dtype, cache_length, lookahead, and materialization are optional. Token and layer
+// layer, operation, dtype, cache_length, lookahead, materialization, and event
+// are optional. Token and layer
 // are zero-based nonnegative indices. Cache length is nonnegative; dtype is an
 // application-defined nonempty string. Optional fields describe only the named
 // range: parsers must not silently inherit missing values from parent ranges.
+//
+// Event is delivered, eos, or token_limit and requires a token index. Emit it
+// as an instantaneous NVTX marker at the observed event, not as a range. A
+// delivered event does not establish which GPU work determined its latency.
 //
 // Metadata is an observed application label. It is distinct from inferred
 // arg_reduce boundaries and does not establish equivalent kernel workloads.

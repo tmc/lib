@@ -68,3 +68,22 @@ func TestParseRangeUnsupported(t *testing.T) {
 		t.Fatalf("unsupported version error = %v", err)
 	}
 }
+
+func TestDeliveryEvents(t *testing.T) {
+	token := 3
+	for _, event := range []string{"delivered", "eos", "token_limit"} {
+		message, err := Encode(Metadata{Phase: "decode", Token: &token, Event: event})
+		if err != nil {
+			t.Fatal(err)
+		}
+		m, err := Parse(message)
+		if err != nil || m.Event != event {
+			t.Fatalf("Parse(%q) = %+v, %v", message, m, err)
+		}
+	}
+	for _, m := range []Metadata{{Phase: "decode", Event: "delivered"}, {Phase: "decode", Token: &token, Event: "unknown"}} {
+		if _, err := Encode(m); err == nil {
+			t.Fatalf("Encode(%+v) succeeded", m)
+		}
+	}
+}
