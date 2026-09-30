@@ -48,6 +48,9 @@ func Encode(m Metadata) (string, error) {
 func Parse(message string) (Metadata, error) {
 	var m Metadata
 	if !strings.HasPrefix(message, Prefix) {
+		if strings.HasPrefix(message, "cudaprof:") {
+			return m, errors.New("parse marker: unsupported version")
+		}
 		return m, ErrNotMarker
 	}
 	body := strings.TrimPrefix(message, Prefix)
@@ -117,10 +120,10 @@ func validate(m Metadata) error {
 // followed by a slash. A domain-qualified name retains the same semantics as
 // its original message. Ordinary range names return ErrNotMarker.
 func ParseRange(name string) (Metadata, error) {
-	if strings.HasPrefix(name, Prefix) {
+	if strings.HasPrefix(name, "cudaprof:") {
 		return Parse(name)
 	}
-	if i := strings.Index(name, "/"+Prefix); i >= 0 {
+	if i := strings.Index(name, "/cudaprof:"); i >= 0 {
 		return Parse(name[i+1:])
 	}
 	return Metadata{}, ErrNotMarker
