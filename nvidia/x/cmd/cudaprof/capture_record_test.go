@@ -41,15 +41,13 @@ func TestWriteCaptureStatusIsPortableNoCodeRecording(t *testing.T) {
 	if c.CodeUnavailable["source"] == "" {
 		t.Errorf("source unavailability not recorded: %+v", c.CodeUnavailable)
 	}
-	// On a host with a visible device the capture also carries device
-	// provenance, which is not a code artifact. Assert the file set by name:
-	// counting files made this test pass on a machine without CUDA and fail on
-	// the GPU host it is meant to describe.
+	// A no-CUDA result without retained producer capability has no device
+	// provenance. Publishing this recording must not consult the current GPU.
 	if _, ok := c.Files["capture-status.json"]; !ok {
 		t.Errorf("capture-status.json missing, files = %v", slices.Sorted(maps.Keys(c.Files)))
 	}
 	for name := range c.Files {
-		if name != "capture-status.json" && name != "capture-provenance.json" {
+		if name != "capture-status.json" {
 			t.Errorf("unexpected file %q recorded with no code", name)
 		}
 	}
