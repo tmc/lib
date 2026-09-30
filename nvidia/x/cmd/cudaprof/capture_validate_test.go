@@ -196,28 +196,35 @@ const rangeFlag = "--capture-range=" + captureRangeProfilerAPI
 // interval starts after the kernel is launched and ends before it retires.
 // nsys -t cuda-sw reports the same 736 ns.
 //
-// Up to 7.4 launches per thousand are reported as much as 42 us longer
-// while the interval is unchanged: CUPTI's kernel start and end bracket a
-// delay the kernel's own instructions do not see. nsys reports the same
-// outliers, so they are allowed, but only as outliers.
+// Some launches are reported as much as 165 us longer while the interval is
+// unchanged: CUPTI's kernel start and end bracket a delay the kernel's own
+// instructions do not see. They come in bursts of up to 126 consecutive
+// launches within a few milliseconds, plus single launches every 2735 that
+// fall at the same index in every run, so a limit per thousand launches
+// fails on one burst. nsys -t cuda-sw, with its own CUPTI and no cudaprof
+// code, reports the same bursts and the same indices. The worst run seen
+// had 3.7% of its launches over timerSlackNS.
 const (
-	// timerSlackNS bounds reported minus interval for all but the outliers.
+	// timerSlackNS bounds the median of reported minus interval, and
+	// marks a launch over it as an outlier.
 	timerSlackNS = 2000
-	// outlierPerMille is how many launches per thousand may exceed
+	// outlierPercent is how many launches per hundred may exceed
 	// timerSlackNS, plus one.
-	outlierPerMille = 10
+	outlierPercent = 5
 )
 
 // checkLaunches compares reported per-launch durations with spin's global
 // timer intervals, pairwise. A report shorter than the interval is always
-// wrong: the kernel ran at least that long.
+// wrong: the kernel ran at least that long. A median over timerSlackNS is a
+// shift in every report, which no burst explains.
 func checkLaunches(t *testing.T, got []int64, run spinRun) {
 	t.Helper()
 	if len(got) != len(run.Launches) {
 		t.Fatalf("%d reported launches for %d spin launches", len(got), len(run.Launches))
 	}
 	var diff, timer, reported []float64
-	outliers := 0
+	outliers, bursts := 0, 0
+	var last uint64 // start of the previous outlier
 	for i, l := range run.Launches {
 		span := int64(l.End - l.Start)
 		d := got[i] - span
@@ -228,16 +235,24 @@ func checkLaunches(t *testing.T, got []int64, run spinRun) {
 		case d < 0:
 			t.Errorf("launch %d: reported %d ns, shorter than its global timer interval %d ns", i, got[i], span)
 		case d > timerSlackNS:
+			// Outliers less than 1 ms apart are one burst.
+			if outliers == 0 || l.Start-last >= 1e6 {
+				bursts++
+			}
 			outliers++
-			t.Logf("launch %d: reported %d ns, global timer %d ns: %d ns over", i, got[i], span, d)
+			last = l.Start
+			t.Logf("launch %d: reported %d ns, global timer %d ns: %d ns over at %d", i, got[i], span, d, l.Start)
 		}
 	}
-	if limit := 1 + len(got)*outlierPerMille/1000; outliers > limit {
+	if m := median(diff); m > timerSlackNS {
+		t.Errorf("median reported minus global timer interval is %.0f ns, want at most %d", m, timerSlackNS)
+	}
+	if limit := 1 + len(got)*outlierPercent/100; outliers > limit {
 		t.Errorf("%d of %d launches reported more than %d ns over their global timer interval, want at most %d", outliers, len(got), timerSlackNS, limit)
 	}
 	t.Logf("reported ns     %s", summary(reported))
 	t.Logf("global timer ns %s", summary(timer))
-	t.Logf("reported-timer  %s; %d over %d ns", summary(diff), outliers, timerSlackNS)
+	t.Logf("reported-timer  %s; %d over %d ns in %d bursts", summary(diff), outliers, timerSlackNS, bursts)
 }
 
 func TestSpinDurations(t *testing.T) {
