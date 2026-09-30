@@ -13,9 +13,11 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudaprof/iteration"
+	"github.com/tmc/lib/nvidia/x/cudaprof/overview"
 	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 	"github.com/tmc/lib/nvidia/x/perfetto"
 )
@@ -29,11 +31,19 @@ comparison of independent runs, not simultaneous execution or wall-clock sync.
 Completeness failures refuse export. Stationarity failures stay visible and
 do not prevent diagnostic export. Open the TAR in current ui.perfetto.dev.
 The hidden .alignment.json member contains capture hashes and gate receipts.
+With -summary, observed hierarchy and token tracks use the same fixed offsets
+and clock domain as the raw records; missing application context stays unknown.
+-summary-domain selects driver (default) or runtime submission identity,
+without fallback between domains. -summary-marker adds separately labeled
+inferred kernel intervals; the alignment marker is not used implicitly.
 `
 
 type exportCompareOptions struct {
 	limits                   cudacapture.Limits
 	demangle                 bool
+	summary                  bool
+	summaryDomain            string
+	summaryMarker            *regexp.Regexp
 	window                   iterationWindow
 	paths                    [2]string
 	labels                   [2]string
@@ -64,15 +74,18 @@ type alignmentArm struct {
 	FullGate      iteration.Gate `json:"full_iteration_gate"`
 	Status        captureResult  `json:"capture_status"`
 	records       []traceRecord
+	overview      *overview.Report
 }
 
 type alignmentReceipt struct {
-	Version   int             `json:"version"`
-	Mode      string          `json:"mode"`
-	Marker    string          `json:"marker"`
-	TimeScale int             `json:"time_scale"`
-	Anchor    int64           `json:"shared_anchor_ns"`
-	Arms      [2]alignmentArm `json:"arms"`
+	SummaryMarker string          `json:"summary_inferred_marker,omitempty"`
+	SummaryDomain string          `json:"summary_api_domain,omitempty"`
+	Version       int             `json:"version"`
+	Mode          string          `json:"mode"`
+	Marker        string          `json:"marker"`
+	TimeScale     int             `json:"time_scale"`
+	Anchor        int64           `json:"shared_anchor_ns"`
+	Arms          [2]alignmentArm `json:"arms"`
 }
 
 func parseExportCompareArgs(args []string, out io.Writer) (exportCompareOptions, error) {
@@ -87,6 +100,9 @@ func parseExportCompareArgs(args []string, out io.Writer) (exportCompareOptions,
 	fs.Usage = func() { fmt.Fprint(out, exportCompareUsage); fs.PrintDefaults() }
 	var flags iterationFlags
 	flags.register(fs)
+	summaryMarker := fs.String("summary-marker", "", "optional kernel regex for separately inferred summary intervals")
+	fs.StringVar(&opts.summaryDomain, "summary-domain", "driver", "submission API domain for summary: driver or runtime")
+	fs.BoolVar(&opts.summary, "summary", false, "append observed hierarchy and token overview tracks")
 	fs.BoolVar(&opts.demangle, "demangle", false, "display demangled kernel names, retaining raw_symbol args")
 	fs.StringVar(&opts.out, "o", "comparison.tar", "output TAR path")
 	fs.StringVar(&opts.labels[0], "base-label", "base", "base arm and machine name")
@@ -99,6 +115,16 @@ func parseExportCompareArgs(args []string, out io.Writer) (exportCompareOptions,
 	fs.Int64Var(&opts.journalBytes, "journal-bytes", 0, "maximum decompressed journal bytes; 0 uses capture budget")
 	if err := fs.Parse(args); err != nil {
 		return opts, err
+	}
+	if *summaryMarker != "" {
+		marker, err := regexp.Compile(*summaryMarker)
+		if err != nil {
+			return opts, fmt.Errorf("export-compare: summary marker: %w", err)
+		}
+		opts.summaryMarker = marker
+	}
+	if opts.summaryDomain != "driver" && opts.summaryDomain != "runtime" {
+		return opts, errors.New("export-compare: invalid summary API domain")
 	}
 	set := map[string]bool{}
 	fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
@@ -143,6 +169,12 @@ func runExportCompareCommand(args []string) error {
 		return err
 	}
 	receipt := alignmentReceipt{Version: 1, Mode: "independent runs aligned by selected start marker; no clock synchronization claimed", Marker: opts.window.marker.String(), TimeScale: 1}
+	if opts.summary {
+		receipt.SummaryDomain = opts.summaryDomain
+		if opts.summaryMarker != nil {
+			receipt.SummaryMarker = opts.summaryMarker.String()
+		}
+	}
 	for i := range 2 {
 		arm, err := loadAlignmentArm(opts, i)
 		if err != nil {
@@ -192,6 +224,10 @@ func loadAlignmentArm(opts exportCompareOptions, i int) (alignmentArm, error) {
 	status, records, err := decodeCompleteCapture(cap, opts.maxRecords, opts.journalBytes)
 	if err != nil {
 		return arm, err
+	}
+	if opts.summary {
+		report := overview.Analyze(records, opts.summaryDomain, opts.summaryMarker)
+		arm.overview = &report
 	}
 	arm.Status = status
 	arm.Completeness = "passed"
@@ -378,6 +414,11 @@ func writeComparisonBundle(w io.Writer, r alignmentReceipt) error {
 				return err
 			}
 			boundary++
+		}
+		if a.overview != nil {
+			if err := writeOverviewTraceAt(&buf, *a.overview, origin, uint64(i+1)<<48, uint64(r.Arms[0].Offset), perfetto.ClockBoottime); err != nil {
+				return err
+			}
 		}
 		if err := member(a.Trace, buf.Bytes()); err != nil {
 			return err

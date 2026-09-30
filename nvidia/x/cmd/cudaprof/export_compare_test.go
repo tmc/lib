@@ -3,7 +3,9 @@ package main
 import (
 	"archive/tar"
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"io"
 	"math"
 	"regexp"
@@ -12,8 +14,10 @@ import (
 
 	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/x/cudaprof/iteration"
+	"github.com/tmc/lib/nvidia/x/cudaprof/overview"
 	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 	"github.com/tmc/lib/nvidia/x/cuptiactivity"
+	"github.com/tmc/lib/nvidia/x/perfetto"
 )
 
 func TestExportCompareArgs(t *testing.T) {
@@ -23,6 +27,10 @@ func TestExportCompareArgs(t *testing.T) {
 		wantErr bool
 	}{
 		{"normal", []string{"-iteration-marker", "marker", "-iteration-count", "2", "a", "b"}, false},
+		{"inferred summary", []string{"-summary", "-summary-marker", "marker", "-iteration-marker", "marker", "a", "b"}, false},
+		{"invalid inferred marker", []string{"-summary-marker", "[", "-iteration-marker", "marker", "a", "b"}, true},
+		{"runtime summary", []string{"-summary", "-summary-domain", "runtime", "-iteration-marker", "marker", "a", "b"}, false},
+		{"invalid summary domain", []string{"-summary-domain", "automatic", "-iteration-marker", "marker", "a", "b"}, true},
 		{"missing marker", []string{"a", "b"}, true},
 		{"negative skip", []string{"-iteration-marker", "x", "-skip-iterations", "-1", "a", "b"}, true},
 		{"same labels", []string{"-iteration-marker", "x", "-base-label", "x", "-target-label", "x", "a", "b"}, true},
@@ -189,5 +197,144 @@ func TestExportDemanglePreservesIdentity(t *testing.T) {
 	}
 	if err := checkComparisonOutput("input.pprof", [2]string{"input.pprof", "other.pprof"}); err == nil {
 		t.Fatal("output may overwrite input")
+	}
+}
+
+func TestExportCompareSummaryClock(t *testing.T) {
+	args, err := parseExportCompareArgs([]string{"-summary", "-iteration-marker", "x", "a", "b"}, io.Discard)
+	if err != nil || !args.summary {
+		t.Fatalf("summary option: %+v, %v", args, err)
+	}
+	var r alignmentReceipt
+	for i, times := range [][3]int64{{100, 300, 500}, {1000, 1500, 1800}} {
+		report := overview.Report{Hierarchy: &overview.Node{Kind: "capture", Label: "observed", Metrics: overview.Metrics{GPUUnion: map[uint32][]overview.Interval{0: {{Journal: "j", Start: times[1], End: times[2]}}}}}}
+		r.Arms[i] = alignmentArm{Origin: times[0], Start: times[1], End: times[2], Trace: fmt.Sprintf("arm-%d.pftrace", i), overview: &report, records: []traceRecord{{rec: cuptiactivity.Record{Kind: cupti.ActivityKindConcurrentKernel, Name: "raw", Start: uint64(times[0]), End: uint64(times[2]), Complete: true}}}}
+	}
+	if err := alignArms(&r); err != nil {
+		t.Fatal(err)
+	}
+	var bundle bytes.Buffer
+	if err := writeComparisonBundle(&bundle, r); err != nil {
+		t.Fatal(err)
+	}
+	tr := tar.NewReader(&bundle)
+	checked := 0
+	for {
+		h, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := io.ReadAll(tr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if h.Name != "arm-0.pftrace" && h.Name != "arm-1.pftrace" {
+			continue
+		}
+		arm := 0
+		if h.Name == "arm-1.pftrace" {
+			arm = 1
+		}
+		if !bytes.Contains(data, []byte("raw")) || !bytes.Contains(data, []byte("GPU 0 activity union")) {
+			t.Fatal("raw or overview lost")
+		}
+		wantStart := uint64(500)
+		if arm == 1 {
+			wantStart = 800
+		}
+		found := false
+		for _, packet := range comparisonProtoFields(t, data)[perfetto.FieldTracePacket].bytes {
+			fields := comparisonProtoFields(t, packet)
+			for _, event := range fields[perfetto.FieldPacketTrackEvent].bytes {
+				f := comparisonProtoFields(t, event)
+				if f[perfetto.FieldTrackEventTrackUUID].value < uint64(arm+1)<<48 {
+					continue
+				}
+				if fields[perfetto.FieldPacketTimestampClockId].value != perfetto.ClockBoottime {
+					t.Fatal("overview packet clock differs")
+				}
+				if f[perfetto.FieldTrackEventType].value == perfetto.TrackEventTypeSliceBegin && fields[perfetto.FieldPacketTimestamp].value == wantStart {
+					found = true
+				}
+			}
+		}
+		if !found {
+			t.Fatalf("arm %d overview did not use aligned start %d", arm, wantStart)
+		}
+		checked++
+	}
+	if checked != 2 {
+		t.Fatalf("checked %d arms", checked)
+	}
+}
+
+type comparisonProtoField struct {
+	value uint64
+	bytes [][]byte
+}
+
+func comparisonProtoFields(t *testing.T, data []byte) map[int]comparisonProtoField {
+	t.Helper()
+	fields := make(map[int]comparisonProtoField)
+	for len(data) > 0 {
+		tag, n := binary.Uvarint(data)
+		if n <= 0 {
+			t.Fatal("invalid protobuf tag")
+		}
+		data = data[n:]
+		number := int(tag >> 3)
+		field := fields[number]
+		switch tag & 7 {
+		case 0:
+			v, n := binary.Uvarint(data)
+			if n <= 0 {
+				t.Fatal("invalid protobuf varint")
+			}
+			field.value = v
+			data = data[n:]
+		case 2:
+			size, n := binary.Uvarint(data)
+			if n <= 0 || size > uint64(len(data)-n) {
+				t.Fatal("invalid protobuf length")
+			}
+			field.bytes = append(field.bytes, data[n:n+int(size)])
+			data = data[n+int(size):]
+		case 1:
+			if len(data) < 8 {
+				t.Fatal("short fixed64")
+			}
+			data = data[8:]
+		case 5:
+			if len(data) < 4 {
+				t.Fatal("short fixed32")
+			}
+			data = data[4:]
+		default:
+			t.Fatal("invalid protobuf type")
+		}
+		fields[number] = field
+	}
+	return fields
+}
+
+func TestExportCompareSeparateSummaryMarker(t *testing.T) {
+	for _, explicit := range []bool{false, true} {
+		args := []string{"-summary", "-iteration-marker", "alignment", "a", "b"}
+		if explicit {
+			args = append([]string{"-summary-marker", "inferred"}, args...)
+		}
+		o, err := parseExportCompareArgs(args, io.Discard)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if (o.summaryMarker != nil) != explicit {
+			t.Fatal("alignment marker became inferred summary marker")
+		}
+		if explicit && o.summaryMarker.String() != "inferred" {
+			t.Fatalf("summary marker = %v", o.summaryMarker)
+		}
 	}
 }
