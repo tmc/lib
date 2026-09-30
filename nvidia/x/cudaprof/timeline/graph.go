@@ -8,9 +8,11 @@ type GraphEvent struct {
 	Sequence                                        uint64 // source journal record sequence
 	Journal                                         string
 	Domain                                          string
+	TimestampDomain                                 string // monotonic when native and CUPTI clocks are unified; unknown otherwise
 	CallbackID, Context                             uint32
 	Process, Thread                                 uint32
 	NodeHandle, SourceGraphHandle, SourceNodeHandle uint64
+	NodeID, SourceNodeID                            uint64 // CUPTI IDs queried from explicitly observed resource handles
 	Kind                                            string // create, instantiate, update_graph, update, update_exec, replay, destroy_graph, destroy_exec
 	Graph, Executable                               uint64
 	Correlation                                     uint32
@@ -35,11 +37,13 @@ type GraphLink struct {
 	Event                     int
 	Status                    string
 	Graph, Executable, Source GraphIdentity
+	// Children preserves graph versions explicitly copied into child nodes.
+	Children []GraphIdentity
 }
 
 // GraphLifecycle resolves explicitly observed successful lifecycle events in
 // input order. It refuses unordered events, duplicate live creations, unknown
-// API results and child-graph relationships. Replay needs an observed live
+// API results and unavailable child-graph relationships. Replay needs an observed live
 // executable and a nonzero submission correlation; time never supplies identity.
 // Events must include every mutation to qualify an executable version.
 func GraphLifecycle(events []GraphEvent) []GraphLink {
@@ -50,8 +54,14 @@ func GraphLifecycle(events []GraphEvent) []GraphLink {
 	type state struct {
 		id, source GraphIdentity
 		invalid    bool
+		children   []GraphIdentity
 	}
 	graphs, execs := map[key]state{}, map[key]state{}
+	type childNode struct {
+		parent GraphIdentity
+		source state
+	}
+	childNodes := map[key]childNode{}
 	generations := map[key]uint64{}
 	execGenerations := map[key]uint64{}
 	last := map[string]int64{}
@@ -88,14 +98,14 @@ func GraphLifecycle(events []GraphEvent) []GraphLink {
 			continue
 		}
 		last[e.Journal] = e.Start
-		if e.Journal == "" || e.End < e.Start || e.Success == nil || e.Child {
+		if e.Journal == "" || e.End < e.Start || e.Success == nil || (e.Child && e.Kind != "child") {
 			link.Status = "unsupported"
-			if e.Kind == "update_exec" || e.Kind == "update" || e.Kind == "instantiate" || e.Kind == "destroy_exec" || e.Kind == "destroy_graph" || e.Kind == "update_graph" || e.Kind == "create" {
+			if e.Kind == "update_exec" || e.Kind == "update" || e.Kind == "instantiate" || e.Kind == "destroy_exec" || e.Kind == "destroy_graph" || e.Kind == "update_graph" || e.Kind == "create" || e.Kind == "child" || e.Kind == "clone" {
 				if s, ok := execs[ek]; ok {
 					s.invalid = true
 					execs[ek] = s
 				}
-				if e.Kind == "update_graph" || e.Kind == "destroy_graph" || e.Kind == "create" {
+				if e.Kind == "update_graph" || e.Kind == "destroy_graph" || e.Kind == "create" || e.Kind == "child" || e.Kind == "clone" {
 					if s, ok := graphs[gk]; ok {
 						s.invalid = true
 						graphs[gk] = s
@@ -113,6 +123,65 @@ func GraphLifecycle(events []GraphEvent) []GraphLink {
 		g, gok := graphs[gk]
 		x, xok := execs[ek]
 		switch e.Kind {
+		case "child":
+			child, ok := graphs[key{e.Journal, e.SourceGraphHandle}]
+			if !gok || !ok || e.NodeHandle == 0 {
+				if gok {
+					g.invalid = true
+					graphs[gk] = g
+				}
+				break
+			}
+			if g.invalid || child.invalid || e.Graph == e.SourceGraphHandle {
+				g.invalid = true
+				graphs[gk] = g
+				link.Status = "ambiguous"
+				break
+			}
+			g.id.Version++
+			childNodes[key{e.Journal, e.NodeHandle}] = childNode{g.id, child}
+			g.children = append(append([]GraphIdentity(nil), g.children...), child.id)
+			g.children = append(g.children, child.children...)
+			graphs[gk] = g
+			link.Graph, link.Source, link.Children, link.Status = g.id, child.id, append([]GraphIdentity(nil), g.children...), "matched"
+		case "child_copy":
+			child, ok := childNodes[key{e.Journal, e.NodeHandle}]
+			parent, live := graphs[key{e.Journal, child.parent.Handle}]
+			if !ok || !live || parent.id.Generation != child.parent.Generation || e.Graph == 0 {
+				break
+			}
+			if parent.invalid || child.source.invalid {
+				link.Status = "ambiguous"
+				break
+			}
+			if gok {
+				if g.invalid || g.source != child.source.id {
+					link.Status = "ambiguous"
+					break
+				}
+			} else {
+				generations[gk]++
+				g = state{id: GraphIdentity{e.Journal, e.Graph, generations[gk], 1}, source: child.source.id, children: append([]GraphIdentity(nil), child.source.children...)}
+				graphs[gk] = g
+			}
+			link.Graph, link.Source, link.Status = g.id, child.source.id, "matched"
+		case "clone":
+			original, ok := graphs[key{e.Journal, e.SourceGraphHandle}]
+			if !ok || e.Graph == 0 {
+				break
+			}
+			if gok || original.invalid {
+				link.Status = "ambiguous"
+				if gok {
+					g.invalid = true
+					graphs[gk] = g
+				}
+				break
+			}
+			generations[gk]++
+			g = state{id: GraphIdentity{e.Journal, e.Graph, generations[gk], 1}, source: original.id, children: append([]GraphIdentity(nil), original.children...)}
+			graphs[gk] = g
+			link.Graph, link.Source, link.Children, link.Status = g.id, original.id, append([]GraphIdentity(nil), g.children...), "matched"
 		case "create":
 			if e.Graph == 0 {
 				link.Status = "unsupported"
@@ -148,7 +217,7 @@ func GraphLifecycle(events []GraphEvent) []GraphLink {
 				break
 			}
 			execGenerations[ek]++
-			x = state{id: GraphIdentity{e.Journal, e.Executable, execGenerations[ek], 1}, source: g.id}
+			x = state{id: GraphIdentity{e.Journal, e.Executable, execGenerations[ek], 1}, source: g.id, children: append([]GraphIdentity(nil), g.children...)}
 			execs[ek] = x
 			link.Graph = g.id
 			link.Executable = x.id
@@ -197,6 +266,7 @@ func GraphLifecycle(events []GraphEvent) []GraphLink {
 			}
 			x.id.Version++
 			x.source = g.id
+			x.children = append([]GraphIdentity(nil), g.children...)
 			execs[ek] = x
 			link.Graph = g.id
 			link.Executable = x.id
@@ -253,6 +323,11 @@ func GraphLifecycle(events []GraphEvent) []GraphLink {
 					}
 				}
 			}
+		}
+		if link.Status == "matched" && link.Executable.Handle != 0 {
+			link.Children = append([]GraphIdentity(nil), x.children...)
+		} else if link.Status == "matched" && link.Graph.Handle != 0 && link.Children == nil {
+			link.Children = append([]GraphIdentity(nil), g.children...)
 		}
 		out = append(out, link)
 	}
