@@ -1,0 +1,8 @@
+Commit: 32d511d9ebaa91c71ea00fbfde425b041434230d
+Commit date: 2026-09-27; cherry-pick receipt: 2026-09-30 UTC
+Model: GPT-6 (Codex); claude-code version: not applicable
+TTY: not a tty; PID: unavailable (not recorded)
+ITERM_SESSION_ID: w8t7p11:B5AB46F8-1F00-4CA5-B479-EE4A9F188927
+Codex session ID: 01a0e209-f57f-7300-91cd-4a82fcd77ef4
+Pane UUID: 026363F7-C2F7-4118-9920-4953A7B20D93
+Cherry-picked only a2f3a26b6 onto b2c61cc0d. Host gates blocked on absent owner APIs; see lane 54 REBASE-HANDOFF.md.
