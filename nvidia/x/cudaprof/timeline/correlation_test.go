@@ -19,6 +19,9 @@ func TestCorrelations(t *testing.T) {
 		{"zero ID", func(r *Records) { r.Activities[0].Correlation = 0 }, "missing", "missing"},
 		{"missing identity", func(r *Records) { r.Activities[0].Journal = "" }, "missing", "missing"},
 		{"graph", func(r *Records) { r.Activities[0].GraphID = 1 }, "unsupported", "unsupported"},
+		{"missing thread", func(r *Records) { r.Calls[0].Thread = 0; r.Ranges[0].Thread = 0; r.Ranges[1].Thread = 0 }, "matched", "unsupported"},
+		{"missing process", func(r *Records) { r.Calls[0].Process = 0; r.Ranges[0].Process = 0; r.Ranges[1].Process = 0 }, "matched", "unsupported"},
+		{"partial crossing", func(r *Records) { r.Ranges[0].Start = 26; r.Ranges[0].End = 40 }, "matched", "ambiguous"},
 		{"other thread", func(r *Records) { r.Calls[0].Thread = 9 }, "matched", "missing"},
 		{"other process", func(r *Records) { r.Calls[0].Process = 9 }, "matched", "missing"},
 		{"crossing ranges", func(r *Records) { r.Ranges[0].Start = 15; r.Ranges[0].End = 40; r.Ranges[1].Start = 10 }, "matched", "ambiguous"},
@@ -40,7 +43,7 @@ func TestCorrelations(t *testing.T) {
 }
 
 func ExampleCorrelations() {
-	r := Records{Activities: []Activity{{Journal: "capture.journal", Correlation: 7}}, Calls: []Call{{Journal: "capture.journal", Domain: "driver", Correlation: 7}}}
+	r := Records{Activities: []Activity{{Journal: "capture.journal", Correlation: 7}}, Calls: []Call{{Journal: "capture.journal", Process: 1, Thread: 2, Domain: "driver", Correlation: 7}}}
 	m := Correlations(r, "driver")[0]
 	fmt.Println(m.APIStatus, m.Call, m.RangeStatus)
 	// Output: matched 0 missing
@@ -49,10 +52,10 @@ func ExampleCorrelations() {
 func TestCorrelationMetadataConflict(t *testing.T) {
 	r := Records{
 		Activities: []Activity{{Journal: "j", Correlation: 7}},
-		Calls:      []Call{{Journal: "j", Domain: "driver", Correlation: 7, Start: 20, End: 25}},
+		Calls:      []Call{{Journal: "j", Process: 1, Thread: 2, Domain: "driver", Correlation: 7, Start: 20, End: 25}},
 		Ranges: []Range{
-			{Journal: "j", Name: `cudaprof:v1 {"phase":"decode","token":1}`, Start: 1, End: 50},
-			{Journal: "j", Name: `cudaprof:v1 {"phase":"decode","token":2}`, Start: 10, End: 30},
+			{Journal: "j", Process: 1, Thread: 2, Name: `cudaprof:v1 {"phase":"decode","token":1}`, Start: 1, End: 50},
+			{Journal: "j", Process: 1, Thread: 2, Name: `cudaprof:v1 {"phase":"decode","token":2}`, Start: 10, End: 30},
 		},
 	}
 	got := Correlations(r, "driver")[0]
@@ -74,5 +77,22 @@ func TestMetadataLargeIntegerConflict(t *testing.T) {
 	}
 	if !conflictingMetadata(marker.Metadata{Token: &x}, marker.Metadata{Token: &y}) {
 		t.Fatal("lost integer precision")
+	}
+}
+
+func TestCorrelationCrossingAncestor(t *testing.T) {
+	name := `cudaprof:v1 {"phase":"decode","token":0}`
+	r := Records{
+		Activities: []Activity{{Journal: "j", Correlation: 1}},
+		Calls:      []Call{{Journal: "j", Domain: "driver", Process: 1, Thread: 2, Correlation: 1, Start: 21, End: 29}},
+		Ranges: []Range{
+			{Journal: "j", Process: 1, Thread: 2, Name: name, Start: 20, End: 30},
+			{Journal: "j", Process: 1, Thread: 2, Name: name, Start: 10, End: 40},
+			{Journal: "j", Process: 1, Thread: 2, Name: name, Start: 30, End: 60},
+		},
+	}
+	got := Correlations(r, "driver")[0]
+	if got.APIStatus != "matched" || got.RangeStatus != "ambiguous" || got.MetadataStatus != "ambiguous" || got.Range != -1 || got.Metadata != nil {
+		t.Fatalf("crossing ancestor qualified nested context: %+v", got)
 	}
 }
