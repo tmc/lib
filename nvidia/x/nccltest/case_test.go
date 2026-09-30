@@ -71,6 +71,31 @@ func TestCheckerRejectsCorruption(t *testing.T) {
 		t.Fatalf("omitted operation: %d %v", bad, err)
 	}
 }
+func TestSupported(t *testing.T) {
+	for _, tc := range []struct {
+		op           Operation
+		datatype     DataType
+		major, minor int
+		want         bool
+	}{
+		{AllReduce, Float8E4M3, 8, 9, false},
+		{Reduce, Float8E5M2, 8, 9, false},
+		{ReduceScatter, Float8E4M3, 8, 0, false},
+		{AllReduce, Float8E4M3, 9, 0, true},
+		{ReduceScatter, Float8E5M2, 10, 0, true},
+		{AllGather, Float8E4M3, 8, 9, true},
+		{Broadcast, Float8E5M2, 8, 9, true},
+		{Hypercube, Float8E4M3, 8, 9, true},
+		{AllReduce, BFloat16, 8, 9, true},
+		{AllReduce, Float16, 7, 0, true},
+		{AllReduce, "", 8, 9, true},
+	} {
+		c := Case{Operation: tc.op, DataType: tc.datatype}
+		if got := c.Supported(tc.major, tc.minor); got != tc.want {
+			t.Errorf("%s %s on sm_%d%d: Supported = %v, want %v", tc.datatype, tc.op, tc.major, tc.minor, got, tc.want)
+		}
+	}
+}
 func TestBandwidth(t *testing.T) {
 	for _, tc := range []struct {
 		op       Operation

@@ -5,12 +5,39 @@ import (
 	"errors"
 	"os"
 	"testing"
+
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 func requireCUDA(t testing.TB) {
 	t.Helper()
 	if os.Getenv("NCCLTEST_CUDA") != "1" {
 		t.Skip("set NCCLTEST_CUDA=1 to require real CUDA/NCCL execution")
+	}
+}
+
+// capability returns the compute capability of CUDA device ordinal.
+func capability(t testing.TB, ordinal int) (major, minor int) {
+	t.Helper()
+	if err := driver.Init(0); err != nil {
+		t.Fatal(err)
+	}
+	d, err := driver.DeviceGet(ordinal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	major, minor, err = d.ComputeCapability()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return major, minor
+}
+
+// skipUnsupported skips c when device 0, the one these tests use, cannot run it.
+func skipUnsupported(t testing.TB, c Case) {
+	t.Helper()
+	if major, minor := capability(t, 0); !c.Supported(major, minor) {
+		t.Skipf("NCCL cannot run %s %s on device 0 (sm_%d%d)", c.DataType, c.Operation, major, minor)
 	}
 }
 
@@ -33,7 +60,9 @@ func testCollectives(t *testing.T, datatype DataType) {
 					name = "in_place"
 				}
 				t.Run(name, func(t *testing.T) {
-					result, err := Run(Case{Operation: op, DataType: datatype, Bytes: 65536, InPlace: inPlace}, Options{Devices: []int32{0}, Checks: 2, Warmup: 5, Iterations: 20})
+					c := Case{Operation: op, DataType: datatype, Bytes: 65536, InPlace: inPlace}
+					skipUnsupported(t, c)
+					result, err := Run(c, Options{Devices: []int32{0}, Checks: 2, Warmup: 5, Iterations: 20})
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -60,7 +89,9 @@ func BenchmarkCollectives(b *testing.B) {
 func benchmarkCollectives(b *testing.B, datatype DataType) {
 	for _, op := range []Operation{AllReduce, AllGather, Broadcast, ReduceScatter, Reduce, AllToAll, AllToAllV, Scatter, Gather, SendRecv, Hypercube} {
 		b.Run(string(op), func(b *testing.B) {
-			result, err := Run(Case{Operation: op, DataType: datatype, Bytes: 65536}, Options{Devices: []int32{0}, Checks: 2, Warmup: 5, Iterations: b.N})
+			c := Case{Operation: op, DataType: datatype, Bytes: 65536}
+			skipUnsupported(b, c)
+			result, err := Run(c, Options{Devices: []int32{0}, Checks: 2, Warmup: 5, Iterations: b.N})
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -108,7 +139,9 @@ func TestPreMulSum(t *testing.T) {
 func testPreMulSum(t *testing.T, datatype DataType) {
 	for _, op := range []Operation{AllReduce, Reduce, ReduceScatter} {
 		t.Run(string(op), func(t *testing.T) {
-			result, err := Run(Case{Operation: op, DataType: datatype, Reduction: PreMulSum, Bytes: 65536}, Options{Devices: []int32{0}, Warmup: 5, Iterations: 20, Aggregation: 4, Checks: 2})
+			c := Case{Operation: op, DataType: datatype, Reduction: PreMulSum, Bytes: 65536}
+			skipUnsupported(t, c)
+			result, err := Run(c, Options{Devices: []int32{0}, Warmup: 5, Iterations: 20, Aggregation: 4, Checks: 2})
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/nccltest"
 )
 
@@ -40,6 +41,11 @@ type comparison struct {
 	TimeRatio       float64
 	Error           string
 }
+type skipped struct {
+	Operation nccltest.Operation
+	Reduction nccltest.Reduction
+	Reason    string
+}
 type receipt struct {
 	Spread             *float64
 	SharedSweep        bool
@@ -51,6 +57,7 @@ type receipt struct {
 	Ranks              int
 	Attempts           []attempt
 	Comparisons        []comparison
+	Skipped            []skipped // Workloads the devices cannot run, excluded from RequestedWorkloads.
 	Error              string
 }
 
@@ -170,11 +177,28 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
+	major, minor, err := capability(*ranks)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	var skips []skipped
+	runnable := workloads[:0]
+	for _, w := range workloads {
+		if supported(nccltest.DataType(*datatype), w, major, minor) {
+			runnable = append(runnable, w)
+			continue
+		}
+		reason := fmt.Sprintf("unsupported on sm_%d%d", major, minor)
+		skips = append(skips, skipped{nccltest.Operation(w.operation), nccltest.Reduction(w.reduction), reason})
+		fmt.Fprintf(os.Stderr, "%s %s %s: skipped: %s\n", *datatype, w.operation, w.reduction, reason)
+	}
+	workloads = runnable
 	if err := os.Mkdir(*output, 0755); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	r := receipt{Spread: spread, SharedSweep: *sharedSweep, Cycles: *cycles, Started: time.Now().UTC(), Ranks: *ranks, RequestedWorkloads: len(workloads) * len(sweep)}
+	r := receipt{Spread: spread, SharedSweep: *sharedSweep, Cycles: *cycles, Started: time.Now().UTC(), Ranks: *ranks, RequestedWorkloads: len(workloads) * len(sweep), Skipped: skips}
 	if err := writeReceipt(*output, r); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -359,7 +383,7 @@ func main() {
 		}
 		fmt.Fprintf(os.Stderr, "%s %s %s: %d checked cases\n", *datatype, opName, reduction, len(r.Comparisons)-before)
 	}
-	if len(r.Comparisons) == 0 && r.Error == "" {
+	if len(r.Comparisons) == 0 && len(r.Skipped) == 0 && r.Error == "" {
 		r.Error = "no checked comparisons"
 	}
 	r.Complete = r.Error == "" && r.FinishedWorkloads == r.RequestedWorkloads
@@ -372,7 +396,40 @@ func main() {
 		fmt.Fprintln(os.Stderr, r.Error)
 		os.Exit(1)
 	}
-	fmt.Printf("%d checked cases agree on correctness; timing ratios retained in %s\n", len(r.Comparisons), filepath.Join(*output, "comparison.json"))
+	fmt.Printf("%d checked cases agree on correctness, %d workloads skipped; timing ratios retained in %s\n", len(r.Comparisons), len(r.Skipped), filepath.Join(*output, "comparison.json"))
+}
+
+// capability returns the lowest compute capability among CUDA devices
+// 0 through ranks-1, the devices both harnesses use.
+func capability(ranks int) (major, minor int, err error) {
+	if err := driver.Init(0); err != nil {
+		return 0, 0, fmt.Errorf("cuda init: %w", err)
+	}
+	for i := 0; i < ranks; i++ {
+		d, err := driver.DeviceGet(i)
+		if err != nil {
+			return 0, 0, fmt.Errorf("device %d: %w", i, err)
+		}
+		m, n, err := d.ComputeCapability()
+		if err != nil {
+			return 0, 0, fmt.Errorf("device %d compute capability: %w", i, err)
+		}
+		if i == 0 || 10*m+n < 10*major+minor {
+			major, minor = m, n
+		}
+	}
+	return major, minor, nil
+}
+
+// supported reports whether both harnesses can run w on devices of compute
+// capability major.minor. Beyond NCCL's own limits, nccl-tests (common.cu)
+// drops FP8 datatypes entirely below sm_90, so no reference rows exist there.
+func supported(datatype nccltest.DataType, w workload, major, minor int) bool {
+	c := nccltest.Case{Operation: nccltest.Operation(w.operation), Reduction: nccltest.Reduction(w.reduction), DataType: datatype}
+	if !c.Supported(major, minor) {
+		return false
+	}
+	return 10*major+minor >= 90 || (datatype != nccltest.Float8E4M3 && datatype != nccltest.Float8E5M2)
 }
 
 // Reference-only overrides can change the workload without changing the

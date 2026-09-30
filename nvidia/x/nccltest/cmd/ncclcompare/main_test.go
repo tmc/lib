@@ -97,6 +97,27 @@ func TestPrepareWorkloads(t *testing.T) {
 	}
 }
 
+func TestSupported(t *testing.T) {
+	for _, tt := range []struct {
+		datatype     nccltest.DataType
+		operation    string
+		major, minor int
+		want         bool
+	}{
+		{nccltest.Float8E4M3, "all_reduce", 8, 9, false},
+		{nccltest.Float8E5M2, "reduce_scatter", 8, 9, false},
+		{nccltest.Float8E4M3, "all_gather", 8, 9, false}, // nccl-tests drops FP8 below sm_90.
+		{nccltest.Float8E4M3, "all_reduce", 9, 0, true},
+		{nccltest.Float8E5M2, "broadcast", 9, 0, true},
+		{nccltest.BFloat16, "all_reduce", 8, 9, true},
+		{nccltest.Float32, "reduce", 8, 0, true},
+	} {
+		if got := supported(tt.datatype, workload{tt.operation, "sum"}, tt.major, tt.minor); got != tt.want {
+			t.Errorf("%s %s on sm_%d%d: supported = %v, want %v", tt.datatype, tt.operation, tt.major, tt.minor, got, tt.want)
+		}
+	}
+}
+
 func TestReferenceTiming(t *testing.T) {
 	for _, tt := range []struct{ mode, want string }{
 		{"rank0", "0"}, {"mean", "1"}, {"min", "2"}, {"max", "3"},

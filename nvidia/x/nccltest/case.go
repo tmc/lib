@@ -129,6 +129,20 @@ func (c Case) Layout(ranks int) (Layout, error) {
 	return l, nil
 }
 
+// Supported reports whether NCCL can run c on devices of compute capability
+// major.minor. NCCL reduces FP8 values only on sm_90 and later; it moves them,
+// and reduces every other datatype, on any device.
+func (c Case) Supported(major, minor int) bool {
+	if c.DataType != Float8E4M3 && c.DataType != Float8E5M2 {
+		return true
+	}
+	switch c.Operation {
+	case AllReduce, Reduce, ReduceScatter:
+		return 10*major+minor >= 90
+	}
+	return true
+}
+
 // Bandwidth returns algorithm and bus throughput in decimal GB/s. It follows
 // each reference operation's byte convention; one-rank bus throughput is zero
 // for collectives with no inter-rank traffic.
