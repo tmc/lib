@@ -16,7 +16,7 @@ type Node struct {
 }
 
 // Edge identifies an explicit completion-before-start dependency. Kind is
-// stream_order, event_wait, graph_edge or host_materialization. Record must
+// stream_order, event_wait, graph_edge, application_order or host_materialization. Record must
 // identify retained ordering evidence, not a timestamp or submission link.
 type Edge struct {
 	From   string `json:"from"`
@@ -74,7 +74,7 @@ func Analyze(g Graph) (Report, error) {
 			return r, fmt.Errorf("dependency: invalid edge %d", i)
 		}
 		switch e.Kind {
-		case "stream_order", "event_wait", "graph_edge", "host_materialization":
+		case "stream_order", "event_wait", "graph_edge", "application_order", "host_materialization":
 		default:
 			return r, fmt.Errorf("dependency: unsupported edge kind %q", e.Kind)
 		}
