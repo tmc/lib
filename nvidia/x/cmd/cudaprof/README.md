@@ -2,7 +2,7 @@
 
 Cudaprof records a CUDA program's device timeline with CUPTI and reads
 the result: kernel totals and source through upstream pprof, idle gaps,
-a per-op decomposition of why one capture took longer than another, the
+per-op duration comparisons, the
 verdict of an ABBA timing campaign, and a Perfetto trace.
 
 ```sh
@@ -13,8 +13,11 @@ go generate ./x/cmd/cudaprof   # Linux with CUDA only: builds cupti_agent.so int
 
 | Command | Needs |
 | --- | --- |
-| `capture`, `ab` | Linux, an NVIDIA driver, and `cupti_agent.so` built against the CUDA toolkit's CUPTI (12.x or 13.x headers; the agent refuses a runtime of another major version). Tested on an NVIDIA GB10 (arm64, SM 12.1) with CUPTI 13.0. Driver version: not recorded in the code. |
-| `gaps`, `compare`, `shape-compare`, `correlate`, `memory`, `iterations`, `qualify`, `export`, `view`, `-top`, `-http`, `version`, `help` | Any OS. No GPU, no CUDA. |
+| `capture`, `ab`, `campaign` | Linux, an NVIDIA driver, and `cupti_agent.so` built against the CUDA toolkit's CUPTI (CUDA 13.4 validated; CUDA 12 build limits are recorded below; the agent refuses a runtime of another major version). Tested on an NVIDIA GB10 (arm64, SM 12.1) with CUPTI 13.0. Follow-up native controls used CUPTI 13.4 and driver 580.173.02; see [validation limits](evidence-validation.md). |
+| `gaps`, `compare`, `shape-compare`, `comparison-summary`, `counter-receipt`, `correlate`, `overview`, `dependency`, `memory`, `iterations`, `qualify`, `export`, `export-compare`, `view`, `-top`, `-http`, `version`, `help` | Any OS. No GPU, no CUDA. |
+
+`probe` additionally needs native CUDA/CUPTI for its controlled workload. Run
+`probe` and `campaign` inside an existing shared GPU lock.
 
 A capture is one `.pprof` file: a pprof profile of device time that also
 embeds `capture-status.json`, the per-record journals, the module images
@@ -550,6 +553,13 @@ launch geometry. `correlate` exposes retained submission and NVTX links.
 `memory` reports transfer and allocation-call evidence with residency limits.
 
 - [Existing Gemma4 diagnostic demonstration](evidence-demo.md)
+- [Controlled follow-up validation](evidence-validation.md)
+- [Token and hierarchy overview](overview.md)
+- [Comparison summary](comparison_summary.md)
+- [Dependency evidence](dependency.md)
+- [Repeated campaign runner](campaign.md)
+- [Native capability probe](probe.md)
+- [Counter receipt qualification](counter_receipt.md)
 - [Application marker convention](../../cudaprof/marker/README.md)
 - [Shape comparison](shape_compare.md)
 - [Submission links](correlation.md)
