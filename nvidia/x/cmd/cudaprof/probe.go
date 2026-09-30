@@ -35,6 +35,8 @@ type probeNativeResult struct {
 	DisableCode  *int32 `json:"disable_native_result_code"`
 }
 type probeReport struct {
+	MemorySnapshots     []memorySnapshot              `json:"memory_snapshots"`
+	MemoryRequests      []memoryRequest               `json:"memory_requests"`
 	Build               buildStamp                    `json:"build"`
 	DriverVersion       int                           `json:"driver_version"`
 	DriverVersionError  string                        `json:"driver_version_error,omitempty"`
@@ -75,6 +77,9 @@ func runProbeCommand(args []string) error {
 	device := fs.Int("device", 0, "CUDA device ordinal")
 	metrics := fs.String("metrics", "", "comma-separated native metric names")
 	um := fs.Bool("um", false, "probe native UM counter configuration only (separate process)")
+	placement := fs.Bool("placement", false, "query managed-memory advice/history before and after a controlled window")
+	prefetch := fs.String("prefetch", "none", "with -placement: none, device or host")
+	advice := fs.String("advice", "none", "with -placement: none, preferred-device or read-mostly")
 	managed := fs.Bool("managed", false, "use managed allocation for the controlled kernel; does not observe residency")
 	passes := fs.Uint("max-passes", 16, "maximum user replay passes")
 	if e := fs.Parse(args); e != nil {
@@ -83,7 +88,7 @@ func runProbeCommand(args []string) error {
 		}
 		return e
 	}
-	if fs.NArg() != 0 || *device < 0 || *passes == 0 || *passes > 1024 || (*um && (*metrics != "" || *managed)) {
+	if fs.NArg() != 0 || *device < 0 || *passes == 0 || *passes > 1024 || (*um && (*metrics != "" || *managed || *placement)) || (!*placement && (*prefetch != "none" || *advice != "none")) || (*prefetch != "none" && *prefetch != "device" && *prefetch != "host") || (*advice != "none" && *advice != "preferred-device" && *advice != "read-mostly") {
 		return fmt.Errorf("probe: invalid arguments")
 	}
 	if *metrics != "" {
@@ -95,7 +100,7 @@ func runProbeCommand(args []string) error {
 	if runtime.GOARCH == "arm64" {
 		r.UMPolicy = "NVIDIA release notes say UM profiling unsupported on ARM; native configuration probe remains separate: https://docs.nvidia.com/cupti/release-notes/release-notes.html"
 	}
-	err := collectProbe(&r, *metrics, *passes, *um, *managed)
+	err := collectProbe(&r, *metrics, *passes, *um, *managed || *placement, memoryProbeOptions{*placement, *prefetch, *advice})
 	if err != nil {
 		r.Error = err.Error()
 	}
@@ -107,7 +112,7 @@ func runProbeCommand(args []string) error {
 	return err
 }
 
-func collectProbe(r *probeReport, metrics string, passes uint, um, managed bool) (err error) {
+func collectProbe(r *probeReport, metrics string, passes uint, um, managed bool, memoryOptions memoryProbeOptions) (err error) {
 	dev, err := cuda.NewDevice(r.Device)
 	if err != nil {
 		return err
@@ -176,7 +181,11 @@ func collectProbe(r *probeReport, metrics string, passes uint, um, managed bool)
 	r.Allocation = "device"
 	if managed {
 		r.Allocation = "managed"
-		out, err = cudamem.AllocManaged[uint32](dev, 1)
+		count := 1
+		if memoryOptions.Placement {
+			count = 1024
+		}
+		out, err = cudamem.AllocManaged[uint32](dev, count)
 	} else {
 		out, err = cudamem.Alloc[uint32](dev, 1)
 	}
@@ -184,6 +193,18 @@ func collectProbe(r *probeReport, metrics string, passes uint, um, managed bool)
 		return err
 	}
 	defer func() { err = errors.Join(err, out.Free()) }()
+	if err = prepareMemoryProbe(r, dev, out.Ptr(), uint(out.SizeBytes()), memoryOptions); err != nil {
+		return err
+	}
+	defer func() {
+		if memoryOptions.Placement {
+			snapshotErr := dev.WithContext(func() error {
+				r.MemorySnapshots = append(r.MemorySnapshots, queryMemorySnapshot("after_controlled_window", out.Ptr(), uint(out.SizeBytes())))
+				return nil
+			})
+			err = errors.Join(err, snapshotErr)
+		}
+	}()
 	token, layer, cache := 0, 0, 0
 	dtype := "u32"
 	disabled := false
@@ -201,7 +222,11 @@ func collectProbe(r *probeReport, metrics string, passes uint, um, managed bool)
 		defer nvtx.RangePop()
 		return cudalaunch.Kernel(fn).Launch(out)
 	}
-	read := func() (uint32, error) { var values [1]uint32; e := out.CopyToHost(values[:]); return values[0], e }
+	values := make([]uint32, out.Len())
+	read := func() (uint32, error) {
+		err := out.CopyToHost(values)
+		return values[0], err
+	}
 	control := func() error {
 		start := time.Now()
 		e := dev.WithContext(func() error {

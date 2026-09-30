@@ -1,88 +1,48 @@
-# Memory evidence
+# Managed-memory evidence
 
+The optional native collector retains supported CUPTI UnifiedMemoryCounter3
+migration/fault service records and managed-range query/advice/prefetch callbacks.
+These are observations of service, policy and history. They do not observe
+present physical page residency. Allocation type is not residency; last-prefetch
+location is not current location; successful asynchronous prefetch is not
+completion. UM service intervals do not contribute to recorded GPU occupancy.
+
+The decoder qualifies CUDA 12.9 (CUPTI API 28) and CUDA 13.0–13.4 headers, checks
+native struct size when the API is available, and bounds each record. Native
+configuration return codes are retained per requested counter kind. ARM UM
+activity collection remains refused by documented architecture policy even if
+configuration succeeds. A measured native configuration refusal is separate
+from that policy. Ordinary kernel capture remains available after optional
+memory collection refusal. Neither an empty collection nor missing events proves
+zero migration or faults.
+
+Build a CLI and injection library using the normal project build. Under the
+shared GPU lock, run a small controlled pre-window procedure:
+
+```sh
+cudaprof capture --memory-policy --unified-memory -o memory.pprof -- \
+  cudaprof probe -placement -prefetch=device -advice=preferred-device
+cudaprof memory memory.pprof > memory.json
+cudaprof export -memory -o memory.pftrace memory.pprof
 ```
-cudaprof memory capture.pprof
-```
 
-The JSON report retains capture identity, completeness and collector capability.
-It lists memcpy records with their journal, device, stream, raw copy kind,
-bytes, timestamps and correlation ID. Allocation API calls are counted by
-API domain and name. These are call counts: arguments, return codes,
-allocation pointers and lifetimes are not retained. Driver and runtime calls
-may describe the same allocation and are reported separately.
+`probe -placement` allocates a 4096-byte managed range. It queries supported
+scalar attributes before setup, before the controlled write scopes, and after
+those scopes. Optional prefetch is followed by a separately reported native
+context synchronization result. The two ordinary controls reset a sentinel and
+verify output 7; optional counter replay verifies the same value. Query and
+request receipts preserve native numeric errors and absent symbols separately.
+Timing fields make full-stdout equality inappropriate for workload correctness.
+The sentinel copies and output reads also touch the allocation; the procedure
+records their context, not a guarantee that placement stayed unchanged.
 
-| Evidence | Current collector/decoder | What it establishes |
-| --- | --- | --- |
-| Memcpy activity | Collected and decoded | Recorded transfer bytes and interval |
-| Allocation API activity | Optional driver/runtime API collection | A call with an allocation API name occurred |
-| Allocation success and lifetime | Not retained in API activity | Unavailable |
-| Per-range current residency | No observation records | Unsupported by current collector |
-| Managed-memory migration | Unified-memory counters not enabled or decoded | Unsupported by current collector |
-| CPU/GPU page faults | Unified-memory counters not enabled or decoded | Unsupported by current collector |
-| Current device/backend counter support | No probe performed | Unprobed, not hardware-unsupported |
+Use `-prefetch=host`, `-advice=read-mostly`, or omit both actions for controls.
+UM configuration-only `probe -um` runs separately from hardware range profiling.
+No arbitrary captured operation is replayed by this memory procedure.
 
-Collector initialization enables memcpy activity in
-`internal/cudainject/native/cupti_agent.c`. API collection is optional; the
-capability receipt records `driver_api`, `runtime_api` and `api_records`.
-The timeline decoder retains API names/timestamps, not parameters or results.
-Missing transfers or allocation calls remain unavailable evidence rather
-than becoming zero migration, successful allocation counts, or device residency.
-
-CUDA exposes managed-memory counters, but configuration must precede activity
-enablement and can fail for platform, device, or multi-device peer-access
-reasons. A collector implementation must retain those failures and probe
-results before claiming supported collection. See the
-[NVIDIA CUPTI activity API](https://docs.nvidia.com/cupti/api/group__CUPTI__ACTIVITY__API.html).
-
-The existing Go driver binding exposes `DevicePtr.MemRangeGetAttribute` and
-`HasMemRangeGetAttribute`. Symbol availability does not establish device
-support. Preferred-location attributes describe advice; last-prefetch
-attributes describe a request and do not establish completion or current
-location. The report therefore does not treat them as residency evidence.
-See [NVIDIA unified addressing](https://docs.nvidia.com/cuda/cuda-driver-api/cuda_driver_api/group__CUDA__UNIFIED.html).
-
-## Controlled pre-window investigation
-
-This is an investigation procedure, not a measured demonstration. Keep one
-shared GPU-lock hold around the workload and controls. Run queries inside
-the allocating process; a pointer from another process is not a valid query
-handle.
-
-1. Record device model, driver/CUDA/CUPTI versions, OS, and managed-memory
-   device attributes. Probe unified-memory counter configuration separately
-   before enabling it, retaining exact error codes. Current cudaprof does
-   not implement this collection; use a supported external collector or a
-   future collector implementation that preserves these receipts.
-2. Allocate a small managed-memory region. Record allocation API, pointer,
-   byte count, and success independently of CUPTI API activity. CPU-touch
-   the region outside the timed operation window.
-3. Before the window, query preferred location and last-prefetch location
-   through `MemRangeGetAttribute` when available. Record query start/end,
-   attribute, result, and error. Use a 32-bit result for those attributes;
-   preserve invalid/mixed-range results. Label the values advice and prefetch
-   history, never physical residency.
-4. Run a GPU operation that touches the same region, bracketed by explicit
-   operation markers. Validate deterministic output. Repeat with explicit
-   GPU prefetch and stream synchronization before opening the window. These
-   are different placement requests, not guaranteed residency controls.
-5. If a supported collector emits unified-memory migration or fault records,
-   retain raw address, size/value, processor IDs, timestamps and counter
-   kind. Correlate only when the clock mapping and allocation identity are
-   established. Compare observed evidence and errors between controls;
-   absence of records under unsupported collection proves nothing.
-6. Repeat without profiling to assess overhead before interpreting timing.
-   Preserve failed completeness and stationarity gates. Only after the
-   controlled records are validated should the same procedure be applied
-   to Gemma4.
-
-Existing Perfetto export already represents observed memcpy intervals. There
-are no new residency, migration or fault tracks because the collector has no
-such records. This command does not manufacture them or correlate separate
-host-clock observations to GPU windows.
-
-CPU-only checks:
-
-```
-cd nvidia
-go test ./x/cmd/cudaprof -run TestMemory
-```
+Perfetto memory tracks retain raw journal sequence, native value meaning,
+virtual address and valid source/destination fields. The native UM stream field
+is unusable and supplies no stream affiliation. Memory report operation windows
+are only scoped timestamp overlaps when the collector retained a unified clock;
+they establish neither submission identity nor causation. Unknown-clock host
+policy events remain in JSON and are omitted from aligned memory tracks.
