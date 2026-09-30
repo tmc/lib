@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -173,39 +174,126 @@ func loadLocked(path string) error {
 		libErr = errors.New("cublas: bindings disabled via CODEGEN_SKIP_BINDINGS")
 		return libErr
 	}
-	lib, libPath, libErr = openLibrary(path)
-	if libErr != nil {
+	if libErr = openLibrary(path); libErr != nil {
 		return libErr
 	}
-	registerFuncs()
 	ready.Store(true)
 	return nil
 }
 
-// openLibrary attempts to load the cublas shared library and reports the
-// path it was opened from. An explicit path wins; otherwise it checks the
-// library path environment variable, then platform-specific default names.
-func openLibrary(path string) (uintptr, string, error) {
+// VersionMismatchError reports that the shared library that opened is not
+// from the version train cublas was generated for. dlsym matches on name
+// alone, so a library from a neighbouring train opens and resolves nearly
+// every symbol; asking it its own version is what tells the two apart.
+type VersionMismatchError struct {
+	Path string // the library that was opened
+	Want int    // major version these bindings were generated for
+	Got  int    // major version the library reports
+	Raw  int    // the version value the library reported, undecoded
+}
+
+// Error reports which library was opened and the two majors that disagree.
+//
+// A decoder is only a decoder for the version schemes it was measured
+// against, and a library from a train that predates the scheme can report
+// a value it does not decode. Naming a major of 0 in that case would
+// attribute to the library a claim it never made, so the raw value is
+// reported instead.
+func (e *VersionMismatchError) Error() string {
+	if e.Got == 0 {
+		return fmt.Sprintf("cublas: %s reported version %d, which does not decode as a version these bindings recognise; they accept major %d or 12", e.Path, e.Raw, e.Want)
+	}
+	return fmt.Sprintf("cublas: %s reports version major %d, these bindings accept major %d or 12", e.Path, e.Got, e.Want)
+}
+
+// checkVersion asks the loaded library its version through cublasGetProperty and
+// checks the major against 13 or 12, which these bindings accept.
+// generated against. It runs under loadMu, after registerFuncs, so it
+// calls the bound pointer directly rather than the exported wrapper.
+//
+// A library that does not export the entry point, or that fails the call,
+// is admitted. Absence is what an installation older than the entry point
+// looks like, and refusing on it would reject working hosts to catch a
+// case the soname already covers.
+func checkVersion() error {
+	if symGetProperty == 0 {
+		return nil
+	}
+	var out0 int32
+	if err := toError(fnGetProperty(0, &out0), "cublasGetProperty"); err != nil {
+		return nil
+	}
+	raw := int(out0)
+	got := raw
+	if got != 13 && got != 12 {
+		return &VersionMismatchError{Path: libPath, Want: 13, Got: got, Raw: raw}
+	}
+	return nil
+}
+
+// openLibrary opens the cublas shared library, binds its symbols, and
+// checks its version. An explicit path wins; otherwise it checks the library
+// path environment variable, then each default candidate in turn, skipping
+// one whose version these bindings do not accept.
+// It also skips a candidate from a CUDA release newer than the installed
+// driver supports, which would open and then fail every call.
+func openLibrary(path string) error {
 	if path == "" {
 		path = os.Getenv("CUBLAS_LIB_PATH")
 	}
 	if path != "" {
 		h, err := openDynamicLibrary(path)
-		if err == nil {
-			return h, path, nil
+		if err != nil {
+			return newLibraryError(path, []LibraryAttempt{{Name: path, Err: err}})
 		}
-		return 0, "", newLibraryError(path, []LibraryAttempt{{Name: path, Err: err}})
+		return admit(h, path)
 	}
 	names := libraryNames()
+	driver := driverVersion()
 	var attempts []LibraryAttempt
 	for _, name := range names {
+		if cuda := sonameCUDA[filepath.Base(name)]; driver > 0 && cuda > driver/1000 {
+			err := fmt.Errorf("library is from CUDA %d, driver supports CUDA %d.%d", cuda, driver/1000, driver%1000/10)
+			attempts = append(attempts, LibraryAttempt{Name: name, Err: err})
+			continue
+		}
 		h, err := openDynamicLibrary(name)
+		if err != nil {
+			attempts = append(attempts, LibraryAttempt{Name: name, Err: err})
+			continue
+		}
+		err = admit(h, name)
 		if err == nil {
-			return h, name, nil
+			return nil
 		}
 		attempts = append(attempts, LibraryAttempt{Name: name, Err: err})
 	}
-	return 0, "", newLibraryError("", attempts)
+	return newLibraryError("", attempts)
+}
+
+// admit makes the library at h, opened as name, the loaded library and
+// checks its version. It closes a library the check refuses.
+func admit(h uintptr, name string) error {
+	lib, libPath = h, name
+	registerFuncs()
+	err := checkVersion()
+	if err != nil {
+		closeLibrary(lib)
+		lib = 0
+		libPath = ""
+		present = make(map[string]bool)
+		unbound = make(map[string]error)
+		clearFuncs()
+		return err
+	}
+	return nil
+}
+
+// sonameCUDA maps each soname to the major version of the CUDA toolkit
+// that ships it.
+var sonameCUDA = map[string]int{
+	"libcublas.so.13": 13,
+	"libcublas.so.12": 12,
 }
 
 // LibraryAttempt records one failed attempt to open the shared library.
@@ -292,11 +380,35 @@ func pkgConfigHint() string {
 	return "pkg-config reports " + pkg + " in " + dir
 }
 
+// driverVersion returns the CUDA version the installed driver supports,
+// as cuDriverGetVersion reports it (13000 for 13.0), or 0 when there is no
+// driver to ask.
+func driverVersion() int {
+	if runtime.GOOS != "linux" {
+		return 0
+	}
+	name := "libcuda.so.1"
+	h, err := openDynamicLibrary(name)
+	if err != nil {
+		return 0
+	}
+	defer closeLibrary(h)
+	sym, err := lookupLibrarySymbol(h, "cuDriverGetVersion")
+	if err != nil || sym == 0 {
+		return 0
+	}
+	var v int32
+	if r, _, _ := purego.SyscallN(sym, uintptr(unsafe.Pointer(&v))); r != 0 {
+		return 0
+	}
+	return int(v)
+}
+
 // libraryNames returns the platform-specific shared library names to try.
 func libraryNames() []string {
 	switch runtime.GOOS {
 	case "linux":
-		return []string{"libcublas.so.13"}
+		return []string{"libcublas.so.13", "libcublas.so.12"}
 	case "darwin":
 		return []string{"libcublas.dylib"}
 	case "windows":

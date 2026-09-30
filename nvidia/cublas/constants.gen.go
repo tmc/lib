@@ -4,13 +4,13 @@ package cublas
 
 const (
 	// Version is CUBLAS_VERSION. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [Handle.Version] reports that.
-	Version = 130300
+	Version = 130700
 	// VerBuild is CUBLAS_VER_BUILD. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [Handle.Version] reports that.
-	VerBuild = 5
+	VerBuild = 27
 	// VerMajor is CUBLAS_VER_MAJOR. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [Handle.Version] reports that.
 	VerMajor = 13
 	// VerMinor is CUBLAS_VER_MINOR. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [Handle.Version] reports that.
-	VerMinor = 3
+	VerMinor = 7
 	// VerPatch is CUBLAS_VER_PATCH. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [Handle.Version] reports that.
 	VerPatch = 0
 )

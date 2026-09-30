@@ -205,6 +205,34 @@ func (h Handle) MatmulAlgoCheck(operationDesc MatmulDesc, adesc MatrixLayout, bd
 	return matmulAlgoCheck(h, operationDesc, adesc, bdesc, cdesc, ddesc, algo)
 }
 
+// MatmulAlgoCheckForStream performs the correctness check on the matrix multiply algorithm descriptor for the matrix multiply operation [Handle.Matmul] function with the given input matrices A, B and C, and the output matrix D.
+//
+// It checks whether the descriptor is supported on the current device and execution context (specified by the stream), and returns the result containing the required workspace and the calculated wave count.
+// Unlike [Handle.MatmulAlgoCheck], this variant takes a CUDA stream into account when evaluating algorithm compatibility. If the stream is associated with a Green Context (a CUDA execution context that provides access to a subset of GPU resources), the check reflects the SM count and resource constraints of that context, not the full device. For more information see Execution Context Management.
+//
+// Note: [Success] doesn’t fully guarantee that the algo will run. The algo will fail if, for example, the buffers are not correctly aligned. However, if [Handle.MatmulAlgoCheckForStream] fails, the algo will not run.
+//
+//   - operationDesc: Handle to a previously created matrix multiplication descriptor of type [MatmulDesc]
+//   - adesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
+//   - bdesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
+//   - cdesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
+//   - ddesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
+//   - algo: Descriptor which specifies which matrix multiplication algorithm should be used. See [MatmulAlgo]. May point to result->algo
+//   - result: Pointer to the structure holding the results returned by this function. The results comprise of the required workspace and the calculated wave count. The algo field is never updated. See [MatmulHeuristicResult]
+//   - stream: CUDA stream used to determine the execution context. If the stream is associated with a Green Context, the check accounts for the SM count and resource constraints of that context
+//
+// A nil error means the check was successful.
+//
+// Errors:
+//   - [ErrArchMismatch]: If the algo configuration cannot be run using the selected device.
+//   - [ErrInvalidValue]: If matrix layout descriptors or the operation descriptor do not match the algo descriptor.
+//   - [ErrNotSupported]: If the algo configuration or data type combination is not currently supported on the given device or execution context.
+//
+// Wraps cublasLtMatmulAlgoCheckForStream.
+func (h Handle) MatmulAlgoCheckForStream(operationDesc MatmulDesc, adesc MatrixLayout, bdesc MatrixLayout, cdesc MatrixLayout, ddesc MatrixLayout, algo *MatmulAlgo, stream driver.Stream) (MatmulHeuristicResult, error) {
+	return matmulAlgoCheckForStream(h, operationDesc, adesc, bdesc, cdesc, ddesc, algo, stream)
+}
+
 // MatmulAlgoGetHeuristic retrieves the possible algorithms for the matrix multiply operation [Handle.Matmul] function with the given input matrices A, B and C, and the output matrix D.
 //
 // The output is placed in heuristicResultsArray[] in the order of increasing estimated compute time.
@@ -229,6 +257,36 @@ func (h Handle) MatmulAlgoCheck(operationDesc MatmulDesc, adesc MatrixLayout, bd
 // Wraps cublasLtMatmulAlgoGetHeuristic.
 func (h Handle) MatmulAlgoGetHeuristic(operationDesc MatmulDesc, adesc MatrixLayout, bdesc MatrixLayout, cdesc MatrixLayout, ddesc MatrixLayout, preference MatmulPreference, heuristicResultsArray []MatmulHeuristicResult) (int, error) {
 	return matmulAlgoGetHeuristic(h, operationDesc, adesc, bdesc, cdesc, ddesc, preference, heuristicResultsArray)
+}
+
+// MatmulAlgoGetHeuristicForStream retrieves the possible algorithms for the matrix multiply operation [Handle.Matmul] function with the given input matrices A, B and C, and the output matrix D.
+//
+// The output is placed in heuristicResultsArray[] in the order of increasing estimated compute time.
+// Unlike [Handle.MatmulAlgoGetHeuristic], this variant takes a CUDA stream into account when selecting algorithms. If the stream is associated with a Green Context (a CUDA execution context that provides access to a subset of GPU resources), the heuristic considers the SM count and resource constraints of that context. For more information see Execution Context Management.
+//
+// Note: This function may load some kernels using CUDA Driver API which may fail when there is no available GPU memory. Do not allocate the entire VRAM before running [Handle.MatmulAlgoGetHeuristicForStream].
+//
+// Note: Calling [Handle.Matmul] on a stream associated with a Green Context with an algo requested using a different execution context is not guaranteed to work.
+//
+//   - operationDesc: Handle to a previously created matrix multiplication descriptor of type [MatmulDesc]
+//   - adesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
+//   - bdesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
+//   - cdesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
+//   - ddesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
+//   - preference: Pointer to the structure holding the heuristic search preferences descriptor. See [MatmulPreference]
+//   - heuristicResultsArray: Array containing the algorithm heuristics and associated runtime characteristics, returned by this function, in the order of increasing estimated compute time
+//   - returnAlgoCount: Number of algorithms returned by this function. This is the number of heuristicResultsArray elements written
+//   - stream: CUDA stream used to determine the execution context. If the stream is associated with a Green Context, the heuristic accounts for the SM count and resource constraints of that context
+//
+// A nil error means query was successful. Inspect heuristicResultsArray[0 to (returnAlgoCount -1)].state for the status of the results.
+//
+// Errors:
+//   - [ErrInvalidValue]: If requestedAlgoCount is less or equal to zero.
+//   - [ErrNotSupported]: If no heuristic function available for current configuration.
+//
+// Wraps cublasLtMatmulAlgoGetHeuristicForStream.
+func (h Handle) MatmulAlgoGetHeuristicForStream(operationDesc MatmulDesc, adesc MatrixLayout, bdesc MatrixLayout, cdesc MatrixLayout, ddesc MatrixLayout, preference MatmulPreference, heuristicResultsArray []MatmulHeuristicResult, stream driver.Stream) (int, error) {
+	return matmulAlgoGetHeuristicForStream(h, operationDesc, adesc, bdesc, cdesc, ddesc, preference, heuristicResultsArray, stream)
 }
 
 // MatmulAlgoGetIds retrieves the IDs of all the matrix multiply algorithms that are valid, and can potentially be run by the [Handle.Matmul] function, for given types of the input matrices A, B and C, and of the output matrix D.

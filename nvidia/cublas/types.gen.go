@@ -99,6 +99,8 @@ const (
 	R4F_E2M1 DataType = 33
 	// real as an unsigned nv_fp8_e4m3
 	R8F_UE4M3 DataType = R8F_E4M3
+	// real as an unsigned nv_fp8_ue5m3
+	R8FUe5m3 DataType = 34
 )
 
 // Half represents a 16-bit IEEE 754 half-precision float.

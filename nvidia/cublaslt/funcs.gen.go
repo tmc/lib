@@ -33,9 +33,11 @@ var (
 	symmatmul                           uintptr
 	symMatmulAlgoCapGetAttribute        uintptr
 	symmatmulAlgoCheck                  uintptr
+	symmatmulAlgoCheckForStream         uintptr
 	symMatmulAlgoConfigGetAttribute     uintptr
 	symMatmulAlgoConfigSetAttribute     uintptr
 	symmatmulAlgoGetHeuristic           uintptr
+	symmatmulAlgoGetHeuristicForStream  uintptr
 	symmatmulAlgoGetIds                 uintptr
 	symmatmulAlgoInit                   uintptr
 	symmatmulDescCreate                 uintptr
@@ -110,6 +112,21 @@ func ffiCall8(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7 uintp
 	args[6] = a6
 	args[7] = a7
 	return ffi.CallFloat(fn, 8, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall9(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	return ffi.CallFloat(fn, 9, &args, floatMask)
 }
 
 //go:uintptrescapes
@@ -250,6 +267,23 @@ func ffiCallWidths10(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3
 	args[8] = a8
 	args[9] = a9
 	return ffi.CallFloatWidths(fn, 10, &args, floatMask, widths)
+}
+
+//go:uintptrescapes
+func ffiCallWidths11(fn uintptr, floatMask uint32, widths uint64, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	return ffi.CallFloatWidths(fn, 11, &args, floatMask, widths)
 }
 
 // An outSlot pools the heap cells a wrapper passes to C for its outputs.
@@ -399,6 +433,12 @@ func fnmatmulAlgoCheck(a0 Handle, a1 MatmulDesc, a2 MatrixLayout, a3 MatrixLayou
 	return Result(r1)
 }
 
+// fnmatmulAlgoCheckForStream calls cublasLtMatmulAlgoCheckForStream.
+func fnmatmulAlgoCheckForStream(a0 Handle, a1 MatmulDesc, a2 MatrixLayout, a3 MatrixLayout, a4 MatrixLayout, a5 MatrixLayout, a6 *MatmulAlgo, a7 *MatmulHeuristicResult, a8 driver.Stream) Result {
+	r1, _ := ffiCall9(symmatmulAlgoCheckForStream, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(a8))
+	return Result(r1)
+}
+
 // fnMatmulAlgoConfigGetAttribute calls cublasLtMatmulAlgoConfigGetAttribute.
 func fnMatmulAlgoConfigGetAttribute(a0 *MatmulAlgo, a1 MatmulAlgoConfigAttributes, a2 unsafe.Pointer, a3 uint, a4 *uint) Result {
 	r1, _ := ffiCallWidths5(symMatmulAlgoConfigGetAttribute, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
@@ -414,6 +454,12 @@ func fnMatmulAlgoConfigSetAttribute(a0 *MatmulAlgo, a1 MatmulAlgoConfigAttribute
 // fnmatmulAlgoGetHeuristic calls cublasLtMatmulAlgoGetHeuristic.
 func fnmatmulAlgoGetHeuristic(a0 Handle, a1 MatmulDesc, a2 MatrixLayout, a3 MatrixLayout, a4 MatrixLayout, a5 MatrixLayout, a6 MatmulPreference, a7 int32, a8 *MatmulHeuristicResult, a9 *int32) Result {
 	r1, _ := ffiCallWidths10(symmatmulAlgoGetHeuristic, 0, 0xc000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)))
+	return Result(r1)
+}
+
+// fnmatmulAlgoGetHeuristicForStream calls cublasLtMatmulAlgoGetHeuristicForStream.
+func fnmatmulAlgoGetHeuristicForStream(a0 Handle, a1 MatmulDesc, a2 MatrixLayout, a3 MatrixLayout, a4 MatrixLayout, a5 MatrixLayout, a6 MatmulPreference, a7 int32, a8 *MatmulHeuristicResult, a9 *int32, a10 driver.Stream) Result {
+	r1, _ := ffiCallWidths11(symmatmulAlgoGetHeuristicForStream, 0, 0xc000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)), uintptr(a10))
 	return Result(r1)
 }
 
@@ -1264,6 +1310,47 @@ func matmulAlgoCheck(lightHandle Handle, operationDesc MatmulDesc, adesc MatrixL
 
 var slotMatmulAlgoCheck outSlot[MatmulHeuristicResult]
 
+// matmulAlgoCheckForStream performs the correctness check on the matrix multiply algorithm descriptor for the matrix multiply operation [Handle.Matmul] function with the given input matrices A, B and C, and the output matrix D.
+//
+// It checks whether the descriptor is supported on the current device and execution context (specified by the stream), and returns the result containing the required workspace and the calculated wave count.
+// Unlike [Handle.MatmulAlgoCheck], this variant takes a CUDA stream into account when evaluating algorithm compatibility. If the stream is associated with a Green Context (a CUDA execution context that provides access to a subset of GPU resources), the check reflects the SM count and resource constraints of that context, not the full device. For more information see Execution Context Management.
+//
+// Note: [Success] doesn’t fully guarantee that the algo will run. The algo will fail if, for example, the buffers are not correctly aligned. However, if [Handle.MatmulAlgoCheckForStream] fails, the algo will not run.
+//
+//   - lightHandle: Pointer to the allocated cuBLASLt handle for the cuBLASLt context. See [Handle]
+//   - operationDesc: Handle to a previously created matrix multiplication descriptor of type [MatmulDesc]
+//   - adesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
+//   - bdesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
+//   - cdesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
+//   - ddesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
+//   - algo: Descriptor which specifies which matrix multiplication algorithm should be used. See [MatmulAlgo]. May point to result->algo
+//   - result: Pointer to the structure holding the results returned by this function. The results comprise of the required workspace and the calculated wave count. The algo field is never updated. See [MatmulHeuristicResult]
+//   - stream: CUDA stream used to determine the execution context. If the stream is associated with a Green Context, the check accounts for the SM count and resource constraints of that context
+//
+// A nil error means the check was successful.
+//
+// Errors:
+//   - [ErrArchMismatch]: If the algo configuration cannot be run using the selected device.
+//   - [ErrInvalidValue]: If matrix layout descriptors or the operation descriptor do not match the algo descriptor.
+//   - [ErrNotSupported]: If the algo configuration or data type combination is not currently supported on the given device or execution context.
+//
+// Wraps cublasLtMatmulAlgoCheckForStream.
+func matmulAlgoCheckForStream(lightHandle Handle, operationDesc MatmulDesc, adesc MatrixLayout, bdesc MatrixLayout, cdesc MatrixLayout, ddesc MatrixLayout, algo *MatmulAlgo, stream driver.Stream) (MatmulHeuristicResult, error) {
+	if err := checkLibSym("cublasLtMatmulAlgoCheckForStream"); err != nil {
+		var zero MatmulHeuristicResult
+		return zero, err
+	}
+	out := slotMatmulAlgoCheckForStream.get()
+	defer slotMatmulAlgoCheckForStream.put(out)
+	if err := toError(fnmatmulAlgoCheckForStream(lightHandle, operationDesc, adesc, bdesc, cdesc, ddesc, algo, out, stream), "cublasLtMatmulAlgoCheckForStream"); err != nil {
+		var zero MatmulHeuristicResult
+		return zero, err
+	}
+	return *out, nil
+}
+
+var slotMatmulAlgoCheckForStream outSlot[MatmulHeuristicResult]
+
 // MatmulAlgoConfigGetAttribute returns the value of the queried configuration attribute for an initialized [MatmulAlgo] descriptor.
 //
 // The configuration attribute value is retrieved from the enumerated type [MatmulAlgoConfigAttributes].
@@ -1359,6 +1446,52 @@ func matmulAlgoGetHeuristic(lightHandle Handle, operationDesc MatmulDesc, adesc 
 }
 
 var slotMatmulAlgoGetHeuristic outSlot[int32]
+
+// matmulAlgoGetHeuristicForStream retrieves the possible algorithms for the matrix multiply operation [Handle.Matmul] function with the given input matrices A, B and C, and the output matrix D.
+//
+// The output is placed in heuristicResultsArray[] in the order of increasing estimated compute time.
+// Unlike [Handle.MatmulAlgoGetHeuristic], this variant takes a CUDA stream into account when selecting algorithms. If the stream is associated with a Green Context (a CUDA execution context that provides access to a subset of GPU resources), the heuristic considers the SM count and resource constraints of that context. For more information see Execution Context Management.
+//
+// Note: This function may load some kernels using CUDA Driver API which may fail when there is no available GPU memory. Do not allocate the entire VRAM before running [Handle.MatmulAlgoGetHeuristicForStream].
+//
+// Note: Calling [Handle.Matmul] on a stream associated with a Green Context with an algo requested using a different execution context is not guaranteed to work.
+//
+//   - lightHandle: Pointer to the allocated cuBLASLt handle for the cuBLASLt context. See [Handle]
+//   - operationDesc: Handle to a previously created matrix multiplication descriptor of type [MatmulDesc]
+//   - adesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
+//   - bdesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
+//   - cdesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
+//   - ddesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
+//   - preference: Pointer to the structure holding the heuristic search preferences descriptor. See [MatmulPreference]
+//   - heuristicResultsArray: Array containing the algorithm heuristics and associated runtime characteristics, returned by this function, in the order of increasing estimated compute time
+//   - returnAlgoCount: Number of algorithms returned by this function. This is the number of heuristicResultsArray elements written
+//   - stream: CUDA stream used to determine the execution context. If the stream is associated with a Green Context, the heuristic accounts for the SM count and resource constraints of that context
+//
+// A nil error means query was successful. Inspect heuristicResultsArray[0 to (returnAlgoCount -1)].state for the status of the results.
+//
+// Errors:
+//   - [ErrInvalidValue]: If requestedAlgoCount is less or equal to zero.
+//   - [ErrNotSupported]: If no heuristic function available for current configuration.
+//
+// Wraps cublasLtMatmulAlgoGetHeuristicForStream.
+func matmulAlgoGetHeuristicForStream(lightHandle Handle, operationDesc MatmulDesc, adesc MatrixLayout, bdesc MatrixLayout, cdesc MatrixLayout, ddesc MatrixLayout, preference MatmulPreference, heuristicResultsArray []MatmulHeuristicResult, stream driver.Stream) (int, error) {
+	if err := checkLibSym("cublasLtMatmulAlgoGetHeuristicForStream"); err != nil {
+		var zero int
+		return zero, err
+	}
+	out := slotMatmulAlgoGetHeuristicForStream.get()
+	defer slotMatmulAlgoGetHeuristicForStream.put(out)
+	if len(heuristicResultsArray) == 0 {
+		heuristicResultsArray = nil
+	}
+	if err := toError(fnmatmulAlgoGetHeuristicForStream(lightHandle, operationDesc, adesc, bdesc, cdesc, ddesc, preference, int32(len(heuristicResultsArray)), unsafe.SliceData(heuristicResultsArray), out, stream), "cublasLtMatmulAlgoGetHeuristicForStream"); err != nil {
+		var zero int
+		return zero, err
+	}
+	return int(*out), nil
+}
+
+var slotMatmulAlgoGetHeuristicForStream outSlot[int32]
 
 // matmulAlgoGetIds retrieves the IDs of all the matrix multiply algorithms that are valid, and can potentially be run by the [Handle.Matmul] function, for given types of the input matrices A, B and C, and of the output matrix D.
 //

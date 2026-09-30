@@ -33,9 +33,11 @@
 //   - [Handle.Matmul]: computes the matrix multiplication of matrices A and B to produce the output matrix D, according to the following operation:
 //   - [MatmulAlgoCapGetAttribute]: returns the value of the queried capability attribute for an initialized [MatmulAlgo] descriptor structure.
 //   - [Handle.MatmulAlgoCheck]: performs the correctness check on the matrix multiply algorithm descriptor for the matrix multiply operation [Handle.Matmul] function with the given input matrices A, B and C, and the output matrix D.
+//   - [Handle.MatmulAlgoCheckForStream]: performs the correctness check on the matrix multiply algorithm descriptor for the matrix multiply operation [Handle.Matmul] function with the given input matrices A, B and C, and the output matrix D.
 //   - [MatmulAlgoConfigGetAttribute]: returns the value of the queried configuration attribute for an initialized [MatmulAlgo] descriptor.
 //   - [MatmulAlgoConfigSetAttribute]: sets the value of the specified configuration attribute for an initialized [MatmulAlgo] descriptor.
 //   - [Handle.MatmulAlgoGetHeuristic]: retrieves the possible algorithms for the matrix multiply operation [Handle.Matmul] function with the given input matrices A, B and C, and the output matrix D.
+//   - [Handle.MatmulAlgoGetHeuristicForStream]: retrieves the possible algorithms for the matrix multiply operation [Handle.Matmul] function with the given input matrices A, B and C, and the output matrix D.
 //   - [Handle.MatmulAlgoGetIds]: retrieves the IDs of all the matrix multiply algorithms that are valid, and can potentially be run by the [Handle.Matmul] function, for given types of the input matrices A, B and C, and of the output matrix D.
 //   - [Handle.MatmulAlgoInit]: initializes the matrix multiply algorithm structure for the [Handle.Matmul] , for a specified matrix multiply algorithm and input matrices A, B and C, and the output matrix D.
 //   - [NewMatmulDesc]: creates a matrix multiply descriptor by allocating the memory needed to hold its opaque structure.

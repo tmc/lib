@@ -10,15 +10,13 @@
     "cublas_api.h",
     "-headers-dir",
     "cuda-headers",
-    "-docs-dir",
-    "docs",
     "-output",
     "${OUTPUT_DIR}"
   ],
   "inputs": [
     {
       "path": "cublas/cublas_api.h",
-      "sha256": "7a9fec18f54db0ef918af506b709385b3ca5290832b4c71a4716edbd6f47ce82"
+      "sha256": "c1b432ebf9d61aedfac3230c456c7501f7925a2e5a8951172f47bb58d2e093a4"
     },
     {
       "path": "cuda_cudart/cuComplex.h",
@@ -26,14 +24,14 @@
     },
     {
       "path": "cuda_cudart/driver_types.h",
-      "sha256": "b37eb334124c5e43cfa2baa087aa128b44ddd8913da476ca0e92358d5d1be9c4"
+      "sha256": "601cc73210a046d029e25f189ade5d02004aaa6c045a5100be80b5d5e52b5e57"
     },
     {
       "path": "cuda_cudart/library_types.h",
-      "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
+      "sha256": "f75e715c673c5058112b60a0f3ed9dc529150f641bd21d868a20612d1da77f5f"
     }
   ],
-  "source_hash": "8998a93c56ab37d3d1b881d121f20d492d94ab04214fe9aea767aba7b20fe5fb",
+  "source_hash": "cc73be57439683846e0f1075511a6731a0a6c22cd793f14d7e11c9aba330a4a2",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records portable argument names; host-specific paths are intentionally redacted.",

@@ -645,7 +645,18 @@ const (
 	MatmulTile256x1024  MatmulTile = 632
 	MatmulTile512x512   MatmulTile = 633
 	MatmulTile512x1024  MatmulTile = 634
-	MatmulTileEnd       MatmulTile = 635
+	MatmulTile4x1       MatmulTile = 635
+	MatmulTile8x1       MatmulTile = 636
+	MatmulTile16x1      MatmulTile = 637
+	MatmulTile24x1      MatmulTile = 638
+	MatmulTile32x1      MatmulTile = 639
+	MatmulTile40x1      MatmulTile = 640
+	MatmulTile48x1      MatmulTile = 641
+	MatmulTile64x1      MatmulTile = 642
+	MatmulTile128x1     MatmulTile = 643
+	MatmulTile192x1     MatmulTile = 644
+	MatmulTile256x1     MatmulTile = 645
+	MatmulTileEnd       MatmulTile = 646
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -1921,6 +1932,28 @@ func (e MatmulTile) String() string {
 		return "MatmulTile512x512"
 	case MatmulTile512x1024:
 		return "MatmulTile512x1024"
+	case MatmulTile4x1:
+		return "MatmulTile4x1"
+	case MatmulTile8x1:
+		return "MatmulTile8x1"
+	case MatmulTile16x1:
+		return "MatmulTile16x1"
+	case MatmulTile24x1:
+		return "MatmulTile24x1"
+	case MatmulTile32x1:
+		return "MatmulTile32x1"
+	case MatmulTile40x1:
+		return "MatmulTile40x1"
+	case MatmulTile48x1:
+		return "MatmulTile48x1"
+	case MatmulTile64x1:
+		return "MatmulTile64x1"
+	case MatmulTile128x1:
+		return "MatmulTile128x1"
+	case MatmulTile192x1:
+		return "MatmulTile192x1"
+	case MatmulTile256x1:
+		return "MatmulTile256x1"
 	case MatmulTileEnd:
 		return "MatmulTileEnd"
 	}
@@ -2273,7 +2306,10 @@ const (
 	MatmulMatrixScaleVec12832F         MatmulMatrixScale = 4
 	MatmulMatrixScaleBlk128x12832F     MatmulMatrixScale = 5
 	MatmulMatrixScalePerBatchScalar32F MatmulMatrixScale = 6
-	MatmulMatrixScaleEnd               MatmulMatrixScale = 7
+	MatmulMatrixScaleVec128MnK4Ue8m0   MatmulMatrixScale = 12
+	MatmulMatrixScaleVec32MnK4Ue8m0    MatmulMatrixScale = 13
+	MatmulMatrixScaleEnd               MatmulMatrixScale = 14
+	MatmulMatrixScaleReserved          MatmulMatrixScale = 0x7f
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -2293,8 +2329,14 @@ func (e MatmulMatrixScale) String() string {
 		return "MatmulMatrixScaleBlk128x12832F"
 	case MatmulMatrixScalePerBatchScalar32F:
 		return "MatmulMatrixScalePerBatchScalar32F"
+	case MatmulMatrixScaleVec128MnK4Ue8m0:
+		return "MatmulMatrixScaleVec128MnK4Ue8m0"
+	case MatmulMatrixScaleVec32MnK4Ue8m0:
+		return "MatmulMatrixScaleVec32MnK4Ue8m0"
 	case MatmulMatrixScaleEnd:
 		return "MatmulMatrixScaleEnd"
+	case MatmulMatrixScaleReserved:
+		return "MatmulMatrixScaleReserved"
 	}
 	return fmt.Sprintf("MatmulMatrixScale(%d)", e)
 }
