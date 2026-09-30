@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/tmc/lib/nvidia/x/cudaprof/marker"
 	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 )
 
@@ -83,24 +84,27 @@ type memoryAPICount struct {
 }
 
 type memoryReport struct {
-	WorkloadEvidence   memoryEvidence     `json:"workload_evidence"`
-	Version            int                `json:"version"`
-	Capture            string             `json:"capture"`
-	SHA256             string             `json:"capture_sha256"`
-	Completeness       string             `json:"collector_completeness"`
-	Capability         json.RawMessage    `json:"collector_capability,omitempty"`
-	Journals           []timeline.Journal `json:"journals"`
-	Transfers          []memoryTransfer   `json:"transfers"`
-	TransferRecords    int                `json:"transfer_records"`
-	AllocationAPIs     []memoryAPICount   `json:"allocation_api_records"`
-	AllocationRecords  int                `json:"allocation_api_record_count"`
-	TransferEvidence   memoryEvidence     `json:"transfer_evidence"`
-	AllocationEvidence memoryEvidence     `json:"allocation_evidence"`
-	Residency          memoryEvidence     `json:"residency"`
-	Migration          memoryEvidence     `json:"migration"`
-	PageFaults         memoryEvidence     `json:"page_faults"`
-	DeviceSupport      memoryEvidence     `json:"device_support"`
-	Limits             []string           `json:"limits"`
+	UnifiedMemory      []memoryCounterObservation `json:"unified_memory"`
+	MemoryPolicies     []timeline.MemoryPolicy    `json:"memory_policy_observations"`
+	Placement          memoryEvidence             `json:"placement_policy_evidence"`
+	WorkloadEvidence   memoryEvidence             `json:"workload_evidence"`
+	Version            int                        `json:"version"`
+	Capture            string                     `json:"capture"`
+	SHA256             string                     `json:"capture_sha256"`
+	Completeness       string                     `json:"collector_completeness"`
+	Capability         json.RawMessage            `json:"collector_capability,omitempty"`
+	Journals           []timeline.Journal         `json:"journals"`
+	Transfers          []memoryTransfer           `json:"transfers"`
+	TransferRecords    int                        `json:"transfer_records"`
+	AllocationAPIs     []memoryAPICount           `json:"allocation_api_records"`
+	AllocationRecords  int                        `json:"allocation_api_record_count"`
+	TransferEvidence   memoryEvidence             `json:"transfer_evidence"`
+	AllocationEvidence memoryEvidence             `json:"allocation_evidence"`
+	Residency          memoryEvidence             `json:"residency"`
+	Migration          memoryEvidence             `json:"migration"`
+	PageFaults         memoryEvidence             `json:"page_faults"`
+	DeviceSupport      memoryEvidence             `json:"device_support"`
+	Limits             []string                   `json:"limits"`
 }
 
 func summarizeMemory(records timeline.Records, capability json.RawMessage) memoryReport {
@@ -116,6 +120,7 @@ func summarizeMemory(records timeline.Records, capability json.RawMessage) memor
 		DeviceSupport:      memoryEvidence{"unprobed", "capture analysis does not probe device/backend unified-memory profiling support"},
 		Limits:             []string{"API activity records contain no allocation pointer, byte count, result code, or lifetime; calls are not successful allocations", "runtime and driver calls may describe the same operation and are counted separately", "transfer timestamps retain the journal clock; no host clock conversion or operation-window correlation is inferred", "allocation or transfer evidence does not establish current residency"},
 	}
+	addNativeMemoryEvidence(&r, records, capability)
 	for _, a := range records.Activities {
 		if a.Subtype != "memcpy" {
 			continue
@@ -153,4 +158,82 @@ func summarizeMemory(records timeline.Records, capability json.RawMessage) memor
 		r.AllocationEvidence = memoryEvidence{"observed", "allocation API call records only; arguments, success and residency are unavailable"}
 	}
 	return r
+}
+
+type memoryCounterObservation struct {
+	Record           timeline.UnifiedMemory `json:"record"`
+	ValueMeaning     string                 `json:"value_meaning"`
+	OperationWindows []int                  `json:"overlapping_application_ranges"`
+	Correlation      string                 `json:"operation_correlation"`
+}
+
+func memoryCounterMeaning(kind uint32) string {
+	switch kind {
+	case 1, 2, 8:
+		return "transferred bytes"
+	case 3:
+		return "faulting instruction program counter; not a fault count"
+	case 4:
+		return "GPU page-fault groups for the page; not individual page count"
+	case 5, 7:
+		return "affected memory-region bytes"
+	default:
+		return "native value retained without a supported quantitative interpretation"
+	}
+}
+func addNativeMemoryEvidence(report *memoryReport, records timeline.Records, capability json.RawMessage) {
+	report.UnifiedMemory = []memoryCounterObservation{}
+	report.MemoryPolicies = records.MemoryPolicies
+	report.Placement = memoryEvidence{"unavailable", "no retained range-attribute/advice/prefetch observations; allocation API records are not placement"}
+	if len(records.MemoryPolicies) > 0 {
+		report.Placement = memoryEvidence{"observed", "native advice/prefetch requests and successful scalar query outputs; preferred/last-prefetch locations are not current residency"}
+	}
+	var native struct {
+		UM *struct {
+			State   string `json:"state"`
+			Results []int  `json:"native_configuration_results"`
+		} `json:"unified_memory"`
+		ClocksUnified bool `json:"clocks_unified"`
+	}
+	if json.Unmarshal(capability, &native) == nil && native.UM != nil {
+		report.DeviceSupport = memoryEvidence{"native_configuration_receipt", "process-wide UM configuration state: " + native.UM.State + "; native configuration results are retained in collector_capability; this is separate from device allocation attributes"}
+		if native.UM.State == "collected" || native.UM.State == "collected_partial" {
+			report.Migration = memoryEvidence{"unavailable", "collector enabled supported UM counters but no retained migration records; no zero-migration claim"}
+			report.PageFaults = memoryEvidence{"unavailable", "collector enabled supported UM counters but no retained fault records; no zero-fault claim"}
+		} else {
+			report.Migration = memoryEvidence{"unsupported", "UM collector state: " + native.UM.State}
+			report.PageFaults = report.Migration
+		}
+	}
+	for _, event := range records.UnifiedMemory {
+		observation := memoryCounterObservation{Record: event, ValueMeaning: memoryCounterMeaning(event.CounterKind), OperationWindows: []int{}, Correlation: "unsupported: native UM records have no submission correlation and their streamId is invalid"}
+		if native.ClocksUnified && event.Valid {
+			for i, r := range records.Ranges {
+				metadata, err := marker.ParseRange(r.Name)
+				if err != nil || metadata.Operation == "" || r.Start < 0 || r.End < r.Start {
+					continue
+				}
+				overlap := r.Start < event.End && event.Start < r.End
+				if !event.EndValid || event.End == event.Start {
+					overlap = r.Start <= event.Start && event.Start < r.End
+				}
+				if r.Journal == event.Journal && r.Process != 0 && r.Process == event.Process && overlap {
+					observation.OperationWindows = append(observation.OperationWindows, i)
+				}
+			}
+			if len(observation.OperationWindows) > 0 {
+				observation.Correlation = "timestamp overlap in one process/journal only; not submission identity or causation"
+			}
+		}
+		report.UnifiedMemory = append(report.UnifiedMemory, observation)
+		if event.Valid {
+			switch event.CounterKind {
+			case 1, 2, 8:
+				report.Migration = memoryEvidence{"observed", "retained native UM transfer records; migration does not establish current residency"}
+			case 3, 4:
+				report.PageFaults = memoryEvidence{"observed", "retained native fault-service records; CPU values are instruction addresses and GPU values count fault groups"}
+			}
+		}
+	}
+	report.Limits = append(report.Limits, "UM fault/migration service intervals are excluded from GPU occupancy and kernel duration sums", "UM streamId is invalid; overlapping application ranges are context only and require a unified recorded clock", "range advice and last-prefetch queries report policies/history, not physical page residency")
 }
