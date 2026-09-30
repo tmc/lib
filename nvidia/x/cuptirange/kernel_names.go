@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/driver"
@@ -34,8 +35,11 @@ type kernelNames struct {
 }
 
 type kernelLaunch struct {
-	API, Symbol string
-	Graph       driver.GraphExec
+	API, Symbol       string
+	Grid, Block       [3]uint32
+	SharedMemory      uint32
+	GeometryAvailable bool
+	Graph             driver.GraphExec
 }
 
 func newKernelNames(context driver.Context, limit uint) (*kernelNames, error) {
@@ -136,7 +140,11 @@ func (k *kernelNames) callback(evt *cupticallback.Event) {
 		k.failure = errors.New("cuptirange: kernel launch identity capacity exceeded")
 		return
 	}
-	k.current = append(k.current, kernelLaunch{API: a.FunctionName, Symbol: a.SymbolName})
+	launch := kernelLaunch{API: a.FunctionName, Symbol: a.SymbolName}
+	if cupti.DriverTraceCBID(evt.ID) == cupti.DriverCBIDCuLaunchKernel || cupti.DriverTraceCBID(evt.ID) == cupti.DriverCBIDCuLaunchKernelPtsz {
+		launch.Grid, launch.Block, launch.SharedMemory, launch.GeometryAvailable = directLaunchGeometry(a.FunctionParams)
+	}
+	k.current = append(k.current, launch)
 }
 
 // checkCount also protects captures that do not request enriched range records.
@@ -174,6 +182,36 @@ func (k *kernelNames) resolve(records []RangeInfo) error {
 		seen[ordinal] = true
 		records[i].NativeName = records[i].Name
 		records[i].Name = k.expected[ordinal].Symbol
+		records[i].Grid = k.expected[ordinal].Grid
+		records[i].Block = k.expected[ordinal].Block
+		records[i].SharedMemory = k.expected[ordinal].SharedMemory
+		records[i].GeometryAvailable = k.expected[ordinal].GeometryAvailable
 	}
 	return nil
+}
+
+// launchKernelParams follows cuLaunchKernel_params in CUDA generated_cuda_meta.h.
+// Read only while the driver callback owns this parameter block. Extended,
+// cooperative and graph launches have other layouts and remain unavailable.
+type launchKernelParams struct {
+	Function               uintptr
+	GridX, GridY, GridZ    uint32
+	BlockX, BlockY, BlockZ uint32
+	SharedMemory           uint32
+	Stream                 uintptr
+	Params, Extra          uintptr
+}
+
+func directLaunchGeometry(params unsafe.Pointer) (grid, block [3]uint32, shared uint32, available bool) {
+	if params == nil || unsafe.Sizeof(uintptr(0)) != 8 {
+		return
+	}
+	p := (*launchKernelParams)(params)
+	grid, block, shared = [3]uint32{p.GridX, p.GridY, p.GridZ}, [3]uint32{p.BlockX, p.BlockY, p.BlockZ}, p.SharedMemory
+	for i := range grid {
+		if grid[i] == 0 || block[i] == 0 {
+			return grid, block, shared, false
+		}
+	}
+	return grid, block, shared, true
 }

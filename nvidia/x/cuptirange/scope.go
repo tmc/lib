@@ -64,6 +64,11 @@ type Replay struct {
 // IDs contain occurrence numbers. Kernel names come from observed launches or
 // retained native graph proofs.
 type RangeInfo struct {
+	// GeometryAvailable reports native cuLaunchKernel callback geometry.
+	// Other launch APIs remain unavailable, including graph expansion.
+	Grid, Block              [3]uint32
+	SharedMemory             uint32
+	GeometryAvailable        bool
 	Index                    uint
 	ID, ParentID, Name, Kind string
 	NativeName               string // Native AutoRange launch ordinal; empty for user ranges.
