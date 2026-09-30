@@ -1,0 +1,28 @@
+metric_spec {
+ id: "cudaprof_recorded_union_ns_v1"
+ dimensions: "capture_sha256"
+ dimensions: "arm"
+ dimensions: "journal"
+ dimensions: "device"
+ dimensions: "clock"
+ value: "recorded_union_ns"
+ unit: TIME_NANOS
+ query {
+  table { table_name: "cudaprof_device_totals_v1" }
+  referenced_modules: "cudaprof.views"
+ }
+}
+metric_spec {
+ id: "cudaprof_raw_kernel_sum_ns_v1"
+ dimensions: "capture_sha256"
+ dimensions: "arm"
+ dimensions: "journal"
+ dimensions: "device"
+ dimensions: "raw_symbol"
+ value: "sum_ns"
+ unit: TIME_NANOS
+ query {
+  table { table_name: "cudaprof_kernel_shapes_v1" }
+  referenced_modules: "cudaprof.views"
+ }
+}
