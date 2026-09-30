@@ -309,7 +309,7 @@ func compactCaptureStatus(result captureResult) captureStatus {
 		// on, on every capture, including one that used no device 0. A graph
 		// trace is not in this set -- it carries a real device id. Their
 		// subtypes are still counted below.
-		if activity.Subtype == "marker" || activity.Subtype == "external_correlation" || activity.Subtype == "overhead" || activity.Subtype == "sync" {
+		if activity.Subtype == "unified_memory" || activity.Subtype == "marker" || activity.Subtype == "external_correlation" || activity.Subtype == "overhead" || activity.Subtype == "sync" {
 			kinds[activity.Subtype]++
 			continue
 		}
@@ -1036,6 +1036,8 @@ Options:
   --host-sample-hz <n>          sample native host thread states and CPU ticks at n Hz (1-1000);
                                 0 disables inherited host sampling. This records no stacks;
                                 correlate host stacks separately with perf
+  --unified-memory             opt in to supported UM migration/fault tracing; native refusals retained
+  --memory-policy              retain managed-range query/advice/prefetch request callbacks
   --memsets                     collect memset activity. Off by default: with it on,
                                 cuGraphLaunch has faulted inside libcuda for a CUDA-graph
                                 MLX workload on GB10. Without it a target's memsets are
