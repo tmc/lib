@@ -75,7 +75,7 @@ package nvidia
 // result against the last nvidia/v* tag with apidiff -m -incompatible and read
 // what moved before committing.
 
-// Eject the pinned local ARM64 registrar before generating its NCCL callers.
+// Eject the pinned FFI registrar before generating its NCCL callers.
 // FFI_SRC names a tmc/ffi clone holding the revision in scripts/ffi.sh.
 //go:generate sh scripts/ffi.sh
 
