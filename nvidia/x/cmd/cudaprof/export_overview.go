@@ -61,6 +61,12 @@ func writeOverviewTraceAt(out io.Writer, report overview.Report, origin, base, s
 			return err
 		}
 		args := []perfetto.DebugAnnotation{perfetto.NewStringAnnotation("overview_id", n.ID), perfetto.NewStringAnnotation("provenance", n.Provenance), perfetto.NewStringAnnotation("raw_references", string(refs)), perfetto.NewIntAnnotation("summed_kernel_ns", n.Metrics.KernelSumNanos), perfetto.NewIntAnnotation("kernel_count", int64(n.Metrics.KernelCount))}
+		// Group provenance is written once. Repeating all group references on
+		// every union interval makes large captures grow quadratically.
+		if err := w.WriteFlowInstant(id, shift, "summary group evidence", "cudaprof_overview", args, nil, nil); err != nil {
+			return err
+		}
+		args = []perfetto.DebugAnnotation{perfetto.NewStringAnnotation("overview_id", n.ID)}
 		intervals := func(label string, values []overview.Interval) error {
 			tracks := map[string]uint64{}
 			for _, v := range values {
