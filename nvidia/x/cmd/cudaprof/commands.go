@@ -92,6 +92,9 @@ To tabulate the cuBLASLt calls of a capture made with --gemms, or join two by sh
 To score an ABBA timing campaign (blocks of C1,G1,G2,C2 captures) against its noise and sign gates:
   cudaprof qualify (-warmup-until=RE | -warmup-ms=N) [-noise-multiplier=3] [-noise-floor-ms=1] [-violations=FILE [-violation-margin=2s] [-min-blocks=N]] [-ops ops.txt] [-stages stages.txt] [-max-records=N] [-json] manifest.txt
 
+To inspect observed tokens and operation hierarchy:
+  cudaprof overview [-html overview.html] [-iteration-marker RE] capture.pprof
+
 To print the build of this cudaprof:
   cudaprof version
 
@@ -122,6 +125,7 @@ type command struct {
 // commands returns the subcommands that run dispatches.
 func commands() []command {
 	return []command{
+		{name: "overview", run: func(args []string) error { return runOverviewCommand(args[1:]) }},
 		{name: "capture", run: func(args []string) error { return runCaptureCommand(args[1:]) }},
 		{name: "inspect", usage: inspectUsage, run: func(args []string) error { return runInspectCommand(args[1:]) }},
 		{name: "export-compare", run: func(args []string) error { return runExportCompareCommand(args[1:]) }},
