@@ -263,7 +263,9 @@ refused. Per block the pairs are G1-C1 and G2-C2, and:
   noise gate   passes when |effect| > -noise-multiplier x noise floor
   sign gate    passes when every pair has the same nonzero sign
 
-MAD is the median absolute deviation about the median.
+MAD is the median absolute deviation about the median. The report also states
+retained block and run counts and the observed range and MAD of block means.
+This spread is descriptive, not a confidence interval; launches are not samples.
 
 -ops and -stages add a breakdown of the pairs by op and by stage, read as
 "cudaprof compare" reads them, with each capture measured over its window
@@ -568,11 +570,18 @@ type qualifyDiffs struct {
 }
 
 type qualifyStats struct {
-	MedianMS  float64 `json:"median_block_mean_ms"`
-	PairMinMS float64 `json:"pair_min_ms"`
-	PairMaxMS float64 `json:"pair_max_ms"`
-	MADCMS    float64 `json:"mad_c_ms"`
-	MADGMS    float64 `json:"mad_g_ms"`
+	// A sample is one four-run interleaved block, never an individual launch.
+	Blocks int `json:"block_samples"`
+	Runs   int `json:"run_samples"`
+	// These describe observed block spread; they are not confidence bounds.
+	BlockMinMS float64 `json:"block_mean_min_ms"`
+	BlockMaxMS float64 `json:"block_mean_max_ms"`
+	BlockMADMS float64 `json:"mad_block_mean_ms"`
+	MedianMS   float64 `json:"median_block_mean_ms"`
+	PairMinMS  float64 `json:"pair_min_ms"`
+	PairMaxMS  float64 `json:"pair_max_ms"`
+	MADCMS     float64 `json:"mad_c_ms"`
+	MADGMS     float64 `json:"mad_g_ms"`
 }
 
 // qualify computes the verdict. entries holds whole blocks of four in run
@@ -636,11 +645,16 @@ func campaignStats(blocks []qualifyDiffs) qualifyStats {
 		diffG = append(diffG, b.DiffGMS)
 	}
 	return qualifyStats{
-		MedianMS:  median(means),
-		PairMinMS: slices.Min(pairs),
-		PairMaxMS: slices.Max(pairs),
-		MADCMS:    mad(diffC),
-		MADGMS:    mad(diffG),
+		Blocks:     len(blocks),
+		Runs:       len(blocks) * len(qualifyArms),
+		BlockMinMS: slices.Min(means),
+		BlockMaxMS: slices.Max(means),
+		BlockMADMS: mad(means),
+		MedianMS:   median(means),
+		PairMinMS:  slices.Min(pairs),
+		PairMaxMS:  slices.Max(pairs),
+		MADCMS:     mad(diffC),
+		MADGMS:     mad(diffG),
 	}
 }
 
@@ -697,6 +711,8 @@ func (q *Qualification) write(w io.Writer) {
 	}
 	s := q.Steady
 	fmt.Fprintf(w, "\nmedian of block means  %.3f ms\n", s.MedianMS)
+	fmt.Fprintf(w, "samples                %d blocks, %d runs; launches are not samples\n", s.Blocks, s.Runs)
+	fmt.Fprintf(w, "block spread           %.3f .. %.3f ms, MAD %.3f ms (descriptive, not confidence bounds)\n", s.BlockMinMS, s.BlockMaxMS, s.BlockMADMS)
 	fmt.Fprintf(w, "pairs                  %.3f .. %.3f ms\n", s.PairMinMS, s.PairMaxMS)
 	fmt.Fprintf(w, "MAD within arm         C %.3f ms, G %.3f ms\n", s.MADCMS, s.MADGMS)
 	fmt.Fprintf(w, "noise floor            %.3f ms\n", q.NoiseFloorMS)
