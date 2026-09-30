@@ -12,6 +12,9 @@ import (
 
 // Options control an analysis.
 type Options struct {
+	// APIDomain selects driver or runtime calls for timing context. Empty means driver.
+	APIDomain string
+
 	// WarmupMS excludes from the steady state the activities starting within
 	// this many milliseconds of the first.
 	WarmupMS float64
@@ -82,16 +85,32 @@ func Analyze(cap *cudacapture.Capture, opts Options) (*Report, error) {
 		}
 		return a.End < b.End
 	})
+	domain := opts.APIDomain
+	if domain == "" {
+		domain = "driver"
+	}
+	if domain != "driver" && domain != "runtime" {
+		return nil, fmt.Errorf("unknown API domain %q", domain)
+	}
+	apis := timingAPIs(records, domain)
 	matched := 0
 	for _, a := range records.Activities {
-		if _, ok := records.APIs[a.Correlation]; ok {
+		if _, ok := apis(a); ok {
 			matched++
+		}
+	}
+	strict := 0
+	for _, c := range timeline.Correlations(records, domain) {
+		if c.APIStatus == "matched" {
+			strict++
 		}
 	}
 	report := &Report{
 		Journals:            records.Journals,
 		Activities:          len(records.Activities),
-		APIRecords:          len(records.APIs),
+		APIRecords:          len(records.Calls),
+		APIDomain:           domain,
+		CorrelationMeaning:  "unique process-generation and API-domain identity; timing context only, not graph provenance",
 		WarmupMS:            opts.WarmupMS,
 		WarmupUntil:         opts.WarmupUntil,
 		OpaqueGraphReplays:  graphsAreOpaque,
@@ -99,7 +118,8 @@ func Analyze(cap *cudacapture.Capture, opts Options) (*Report, error) {
 		UnresolvedSyncNanos: records.UnresolvedNanos,
 	}
 	if len(records.Activities) != 0 {
-		report.Correlated = float64(matched) / float64(len(records.Activities)) * 100
+		report.Correlated = float64(strict) / float64(len(records.Activities)) * 100
+		report.TimingAssociated = float64(matched) / float64(len(records.Activities)) * 100
 	}
 	report.Kernels, report.UnnamedKernelRecords = kernelCensus(records.Activities)
 	byDevice := make(map[uint32][]timeline.Activity)
@@ -130,9 +150,9 @@ func Analyze(cap *cudacapture.Capture, opts Options) (*Report, error) {
 			graph:    graphSpansForDevice(records.Graphs, d),
 		}
 		steady := Steady(acts, warmupNanos, warmupUntil)
-		entry := Device{Device: d, Overall: computeStats(acts, records.APIs, "overall", spans), SteadyActivities: len(steady)}
+		entry := Device{Device: d, Overall: computeStats(acts, apis, "overall", spans), SteadyActivities: len(steady)}
 		if len(steady) != 0 && len(steady) != len(acts) {
-			entry.SteadyState = computeStats(steady, records.APIs, "steady-state", spans)
+			entry.SteadyState = computeStats(steady, apis, "steady-state", spans)
 		}
 		report.Devices = append(report.Devices, entry)
 	}
@@ -328,7 +348,7 @@ func overlayIdle(gaps, spans []timeline.Span) (int64, int) {
 	return total, touched
 }
 
-func computeStats(acts []timeline.Activity, apis map[uint32]timeline.Span, label string, spans gapSpans) *Stats {
+func computeStats(acts []timeline.Activity, apis func(timeline.Activity) (timeline.Span, bool), label string, spans gapSpans) *Stats {
 	if len(acts) == 0 {
 		return nil
 	}
@@ -355,7 +375,7 @@ func computeStats(acts []timeline.Activity, apis map[uint32]timeline.Span, label
 		}
 		gaps = append(gaps, gap)
 		idle = append(idle, timeline.Span{Start: prevEnd, End: nextStart})
-		api, ok := apis[merged[i+1].first.Correlation]
+		api, ok := apis(merged[i+1].first)
 		if !ok {
 			classGaps[ClassUnmatched] = append(classGaps[ClassUnmatched], gap)
 			stats.Attribution.UnattributedNanos += gap
@@ -460,4 +480,32 @@ func max64(a, b int64) int64 {
 		return a
 	}
 	return b
+}
+
+// timingAPIs retains only unique calls in one domain and process generation.
+// Graph node correlation supplies timing context only: it cannot establish
+// whether the call constructed or replayed the graph.
+func timingAPIs(records timeline.Records, domain string) func(timeline.Activity) (timeline.Span, bool) {
+	type key struct {
+		journal     string
+		correlation uint32
+	}
+	calls := make(map[key]timeline.Span)
+	counts := make(map[key]int)
+	for _, c := range records.Calls {
+		if c.Domain != domain || c.Journal == "" || c.Correlation == 0 {
+			continue
+		}
+		k := key{c.Journal, c.Correlation}
+		counts[k]++
+		calls[k] = timeline.Span{Start: c.Start, End: c.End}
+	}
+	return func(a timeline.Activity) (timeline.Span, bool) {
+		if domain == "runtime" && (a.Subtype == "memcpy" || a.Subtype == "memset") {
+			return timeline.Span{}, false
+		}
+		k := key{a.Journal, a.Correlation}
+		c := calls[k]
+		return c, counts[k] == 1 && c.End >= c.Start
+	}
 }

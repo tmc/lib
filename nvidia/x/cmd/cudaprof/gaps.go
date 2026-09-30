@@ -21,6 +21,7 @@ import (
 
 // gapOptions are the parsed arguments of the gaps command.
 type gapOptions struct {
+	apiDomain    string
 	capturePath  string
 	diffBase     string
 	warmupMS     float64
@@ -127,6 +128,11 @@ func parseGapsArgs(rawArgs []string) (gapOptions, error) {
 			if opts.diffBase == "" {
 				return gapOptions{}, fmt.Errorf("invalid diff base: %s", arg)
 			}
+		case strings.HasPrefix(arg, "--api-domain=") || strings.HasPrefix(arg, "-api-domain="):
+			opts.apiDomain = arg[strings.IndexByte(arg, '=')+1:]
+			if opts.apiDomain != "driver" && opts.apiDomain != "runtime" {
+				return gapOptions{}, fmt.Errorf("invalid API domain: %s", arg)
+			}
 		case strings.HasPrefix(arg, "--max-records=") || strings.HasPrefix(arg, "-max-records="):
 			v, err := strconv.ParseInt(arg[strings.IndexByte(arg, '=')+1:], 10, 64)
 			if err != nil || v <= 0 {
@@ -162,6 +168,9 @@ capture, merges kernel, memcpy, and memset intervals across streams per device,
 and reports recorded occupancy, inter-activity gaps, and host API timing.
 Gaps are device-wide absence of recorded activity, with unknown causes.
 Synchronization is an overlapping host interval, not device occupancy.
+API timing joins use unique process-generation identities in --api-domain
+(driver by default, or runtime). Graph timing does not establish provenance.
+correlation_match_pct uses the strict correlate command rules.
 The window excludes capture edges outside the first and last device activity.
 
 The analysis needs the per-record journal. pprof samples are aggregates and
@@ -306,6 +315,7 @@ func analyzeGaps(cap *cudacapture.Capture, opts gapOptions) (*GapReport, error) 
 // analysis returns the options of the analysis itself.
 func (o gapOptions) analysis() gaps.Options {
 	return gaps.Options{
+		APIDomain:    o.apiDomain,
 		WarmupMS:     o.warmupMS,
 		WarmupUntil:  o.warmupUntil,
 		MaxRecords:   o.maxRecords,
@@ -335,7 +345,8 @@ func (r *GapReport) text() string {
 		}
 		b.WriteString("\n")
 	}
-	fmt.Fprintf(&b, "  activities %d  api records %d  correlated %.1f%%\n", r.Activities, r.APIRecords, r.Correlated)
+	fmt.Fprintf(&b, "  activities %d  api records %d  strict API links %.1f%%\n", r.Activities, r.APIRecords, r.Correlated)
+	fmt.Fprintf(&b, "  %s API timing association %.1f%% (graph timing is not replay provenance)\n", r.APIDomain, r.TimingAssociated)
 	if r.UnresolvedSyncs > 0 {
 		fmt.Fprintf(&b, "  %d synchronization record(s) totalling %s could not be placed on a device: no record named their context\n", r.UnresolvedSyncs, millis(r.UnresolvedSyncNanos))
 	}
