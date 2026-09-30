@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -154,6 +155,7 @@ func TestSynthesizedFoldPlanAndArgumentLayout(t *testing.T) {
 }
 
 func TestFloat32LiteralRoundTripsEveryFiniteBoundary(t *testing.T) {
+	cudaFloatLiteral := regexp.MustCompile(`^-?(?:(?:[0-9]+\.[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?|[0-9]+[eE][+-]?[0-9]+)f$`)
 	values := []float32{
 		0,
 		math.Float32frombits(0x80000000),
@@ -168,6 +170,9 @@ func TestFloat32LiteralRoundTripsEveryFiniteBoundary(t *testing.T) {
 		if !strings.HasSuffix(literal, "f") || strings.HasPrefix(literal, "__") {
 			t.Errorf("finite %08x emitted non-literal %q", math.Float32bits(value), literal)
 			continue
+		}
+		if !cudaFloatLiteral.MatchString(literal) {
+			t.Errorf("finite %08x emitted invalid CUDA C++ float literal %q", math.Float32bits(value), literal)
 		}
 		parsed, err := strconv.ParseFloat(strings.TrimSuffix(literal, "f"), 32)
 		if err != nil {
@@ -188,6 +193,22 @@ func TestFloat32LiteralRoundTripsEveryFiniteBoundary(t *testing.T) {
 		if got := float32Literal(tc.value); got != tc.want {
 			t.Errorf("infinity %08x emitted %q, want %q", math.Float32bits(tc.value), got, tc.want)
 		}
+	}
+}
+
+func TestSynthesizeVectorConstantKeepsIntegerFloatSyntax(t *testing.T) {
+	g := cudair.NewGraph()
+	values := []float32{1, 0, math.Float32frombits(0x80000000)}
+	out := g.AddConstant("integer_vector", []int{3}, cudair.Float32, values)
+	if err := g.SetOutputs(out); err != nil {
+		t.Fatal(err)
+	}
+	source, _, err := synthesizeGraphKernel(g)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(source, "const float constant_integer_vector[] = {1.0f, 0.0f, -0.0f};") {
+		t.Fatalf("integer-valued vector elements are not valid floating literals:\n%s", source)
 	}
 }
 
@@ -590,28 +611,36 @@ func TestDeviceMismatchDoesNotInventFoldZero(t *testing.T) {
 	if triage.DiffIndex != -1 {
 		t.Fatalf("unknown device mismatch DiffIndex = %d, want -1", triage.DiffIndex)
 	}
+	if got := triage.String(); !strings.Contains(got, "first differing fold is unknown") || !strings.Contains(got, "DiffIndex=-1") {
+		t.Fatalf("unknown device mismatch text omits DiffIndex=-1 explanation: %s", got)
+	}
 }
 
 func TestDevicePrefixTriageFindsFirstDifferingFold(t *testing.T) {
-	a := NewAccumulator(WithRecording(true))
-	for _, v := range []float32{1, 2, 3, 4, 5, 6, 7, 8} {
-		a.FoldFloat32Named("node", v)
-	}
-	events := a.Events()
-	localized, err := localizeDeviceMismatch(events, func(prefix int) (deviceTrace, error) {
-		if prefix <= 4 {
-			return deviceTrace{hash: events[prefix-1].Hash, lastBits: uint32(events[prefix-1].Bits)}, nil
-		}
-		return deviceTrace{hash: events[prefix-1].Hash ^ 1, lastBits: math.Float32bits(99)}, nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if localized.DiffIndex != 4 || localized.NodeName != "node" || localized.ValueB != 99 {
-		t.Fatalf("triage = %#v, want first difference at fold 4 with device value 99", localized)
-	}
-	if !localized.ULPKnown || localized.NumericalPolicy != "bit-exact" || localized.Admissible || !strings.Contains(localized.String(), "ULP distance:") {
-		t.Fatalf("localized numerical interpretation = %#v", localized)
+	for _, distance := range []uint32{1, 7} {
+		t.Run(fmt.Sprintf("%d ULP", distance), func(t *testing.T) {
+			a := NewAccumulator(WithRecording(true))
+			for _, v := range []float32{1, 2, 3, 4, 5, 6, 7, 8} {
+				a.FoldFloat32Named("node", v)
+			}
+			events := a.Events()
+			deviceBits := math.Float32bits(5) + distance
+			localized, err := localizeDeviceMismatch(events, func(prefix int) (deviceTrace, error) {
+				if prefix <= 4 {
+					return deviceTrace{hash: events[prefix-1].Hash, lastBits: uint32(events[prefix-1].Bits)}, nil
+				}
+				return deviceTrace{hash: events[prefix-1].Hash ^ 1, lastBits: deviceBits}, nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if localized.DiffIndex != 4 || localized.NodeName != "node" || localized.ValueB != float64(math.Float32frombits(deviceBits)) {
+				t.Fatalf("triage = %#v, want first difference at fold 4", localized)
+			}
+			if !localized.ULPKnown || localized.ULPDistance != uint64(distance) || localized.NumericalPolicy != "bit-exact" || localized.Admissible || !strings.Contains(localized.String(), fmt.Sprintf("ULP distance: %d,", distance)) || !strings.Contains(localized.String(), "admissible: false") {
+				t.Fatalf("localized numerical interpretation = %#v", localized)
+			}
+		})
 	}
 }
 

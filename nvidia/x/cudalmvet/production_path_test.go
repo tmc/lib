@@ -157,13 +157,17 @@ func TestCompareAndPerturbationsRefuseNaNTracesBeforeCompile(t *testing.T) {
 			}
 
 			report, err := RunPerturbations(context.Background(), tc.graph,
-				[]Perturbation{{Name: "one", JITOptLevel: 4}, {Name: "two", JITOptLevel: 2}},
+				[]Perturbation{
+					{Name: "one", JITOptLevel: 4},
+					{Name: "two", JITOptLevel: 2},
+					{Name: "invalid-level", JITOptLevel: 0},
+				},
 				WithInputs(tc.inputs), withCompileKernel(compile), withTraceModuleLoader(load))
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(report.Results) != 2 {
-				t.Fatalf("rows = %d, want 2", len(report.Results))
+			if len(report.Results) != 3 {
+				t.Fatalf("rows = %d, want 3", len(report.Results))
 			}
 			for _, row := range report.Results {
 				if row.Status != StatusUnmeasured || row.Stage != StagePolicy || !errors.Is(row.PolicyErr, ErrNaNTraceUnsupported) || row.CompileErr != nil || row.RunErr != nil {
@@ -174,6 +178,38 @@ func TestCompareAndPerturbationsRefuseNaNTracesBeforeCompile(t *testing.T) {
 				t.Fatalf("RunPerturbations reached compile/load: %d/%d", compileCalls, loadCalls)
 			}
 		})
+	}
+}
+
+func TestRunPerturbationsRefusesUnsupportedJITLevelsBeforeCompile(t *testing.T) {
+	g, inputs := buildTestGraph()
+	compileCalls, loadCalls := 0, 0
+	report, err := RunPerturbations(context.Background(), g, []Perturbation{
+		{Name: "below-range", JITOptLevel: 0},
+		{Name: "above-range", JITOptLevel: 5},
+	}, WithInputs(inputs),
+		withCompileKernel(func(string, []nvrtcx.Option, cudakernel.JITOptions) (*nvrtcx.CompiledModule, error) {
+			compileCalls++
+			return nil, errors.New("compiler must not run")
+		}),
+		withTraceModuleLoader(func(*nvrtcx.CompiledModule, *cuda.Device) (traceModule, error) {
+			loadCalls++
+			return nil, errors.New("loader must not run")
+		}),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Results) != 2 {
+		t.Fatalf("rows = %d, want 2", len(report.Results))
+	}
+	for i, row := range report.Results {
+		if row.Status != StatusUnmeasured || row.CompileErr == nil || row.ArtifactErr != nil {
+			t.Errorf("row %d = %#v, want an early compile refusal", i, row)
+		}
+	}
+	if compileCalls != 0 || loadCalls != 0 {
+		t.Fatalf("unsupported JIT levels reached compile/load: %d/%d", compileCalls, loadCalls)
 	}
 }
 
@@ -292,6 +328,7 @@ func TestRunPerturbationsProductionPathOptionsAndOutcomes(t *testing.T) {
 		{Name: "vectorized-opt3", ExtraDeviceVectorize: true, JITOptLevel: 3},
 		{Name: "bad-artifact-opt3", ExtraDeviceVectorize: true, JITOptLevel: 3},
 		{Name: "load-failure-opt2", JITOptLevel: 2},
+		{Name: "mismatch-opt1", JITOptLevel: 1},
 	}
 	var flagsByCall [][]string
 	var jitByCall []cudakernel.JITOptions
@@ -313,7 +350,11 @@ func TestRunPerturbationsProductionPathOptionsAndOutcomes(t *testing.T) {
 		if loadCalls == 2 {
 			return nil, errors.New("injected module load failure")
 		}
-		return &fakeTraceModule{hash: ref.Hash(), stateHash: FNVOffsetBasis, lastBits: 0x3f800000}, nil
+		hash := ref.Hash()
+		if loadCalls == 3 {
+			hash ^= 1
+		}
+		return &fakeTraceModule{hash: hash, stateHash: FNVOffsetBasis, lastBits: 0x3f800000}, nil
 	}
 
 	compileIndex := 0
@@ -333,10 +374,10 @@ func TestRunPerturbationsProductionPathOptionsAndOutcomes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(flagsByCall) != 3 || len(jitByCall) != 3 {
-		t.Fatalf("compile calls = %d, JIT observations = %d, want 3 each", len(flagsByCall), len(jitByCall))
+	if len(flagsByCall) != 4 || len(jitByCall) != 4 {
+		t.Fatalf("compile calls = %d, JIT observations = %d, want 4 each", len(flagsByCall), len(jitByCall))
 	}
-	for i, want := range []uint32{3, 3, 2} {
+	for i, want := range []uint32{3, 3, 2, 1} {
 		if jitByCall[i].OptLevel != want {
 			t.Errorf("compile %d JIT opt level = %d, want %d", i, jitByCall[i].OptLevel, want)
 		}
@@ -349,8 +390,10 @@ func TestRunPerturbationsProductionPathOptionsAndOutcomes(t *testing.T) {
 			t.Errorf("compile %d flags omit vectorization: %v", i, flagsByCall[i])
 		}
 	}
-	if containsString(flagsByCall[2], "--extra-device-vectorization") {
-		t.Errorf("compile 2 unexpectedly has vectorization flag: %v", flagsByCall[2])
+	for _, i := range []int{2, 3} {
+		if containsString(flagsByCall[i], "--extra-device-vectorization") {
+			t.Errorf("compile %d unexpectedly has vectorization flag: %v", i, flagsByCall[i])
+		}
 	}
 	if report.Results[0].Status != StatusAgreed || report.Results[0].CompileErr != nil || report.Results[0].RunErr != nil {
 		t.Errorf("successful production-path row = %#v", report.Results[0])
@@ -359,9 +402,16 @@ func TestRunPerturbationsProductionPathOptionsAndOutcomes(t *testing.T) {
 	if bad.Status != StatusUnmeasured || bad.ArtifactErr == nil || bad.CompileErr != nil || bad.RunErr != nil {
 		t.Errorf("artifact mismatch row = %#v", bad)
 	}
+	if got := report.String(); !strings.Contains(got, "artifact mismatch:") || !strings.Contains(got, ErrPerturbationArtifactMismatch.Error()) {
+		t.Errorf("report omits artifact mismatch detail:\n%s", got)
+	}
 	loadFailure := report.Results[2]
-	if loadFailure.Status != StatusUnmeasured || loadFailure.RunErr == nil || loadFailure.CompileErr != nil || loadFailure.ArtifactErr != nil {
+	if loadFailure.Status != StatusUnmeasured || loadFailure.Stage != StageLoad || loadFailure.RunErr == nil || loadFailure.CompileErr != nil || loadFailure.ArtifactErr != nil {
 		t.Errorf("load failure row = %#v", loadFailure)
+	}
+	mismatch := report.Results[3]
+	if mismatch.Status != StatusDisagreed || mismatch.Triage == nil || mismatch.Stage != StageNone {
+		t.Errorf("localized disagreement row lost status, triage, or stage: %#v", mismatch)
 	}
 }
 
@@ -480,6 +530,63 @@ func TestPerturbationReportMovedUsesBaselineDeviceHash(t *testing.T) {
 		if (strings.Contains(line, "moved ") || strings.Contains(line, "cpu-agreement ")) && !strings.Contains(line, "HASH MOVED") {
 			t.Fatalf("different baseline-device hash row is not marked MOVED:\n%s", got)
 		}
+	}
+}
+
+func TestRunPerturbationsSelectsNamedBaselineForMovedRows(t *testing.T) {
+	g, inputs := buildTestGraph()
+	ref, err := EvaluateCPUGraph(g, inputs, PolicyRawBits, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name     string
+		names    []string
+		hashes   []uint64
+		baseline int
+		moved    map[string]bool
+	}{
+		{"shared hash", []string{"first-moved", "baseline", "later-same", "last-moved"}, []uint64{ref.Hash() ^ 2, ref.Hash() ^ 1, ref.Hash() ^ 1, ref.Hash() ^ 3}, 1, map[string]bool{"first-moved": true, "last-moved": true}},
+		{"distinct hashes", []string{"first", "second", "third", "baseline", "fifth"}, []uint64{ref.Hash() ^ 1, ref.Hash() ^ 2, ref.Hash() ^ 3, ref.Hash() ^ 4, ref.Hash() ^ 5}, 3, map[string]bool{"first": true, "second": true, "third": true, "fifth": true}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hashes := tt.hashes
+			compileIndex, loadIndex := 0, 0
+			compile := func(_ string, _ []nvrtcx.Option, jit cudakernel.JITOptions) (*nvrtcx.CompiledModule, error) {
+				compileIndex++
+				return newFakeCompiled(jit), nil
+			}
+			load := func(*nvrtcx.CompiledModule, *cuda.Device) (traceModule, error) {
+				hash := hashes[loadIndex]
+				loadIndex++
+				return &fakeTraceModule{hash: hash, stateHash: FNVOffsetBasis, lastBits: 0x3f800000}, nil
+			}
+			var perturbations []Perturbation
+			for i, name := range tt.names {
+				perturbations = append(perturbations, Perturbation{Name: name, JITOptLevel: 4 - i%4})
+			}
+			report, err := RunPerturbations(context.Background(), g, perturbations, WithInputs(inputs), withCompileKernel(compile), withTraceModuleLoader(load))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if compileIndex != len(hashes) || loadIndex != len(hashes) || report.BaselineDeviceHash != hashes[tt.baseline] {
+				t.Fatalf("calls=%d/%d baseline=%x, want %d/%d and %x", compileIndex, loadIndex, report.BaselineDeviceHash, len(hashes), len(hashes), hashes[tt.baseline])
+			}
+			rows := strings.Split(report.String(), "\n")
+			marked := map[string]bool{}
+			for _, line := range rows {
+				if strings.Contains(line, "HASH MOVED vs baseline device hash") {
+					fields := strings.Fields(line)
+					if len(fields) != 0 {
+						marked[fields[0]] = true
+					}
+				}
+			}
+			if !reflect.DeepEqual(marked, tt.moved) {
+				t.Fatalf("movement rows use the wrong baseline:\n%s", report.String())
+			}
+		})
 	}
 }
 

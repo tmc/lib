@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 	"testing"
 	"unsafe"
 
@@ -95,14 +96,27 @@ extern "C" __global__ void output_and_trace(int n, float *out, int racing, unsig
 		}
 		t.Logf("%s %s: %d distinct outputs and %d distinct trace hashes in %d runs", label, mode, len(outputs[a]), len(hashes[a]), runs)
 	}
-	if len(outputs[arm{racing: true}]) <= 1 {
-		t.Fatalf("race did not vary uninstrumented (inconclusive): %d distinct outputs in %d runs", len(outputs[arm{racing: true}]), runs)
+	counts := raceProbeCounts{
+		raceOutputs:             len(outputs[arm{racing: true}]),
+		raceHashes:              len(hashes[arm{racing: true, instrumented: true}]),
+		controlOutputs:          len(outputs[arm{racing: false}]),
+		instrumentedControlOut:  len(outputs[arm{racing: false, instrumented: true}]),
+		instrumentedControlHash: len(hashes[arm{racing: false, instrumented: true}]),
 	}
-	if len(hashes[arm{racing: true, instrumented: true}]) <= 1 {
-		t.Fatalf("race varied uninstrumented but gave one hash instrumented (suppressed): %d distinct outputs and %d hashes", len(outputs[arm{racing: true}]), len(hashes[arm{racing: true, instrumented: true}]))
+	const sameSeedRuns = 32
+	sameSeedOutputs := make(map[string]bool)
+	sameSeedHashes := make(map[uint64]bool)
+	for run := 0; run < sameSeedRuns; run++ {
+		output, trace, err := runRaceProbe(dev, mod, n, true, true, 0)
+		if err != nil {
+			t.Fatalf("same-seed instrumented race run %d: %v", run, err)
+		}
+		sameSeedOutputs[output] = true
+		sameSeedHashes[trace] = true
 	}
-	if len(outputs[arm{racing: false}]) != 1 || len(outputs[arm{racing: false, instrumented: true}]) != 1 || len(hashes[arm{racing: false, instrumented: true}]) != 1 {
-		t.Fatalf("race-free control varied (broken control): uninstrumented outputs=%d instrumented outputs=%d instrumented hashes=%d", len(outputs[arm{racing: false}]), len(outputs[arm{racing: false, instrumented: true}]), len(hashes[arm{racing: false, instrumented: true}]))
+	t.Logf("race instrumented repeated fixed seed 0: %d distinct outputs and %d distinct trace hashes in %d launches", len(sameSeedOutputs), len(sameSeedHashes), sameSeedRuns)
+	if failures := raceProbeFailures(counts); len(failures) != 0 {
+		t.Fatal(strings.Join(failures, "; "))
 	}
 }
 
