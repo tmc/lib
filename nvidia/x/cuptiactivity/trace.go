@@ -23,6 +23,9 @@ func WriteRecord(w *perfetto.Writer, track uint64, origin uint64, r Record) erro
 		return errors.New("cuptiactivity: invalid activity timestamps")
 	}
 	name := r.Name
+	if r.DisplayName != "" {
+		name = r.DisplayName
+	}
 	if name == "" {
 		name = r.Kind.String()
 	}
@@ -38,6 +41,9 @@ func WriteRecord(w *perfetto.Writer, track uint64, origin uint64, r Record) erro
 		perfetto.NewUintAnnotation("callback_id", uint64(r.CallbackID)),
 		perfetto.NewUintAnnotation("return_value", uint64(r.ReturnValue)),
 		perfetto.NewUintAnnotation("bytes", r.Bytes),
+	}
+	if r.DisplayName != "" {
+		annotations = append(annotations, perfetto.NewStringAnnotation("raw_symbol", r.Name))
 	}
 	if r.Kind == cupti.ActivityKindConcurrentKernel {
 		for i, axis := range []string{"x", "y", "z"} {
