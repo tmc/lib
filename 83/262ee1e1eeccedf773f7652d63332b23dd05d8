@@ -4,3 +4,12 @@ tty=/dev/ttys429 pid=68802 iterm=w8t0p18:E84CA4A6-80CB-4241-9001-DC66904A1A50
 session=2177a96d-7b34-411e-a026-5a246aeef688
 
 Rebase correction: current commit=a89c6190e8192d202cda166a465269cbc89af601; date=2026-09-29 03:38:04 UTC; original agent remains agy (Gemini 3.8 Flash); Codex only rebased the commit in session 01a0e209-f57f-7300-91cd-4a82fcd77ef4; TTY=not a tty; PID=93705; ITERM_SESSION_ID=w18t0p0:FA9F00FD-C0E6-4CBD-A9AB-44FD11B1A62F.
+
+Commit: 83262ee1e1eeccedf773f7652d63332b23dd05d8
+Commit date: 2026-09-30T02:06:29-07:00
+Model: GPT-6 (Codex); claude-code version: not applicable
+TTY: not a tty; PID: unavailable (not recorded)
+ITERM_SESSION_ID: w8t7p11:B5AB46F8-1F00-4CA5-B479-EE4A9F188927
+Codex session ID: 01a0e209-f57f-7300-91cd-4a82fcd77ef4
+Pane UUID: 026363F7-C2F7-4118-9920-4953A7B20D93
+Lane 45 round 4 rebased onto b2c61cc0d. See FIXES-4-RECEIPTS.md.
