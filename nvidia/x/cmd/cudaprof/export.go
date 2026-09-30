@@ -262,6 +262,9 @@ const (
 // separate from the record because a device stream and a host thread are
 // different namespaces that would otherwise collide on small integers.
 type traceRecord struct {
+	journal     string
+	annotations []perfetto.DebugAnnotation
+
 	rec   cuptiactivity.Record
 	kind  trackKind
 	group [2]uint32
@@ -296,6 +299,7 @@ func decodeTraceJournals(journals map[string][]byte, maxRecords, maxBytes int64)
 	if len(out) == 0 {
 		return nil, nvtx, ext, errors.New("journals hold no complete activity records, so there is no timeline to draw")
 	}
+	annotateTraceCorrelations(out)
 	return out, nvtx, ext, nil
 }
 
@@ -533,6 +537,9 @@ func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]
 				// device work and nothing else.
 				ext.add(externalCoverage(session, name, (*out)[base:], externals))
 				nvtx.add(pairMarkers(markers, out))
+				for i := base; i < len(*out); i++ {
+					(*out)[i].journal = name
+				}
 				return nil
 			case errors.Is(err, io.ErrUnexpectedEOF):
 				return fmt.Errorf("journal %s is truncated after %d record(s): the timeline ends at an unknown point", name, decoded)
@@ -721,7 +728,7 @@ func writeTraceOrigin(w io.Writer, records []traceRecord, origin, uuidBase uint6
 		}
 	}
 	for i, t := range records {
-		if err := cuptiactivity.WriteRecord(pw, uuidBase+uuids[i], origin, t.rec); err != nil {
+		if err := cuptiactivity.WriteRecord(pw, uuidBase+uuids[i], origin, t.rec, t.annotations...); err != nil {
 			return len(names), fmt.Errorf("write record %d: %w", i, err)
 		}
 	}

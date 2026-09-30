@@ -217,8 +217,8 @@ func TestDecodeRanges(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []Range{
-		{Name: "inner", Process: 7, Thread: 3, Start: 20, End: 250},
-		{Name: "outer", Process: 7, Thread: 3, Start: 10, End: 300},
+		{Journal: "capture.journal", Name: "inner", Process: 7, Thread: 3, Start: 20, End: 250},
+		{Journal: "capture.journal", Name: "outer", Process: 7, Thread: 3, Start: 10, End: 300},
 	}
 	if !slices.Equal(got.Ranges, want) {
 		t.Errorf("ranges = %+v, want %+v", got.Ranges, want)

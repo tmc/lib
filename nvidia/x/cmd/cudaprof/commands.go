@@ -64,6 +64,9 @@ To write the device timeline as a Perfetto trace:
   cudaprof export [-o out.pftrace] capture.pprof
   cudaprof export-compare -iteration-marker RE [-iteration-count N] -o comparison.tar base.pprof target.pprof
 
+To inspect retained device-to-submission links:
+  cudaprof correlate [-domain driver|runtime] capture.pprof
+
 To decompose why target took longer than base, per op or stage, in exact nanoseconds:
   cudaprof compare [-phase i] [-warmup-until=RE | -warmup-ms=N] [-ops ops.txt [-ops-check]] [-stages stages.txt [-stage-entries]] [-by phase|range|module] [-templates] [-allow-unresolved] [-max-records=N] [-json] base.pprof target.pprof
 
@@ -125,6 +128,7 @@ func commands() []command {
 		{name: "advise", usage: adviseUsage, run: func(args []string) error { return runAdviseCommand(args[1:]) }},
 		{name: "gaps", run: func(args []string) error { return runGapsCommand(args[1:]) }},
 		{name: "gemms", usage: gemmsUsage, run: runGEMMsCommand},
+		{name: "correlate", run: func(args []string) error { return runCorrelateCommand(args[1:]) }},
 		{name: "compare", run: func(args []string) error { return runCompareCommand(args[1:], os.Stdout) }},
 		{name: "iterations", usage: iterationsUsage, run: func(args []string) error { return runIterationsCommand(args[1:], os.Stdout) }},
 		{name: "ab", run: func(args []string) error { return runABCommand(args[1:], os.Stdout, os.Stderr) }},
