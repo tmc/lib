@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"github.com/tmc/lib/nvidia/internal/cudainject/wire"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudaprof/iteration"
+	"github.com/tmc/lib/nvidia/x/cudaprof/overview"
 	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 	"github.com/tmc/lib/nvidia/x/cuptiactivity"
 	"github.com/tmc/lib/nvidia/x/perfetto"
@@ -35,12 +37,15 @@ import (
 // not be merged with a host trace taken from another clock.
 
 type exportOptions struct {
-	demangle     bool
-	capturePath  string
-	outPath      string
-	maxRecords   int64
-	journalBytes int64
-	limits       cudacapture.Limits
+	demangle      bool
+	summary       bool
+	summaryDomain string
+	summaryMarker *regexp.Regexp
+	capturePath   string
+	outPath       string
+	maxRecords    int64
+	journalBytes  int64
+	limits        cudacapture.Limits
 }
 
 var errExportHelp = errors.New("export: help requested")
@@ -82,6 +87,15 @@ func runExportCommand(args []string) error {
 		demangleTraceRecords(records)
 	}
 	n, err := writeTrace(f, records)
+	if err == nil && opts.summary {
+		decoded, decodeErr := timeline.Decode(journals, maxRecords, journalBytes)
+		if decodeErr != nil {
+			err = decodeErr
+		} else {
+			origin := traceOrigin(records)
+			err = writeOverviewTrace(f, overview.Analyze(decoded, opts.summaryDomain, opts.summaryMarker), origin, 1<<48)
+		}
+	}
 	if err != nil {
 		f.Close()
 		return err
@@ -110,10 +124,28 @@ func parseExportArgs(rawArgs []string) (exportOptions, error) {
 	if err != nil {
 		return exportOptions{}, err
 	}
-	opts := exportOptions{limits: limits}
+	opts := exportOptions{limits: limits, summaryDomain: "driver"}
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		switch {
+		case arg == "-summary-marker" && i+1 < len(args):
+			i++
+			opts.summaryMarker, err = regexp.Compile(args[i])
+			if err != nil {
+				return exportOptions{}, fmt.Errorf("summary marker: %w", err)
+			}
+		case strings.HasPrefix(arg, "-summary-marker="):
+			opts.summaryMarker, err = regexp.Compile(strings.TrimPrefix(arg, "-summary-marker="))
+			if err != nil {
+				return exportOptions{}, fmt.Errorf("summary marker: %w", err)
+			}
+		case arg == "-summary-domain" && i+1 < len(args):
+			i++
+			opts.summaryDomain = args[i]
+		case strings.HasPrefix(arg, "-summary-domain="):
+			opts.summaryDomain = strings.TrimPrefix(arg, "-summary-domain=")
+		case arg == "-summary" || arg == "--summary":
+			opts.summary = true
 		case arg == "-demangle" || arg == "--demangle":
 			opts.demangle = true
 		case arg == "-h" || arg == "--help" || arg == "-help":
@@ -143,6 +175,9 @@ func parseExportArgs(rawArgs []string) (exportOptions, error) {
 		default:
 			return exportOptions{}, fmt.Errorf("unexpected argument: %s", arg)
 		}
+	}
+	if opts.summaryDomain != "driver" && opts.summaryDomain != "runtime" {
+		return exportOptions{}, fmt.Errorf("invalid summary API domain %q", opts.summaryDomain)
 	}
 	if opts.capturePath == "" {
 		return exportOptions{}, errors.New("usage: cudaprof export [-o out.pftrace] [--max-records=N] [--journal-bytes=N] capture.pprof")
@@ -174,6 +209,9 @@ synchronization packet is emitted, so this trace must not be merged with a
 host trace taken from another clock.
 
 Options:
+  -summary          append observed hierarchy and token overview tracks
+  -summary-domain driver|runtime  API domain for explicit context (default driver)
+  -summary-marker RE  append separately labeled inferred kernel intervals
   -demangle         display demangled kernel names; retain raw_symbol args
   -o <path>          output file (default: the capture path with .pftrace)
   --max-records=N    maximum journal records to decode (default: the larger of
@@ -263,6 +301,7 @@ const (
 // different namespaces that would otherwise collide on small integers.
 type traceRecord struct {
 	journal     string
+	sequence    uint64
 	annotations []perfetto.DebugAnnotation
 
 	rec   cuptiactivity.Record
@@ -586,15 +625,18 @@ func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]
 				// Drawing it on a device track would put a slice the device
 				// never ran beside the kernels it did, which is the same
 				// claim the lane splitting above exists to avoid making.
-				*out = append(*out, traceRecord{rec: activityRecord(p), kind: trackHost, group: [2]uint32{p.ProcessID, p.ThreadID}})
+				*out = append(*out, traceRecord{sequence: uint64(r.Sequence), rec: activityRecord(p), kind: trackHost, group: [2]uint32{p.ProcessID, p.ThreadID}})
 				continue
 			}
-			*out = append(*out, traceRecord{rec: activityRecord(p), kind: trackDevice, group: [2]uint32{p.Device, p.Stream}})
+			*out = append(*out, traceRecord{sequence: uint64(r.Sequence), rec: activityRecord(p), kind: trackDevice, group: [2]uint32{p.Device, p.Stream}})
 		case wire.KindAPI:
+			if p.Kind == "graph_lifecycle" {
+				continue
+			}
 			if p.Start == 0 || p.End < p.Start {
 				continue
 			}
-			*out = append(*out, traceRecord{rec: apiRecord(p), kind: trackHost, group: [2]uint32{p.ProcessID, p.ThreadID}})
+			*out = append(*out, traceRecord{sequence: uint64(r.Sequence), rec: apiRecord(p), kind: trackHost, group: [2]uint32{p.ProcessID, p.ThreadID}})
 		case wire.KindExternal:
 			// No interval, so no slice: this record is a link, not work. It
 			// is kept for the join below, which is the only thing that can
@@ -728,7 +770,7 @@ func writeTraceOrigin(w io.Writer, records []traceRecord, origin, uuidBase uint6
 		}
 	}
 	for i, t := range records {
-		if err := cuptiactivity.WriteRecord(pw, uuidBase+uuids[i], origin, t.rec, t.annotations...); err != nil {
+		if err := cuptiactivity.WriteRecord(pw, uuidBase+uuids[i], origin, t.rec, traceAnnotations(t)...); err != nil {
 			return len(names), fmt.Errorf("write record %d: %w", i, err)
 		}
 	}
