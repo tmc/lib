@@ -70,6 +70,11 @@ func Parse(message string) (Metadata, error) {
 		if !ok || seen[key] {
 			return m, errors.New("parse marker: duplicate or invalid field")
 		}
+		switch key {
+		case "phase", "token", "layer", "operation", "dtype", "cache_length", "lookahead", "materialization":
+		default:
+			return m, fmt.Errorf("parse marker: unknown field %q", key)
+		}
 		seen[key] = true
 		var value json.RawMessage
 		if err := dec.Decode(&value); err != nil {
