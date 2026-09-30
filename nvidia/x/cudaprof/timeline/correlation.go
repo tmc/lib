@@ -2,6 +2,7 @@ package timeline
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudaprof/marker"
 )
@@ -20,6 +21,10 @@ type Correlation struct {
 	Range       int    `json:"range"`
 	APIStatus   string `json:"api_status"`
 	RangeStatus string `json:"range_status"`
+	// Provenance is submission, graph_replay, graph_construction, or unresolved.
+	Provenance      string     `json:"provenance"`
+	Lifecycle       *GraphLink `json:"graph_lifecycle,omitempty"`
+	LifecycleStatus string     `json:"graph_lifecycle_status,omitempty"`
 }
 
 // Correlations joins device activities to retained calls in the selected API
@@ -27,8 +32,9 @@ type Correlation struct {
 // It returns one result per activity in input order. Repeated correlation IDs
 // are ambiguous; zero IDs and absent journal identity never match. A single
 // call may submit several activities, so callers must not sum its duration
-// once per activity. Graph node provenance is unsupported because replay and
-// graph construction cannot be distinguished by these retained fields.
+// once per activity. A graph record matches only an exact retained correlation
+// naming a graph launch API. A construction API never identifies replay context;
+// graph IDs, node IDs and temporal containment alone never identify a launch.
 //
 // Range links select the innermost range enclosing the whole API call on its
 // process and thread. Crossing ranges and equally narrow candidates remain
@@ -50,11 +56,12 @@ func Correlations(records Records, domain string) []Correlation {
 			calls[k] = append(calls[k], i)
 		}
 	}
+	lifecycle := GraphLifecycle(records.GraphLifecycle)
 	out := make([]Correlation, 0, len(records.Activities))
 	for i, a := range records.Activities {
-		m := Correlation{Activity: i, Call: -1, Range: -1, APIStatus: "missing", RangeStatus: "missing", MetadataStatus: "missing"}
+		m := Correlation{Activity: i, Call: -1, Range: -1, APIStatus: "missing", RangeStatus: "missing", MetadataStatus: "missing", Provenance: "unresolved"}
 		switch {
-		case domain != "driver" && domain != "runtime", a.GraphID != 0, a.Subtype == "graph_trace":
+		case domain != "driver" && domain != "runtime":
 			m.APIStatus, m.RangeStatus = "unsupported", "unsupported"
 		case a.Subtype == "memcpy" || a.Subtype == "memset":
 			// Retained transfer records do not distinguish runtime identity.
@@ -64,13 +71,30 @@ func Correlations(records Records, domain string) []Correlation {
 			}
 			fallthrough
 		default:
-			ids := calls[key{a.Journal, a.Correlation}]
-			if a.Journal == "" || a.Correlation == 0 || len(ids) == 0 {
+			correlation := a.Correlation
+			if domain == "runtime" && (a.Subtype == "memcpy" || a.Subtype == "memset") {
+				correlation = a.RuntimeCorrelation
+			}
+			ids := calls[key{a.Journal, correlation}]
+			if a.Journal == "" || correlation == 0 || len(ids) == 0 {
 				break
 			}
 			if len(ids) != 1 {
 				m.APIStatus, m.RangeStatus = "ambiguous", "unsupported"
 				break
+			}
+			if a.GraphID != 0 || a.Subtype == "graph_trace" {
+				name := records.Calls[ids[0]].Name()
+				if !strings.HasPrefix(name, "cuGraphLaunch") && !strings.HasPrefix(name, "cudaGraphLaunch") {
+					m.APIStatus, m.RangeStatus = "unsupported", "unsupported"
+					if strings.Contains(name, "Graph") {
+						m.Provenance = "graph_construction"
+					}
+					break
+				}
+				m.Provenance = "graph_replay"
+			} else {
+				m.Provenance = "submission"
 			}
 			m.Call, m.APIStatus = ids[0], "matched"
 			c := records.Calls[m.Call]
@@ -135,6 +159,8 @@ func Correlations(records Records, domain string) []Correlation {
 		if m.RangeStatus == "matched" {
 			meta, err := marker.ParseRange(records.Ranges[m.Range].Name)
 			switch {
+			case err == nil && meta.Event != "":
+				m.MetadataStatus = "unsupported"
 			case err == nil:
 				m.Metadata, m.MetadataStatus = &meta, "matched"
 				c := records.Calls[m.Call]
@@ -159,6 +185,25 @@ func Correlations(records Records, domain string) []Correlation {
 		} else if m.RangeStatus != "missing" {
 			m.MetadataStatus = m.RangeStatus
 		}
+		if a.GraphID != 0 || a.Subtype == "graph_trace" {
+			m.LifecycleStatus = "unsupported"
+			if len(records.GraphLifecycle) != 0 {
+				m.LifecycleStatus = "missing"
+				var matches []int
+				for j, e := range records.GraphLifecycle {
+					if e.Journal == a.Journal && e.Domain == domain && e.Kind == "replay" && e.Correlation != 0 && e.Correlation == a.Correlation {
+						matches = append(matches, j)
+					}
+				}
+				if len(matches) > 1 {
+					m.LifecycleStatus = "ambiguous"
+				} else if len(matches) == 1 {
+					link := lifecycle[matches[0]]
+					m.LifecycleStatus = link.Status
+					m.Lifecycle = &link
+				}
+			}
+		}
 		out = append(out, m)
 	}
 	return out
@@ -166,7 +211,7 @@ func Correlations(records Records, domain string) []Correlation {
 
 // conflictingMetadata compares only fields explicitly supplied by both ranges.
 func conflictingMetadata(a, b marker.Metadata) bool {
-	return a.Phase != b.Phase || (a.Operation != "" && b.Operation != "" && a.Operation != b.Operation) ||
+	return a.Event != b.Event || a.Phase != b.Phase || (a.Operation != "" && b.Operation != "" && a.Operation != b.Operation) ||
 		conflictingValue(a.Token, b.Token) || conflictingValue(a.Layer, b.Layer) || conflictingValue(a.DType, b.DType) ||
 		conflictingValue(a.CacheLength, b.CacheLength) || conflictingValue(a.Lookahead, b.Lookahead) || conflictingValue(a.Materialization, b.Materialization)
 }

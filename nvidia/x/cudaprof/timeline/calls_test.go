@@ -43,8 +43,8 @@ func TestDecodeCallsAndMarkers(t *testing.T) {
 		t.Errorf("Activities = %d, want 1: a marker is not device work", len(r.Activities))
 	}
 	want := []Call{
-		{Journal: "capture.journal", Domain: "driver", CallbackID: 243, Thread: 11, Correlation: 1, Start: 6, End: 9},
-		{Journal: "capture.journal", Domain: "runtime", CallbackID: 131, Thread: 11, Correlation: 3, Start: 21, End: 30},
+		{Sequence: 4, Journal: "capture.journal", Domain: "driver", CallbackID: 243, Thread: 11, Correlation: 1, Start: 6, End: 9},
+		{Sequence: 6, Journal: "capture.journal", Domain: "runtime", CallbackID: 131, Thread: 11, Correlation: 3, Start: 21, End: 30},
 	}
 	if len(r.Calls) != len(want) {
 		t.Fatalf("Calls = %+v, want %+v", r.Calls, want)
@@ -57,7 +57,7 @@ func TestDecodeCallsAndMarkers(t *testing.T) {
 	if got := r.Calls[0].Name(); got != "cuMemAlloc_v2" {
 		t.Errorf("Calls[0].Name() = %q, want cuMemAlloc_v2", got)
 	}
-	wantMarkers := []Marker{{Name: "step", ID: 7, Flags: MarkerStart, Time: 5}, {ID: 7, Flags: MarkerEnd, Time: 31}}
+	wantMarkers := []Marker{{Sequence: 3, Journal: "capture.journal", Name: "step", ID: 7, Flags: MarkerStart, Time: 5}, {Sequence: 7, Journal: "capture.journal", ID: 7, Flags: MarkerEnd, Time: 31}}
 	if len(r.Markers) != 2 || r.Markers[0] != wantMarkers[0] || r.Markers[1] != wantMarkers[1] {
 		t.Errorf("Markers = %+v, want %+v", r.Markers, wantMarkers)
 	}
