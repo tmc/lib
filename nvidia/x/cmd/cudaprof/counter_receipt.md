@@ -31,6 +31,7 @@ statistical result, a timing comparison, or a bottleneck explanation.
 
 Native `probe -metrics ...` runs a separate deterministic diagnostic kernel. It
 is not a collection implementation for the historical GEMVs selected here and
-its ordinary controls do not measure profiler overhead. Collecting counters for
-qualified integrated application launches still requires an instrumented replay
-workflow, independent output checks and externally arranged GPU isolation.
+its ordinary controls do not measure profiler overhead. The `counter-gemv` workload/collection workflow now connects an exact qualified
+selection to independently verified controlled replay. `counters.Collect` supports
+separately profiled application callbacks in the application context; see
+[counter_gemv.md](counter_gemv.md) for replay, output and GPU-lock requirements.
