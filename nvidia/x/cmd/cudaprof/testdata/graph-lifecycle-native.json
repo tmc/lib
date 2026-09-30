@@ -1,0 +1,41 @@
+[
+  {
+    "kind": "graph_lifecycle",
+    "domain": "resource",
+    "lifecycle_event": "resource",
+    "callback_id": 9,
+    "graph_handle": 198172554456272,
+    "executable_handle": 0,
+    "node_handle": 0,
+    "source_graph_handle": 0,
+    "source_node_handle": 0,
+    "start": 419067069994387,
+    "end": 419067069994387
+  },
+  {
+    "kind": "graph_lifecycle",
+    "domain": "driver",
+    "lifecycle_event": "create",
+    "graph_handle": 198172554456272,
+    "executable_handle": 0,
+    "correlation": 173,
+    "callback_id": 497,
+    "context": 1,
+    "start": 419067070061204,
+    "end": 419067070061204,
+    "success": true
+  },
+  {
+    "kind": "graph_lifecycle",
+    "domain": "driver",
+    "lifecycle_event": "replay",
+    "graph_handle": 0,
+    "executable_handle": 198172554701120,
+    "correlation": 178,
+    "callback_id": 514,
+    "context": 1,
+    "start": 419067073165981,
+    "end": 419067073165981,
+    "success": true
+  }
+]

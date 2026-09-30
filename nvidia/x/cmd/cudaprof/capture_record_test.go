@@ -1694,3 +1694,85 @@ func TestActivityRecordsCountsActivityRecords(t *testing.T) {
 		t.Errorf("timeline holds %d entries, want 3: the marker belongs on it even though it is not counted as device work", len(activities))
 	}
 }
+
+// These payloads were emitted by the native lifecycle collector on a real
+// graph capture. The resource domain and duplicate replay correlation must
+// remain journal metadata rather than poison API timing projection.
+func TestObserveJournalNativeGraphLifecycle(t *testing.T) {
+	payloads, err := os.ReadFile("testdata/graph-lifecycle-native.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var lifecycle []json.RawMessage
+	if err := json.Unmarshal(payloads, &lifecycle); err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "capture.journal")
+	var sid [16]byte
+	sid[0] = 1
+	records := []wire.Record{
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability","graph_lifecycle":"collected","graph_lifecycle_coverage":"driver_partial"}`)},
+	}
+	for _, payload := range lifecycle {
+		records = append(records, wire.Record{Kind: wire.KindAPI, Payload: payload})
+	}
+	records = append(records,
+		wire.Record{Kind: wire.KindAPI, Payload: []byte(`{"kind":"api","domain":"driver","callback_id":514,"start":419067073160000,"end":419067073167000,"correlation":178}`)},
+		wire.Record{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"graph_kernel","valid":true,"start":419067073170000,"end":419067073180000,"correlation":178}`)},
+		wire.Record{Kind: wire.KindFinalized, Payload: []byte(`{"kind":"finalized","state":"collected","activity":1}`)},
+	)
+	appendRecords(t, path, sid, 1234, 1, records)
+	_, state, _, activities, apis, _, err := observeJournal(path, hex.EncodeToString(sid[:]), 1234, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(apis) != 1 || apis[0].Domain != "driver" || apis[0].Correlation != 178 || len(activities) != 1 {
+		t.Fatalf("projection = %v APIs, %v activities", apis, activities)
+	}
+	if !state.finalized || !bytes.Contains(state.capabilityData, []byte(`"graph_lifecycle":"collected"`)) || !bytes.Contains(state.capabilityData, []byte(`"graph_lifecycle_coverage":"driver_partial"`)) {
+		t.Fatalf("capability/state = %+v", state)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, payload := range lifecycle {
+		if !bytes.Contains(data, payload) {
+			t.Fatal("native lifecycle payload lost from journal")
+		}
+	}
+}
+
+func TestObserveJournalGraphLifecycleRefusals(t *testing.T) {
+	tests := []struct {
+		name, payload                    string
+		beforeCapability, afterFinalized bool
+	}{
+		{name: "missing event", payload: `{"kind":"graph_lifecycle","domain":"resource","start":10,"end":10}`},
+		{name: "unknown domain", payload: `{"kind":"graph_lifecycle","domain":"unknown","lifecycle_event":"resource","start":10,"end":10}`},
+		{name: "reversed timestamps", payload: `{"kind":"graph_lifecycle","domain":"driver","lifecycle_event":"replay","start":20,"end":10}`},
+		{name: "before capability", payload: `{"kind":"graph_lifecycle","domain":"resource","lifecycle_event":"resource","start":10,"end":10}`, beforeCapability: true},
+		{name: "after finalized", payload: `{"kind":"graph_lifecycle","domain":"resource","lifecycle_event":"resource","start":10,"end":10}`, afterFinalized: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "capture.journal")
+			var sid [16]byte
+			sid[0] = 1
+			records := []wire.Record{{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)}}
+			if !tt.beforeCapability {
+				records = append(records, wire.Record{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)})
+			}
+			if tt.afterFinalized {
+				records = append(records, wire.Record{Kind: wire.KindFinalized, Payload: []byte(`{"kind":"finalized","state":"no_cuda"}`)})
+			}
+			records = append(records, wire.Record{Kind: wire.KindAPI, Payload: []byte(tt.payload)})
+			appendRecords(t, path, sid, 1234, 1, records)
+			if _, _, _, _, _, _, err := observeJournal(path, hex.EncodeToString(sid[:]), 1234, 0); err == nil {
+				t.Fatal("accepted invalid lifecycle envelope")
+			}
+		})
+	}
+}
