@@ -23,13 +23,14 @@ const (
 	FieldClockID             = 1
 	FieldClockTimestamp      = 2
 
-	ClockRealtime            = 1
-	ClockMonotonic           = 3
-	ClockBoottime            = 6
-	ClockGPU                 = 64
-	FieldTrackDescUUID       = 1
-	FieldTrackDescName       = 2
-	FieldTrackDescParentUUID = 5
+	ClockRealtime                      = 1
+	ClockMonotonic                     = 3
+	ClockBoottime                      = 6
+	ClockGPU                           = 64
+	FieldTrackDescUUID                 = 1
+	FieldTrackDescName                 = 2
+	FieldTrackDescParentUUID           = 5
+	FieldTrackDescSiblingMergeBehavior = 15
 
 	FieldTrackDescProcessUUID = 3
 	FieldTrackDescThreadUUID  = 4
@@ -231,9 +232,14 @@ func (pw *Writer) WriteClockSnapshot(hostMonotonicNs, gpuClockNs uint64) error {
 }
 
 // WriteTrackDescriptor registers a track in the trace timeline.
+// Distinct UUIDs remain separate even when sibling names are identical.
 func (pw *Writer) WriteTrackDescriptor(uuid uint64, name string, parentUUID uint64) error {
 	var body []byte
 	body = append(body, encodeVarint(FieldTrackDescUUID, uuid)...)
+	// TrackDescriptor defaults to merging siblings by name. Preserve the
+	// caller's track identity and overlap lanes instead. The official schema
+	// defines SIBLING_MERGE_BEHAVIOR_NONE as 2 (field 15).
+	body = append(body, encodeVarint(FieldTrackDescSiblingMergeBehavior, 2)...)
 	if name != "" {
 		body = append(body, encodeString(FieldTrackDescName, name)...)
 	}
