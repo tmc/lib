@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/tmc/lib/nvidia/internal/cudainject/wire"
+	"github.com/tmc/lib/nvidia/x/cudaprof/internal/journaltest"
 	"github.com/tmc/lib/nvidia/x/cudaprof/marker"
 )
 
@@ -94,5 +96,53 @@ func TestCorrelationCrossingAncestor(t *testing.T) {
 	got := Correlations(r, "driver")[0]
 	if got.APIStatus != "matched" || got.RangeStatus != "ambiguous" || got.MetadataStatus != "ambiguous" || got.Range != -1 || got.Metadata != nil {
 		t.Fatalf("crossing ancestor qualified nested context: %+v", got)
+	}
+}
+
+func TestGraphReplayCorrelation(t *testing.T) {
+	for _, tt := range []struct {
+		name, domain       string
+		callback           uint32
+		duplicate          bool
+		correlation        uint32
+		status, provenance string
+	}{
+		{"driver replay", "driver", 514, false, 7, "matched", "graph_replay"},
+		{"runtime replay", "runtime", 311, false, 7, "matched", "graph_replay"},
+		{"construction", "driver", 502, false, 7, "unsupported", "graph_construction"},
+		{"absent launch", "driver", 514, false, 9, "missing", "unresolved"},
+		{"reused launch correlation", "driver", 514, true, 7, "ambiguous", "unresolved"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			r := Records{
+				Activities: []Activity{{Journal: "j", Subtype: "kernel", GraphID: 1, GraphNodeID: 1<<54 + 1, Context: 2, Correlation: tt.correlation, Start: 100, End: 200}},
+				Calls:      []Call{{Journal: "j", Domain: tt.domain, CallbackID: tt.callback, Process: 1, Thread: 2, Correlation: 7, Start: 20, End: 25}},
+				Ranges:     []Range{{Journal: "j", Process: 1, Thread: 2, Start: 10, End: 30, Name: `cudaprof:v1 {"phase":"decode","token":3,"operation":"gemv","dtype":"bf16","cache_length":128}`}},
+				Graphs:     []Activity{{Journal: "j", Subtype: "graph_trace", GraphID: 1, Context: 2, Correlation: 7, Start: 90, End: 210}},
+			}
+			if tt.duplicate {
+				r.Calls = append(r.Calls, r.Calls[0])
+			}
+			got := Correlations(r, tt.domain)[0]
+			if got.APIStatus != tt.status || got.Provenance != tt.provenance {
+				t.Fatalf("got %+v", got)
+			}
+			if tt.status == "matched" && (got.MetadataStatus != "matched" || *got.Metadata.Token != 3) {
+				t.Fatalf("replay context missing: %+v", got)
+			}
+		})
+	}
+}
+
+func TestDecodeGraphIdentity(t *testing.T) {
+	const node = uint64(1<<54 + 1)
+	b := journaltest.New().Append(wire.KindActivity, map[string]any{"subtype": "kernel", "valid": true, "start": 10, "end": 20, "graph_id": 5, "graph_node_id": node, "context": 3, "runtime_correlation": 9}).Finalize()
+	r, err := Decode(map[string][]byte{"j": b}, MaxRecords, 1<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := r.Activities[0]
+	if a.GraphID != 5 || a.GraphNodeID != node || a.Context != 3 || a.RuntimeCorrelation != 9 {
+		t.Fatalf("lost graph identity: %+v", a)
 	}
 }

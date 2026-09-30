@@ -162,8 +162,10 @@ type Records struct {
 	// three is in Activities: see the exclusions in decodeJournal.
 	Overheads []Span
 	Graphs    []Activity
-	Syncs     []Span
-	rawSyncs  []rawSync
+	// GraphLifecycle contains explicit native lifecycle receipts, when retained.
+	GraphLifecycle []GraphEvent
+	Syncs          []Span
+	rawSyncs       []rawSync
 
 	// GraphNodes counts device records that name the graph they ran as a
 	// node of. It is what decides whether excluding the replay envelope is
@@ -190,6 +192,7 @@ type Records struct {
 // An Activity is one device record: a kernel, memcpy, memset, or graph
 // replay envelope.
 type Activity struct {
+	Sequence uint64 // source journal record sequence
 	// Journal identifies the process generation that retained this record.
 	Journal string
 
@@ -200,11 +203,16 @@ type Activity struct {
 	// Carried for consumers that need the launch itself rather than only its
 	// place on the timeline. They are unset for the spans that are not kernel
 	// launches, and nothing in the gap analysis reads them.
-	Subtype     string
-	Name        string
-	Stream      uint32
-	GraphID     uint32
-	Grid, Block [3]int
+	Subtype string
+	Name    string
+	Stream  uint32
+	GraphID uint32
+	// GraphNodeID and Context retain the native graph identity.
+	GraphNodeID uint64
+	Context     uint32
+	// RuntimeCorrelation is distinct from the driver correlation.
+	RuntimeCorrelation uint32
+	Grid, Block        [3]int
 
 	// SharedMemory is a kernel's dynamic shared memory in bytes, or nil when
 	// the record does not carry it. Read only by compare.
@@ -302,8 +310,9 @@ func pairMarkers(markers []recordPayload) ([]Range, int) {
 
 // A Call is one host driver or runtime API call.
 type Call struct {
-	Journal string // process generation journal
-	Process uint32
+	Sequence uint64 // source journal record sequence
+	Journal  string // process generation journal
+	Process  uint32
 
 	Domain      string // "driver" or "runtime"
 	CallbackID  uint32
@@ -325,11 +334,14 @@ const (
 // A Marker is one NVTX marker record. CUPTI reports a range as a start
 // record and an end record sharing an ID; only the start carries the name.
 type Marker struct {
-	Name   string
-	Domain string
-	ID     uint32
-	Flags  uint32
-	Time   int64
+	Sequence        uint64 // source journal record sequence
+	Journal         string
+	Process, Thread uint32
+	Name            string
+	Domain          string
+	ID              uint32
+	Flags           uint32
+	Time            int64
 }
 
 var (
@@ -374,42 +386,52 @@ type rawSync struct {
 
 // recordPayload is the subset of a typed journal payload the decoder reads.
 type recordPayload struct {
-	Kind         string  `json:"kind"`
-	Subtype      string  `json:"subtype"`
-	Name         string  `json:"name"`
-	Stream       uint32  `json:"stream"`
-	Bytes        uint64  `json:"bytes"`
-	CopyKind     uint8   `json:"copy_kind"`
-	GridX        uint32  `json:"grid_x"`
-	GridY        uint32  `json:"grid_y"`
-	GridZ        uint32  `json:"grid_z"`
-	BlockX       uint32  `json:"block_x"`
-	BlockY       uint32  `json:"block_y"`
-	BlockZ       uint32  `json:"block_z"`
-	SharedMemory *uint32 `json:"dynamic_shared_memory"`
-	State        string  `json:"state"`
-	Domain       string  `json:"domain"`
-	Valid        bool    `json:"valid"`
-	Start        uint64  `json:"start"`
-	End          uint64  `json:"end"`
-	Device       uint32  `json:"device"`
-	Context      uint32  `json:"context"`
-	Correlation  uint32  `json:"correlation"`
-	CallbackID   uint32  `json:"callback_id"`
-	ThreadID     uint32  `json:"thread_id"`
-	MarkerID     uint32  `json:"marker_id"`
-	MarkerFlags  uint32  `json:"marker_flags"`
-	MarkerDomain string  `json:"marker_domain"`
-	GraphID      uint32  `json:"graph_id"`
-	ModuleID     uint32  `json:"module_id"`
-	OverheadKind uint32  `json:"overhead_kind"`
-	SyncType     uint32  `json:"sync_type"`
-	Dropped      uint64  `json:"dropped"`
-	ProcessID    uint32  `json:"process_id"`
-	ID           uint64  `json:"id"`
-	Thread       int64   `json:"thread"`
-	API          string  `json:"api"`
-	Log          string  `json:"log"`
+	Kind               string  `json:"kind"`
+	Subtype            string  `json:"subtype"`
+	Name               string  `json:"name"`
+	Stream             uint32  `json:"stream"`
+	Bytes              uint64  `json:"bytes"`
+	CopyKind           uint8   `json:"copy_kind"`
+	GridX              uint32  `json:"grid_x"`
+	GridY              uint32  `json:"grid_y"`
+	GridZ              uint32  `json:"grid_z"`
+	BlockX             uint32  `json:"block_x"`
+	BlockY             uint32  `json:"block_y"`
+	BlockZ             uint32  `json:"block_z"`
+	SharedMemory       *uint32 `json:"dynamic_shared_memory"`
+	State              string  `json:"state"`
+	Domain             string  `json:"domain"`
+	Valid              bool    `json:"valid"`
+	Start              uint64  `json:"start"`
+	End                uint64  `json:"end"`
+	Device             uint32  `json:"device"`
+	Context            uint32  `json:"context"`
+	Correlation        uint32  `json:"correlation"`
+	CallbackID         uint32  `json:"callback_id"`
+	ThreadID           uint32  `json:"thread_id"`
+	MarkerID           uint32  `json:"marker_id"`
+	MarkerFlags        uint32  `json:"marker_flags"`
+	MarkerDomain       string  `json:"marker_domain"`
+	GraphID            uint32  `json:"graph_id"`
+	LifecycleEvent     string  `json:"lifecycle_event"`
+	NodeHandle         uint64  `json:"node_handle"`
+	SourceGraphHandle  uint64  `json:"source_graph_handle"`
+	SourceNodeHandle   uint64  `json:"source_node_handle"`
+	GraphHandle        uint64  `json:"graph_handle"`
+	ExecutableHandle   uint64  `json:"executable_handle"`
+	Success            *bool   `json:"success"`
+	Child              bool    `json:"child"`
+	GraphNodeID        uint64  `json:"graph_node_id"`
+	RuntimeCorrelation uint32  `json:"runtime_correlation"`
+	ModuleID           uint32  `json:"module_id"`
+	OverheadKind       uint32  `json:"overhead_kind"`
+	SyncType           uint32  `json:"sync_type"`
+	Dropped            uint64  `json:"dropped"`
+	ProcessID          uint32  `json:"process_id"`
+	ID                 uint64  `json:"id"`
+	Thread             int64   `json:"thread"`
+	API                string  `json:"api"`
+	Log                string  `json:"log"`
 }
 
 // Decode decodes every journal member, reading at most maxRecords records
@@ -716,11 +738,15 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *Records
 			// a real device gap in two at its timestamp.
 			if payload.Subtype == "marker" {
 				markers = append(markers, Marker{
-					Name:   payload.Name,
-					Domain: payload.MarkerDomain,
-					ID:     payload.MarkerID,
-					Flags:  payload.MarkerFlags,
-					Time:   int64(payload.Start),
+					Sequence: r.Sequence,
+					Journal:  name,
+					Process:  payload.ProcessID,
+					Thread:   payload.ThreadID,
+					Name:     payload.Name,
+					Domain:   payload.MarkerDomain,
+					ID:       payload.MarkerID,
+					Flags:    payload.MarkerFlags,
+					Time:     int64(payload.Start),
 				})
 				nvtx = append(nvtx, payload)
 				continue
@@ -754,6 +780,7 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *Records
 				continue
 			case "graph_trace":
 				out.Graphs = append(out.Graphs, Activity{
+					Sequence:    r.Sequence,
 					Journal:     name,
 					Device:      payload.Device,
 					Start:       int64(payload.Start),
@@ -763,6 +790,7 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *Records
 					Name:        payload.Name,
 					Stream:      payload.Stream,
 					GraphID:     payload.GraphID,
+					Context:     payload.Context,
 				})
 				continue
 			case "sync":
@@ -783,28 +811,40 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *Records
 				}
 			}
 			out.Activities = append(out.Activities, Activity{
-				Journal:      name,
-				Device:       payload.Device,
-				Start:        int64(payload.Start),
-				End:          int64(payload.End),
-				Correlation:  payload.Correlation,
-				Subtype:      payload.Subtype,
-				Name:         payload.Name,
-				Stream:       payload.Stream,
-				GraphID:      payload.GraphID,
-				Grid:         [3]int{int(payload.GridX), int(payload.GridY), int(payload.GridZ)},
-				Block:        [3]int{int(payload.BlockX), int(payload.BlockY), int(payload.BlockZ)},
-				SharedMemory: payload.SharedMemory,
-				Bytes:        payload.Bytes,
-				CopyKind:     payload.CopyKind,
-				Module:       payload.ModuleID,
+				Sequence:           r.Sequence,
+				Journal:            name,
+				Device:             payload.Device,
+				Start:              int64(payload.Start),
+				End:                int64(payload.End),
+				Correlation:        payload.Correlation,
+				Subtype:            payload.Subtype,
+				Name:               payload.Name,
+				Stream:             payload.Stream,
+				GraphID:            payload.GraphID,
+				GraphNodeID:        payload.GraphNodeID,
+				Context:            payload.Context,
+				RuntimeCorrelation: payload.RuntimeCorrelation,
+				Grid:               [3]int{int(payload.GridX), int(payload.GridY), int(payload.GridZ)},
+				Block:              [3]int{int(payload.BlockX), int(payload.BlockY), int(payload.BlockZ)},
+				SharedMemory:       payload.SharedMemory,
+				Bytes:              payload.Bytes,
+				CopyKind:           payload.CopyKind,
+				Module:             payload.ModuleID,
 			})
 		case wire.KindAPI:
 			if payload.End < payload.Start || payload.End > math.MaxInt64 {
 				continue
 			}
+			if payload.Kind == "graph_lifecycle" {
+				out.GraphLifecycle = append(out.GraphLifecycle, GraphEvent{Sequence: r.Sequence, Journal: name, Domain: payload.Domain, CallbackID: payload.CallbackID, Context: payload.Context, Process: payload.ProcessID, Thread: payload.ThreadID, NodeHandle: payload.NodeHandle, SourceGraphHandle: payload.SourceGraphHandle, SourceNodeHandle: payload.SourceNodeHandle, Kind: payload.LifecycleEvent, Graph: payload.GraphHandle, Executable: payload.ExecutableHandle, Correlation: payload.Correlation, Start: int64(payload.Start), End: int64(payload.End), Success: payload.Success, Child: payload.Child})
+				continue
+			}
+			if payload.End < payload.Start || payload.End > math.MaxInt64 {
+				continue
+			}
 			apis[payload.Correlation] = Span{Start: int64(payload.Start), End: int64(payload.End), Thread: payload.ThreadID}
 			calls = append(calls, Call{
+				Sequence:    r.Sequence,
 				Journal:     name,
 				Process:     payload.ProcessID,
 				Domain:      payload.Domain,
