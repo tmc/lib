@@ -1,8 +1,9 @@
 package dependency
 
 import (
-	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 	"sort"
+
+	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 )
 
 type graphNode struct {
