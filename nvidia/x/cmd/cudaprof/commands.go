@@ -95,6 +95,9 @@ To score an ABBA timing campaign (blocks of C1,G1,G2,C2 captures) against its no
 To inspect observed tokens and operation hierarchy:
   cudaprof overview [-html overview.html] [-iteration-marker RE] capture.pprof
 
+To summarize qualified operation matching and existing alignment receipts:
+  cudaprof comparison-summary -h
+
 To print the build of this cudaprof:
   cudaprof version
 
@@ -126,6 +129,7 @@ type command struct {
 func commands() []command {
 	return []command{
 		{name: "overview", run: func(args []string) error { return runOverviewCommand(args[1:]) }},
+		{name: "comparison-summary", run: func(args []string) error { return runComparisonSummaryCommand(args[1:], os.Stdout) }},
 		{name: "capture", run: func(args []string) error { return runCaptureCommand(args[1:]) }},
 		{name: "inspect", usage: inspectUsage, run: func(args []string) error { return runInspectCommand(args[1:]) }},
 		{name: "export-compare", run: func(args []string) error { return runExportCompareCommand(args[1:]) }},
