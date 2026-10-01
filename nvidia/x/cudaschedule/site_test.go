@@ -48,7 +48,7 @@ func TestNativeScheduleFixtureAnalyzes(t *testing.T) {
 	}
 }
 
-func TestNativeRaceFixturesInitializeHandoffAndExposeReversingDraw(t *testing.T) {
+func TestNativeRaceFixturesInitializeHandoffAndDelayWriter(t *testing.T) {
 	fixtures := []struct {
 		name      string
 		wantClean bool
@@ -115,7 +115,7 @@ func TestNativeRaceFixturesInitializeHandoffAndExposeReversingDraw(t *testing.T)
 				t.Fatalf("writer-to-reader ordering instruction=%t, want %t", orderingBetween, fixture.wantClean)
 			}
 			if !strings.Contains(string(data), "reader work makes the pristine writer likely to publish first") || !strings.Contains(string(data), "writer's shared store can reverse this order") {
-				t.Fatal("fixture does not document the pristine bias and reversing perturbation")
+				t.Fatal("fixture does not document the pristine bias and possible writer delay")
 			}
 			ptx := string(data)
 			for _, fragment := range []string{
@@ -167,6 +167,8 @@ func TestNativeRaceFixturesInitializeHandoffAndExposeReversingDraw(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
+	// A positive writer delay is a host scheduling opportunity, not evidence
+	// that a device execution reverses the handoff or exposes the race.
 	foundWriterDelay := false
 	for seed := uint64(17); seed < 49; seed++ {
 		rewrite, err := cudaschedule.Perturb(string(raceData), cudaschedule.Options{Seed: seed, Intensity: 2})

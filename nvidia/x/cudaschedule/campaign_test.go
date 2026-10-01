@@ -497,17 +497,42 @@ func TestCampaign_DefaultBuildTimeoutIsFiveMinutes(t *testing.T) {
 	}
 }
 
+// checkHarnessPristineBudget observes the actual runner context without sleeping.
+// It uses the same options as the executable harness-error test below.
+func checkHarnessPristineBudget(t *testing.T, opts cudaschedule.CampaignOptions) {
+	t.Helper()
+	pristineCalls := 0
+	opts.RunVariant = func(ctx context.Context, _ uint64, pristine bool, _ string) (cudaschedule.RunRecord, error) {
+		if pristine {
+			pristineCalls++
+			deadline, ok := ctx.Deadline()
+			if !ok || time.Until(deadline) < 20*time.Second {
+				t.Errorf("pristine runner deadline = %v (present=%t), want generous budget", deadline, ok)
+			}
+		}
+		return cudaschedule.RunRecord{Exited: true}, nil
+	}
+	if _, err := runSyntheticCampaign(context.Background(), opts); err != nil {
+		t.Fatal(err)
+	}
+	if pristineCalls == 0 {
+		t.Fatal("budget control did not exercise a pristine runner")
+	}
+}
+
 func TestCampaign_BuildFailureIsHarnessErrorAndSweepContinues(t *testing.T) {
-	report, err := runSyntheticCampaign(context.Background(), cudaschedule.CampaignOptions{
+	opts := cudaschedule.CampaignOptions{
 		PTXSource: CAMPAIGN_PTX, SeedStart: 30, SeedEnd: 32, Intensity: 2,
-		ConfirmRuns: 1, Timeout: time.Second, DeviceProbe: func() bool { return true },
+		ConfirmRuns: 1, Timeout: time.Second, PristineTimeout: 30 * time.Second, DeviceProbe: func() bool { return true },
 		BuildVariant: func(_ context.Context, seed uint64, pristine bool, _ string) (string, []string, error) {
 			if !pristine && seed == 30 {
 				return "", nil, fmt.Errorf("compiler rejected variant")
 			}
 			return "/bin/sh", []string{"-c", "echo PASS"}, nil
 		},
-	})
+	}
+	checkHarnessPristineBudget(t, opts)
+	report, err := runSyntheticCampaign(context.Background(), opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -523,16 +548,18 @@ func TestCampaign_BuildFailureIsHarnessErrorAndSweepContinues(t *testing.T) {
 }
 
 func TestCampaign_BuildWithoutRunnableArtifactIsHarnessError(t *testing.T) {
-	report, err := runSyntheticCampaign(context.Background(), cudaschedule.CampaignOptions{
+	opts := cudaschedule.CampaignOptions{
 		PTXSource: CAMPAIGN_PTX, SeedStart: 40, SeedEnd: 41, Intensity: 2,
-		ConfirmRuns: 1, Timeout: time.Second, DeviceProbe: func() bool { return true },
+		ConfirmRuns: 1, Timeout: time.Second, PristineTimeout: 30 * time.Second, DeviceProbe: func() bool { return true },
 		BuildVariant: func(_ context.Context, _ uint64, pristine bool, _ string) (string, []string, error) {
 			if pristine {
 				return "/bin/sh", []string{"-c", "echo PASS"}, nil
 			}
 			return "/path/that/does/not/exist/cudaschedule-runner", nil, nil
 		},
-	})
+	}
+	checkHarnessPristineBudget(t, opts)
+	report, err := runSyntheticCampaign(context.Background(), opts)
 	if err != nil {
 		t.Fatal(err)
 	}
