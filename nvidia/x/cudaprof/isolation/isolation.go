@@ -10,20 +10,28 @@ import (
 	"sort"
 )
 
+// MaxBytes bounds a retained receipt or binding manifest.
 const MaxBytes = 1 << 20
+
+// Attachment is the original observer receipt attachment name.
 const Attachment = "gpu-isolation-v1.json"
 
+// Process identifies one process generation on a host.
 type Process struct {
 	Host  string `json:"host"`
 	PID   int    `json:"pid"`
 	Start string `json:"start"`
 }
+
+// Window bounds observations on the named clock, in nanoseconds.
 type Window struct {
 	Domain      string `json:"domain"`
 	Start       int64  `json:"start"`
 	End         int64  `json:"end"`
 	Uncertainty int64  `json:"uncertainty_ns"`
 }
+
+// Binding is capture identity obtained independently of its observer.
 type Binding struct {
 	Scope           string   `json:"scope,omitempty"`
 	Session         string   `json:"session"`
@@ -32,11 +40,15 @@ type Binding struct {
 	Window          Window   `json:"window"`
 	CompletionKnown bool     `json:"completion_known"`
 }
+
+// Lock is supporting ownership context, not proof of device isolation.
 type Lock struct {
 	Owner  Process `json:"owner"`
 	Token  string  `json:"token"`
 	Window Window  `json:"window"`
 }
+
+// Observation retains sampled residency and its host query interval.
 type Observation struct {
 	QueryWindow      *Window `json:"query_window,omitempty"`
 	Process          Process `json:"process"`
@@ -48,6 +60,8 @@ type Observation struct {
 	ExecutableSHA256 string  `json:"executable_sha256,omitempty"`
 	ActiveKernel     bool    `json:"active_kernel,omitempty"`
 }
+
+// DeviceCoverage describes sampled coverage of one physical GPU.
 type DeviceCoverage struct {
 	GPU     string `json:"gpu_uuid"`
 	Samples int    `json:"samples"`
@@ -56,6 +70,7 @@ type DeviceCoverage struct {
 	MaxGap  int64  `json:"max_gap_ns"`
 }
 
+// Receipt is versioned local observer evidence.
 type Receipt struct {
 	Devices           []DeviceCoverage `json:"devices"`
 	Version           int              `json:"version"`
@@ -76,6 +91,8 @@ type Receipt struct {
 	Outside           []Observation    `json:"outside,omitempty"`
 	Errors            []string         `json:"errors,omitempty"`
 }
+
+// Result reports isolation separately from other qualification gates.
 type Result struct {
 	Version int      `json:"version"`
 	State   string   `json:"state"`
@@ -221,7 +238,7 @@ func Evaluate(r *Receipt, digest string, want Binding) Result {
 // Require applies the common qualification policy without changing evidence.
 func Require(r Result, clear bool) error {
 	if r.State == "contaminated" || clear && r.State != "clear" {
-		return fmt.Errorf("GPU isolation: %s", r.State)
+		return fmt.Errorf("gpu isolation: %s", r.State)
 	}
 	return nil
 }
