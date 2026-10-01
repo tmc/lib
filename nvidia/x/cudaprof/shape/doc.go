@@ -8,6 +8,11 @@
 // absence never matches an explicit value. An identity describes instrumentation
 // claims, not an independent correctness check of the application.
 //
+// CompareComponents uses separate version 3 component contracts, explicit
+// request mappings and observed root submissions. It compares repeated launch
+// configurations as per-root multisets, including dynamic shared memory.
+// Declared banks or construction scopes do not establish root execution.
+//
 // Duration distributions describe launches within captures. They are not
 // independent-run confidence intervals. Completeness and stationarity gates
 // belong to the caller and cannot be replaced by shape qualification.

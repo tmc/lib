@@ -127,3 +127,67 @@ Collector, correctness, coverage, stationarity and isolation dispositions remain
 independent. Application completion evidence does not replace unknown native
 GPU completion. Kernel-duration sums and recorded device unions are separate
 from request wall time and do not establish a critical path.
+
+## Component execution contracts
+
+```
+cudaprof shape-compare -scope geometry base.pprof target.pprof
+cudaprof shape-compare -scope component -request-pairs pairs.json base.pprof target.pprof
+```
+
+The default model scope and v1 receipt remain unchanged. Geometry scope emits
+`cudaprof.kernel-geometry-comparison.v1`, with raw per-arm distributions from the
+existing kernel-shapes query. That query groups journal/device/symbol/grid/block;
+shared-memory grouping is unavailable. Geometry alone never qualifies application
+work. Component scope emits `cudaprof.component-shape-comparison.v1` in a version2
+envelope; existing model receipt consumers reject it.
+
+Component NVTX messages use `cudaprof:v3` and require a component contract,
+request ID/role, invocation, batch and root count. The contract declares bank and
+root-set SHA-256, shape, element strides, dtype, math form, scalar policy,
+execution policy and root policy. Signed strides are retained literally; this
+metadata does not verify memory bounds. Token, cache, layer and lookahead fields
+are forbidden. Version1/2 field and phase rules remain unchanged.
+
+Use instantaneous `batch_start` and `batch_end` events with submission/completion
+boundaries and cumulative successful `component_batch` counters. Each completed
+batch increments once. Component completion is application evidence, not native
+GPU completion. Explicit batch ranges must surround submission. Root ranges
+must carry their own root ordinal and complete contract; fields do not inherit.
+Shared aliases, shared inputs with distinct roots and distinct banks are separate
+root policies. Construction scopes cannot identify kernels submitted by a later
+batched Eval; without observed root submissions, root coverage stays unavailable.
+
+Component matching uses exact journal/API correlation and same-process/thread
+submission scopes. Asynchronous kernels may execute after host ranges end.
+Repeated configurations compare as exact per-root multisets, including retained
+dynamic shared memory; no individual occurrence pairing or independent timing
+samples are inferred. Missing shared memory, malformed lifecycle/scope metadata,
+duplicate or missing roots, unused request mappings, and counter discontinuities
+fail qualification. Bank hashes never substitute for execution evidence.
+
+A regex selecting several kernels per explicit batch produces a bounded
+ambiguity diagnostic with counts and at most four sample identities, not inferred
+component iterations. Explicit lifecycle intervals remain distinct from kernel
+sums. Correctness, collector completeness, stationarity, native completion and
+isolation remain separate; component analysis cannot promote those gates.
+
+A complete batch submission range message (the example hashes are declarations,
+not hashes of supplied fixture tensors):
+
+```text
+cudaprof:v3 {"component":{"name":"geglu","bank_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","root_set_sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","shape":[256],"strides":[1],"dtype":"bfloat16","math_form":"direct-fused","scalar_policy":"weak-float","execution_policy":"synchronized_eval","root_policy":"distinct_banks"},"invocation":0,"batch":0,"root_count":45,"request_id":"geglu","role":"measured","boundary":"submission","execution_unit":"component_batch","executions":0,"phase":"evaluate","operation":"geglu"}
+```
+
+A corresponding request mapping, using the actual journal attachment names and
+process IDs retained in each capture, is:
+
+```json
+[{"base_journal":"base.journal","base_process":101,"base_id":"geglu","target_journal":"target.journal","target_process":202,"target_id":"geglu","role":"measured"}]
+```
+
+For per-root attribution, native submission scopes must additionally carry
+`root` ordinals0–44. Marking45 construction calls and later calling a single
+synchronized batched Eval identifies neither45 root submissions nor their
+individual kernels. That capture can retain batch/geometry diagnostics while
+component root qualification remains unavailable.

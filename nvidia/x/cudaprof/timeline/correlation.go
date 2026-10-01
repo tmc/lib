@@ -2,6 +2,7 @@ package timeline
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudaprof/marker"
@@ -211,6 +212,17 @@ func Correlations(records Records, domain string) []Correlation {
 
 // conflictingMetadata compares only fields explicitly supplied by both ranges.
 func conflictingMetadata(a, b marker.Metadata) bool {
+	if a.Version == 3 || b.Version == 3 {
+		if a.Version != b.Version {
+			return true
+		}
+		if a.Component != nil && b.Component != nil && !reflect.DeepEqual(a.Component, b.Component) {
+			return true
+		}
+		if conflictingValue(a.Invocation, b.Invocation) || conflictingValue(a.Batch, b.Batch) || conflictingValue(a.RootCount, b.RootCount) || conflictingValue(a.Root, b.Root) {
+			return true
+		}
+	}
 	return (a.ExecutionUnit != "" && b.ExecutionUnit != "" && a.ExecutionUnit != b.ExecutionUnit) || a.Event != b.Event || a.Phase != b.Phase || (a.RequestID != "" && b.RequestID != "" && a.RequestID != b.RequestID) || (a.Role != "" && b.Role != "" && a.Role != b.Role) || (a.Boundary != "" && b.Boundary != "" && a.Boundary != b.Boundary) || conflictingValue(a.Executions, b.Executions) || (a.Operation != "" && b.Operation != "" && a.Operation != b.Operation) ||
 		conflictingValue(a.Token, b.Token) || conflictingValue(a.Layer, b.Layer) || conflictingValue(a.DType, b.DType) ||
 		conflictingValue(a.CacheLength, b.CacheLength) || conflictingValue(a.Lookahead, b.Lookahead) || conflictingValue(a.Materialization, b.Materialization)

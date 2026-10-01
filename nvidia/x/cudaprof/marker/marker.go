@@ -19,11 +19,20 @@ var ErrNotMarker = errors.New("not an application marker")
 
 // Metadata describes application state observed through explicit instrumentation.
 // Phase is required: prefill or decode, with cleanup also supported by v2.
+// Version3 describes components separately from model tokens and caches.
 // Version 2 requires RequestID and Role. Nil optional fields mean
 // that the application did not supply a value; they do not imply zero or false.
 // Operation is an application-defined name, not an inferred kernel identity.
 type Metadata struct {
-	// Version is 0 or 1 for legacy metadata, or 2 for request-scoped metadata.
+	// Component and its coordinates are available only in version3. Model token
+	// and cache fields are not applicable and forbidden in that schema.
+	Component  *ComponentContract `json:"component,omitempty"`
+	Invocation *int               `json:"invocation,omitempty"`
+	Batch      *int               `json:"batch,omitempty"`
+	Root       *int               `json:"root,omitempty"`
+	RootCount  *int               `json:"root_count,omitempty"`
+
+	// Version is 0 or 1 for legacy metadata, 2 for model requests, or 3 for components.
 	Version   int    `json:"marker_version,omitempty"`
 	RequestID string `json:"request_id,omitempty"`
 	Role      string `json:"role,omitempty"`
@@ -55,6 +64,9 @@ func Encode(m Metadata) (string, error) {
 	if m.Version == 2 {
 		prefix = prefixV2
 	}
+	if m.Version == 3 {
+		prefix = prefixV3
+	}
 	// The wire prefix carries the version; JSON receipts retain it separately.
 	m.Version = 0
 	b, err := json.Marshal(m)
@@ -73,6 +85,9 @@ func Parse(message string) (Metadata, error) {
 	version := 1
 	if strings.HasPrefix(message, prefixV2) {
 		prefix, version = prefixV2, 2
+	}
+	if strings.HasPrefix(message, prefixV3) {
+		prefix, version = prefixV3, 3
 	}
 	if !strings.HasPrefix(message, prefix) {
 		if strings.HasPrefix(message, "cudaprof:") {
@@ -99,7 +114,11 @@ func Parse(message string) (Metadata, error) {
 		}
 		switch key {
 		case "request_id", "role", "boundary", "executions", "execution_unit":
-			if version != 2 {
+			if version != 2 && version != 3 {
+				return m, fmt.Errorf("parse marker: unknown field %q", key)
+			}
+		case "component", "invocation", "batch", "root", "root_count":
+			if version != 3 {
 				return m, fmt.Errorf("parse marker: unknown field %q", key)
 			}
 		case "phase", "token", "layer", "operation", "dtype", "cache_length", "lookahead", "materialization", "event":
@@ -110,6 +129,11 @@ func Parse(message string) (Metadata, error) {
 		var value json.RawMessage
 		if err := dec.Decode(&value); err != nil {
 			return m, fmt.Errorf("parse marker: %w", err)
+		}
+		if key == "component" {
+			if err := validateComponentJSON(value); err != nil {
+				return m, fmt.Errorf("parse marker: %w", err)
+			}
 		}
 		if bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
 			return m, fmt.Errorf("parse marker: null field %q", key)
@@ -135,8 +159,14 @@ func Parse(message string) (Metadata, error) {
 }
 
 func validate(m Metadata) error {
+	if m.Version == 3 {
+		return validateComponent(m)
+	}
+	if m.Component != nil || m.Invocation != nil || m.Batch != nil || m.Root != nil || m.RootCount != nil {
+		return errors.New("component metadata requires marker version 3")
+	}
 	if m.Version != 0 && m.Version != 1 && m.Version != 2 {
-		return errors.New("marker version must be 1 or 2")
+		return errors.New("marker version must be 1, 2 or 3")
 	}
 	if m.Version != 2 && (m.RequestID != "" || m.Role != "" || m.Boundary != "" || m.Executions != nil || m.ExecutionUnit != "") {
 		return errors.New("request metadata requires marker version 2")
