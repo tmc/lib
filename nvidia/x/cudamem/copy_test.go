@@ -299,7 +299,7 @@ func TestCopy_DispatchChecksAndCompleteness(t *testing.T) {
 	if _, err := PlanCopy(mustCopyLayout(t, "4:1"), mustCopyLayout(t, "3:1")); !errors.Is(err, ErrCopySizeMismatch) {
 		t.Fatalf("size mismatch = %v", err)
 	}
-	plan := CopyPlan{VectorWidth: 2, ElementCount: 5, runs: []CopyRun{{0, 0, 2}, {2, 2, 2}, {4, 4, 1}}}
+	plan := CopyPlan{VectorWidth: 2, ElementCount: 5, transferCount: 5, runs: []CopyRun{{0, 0, 2}, {2, 2, 2}, {4, 4, 1}}}
 	var calls []CopyRun
 	transfer := func(run CopyRun) error { calls = append(calls, run); return nil }
 	if err := dispatchCopy(plan, 4, 5, transfer); !errors.Is(err, ErrCopySizeMismatch) || len(calls) != 0 {
@@ -310,6 +310,20 @@ func TestCopy_DispatchChecksAndCompleteness(t *testing.T) {
 	}
 	if !reflect.DeepEqual(calls, plan.runs) {
 		t.Fatalf("calls=%v, want every run %v", calls, plan.runs)
+	}
+}
+
+func TestCopy_DispatchRejectsIncompletePlan(t *testing.T) {
+	for _, count := range []int{3, 5} {
+		t.Run(fmt.Sprint(count), func(t *testing.T) {
+			plan := CopyPlan{VectorWidth: 2, ElementCount: 5, transferCount: count,
+				runs: []CopyRun{{0, 0, 2}, {2, 2, 2}}}
+			calls := 0
+			err := dispatchCopy(plan, 5, 5, func(CopyRun) error { calls++; return nil })
+			if !errors.Is(err, ErrCopySizeMismatch) || calls != 0 {
+				t.Fatalf("dispatch error = %v, transfers = %d, want size error before transfer", err, calls)
+			}
+		})
 	}
 }
 

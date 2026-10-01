@@ -37,6 +37,8 @@ type CopyPlan struct {
 	VectorReason        string
 	ElementCount        int
 	runs                []CopyRun
+	// transferCount excludes logical writes removed by alias collapse.
+	transferCount int
 }
 
 type copyAlgebra struct {
@@ -182,12 +184,11 @@ func planCopy(src, dst cudalayout.Layout, algebra copyAlgebra) (CopyPlan, error)
 		}
 	}
 	plan.CollapseFactor *= maxAliases
-	if width > 1 && len(vectors) == 0 {
-		plan.VectorWidth = 1
-		plan.VectorReason = "overlapping aliases leave only scalar transfers"
-	}
 	// Dispatch every vector before any residual, without sorting by address.
 	plan.runs = append(vectors, scalars...)
+	for _, run := range plan.runs {
+		plan.transferCount += run.Length
+	}
 	return plan, nil
 }
 
@@ -253,6 +254,7 @@ func dispatchCopy(plan CopyPlan, destinationLength, sourceLength int, transfer f
 	if plan.VectorWidth < 1 || plan.ElementCount <= 0 || len(plan.runs) == 0 {
 		return errors.New("cudamem: invalid copy plan")
 	}
+	remaining := plan.transferCount
 	for _, run := range plan.runs {
 		if run.Length != 1 && run.Length != plan.VectorWidth {
 			return fmt.Errorf("cudamem: invalid copy run length %d", run.Length)
@@ -260,6 +262,13 @@ func dispatchCopy(plan CopyPlan, destinationLength, sourceLength int, transfer f
 		if run.SourceOffset < 0 || run.DestinationOffset < 0 || run.Length > sourceLength || run.Length > destinationLength || run.SourceOffset > sourceLength-run.Length || run.DestinationOffset > destinationLength-run.Length {
 			return fmt.Errorf("%w: run %+v exceeds source length %d or destination length %d", ErrCopySizeMismatch, run, sourceLength, destinationLength)
 		}
+		if run.Length > remaining {
+			return fmt.Errorf("%w: runs exceed planned transfer count", ErrCopySizeMismatch)
+		}
+		remaining -= run.Length
+	}
+	if remaining != 0 {
+		return fmt.Errorf("%w: runs omit %d planned elements", ErrCopySizeMismatch, remaining)
 	}
 	for _, run := range plan.runs {
 		if err := transfer(run); err != nil {
