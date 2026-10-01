@@ -28,3 +28,22 @@ implementation. Existing captures without markers produce unmatched work;
 the tool cannot recover missing token, dtype, or cache-length observations from
 raw kernel names. Shape qualification alone supplies no causal explanation for
 a GEMV residual.
+
+## Explicit request pairing
+
+Version 2 markers carry capture-local request IDs. They never automatically
+match across arms, even if their strings agree. Supply `-request-pairs pairs.json`
+to declare the intended equivalence:
+
+```json
+[{"base_journal":"go","base_process":1,"base_id":"request-1",
+  "target_journal":"python","target_process":2,"target_id":"run-a",
+  "role":"measured"}]
+```
+
+The receipt retains this mapping; bound trace validation recomputes it from the
+original captures. Kernel shape identity excludes cumulative successful-forward
+counts: Go full-prompt prefill and Python split prefill can have different counts
+at the same semantic token. `work_scope` and `diagnostics` report that distinction
+separately. A shape pass is not an equal-work, lifecycle-completeness or correctness
+pass. Missing boundaries remain unavailable; missing counters never imply zero.

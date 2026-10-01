@@ -16,6 +16,8 @@ import (
 // instantaneous delivered marker with the same token. Unsupported native APIs
 // and disconnected work prevent qualification.
 type Selection struct {
+	RequestID          string `json:"request_id,omitempty"`
+	Role               string `json:"role,omitempty"`
 	Journal            string `json:"journal"`
 	Process            uint32 `json:"process"`
 	Thread             uint32 `json:"thread"`
@@ -41,7 +43,7 @@ func Delivery(records timeline.Records, selection Selection) Graph {
 	}
 	token := func(name string) (marker.Metadata, bool) {
 		m, err := marker.ParseRange(name)
-		return m, err == nil && m.Token != nil && *m.Token == selection.Token && m.Event == ""
+		return m, err == nil && (m.Version != 2 || (m.RequestID == selection.RequestID && m.Role == selection.Role)) && m.Token != nil && *m.Token == selection.Token && m.Event == ""
 	}
 	var boundary *timeline.Range
 	var materializations []timeline.Range
@@ -70,7 +72,7 @@ func Delivery(records timeline.Records, selection Selection) Graph {
 	var delivered *timeline.Marker
 	for _, m := range records.Markers {
 		metadata, err := marker.ParseRange(m.Name)
-		if err != nil || metadata.Event != "delivered" || metadata.Token == nil || *metadata.Token != selection.Token || !scoped(m.Journal, m.Process, m.Thread) || m.Flags != timeline.MarkerInstantaneous {
+		if err != nil || (metadata.Version == 2 && (metadata.RequestID != selection.RequestID || metadata.Role != selection.Role || metadata.Boundary != "consumer_delivery")) || metadata.Event != "delivered" || metadata.Token == nil || *metadata.Token != selection.Token || !scoped(m.Journal, m.Process, m.Thread) || m.Flags != timeline.MarkerInstantaneous {
 			continue
 		}
 		if delivered != nil {

@@ -1,6 +1,7 @@
 package shape
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudaprof/marker"
@@ -104,4 +105,125 @@ func TestQualificationFailures(t *testing.T) {
 	if got := Compare(base, target, "driver"); got.Pass {
 		t.Fatalf("global node count qualified unsupported graph identity: %+v", got)
 	}
+}
+
+func TestRequestComparison(t *testing.T) {
+	for _, tt := range []struct {
+		name, request, role, boundary string
+		executions                    *int
+		pass                          bool
+	}{
+		{"same", "r", "measured", "submission", intPointer(3), true},
+		{"mapped request differs", "s", "measured", "submission", intPointer(3), true},
+		{"role differs", "r", "warmup", "submission", intPointer(3), false},
+		{"boundary differs", "r", "measured", "completion", intPointer(3), false},
+		{"work differs", "r", "measured", "submission", intPointer(4), true},
+		{"work missing", "r", "measured", "submission", nil, true},
+		{"boundary missing", "r", "measured", "", intPointer(3), false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			base, target := capture(0, "base", 2), capture(0, "target", 2)
+			for i, r := range []*timeline.Records{&base, &target} {
+				m, err := marker.ParseRange(r.Ranges[0].Name)
+				if err != nil {
+					t.Fatal(err)
+				}
+				m.Version = 2
+				m.RequestID = "r"
+				m.Role = "measured"
+				m.Boundary = "submission"
+				m.ExecutionUnit = "logical_forward"
+				m.Executions = intPointer(3)
+				if i == 1 {
+					m.RequestID = tt.request
+					m.Role = tt.role
+					m.Boundary = tt.boundary
+					m.Executions = tt.executions
+				}
+				r.Ranges[0].Name, err = marker.Encode(m)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			got := CompareScoped(base, target, "driver", []RequestPair{{BaseJournal: "capture", BaseProcess: 1, BaseID: "r", TargetJournal: "capture", TargetProcess: 1, TargetID: tt.request, Role: "measured"}})
+			if tt.name == "work differs" && !strings.Contains(got.WorkScope, "mismatch") {
+				t.Fatalf("missing work diagnostic: %+v", got)
+			}
+			if Compare(base, target, "driver").Pass {
+				t.Fatal("v2 matched without explicit mapping")
+			}
+			if got.Pass != tt.pass {
+				t.Fatalf("Compare=%+v", got)
+			}
+		})
+	}
+}
+
+func intPointer(v int) *int { return &v }
+
+func TestRequestMappingAdmission(t *testing.T) {
+	captureV2 := func(process uint32, correlation uint32) timeline.Records {
+		r := capture(0, "kernel", 2)
+		m, err := marker.ParseRange(r.Ranges[0].Name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		m.Version = 2
+		m.RequestID = "r"
+		m.Role = "measured"
+		m.Boundary = "submission"
+		m.ExecutionUnit = "logical_forward"
+		m.Executions = intPointer(2)
+		r.Ranges[0].Name, err = marker.Encode(m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		r.Calls[0].Process = process
+		r.Ranges[0].Process = process
+		r.Calls[0].Correlation = correlation
+		r.Activities[0].Correlation = correlation
+		return r
+	}
+	base, target := captureV2(1, 1), captureV2(3, 1)
+	pair := RequestPair{BaseJournal: "capture", BaseProcess: 1, BaseID: "r", TargetJournal: "capture", TargetProcess: 3, TargetID: "r", Role: "measured"}
+	t.Run("unused target", func(t *testing.T) {
+		extra := pair
+		extra.BaseProcess = 2
+		extra.TargetProcess = 9
+		b2 := captureV2(2, 2)
+		b := base
+		b.Calls = append(append([]timeline.Call(nil), b.Calls...), b2.Calls...)
+		b.Ranges = append(append([]timeline.Range(nil), b.Ranges...), b2.Ranges...)
+		b.Activities = append(append([]timeline.Activity(nil), b.Activities...), b2.Activities...)
+		got := CompareScoped(b, target, "driver", []RequestPair{pair, extra})
+		if got.Pass || len(got.Groups) != 1 || !strings.Contains(strings.Join(got.Failures, ";"), "mapping lacks observed") {
+			t.Fatalf("unused mapping accepted: %+v", got)
+		}
+	})
+	t.Run("same ids separate processes", func(t *testing.T) {
+		b2, t2 := captureV2(2, 2), captureV2(4, 2)
+		b, q := base, target
+		b.Calls = append(append([]timeline.Call(nil), b.Calls...), b2.Calls...)
+		b.Ranges = append(append([]timeline.Range(nil), b.Ranges...), b2.Ranges...)
+		b.Activities = append(append([]timeline.Activity(nil), b.Activities...), b2.Activities...)
+		q.Calls = append(append([]timeline.Call(nil), q.Calls...), t2.Calls...)
+		q.Ranges = append(append([]timeline.Range(nil), q.Ranges...), t2.Ranges...)
+		q.Activities = append(append([]timeline.Activity(nil), q.Activities...), t2.Activities...)
+		other := pair
+		other.BaseProcess = 2
+		other.TargetProcess = 4
+		got := CompareScoped(b, q, "driver", []RequestPair{pair, other})
+		if !got.Pass || len(got.Groups) != 2 {
+			t.Fatalf("process scope lost: %+v", got)
+		}
+	})
+	t.Run("no matched scopes", func(t *testing.T) {
+		q := target
+		q.Activities = append([]timeline.Activity(nil), q.Activities...)
+		q.Activities[0].Grid[0] = 99
+		got := CompareScoped(base, q, "driver", []RequestPair{pair})
+		if len(got.Groups) != 0 || strings.Contains(got.WorkScope, "counts agree") {
+			t.Fatalf("empty work qualified: %+v", got)
+		}
+	})
 }

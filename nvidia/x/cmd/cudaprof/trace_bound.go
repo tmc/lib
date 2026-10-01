@@ -89,7 +89,7 @@ func validatedTraceShape(s *traceSession, path string, limits traceInputLimits) 
 		}
 		records[i] = source.Records
 	}
-	actual := shape.Compare(records[0], records[1], receipt.Domain)
+	actual := shape.CompareScoped(records[0], records[1], receipt.Domain, receipt.Shape.RequestPairs)
 	if !reflect.DeepEqual(actual, receipt.Shape) {
 		return receipt, sources, unknown, errors.New("trace shape receipt: recomputed shape differs from supplied receipt")
 	}

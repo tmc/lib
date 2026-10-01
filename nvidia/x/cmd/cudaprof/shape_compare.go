@@ -32,6 +32,7 @@ func runShapeCompare(args []string, stdout io.Writer) error {
 		fmt.Fprintln(stdout, "usage: cudaprof shape-compare [-domain driver|runtime] [-iteration-marker RE] base.pprof target.pprof")
 		fs.PrintDefaults()
 	}
+	requestPairs := fs.String("request-pairs", "", "JSON array declaring process/journal/request/role equivalence for v2 metadata")
 	domain := fs.String("domain", "driver", "submission API domain: driver or runtime")
 	pattern := fs.String("iteration-marker", "arg_reduce", "kernel marker for the separate stationarity gate")
 	maxRecords := fs.Int64("max-records", 0, "maximum journal records; 0 uses recorded bounds")
@@ -54,6 +55,13 @@ func runShapeCompare(args []string, stdout io.Writer) error {
 	re, err := regexp.Compile(*pattern)
 	if err != nil {
 		return fmt.Errorf("shape-compare: iteration marker: %w", err)
+	}
+	var pairs []shape.RequestPair
+	if *requestPairs != "" {
+		pairs, err = readShapeRequestPairs(*requestPairs)
+		if err != nil {
+			return err
+		}
 	}
 	type arm struct {
 		Isolation       isolation.Result `json:"gpu_isolation"`
@@ -88,8 +96,27 @@ func runShapeCompare(args []string, stdout io.Writer) error {
 		Arms            [2]arm       `json:"arms"`
 		Shape           shape.Report `json:"shape_qualification"`
 		Limits          string       `json:"limits"`
-	}{1, *domain, *pattern, arms, shape.Compare(records[0], records[1], *domain), "explicit NVTX fields qualify shapes; kernel iteration boundaries are inferred and stationarity remains separate; launch duration distributions are not independent run samples; no causal speedup claimed"}
+	}{1, *domain, *pattern, arms, shape.CompareScoped(records[0], records[1], *domain, pairs), "explicit NVTX fields qualify shapes; kernel iteration boundaries are inferred and stationarity remains separate; launch duration distributions are not independent run samples; no causal speedup claimed"}
 	enc := json.NewEncoder(stdout)
 	enc.SetIndent("", "  ")
 	return enc.Encode(report)
+}
+
+func readShapeRequestPairs(path string) ([]shape.RequestPair, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("shape-compare request pairs: %w", err)
+	}
+	data, readErr := io.ReadAll(io.LimitReader(f, 1<<20+1))
+	if err := errors.Join(readErr, f.Close()); err != nil {
+		return nil, fmt.Errorf("shape-compare request pairs: %w", err)
+	}
+	if len(data) > 1<<20 {
+		return nil, errors.New("shape-compare request pairs exceed 1 MiB")
+	}
+	var pairs []shape.RequestPair
+	if err := decodeCounterJSON(data, &pairs); err != nil {
+		return nil, fmt.Errorf("shape-compare request pairs: %w", err)
+	}
+	return pairs, nil
 }

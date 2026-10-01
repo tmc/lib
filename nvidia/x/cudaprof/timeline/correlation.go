@@ -211,7 +211,7 @@ func Correlations(records Records, domain string) []Correlation {
 
 // conflictingMetadata compares only fields explicitly supplied by both ranges.
 func conflictingMetadata(a, b marker.Metadata) bool {
-	return a.Event != b.Event || a.Phase != b.Phase || (a.Operation != "" && b.Operation != "" && a.Operation != b.Operation) ||
+	return (a.ExecutionUnit != "" && b.ExecutionUnit != "" && a.ExecutionUnit != b.ExecutionUnit) || a.Event != b.Event || a.Phase != b.Phase || (a.RequestID != "" && b.RequestID != "" && a.RequestID != b.RequestID) || (a.Role != "" && b.Role != "" && a.Role != b.Role) || (a.Boundary != "" && b.Boundary != "" && a.Boundary != b.Boundary) || conflictingValue(a.Executions, b.Executions) || (a.Operation != "" && b.Operation != "" && a.Operation != b.Operation) ||
 		conflictingValue(a.Token, b.Token) || conflictingValue(a.Layer, b.Layer) || conflictingValue(a.DType, b.DType) ||
 		conflictingValue(a.CacheLength, b.CacheLength) || conflictingValue(a.Lookahead, b.Lookahead) || conflictingValue(a.Materialization, b.Materialization)
 }

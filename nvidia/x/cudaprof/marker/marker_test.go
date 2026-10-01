@@ -87,3 +87,35 @@ func TestDeliveryEvents(t *testing.T) {
 		}
 	}
 }
+
+func TestRequestMetadata(t *testing.T) {
+	for _, tt := range []struct {
+		name, input string
+		valid       bool
+	}{
+		{"request", `cudaprof:v2 {"phase":"cleanup","event":"request_end","request_id":"r","role":"measured","boundary":"completion","execution_unit":"logical_forward","executions":32}`, true},
+		{"legacy request", `cudaprof:v1 {"phase":"decode","request_id":"r"}`, false},
+		{"legacy cleanup", `cudaprof:v1 {"phase":"cleanup"}`, false},
+		{"duplicate request", `cudaprof:v2 {"phase":"decode","request_id":"r","request_id":"s","role":"measured"}`, false},
+		{"missing role", `cudaprof:v2 {"phase":"decode","request_id":"r"}`, false},
+		{"bad boundary", `cudaprof:v2 {"phase":"decode","request_id":"r","role":"measured","boundary":"inferred"}`, false},
+		{"negative executions", `cudaprof:v2 {"phase":"decode","request_id":"r","role":"measured","execution_unit":"logical_forward","executions":-1}`, false},
+		{"missing optional observations", `cudaprof:v2 {"phase":"decode","request_id":"r","role":"warmup"}`, true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			m, err := Parse(tt.input)
+			if (err == nil) != tt.valid {
+				t.Fatalf("Parse = %+v, %v", m, err)
+			}
+			if tt.valid {
+				text, err := Encode(m)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := Parse(text); err != nil {
+					t.Fatal(err)
+				}
+			}
+		})
+	}
+}

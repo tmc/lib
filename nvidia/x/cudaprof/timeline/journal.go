@@ -735,6 +735,8 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *Records
 			if payload.Dropped > 0 {
 				return fmt.Errorf("journal %s reports %d dropped record(s), so the timeline is missing activities", name, payload.Dropped)
 			}
+			// CUPTI_TIMESTAMP_UNKNOWN is zero, including for instantaneous NVTX
+			// markers. A contradictory valid=true does not supply a timestamp.
 			if !payload.Valid || payload.Start == 0 || payload.End < payload.Start || payload.End > math.MaxInt64 {
 				continue
 			}

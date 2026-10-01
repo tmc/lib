@@ -49,3 +49,27 @@ Keep raw names, intervals, and marker counts alongside parsed metadata.
 These observed labels do not replace inferred `arg_reduce` boundaries or prove
 workload equivalence. Cross-thread submission and asynchronous work require
 correlation evidence beyond range containment.
+
+## Request-scoped version 2
+
+Set `Metadata.Version` to 2 and supply `RequestID` and `Role` (`warmup`,
+`measured`, or `control`). Identity is local to the capture journal/process plus
+request ID and role. Version 1 remains strict and cannot carry these fields.
+
+`Boundary` explicitly distinguishes `submission`, `completion`, and
+`consumer_delivery`. `cleanup` is a version 2 phase. Instantaneous
+`request_start` and `request_end` events delimit the request without requiring a
+token. A terminal EOS completion is not a consumer delivery observation.
+
+`Executions`, when present, is a cumulative count of successful logical model
+forward calls in this request, including prefill. Supply
+`ExecutionUnit: "logical_forward"`. Count each successful forward once; exclude
+compile tracing callbacks and failed calls. The count is an application
+observation, not proof of GPU completion or a kernel count. Nil is unavailable,
+not zero. Consumer token indices are zero-based delivery ordinals.
+
+The native summary retains per-request lifecycle qualifications, spacing and
+execution deltas. Missing/ambiguous boundaries, counters or delivered ordinals
+suppress derived metrics. Different delivery and execution deltas are reported
+explicitly: equal consumer windows can contain different submitted work. Request
+metadata alone does not establish capture completeness or numerical parity.
