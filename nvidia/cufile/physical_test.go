@@ -39,7 +39,7 @@ func TestPhysicalTransfer(t *testing.T) {
 	check(err)
 	ctx, err := driver.NewContext(dev, 0)
 	check(err)
-	cleanup(ctx.Destroy)
+	cleanup(ctx.Close)
 	check(cufile.DriverOpen())
 	cleanup(cufile.DriverClose)
 	const n = 16384
