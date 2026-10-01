@@ -218,6 +218,8 @@ type captureOptions struct {
 	Iterations *iterationsOptions
 
 	Trace   bool
+	Stacks  bool
+	stacksSet bool
 	Replay  string
 	Exclude []string
 	// FollowChildren keeps the generations of processes the target spawned in
@@ -530,6 +532,12 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 			return o, flag.ErrHelp
 		case "--trace":
 			o.Trace = true
+		case "--stacks":
+			v, err := captureBool(name, value, hasValue)
+			if err != nil {
+				return o, err
+			}
+			o.Stacks, o.stacksSet = v, true
 		case "--follow-children", "-follow-children":
 			v, err := captureBool(name, value, hasValue)
 			if err != nil {
@@ -1000,6 +1008,19 @@ func captureEnvironment(o captureOptions, session, dir string) []string {
 	env = setCaptureEnv(env, "CUDAPROF_PROTOCOL", strconv.Itoa(captureProtocolVersion))
 	env = setCaptureEnv(env, "CUDAPROF_SESSION", session)
 	env = setCaptureEnv(env, "CUDAPROF_TRANSPORT", dir)
+	if o.Stacks {
+		env = setCaptureEnv(env, "CUDAPROF_STACK_DIR", filepath.Join(dir, "stacks"))
+		env = setCaptureEnv(env, "CUDAPROF_GO_STACKS", "1")
+		env = setCaptureEnv(env, "CUDAPROF_PYTHON_STACKS", "1")
+		pythonPath := filepath.Join(dir, "python")
+		if inherited := lookupEnv(env, "PYTHONPATH"); inherited != "" {
+			pythonPath += string(os.PathListSeparator) + inherited
+		}
+		env = setCaptureEnv(env, "PYTHONPATH", pythonPath)
+	} else if o.stacksSet {
+		env = setCaptureEnv(env, "CUDAPROF_GO_STACKS", "0")
+		env = setCaptureEnv(env, "CUDAPROF_PYTHON_STACKS", "0")
+	}
 	// The collection policy is exported only when the caller asked for it, so
 	// an unset flag leaves whatever the caller's own environment said and the
 	// agent keeps its own default. "none" is exported like any other value: it
@@ -1215,6 +1236,11 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 		outcome = captureOutcomeInjection
 	}
 	result := captureResult{Protocol: captureProtocolVersion, Session: session, State: captureStatePlanned, Outcome: outcome, ChildrenFollowed: o.FollowChildren, ScratchDir: dir}
+	if o.Stacks {
+		if err := prepareStackTransport(dir); err != nil {
+			return result, err
+		}
+	}
 	if o.Inject == "" && !o.NoInject {
 		result.CaptureError = "no injection library configured (specify --inject /path/to/agent.so, CUDAPROF_INJECT, or pass --no-inject to run uninstrumented)"
 		result.RunCompleteness = runUnknown
