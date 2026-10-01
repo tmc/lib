@@ -16,9 +16,11 @@ import (
 	"regexp"
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof/isolation"
 	"github.com/tmc/lib/nvidia/x/cudaprof/iteration"
 	"github.com/tmc/lib/nvidia/x/cudaprof/overview"
 	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
+	"github.com/tmc/lib/nvidia/x/cudaprof/tracecontract"
 	"github.com/tmc/lib/nvidia/x/perfetto"
 )
 
@@ -39,9 +41,18 @@ inferred kernel intervals; the alignment marker is not used implicitly.
 `
 
 type exportCompareOptions struct {
+	detail                   string
+	outputBytes              int64
+	memoryBytes              int64
+	maxTracks                int64
+	maxSummaryReferences     int64
+	memory                   bool
 	limits                   cudacapture.Limits
 	demangle                 bool
 	summary                  bool
+	telemetry                bool
+	submissionLinks          bool
+	graphLifecycle           bool
 	summaryDomain            string
 	summaryMarker            *regexp.Regexp
 	window                   iterationWindow
@@ -54,38 +65,52 @@ type exportCompareOptions struct {
 }
 
 type alignmentArm struct {
-	MarkerTimes   []int64        `json:"marker_timestamps_ns"`
-	Path          string         `json:"capture_path"`
-	SHA256        string         `json:"capture_sha256"`
-	Label         string         `json:"label"`
-	Trace         string         `json:"trace_path"`
-	Origin        int64          `json:"origin_ns"`
-	Start         int64          `json:"selected_start_ns"`
-	End           int64          `json:"selected_end_ns"`
-	Offset        int64          `json:"offset_ns"`
-	Markers       int            `json:"observed_markers"`
-	Expected      int            `json:"expected_markers,omitempty"`
-	MarkerVerdict string         `json:"marker_invariant"`
-	Skip          int            `json:"skip_iterations"`
-	Iterations    int            `json:"selected_iterations"`
-	Records       int            `json:"retained_trace_records"`
-	Completeness  string         `json:"collector_completeness"`
-	Stationarity  iteration.Gate `json:"selected_stationarity"`
-	FullGate      iteration.Gate `json:"full_iteration_gate"`
-	Status        captureResult  `json:"capture_status"`
-	records       []traceRecord
-	overview      *overview.Report
+	MarkerTimes      []int64        `json:"marker_timestamps_ns"`
+	Path             string         `json:"capture_path"`
+	SHA256           string         `json:"capture_sha256"`
+	Label            string         `json:"label"`
+	Trace            string         `json:"trace_path"`
+	Origin           int64          `json:"origin_ns"`
+	Start            int64          `json:"selected_start_ns"`
+	End              int64          `json:"selected_end_ns"`
+	Offset           int64          `json:"offset_ns"`
+	Markers          int            `json:"observed_markers"`
+	Expected         int            `json:"expected_markers,omitempty"`
+	MarkerVerdict    string         `json:"marker_invariant"`
+	Skip             int            `json:"skip_iterations"`
+	Iterations       int            `json:"selected_iterations"`
+	Records          int            `json:"retained_trace_records"`
+	Completeness     string         `json:"collector_completeness"`
+	Stationarity     iteration.Gate `json:"selected_stationarity"`
+	FullGate         iteration.Gate `json:"full_iteration_gate"`
+	Status           captureResult  `json:"capture_status"`
+	records          []traceRecord
+	overview         *overview.Report
+	telemetry        []capturePhaseEdge
+	provenance       *timeline.Records
+	provenanceDomain string
+	showLifecycle    bool
+	Isolation        isolation.Result `json:"isolation"`
+	showMemory       bool
+	detail           string
 }
 
 type alignmentReceipt struct {
-	SummaryMarker string          `json:"summary_inferred_marker,omitempty"`
-	SummaryDomain string          `json:"summary_api_domain,omitempty"`
-	Version       int             `json:"version"`
-	Mode          string          `json:"mode"`
-	Marker        string          `json:"marker"`
-	TimeScale     int             `json:"time_scale"`
-	Anchor        int64           `json:"shared_anchor_ns"`
-	Arms          [2]alignmentArm `json:"arms"`
+	maxTracks            int64
+	maxSummaryReferences int64
+	Detail               string          `json:"detail"`
+	Memory               bool            `json:"memory_requested,omitempty"`
+	Telemetry            bool            `json:"telemetry_queries_requested,omitempty"`
+	SubmissionLinks      bool            `json:"submission_links_requested,omitempty"`
+	GraphLifecycle       bool            `json:"graph_lifecycle_requested,omitempty"`
+	SummaryMarker        string          `json:"summary_inferred_marker,omitempty"`
+	SummaryDomain        string          `json:"summary_api_domain,omitempty"`
+	Version              int             `json:"version"`
+	Mode                 string          `json:"mode"`
+	Marker               string          `json:"marker"`
+	TimeScale            int             `json:"time_scale"`
+	Anchor               int64           `json:"shared_anchor_ns"`
+	Arms                 [2]alignmentArm `json:"arms"`
 }
 
 func parseExportCompareArgs(args []string, out io.Writer) (exportCompareOptions, error) {
@@ -102,6 +127,16 @@ func parseExportCompareArgs(args []string, out io.Writer) (exportCompareOptions,
 	flags.register(fs)
 	summaryMarker := fs.String("summary-marker", "", "optional kernel regex for separately inferred summary intervals")
 	fs.StringVar(&opts.summaryDomain, "summary-domain", "driver", "submission API domain for summary: driver or runtime")
+	fs.StringVar(&opts.detail, "detail", "", "raw, compact, token or operation; default raw")
+	fs.Int64Var(&opts.maxTracks, "max-tracks", defaultExportTracks, "combined maximum tracks for both arms")
+	fs.Int64Var(&opts.maxSummaryReferences, "max-summary-references", 2000000, "combined maximum source references for both arms")
+	fs.Int64Var(&opts.memoryBytes, "memory-bytes", defaultExportMemory, "soft Go memory budget; not an RSS limit")
+	fs.Int64Var(&opts.outputBytes, "output-bytes", defaultExportBytes, "maximum exported archive bytes")
+	fs.BoolVar(&opts.memory, "memory", false, "append observed memory service and policy evidence")
+	fs.StringVar(&opts.summaryDomain, "operation-domain", "driver", "alias for summary-domain")
+	fs.BoolVar(&opts.telemetry, "telemetry", false, "append bounded NVML query receipts with the same fixed alignment")
+	fs.BoolVar(&opts.submissionLinks, "submission-links", false, "append exact submission identity flows; not dependency edges")
+	fs.BoolVar(&opts.graphLifecycle, "graph-lifecycle", false, "append retained graph lifecycle events and qualification")
 	fs.BoolVar(&opts.summary, "summary", false, "append observed hierarchy and token overview tracks")
 	fs.BoolVar(&opts.demangle, "demangle", false, "display demangled kernel names, retaining raw_symbol args")
 	fs.StringVar(&opts.out, "o", "comparison.tar", "output TAR path")
@@ -128,6 +163,14 @@ func parseExportCompareArgs(args []string, out io.Writer) (exportCompareOptions,
 	}
 	set := map[string]bool{}
 	fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
+	if set["operation-domain"] && set["summary-domain"] {
+		return opts, errors.New("use one of operation-domain and summary-domain")
+	}
+	opts.detail, err = resolveExportDetail(opts.detail, opts.summaryDomain, opts.summary, set["summary-marker"], (set["summary-domain"] || set["operation-domain"]) && !opts.submissionLinks)
+	if err != nil {
+		return opts, err
+	}
+	opts.summary = opts.detail != "raw"
 	w, err := flags.window(set)
 	if err != nil {
 		return opts, err
@@ -154,7 +197,7 @@ func parseExportCompareArgs(args []string, out io.Writer) (exportCompareOptions,
 	if opts.labels[0] == opts.labels[1] {
 		return opts, errors.New("export-compare: arm labels must differ")
 	}
-	if opts.out == "" || opts.maxRecords < 0 || opts.journalBytes < 0 {
+	if opts.out == "" || opts.outputBytes <= 0 || opts.memoryBytes <= 0 || opts.maxTracks <= 0 || opts.maxSummaryReferences <= 0 || opts.maxRecords < 0 || opts.journalBytes < 0 {
 		return opts, errors.New("export-compare: invalid output or decode limit")
 	}
 	return opts, nil
@@ -168,8 +211,10 @@ func runExportCompareCommand(args []string) error {
 	if err != nil {
 		return err
 	}
-	receipt := alignmentReceipt{Version: 1, Mode: "independent runs aligned by selected start marker; no clock synchronization claimed", Marker: opts.window.marker.String(), TimeScale: 1}
-	if opts.summary {
+	restore := exportMemoryBudget(opts.memoryBytes)
+	defer restore()
+	receipt := alignmentReceipt{maxTracks: opts.maxTracks, maxSummaryReferences: opts.maxSummaryReferences, Detail: opts.detail, Memory: opts.memory, Version: 1, Mode: "independent runs aligned by selected start marker; no clock synchronization claimed", Marker: opts.window.marker.String(), TimeScale: 1, Telemetry: opts.telemetry, SubmissionLinks: opts.submissionLinks, GraphLifecycle: opts.graphLifecycle}
+	if opts.summary || opts.submissionLinks {
 		receipt.SummaryDomain = opts.summaryDomain
 		if opts.summaryMarker != nil {
 			receipt.SummaryMarker = opts.summaryMarker.String()
@@ -188,23 +233,8 @@ func runExportCompareCommand(args []string) error {
 	if err := alignArms(&receipt); err != nil {
 		return err
 	}
-	if err := checkComparisonOutput(opts.out, opts.paths); err != nil {
-		return err
-	}
-	f, err := os.CreateTemp(filepath.Dir(opts.out), ".cudaprof-comparison-*")
+	err = atomicExport(opts.out, opts.paths[:], opts.outputBytes, func(w io.Writer) error { return writeComparisonBundle(w, receipt) })
 	if err != nil {
-		return err
-	}
-	tmp := f.Name()
-	defer os.Remove(tmp)
-	err = writeComparisonBundle(f, receipt)
-	if cerr := f.Close(); err == nil {
-		err = cerr
-	}
-	if err != nil {
-		return err
-	}
-	if err := os.Rename(tmp, opts.out); err != nil {
 		return err
 	}
 	fmt.Printf("wrote %s: %d aligned intervals per arm, all records retained\n", opts.out, receipt.Arms[0].Iterations)
@@ -220,14 +250,28 @@ func loadAlignmentArm(opts exportCompareOptions, i int) (alignmentArm, error) {
 	if err != nil {
 		return arm, err
 	}
+	cap.Profile = nil // comparison uses journal evidence, not aggregate samples
 	arm.SHA256 = digest
+	arm.Isolation = captureIsolation(cap)
 	status, records, err := decodeCompleteCapture(cap, opts.maxRecords, opts.journalBytes)
 	if err != nil {
 		return arm, err
 	}
 	if opts.summary {
-		report := overview.Analyze(records, opts.summaryDomain, opts.summaryMarker)
+		report := detailOverview(overview.Analyze(records, opts.summaryDomain, opts.summaryMarker), opts.detail)
 		arm.overview = &report
+	}
+	if opts.telemetry {
+		arm.telemetry, err = telemetryEdges(cap)
+		if err != nil {
+			return arm, err
+		}
+	}
+	if opts.submissionLinks || opts.graphLifecycle || opts.memory {
+		arm.provenance = &records
+		arm.provenanceDomain = opts.summaryDomain
+		arm.showLifecycle = opts.graphLifecycle
+		arm.showMemory = opts.memory
 	}
 	arm.Status = status
 	arm.Completeness = "passed"
@@ -248,6 +292,7 @@ func loadAlignmentArm(opts exportCompareOptions, i int) (alignmentArm, error) {
 	if opts.demangle {
 		demangleTraceRecords(arm.records)
 	}
+	arm.detail = opts.detail
 	arm.Records = len(arm.records)
 	arm.Origin = math.MaxInt64
 	for _, r := range arm.records {
@@ -255,6 +300,12 @@ func loadAlignmentArm(opts exportCompareOptions, i int) (alignmentArm, error) {
 			return arm, errors.New("record timestamp exceeds signed comparison clock")
 		}
 		arm.Origin = min(arm.Origin, int64(r.rec.Start))
+	}
+	if opts.graphLifecycle {
+		arm.Origin = int64(lifecycleOrigin(records, uint64(arm.Origin)))
+	}
+	if opts.memory {
+		arm.Origin = int64(memoryTraceOrigin(records, uint64(arm.Origin)))
 	}
 	return arm, nil
 }
@@ -331,8 +382,40 @@ func alignArms(r *alignmentReceipt) error {
 }
 
 func writeComparisonBundle(w io.Writer, r alignmentReceipt) error {
+	var tracks, references int64
+	trackLimit, referenceLimit := r.maxTracks, r.maxSummaryReferences
+	if trackLimit == 0 {
+		trackLimit = defaultExportTracks
+	}
+	if referenceLimit == 0 {
+		referenceLimit = 2000000
+	}
+	for _, arm := range r.Arms {
+		references += summaryReferenceBound(arm.overview)
+		tracks += projectionTrackBound(arm.records, arm.overview, arm.provenance, len(arm.telemetry), r.SubmissionLinks, arm.showLifecycle, arm.showMemory, true)
+	}
+	if err := requireProjectionTracks(tracks, trackLimit); err != nil {
+		return err
+	}
+	if err := requireSummaryReferences(references, referenceLimit); err != nil {
+		return err
+	}
 	tw := tar.NewWriter(w)
+	bindings := tracecontract.Bindings{Version: 1, Schema: "cudaprof.bindings.v1"}
 	member := func(name string, data []byte) error {
+		if name != ".cudaprof-bindings.json" {
+			kind, source := "metadata", ""
+			for _, arm := range r.Arms {
+				if name == arm.Trace {
+					kind, source = "trace", arm.SHA256
+				}
+			}
+			binding, err := tracecontract.Digest(name, kind, source, data)
+			if err != nil {
+				return err
+			}
+			bindings.Members = append(bindings.Members, binding)
+		}
 		if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0644, Size: int64(len(data))}); err != nil {
 			return err
 		}
@@ -363,18 +446,45 @@ func writeComparisonBundle(w io.Writer, r alignmentReceipt) error {
 	}
 	for i, a := range r.Arms {
 		var buf bytes.Buffer
+		var output io.Writer = &limitedExportWriter{Writer: &buf, remaining: defaultExportBytes}
 		records := append([]traceRecord(nil), a.records...)
 		for j := range records {
+			if records[j].rec.End > math.MaxUint64-uint64(r.Arms[0].Offset) {
+				return errors.New("comparison timestamp overflow")
+			}
 			records[j].rec.Start += uint64(r.Arms[0].Offset)
 			records[j].rec.End += uint64(r.Arms[0].Offset)
 		}
 		origin := uint64(a.Origin)
 		base := uint64(i+1) << 32
-		n, err := writeTraceOrigin(&buf, records, origin, base, a.Label+": ")
+		identity := traceExportIdentity{sha256: a.SHA256, path: a.Path, arm: a.Label, shift: uint64(r.Arms[0].Offset), summaryReferences: referenceLimit}
+		n, err := writeTraceOrigin(output, records, origin, base, a.Label+": ", identity)
 		if err != nil {
 			return err
 		}
-		pw := perfetto.NewWriter(&buf)
+		if len(a.telemetry) > 0 {
+			if err := writeTelemetryTraceAt(output, a.telemetry, origin, uint64(i+1)<<50, uint64(r.Arms[0].Offset), perfetto.ClockBoottime); err != nil {
+				return err
+			}
+		}
+		if a.provenance != nil {
+			if r.SubmissionLinks {
+				if err := writeSubmissionTrace(output, *a.provenance, a.provenanceDomain, origin, uint64(i+1)<<52, uint64(r.Arms[0].Offset), perfetto.ClockBoottime, identity); err != nil {
+					return err
+				}
+			}
+			if a.showLifecycle {
+				if err := writeGraphLifecycleTrace(output, *a.provenance, origin, uint64(i+1)<<54, uint64(r.Arms[0].Offset), perfetto.ClockBoottime); err != nil {
+					return err
+				}
+			}
+		}
+		if a.provenance != nil && a.showMemory {
+			if err := writeMemoryTrace(output, *a.provenance, origin, uint64(i+1)<<56, uint64(r.Arms[0].Offset), perfetto.ClockBoottime); err != nil {
+				return err
+			}
+		}
+		pw := perfetto.NewWriter(output)
 		pw.TimestampClockID = perfetto.ClockBoottime
 		id := base + uint64(n+1)
 		verdict := fmt.Sprintf("%s alignment (collector complete; marker %s; stationarity selected=%t full=%t)", a.Label, a.MarkerVerdict, a.Stationarity.Pass, a.FullGate.Pass)
@@ -416,7 +526,27 @@ func writeComparisonBundle(w io.Writer, r alignmentReceipt) error {
 			boundary++
 		}
 		if a.overview != nil {
-			if err := writeOverviewTraceAt(&buf, *a.overview, origin, uint64(i+1)<<48, uint64(r.Arms[0].Offset), perfetto.ClockBoottime); err != nil {
+			if err := writeOverviewTraceAt(output, *a.overview, origin, uint64(i+1)<<48, uint64(r.Arms[0].Offset), perfetto.ClockBoottime, identity); err != nil {
+				return err
+			}
+		}
+		if a.SHA256 != "" && a.Path != "" {
+			receipt := exportReceipt("trace compare", identity, a.records, a.Status)
+			receipt.Options["detail"] = r.Detail
+			receipt.Limits = map[string]int64{"max_tracks": trackLimit, "max_summary_references": referenceLimit}
+			receipt.Gates["isolation"] = isolationExportGate(a.Isolation)
+			receipt.Gates["workload"] = tracecontract.Gate{Disposition: a.MarkerVerdict, Reason: "independent expected marker count", Provenance: "alignment receipt"}
+			verdict := "failed"
+			if a.Stationarity.Pass {
+				verdict = "passed"
+			}
+			receipt.Gates["stationarity"] = tracecontract.Gate{Disposition: verdict, Reason: "selected iteration gate", Provenance: "alignment receipt"}
+			if err := writeExportReceipt(pw, receipt, uint64(i+1)<<58, uint64(r.Arms[0].Offset)); err != nil {
+				return err
+			}
+		}
+		if a.SHA256 != "" {
+			if err := writeIsolationTrace(output, a.Isolation, identity, uint64(i+1)<<60, perfetto.ClockBoottime); err != nil {
 				return err
 			}
 		}
@@ -429,6 +559,13 @@ func writeComparisonBundle(w io.Writer, r alignmentReceipt) error {
 		return err
 	}
 	if err := member(".alignment.json", data); err != nil {
+		return err
+	}
+	data, err = bindings.JSON()
+	if err != nil {
+		return err
+	}
+	if err := member(".cudaprof-bindings.json", data); err != nil {
 		return err
 	}
 	return tw.Close()

@@ -54,10 +54,15 @@ func telemetryEdges(cap *cudacapture.Capture) ([]capturePhaseEdge, error) {
 }
 
 func writeTelemetryTrace(out io.Writer, edges []capturePhaseEdge, origin, base uint64) error {
+	return writeTelemetryTraceAt(out, edges, origin, base, 0, 0)
+}
+
+func writeTelemetryTraceAt(out io.Writer, edges []capturePhaseEdge, origin, base, shift, clockID uint64) error {
 	w := perfetto.NewWriter(out)
+	w.TimestampClockID = clockID
 	for i, edge := range edges {
 		q := edge.GPU
-		if q == nil || q.SampledAt < origin {
+		if q == nil || q.SampledAt < origin || q.ReadNanos > math.MaxUint64-q.SampledAt || shift > math.MaxUint64-(q.SampledAt-origin+q.ReadNanos) {
 			return errors.New("telemetry query precedes trace origin")
 		}
 		// Every observation gets a lane: overlapping host queries are not nested.
@@ -70,10 +75,10 @@ func writeTelemetryTrace(out io.Writer, edges []capturePhaseEdge, origin, base u
 			return err
 		}
 		args := []perfetto.DebugAnnotation{perfetto.NewStringAnnotation("query_receipt", string(data)), perfetto.NewStringAnnotation("meaning", "host query interval; sensor observation/refresh unavailable; no per-kernel interpolation"), perfetto.NewUintAnnotation("raw_edge_sequence", edge.Sequence)}
-		if err := w.WriteSliceBeginWithAnnotations(id, q.SampledAt-origin, "NVML host query", "cudaprof_telemetry", args, nil); err != nil {
+		if err := w.WriteSliceBeginWithAnnotations(id, q.SampledAt-origin+shift, "NVML host query", "cudaprof_telemetry", args, nil); err != nil {
 			return err
 		}
-		if err := w.WriteSliceEnd(id, q.SampledAt-origin+q.ReadNanos); err != nil {
+		if err := w.WriteSliceEnd(id, q.SampledAt-origin+q.ReadNanos+shift); err != nil {
 			return err
 		}
 	}
