@@ -25,7 +25,11 @@ func TestCacheProcessPublication(t *testing.T) {
 		return
 	}
 	dir := t.TempDir()
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	// This watchdog bounds a stuck child; publication correctness does not
+	// require 80 durable writes to finish within a short performance budget.
+	const writerTimeout = 2 * time.Minute
+	started := time.Now()
+	ctx, cancel := context.WithTimeout(context.Background(), writerTimeout)
 	defer cancel()
 	exe, err := os.Executable()
 	if err != nil {
@@ -43,8 +47,9 @@ func TestCacheProcessPublication(t *testing.T) {
 		c.cmd.Env = append(os.Environ(), "NVRTC_CACHE_WRITER_DIR="+dir, fmt.Sprintf("NVRTC_CACHE_WRITER_MARKER=writer%d", i))
 		c.cmd.Stdout, c.cmd.Stderr = &c.output, &c.output
 		if err := c.cmd.Start(); err != nil {
+			contextErr := ctx.Err()
 			cancel()
-			t.Fatal(err)
+			t.Fatalf("start writer %d: %v (context=%v, elapsed=%s, watchdog=%s)", i, err, contextErr, time.Since(started), writerTimeout)
 		}
 		go func() { done <- c.cmd.Wait() }()
 	}
@@ -54,7 +59,7 @@ func TestCacheProcessPublication(t *testing.T) {
 		case err := <-done:
 			completed++
 			if err != nil {
-				t.Errorf("writer: %v", err)
+				t.Errorf("writer: %v (context=%v, elapsed=%s, watchdog=%s)", err, ctx.Err(), time.Since(started), writerTimeout)
 			}
 		default:
 		}
