@@ -63,14 +63,14 @@ func TestCampaignNativeHarness(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	output, err := cudamem.Alloc[uint64](dev, 2)
+	output, err := cudamem.Alloc[uint64](dev, 3)
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := make([]uint64, 2)
+	got := make([]uint64, 3)
 	if err := dev.WithContext(func() (err error) {
 		defer func() { err = errors.Join(err, output.Free()) }()
-		if err := output.CopyFromHost([]uint64{0, 0}); err != nil {
+		if err := output.CopyFromHost([]uint64{0, 0, 0}); err != nil {
 			return fmt.Errorf("initialize output: %w", err)
 		}
 		if err := cudalaunch.OwnedKernel(kernel).Block(64, 1, 1).Launch(output); err != nil {
@@ -89,9 +89,14 @@ func TestCampaignNativeHarness(t *testing.T) {
 	if err := mod.Close(); err != nil {
 		t.Fatal(err)
 	}
-	fmt.Fprintf(os.Stdout, "READER_DELAY_NS: %d\n", got[1])
-	if got[1] < scheduleReaderDelayThreshold {
-		t.Fatalf("reader delay %d ns below threshold %d ns", got[1], scheduleReaderDelayThreshold)
+	start, end := got[1], got[2]
+	if end < start {
+		t.Fatalf("reader end timestamp %d precedes start %d", end, start)
+	}
+	elapsed := end - start
+	fmt.Fprintf(os.Stdout, "READER_START_NS: %d\nREADER_END_NS: %d\nREADER_DELAY_NS: %d\n", start, end, elapsed)
+	if elapsed < scheduleReaderDelayThreshold {
+		t.Fatalf("reader delay %d ns below threshold %d ns", elapsed, scheduleReaderDelayThreshold)
 	}
 	if got[0] != 1 {
 		fmt.Fprintf(os.Stdout, "MISMATCH: shared handoff produced %d, want 1\n", got[0])

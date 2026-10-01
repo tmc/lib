@@ -42,7 +42,8 @@ JOIN:
     setp.eq.u32 %p1, %r0, 32;
     @!%p1 bra DONE;
     st.volatile.global.u32 [%rd0], %r2;
-    st.volatile.global.u64 [%rd0+8], %rd4;
+    st.volatile.global.u64 [%rd0+8], %rd2;
+    st.volatile.global.u64 [%rd0+16], %rd3;
 DONE:
     ret;
 }

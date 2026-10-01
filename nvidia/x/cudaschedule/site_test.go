@@ -1,6 +1,7 @@
 package cudaschedule_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -124,24 +125,15 @@ func TestNativeRaceFixturesInitializeHandoffAndExposeReversingDraw(t *testing.T)
 				"sub.u64 %rd4, %rd3, %rd2;",
 				"setp.lt.u64 %p2, %rd4, 8000;",
 				"@%p2 bra READER_DELAY;",
-				"st.volatile.global.u64 [%rd0+8], %rd4;",
+				"st.volatile.global.u64 [%rd0+8], %rd2;",
+				"st.volatile.global.u64 [%rd0+16], %rd3;",
 			} {
 				if !strings.Contains(ptx, fragment) {
 					t.Fatalf("fixture does not preserve single-writer/reader-bias fragment %q", fragment)
 				}
 			}
-			previous := -1
-			for _, fragment := range []string{
-				"mov.u64 %rd2, %globaltimer;", "READER_DELAY:",
-				"mov.u64 %rd3, %globaltimer;", "sub.u64 %rd4, %rd3, %rd2;",
-				"setp.lt.u64 %p2, %rd4, 8000;", "@%p2 bra READER_DELAY;",
-				"st.volatile.global.u64 [%rd0+8], %rd4;",
-			} {
-				at := strings.Index(ptx, fragment)
-				if at <= previous {
-					t.Fatalf("reader delay fragment %q out of order at %d after %d", fragment, at, previous)
-				}
-				previous = at
+			if err := checkReaderTimerBlock(fixture.name, ptx); err != nil {
+				t.Fatal(err)
 			}
 		})
 	}
@@ -151,6 +143,17 @@ func TestNativeRaceFixturesInitializeHandoffAndExposeReversingDraw(t *testing.T)
 	}
 	if !strings.Contains(string(nativeTest), "if got[0] != 1") {
 		t.Fatal("native output check no longer compares the handoff against 1")
+	}
+
+	for _, fragment := range []string{
+		"checkBaseline(clean)", "checkBaseline(first)", "checkBaseline(second)",
+		"start, end := got[1], got[2]", "elapsed := end - start",
+		"if end < start", "if elapsed < scheduleReaderDelayThreshold",
+		"READER_START_NS: %d", "READER_END_NS: %d", "READER_DELAY_NS: %d",
+	} {
+		if !strings.Contains(string(nativeTest), fragment) {
+			t.Fatalf("native_test.go missing %q", fragment)
+		}
 	}
 
 	raceData, err := os.ReadFile(filepath.Join("testdata", "schedule_race.ptx"))
@@ -459,5 +462,45 @@ func TestAnalyze_OrderingOpcodeClassesAreClosed(t *testing.T) {
 				t.Fatalf("sites = %+v, want one %v", sites, tt.kind)
 			}
 		})
+	}
+}
+
+const readerTimerBlock = `mov.u64 %rd2, %globaltimer;
+READER_DELAY:
+mov.u64 %rd3, %globaltimer;
+sub.u64 %rd4, %rd3, %rd2;
+setp.lt.u64 %p2, %rd4, 8000;
+@%p2 bra READER_DELAY;`
+
+func checkReaderTimerBlock(name, ptx string) error {
+	var lines []string
+	for _, line := range strings.Split(ptx, "\n") {
+		lines = append(lines, strings.TrimSpace(line))
+	}
+	if !strings.Contains(strings.Join(lines, "\n"), readerTimerBlock) {
+		return fmt.Errorf("%s: reader timer block is not contiguous", name)
+	}
+	return nil
+}
+
+func TestReaderTimerBlockRejectsInsertedInstructions(t *testing.T) {
+	for _, name := range []string{"schedule_race.ptx", "schedule_race_clean.ptx"} {
+		data, err := os.ReadFile(filepath.Join("testdata", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		ptx := string(data)
+		for _, line := range strings.Split(readerTimerBlock, "\n")[:5] {
+			for _, instruction := range []string{
+				"mov.u64 %rd4, 9000;",
+				"add.u64 %rd3, %rd2, 9000;",
+			} {
+				mutant := strings.Replace(ptx, line, line+"\n    "+instruction, 1)
+				err := checkReaderTimerBlock(name, mutant)
+				if err == nil || !strings.Contains(err.Error(), name) {
+					t.Fatalf("%s: inserted %q after %q accepted or wrong diagnostic: %v", name, instruction, line, err)
+				}
+			}
+		}
 	}
 }
