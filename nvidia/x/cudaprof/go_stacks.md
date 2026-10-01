@@ -23,3 +23,22 @@ wait for entered scopes, and write final producer coverage. Without a final
 receipt, a reader cannot claim complete stack collection. For a manually
 supplied journal, append `WriteStackCoverage` to the same journal writer before closing it.
 Failures and truncation remain visible in the records and receipt.
+
+`StartCaptureHostProfile` explicitly starts a separate runtime execution trace
+and CPU profile in the capture sidecar directory. Call its returned `Stop`
+before process exit. `StartHostProfile` accepts caller-owned writers instead.
+Both helpers refuse an existing runtime trace or CPU profiler and preserve
+its owner. Direct calls to runtime start/stop APIs must be coordinated by the
+application because the runtime exposes no ownership tokens.
+
+The CPU pprof contains aggregate samples, without individual timestamps.
+The execution trace retains timestamped scheduler events and selected stacks;
+it is not a timestamped copy of CPU pprof. The sidecar receipt records wall-clock
+bounds and reports its GPU clock alignment as unavailable. Retaining these
+files alone does not justify positioning CPU samples on a GPU timeline.
+
+Export decodes retained Go 1.27.1 traces using a matching local Go tool.
+On Linux, it verifies the producer's native session, process generation, and
+unified monotonic clock before drawing CPU samples on separate host tracks.
+Other versions or missing clock evidence remain unavailable. The host-stack
+query retains timestamp quantization, clock snapshots, and observed read skew.
