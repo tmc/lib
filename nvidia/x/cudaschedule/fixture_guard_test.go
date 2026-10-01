@@ -71,6 +71,15 @@ func checkFixtureHandoff(name, source string, clean bool) error {
 	if writer < 0 || reader <= writer {
 		return fail("missing writer/reader handoff")
 	}
+	if writer < 4 || insts[writer].Predicate != "@%p1" || insts[writer-1].Opcode != "setp.eq.u32" || operands(insts[writer-1]) != "%p1,%r0,0" || insts[writer-1].Predicate != "" {
+		return fail("writer store is not guarded by tid == 0")
+	}
+	if insts[writer-4].Opcode != "setp.lt.u32" || operands(insts[writer-4]) != "%p0,%r0,32" || insts[writer-4].Predicate != "" || insts[writer-3].Opcode != "bra" || operands(insts[writer-3]) != "READER" || insts[writer-3].Predicate != "@!%p0" {
+		return fail("writer and reader dispatch is not warp uniform")
+	}
+	if clean && (insts[reader-1].Opcode != "bar.sync" || operands(insts[reader-1]) != "0" || insts[reader-1].Predicate != "") {
+		return fail("clean reader barrier is not unconditional")
+	}
 	if !clean {
 		for _, inst := range insts[writer+1 : reader] {
 			for _, prefix := range []string{"bar.", "barrier.", "mbarrier.", "membar.", "fence."} {
@@ -106,12 +115,18 @@ func TestFixtureHandoffGuardsRejectControlAndValueMutants(t *testing.T) {
 			{"sentinel arithmetic", "mov.u32 %r3, 0;", "mov.u32 %r3, 0;\n    add.u32 %r3, %r3, 1;", "sentinel definition"},
 			{"predicated init barrier", "INIT_DONE:\n    bar.sync 0;", "INIT_DONE:\n    @%p1 bar.sync 0;", "init barrier is not unconditional"},
 			{"wrong branch predicate", "@!%p1 bra INIT_DONE;", "@%p1 bra INIT_DONE;", "initialization branch"},
+			{"divergent writer warp", "setp.lt.u32 %p0, %r0, 32;", "setp.eq.u32 %p0, %r0, 0;", "not warp uniform"},
+			{"writer predicate removed", "@%p1 st.volatile.shared.u32 [handoff], %r1;", "st.volatile.shared.u32 [handoff], %r1;", "not guarded"},
+			{"wrong writer", "mov.u32 %r1, 1;\n    setp.eq.u32 %p1, %r0, 0;", "mov.u32 %r1, 1;\n    setp.eq.u32 %p1, %r0, 1;", "not guarded"},
 		} {
 			t.Run(name+"/"+tc.name, func(t *testing.T) {
 				if !strings.Contains(source, tc.old) {
 					t.Fatal("mutation target missing")
 				}
 				mutant := strings.Replace(source, tc.old, tc.new, 1)
+				if mutant == source {
+					t.Fatal("mutation target missing")
+				}
 				if _, err := cudaptx.ParseString(mutant); err != nil {
 					t.Fatalf("mutant does not parse: %v", err)
 				}
@@ -142,7 +157,10 @@ func TestRaceFixtureRejectsOrderingSemantics(t *testing.T) {
 	} {
 		opcode := strings.TrimSuffix(strings.Fields(inst)[0], ";")
 		t.Run(opcode, func(t *testing.T) {
-			mutant := strings.Replace(source, "    st.volatile.shared.u32 [handoff], %r1;", "    st.volatile.shared.u32 [handoff], %r1;\n    "+inst, 1)
+			mutant := strings.Replace(source, "    @%p1 st.volatile.shared.u32 [handoff], %r1;", "    @%p1 st.volatile.shared.u32 [handoff], %r1;\n    "+inst, 1)
+			if mutant == source {
+				t.Fatal("mutation target missing")
+			}
 			if _, err := cudaptx.ParseString(mutant); err != nil {
 				t.Fatalf("mutant does not parse: %v", err)
 			}
@@ -151,5 +169,24 @@ func TestRaceFixtureRejectsOrderingSemantics(t *testing.T) {
 				t.Fatalf("error=%v did not name ordering instruction", err)
 			}
 		})
+	}
+}
+
+func TestNativeFixturePairDiffersOnlyByReaderBarrier(t *testing.T) {
+	race, err := os.ReadFile(filepath.Join("testdata", "schedule_race.ptx"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	clean, err := os.ReadFile(filepath.Join("testdata", "schedule_race_clean.ptx"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	const barrier = "JOIN:\n    bar.sync 0;\n"
+	if strings.Count(string(clean), barrier) != 1 || strings.Replace(string(clean), barrier, "JOIN:\n", 1) != string(race) {
+		t.Fatal("clean fixture differs beyond the reader barrier")
+	}
+	mutant := strings.Replace(string(clean), barrier, "JOIN:\n    @%p1 bar.sync 0;\n", 1)
+	if err := checkFixtureHandoff("clean", mutant, true); err == nil || !strings.Contains(err.Error(), "clean reader barrier") {
+		t.Fatalf("conditional clean barrier accepted: %v", err)
 	}
 }

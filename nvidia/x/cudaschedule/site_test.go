@@ -100,6 +100,9 @@ func TestNativeRaceFixturesInitializeHandoffAndDelayWriter(t *testing.T) {
 			if initValue < 0 || sentinelStore < 0 || initBarrier < 0 || writerValue < 0 || writerStore < 0 || readerLoad < 0 || !(initValue < sentinelStore && sentinelStore < initBarrier && initBarrier < writerValue && writerValue < writerStore && writerStore < readerLoad) {
 				t.Fatalf("sentinel initialization/store/barrier/data access order invalid: value=%d sentinel=%d barrier=%d writer-value=%d writer=%d reader=%d", initValue, sentinelStore, initBarrier, writerValue, writerStore, readerLoad)
 			}
+			if instructions[writerStore].Predicate != "@%p1" || writerStore < 1 || instructions[writerStore-1].Opcode != "setp.eq.u32" || strings.ReplaceAll(instructions[writerStore-1].Operands, " ", "") != "%p1,%r0,0" {
+				t.Fatal("writer store is not guarded by tid == 0")
+			}
 			barrierBetween := false
 			orderingBetween := false
 			for _, inst := range instructions[writerStore+1 : readerLoad] {
@@ -121,7 +124,8 @@ func TestNativeRaceFixturesInitializeHandoffAndDelayWriter(t *testing.T) {
 			for _, fragment := range []string{
 				"setp.eq.u32 %p1, %r0, 0;",
 				"@!%p1 bra INIT_DONE;",
-				"setp.eq.u32 %p0, %r0, 0;",
+				"setp.lt.u32 %p0, %r0, 32;",
+				"mov.u32 %r1, 1;\n    setp.eq.u32 %p1, %r0, 0;\n    @%p1 st.volatile.shared.u32 [handoff], %r1;",
 				"@!%p0 bra READER;",
 				"mov.u64 %rd2, %globaltimer;",
 				"mov.u64 %rd3, %globaltimer;",
@@ -176,7 +180,7 @@ func TestNativeRaceFixturesInitializeHandoffAndDelayWriter(t *testing.T) {
 			t.Fatalf("seed %d: %v", seed, err)
 		}
 		for _, decision := range rewrite.Report.Decisions {
-			if decision.BeforeNs > 0 && strings.Contains(decision.Site.Text, "st.volatile.shared.u32 [handoff], %r1") {
+			if decision.BeforeNs > 0 && strings.Contains(decision.Site.Text, "@%p1 st.volatile.shared.u32 [handoff], %r1") {
 				foundWriterDelay = true
 			}
 		}

@@ -19,10 +19,11 @@
     st.volatile.shared.u32 [handoff], %r3;
 INIT_DONE:
     bar.sync 0;
-    setp.eq.u32 %p0, %r0, 0;
+    setp.lt.u32 %p0, %r0, 32;
     @!%p0 bra READER;
     mov.u32 %r1, 1;
-    st.volatile.shared.u32 [handoff], %r1;
+    setp.eq.u32 %p1, %r0, 0;
+    @%p1 st.volatile.shared.u32 [handoff], %r1;
     bra JOIN;
 
 READER:
