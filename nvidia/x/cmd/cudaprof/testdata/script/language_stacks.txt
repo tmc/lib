@@ -1,0 +1,59 @@
+# The capture supplies its embedded adapter and preserves an existing import path.
+# No native agent is injected: the explicit region must remain unavailable.
+env PYTHONPATH=$WORK/inherited
+exec cudaprof capture --stacks --no-inject -o capture.pprof -- python3 workload.py
+stdout 'inherited import preserved'
+stdout 'unavailable attribution retained'
+exec cudaprof -extract extracted capture.pprof
+exec python3 verify.py extracted
+stdout 'stack sidecar retained'
+
+# Disabled collection does not auto-import the helper or alter PYTHONPATH.
+exec cudaprof capture --no-inject -o disabled.pprof -- python3 disabled.py
+stdout 'disabled collection left imports alone'
+
+# Both native query views are exposed through the command group.
+exec cudaprof trace query -list
+stdout 'language-stacks'
+stdout 'host-stacks'
+
+# Reject unsupported values before running a target.
+! exec cudaprof capture --stacks=bad --no-inject -- python3 workload.py
+stderr 'unknown capture option|invalid|unknown flag'
+
+-- inherited/existing.py --
+value = 'inherited import preserved'
+-- workload.py --
+import glob
+import json
+import os
+import existing
+import cudaprofstacks
+
+print(existing.value)
+with cudaprofstacks.submission('no agent'):
+    pass
+rows = [json.loads(line) for path in glob.glob(os.path.join(os.environ['CUDAPROF_STACK_DIR'], 'python-*.jsonl')) for line in open(path)]
+refs = [row for row in rows if row.get('type') == 'reference']
+assert len(refs) == 1, refs
+assert refs[0]['status'] == 'unavailable', refs
+assert refs[0]['attribution'] == 'submission'
+print('unavailable attribution retained')
+-- verify.py --
+import glob
+import json
+import sys
+paths = glob.glob(sys.argv[1] + '/**/*python-*.jsonl', recursive=True)
+assert paths, 'missing Python stack attachment'
+rows = [json.loads(line) for path in paths for line in open(path)]
+assert any(row.get('type') == 'reference' and row['status'] == 'unavailable' for row in rows)
+assert any(row.get('type') == 'coverage' and row['final'] for row in rows)
+print('stack sidecar retained')
+-- disabled.py --
+import os
+import sys
+import existing
+assert 'cudaprofstacks' not in sys.modules
+assert 'CUDAPROF_PYTHON_STACKS' not in os.environ
+assert os.environ['PYTHONPATH'].endswith('/inherited')
+print('disabled collection left imports alone')

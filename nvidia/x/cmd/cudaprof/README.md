@@ -563,6 +563,8 @@ launch geometry. `correlate` exposes retained submission and NVTX links.
 - [Application marker convention](../../cudaprof/marker/README.md)
 - [Shape comparison](shape_compare.md)
 - [Submission links](correlation.md)
+- [Go submission stacks and host profiles](../../cudaprof/go_stacks.md)
+- [Python submission stacks and wall samples](python_stacks.md)
 - [Memory evidence](memory.md)
 - [Gap accounting limits](../../cudaprof/gaps/README.md)
 - [Campaign sample counts and spread](qualify-campaign.md)

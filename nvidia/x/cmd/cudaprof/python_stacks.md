@@ -52,3 +52,16 @@ perturb the workload. Timing overhead is not yet measured.
 
 Run CPU-only adapter tests with
 `python3 x/cmd/cudaprof/cudaprofstacks_test.py` from the module directory.
+
+Export attaches matching language stacks to native API and device events.
+Qualified host samples appear on separate tracks:
+
+```sh
+cudaprof trace export -o run.pftrace run.pprof
+cudaprof trace query -json language-stacks run.pprof
+cudaprof trace query -json host-stacks run.pprof
+```
+
+The queries preserve source hashes, coverage receipts, and unavailable
+attribution. Stacks require exact native session, process generation, and
+external-ID matches; timestamps alone do not establish a match.
