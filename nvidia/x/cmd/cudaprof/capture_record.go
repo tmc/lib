@@ -473,6 +473,14 @@ func scratchAttachments(dir string) []captureAttachment {
 	for _, name := range []string{"capture.journal", "handshake.json", "python-profile.json", "python-result.json"} {
 		add(name, filepath.Join(dir, name))
 	}
+	if entries, err := os.ReadDir(filepath.Join(dir, "stacks")); err == nil {
+		for _, entry := range entries {
+			name := entry.Name()
+			if strings.HasSuffix(name, ".jsonl") || strings.HasSuffix(name, ".json") || strings.HasSuffix(name, ".trace") || strings.HasSuffix(name, ".pprof") {
+				add("stacks-"+name, filepath.Join(dir, "stacks", name))
+			}
+		}
+	}
 	// Units the target published for itself. They are not per generation:
 	// a unit is what the program's code generator produced, and every
 	// process of the capture that loaded it loaded the same one.
@@ -1054,6 +1062,7 @@ Options:
                                 correlate host stacks separately with perf
   --unified-memory             opt in to supported UM migration/fault tracing; native refusals retained
   --memory-policy              retain managed-range query/advice/prefetch request callbacks
+  --stacks                     enable instrumented Go/Python stack journals; requires target adapters
   --memsets                     collect memset activity. Off by default: with it on,
                                 cuGraphLaunch has faulted inside libcuda for a CUDA-graph
                                 MLX workload on GB10. Without it a target's memsets are
