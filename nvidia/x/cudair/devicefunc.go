@@ -35,15 +35,20 @@ func (m GradientMode) String() string {
 	}
 }
 
-// Emitter is implemented by nodes that can render themselves as a
-// self-contained CUDA __device__ function. Nodes that cannot must not
-// implement it; callers get ErrEmissionUnsupported naming the node.
-// Writable body locals support float, int, bool, uint8_t, auto, and template
-// value declarations such as tvec<float, N>, optionally const-qualified.
-// Other declarations cannot be write targets and name the declaration in
-// the refusal. Pointer and reference locals are refused.
-// Backward bodies may also write through generated dL_dx and dL_dparams
-// output parameters; input and context parameters remain read-only.
+// Emitter is implemented by nodes that can render themselves as a self-contained CUDA __device__
+// function. Nodes without this support must not implement it. Unsupported nodes return
+// ErrEmissionUnsupported together with the node's name.
+//
+// Writable body locals support float, int, bool, uint8_t and auto, with one declaration per
+// statement. Template values such as tvec<float, N> may be declared without an initializer, then
+// written element by element. Template initializers and comma-separated declarations are refused.
+// Other local types are refused when written. Pointer and reference locals are refused.
+//
+// Backward bodies may also write through generated dL_dx and dL_dparams output parameters.
+// Input and context parameters remain read-only. Supported forms include (*dL_dx)[i],
+// dL_dparams[i] and *(dL_dparams + i). A direct *dL_dparams assignment is refused; use an
+// indexed output write.
+//
 // Context accessor integer constants and arithmetic offsets are checked at emission; dynamic
 // offsets are checked against FwdCtxBytes at run time by LoadByte/StoreByte.
 type Emitter interface {
@@ -76,8 +81,8 @@ type ChildSymbol struct {
 	ParentFwdCtxAligned bool
 }
 
-// FwdCtxArg returns the parent expression for passing this child's context
-// region while preserving the per-lane offset already applied by the parent.
+// FwdCtxArg returns the parent expression for passing this child's context region while preserving
+// the per-lane offset already applied by the parent.
 func (c ChildSymbol) FwdCtxArg() string {
 	if c.FwdCtxOffset == 0 && c.ParentFwdCtxBytes == 0 {
 		return "fwd_ctx"
@@ -92,8 +97,8 @@ func (c ChildSymbol) FwdCtxArg() string {
 	return fmt.Sprintf("(fwd_ctx ? fwd_ctx + WARP_SIZE * %d : nullptr)", base)
 }
 
-// CompositeSymbolEmitter emits a parent using the exact child symbols and context offsets
-// selected by EmitTree.
+// CompositeSymbolEmitter emits a parent using the exact child symbols and context offsets selected
+// by EmitTree.
 type CompositeSymbolEmitter interface {
 	EmitForwardWithChildren(name string, children []ChildSymbol) (string, error)
 }
@@ -118,15 +123,17 @@ type TypedEmitter interface {
 // ErrEmissionUnsupported reports that a node does not support forward device code generation.
 var ErrEmissionUnsupported = fmt.Errorf("cudair: emission unsupported: %w", cudaerrors.ErrUnsupported)
 
-// ErrBackwardEmissionUnsupported reports that a node does not support backward device code generation.
+// ErrBackwardEmissionUnsupported reports that a node does not support backward device code
+// generation.
 var ErrBackwardEmissionUnsupported = fmt.Errorf("cudair: backward emission unsupported: %w", cudaerrors.ErrUnsupported)
 
-// ErrContextBoundsExceeded reports that emitted code accesses forward context
-// outside the node's declared region or outside a generated child call.
-var ErrContextBoundsExceeded = errors.New("cudair: forward context bounds exceeded")
+// ErrContextBoundsExceeded reports emitted code that violates a context or write rule, including
+// out-of-region context access, unsupported calls and writes outside allowed body locals or
+// backward gradient outputs.
+var ErrContextBoundsExceeded = errors.New("cudair: emitted context or write rule violated")
 
-// ValidateFwdContextBounds verifies that the actual context bytes written by node does not
-// exceed its declared FwdCtxBytes.
+// ValidateFwdContextBounds verifies that the actual context bytes written by node does not exceed
+// its declared FwdCtxBytes.
 func ValidateFwdContextBounds(node Emitter, bytesWritten int) error {
 	decl, err := node.FwdCtxBytes()
 	if err != nil {
@@ -145,9 +152,9 @@ func ValidateFwdContextBounds(node Emitter, bytesWritten int) error {
 	return nil
 }
 
-// validateEmittedContextUse permits a node to pass its context pointer to an
-// emitted child, but not to inspect or modify that pointer itself. The child
-// owns its region and is checked by the same rule when it is emitted.
+// validateEmittedContextUse permits a node to pass its context pointer to an emitted child, but not
+// to inspect or modify that pointer itself. The child owns its region and is checked by the same
+// rule when it is emitted.
 func validateEmittedContextUse(node Emitter, source string, children []ChildSymbol, preamble string) error {
 	return validateGeneratedContextBody(node, source, children, preamble)
 }
@@ -175,8 +182,8 @@ func NodeName(node any) string {
 	return fmt.Sprintf("%T", node)
 }
 
-// EmitForward checks if node implements Emitter, calling its EmitForward.
-// If node does not implement Emitter, it returns ErrEmissionUnsupported naming the node.
+// EmitForward checks if node implements Emitter, calling its EmitForward. If node does not
+// implement Emitter, it returns ErrEmissionUnsupported naming the node.
 func EmitForward(node any, name string) (string, error) {
 	em, ok := node.(Emitter)
 	if !ok {
@@ -185,8 +192,8 @@ func EmitForward(node any, name string) (string, error) {
 	return em.EmitForward(name)
 }
 
-// EmitBackward checks if node implements BackwardEmitter, calling its EmitBackward.
-// If node does not implement BackwardEmitter, it returns ErrBackwardEmissionUnsupported naming the node.
+// EmitBackward checks if node implements BackwardEmitter, calling its EmitBackward. If node does
+// not implement BackwardEmitter, it returns ErrBackwardEmissionUnsupported naming the node.
 func EmitBackward(node any, name string, nThreads int) (string, error) {
 	bem, ok := node.(BackwardEmitter)
 	if !ok {
@@ -195,8 +202,8 @@ func EmitBackward(node any, name string, nThreads int) (string, error) {
 	return bem.EmitBackward(name, nThreads)
 }
 
-// BackwardShmemBytes queries the dynamic shared memory needed for backward execution.
-// If node does not implement BackwardEmitter, it returns ErrBackwardEmissionUnsupported.
+// BackwardShmemBytes queries the dynamic shared memory needed for backward execution. If node does
+// not implement BackwardEmitter, it returns ErrBackwardEmissionUnsupported.
 func BackwardShmemBytes(node any, nThreads int, mode GradientMode) (int, error) {
 	bem, ok := node.(BackwardEmitter)
 	if !ok {
@@ -224,9 +231,8 @@ func getTypes(n any) (inType, paramsType, computeType string) {
 	return inType, paramsType, computeType
 }
 
-// EmitFromBody generates the fixed forward CUDA __device__ function signature,
-// emits lane-offset context preambles when enabled, and splices body.
-// This matches tiny-cuda-nn object.h:665.
+// EmitFromBody generates the fixed forward CUDA __device__ function signature, emits lane-offset
+// context preambles when enabled, and splices body. This matches tiny-cuda-nn object.h:665.
 func EmitFromBody(n Emitter, name, body string) (string, error) {
 	if n == nil {
 		return "", fmt.Errorf("cudair: nil emitter")
@@ -263,9 +269,9 @@ func EmitFromBody(n Emitter, name, body string) (string, error) {
 		name, vecIn, paramsType, vecOut, offsetPreamble, body), nil
 }
 
-// EmitBackwardFromBody generates the fixed backward CUDA __device__ function signature,
-// emits lane-offset context preambles when enabled, and splices body.
-// This matches tiny-cuda-nn object.h:681.
+// EmitBackwardFromBody generates the fixed backward CUDA __device__ function signature, emits
+// lane-offset context preambles when enabled, and splices body. This matches tiny-cuda-nn
+// object.h:681.
 func EmitBackwardFromBody(n BackwardEmitter, name, body string) (string, error) {
 	if n == nil {
 		return "", fmt.Errorf("cudair: nil backward emitter")
@@ -343,8 +349,8 @@ func uniqueSymbol(base string, used map[string]bool) string {
 	return name
 }
 
-// EmitTree walks the emitter tree, verifies adjacent width agreement in Go,
-// generates unique nested symbol names, and returns a concatenated Unit.
+// EmitTree walks the emitter tree, verifies adjacent width agreement in Go, generates unique nested
+// symbol names, and returns a concatenated Unit.
 func EmitTree(root Emitter, name string) (Unit, error) {
 	if root == nil {
 		return Unit{}, fmt.Errorf("cudair: nil root emitter")
@@ -358,8 +364,8 @@ func EmitTree(root Emitter, name string) (Unit, error) {
 	return emitTreeRecursive(root, name, usedNames)
 }
 
-// EmitBackwardTree emits backward device functions for a tree. Shared-memory
-// demand is queried from each backward emitter for the requested launch shape.
+// EmitBackwardTree emits backward device functions for a tree. Shared-memory demand is queried from
+// each backward emitter for the requested launch shape.
 func EmitBackwardTree(root BackwardEmitter, name string, nThreads int, mode GradientMode) (Unit, error) {
 	if root == nil {
 		return Unit{}, fmt.Errorf("cudair: nil backward root emitter")

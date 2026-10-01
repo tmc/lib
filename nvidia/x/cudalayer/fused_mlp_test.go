@@ -409,6 +409,46 @@ func TestFusedMLP64_BackwardTree(t *testing.T) {
 	}
 }
 
+func TestFusedMLP_BackwardParameterOffsetsAndGradientChain(t *testing.T) {
+	mlp, err := cudalayer.NewFusedMLP(2, 3, 5, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	forward, err := cudair.EmitTree(mlp, "forward_chain")
+	if err != nil {
+		t.Fatal(err)
+	}
+	backward, err := cudair.EmitBackwardTree(mlp, "backward_chain", 32, cudair.GradientModeOverwrite)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, offset := range []int{0, 6, 15} {
+		input := "input"
+		if i > 0 {
+			input = fmt.Sprintf("h%d", i-1)
+		}
+		forwardCall := fmt.Sprintf("%s(%s, params + %d, fwd_ctx)", forward.Symbols[i], input, offset)
+		if !strings.Contains(forward.Source, forwardCall) {
+			t.Fatalf("missing forward parameter layout %q:\n%s", forwardCall, forward.Source)
+		}
+		dy, dx := "dL_dy", "dL_dx"
+		if i < 2 {
+			dy = fmt.Sprintf("grad%d", i+1)
+		}
+		if i > 0 {
+			dx = fmt.Sprintf("&grad%d", i)
+			declaration := fmt.Sprintf("tvec<float, 3> grad%d;", i)
+			if !strings.Contains(backward.Source, declaration) {
+				t.Fatalf("missing intermediate gradient %q", declaration)
+			}
+		}
+		backwardCall := fmt.Sprintf("%s(%s, params + %d, fwd_ctx, (dL_dparams ? dL_dparams + %d : nullptr), %s)", backward.Symbols[i], dy, offset, offset, dx)
+		if !strings.Contains(backward.Source, backwardCall) {
+			t.Fatalf("missing backward parameter layout or gradient chain %q:\n%s", backwardCall, backward.Source)
+		}
+	}
+}
+
 func TestEmittedFunctions_OnlyFromEmitFromBody(t *testing.T) {
 	mlp, err := cudalayer.NewFusedMLP(64, 64, 64, 3)
 	if err != nil {

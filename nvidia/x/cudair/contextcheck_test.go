@@ -127,3 +127,21 @@ func TestContextCheckerRuntimeBounds(t *testing.T) {
 		})
 	}
 }
+
+func TestContextCheckerDocumentedDeclarationLimits(t *testing.T) {
+	for _, tc := range []struct{ name, body, reason string }{
+		{"template initializer", "tvec<float, 16> saved = {};", "template initializer is not supported: saved"},
+		{"multiple declarations", "float a = 1, b = 2;", "comma-separated declaration is not supported: b"},
+		{"direct gradient pointer", "*dL_dparams = 1;", "direct gradient-pointer assignment is not supported: dL_dparams"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			node := &gradientWriter{fullEmitter: fullEmitter{forwardOnlyEmitter: forwardOnlyEmitter{
+				name: "declaration_limit", inWidth: 16, outWidth: 16, paddedWidth: 16}}, body: tc.body}
+			_, err := cudair.EmitBackwardTree(node, "checked", 32, cudair.GradientModeIgnore)
+			requireContextRefusal(t, err, node.name, tc.reason)
+			if !strings.Contains(err.Error(), "emitted context or write rule violated") {
+				t.Fatalf("error = %v, want context/write rule diagnostic", err)
+			}
+		})
+	}
+}

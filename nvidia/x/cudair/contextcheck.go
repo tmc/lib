@@ -138,6 +138,9 @@ func integerConstant(tokens []cudaToken) constant.Value {
 }
 
 func validateBodyWrites(node Emitter, tokens []cudaToken, children []ChildSymbol, backward bool, fail func(string) error) error {
+	if err := validateDeclarationForms(tokens, fail); err != nil {
+		return err
+	}
 	locals := make(map[string]bool)
 	for i := 0; i+1 < len(tokens); i++ {
 		if tokens[i].text == "float" || tokens[i].text == "int" || tokens[i].text == "bool" || tokens[i].text == "auto" || tokens[i].text == "uint8_t" {
@@ -150,6 +153,9 @@ func validateBodyWrites(node Emitter, tokens []cudaToken, children []ChildSymbol
 			}
 		}
 		if tokens[i].text == "*" && i+2 < len(tokens) && isCUDAIdentStart(tokens[i+1].text[0]) && (tokens[i+2].text == "=" || tokens[i+2].text == ";") {
+			if backward && tokens[i+2].text == "=" && (tokens[i+1].text == "dL_dx" || tokens[i+1].text == "dL_dparams") {
+				return fail("direct gradient-pointer assignment is not supported: " + tokens[i+1].text)
+			}
 			return fail("pointer local is not allowed")
 		}
 		if tokens[i].text == ">" && i+2 < len(tokens) && isCUDAIdentStart(tokens[i+1].text[0]) && tokens[i+2].text == ";" {
@@ -239,6 +245,68 @@ func validateBodyWrites(node Emitter, tokens []cudaToken, children []ChildSymbol
 			}
 			if j < 0 || j >= len(tokens) || !locals[tokens[j].text] {
 				return fail("increment target is not a body local")
+			}
+		}
+	}
+	return nil
+}
+
+// validateDeclarationForms recognizes complete declaration prefixes before
+// reporting unsupported initializers or multiple declarators. It does not
+// infer write targets from punctuation alone.
+func validateDeclarationForms(tokens []cudaToken, fail func(string) error) error {
+	for i := 0; i < len(tokens); i++ {
+		if i > 0 && tokens[i-1].text != ";" && tokens[i-1].text != "{" && tokens[i-1].text != "}" {
+			continue
+		}
+		start := i
+		if tokens[start].text == "const" {
+			start++
+		}
+		if start+1 >= len(tokens) || !isCUDAIdentStart(tokens[start].text[0]) {
+			continue
+		}
+		name := start + 1
+		if tokens[name].text == "<" {
+			depth := 1
+			for name++; name < len(tokens) && depth > 0; name++ {
+				switch tokens[name].text {
+				case "<":
+					depth++
+				case ">":
+					depth--
+				case ">>":
+					depth -= 2
+				}
+			}
+			if depth == 0 && name+1 < len(tokens) && isCUDAIdentStart(tokens[name].text[0]) && tokens[name+1].text == "=" {
+				return fail("template initializer is not supported: " + tokens[name].text)
+			}
+			continue
+		}
+		switch tokens[start].text {
+		case "float", "int", "bool", "uint8_t", "auto":
+		default:
+			continue
+		}
+		if !isCUDAIdentStart(tokens[name].text[0]) {
+			continue
+		}
+		depth := 0
+		for j := name + 1; j < len(tokens); j++ {
+			switch tokens[j].text {
+			case "(", "[", "{":
+				depth++
+			case ")", "]", "}":
+				depth--
+			case ";":
+				if depth == 0 {
+					j = len(tokens)
+				}
+			case ",":
+				if depth == 0 && j+1 < len(tokens) && isCUDAIdentStart(tokens[j+1].text[0]) {
+					return fail("comma-separated declaration is not supported: " + tokens[j+1].text)
+				}
 			}
 		}
 	}
