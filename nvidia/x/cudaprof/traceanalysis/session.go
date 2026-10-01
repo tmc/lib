@@ -51,8 +51,8 @@ func Catalog() []Query {
 		{"delivery-cadence", 1, "cudaprof.delivery-cadence.v1", []string{"native", "trace_processor_v58.2"}, "ns", "instantaneous delivered/EOS/token_limit metadata; explicit request scope for spacing", "raw endpoints retained; request spacing unavailable without request identity"},
 		{"kernel-shapes", 1, "cudaprof.kernel-shapes.v1", []string{"native", "trace_processor_v58.2"}, "ns", "raw kernel symbol and native launch geometry", "native raw launches plus per-symbol/geometry distributions; SQL raw groups; neither is independent engine-run uncertainty"},
 		{"recorded-gaps", 1, "cudaprof.recorded-gaps.v1", []string{"native", "trace_processor_v58.2"}, "ns", "valid recorded device activities", "per journal/device interval union and complement within recorded span; not hardware idle"},
-		{"unmatched", 1, "cudaprof.unmatched.v1", []string{"native", "trace_processor_v58.2"}, "records", "domain-specific submission/context records", "each unresolved activity once, retain matching reasons"},
-		{"correlations", 1, "cudaprof.correlations.v1", []string{"native", "trace_processor_v58.2"}, "records", "retained submission calls in selected domain", "one result per device activity; provenance not causality"},
+		{"unmatched", 1, "cudaprof.unmatched.v1", []string{"native", "trace_processor_v58.2"}, "records", "domain-specific submission/context records; SQL needs explicit versioned receipts, positive raw sequences and coverage", "each unresolved activity once, retain matching reasons"},
+		{"correlations", 1, "cudaprof.correlations.v1", []string{"native", "trace_processor_v58.2"}, "records", "retained submission calls in selected domain; SQL needs explicit versioned native receipts, positive raw sequences and coverage", "one result per device activity; provenance not causality"},
 	}
 }
 

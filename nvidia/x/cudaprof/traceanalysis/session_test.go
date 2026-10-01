@@ -158,3 +158,9 @@ func ExampleSQL() {
 	fmt.Println(err == nil, strings.Contains(sql, "cudaprof_inventory_v1"))
 	// Output: true true
 }
+
+func ExampleSQLDomain() {
+	sql, err := SQLDomain("correlations", "runtime")
+	fmt.Println(err == nil, strings.Contains(sql, "domain='runtime'"))
+	// Output: true true
+}
