@@ -1,0 +1,22 @@
+commit: 17063bf37
+date: 2026-09-22T22:48:18-07:00
+agent: Claude Code 2.1.280
+model: claude-opus-5-5[1m]
+tty: ttys239
+pid: 16790
+ITERM_SESSION_ID: w13t0p9:E8F57AFD-1DAC-47B0-AA52-5A76722DD540
+session=f67c2dcc-2b3c-4d7a-91ca-4741e68f9911
+session_url=https://claude.ai/code/session_01EtvqCzGak7aomYVo1jAaL4
+note: history rewrite for the first public release; see main-clean and next
+
+commit: 0fa080adc5cf151f911642843a677a58e2bd336f
+date: 2026-09-28T19:44:04-07:00
+agent: Codex rebase_next
+model: GPT-6
+claude-code version: 2.1.284 (Claude Code)
+codex version: codex-cli 0.158.0
+tty: none
+pid: 1631746 (note writer)
+ITERM_SESSION_ID: unset
+rebased from: 17063bf37e00fb5f6918bedabea24d77d8e6515d
+base: 0d7722f39189be97e9ceb9ab8363a91016b32d17
