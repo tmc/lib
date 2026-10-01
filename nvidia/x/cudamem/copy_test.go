@@ -327,6 +327,32 @@ func TestCopy_DispatchRejectsIncompletePlan(t *testing.T) {
 	}
 }
 
+func TestCopy_DispatchRejectsSourceBounds(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		sourceLength int
+		sourceOffset int
+	}{
+		{"short source", 1, 0},
+		{"source offset overrun", 5, 4},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			plan := CopyPlan{VectorWidth: 2, ElementCount: 2, transferCount: 2,
+				runs: []CopyRun{{tc.sourceOffset, 0, 2}}}
+			destination := []byte{0xa5, 0xa5}
+			calls := 0
+			err := dispatchCopy(plan, len(destination), tc.sourceLength, func(run CopyRun) error {
+				calls++
+				destination[run.DestinationOffset] = 0
+				return nil
+			})
+			if !errors.Is(err, ErrCopySizeMismatch) || calls != 0 || !reflect.DeepEqual(destination, []byte{0xa5, 0xa5}) {
+				t.Fatalf("dispatch error = %v, transfers = %d, destination = %v, want size error before transfer", err, calls, destination)
+			}
+		})
+	}
+}
+
 func totalRunElements(runs []CopyRun) int {
 	n := 0
 	for _, run := range runs {
