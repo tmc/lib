@@ -194,13 +194,15 @@ func TestCampaign_FindingReproducesFromSeed(t *testing.T) {
 		t.Fatal(err)
 	}
 	// This bounds a single visit to each perturbation site, not the entire
-	// clock-based loop. The watchdog also bounds repeated loop visits.
+	// clock-based loop. Each site can inject before and after, and PTX permits
+	// each nanosleep to last up to twice its requested delay. The watchdog
+	// separately bounds repeated loop visits.
 	const threadsPerBlock = 64
-	worstInjected := uint64(threadsPerBlock) * uint64(len(sites)) * uint64(cudaschedule.DefaultMaxSleepNs)
+	worstInjected := singleVisitDelayBound(uint64(threadsPerBlock), uint64(len(sites)), uint64(cudaschedule.DefaultMaxSleepNs))
 	if worstInjected >= uint64((3 * time.Second).Nanoseconds()) {
 		t.Fatalf("worst-case injected sleep %d ns reaches the 3 s run timeout", worstInjected)
 	}
-	t.Logf("race fixture worst-case injected sleep=%d ns (%d threads x %d sites x %d ns), below 3 s run timeout", worstInjected, threadsPerBlock, len(sites), cudaschedule.DefaultMaxSleepNs)
+	t.Logf("race fixture worst-case injected sleep=%d ns (%d threads x %d sites x 2 positions x 2 PTX duration factor x %d ns), below 3 s run timeout", worstInjected, threadsPerBlock, len(sites), cudaschedule.DefaultMaxSleepNs)
 	firstPTX := append([]byte(nil), firstImages[strconv.FormatUint(seed, 10)+"/false"]...)
 	secondImages := make(map[string][]byte)
 	second, err := cudaschedule.RunCampaign(context.Background(), options(readPTX("schedule_race.ptx"), seed, seed+1, secondImages))
