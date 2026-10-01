@@ -151,16 +151,40 @@ func TestCampaign_FindingReproducesFromSeed(t *testing.T) {
 			LaunchGeometry: "grid=1x1x1 block=64x1x1",
 			InputReference: "schedule_race zero-initialized uint64 output",
 			MaxSleepNs:     cudaschedule.DefaultMaxSleepNs,
-			ConfirmRuns:    1, Timeout: 3 * time.Second, PristineTimeout: 8 * time.Second,
+			ConfirmRuns:    2, Timeout: 3 * time.Second, PristineTimeout: 8 * time.Second,
 			BuildVariant: build(images),
 		}
 	}
+	artifactDir := ""
+	if parent := os.Getenv("CUDA_SCHEDULE_ARTIFACT_DIR"); parent != "" {
+		var err error
+		artifactDir, err = os.MkdirTemp(parent, "schedule-native-")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("native artifacts: %s", artifactDir)
+	}
+	runCampaign := func(name, source string, start, end uint64, images map[string][]byte, clean bool) *cudaschedule.CampaignReport {
+		t.Helper()
+		opts := options(source, start, end, images)
+		if artifactDir != "" {
+			opts.ArtifactDir = filepath.Join(artifactDir, name)
+			opts.KeepArtifacts = true
+		}
+		report, runErr := cudaschedule.RunCampaign(context.Background(), opts)
+		if err := writeNativeCampaignReceipt(artifactDir, name, report, runErr); err != nil {
+			t.Fatal(err)
+		}
+		counts, evidenceErr := checkNativeCampaign(report, clean)
+		t.Logf("%s: counts=%+v run_error=%v evidence_error=%v", name, counts, runErr, evidenceErr)
+		if runErr != nil || evidenceErr != nil {
+			t.Fatalf("%s campaign incomplete: run=%v evidence=%v", name, runErr, evidenceErr)
+		}
+		return report
+	}
 	const seedStart, seedEnd = uint64(17), uint64(49)
 	cleanImages := make(map[string][]byte)
-	clean, err := cudaschedule.RunCampaign(context.Background(), options(readPTX("schedule_race_clean.ptx"), seedStart, seedEnd, cleanImages))
-	if err != nil {
-		t.Fatal(err)
-	}
+	clean := runCampaign("clean", readPTX("schedule_race_clean.ptx"), seedStart, seedEnd, cleanImages, true)
 	checkBaseline := func(report *cudaschedule.CampaignReport) {
 		t.Helper()
 		if err := checkScheduleBaseline(report); err != nil {
@@ -173,21 +197,18 @@ func TestCampaign_FindingReproducesFromSeed(t *testing.T) {
 		t.Fatalf("synchronized control reported findings: %+v", clean.Seeds)
 	}
 	firstImages := make(map[string][]byte)
-	first, err := cudaschedule.RunCampaign(context.Background(), options(readPTX("schedule_race.ptx"), seedStart, seedEnd, firstImages))
-	if err != nil {
-		t.Fatal(err)
-	}
+	first := runCampaign("planted", readPTX("schedule_race.ptx"), seedStart, seedEnd, firstImages, false)
 	checkBaseline(first)
 	var seed uint64
 	found := false
 	for _, result := range first.Seeds {
-		if result.Verdict == cudaschedule.VerdictMismatch {
+		if confirmedNativeMismatch(result, first.ConfirmRuns) {
 			seed, found = result.Seed, true
 			break
 		}
 	}
 	if !found {
-		t.Fatalf("sweep found no shared-memory race mismatch: %+v", first.Seeds)
+		t.Fatalf("planted shared-memory race not confirmed within %d seeds", seedEnd-seedStart)
 	}
 	sites, err := cudaschedule.Analyze(readPTX("schedule_race.ptx"))
 	if err != nil {
@@ -205,12 +226,9 @@ func TestCampaign_FindingReproducesFromSeed(t *testing.T) {
 	t.Logf("race fixture worst-case injected sleep=%d ns (%d threads x %d sites x 2 positions x 2 PTX duration factor x %d ns), below 3 s run timeout", worstInjected, threadsPerBlock, len(sites), cudaschedule.DefaultMaxSleepNs)
 	firstPTX := append([]byte(nil), firstImages[strconv.FormatUint(seed, 10)+"/false"]...)
 	secondImages := make(map[string][]byte)
-	second, err := cudaschedule.RunCampaign(context.Background(), options(readPTX("schedule_race.ptx"), seed, seed+1, secondImages))
-	if err != nil {
-		t.Fatal(err)
-	}
+	second := runCampaign("replay", readPTX("schedule_race.ptx"), seed, seed+1, secondImages, false)
 	checkBaseline(second)
-	if len(second.Seeds) != 1 || second.Seeds[0].Verdict != cudaschedule.VerdictMismatch {
+	if len(second.Seeds) != 1 || !confirmedNativeMismatch(second.Seeds[0], second.ConfirmRuns) {
 		t.Fatalf("seed %d did not reproduce its mismatch: second=%+v", seed, second.Seeds)
 	}
 	if len(firstPTX) == 0 || !bytes.Equal(firstPTX, secondImages[strconv.FormatUint(seed, 10)+"/false"]) {
