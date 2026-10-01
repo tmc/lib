@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"sort"
 
+	"github.com/tmc/lib/nvidia/x/cudaprof/isolation"
 	"github.com/tmc/lib/nvidia/x/cudaprof/overview"
 	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 )
@@ -27,6 +28,7 @@ type overviewRawRecord struct {
 }
 
 type overviewResult struct {
+	Isolation        isolation.Result       `json:"gpu_isolation"`
 	Version          int                    `json:"version"`
 	Capture          string                 `json:"capture"`
 	SHA256           string                 `json:"capture_sha256"`
@@ -78,7 +80,7 @@ func runOverview(args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	result := overviewResult{Version: 1, Capture: fs.Arg(0), SHA256: sha, Completeness: "unknown", Stationarity: "unassessed", Correctness: "unverified", Domain: *domain}
+	result := overviewResult{Isolation: captureIsolation(cap), Version: 1, Capture: fs.Arg(0), SHA256: sha, Completeness: "unknown", Stationarity: "unassessed", Correctness: "unverified", Domain: *domain}
 	if data, ok := cap.Files["capture-status.json"]; ok {
 		var envelope struct {
 			Status captureResult `json:"status"`
@@ -203,7 +205,7 @@ var overviewHTML = template.Must(template.New("overview").Funcs(template.FuncMap
 <html lang="en"><meta charset="utf-8"><title>Token and operation overview</title>
 <style>body{font:15px system-ui;margin:2rem auto;max-width:1400px;padding:0 1rem}table{border-collapse:collapse;width:100%;font-size:13px}td,th{border:1px solid #ccc;padding:.4rem;text-align:left;overflow-wrap:anywhere}details{margin:.5rem;padding:.4rem;border-left:2px solid #ccc}code{overflow-wrap:anywhere}.gates{background:#fff2cc;padding:1rem}</style>
 <h1>Token and operation overview</h1><p>Capture: <code>{{.Capture}}</code><br>SHA-256: <code>{{.SHA256}}</code><br>Timestamp domain: {{.Overview.TimestampDomain}}</p>
-<p class="gates">Collector completeness: <strong>{{.Completeness}}</strong>; stationarity: {{.Stationarity}}; correctness: {{.Correctness}}. Summary generation establishes no causal attribution or workload qualification.</p>
+<p class="gates">GPU isolation: <strong>{{.Isolation.State}}</strong>; {{.Isolation.Limits}}<br>Collector completeness: <strong>{{.Completeness}}</strong>; stationarity: {{.Stationarity}}; correctness: {{.Correctness}}. Summary generation establishes no causal attribution or workload qualification.</p>
 {{with .CollectorReceipt}}<p>Target outcome: {{.Outcome}}; exit code: {{.TargetExitCode}}; signal: {{.TargetSignal}}; collector finalized: {{.CollectorFinalized}}; dropped records: {{.DroppedRecords}}.</p>{{else}}<p>No retained collector receipt.</p>{{end}}
 <ul>{{range .Overview.Limits}}<li>{{.}}</li>{{end}}</ul><p>Unmatched activity records: {{len .Overview.Unmatched}}; unpaired markers: {{.Overview.UnpairedMarkers}}.</p>
 <h2>Observed tokens</h2>{{template "tokens" .Overview.Tokens}}

@@ -14,6 +14,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/tmc/lib/nvidia/x/cudaprof/isolation"
 )
 
 // Qualify computes a pre-registered verdict for an A/B timing campaign from
@@ -79,16 +81,17 @@ const (
 )
 
 type qualifyOptions struct {
-	manifest        string
-	gaps            gapOptions
-	noiseMultiplier float64
-	noiseFloorMS    float64
-	violations      string
-	violationMargin time.Duration
-	minBlocks       int
-	json            bool
-	opsPath         string
-	stagesPath      string
+	requireIsolation bool
+	manifest         string
+	gaps             gapOptions
+	noiseMultiplier  float64
+	noiseFloorMS     float64
+	violations       string
+	violationMargin  time.Duration
+	minBlocks        int
+	json             bool
+	opsPath          string
+	stagesPath       string
 }
 
 const qualifyUsage = "usage: cudaprof qualify (-warmup-until=RE | -warmup-ms=N) [-noise-multiplier=3] [-noise-floor-ms=1] [-violations=FILE [-violation-margin=2s] [-min-blocks=N]] [-ops ops.txt] [-stages stages.txt] [-max-records=N] [-json] manifest.txt"
@@ -133,6 +136,7 @@ func runQualifyCommand(args []string, stdout io.Writer) error {
 	}
 	for i := range entries {
 		e := &entries[i]
+		e.requireIsolation = opts.requireIsolation
 		if err := measureQualifyEntry(e, opts.gaps, rules, stages); err != nil {
 			return fmt.Errorf("qualify: block %s arm %s: %w", e.Block, e.Arm, err)
 		}
@@ -149,6 +153,7 @@ func runQualifyCommand(args []string, stdout io.Writer) error {
 		host.Log = opts.violations
 	}
 	q := qualify(entries, opts.noiseMultiplier, opts.noiseFloorMS, opts.minBlocks)
+	q.RequireIsolation = opts.requireIsolation
 	q.Identity, q.Order = identity, order
 	q.Window = describeWarmup(opts.gaps) + " excluded"
 	q.HostLoad = host
@@ -192,6 +197,7 @@ func parseQualifyArgs(args []string, stdout io.Writer) (qualifyOptions, error) {
 	fs.IntVar(&opts.minBlocks, "min-blocks", 0, "the fewest blocks the verdict may be scored from after exclusions; 0 means every block")
 	fs.Int64Var(&opts.gaps.maxRecords, "max-records", 0, fmt.Sprintf("maximum journal records to decode per capture (default: the larger of %d and what the capture records)", controllerMaxJournalRecords))
 	fs.BoolVar(&opts.json, "json", false, "write the verdict as JSON")
+	fs.BoolVar(&opts.requireIsolation, "require-isolation", false, "exclude blocks without sampled clear isolation; contamination always excludes")
 	fs.StringVar(&opts.opsPath, "ops", "", "break the pairs down by op, from a file of `regex op` lines as compare reads, or \"default\" for the built-in groups")
 	fs.StringVar(&opts.stagesPath, "stages", "", "break the pairs down by stage, from a file of `regex stage` boundaries as compare reads")
 	if err := fs.Parse(args); err != nil {
@@ -309,11 +315,13 @@ Options:
 
 // qualifyEntry is one capture of the campaign.
 type qualifyEntry struct {
-	Block       string `json:"block"`
-	Arm         string `json:"arm"`
-	Path        string `json:"path"`
-	SteadyNanos int64  `json:"steady_span_ns"`
-	WholeNanos  int64  `json:"whole_span_ns"`
+	requireIsolation bool
+	Isolation        isolation.Result `json:"gpu_isolation"`
+	Block            string           `json:"block"`
+	Arm              string           `json:"arm"`
+	Path             string           `json:"path"`
+	SteadyNanos      int64            `json:"steady_span_ns"`
+	WholeNanos       int64            `json:"whole_span_ns"`
 
 	// side is the capture partitioned as compare partitions it, when the
 	// campaign is broken down by op or stage.
@@ -337,7 +345,7 @@ type qualifyEntry struct {
 
 // excluded reports whether the entry must be left out of the verdict.
 func (e *qualifyEntry) excluded() bool {
-	return e.HostLoad == hostLoaded || e.HostLoad == hostUnchecked
+	return e.HostLoad == hostLoaded || e.HostLoad == hostUnchecked || isolation.Require(e.Isolation, e.requireIsolation) != nil
 }
 
 // parseQualifyManifest reads "block arm path" lines. The result is in
@@ -403,6 +411,7 @@ func measureQualifyEntry(e *qualifyEntry, opts gapOptions, rules opRules, stages
 	if err != nil {
 		return fmt.Errorf("read capture %s: %w", e.Path, err)
 	}
+	e.Isolation = captureIsolation(cap)
 	report, err := analyzeGaps(cap, opts)
 	if err != nil {
 		return fmt.Errorf("analyze %s: %w", e.Path, err)
@@ -501,7 +510,8 @@ func qualifySpan(path string, report *GapReport) (steady, whole int64, err error
 // Qualification is the verdict of one campaign. Every duration is in
 // milliseconds; a pair is G minus C, so a positive effect means G is slower.
 type Qualification struct {
-	Window string `json:"window"`
+	RequireIsolation bool   `json:"require_isolation"`
+	Window           string `json:"window"`
 	// Identity and Order say whether each arm was seen to run one executable
 	// and each block to run in manifest order: "verified", or "unverified"
 	// and why. A campaign that contradicts either is refused, not scored.
@@ -692,6 +702,7 @@ func (q *Qualification) write(w io.Writer) {
 	fmt.Fprintf(w, "executable per arm: %s; run order within blocks: %s\n\n", q.Identity, q.Order)
 	fmt.Fprintf(w, "%-6s %-4s %12s %12s  %s\n", "block", "arm", "steady ms", "whole ms", "capture")
 	for _, e := range q.Captures {
+		printIsolation(w, e.Isolation)
 		fmt.Fprintf(w, "%-6s %-4s %12.3f %12.3f  %s\n", e.Block, e.Arm, float64(e.SteadyNanos)/1e6, float64(e.WholeNanos)/1e6, e.Path)
 	}
 	fmt.Fprintln(w)

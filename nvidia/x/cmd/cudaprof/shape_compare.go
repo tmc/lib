@@ -9,6 +9,7 @@ import (
 	"os"
 	"regexp"
 
+	"github.com/tmc/lib/nvidia/x/cudaprof/isolation"
 	"github.com/tmc/lib/nvidia/x/cudaprof/iteration"
 	"github.com/tmc/lib/nvidia/x/cudaprof/shape"
 	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
@@ -55,12 +56,13 @@ func runShapeCompare(args []string, stdout io.Writer) error {
 		return fmt.Errorf("shape-compare: iteration marker: %w", err)
 	}
 	type arm struct {
-		Path            string         `json:"path"`
-		SHA256          string         `json:"sha256"`
-		Completeness    string         `json:"completeness"`
-		Stationarity    iteration.Gate `json:"stationarity"`
-		Markers         int            `json:"inferred_iteration_markers"`
-		UnpairedMarkers int            `json:"unpaired_nvtx_markers"`
+		Isolation       isolation.Result `json:"gpu_isolation"`
+		Path            string           `json:"path"`
+		SHA256          string           `json:"sha256"`
+		Completeness    string           `json:"completeness"`
+		Stationarity    iteration.Gate   `json:"stationarity"`
+		Markers         int              `json:"inferred_iteration_markers"`
+		UnpairedMarkers int              `json:"unpaired_nvtx_markers"`
 	}
 	var arms [2]arm
 	var records [2]timeline.Records
@@ -77,7 +79,7 @@ func runShapeCompare(args []string, stdout io.Writer) error {
 		if err != nil {
 			iterations = &iteration.Report{Gate: iteration.Gate{Failures: []string{"stationarity unevaluable: " + err.Error()}}}
 		}
-		arms[i] = arm{path, digest, "passed", iterations.Gate, iterations.Markers, records[i].UnpairedMarkers}
+		arms[i] = arm{captureIsolation(cap), path, digest, "passed", iterations.Gate, iterations.Markers, records[i].UnpairedMarkers}
 	}
 	report := struct {
 		Version         int          `json:"version"`

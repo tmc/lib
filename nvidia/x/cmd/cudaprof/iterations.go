@@ -17,6 +17,7 @@ import (
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudalowering"
+	"github.com/tmc/lib/nvidia/x/cudaprof/isolation"
 	"github.com/tmc/lib/nvidia/x/cudaprof/iteration"
 	"github.com/tmc/lib/nvidia/x/cudaprof/perfscript"
 	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
@@ -88,10 +89,11 @@ func parseIterationsArgs(rawArgs []string, stdout io.Writer) (iterationsOptions,
 
 // An iterationsResult is what iterations writes as JSON.
 type iterationsResult struct {
-	Capture string              `json:"capture"`
-	Report  *iteration.Report   `json:"report"`
-	Advice  []iteration.Finding `json:"advice"`
-	Notes   []string            `json:"notes,omitempty"`
+	Isolation isolation.Result    `json:"gpu_isolation"`
+	Capture   string              `json:"capture"`
+	Report    *iteration.Report   `json:"report"`
+	Advice    []iteration.Finding `json:"advice"`
+	Notes     []string            `json:"notes,omitempty"`
 }
 
 func runIterationsCommand(args []string, stdout io.Writer) error {
@@ -126,6 +128,7 @@ func runIterationsCommand(args []string, stdout io.Writer) error {
 		return fmt.Errorf("iterations: %w", err)
 	}
 	res.Capture = abs
+	res.Isolation = captureIsolation(cap)
 	r := res.Report
 	if opts.json {
 		enc := json.NewEncoder(stdout)
@@ -191,6 +194,7 @@ func memsetNote(status captureResult, r *iteration.Report) string {
 
 func (res *iterationsResult) write(w io.Writer, kernels int) error {
 	r := res.Report
+	printIsolation(w, res.Isolation)
 	kind := "kernel"
 	if r.NVTX {
 		kind = "NVTX"
