@@ -50,9 +50,24 @@ Malformed bounded receipts are retained with unchecked status. The attachment
 hash is recorded outside the hashed receipt, avoiding a circular dependency.
 A final capture artifact hash belongs in the separate archive manifest.
 
-A parent receipt arriving later must produce a separately identified sidecar or
-new atomically published capture. This implementation does not silently rewrite
-an existing capture or claim late evidence was present during initial admission.
+A parent receipt arriving later can be retained explicitly:
+
+```sh
+cudaprof isolation bind -receipt observer.json -o bound.pprof capture.pprof
+cudaprof trace check -require isolation bound.pprof
+```
+
+`isolation bind` publishes a new artifact atomically without replacement. It
+retains every original receipt, original status bytes, previous binding manifests,
+and the original capture SHA-256 in bounded provenance. A hash-addressed parent
+receipt and `gpu-isolation-binding-v1.json` bind new evidence to independently
+retained capture identity. Repeated binding preserves contamination and all prior
+source hashes; a clean parent cannot erase an earlier outside observation. Input
+and output paths, symlinks and hard-link collisions are refused. Malformed receipts
+and contradictory hashes produce no new output. Legacy captures without an
+independent binding remain unchecked. Successful publication is diagnostic, not a
+performance qualification. It never claims late evidence was present at initial
+admission or silently rewrites the original capture.
 Local receipt hashes detect binding changes; they do not attest observer honesty.
 
 CPU tests cover clear/contaminated/unchecked, contamination plus errors, process

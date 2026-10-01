@@ -33,6 +33,18 @@ func TestEvaluate(t *testing.T) {
 		{"outside campaign only", "clear", func(r *Receipt, b *Binding) {
 			r.Outside = []Observation{{Process: Process{Host: "host", PID: 99, Start: "boot:456"}, GPU: "GPU-a", First: 300, Last: 300}}
 		}},
+		{"outside unrelated physical GPU", "clear", func(r *Receipt, b *Binding) {
+			r.Outside = []Observation{{Process: Process{Host: "host", PID: 99, Start: "boot:456"}, GPU: "GPU-unrelated", First: 150, Last: 150}}
+		}},
+		{"unknown target GPU mapping", "unchecked", func(r *Receipt, b *Binding) {
+			b.GPUs = nil
+			r.Outside = []Observation{{Process: Process{Host: "host", PID: 99, Start: "boot:456"}, GPU: "GPU-a", First: 150, Last: 150}}
+		}},
+		{"unsupported observation method", "unchecked", func(r *Receipt, b *Binding) {
+			r.Method = "unrecognized"
+			r.Outside = []Observation{{Process: Process{Host: "host", PID: 99, Start: "boot:456"}, GPU: "GPU-a", First: 150, Last: 150}}
+		}},
+		{"negative capture timestamp", "unchecked", func(r *Receipt, b *Binding) { b.Window.Start = -1 }},
 		{"PID reused", "unchecked", func(r *Receipt, b *Binding) { b.Process.Start = "boot:999" }},
 		{"clock mismatch", "unchecked", func(r *Receipt, b *Binding) { b.Window.Domain = "wall" }},
 		{"unknown completion", "unchecked", func(r *Receipt, b *Binding) { b.CompletionKnown = false }},
