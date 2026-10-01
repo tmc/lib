@@ -10,6 +10,7 @@ import (
 	"os"
 
 	"github.com/tmc/lib/nvidia/x/cudaprof/dependency"
+	"github.com/tmc/lib/nvidia/x/cudaprof/isolation"
 	"github.com/tmc/lib/nvidia/x/cudaprof/marker"
 	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 )
@@ -35,6 +36,7 @@ type dependencyResult struct {
 	Ranges       []timeline.Range       `json:"application_ranges"`
 	Endpoints    []dependencyEndpoint   `json:"delivery_endpoint_observations"`
 	Limits       string                 `json:"limits"`
+	Isolation    isolation.Result       `json:"gpu_isolation"`
 	Invariant    *dependency.Selection  `json:"controlled_request_invariant,omitempty"`
 }
 
@@ -99,7 +101,7 @@ func runDependencyCommand(args []string) error {
 	if err != nil {
 		return err
 	}
-	result := dependencyResult{1, fs.Arg(0), sha, status.RunCompleteness, report, timeline.Correlations(records, "driver"), records.Ranges, endpoints, "native dependency edges require successful paired callbacks and explicit identities; a qualified critical path applies only to the selected controlled request and independent count, not application-wide coverage or engine causal attribution", invariant}
+	result := dependencyResult{1, fs.Arg(0), sha, status.RunCompleteness, report, timeline.Correlations(records, "driver"), records.Ranges, endpoints, "native dependency edges require successful paired callbacks and explicit identities; a qualified critical path applies only to the selected controlled request and independent count, not application-wide coverage or engine causal attribution", captureIsolation(cap), invariant}
 	if *htmlPath != "" {
 		f, err := os.Create(*htmlPath)
 		if err != nil {
@@ -166,7 +168,7 @@ func dependencyInventory(records timeline.Records) (dependency.Graph, []dependen
 var dependencyHTML = template.Must(template.New("dependency").Parse(`<!doctype html>
 <html lang="en"><meta charset="utf-8"><title>Delivery dependency inventory</title>
 <style>body{font:16px system-ui;max-width:1200px;margin:2rem auto;padding:0 1rem}table{border-collapse:collapse;width:100%;font-size:14px}td,th{border:1px solid #ccc;padding:.4rem;text-align:left;overflow-wrap:anywhere}code{overflow-wrap:anywhere}.status{padding:1rem;background:#fff2cc}</style>
-<h1>Delivery dependency inventory</h1><p>Capture: <code>{{.Capture}}</code><br>SHA-256: <code>{{.SHA256}}</code><br>Collector completeness: {{.Completeness}}</p>
+<h1>Delivery dependency inventory</h1><p>Capture: <code>{{.Capture}}</code><br>SHA-256: <code>{{.SHA256}}</code><br>Collector completeness: {{.Completeness}}<br>GPU isolation: {{.Isolation.State}}; {{.Isolation.Limits}}</p>
 <p class="status">Dependency state: <strong>{{.Dependency.State}}</strong>. {{if .Dependency.CriticalPath}}Longest serial work path: {{.Dependency.WorkNS}} ns (excludes waiting gaps).{{else}}No complete critical path is established.{{end}}</p>
 <p>{{.Limits}}</p><h2>Coverage and missing evidence</h2><ul>{{range .Dependency.Reasons}}<li>{{.}}</li>{{end}}</ul>
 <h2>Nodes and raw sources</h2><table><tr><th>Node</th><th>Raw record</th><th>Clock identity</th><th>Start ns</th><th>End ns</th></tr>{{range .Dependency.Graph.Nodes}}<tr><td>{{.ID}}</td><td>{{.Record}}</td><td>{{.Clock}}</td><td>{{.Start}}</td><td>{{.End}}</td></tr>{{end}}</table>

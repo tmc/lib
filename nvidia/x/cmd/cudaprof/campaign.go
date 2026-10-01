@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof/isolation"
 	"github.com/tmc/lib/nvidia/x/cudaprof/iteration"
 	"github.com/tmc/lib/nvidia/x/cudaprof/shape"
 	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
@@ -51,17 +52,18 @@ type campaignJob struct {
 }
 
 type campaignRun struct {
-	Arm          string   `json:"arm"`
-	Profiled     bool     `json:"profiled"`
-	Command      []string `json:"command"`
-	Stdout       string   `json:"stdout"`
-	Stderr       string   `json:"stderr"`
-	CollectorLog string   `json:"collector_log,omitempty"`
-	Capture      string   `json:"capture,omitempty"`
-	WallNanos    int64    `json:"wall_ns"`
-	WindowNanos  int64    `json:"window_ns,omitempty"`
-	OutputSHA256 string   `json:"output_sha256,omitempty"`
-	Failure      string   `json:"failure,omitempty"`
+	Isolation    *isolation.Result `json:"gpu_isolation,omitempty"`
+	Arm          string            `json:"arm"`
+	Profiled     bool              `json:"profiled"`
+	Command      []string          `json:"command"`
+	Stdout       string            `json:"stdout"`
+	Stderr       string            `json:"stderr"`
+	CollectorLog string            `json:"collector_log,omitempty"`
+	Capture      string            `json:"capture,omitempty"`
+	WallNanos    int64             `json:"wall_ns"`
+	WindowNanos  int64             `json:"window_ns,omitempty"`
+	OutputSHA256 string            `json:"output_sha256,omitempty"`
+	Failure      string            `json:"failure,omitempty"`
 }
 
 type campaignBlock struct {
@@ -82,6 +84,7 @@ type campaignInterval struct {
 }
 
 type campaignReport struct {
+	Isolation         isolation.Result  `json:"gpu_isolation"`
 	Domain            string            `json:"api_domain"`
 	Version           int               `json:"version"`
 	ExpectedSHA256    string            `json:"expected_output_sha256"`
@@ -120,6 +123,9 @@ func runCampaignCommand(args []string, stdout io.Writer) error {
 	o.measure = func(path string, arm int) (timeline.Records, int64, error) {
 		cap, _, err := readAlignmentCapture(path, cudacapture.Limits{})
 		if err != nil {
+			return timeline.Records{}, 0, err
+		}
+		if err := isolation.Require(captureIsolation(cap), false); err != nil {
 			return timeline.Records{}, 0, err
 		}
 		_, records, err := decodeCompleteCapture(cap, 0, 0)
@@ -273,7 +279,8 @@ func runCampaign(o *campaignOptions, stdout io.Writer) error {
 	slices.Sort(env)
 	envHash := sha256.Sum256([]byte(strings.Join(env, "\x00")))
 	r := campaignReport{Version: 1, Domain: o.domain, ExpectedSHA256: expected, ArtifactSHA256: artifacts, EnvironmentSHA256: hex.EncodeToString(envHash[:]), Marker: o.marker.String(), ExpectedMarkers: o.expect, SkipIterations: o.skip, CaptureFlags: o.flags,
-		Limits: "ABBA block delivery uses retained steady device windows. Bootstrap is conditional on unverified exchangeability of independent blocks. Ordinary-process controls measure end-to-end launch/injection/collection overhead, not kernel causal overhead. Output hashes establish only equality to supplied expected bytes. GPU_LOCK_HELD is an inherited lock declaration, not proof of absence of other GPU users."}
+		Isolation: isolation.Evaluate(nil, "", isolation.Binding{}),
+		Limits:    "Campaign isolation is unchecked without a bound shared-hold receipt covering ordinary controls and all arms; contaminated profile evidence excludes the whole original block. ABBA block delivery uses retained steady device windows. Bootstrap is conditional on unverified exchangeability of independent blocks. Ordinary-process controls measure end-to-end launch/injection/collection overhead, not kernel causal overhead. Output hashes establish only equality to supplied expected bytes. GPU_LOCK_HELD is an inherited lock declaration, not proof of absence of other GPU users."}
 	if err := os.Mkdir(o.dir, 0700); err != nil {
 		return fmt.Errorf("campaign output: %w", err)
 	}
@@ -342,6 +349,19 @@ func runCampaign(o *campaignOptions, stdout io.Writer) error {
 					records[pos], run.WindowNanos, err = o.measure(run.Capture, arm)
 					windows[pos] = run.WindowNanos
 				}
+				if profiled {
+					if cap, _, readErr := readAlignmentCapture(run.Capture, cudacapture.Limits{}); readErr == nil {
+						result := captureIsolation(cap)
+						run.Isolation = &result
+						if gateErr := isolation.Require(result, false); gateErr != nil {
+							if err == nil {
+								err = gateErr
+							} else {
+								err = fmt.Errorf("%v; %w", err, gateErr)
+							}
+						}
+					}
+				}
 				if err != nil {
 					run.Failure = err.Error()
 					b.Excluded = append(b.Excluded, run.Arm+": "+run.Failure)
@@ -372,6 +392,12 @@ func runCampaign(o *campaignOptions, stdout io.Writer) error {
 						b.OverheadPct[arm] = &overhead
 					}
 				}
+			}
+		}
+		for _, run := range b.Runs {
+			if run.Isolation != nil && run.Isolation.State == "contaminated" {
+				r.Isolation.State = "contaminated"
+				r.Isolation.Reasons = append(r.Isolation.Reasons, fmt.Sprintf("block %d arm %s observed contamination; original block excluded", b.Number, run.Arm))
 			}
 		}
 		r.Blocks = append(r.Blocks, b)

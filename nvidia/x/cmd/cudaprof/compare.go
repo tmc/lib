@@ -19,6 +19,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudalowering"
 	"github.com/tmc/lib/nvidia/x/cudaprof/gaps"
+	"github.com/tmc/lib/nvidia/x/cudaprof/isolation"
 	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 )
 
@@ -177,6 +178,9 @@ func runCompareCommand(args []string, stdout io.Writer) error {
 		return fmt.Errorf("compare: %w", err)
 	}
 	c.Base.Capture, c.Target.Capture = paths[0], paths[1]
+	baseIsolation, targetIsolation := captureIsolation(caps[0]), captureIsolation(caps[1])
+	c.Base.Isolation = &baseIsolation
+	c.Target.Isolation = &targetIsolation
 	if opts.json {
 		enc := json.NewEncoder(stdout)
 		enc.SetIndent("", "  ")
@@ -534,12 +538,13 @@ type Comparison struct {
 
 // CompareSide is one capture measured over its window.
 type CompareSide struct {
-	Capture           string `json:"capture"`
-	Window            string `json:"window"`
-	WindowNote        string `json:"window_note,omitempty"`
-	PhaseIndex        int    `json:"phase_index"`
-	Device            string `json:"device,omitempty"`
-	ComputeCapability string `json:"compute_capability,omitempty"`
+	Isolation         *isolation.Result `json:"gpu_isolation,omitempty"`
+	Capture           string            `json:"capture"`
+	Window            string            `json:"window"`
+	WindowNote        string            `json:"window_note,omitempty"`
+	PhaseIndex        int               `json:"phase_index"`
+	Device            string            `json:"device,omitempty"`
+	ComputeCapability string            `json:"compute_capability,omitempty"`
 	// GraphTraceMode is how the agent traced graph replays, or empty when
 	// the capture predates the key and the mode is UNREAD.
 	GraphTraceMode graphTraceMode `json:"graph_trace_mode,omitempty"`
@@ -1694,6 +1699,12 @@ func (c *Comparison) write(w io.Writer) error {
 
 func (c *Comparison) writeBody(w io.Writer) error {
 	b, t := c.Base, c.Target
+	if b.Isolation != nil && t.Isolation != nil {
+		fmt.Fprintln(w, "base isolation:")
+		printIsolation(w, *b.Isolation)
+		fmt.Fprintln(w, "target isolation:")
+		printIsolation(w, *t.Isolation)
+	}
 	fmt.Fprintf(w, "base    %s\n        %s\n", b.Capture, b.windowLine())
 	fmt.Fprintf(w, "target  %s\n        %s\n", t.Capture, t.windowLine())
 	if err := writeClocks(w, b.Clocks, t.Clocks); err != nil {
