@@ -62,6 +62,9 @@ func TestNativeRaceFixturesInitializeHandoffAndExposeReversingDraw(t *testing.T)
 			if err != nil {
 				t.Fatal(err)
 			}
+			if err := checkFixtureHandoff(fixture.name, string(data), fixture.wantClean); err != nil {
+				t.Fatal(err)
+			}
 			module, err := cudaptx.ParseString(string(data))
 			if err != nil {
 				t.Fatal(err)
