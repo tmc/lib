@@ -14,6 +14,9 @@ import (
 
 var nextCorrID uint64
 
+var pushExternalID = cupti.ActivityPushExternalCorrelationId
+var popExternalID = cupti.ActivityPopExternalCorrelationId
+
 // Correlation dispositions. A reader must never have to infer from an absent
 // external-correlation record whether correlation was asked for, was refused,
 // or simply found nothing to correlate.
@@ -135,7 +138,10 @@ func Label(ctx context.Context, key, value string) context.Context {
 // exactly that and no more. It travels on the stack from push to pop rather
 // than through package state, because a nested Do may enter a different set
 // than its parent and two goroutines hold different regions concurrently.
-type regionBrackets struct{ pinned, nvtx, cupti bool }
+type regionBrackets struct {
+	pinned, nvtx, cupti bool
+	kind                cupti.ExternalCorrelationKind
+}
 
 // pushCorrelation enters the region's thread-local brackets and reports which
 // it entered. It pins before pushing anything, so no bracket can be entered on
@@ -167,7 +173,7 @@ func pushCorrelation(ctx context.Context, id uint64) (entered regionBrackets) {
 		// either callable in this process or it is not, and a region that
 		// silently skipped its push would be indistinguishable from one whose
 		// kernels the framework never scoped.
-		if err := cupti.ActivityPushExternalCorrelationId(kind, id); err != nil {
+		if err := pushExternalID(kind, id); err != nil {
 			if _, ok := err.(*cupti.SymbolError); ok || !cupti.Loaded() {
 				failCorrelation(CorrelationUnavailable)
 			} else {
@@ -175,6 +181,7 @@ func pushCorrelation(ctx context.Context, id uint64) (entered regionBrackets) {
 			}
 		} else {
 			entered.cupti = true
+			entered.kind = kind
 		}
 	}
 	return entered
@@ -187,8 +194,7 @@ func pushCorrelation(ctx context.Context, id uint64) (entered regionBrackets) {
 // recorded since is attributed to the wrong scope.
 func popCorrelation(id uint64, entered regionBrackets) {
 	if entered.cupti {
-		kind := cupti.ExternalCorrelationKind(correlationKind.Load())
-		got, err := cupti.ActivityPopExternalCorrelationId(kind)
+		got, err := popExternalID(entered.kind)
 		switch {
 		case err != nil:
 			failCorrelation(CorrelationPushFailed)
