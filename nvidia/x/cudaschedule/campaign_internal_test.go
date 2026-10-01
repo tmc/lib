@@ -115,3 +115,23 @@ func TestExecuteRunRecordsSignal(t *testing.T) {
 		t.Fatalf("signal exit status = exited %t code %d, want true and -1", rec.Exited, rec.ExitCode)
 	}
 }
+
+func TestExecuteRunPristineTimeoutRetainsFlag(t *testing.T) {
+	root, err := campaignVariantRoot("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(root)
+	rec, err := executeRun(context.Background(), CampaignOptions{
+		Executable: "/bin/sh", Args: []string{"-c", "exec sleep 30", "pristine-timeout"},
+		PristineTimeout: 10 * time.Millisecond,
+	}, 52, ".version 8.7\n", true, "health-1", 8*time.Second, root)
+	if err != nil || !rec.TimedOut || !rec.PristineRun {
+		t.Fatalf("record=%+v err=%v", rec, err)
+	}
+	// No load receipt was printed: a timed-out pristine process must retain its
+	// bookkeeping flag without claiming loaded-module or GPU-wedge evidence.
+	if got := Classify(rec); got != VerdictHarnessError {
+		t.Fatalf("unloaded timeout classified%v want HarnessError", got)
+	}
+}

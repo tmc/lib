@@ -582,28 +582,39 @@ func TestCampaign_BuildHookSeesPristineAndDistinctImages(t *testing.T) {
 }
 
 func TestCampaign_PristineRunUsesSeparateTimeout(t *testing.T) {
-	pristineRuns := 0
+	var pristineSeeds []uint64
 	report, err := runSyntheticCampaign(context.Background(), cudaschedule.CampaignOptions{
-		PTXSource: CAMPAIGN_PTX, SeedStart: 51, SeedEnd: 52, Intensity: 10,
-		ConfirmRuns: 1, Timeout: time.Second, PristineTimeout: 20 * time.Second,
-		RunVariant: func(ctx context.Context, _ uint64, pristine bool, _ string) (cudaschedule.RunRecord, error) {
+		PTXSource: CAMPAIGN_PTX, SeedStart: 51, SeedEnd: 53, Intensity: 2,
+		ConfirmRuns: 1, Timeout: 8 * time.Second, PristineTimeout: 30 * time.Second,
+		RunVariant: func(ctx context.Context, seed uint64, pristine bool, _ string) (cudaschedule.RunRecord, error) {
+			deadline, ok := ctx.Deadline()
+			if !ok {
+				t.Fatal("runner has no deadline")
+			}
 			if pristine {
-				pristineRuns++
-				time.Sleep(2 * time.Second)
+				pristineSeeds = append(pristineSeeds, seed)
+				// Inspect the configured budget, not a timing-sensitive sleep.
+				if time.Until(deadline) < 20*time.Second {
+					t.Fatalf("pristine seed %d received variant deadline %v", seed, deadline)
+				}
 				return cudaschedule.RunRecord{Exited: true, Stdout: "PASS"}, nil
 			}
-			<-ctx.Done()
-			return cudaschedule.RunRecord{}, nil
+			if seed == 52 {
+				// Synthetic timeout invokes the health path for a different seed.
+				return cudaschedule.RunRecord{TimedOut: true}, nil
+			}
+			return cudaschedule.RunRecord{Exited: true, Stdout: "PASS"}, nil
 		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if pristineRuns != 2 || report.BaselineVerdict != cudaschedule.VerdictPass || len(report.Seeds) != 1 || report.Seeds[0].Verdict != cudaschedule.VerdictHang {
-		t.Fatalf("separate baseline and health timeouts were not applied: pristine runs=%d report=%+v", pristineRuns, report)
+	if len(pristineSeeds) != 2 || pristineSeeds[0] != 51 || pristineSeeds[1] != 52 || report.BaselineVerdict != cudaschedule.VerdictPass || len(report.Seeds) != 2 || report.Seeds[1].Verdict != cudaschedule.VerdictHang {
+		t.Fatalf("pristine seeds=%v report=%+v", pristineSeeds, report)
 	}
-	if report.Seeds[0].Run.Pristine == nil || report.Seeds[0].Run.Pristine.TimedOut || !report.Seeds[0].Run.Pristine.PristineRun {
-		t.Fatalf("health re-run did not pass under the pristine timeout: %+v", report.Seeds[0].Run)
+	health := report.Seeds[1].Run.Pristine
+	if health == nil || health.TimedOut || !health.PristineRun {
+		t.Fatalf("health seed 52 did not pass as pristine: %+v", health)
 	}
 }
 
