@@ -281,8 +281,7 @@ func (m *FusedMLP) EmitBackwardWithChildren(name string, children []cudair.Child
 // device function. Template authors should write C++ nested-brace initializers
 // such as {{x}} as { {x} }, because {{IDENT}} is reserved placeholder syntax.
 const OuterKernelTemplate = `
-#include <cuda_runtime.h>
-#include <stdint.h>
+using uint8_t = unsigned char;
 
 template <typename T, int N>
 struct tvec {

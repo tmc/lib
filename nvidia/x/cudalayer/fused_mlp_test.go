@@ -87,6 +87,12 @@ func TestFusedMLP64_EmitsSingleDeviceFunction(t *testing.T) {
 }
 
 func TestOuterKernelTemplateDefinesEmitterHelpers(t *testing.T) {
+	if strings.Contains(cudalayer.OuterKernelTemplate, "#include") {
+		t.Fatal("NVRTC template depends on external headers")
+	}
+	if !strings.Contains(cudalayer.OuterKernelTemplate, "using uint8_t = unsigned char;") {
+		t.Fatal("NVRTC template does not define its context byte type")
+	}
 	for _, helper := range []string{
 		"struct tvec {",
 		"static constexpr int WARP_SIZE = 32;",
