@@ -126,7 +126,7 @@ func TestPhysicalDecodeMatchesReference(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHandle: %v", err)
 	}
-	defer handle.Destroy()
+	defer handle.Close()
 
 	for _, f := range fixtures {
 		t.Run(f.file, func(t *testing.T) {
@@ -147,13 +147,13 @@ func TestPhysicalDecodeMatchesReference(t *testing.T) {
 			if err != nil {
 				t.Fatalf("NewDecodeState: %v", err)
 			}
-			defer state.Destroy()
+			defer state.Close()
 
 			bs, err := NewBitstream()
 			if err != nil {
 				t.Fatalf("NewBitstream: %v", err)
 			}
-			defer bs.Destroy()
+			defer bs.Close()
 
 			if err := handle.Parse(data, bs); err != nil {
 				t.Fatalf("Parse: %v", err)
@@ -221,7 +221,7 @@ func TestPhysicalMalformedInputCleansUp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHandle: %v", err)
 	}
-	defer handle.Destroy()
+	defer handle.Close()
 
 	inputs := map[string][]byte{
 		"truncated header":     good[:min(len(good), 16)],
@@ -237,7 +237,7 @@ func TestPhysicalMalformedInputCleansUp(t *testing.T) {
 			if err != nil {
 				t.Fatalf("NewBitstream: %v", err)
 			}
-			defer bs.Destroy()
+			defer bs.Close()
 
 			// A malformed stream may be rejected during parsing or decode.
 			// Either is acceptable; a success on both, or a crash, is not.
@@ -253,7 +253,7 @@ func TestPhysicalMalformedInputCleansUp(t *testing.T) {
 			if err != nil {
 				t.Fatalf("NewDecodeState: %v", err)
 			}
-			defer state.Destroy()
+			defer state.Close()
 
 			var buffers []DeviceBuffer
 			for _, req := range layout.Buffers() {
@@ -281,7 +281,7 @@ func TestPhysicalMalformedInputCleansUp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewBitstream after malformed input: %v", err)
 	}
-	defer bs.Destroy()
+	defer bs.Close()
 	if err := handle.Parse(good, bs); err != nil {
 		t.Fatalf("the library handle did not survive malformed input: %v", err)
 	}
@@ -402,12 +402,12 @@ func TestPhysicalDecodeTilesMatchesReference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer h.Destroy()
+	defer h.Close()
 	bs, err := NewBitstream()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer bs.Destroy()
+	defer bs.Close()
 	if err := h.Parse(data, bs); err != nil {
 		t.Fatal(err)
 	}
@@ -425,7 +425,7 @@ func TestPhysicalDecodeTilesMatchesReference(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer state.Destroy()
+			defer state.Close()
 			layout, err := LayoutOfTile(bs, tile, Uint8, FormatPlanar)
 			if err != nil {
 				t.Fatal(err)
