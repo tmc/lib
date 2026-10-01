@@ -114,6 +114,9 @@ To validate historical counter selections or compare collected receipts:
   cudaprof counter-receipt select -shape FILE -identity FILE
   cudaprof counter-receipt compare BASE.json TARGET.json
 
+To retain late GPU isolation evidence in a new capture:
+  cudaprof isolation bind -receipt FILE -o NEW.pprof INPUT.pprof
+
 To print the build of this cudaprof:
   cudaprof version
 
@@ -144,6 +147,7 @@ type command struct {
 // commands returns the subcommands that run dispatches.
 func commands() []command {
 	return []command{
+		{name: "isolation", run: func(args []string) error { return runIsolationCommand(args[1:], os.Stdout) }},
 		{name: "counter-gemv", run: func(args []string) error { return runCounterGEMVCommand(args[1:]) }},
 		{name: "overview", run: func(args []string) error { return runOverviewCommand(args[1:]) }},
 		{name: "comparison-summary", run: func(args []string) error { return runComparisonSummaryCommand(args[1:], os.Stdout) }},

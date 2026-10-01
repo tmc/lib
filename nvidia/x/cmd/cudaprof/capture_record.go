@@ -21,6 +21,7 @@ import (
 	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudaprof"
+	"github.com/tmc/lib/nvidia/x/cudaprof/isolation"
 	"github.com/tmc/lib/nvidia/x/cuptiactivity"
 )
 
@@ -57,6 +58,7 @@ func runCaptureCommand(args []string) error {
 		fmt.Fprintln(os.Stderr, "cudaprof: error: no injection library specified (--inject /path/to/agent.so, CUDAPROF_INJECT, or CUDAPROF_AGENT); target will not run")
 	}
 	result, runErr := runCapture(context.Background(), opts)
+	attachCaptureIsolation(&result, opts.IsolationReceipt)
 	if opts.LaunchManifest {
 		result.LaunchManifest = buildLaunchManifest(result)
 	}
@@ -75,6 +77,7 @@ func runCaptureCommand(args []string) error {
 			return fmt.Errorf("write capture status: %w", err)
 		}
 	} else {
+		printIsolation(os.Stdout, *result.Isolation)
 		if result.CaptureSuccess {
 			fmt.Fprint(os.Stdout, captureHeadline(result))
 			if opts.Output != "" {
@@ -86,6 +89,11 @@ func runCaptureCommand(args []string) error {
 			}
 		} else {
 			fmt.Fprintf(os.Stdout, "capture incomplete: %s (outcome: %s)\n", result.CaptureError, result.Outcome)
+		}
+	}
+	if opts.RequireIsolation {
+		if err := isolation.Require(*result.Isolation, true); err != nil {
+			return &exitCodeError{Code: 2, Err: err}
 		}
 	}
 	if runErr != nil {
@@ -764,7 +772,9 @@ func writeCapture(path string, result captureResult, budget captureArtifactBudge
 			kept = append(kept, a)
 		}
 	}
-	// Artifact publication uses retained producer metadata and never probes CUDA.
+	// Retained producer capability is the only provenance available here.
+	// Artifact publication must not initialize a CUDA context or substitute
+	// properties of this host for the device that produced these records.
 	provData := result.Capability
 	var metadata []byte
 	for {
@@ -776,7 +786,7 @@ func writeCapture(path string, result captureResult, budget captureArtifactBudge
 		if err != nil {
 			return nil, err
 		}
-		total := int64(len(metadata)) + int64(len(provData))
+		total := int64(len(metadata)) + int64(len(provData)) + int64(len(result.isolationRaw))
 		for _, a := range kept {
 			total += a.size
 		}
@@ -834,6 +844,9 @@ func writeCapture(path string, result captureResult, budget captureArtifactBudge
 			"cubin":  "CUBIN was not available in this capture",
 			"sass":   "SASS was not available in this capture",
 		},
+	}
+	if len(result.isolationRaw) != 0 {
+		c.Files[isolation.Attachment] = result.isolationRaw
 	}
 	// Modules are declared from what was actually embedded, not from what the
 	// agent reported writing. The journal census in capture-status.json says
@@ -981,6 +994,9 @@ Options:
                                 does not fit is omitted, which makes the capture unusable
                                 for cudaprof gaps
   --capture-total-bytes <N>     maximum bytes for the whole capture artifact (default %[3]d)
+  --observe-isolation         sample GPU residency under an existing live gpu-lock; never acquire one
+  --isolation-receipt FILE      retain a bounded parent observer v1 receipt; unbound stays unchecked
+  --require-isolation          require sampled clear after retaining the capture
   --allow-partial               exit zero for a capture that omitted an attachment over the
                                 budget or holds a journal over --max-records. Without it
                                 the capture is still written, and the command exits 2

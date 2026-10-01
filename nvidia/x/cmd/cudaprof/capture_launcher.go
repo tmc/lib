@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof/isolation"
 	"github.com/tmc/lib/nvidia/x/internal/capturefiles"
 )
 
@@ -266,10 +267,13 @@ type captureOptions struct {
 	// GEMMs records each cuBLASLt matmul the target makes -- shape, types,
 	// beta and algorithm -- and the kernels it launched. Off by default:
 	// the library formats a log line per call.
-	GEMMs           bool
-	RequireComplete bool
-	NoInject        bool
-	JSON            bool
+	GEMMs            bool
+	RequireComplete  bool
+	IsolationReceipt string
+	ObserveIsolation bool
+	RequireIsolation bool
+	NoInject         bool
+	JSON             bool
 	// LaunchManifest enables the bounded, metadata-only launch manifest in the
 	// capture status. It never enables parameter decoding by itself.
 	LaunchManifest bool
@@ -371,6 +375,9 @@ const (
 // captureOutcomeTargetFailed, with capture_success false, because its records
 // stop where the target did.
 type captureResult struct {
+	Isolation          *isolation.Result `json:"gpu_isolation,omitempty"`
+	IsolationBinding   isolation.Binding `json:"isolation_binding"`
+	isolationRaw       []byte
 	Protocol           int    `json:"protocol"`
 	Session            string `json:"session"`
 	State              string `json:"state"`
@@ -606,6 +613,17 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 				return o, fmt.Errorf("invalid %s %q (1 to %d)", name, v, maxCrashTrace)
 			}
 			o.CrashTrace = n
+		case "--observe-isolation":
+			o.ObserveIsolation = true
+		case "--require-isolation":
+			o.RequireIsolation = true
+		case "--isolation-receipt":
+			v, next, err := captureValue(args, i, value, hasValue)
+			if err != nil {
+				return o, err
+			}
+			i = next
+			o.IsolationReceipt = v
 		case "--require-complete":
 			o.RequireComplete = true
 		case "--allow-partial":
@@ -840,6 +858,9 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 		} else if fi.IsDir() {
 			return o, fmt.Errorf("injection library is a directory: %s", o.Inject)
 		}
+	}
+	if o.ObserveIsolation && o.IsolationReceipt != "" {
+		return o, fmt.Errorf("--observe-isolation and --isolation-receipt select different observers; use one")
 	}
 	return o, nil
 }
@@ -1229,16 +1250,6 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 	}
 	// The driver loads one injection library. Replacing one the caller's
 	// environment already names would silently unload another tool.
-	unifiedMemory := "0"
-	if o.UnifiedMemory {
-		unifiedMemory = "1"
-	}
-	env = setCaptureEnv(env, "CUDAPROF_UNIFIED_MEMORY", unifiedMemory)
-	memoryPolicy := "0"
-	if o.MemoryPolicy {
-		memoryPolicy = "1"
-	}
-	env = setCaptureEnv(env, "CUDAPROF_MEMORY_POLICY", memoryPolicy)
 	if o.Inject != "" && o.InjectMode == injectModeCUDA {
 		base := o.Env
 		if base == nil {
@@ -1290,14 +1301,26 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 	if lookupEnv(cmd.Env, "CUDAPROF_CAPTURE_RANGE") == captureRangeProfilerAPI {
 		clocks = openEdgeClocks(o.openGPU)
 	}
+	var isolationObserver *isolationWatch
+	if o.ObserveIsolation {
+		isolationObserver = startIsolationWatch()
+	}
 	result.WallClock = readWallClock()
+	captureAdmission, captureClockKnown := monotonicNanos()
 	if err := cmd.Start(); err != nil {
 		if clocks != nil {
 			clocks.finish()
 		}
+		if isolationObserver != nil {
+			isolationObserver.finish(&result)
+		}
 		return result, fmt.Errorf("start capture target: %w", err)
 	}
 	result.State, result.TargetPID = captureStateSpawned, cmd.Process.Pid
+	result.IsolationBinding = isolation.Binding{Session: session, Process: captureProcessIdentity(cmd.Process.Pid), Scope: "capture_process_lifetime"}
+	if captureClockKnown {
+		result.IsolationBinding.Window = isolation.Window{Domain: "CLOCK_MONOTONIC", Start: int64(captureAdmission)}
+	}
 	if clocks != nil {
 		clocks.watch(dir, cmd.Process.Pid)
 	}
@@ -1326,6 +1349,9 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 			waitErr = <-done
 		}
 	}
+	if end, ok := monotonicNanos(); ok && captureClockKnown {
+		result.IsolationBinding.Window.End = int64(end)
+	}
 	result.State = captureStateFinalized
 	var edgeSamples map[edgeKey]*gpuEdgeSample
 	if clocks != nil {
@@ -1336,6 +1362,9 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 		observe.goTarget = result.Target.Executable
 	}
 	result = observeCaptureSession(result, dir, session, observe)
+	if isolationObserver != nil {
+		isolationObserver.finish(&result)
+	}
 	if clocks != nil {
 		attachEdgeClocks(result.PhaseReceipt, edgeSamples)
 	}
