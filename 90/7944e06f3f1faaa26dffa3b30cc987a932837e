@@ -5,3 +5,10 @@ Codex session: 01a0e209-f57f-7300-91cd-4a82fcd77ef4
 Pane: 026363F7-C2F7-4118-9920-4953A7B20D93
 TTY: not-a-tty; PID: 93456 (note writer)
 ITERM_SESSION_ID: unavailable
+
+Provenance correction (append-only):
+Codex subagent rollout/thread: 01a0f3ea-8c08-72b1-a932-000ee0ebdd6b
+Parent Codex session: 01a0e209-f57f-7300-91cd-4a82fcd77ef4
+Parent pane: 026363F7-C2F7-4118-9920-4953A7B20D93
+The earlier Codex session and Pane lines identify the parent, not this subagent.
+Subagent TTY: not-a-tty; no independently owned physical pane
