@@ -114,6 +114,9 @@ To validate historical counter selections or compare collected receipts:
   cudaprof counter-receipt select -shape FILE -identity FILE
   cudaprof counter-receipt compare BASE.json TARGET.json
 
+To export, check, summarize, or query a timeline:
+  cudaprof trace COMMAND [options]
+
 To retain late GPU isolation evidence in a new capture:
   cudaprof isolation bind -receipt FILE -o NEW.pprof INPUT.pprof
 
@@ -148,6 +151,7 @@ type command struct {
 func commands() []command {
 	return []command{
 		{name: "isolation", run: func(args []string) error { return runIsolationCommand(args[1:], os.Stdout) }},
+		{name: "trace", run: func(args []string) error { return runTraceCommand(args[1:]) }},
 		{name: "counter-gemv", run: func(args []string) error { return runCounterGEMVCommand(args[1:]) }},
 		{name: "overview", run: func(args []string) error { return runOverviewCommand(args[1:]) }},
 		{name: "comparison-summary", run: func(args []string) error { return runComparisonSummaryCommand(args[1:], os.Stdout) }},
@@ -157,8 +161,8 @@ func commands() []command {
 		{name: "counter-receipt", run: func(args []string) error { return runCounterReceiptCommand(args[1:]) }},
 		{name: "capture", run: func(args []string) error { return runCaptureCommand(args[1:]) }},
 		{name: "inspect", usage: inspectUsage, run: func(args []string) error { return runInspectCommand(args[1:]) }},
-		{name: "export-compare", run: func(args []string) error { return runExportCompareCommand(args[1:]) }},
-		{name: "export", run: func(args []string) error { return runExportCommand(args[1:]) }},
+		{name: "export-compare", run: func(args []string) error { return runTraceAlias("compare", args) }},
+		{name: "export", run: func(args []string) error { return runTraceAlias("export", args) }},
 		{name: "explain", usage: explainUsage, run: func(args []string) error { return runExplainCommand(args[1:]) }},
 		{name: "diff", usage: diffUsage, run: func(args []string) error { return runDiffCommand(args[1:]) }},
 		{name: "cfg", usage: cfgUsage, run: runCFGCommand},
@@ -220,6 +224,9 @@ func isHelpFlag(arg string) bool {
 
 // runHelpCommand implements "cudaprof help [command]".
 func runHelpCommand(args []string) error {
+	if len(args) == 3 && args[1] == "trace" {
+		return runTraceCommand([]string{args[2], "-h"})
+	}
 	switch len(args) {
 	case 1:
 		fmt.Print(usage)
