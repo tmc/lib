@@ -29,4 +29,11 @@
 //
 // This package is outside the compatibility promise of
 // github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
+//
+// # Layout-aware copies
+//
+// [PlanCopy] checks layout compatibility, destination aliases and a contiguous
+// transfer width before [Copy] moves any data. This planner covers host-visible
+// and device-to-device copies described by [cudalayout.Layout]. It is not a TMA
+// descriptor builder and does not model shared-memory bank conflicts.
 package cudamem
