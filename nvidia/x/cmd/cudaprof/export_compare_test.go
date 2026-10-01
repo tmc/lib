@@ -16,6 +16,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudaprof/iteration"
 	"github.com/tmc/lib/nvidia/x/cudaprof/overview"
 	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
+	"github.com/tmc/lib/nvidia/x/cudaprof/tracecontract"
 	"github.com/tmc/lib/nvidia/x/cuptiactivity"
 	"github.com/tmc/lib/nvidia/x/perfetto"
 )
@@ -126,8 +127,15 @@ func TestExportCompareBundle(t *testing.T) {
 		}
 		members[h.Name] = data
 	}
-	if len(members) != 4 {
-		t.Fatalf("members=%v", members)
+	if len(members) != 5 {
+		t.Fatalf("got %d members", len(members))
+	}
+	var bindings tracecontract.Bindings
+	if err := json.Unmarshal(members[".cudaprof-bindings.json"], &bindings); err != nil {
+		t.Fatal(err)
+	}
+	if err := bindings.Verify(members); err != nil {
+		t.Fatal(err)
 	}
 	var manifest struct {
 		Manifest struct {
@@ -207,8 +215,8 @@ func TestExportCompareSummaryClock(t *testing.T) {
 	}
 	var r alignmentReceipt
 	for i, times := range [][3]int64{{100, 300, 500}, {1000, 1500, 1800}} {
-		report := overview.Report{Hierarchy: &overview.Node{Kind: "capture", Label: "observed", Metrics: overview.Metrics{GPUUnion: map[uint32][]overview.Interval{0: {{Journal: "j", Start: times[1], End: times[2]}}}}}}
-		r.Arms[i] = alignmentArm{Origin: times[0], Start: times[1], End: times[2], Trace: fmt.Sprintf("arm-%d.pftrace", i), overview: &report, records: []traceRecord{{rec: cuptiactivity.Record{Kind: cupti.ActivityKindConcurrentKernel, Name: "raw", Start: uint64(times[0]), End: uint64(times[2]), Complete: true}}}}
+		report := overview.Report{Hierarchy: &overview.Node{ID: "fixture", Kind: "capture", Label: "observed", Provenance: "observed", Metrics: overview.Metrics{GPUUnion: map[uint32][]overview.Interval{0: {{Journal: "j", Start: times[1], End: times[2]}}}}}}
+		r.Arms[i] = alignmentArm{SHA256: strings.Repeat("a", 64), Origin: times[0], Start: times[1], End: times[2], Trace: fmt.Sprintf("arm-%d.pftrace", i), overview: &report, records: []traceRecord{{rec: cuptiactivity.Record{Kind: cupti.ActivityKindConcurrentKernel, Name: "raw", Start: uint64(times[0]), End: uint64(times[2]), Complete: true}}}}
 	}
 	if err := alignArms(&r); err != nil {
 		t.Fatal(err)

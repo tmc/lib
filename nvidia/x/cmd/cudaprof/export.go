@@ -37,16 +37,24 @@ import (
 // not be merged with a host trace taken from another clock.
 
 type exportOptions struct {
-	demangle      bool
-	summary       bool
-	telemetry     bool
-	summaryDomain string
-	summaryMarker *regexp.Regexp
-	capturePath   string
-	outPath       string
-	maxRecords    int64
-	journalBytes  int64
-	limits        cudacapture.Limits
+	detail               string
+	outputBytes          int64
+	memoryBytes          int64
+	maxTracks            int64
+	maxSummaryReferences int64
+	demangle             bool
+	summary              bool
+	telemetry            bool
+	submissionLinks      bool
+	graphLifecycle       bool
+	memory               bool
+	summaryDomain        string
+	summaryMarker        *regexp.Regexp
+	capturePath          string
+	outPath              string
+	maxRecords           int64
+	journalBytes         int64
+	limits               cudacapture.Limits
 }
 
 var errExportHelp = errors.New("export: help requested")
@@ -63,14 +71,19 @@ func runExportCommand(args []string) error {
 		}
 		return err
 	}
+	restore := exportMemoryBudget(opts.memoryBytes)
+	defer restore()
 	path, err := filepath.Abs(opts.capturePath)
 	if err != nil {
 		return err
 	}
-	cap, err := readCapturePathLimits(path, opts.limits)
+	cap, sha, err := readAlignmentCapture(path, opts.limits)
 	if err != nil {
 		return fmt.Errorf("read capture %s: %w", opts.capturePath, err)
 	}
+	// Export uses retained journals, not aggregate pprof samples. Release the
+	// profile and its embedded attachment strings before decoding the timeline.
+	cap.Profile = nil
 	journals, err := requireJournals(cap)
 	if err != nil {
 		return err
@@ -87,32 +100,69 @@ func runExportCommand(args []string) error {
 			return err
 		}
 	}
-	f, err := os.Create(opts.outPath)
-	if err != nil {
-		return fmt.Errorf("create trace %s: %w", opts.outPath, err)
-	}
-	if opts.demangle {
-		demangleTraceRecords(records)
-	}
-	n, err := writeTrace(f, records)
-	if err == nil && opts.summary {
-		decoded, decodeErr := timeline.Decode(journals, maxRecords, journalBytes)
-		if decodeErr != nil {
-			err = decodeErr
-		} else {
-			origin := traceOrigin(records)
-			err = writeOverviewTrace(f, overview.Analyze(decoded, opts.summaryDomain, opts.summaryMarker), origin, 1<<48)
+	var decoded timeline.Records
+	if opts.summary || opts.submissionLinks || opts.graphLifecycle || opts.memory {
+		decoded, err = timeline.Decode(journals, maxRecords, journalBytes)
+		if err != nil {
+			return err
 		}
 	}
-	if err == nil && opts.telemetry {
-		err = writeTelemetryTrace(f, telemetry, traceOrigin(records), 2<<48)
+	origin := traceOrigin(records)
+	if opts.graphLifecycle {
+		origin = lifecycleOrigin(decoded, origin)
 	}
-	if err != nil {
-		f.Close()
+	if opts.memory {
+		origin = memoryTraceOrigin(decoded, origin)
+	}
+	var summary *overview.Report
+	if opts.summary {
+		report := detailOverview(overview.Analyze(decoded, opts.summaryDomain, opts.summaryMarker), opts.detail)
+		summary = &report
+	}
+	if err := requireProjectionTracks(projectionTrackBound(records, summary, &decoded, len(telemetry), opts.submissionLinks, opts.graphLifecycle, opts.memory, false), opts.maxTracks); err != nil {
 		return err
 	}
-	if err := f.Close(); err != nil {
-		return fmt.Errorf("close trace %s: %w", opts.outPath, err)
+	if err := requireSummaryReferences(summaryReferenceBound(summary), opts.maxSummaryReferences); err != nil {
+		return err
+	}
+	var n int
+	err = atomicExport(opts.outPath, []string{path}, opts.outputBytes, func(f io.Writer) error {
+		if opts.demangle {
+			demangleTraceRecords(records)
+		}
+		identity := traceExportIdentity{sha256: sha, path: path, summaryReferences: opts.maxSummaryReferences}
+		var err error
+		n, err = writeTraceOrigin(f, records, origin, 0, "", identity)
+		if err == nil && opts.summary {
+			err = writeOverviewTraceAt(f, *summary, origin, 1<<48, 0, 0, identity)
+		}
+		if err == nil && opts.submissionLinks {
+			err = writeSubmissionTrace(f, decoded, opts.summaryDomain, origin, 3<<48, 0, 0, identity)
+		}
+		if err == nil && opts.graphLifecycle {
+			err = writeGraphLifecycleTrace(f, decoded, origin, 4<<48, 0, 0)
+		}
+		if err == nil && opts.telemetry {
+			err = writeTelemetryTrace(f, telemetry, origin, 2<<48)
+		}
+		if err == nil && opts.memory {
+			err = writeMemoryTrace(f, decoded, origin, 5<<48, 0, 0)
+		}
+		if err == nil {
+			pw := perfetto.NewWriter(f)
+			receipt := exportReceipt("trace export", identity, records, captureExportStatus(cap))
+			receipt.Gates["isolation"] = isolationExportGate(captureIsolation(cap))
+			receipt.Options["detail"] = opts.detail
+			receipt.Limits = map[string]int64{"output_bytes": opts.outputBytes, "soft_go_memory_bytes": opts.memoryBytes, "max_tracks": opts.maxTracks, "max_summary_references": opts.maxSummaryReferences}
+			err = writeExportReceipt(pw, receipt, 6<<48, 0)
+			if err == nil {
+				err = writeIsolationTrace(f, captureIsolation(cap), identity, 7<<48, 0)
+			}
+		}
+		return err
+	})
+	if err != nil {
+		return err
 	}
 	fmt.Printf("wrote %s: %d record(s) on %d track(s)\n", opts.outPath, len(records), n)
 	if nvtx != (nvtxSummary{}) {
@@ -135,10 +185,50 @@ func parseExportArgs(rawArgs []string) (exportOptions, error) {
 	if err != nil {
 		return exportOptions{}, err
 	}
-	opts := exportOptions{limits: limits, summaryDomain: "driver"}
+	opts := exportOptions{limits: limits, summaryDomain: "driver", outputBytes: defaultExportBytes, memoryBytes: defaultExportMemory, maxTracks: defaultExportTracks, maxSummaryReferences: 2000000}
+	var domainSet bool
+	var legacyDomain, operationDomain bool
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
+		if (arg == "-max-tracks" || arg == "-max-summary-references" || arg == "-memory-bytes" || arg == "-output-bytes") && i+1 < len(args) {
+			i++
+			arg += "=" + args[i]
+		}
 		switch {
+		case arg == "-detail" && i+1 < len(args):
+			i++
+			opts.detail = args[i]
+		case strings.HasPrefix(arg, "-detail="):
+			opts.detail = strings.TrimPrefix(arg, "-detail=")
+		case arg == "-operation-domain" && i+1 < len(args):
+			i++
+			opts.summaryDomain = args[i]
+			domainSet = true
+			operationDomain = true
+		case strings.HasPrefix(arg, "-operation-domain="):
+			opts.summaryDomain = strings.TrimPrefix(arg, "-operation-domain=")
+			domainSet = true
+			operationDomain = true
+		case strings.HasPrefix(arg, "-max-tracks="):
+			opts.maxTracks, err = strconv.ParseInt(strings.TrimPrefix(arg, "-max-tracks="), 10, 64)
+			if err != nil || opts.maxTracks <= 0 {
+				return exportOptions{}, fmt.Errorf("invalid maximum tracks")
+			}
+		case strings.HasPrefix(arg, "-max-summary-references="):
+			opts.maxSummaryReferences, err = strconv.ParseInt(strings.TrimPrefix(arg, "-max-summary-references="), 10, 64)
+			if err != nil || opts.maxSummaryReferences <= 0 {
+				return exportOptions{}, fmt.Errorf("invalid maximum summary references")
+			}
+		case strings.HasPrefix(arg, "-memory-bytes="):
+			opts.memoryBytes, err = strconv.ParseInt(strings.TrimPrefix(arg, "-memory-bytes="), 10, 64)
+			if err != nil || opts.memoryBytes <= 0 {
+				return exportOptions{}, fmt.Errorf("invalid memory byte budget")
+			}
+		case strings.HasPrefix(arg, "-output-bytes="):
+			opts.outputBytes, err = strconv.ParseInt(strings.TrimPrefix(arg, "-output-bytes="), 10, 64)
+			if err != nil || opts.outputBytes <= 0 {
+				return exportOptions{}, fmt.Errorf("invalid output byte limit")
+			}
 		case arg == "-summary-marker" && i+1 < len(args):
 			i++
 			opts.summaryMarker, err = regexp.Compile(args[i])
@@ -153,8 +243,18 @@ func parseExportArgs(rawArgs []string) (exportOptions, error) {
 		case arg == "-summary-domain" && i+1 < len(args):
 			i++
 			opts.summaryDomain = args[i]
+			domainSet = true
+			legacyDomain = true
 		case strings.HasPrefix(arg, "-summary-domain="):
 			opts.summaryDomain = strings.TrimPrefix(arg, "-summary-domain=")
+			domainSet = true
+			legacyDomain = true
+		case arg == "-submission-links":
+			opts.submissionLinks = true
+		case arg == "-graph-lifecycle":
+			opts.graphLifecycle = true
+		case arg == "-memory":
+			opts.memory = true
 		case arg == "-telemetry" || arg == "--telemetry":
 			opts.telemetry = true
 		case arg == "-summary" || arg == "--summary":
@@ -192,6 +292,14 @@ func parseExportArgs(rawArgs []string) (exportOptions, error) {
 	if opts.summaryDomain != "driver" && opts.summaryDomain != "runtime" {
 		return exportOptions{}, fmt.Errorf("invalid summary API domain %q", opts.summaryDomain)
 	}
+	if legacyDomain && operationDomain {
+		return exportOptions{}, errors.New("use one of operation-domain and summary-domain")
+	}
+	opts.detail, err = resolveExportDetail(opts.detail, opts.summaryDomain, opts.summary, opts.summaryMarker != nil, domainSet && !opts.submissionLinks)
+	if err != nil {
+		return exportOptions{}, err
+	}
+	opts.summary = opts.detail != "raw"
 	if opts.capturePath == "" {
 		return exportOptions{}, errors.New("usage: cudaprof export [-o out.pftrace] [--max-records=N] [--journal-bytes=N] capture.pprof")
 	}
@@ -222,6 +330,14 @@ synchronization packet is emitted, so this trace must not be merged with a
 host trace taken from another clock.
 
 Options:
+  -detail raw|compact|token|operation  summary detail (default raw)
+  -max-tracks=N      combined track bound (default 100000)
+  -max-summary-references=N  combined source reference bound (default 2000000)
+  -memory-bytes=N   soft Go memory budget (default 805306368; not RSS)
+  -output-bytes=N   maximum output bytes (default 536870912)
+  -memory           append observed memory service and policy evidence
+  -submission-links  append exact API/activity identity flows (not dependencies)
+  -graph-lifecycle   append observed lifecycle events and coverage
   -telemetry        append bounded NVML query intervals, without interpolation
   -summary          append observed hierarchy and token overview tracks
   -summary-domain driver|runtime  API domain for explicit context (default driver)
@@ -238,6 +354,7 @@ Options:
 // tracePayload is the typed journal payload, in full. gapPayload reads the
 // four fields a duty cycle needs; a timeline draws the rest.
 type tracePayload struct {
+	sequence     uint64
 	Kind         string `json:"kind"`
 	Subtype      string `json:"subtype"`
 	Domain       string `json:"domain"`
@@ -516,7 +633,9 @@ func pairMarkers(markers []tracePayload, out *[]traceRecord) nvtxSummary {
 			}
 			start := stack[len(stack)-1]
 			open[k] = stack[:len(stack)-1]
-			*out = append(*out, markerRange(start, m.End))
+			paired := markerRange(start, m.End)
+			paired.annotations = append(paired.annotations, perfetto.NewUintAnnotation("raw_end_record_sequence", m.sequence))
+			*out = append(*out, paired)
 			s.ranges++
 		case m.MarkerFlags&markerFlagInstantaneous != 0:
 			*out = append(*out, markerRange(m, m.Start))
@@ -540,6 +659,7 @@ func markerRange(start tracePayload, end uint64) traceRecord {
 		name = start.MarkerDomain + "/" + name
 	}
 	return traceRecord{
+		sequence: start.sequence,
 		rec: cuptiactivity.Record{
 			Kind:      cupti.ActivityKindMarker,
 			Name:      name,
@@ -590,6 +710,9 @@ func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]
 				// device work and nothing else.
 				ext.add(externalCoverage(session, name, (*out)[base:], externals))
 				nvtx.add(pairMarkers(markers, out))
+				if maxRecords > 0 && int64(len(*out)) > maxRecords {
+					return fmt.Errorf("total trace records exceed limit %d: %w", maxRecords, wire.ErrRecordLimit)
+				}
 				for i := base; i < len(*out); i++ {
 					(*out)[i].journal = name
 				}
@@ -606,11 +729,15 @@ func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]
 			first = false
 		}
 		decoded++
+		if maxRecords > 0 && int64(len(*out)) > maxRecords {
+			return fmt.Errorf("total trace records exceed limit %d: %w", maxRecords, wire.ErrRecordLimit)
+		}
 		var p tracePayload
 		if len(r.Payload) > 0 && json.Unmarshal(r.Payload, &p) != nil {
 			return fmt.Errorf("journal %s record %d is not a typed capture record", name, r.Sequence)
 		}
 		noCUDA.Observe(r.Kind, p.Subtype, r.Payload)
+		p.sequence = r.Sequence
 		switch r.Kind {
 		case wire.KindActivity:
 			if p.Dropped > 0 {
@@ -644,7 +771,7 @@ func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]
 			}
 			*out = append(*out, traceRecord{sequence: uint64(r.Sequence), rec: activityRecord(p), kind: trackDevice, group: [2]uint32{p.Device, p.Stream}})
 		case wire.KindAPI:
-			if p.Kind == "graph_lifecycle" {
+			if p.Kind == "graph_lifecycle" || p.Kind == "dependency" || p.Kind == "memory_policy" {
 				continue
 			}
 			if p.Start == 0 || p.End < p.Start {
@@ -772,19 +899,34 @@ func writeTrace(w io.Writer, records []traceRecord) (int, error) {
 
 // writeTraceOrigin keeps each record on its original clock relative to origin.
 // uuidBase separates independent exports; label makes their arm visible.
-func writeTraceOrigin(w io.Writer, records []traceRecord, origin, uuidBase uint64, label string) (int, error) {
+func writeTraceOrigin(w io.Writer, records []traceRecord, origin, uuidBase uint64, label string, identities ...traceExportIdentity) (int, error) {
 	uuids, names := assignTracks(records)
 	pw := perfetto.NewWriter(w)
 	if label != "" {
 		pw.TimestampClockID = perfetto.ClockBoottime
 	}
+	identity := traceExportIdentity{}
+	if len(identities) > 0 {
+		identity = identities[0]
+	}
+	first := make(map[uint64]traceRecord)
+	for i, t := range records {
+		if _, ok := first[uuids[i]]; !ok {
+			first[uuids[i]] = t
+		}
+	}
 	for i, name := range names {
-		if err := pw.WriteTrackDescriptor(uuidBase+uint64(i+1), label+name, 0); err != nil {
+		if err := rawTrack(pw, uuidBase+uint64(i+1), label+name, first[uint64(i+1)], identity); err != nil {
 			return 0, fmt.Errorf("write track descriptor: %w", err)
 		}
 	}
 	for i, t := range records {
-		if err := cuptiactivity.WriteRecord(pw, uuidBase+uuids[i], origin, t.rec, traceAnnotations(t)...); err != nil {
+		annotations := traceAnnotations(t)
+		if identity.sha256 != "" {
+			annotations = append(annotations, perfetto.NewStringAnnotation("cudaprof_capture_sha256", identity.sha256), perfetto.NewStringAnnotation("cudaprof_arm", identity.arm))
+		}
+		annotations = append(annotations, perfetto.NewStringAnnotation("cudaprof_activity_kind", traceRecordKind(t)))
+		if err := cuptiactivity.WriteRecord(pw, uuidBase+uuids[i], origin, t.rec, annotations...); err != nil {
 			return len(names), fmt.Errorf("write record %d: %w", i, err)
 		}
 	}
@@ -814,6 +956,15 @@ func assignTracks(records []traceRecord) ([]uint64, []string) {
 			}
 			return a.group[1] < b.group[1]
 		}
+		if a.journal != b.journal {
+			return a.journal < b.journal
+		}
+		if traceRole(a) != traceRole(b) {
+			return traceRole(a) < traceRole(b)
+		}
+		if a.rec.ContextID != b.rec.ContextID {
+			return a.rec.ContextID < b.rec.ContextID
+		}
 		return a.rec.Start < b.rec.Start
 	})
 	type lane struct {
@@ -821,12 +972,22 @@ func assignTracks(records []traceRecord) ([]uint64, []string) {
 		end  uint64
 	}
 	var (
-		lanes = map[[3]uint32][]lane{}
+		lanes = map[struct {
+			kind          trackKind
+			group         [2]uint32
+			journal, role string
+			context       uint32
+		}][]lane{}
 		uuids = make([]uint64, len(records))
 		names []string
 	)
 	for i, t := range records {
-		key := [3]uint32{uint32(t.kind), t.group[0], t.group[1]}
+		key := struct {
+			kind          trackKind
+			group         [2]uint32
+			journal, role string
+			context       uint32
+		}{t.kind, t.group, t.journal, traceRole(t), t.rec.ContextID}
 		group := lanes[key]
 		slot := -1
 		for j := range group {

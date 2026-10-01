@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/tmc/lib/nvidia/x/cudaprof/overview"
+	"github.com/tmc/lib/nvidia/x/cudaprof/tracecontract"
 	"github.com/tmc/lib/nvidia/x/perfetto"
 )
 
@@ -39,13 +40,41 @@ func writeOverviewTrace(out io.Writer, report overview.Report, origin, base uint
 	return writeOverviewTraceAt(out, report, origin, base, 0, 0)
 }
 
-func writeOverviewTraceAt(out io.Writer, report overview.Report, origin, base, shift uint64, clockID uint64) error {
+func writeOverviewTraceAt(out io.Writer, report overview.Report, origin, base, shift uint64, clockID uint64, identities ...traceExportIdentity) error {
+	identity := traceExportIdentity{}
+	if len(identities) > 0 {
+		identity = identities[0]
+	}
 	w := perfetto.NewWriter(out)
 	w.TimestampClockID = clockID
+	referenceLimit := int64(2000000)
+	if identity.summaryReferences > 0 {
+		referenceLimit = identity.summaryReferences
+	}
 	next := base
+	levels := map[uint64]int{}
+	referenceCount := 0
+	for _, token := range report.Tokens {
+		referenceCount += len(token.References) + len(token.Materialization)
+	}
+	for _, token := range report.Inferred {
+		referenceCount += len(token.References)
+	}
+	if int64(referenceCount) > referenceLimit {
+		return fmt.Errorf("summary reference limit exceeded")
+	}
 	descriptor := func(name string, parent uint64) (uint64, error) {
 		next++
-		return next, w.WriteTrackDescriptor(next, name, parent)
+		level := 0
+		if parent != 0 {
+			level = levels[parent] + 1
+		}
+		levels[next] = level
+		if identity.sha256 == "" {
+			return next, w.WriteTrackDescriptor(next, name, parent)
+		}
+		track := tracecontract.Track{UUID: next, Parent: parent, Name: name, Role: "summary_evidence", Level: level, Clock: identity.sha256 + ":" + identity.arm + ":export-relative", Arm: identity.arm, CaptureSHA256: identity.sha256, Provenance: "retained interval aggregation; not causal duration", Aggregation: "none"}
+		return next, track.Write(w, shift)
 	}
 	var emit func(*overview.Node, uint64) error
 	emit = func(n *overview.Node, parent uint64) error {
@@ -55,6 +84,10 @@ func writeOverviewTraceAt(out io.Writer, report overview.Report, origin, base, s
 		id, err := descriptor(n.Kind+": "+n.Label, parent)
 		if err != nil {
 			return err
+		}
+		referenceCount += len(n.References)
+		if int64(referenceCount) > referenceLimit {
+			return fmt.Errorf("summary reference limit exceeded")
 		}
 		refs, err := json.Marshal(n.References)
 		if err != nil {
@@ -67,15 +100,25 @@ func writeOverviewTraceAt(out io.Writer, report overview.Report, origin, base, s
 			return err
 		}
 		args = []perfetto.DebugAnnotation{perfetto.NewStringAnnotation("overview_id", n.ID)}
-		intervals := func(label string, values []overview.Interval) error {
+		intervals := func(label, aggregation string, device *uint32, values []overview.Interval) error {
 			tracks := map[string]uint64{}
 			for _, v := range values {
+				if v.End >= 0 && uint64(v.End) >= origin && uint64(v.End)-origin > math.MaxUint64-shift {
+					return fmt.Errorf("summary timestamp overflow")
+				}
 				if v.Start < 0 || v.End < v.Start || uint64(v.Start) < origin {
 					continue
 				}
 				track, ok := tracks[v.Journal]
 				if !ok {
-					track, err = descriptor(label+" ["+v.Journal+"]", id)
+					if identity.sha256 == "" {
+						track, err = descriptor(label+" ["+v.Journal+"]", id)
+					} else {
+						next++
+						track = next
+						metadata := tracecontract.Track{UUID: track, Parent: id, Name: label + " [" + v.Journal + "]", Role: aggregation, Clock: identity.sha256 + ":" + identity.arm + ":" + v.Journal + ":export-relative", Arm: identity.arm, CaptureSHA256: identity.sha256, Journal: v.Journal, Device: device, Scope: n.ID, Level: levels[id] + 1, Provenance: n.Provenance, Aggregation: aggregation, Canonical: parent == 0}
+						err = metadata.Write(w, shift)
+					}
 					if err != nil {
 						return err
 					}
@@ -90,7 +133,7 @@ func writeOverviewTraceAt(out io.Writer, report overview.Report, origin, base, s
 			}
 			return nil
 		}
-		if err := intervals("host scope union", n.Metrics.HostRanges); err != nil {
+		if err := intervals("host scope union", "host_union", nil, n.Metrics.HostRanges); err != nil {
 			return err
 		}
 		devices := make([]uint32, 0, len(n.Metrics.GPUUnion))
@@ -99,7 +142,7 @@ func writeOverviewTraceAt(out io.Writer, report overview.Report, origin, base, s
 		}
 		sort.Slice(devices, func(i, j int) bool { return devices[i] < devices[j] })
 		for _, device := range devices {
-			if err := intervals(fmt.Sprintf("GPU %d activity union", device), n.Metrics.GPUUnion[device]); err != nil {
+			if err := intervals(fmt.Sprintf("GPU %d activity union", device), "gpu_union", &device, n.Metrics.GPUUnion[device]); err != nil {
 				return err
 			}
 		}
@@ -116,7 +159,7 @@ func writeOverviewTraceAt(out io.Writer, report overview.Report, origin, base, s
 	for _, token := range report.Tokens {
 		if len(token.MaterializationRanges) > 0 {
 			refs, _ := json.Marshal(token.Materialization)
-			for _, interval := range token.MaterializationRanges {
+			for intervalIndex, interval := range token.MaterializationRanges {
 				if interval.Start < 0 || uint64(interval.Start) < origin {
 					continue
 				}
@@ -124,7 +167,12 @@ func writeOverviewTraceAt(out io.Writer, report overview.Report, origin, base, s
 				if err != nil {
 					return err
 				}
-				args := []perfetto.DebugAnnotation{perfetto.NewStringAnnotation("raw_references", string(refs)), perfetto.NewStringAnnotation("provenance", "observed host scope; GPU completion is not inferred")}
+				args := []perfetto.DebugAnnotation{perfetto.NewStringAnnotation("overview_id", token.ID), perfetto.NewStringAnnotation("provenance", "observed host scope; GPU completion is not inferred")}
+				if intervalIndex == 0 {
+					if err := w.WriteFlowInstant(track, shift, "materialization evidence", "cudaprof_overview", []perfetto.DebugAnnotation{perfetto.NewStringAnnotation("overview_id", token.ID), perfetto.NewStringAnnotation("raw_references", string(refs))}, nil, nil); err != nil {
+						return err
+					}
+				}
 				if err := w.WriteSliceBeginWithAnnotations(track, uint64(interval.Start)-origin+shift, "host materialization scope", "cudaprof_overview", args, nil); err != nil {
 					return err
 				}
