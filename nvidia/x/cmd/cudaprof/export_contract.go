@@ -43,6 +43,9 @@ func traceRecordKind(record traceRecord) string {
 }
 
 func traceRole(record traceRecord) string {
+	if record.sample != nil {
+		return "host_stack_sample"
+	}
 	switch record.kind {
 	case trackDevice:
 		return "raw_device"

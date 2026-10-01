@@ -21,6 +21,8 @@ func SQLDomain(name, domain string) (string, error) {
 		return "", fmt.Errorf("trace SQL: invalid API domain %q", domain)
 	}
 	statements := map[string]string{
+		"language-stacks":  "SELECT * FROM cudaprof_language_stacks_v1 ORDER BY capture_sha256,arm,journal,raw_record_sequence",
+		"host-stacks":      "SELECT * FROM cudaprof_host_stacks_v1 ORDER BY capture_sha256,arm,journal,ts",
 		"inventory":        "SELECT * FROM cudaprof_inventory_v1 ORDER BY role,clock,arm,journal,device",
 		"qualifications":   "SELECT * FROM cudaprof_qualifications_v1",
 		"delivery-cadence": "SELECT * FROM cudaprof_delivery_cadence_v1",

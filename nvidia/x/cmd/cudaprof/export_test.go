@@ -54,7 +54,7 @@ func decodeFixtureNVTX(t *testing.T, data []byte) ([]traceRecord, nvtxSummary) {
 
 func decodeFixtureExternal(t *testing.T, data []byte) ([]traceRecord, nvtxSummary, externalSummary) {
 	t.Helper()
-	records, nvtx, ext, err := decodeTraceJournals(map[string][]byte{"capture.journal": data}, controllerMaxJournalRecords, 1<<20)
+	records, nvtx, ext, err := decodeTraceJournals(map[string][]byte{"capture.journal": data}, controllerMaxJournalRecords, 1<<20, false)
 	if err != nil {
 		t.Fatalf("decodeTraceJournals: %v", err)
 	}
@@ -165,7 +165,7 @@ func TestExportRefusesIncompleteJournals(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, _, err := decodeTraceJournals(map[string][]byte{"capture.journal": tt.data()}, controllerMaxJournalRecords, 1<<20)
+			_, _, _, err := decodeTraceJournals(map[string][]byte{"capture.journal": tt.data()}, controllerMaxJournalRecords, 1<<20, false)
 			if err == nil {
 				t.Fatal("exported a journal that cannot draw a complete timeline")
 			}

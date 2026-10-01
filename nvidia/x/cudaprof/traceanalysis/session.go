@@ -53,6 +53,8 @@ func Catalog() []Query {
 		{"recorded-gaps", 1, "cudaprof.recorded-gaps.v1", []string{"native", "trace_processor_v58.2"}, "ns", "valid recorded device activities", "per journal/device interval union and complement within recorded span; not hardware idle"},
 		{"unmatched", 1, "cudaprof.unmatched.v1", []string{"native", "trace_processor_v58.2"}, "records", "domain-specific submission/context records; SQL needs explicit versioned receipts, positive raw sequences and coverage", "each unresolved activity once, retain matching reasons"},
 		{"correlations", 1, "cudaprof.correlations.v1", []string{"native", "trace_processor_v58.2"}, "records", "retained submission calls in selected domain; SQL needs explicit versioned native receipts, positive raw sequences and coverage", "one result per device activity; provenance not causality"},
+		{"language-stacks", 1, "cudaprof.language-stacks.v1", []string{"native", "trace_processor_v58.2"}, "records", "retained language stack journals and exact external correlation identity", "scope-entry and submission provenance; never sampled CPU execution"},
+		{"host-stacks", 1, "cudaprof.host-stacks.v1", []string{"native", "trace_processor_v58.2"}, "samples", "retained timestamped stacks and qualified same-process native clock", "Python wall snapshots and Go CPU samples are distinct; no submission causality"},
 	}
 }
 

@@ -117,13 +117,20 @@ func runTraceQuery(args []string, out io.Writer) error {
 			return err
 		}
 		result.Qualifications = session.Summary().Gates
-		result.Evidence, err = session.Query(definition.Name)
+		if definition.Name == "language-stacks" || definition.Name == "host-stacks" {
+			result.Evidence, err = nativeLanguageStackView(input.Capture, definition.Name)
+		} else {
+			result.Evidence, err = session.Query(definition.Name)
+		}
 		if err != nil {
 			return err
 		}
 	}
 	if failure != nil {
 		result.Limits = append(result.Limits, failure.Error())
+	}
+	if evidence, ok := result.Evidence.(languageStackView); ok {
+		result.State = evidence.State
 	}
 	if result.Qualifications == nil {
 		result.Qualifications = map[string]string{}

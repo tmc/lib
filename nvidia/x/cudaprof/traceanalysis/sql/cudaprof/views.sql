@@ -172,3 +172,31 @@ WHERE c.state='available';
 CREATE PERFETTO VIEW cudaprof_unmatched_v1 AS
 SELECT * FROM cudaprof_correlations_v1 WHERE row_kind='coverage'
  OR api_status!='matched' OR range_status!='matched' OR metadata_status!='matched';
+
+CREATE PERFETTO VIEW cudaprof_language_stacks_v1 AS
+SELECT t.capture_sha256,t.arm,
+ EXTRACT_ARG(s.arg_set_id,'debug.raw_journal') AS journal,
+ EXTRACT_ARG(s.arg_set_id,'debug.raw_record_sequence') AS raw_record_sequence,
+ EXTRACT_ARG(s.arg_set_id,'debug.cudaprof_activity_kind') AS activity_kind,
+ EXTRACT_ARG(s.arg_set_id,'debug.cudaprof_stack_status') AS status,
+ EXTRACT_ARG(s.arg_set_id,'debug.cudaprof_stack_language') AS language,
+ EXTRACT_ARG(s.arg_set_id,'debug.cudaprof_stack_attribution') AS attribution,
+ EXTRACT_ARG(s.arg_set_id,'debug.cudaprof_stack_iid') AS stack_iid,
+ EXTRACT_ARG(s.arg_set_id,'debug.cudaprof_stack_journal_sha256') AS stack_journal_sha256,
+ EXTRACT_ARG(s.arg_set_id,'debug.cudaprof_stack_final') AS final_coverage
+FROM slice s JOIN cudaprof_unique_track_v1 t ON t.track_id=s.track_id
+WHERE t.role IN ('raw_api','raw_device','raw_host','raw_marker')
+ AND EXTRACT_ARG(s.arg_set_id,'debug.cudaprof_stack_status') IS NOT NULL;
+
+CREATE PERFETTO VIEW cudaprof_host_stacks_v1 AS
+SELECT t.capture_sha256,t.arm,s.ts,
+ EXTRACT_ARG(s.arg_set_id,'debug.raw_journal') AS journal,
+ EXTRACT_ARG(s.arg_set_id,'debug.cudaprof_stack_status') AS status,
+ EXTRACT_ARG(s.arg_set_id,'debug.cudaprof_stack_language') AS language,
+ EXTRACT_ARG(s.arg_set_id,'debug.cudaprof_stack_attribution') AS provenance,
+ EXTRACT_ARG(s.arg_set_id,'debug.cudaprof_stack_iid') AS stack_iid,
+ EXTRACT_ARG(s.arg_set_id,'debug.cudaprof_stack_goroutine') AS goroutine,
+ EXTRACT_ARG(s.arg_set_id,'debug.cudaprof_stack_journal_sha256') AS stack_journal_sha256
+FROM slice s JOIN cudaprof_unique_track_v1 t ON t.track_id=s.track_id
+WHERE t.role='host_stack_sample'
+ AND EXTRACT_ARG(s.arg_set_id,'debug.cudaprof_stack_iid') > 0;

@@ -220,11 +220,11 @@ type captureOptions struct {
 	// capture, and the capture fails when the gate does.
 	Iterations *iterationsOptions
 
-	Trace   bool
-	Stacks  bool
+	Trace     bool
+	Stacks    bool
 	stacksSet bool
-	Replay  string
-	Exclude []string
+	Replay    string
+	Exclude   []string
 	// FollowChildren keeps the generations of processes the target spawned in
 	// this capture's totals and projection. It does not decide whether a child
 	// is instrumented: the launcher sets only LD_PRELOAD (DYLD_INSERT_LIBRARIES
@@ -377,6 +377,7 @@ const (
 // captureOutcomeTargetFailed, with capture_success false, because its records
 // stop where the target did.
 type captureResult struct {
+	StacksRequested    bool              `json:"stacks_requested,omitempty"`
 	Isolation          *isolation.Result `json:"gpu_isolation,omitempty"`
 	IsolationBinding   isolation.Binding `json:"isolation_binding"`
 	isolationRaw       []byte
@@ -1257,7 +1258,7 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 	if o.Inject != "" {
 		outcome = captureOutcomeInjection
 	}
-	result := captureResult{Protocol: captureProtocolVersion, Session: session, State: captureStatePlanned, Outcome: outcome, ChildrenFollowed: o.FollowChildren, ScratchDir: dir}
+	result := captureResult{Protocol: captureProtocolVersion, Session: session, State: captureStatePlanned, Outcome: outcome, ChildrenFollowed: o.FollowChildren, ScratchDir: dir, StacksRequested: o.Stacks}
 	if o.Stacks {
 		if err := prepareStackTransport(dir); err != nil {
 			return result, err

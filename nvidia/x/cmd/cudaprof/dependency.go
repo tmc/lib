@@ -118,7 +118,7 @@ func runDependencyCommand(args []string) error {
 			return err
 		}
 		recordsLimit, bytesLimit := decodeLimits(cap, *maxRecords, *journalBytes)
-		raw, _, _, err := decodeTraceJournals(journals, recordsLimit, bytesLimit)
+		raw, _, _, err := decodeTraceJournals(journals, recordsLimit, bytesLimit, false)
 		if err != nil {
 			return err
 		}
