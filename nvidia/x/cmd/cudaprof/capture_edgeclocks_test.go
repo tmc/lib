@@ -43,6 +43,7 @@ func stubAgentTarget(t *testing.T) string {
 		src := filepath.Join("..", "..", "..", "internal", "cudainject", "native")
 		stubAgentPath = filepath.Join(dir, "cupti-agent-control")
 		out, err := exec.Command(cc, "-std=c11", "-rdynamic", "-I", filepath.Join(src, "testcupti"),
+			"-DCUDAPROF_TEST_HARNESS=1",
 			filepath.Join(src, "cupti_agent.c"), filepath.Join(src, "testcupti", "stubcupti.c"), filepath.Join(src, "cupti_agent_control.c"),
 			"-o", stubAgentPath, "-lpthread").CombinedOutput()
 		if err != nil {
