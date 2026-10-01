@@ -12,6 +12,11 @@
 // as an instantaneous NVTX marker at the observed event, not as a range. A
 // delivered event does not establish which GPU work determined its latency.
 //
+// Version 3 describes components with a ComponentContract and explicit
+// invocation, batch and root coordinates. Model token and cache fields are
+// not applicable. Component batch events report application lifecycle and
+// counters; they do not prove native GPU completion.
+//
 // Metadata is an observed application label. It is distinct from inferred
 // arg_reduce boundaries and does not establish equivalent kernel workloads.
 // NVTX ranges describe host execution. Their timestamps use the collector's

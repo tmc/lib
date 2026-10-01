@@ -115,6 +115,24 @@ func Analyze(records timeline.Records, domain string, inferred *regexp.Regexp) R
 	}
 	ensureHierarchy := func(journal string, process uint32, m *marker.Metadata) []*Node {
 		parent, prefix := root, ""
+		if m.Version == 3 {
+			requestKey := fmt.Sprintf("journal:%s/process:%d/request:%q/role:%q", journal, process, m.RequestID, m.Role)
+			request := child(root, groups, "request", m.RequestID+" ("+m.Role+")", "observed", requestKey)
+			componentKey := fmt.Sprintf("%s/component:%q", requestKey, m.Component.Name)
+			component := child(request, groups, "component", m.Component.Name, "observed", componentKey)
+			invocationKey := fmt.Sprintf("%s/invocation:%d", componentKey, *m.Invocation)
+			invocation := child(component, groups, "component_invocation", fmt.Sprintf("invocation %d", *m.Invocation), "observed", invocationKey)
+			batchKey := fmt.Sprintf("%s/batch:%d", invocationKey, *m.Batch)
+			batch := child(invocation, groups, "component_batch", fmt.Sprintf("batch %d", *m.Batch), "observed", batchKey)
+			nodes := []*Node{request, component, invocation, batch}
+			parent = batch
+			if m.Root != nil {
+				parent = child(batch, groups, "component_root", fmt.Sprintf("root %d", *m.Root), "observed", fmt.Sprintf("%s/root:%d", batchKey, *m.Root))
+				nodes = append(nodes, parent)
+			}
+			op := child(parent, groups, "operation", m.Operation, "observed", parent.ID+"/op:"+m.Operation)
+			return append(nodes, op)
+		}
 		if m.Version == 2 {
 			prefix = fmt.Sprintf("journal:%s/process:%d/request:%q/role:%q/", journal, process, m.RequestID, m.Role)
 			parent = child(root, groups, "request", m.RequestID+" ("+m.Role+")", "observed", prefix)
