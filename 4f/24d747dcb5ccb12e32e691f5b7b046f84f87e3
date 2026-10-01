@@ -1,1 +1,0 @@
-commit=4f24d747dcb5ccb12e32e691f5b7b046f84f87e3\ndate=2026-10-01T02:29:40Z\nmodel=GPT-5\ntty=not-a-tty\npid=73484\nITERM_SESSION_ID=unset\ntests=GOWORK=off go test ./bench/dsv4bench ./cmd/ds4-bench; git diff --check
