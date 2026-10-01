@@ -21,6 +21,9 @@ int cudaprof_test_offer_undecoded(unsigned kernels, unsigned memcpys, unsigned a
 int cudaprof_test_offer_tiers(unsigned kernels, unsigned memcpys, unsigned apis, unsigned externals, unsigned markers, unsigned memsets, unsigned undecoded, unsigned overheads, unsigned graph_traces, unsigned syncs);
 int cudaprof_test_offer_graph_replays(unsigned nodes, unsigned replays);
 int cudaprof_test_callbacks_registered(void);
+/* wait_drain returns after at least records have reached the journal, or -1
+   if the acknowledgement misses its deadline. */
+int cudaprof_test_wait_drain(uint64_t records, unsigned timeout_ms);
 
 /* Drives the Callback API surface capture-range gating subscribes to. fire()
    invokes the producer's subscribed callback exactly as CUPTI would, but only

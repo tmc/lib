@@ -466,6 +466,34 @@ static void *drain_worker(void *arg) {
 	}
 }
 
+#ifdef CUDAPROF_TEST_HARNESS
+/* cudaprof_test_wait_drain is a test-control acknowledgement. Unlike a sleep,
+   it lets a producer scenario submit its next buffer only after this one has
+   reached the journal, keeping the bounded-retention test independent of
+   scheduler delays. */
+int cudaprof_test_wait_drain(uint64_t records, unsigned timeout_ms) {
+	struct timespec deadline;
+	if (clock_gettime(CLOCK_REALTIME, &deadline) != 0) return -1;
+	deadline.tv_sec += timeout_ms / 1000;
+	deadline.tv_nsec += (long)(timeout_ms % 1000) * 1000000L;
+	if (deadline.tv_nsec >= 1000000000L) {
+		deadline.tv_nsec -= 1000000000L;
+		deadline.tv_sec++;
+	}
+
+	pthread_mutex_lock(&pending_mu);
+	while (atomic_load(&drain_records) < records) {
+		int err = pthread_cond_timedwait(&pending_space_cond, &pending_mu, &deadline);
+		if (err != 0) {
+			pthread_mutex_unlock(&pending_mu);
+			return -1;
+		}
+	}
+	pthread_mutex_unlock(&pending_mu);
+	return 0;
+}
+#endif
+
 /* Flushes CUPTI every flush_interval_ms until finalization stops it. CUPTI
    delivers the buffers on this thread, so the records take the ordinary
    buffer_completed path and the drain -- a different thread -- keeps emptying

@@ -119,6 +119,35 @@ static void run_offers(struct offer_plan *plans, unsigned threads, long *offered
 	for (unsigned i = 0; i < threads; i++) { *offered += plans[i].offered; *exhausted += plans[i].exhausted; }
 }
 
+/* Sustained accounting waits for each buffer to reach the journal before
+   offering the next one. The ordinary burst path remains concurrent and is
+   what exercises batching and capacity drops. */
+static int run_acked_offers(struct offer_plan *plans, unsigned threads, long *offered, long *exhausted) {
+	uint64_t drained = 0;
+	*offered = 0;
+	*exhausted = 0;
+	for (unsigned t = 0; t < threads; t++) {
+		struct offer_plan *plan = &plans[t];
+		unsigned kernels = plan->per_buffer / 2;
+		unsigned memcpys = plan->per_buffer / 4;
+		unsigned apis = plan->per_buffer - kernels - memcpys;
+		for (unsigned i = 0; i < plan->buffers; i++) {
+			int placed = cudaprof_test_offer_tiers(kernels, memcpys, apis, 0, plan->markers, plan->memsets, plan->undecoded, plan->overheads, plan->graph_traces, plan->syncs);
+			if (placed < 0) return -1;
+			if (placed == 0) {
+				plan->exhausted++;
+				(*exhausted)++;
+				continue;
+			}
+			plan->offered += placed;
+			*offered += placed;
+			drained += (uint64_t)placed;
+			if (cudaprof_test_wait_drain(drained, 30000) != 0) return -1;
+		}
+	}
+	return 0;
+}
+
 struct trigger {
 	unsigned delay_micros;
 	int signo;
@@ -491,7 +520,14 @@ int main(int argc, char **argv) {
 	}
 
 	long offered = 0, exhausted = 0;
-	run_offers(plans, threads, &offered, &exhausted);
+	if (strcmp(scenario, "sustained-acked") == 0) {
+		if (run_acked_offers(plans, threads, &offered, &exhausted) != 0) {
+			fprintf(stderr, "drain did not acknowledge sustained offers\n");
+			return 2;
+		}
+	} else {
+		run_offers(plans, threads, &offered, &exhausted);
+	}
 	if (trigger_id) pthread_join(trigger_id, NULL);
 
 	/* A forked child inherits the agent but not its drain thread. It must
