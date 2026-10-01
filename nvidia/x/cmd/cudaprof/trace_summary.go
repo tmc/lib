@@ -39,12 +39,13 @@ func runTraceSummary(args []string, out io.Writer) error {
 	htmlPath := fs.String("html", "", "write standalone escaped HTML")
 	shapePath := fs.String("shape", "", "bound shape receipt and original captures for comparison view")
 	campaignPath := fs.String("campaign", "", "bound campaign receipt and retained controls for comparison view")
-	view := fs.String("view", "overview", "overview, tokens, operations, gaps, dependencies or comparison")
+	view := fs.String("view", "overview", "overview (compact), detailed, tokens, operations, gaps, dependencies or comparison")
+	top := fs.Int("top", 10, "maximum compact request, operation, shape and delta-group rows (1-100)")
 	processor := fs.String("perfetto", "", "optional local Trace Processor v58.2 executable for exported trace summaries")
 	domain := fs.String("domain", "driver", "submission API domain: driver or runtime")
 	pattern := fs.String("iteration-marker", "", "raw kernel regex for separately inferred intervals")
 	fs.Usage = func() {
-		fmt.Fprintln(out, "Usage: cudaprof trace summary [-json] [-html FILE] [-view overview|tokens|operations|gaps|dependencies|comparison] [-domain driver|runtime] [-iteration-marker RE] INPUT")
+		fmt.Fprintln(out, "Usage: cudaprof trace summary [-json] [-html FILE] [-view overview|detailed|tokens|operations|gaps|dependencies|comparison] [-domain driver|runtime] [-iteration-marker RE] INPUT")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
@@ -61,9 +62,12 @@ func runTraceSummary(args []string, out io.Writer) error {
 		return errors.New("usage: cudaprof trace summary [options] INPUT")
 	}
 	switch *view {
-	case "overview", "tokens", "operations", "gaps", "dependencies", "comparison":
+	case "overview", "detailed", "tokens", "operations", "gaps", "dependencies", "comparison":
 	default:
 		return fmt.Errorf("trace summary: invalid view %q", *view)
+	}
+	if *top < 1 || *top > 100 {
+		return errors.New("trace summary: -top must be between 1 and 100")
 	}
 	if (*shapePath != "" || *campaignPath != "") && *view != "comparison" {
 		return errors.New("trace summary: -shape and -campaign require -view comparison")
@@ -86,7 +90,7 @@ func runTraceSummary(args []string, out io.Writer) error {
 	if (*shapePath != "" || *campaignPath != "") && input.Kind != "comparison_archive" {
 		return errors.New("trace summary: bound comparison evidence requires a comparison archive")
 	}
-	result := traceViewResult{Consumer: currentBuild(), Options: map[string]any{"resource_limits": resourceLimits.receipt(), "api_domain": *domain, "iteration_marker": *pattern, "view": *view, "shape_receipt": *shapePath, "campaign_receipt": *campaignPath}, Version: 1, Schema: "cudaprof.trace-summary.v1", Input: input.Path, SHA256: input.SHA256, Kind: input.Kind, Backend: "native", View: *view, State: "observed", Limits: []string{"collector, correctness, workload coverage, stationarity, shape and dependency completeness are independent", "request identity is not retained by native v1 markers; no combined request latency or delivery cadence"}}
+	result := traceViewResult{Consumer: currentBuild(), Options: map[string]any{"resource_limits": resourceLimits.receipt(), "api_domain": *domain, "iteration_marker": *pattern, "view": *view, "top": *top, "shape_receipt": *shapePath, "campaign_receipt": *campaignPath}, Version: 1, Schema: "cudaprof.trace-summary.v1", Input: input.Path, SHA256: input.SHA256, Kind: input.Kind, Backend: "native", View: *view, State: "observed", Limits: []string{"collector, correctness, workload coverage, stationarity, shape and dependency completeness are independent", "native v1 markers lack request identity; native v2 request metrics require validated lifecycle endpoints and counters"}}
 	var failure error
 	var backendFailure error
 	if input.Kind == "comparison_archive" && *view == "comparison" {
@@ -110,7 +114,7 @@ func runTraceSummary(args []string, out io.Writer) error {
 		if *view == "gaps" {
 			name = "recorded-gaps"
 		}
-		if *view != "overview" && *view != "gaps" {
+		if *view != "overview" && *view != "detailed" && *view != "gaps" {
 			result.Evidence = map[string]string{"reason": "view requires native metadata/dependency/bound comparison receipts"}
 			failure = errors.New("trace summary: native evidence unavailable")
 		} else {
@@ -149,6 +153,14 @@ func runTraceSummary(args []string, out io.Writer) error {
 		result.Qualifications = summary.Gates
 		switch *view {
 		case "overview":
+			result.Version = 2
+			result.Schema = "cudaprof.trace-summary.v2"
+			var shapes traceanalysis.KernelShapes
+			if raw, queryErr := session.Query("kernel-shapes"); queryErr == nil {
+				shapes, _ = raw.(traceanalysis.KernelShapes)
+			}
+			result.Evidence = compactTraceSummary(summary, shapes, *top)
+		case "detailed":
 			result.Evidence = summary
 		case "tokens":
 			result.Evidence = struct {
