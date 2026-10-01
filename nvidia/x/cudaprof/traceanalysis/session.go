@@ -106,6 +106,7 @@ type Summary struct {
 	Stationarity    *iteration.Report `json:"stationarity_receipt,omitempty"`
 	Overview        overview.Report   `json:"overview"`
 	Windows         []DeviceWindows   `json:"recorded_device_windows"`
+	Requests        []Request         `json:"requests"`
 	Endpoints       []Endpoint        `json:"delivery_endpoints"`
 	Dependencies    dependency.Report `json:"dependencies"`
 	DependencyError string            `json:"dependency_error,omitempty"`
@@ -131,7 +132,7 @@ func New(records timeline.Records, opts Options) (*Session, error) {
 		total += n
 	}
 	gates := map[string]string{"collector": "passed", "import": "unchecked: no external importer used", "workload_coverage": "unavailable", "stationarity": "unassessed", "shape": "unqualified", "correctness": "unverified", "request_scope": "unavailable: marker schema has no request identity", "dependency": "partial"}
-	r := Summary{Version: 1, Domain: opts.Domain, Gates: gates, Counts: counts, Windows: []DeviceWindows{}, Endpoints: []Endpoint{}, Sources: []Source{}, Limits: []string{"observed delivery, inferred boundaries, materialization host ranges, GPU unions and kernel sums remain distinct", "native marker schema does not identify requests; repeated phase/token IDs cannot qualify a multi-request aggregate", "recorded gaps are complements within each journal/device recorded span, not hardware idle or causes", "launch durations are not independent engine-run uncertainty", "comparison requires two bound arm identities and qualified shape/campaign receipts; no single-capture numerical operation delta"}}
+	r := Summary{Version: 1, Domain: opts.Domain, Gates: gates, Counts: counts, Windows: []DeviceWindows{}, Endpoints: []Endpoint{}, Sources: []Source{}, Limits: []string{"observed delivery, inferred boundaries, materialization host ranges, GPU unions and kernel sums remain distinct", "legacy v1 markers do not identify requests; v2 request identities do not prove workload completeness", "recorded gaps are complements within each journal/device recorded span, not hardware idle or causes", "launch durations are not independent engine-run uncertainty", "comparison requires two bound arm identities and qualified shape/campaign receipts; no single-capture numerical operation delta"}}
 	r.Dependencies = dependency.Report{State: "partial", Reasons: []string{"native coverage and delivery endpoints are not independently qualified"}}
 	s := &Session{report: r, queries: map[string]any{}}
 	for i, a := range records.Activities {
@@ -274,6 +275,10 @@ func New(records timeline.Records, opts Options) (*Session, error) {
 		}
 		s.report.Endpoints = append(s.report.Endpoints, Endpoint{Source{m.Journal, "marker", i, m.Sequence}, m.Process, m.Thread, m.Time, metadata})
 	}
+	s.report.Requests = requests(s.report.Endpoints)
+	if len(s.report.Requests) > 0 {
+		gates["request_scope"] = "observed: process/journal/request/role; lifecycle and execution qualifications retained per request"
+	}
 	graph := dependency.Observe(records)
 	var dependencyError error
 	s.report.Dependencies, dependencyError = dependency.Analyze(graph)
@@ -284,11 +289,12 @@ func New(records timeline.Records, opts Options) (*Session, error) {
 	s.queries["recorded-gaps"] = s.report.Windows
 	s.queries["qualifications"] = gates
 	s.queries["delivery-cadence"] = struct {
+		Requests      []Request  `json:"requests"`
 		Endpoints     []Endpoint `json:"endpoints"`
 		Spacing       *int64     `json:"spacing_ns"`
 		State         string     `json:"state"`
 		FirstEndpoint string     `json:"first_endpoint"`
-	}{s.report.Endpoints, nil, "unavailable: explicit request scope required for spacing", "missing: request start endpoint not retained"}
+	}{s.report.Requests, s.report.Endpoints, nil, "legacy spacing unavailable; explicit v2 request qualifications retained separately", "request start endpoints are qualified per v2 request"}
 	return s, nil
 }
 

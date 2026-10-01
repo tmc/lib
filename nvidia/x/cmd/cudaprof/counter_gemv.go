@@ -379,7 +379,7 @@ func revalidateCounterGEMVSelection(report counterSelectionReport) error {
 			return err
 		}
 	}
-	fresh := shape.Compare(records[0], records[1], report.Source.Domain)
+	fresh := shape.CompareScoped(records[0], records[1], report.Source.Domain, report.Source.Shape.RequestPairs)
 	selection, err := counters.Select(fresh, report.Selection.Identity)
 	if err != nil {
 		return err

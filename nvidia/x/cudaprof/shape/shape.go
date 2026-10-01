@@ -13,6 +13,9 @@ import (
 // SharedMemory remains optional with the same rule. Raw symbols are retained
 // on Launch and are never normalized to discard template parameters.
 type Identity struct {
+	RequestPair     *int    `json:"request_pair,omitempty"`
+	Role            string  `json:"role,omitempty"`
+	Boundary        string  `json:"boundary,omitempty"`
 	Phase           string  `json:"phase"`
 	Token           int     `json:"token"`
 	Layer           *int    `json:"layer,omitempty"`
@@ -66,6 +69,9 @@ type Group struct {
 // and iteration stationarity. Pass requires nonempty matched work, no unsupported graph replay, and no
 // unmatched kernels. Even a pass does not establish causal speedup.
 type Report struct {
+	RequestPairs    []RequestPair     `json:"request_pairs,omitempty"`
+	WorkScope       string            `json:"work_scope"`
+	Diagnostics     []string          `json:"diagnostics,omitempty"`
 	Version         int               `json:"version"`
 	Pass            bool              `json:"pass"`
 	Failures        []string          `json:"failures,omitempty"`
@@ -80,11 +86,55 @@ type Report struct {
 // ambiguous correlation, invalid durations, and unread geometry never match.
 // The caller must retain independent completeness and stationarity receipts.
 func Compare(base, target timeline.Records, domain string) Report {
-	r := Report{Version: 1, Sources: map[string]string{
+	return CompareScoped(base, target, domain, nil)
+}
+
+// RequestPair explicitly declares equivalent requests across two captures.
+// Journals and processes bind each capture-local ID; Role must agree in both.
+// This declaration does not prove equal work, outputs or capture completeness.
+type RequestPair struct {
+	BaseJournal   string `json:"base_journal"`
+	BaseProcess   uint32 `json:"base_process"`
+	BaseID        string `json:"base_id"`
+	TargetJournal string `json:"target_journal"`
+	TargetProcess uint32 `json:"target_process"`
+	TargetID      string `json:"target_id"`
+	Role          string `json:"role"`
+}
+
+type requestKey struct {
+	journal  string
+	process  uint32
+	id, role string
+}
+
+// CompareScoped compares shapes with explicitly paired v2 request identities.
+// Cumulative execution counts are retained as separate work-scope diagnostics,
+// not shape identity. A shape pass never qualifies an equal-work comparison.
+func CompareScoped(base, target timeline.Records, domain string, pairs []RequestPair) Report {
+	r := Report{Version: 1, RequestPairs: append([]RequestPair(nil), pairs...), WorkScope: "unavailable: legacy metadata or successful execution counters missing", Sources: map[string]string{
 		"phase": "observed NVTX application marker", "token": "observed NVTX application marker", "layer": "observed when supplied; otherwise unavailable", "operation": "observed NVTX application marker", "dtype": "observed NVTX application marker", "cache_length": "observed NVTX application marker", "grid": "observed CUPTI activity", "block": "observed CUPTI activity", "raw_symbol": "observed CUPTI activity; templates preserved", "shared_memory": "observed when supplied; otherwise unavailable", "lookahead": "observed when supplied; otherwise unavailable", "materialization": "observed when supplied; otherwise unavailable",
 	}, Groups: []Group{}, BaseUnmatched: []Launch{}, TargetUnmatched: []Launch{}}
-	b, bu := collect(base, domain)
-	t, tu := collect(target, domain)
+	bm, tm := map[requestKey]int{}, map[requestKey]int{}
+	for i, p := range pairs {
+		bk, tk := requestKey{p.BaseJournal, p.BaseProcess, p.BaseID, p.Role}, requestKey{p.TargetJournal, p.TargetProcess, p.TargetID, p.Role}
+		_, bd := bm[bk]
+		_, td := tm[tk]
+		if p.BaseJournal == "" || p.TargetJournal == "" || p.BaseProcess == 0 || p.TargetProcess == 0 || p.BaseID == "" || p.TargetID == "" || (p.Role != "warmup" && p.Role != "measured" && p.Role != "control") || bd || td {
+			r.Failures = append(r.Failures, "invalid or duplicate request mapping")
+			return r
+		}
+		bm[bk], tm[tk] = i, i
+	}
+	b, bu, bscope := collect(base, domain, bm)
+	t, tu, tscope := collect(target, domain, tm)
+	workKnown, workMismatch := len(pairs) > 0, false
+	for i := range pairs {
+		if !bscope[i] || !tscope[i] {
+			r.Failures = append(r.Failures, "declared request mapping lacks observed qualifying work in both arms")
+			workKnown = false
+		}
+	}
 	r.BaseUnmatched, r.TargetUnmatched = bu, tu
 	keys := make(map[string]bool)
 	for k := range b {
@@ -120,6 +170,13 @@ func Compare(base, target timeline.Records, domain string) Report {
 			}
 			continue
 		}
+		mb, mt := bs[0].Metadata, ts[0].Metadata
+		if mb == nil || mt == nil || mb.Executions == nil || mt.Executions == nil || mb.ExecutionUnit != "logical_forward" || mt.ExecutionUnit != "logical_forward" {
+			workKnown = false
+		} else if *mb.Executions != *mt.Executions {
+			workMismatch = true
+			r.Diagnostics = append(r.Diagnostics, "successful logical-forward counts differ for otherwise matched shape; prefill and delivery scheduling may differ")
+		}
 		r.Groups = append(r.Groups, Group{Identity: *bs[0].Identity, Base: bs, Target: ts, BaseDurations: distribution(bs), TargetDurations: distribution(ts)})
 	}
 	sort.Slice(r.BaseUnmatched, func(i, j int) bool { return r.BaseUnmatched[i].Activity < r.BaseUnmatched[j].Activity })
@@ -136,12 +193,19 @@ func Compare(base, target timeline.Records, domain string) Report {
 	if unsupportedGraphs(base) || unsupportedGraphs(target) {
 		r.Failures = append(r.Failures, "graph replay has no qualified kernel identity")
 	}
-	r.Pass = !unsupportedGraphs(base) && !unsupportedGraphs(target) && len(r.Groups) > 0 && len(r.BaseUnmatched) == 0 && len(r.TargetUnmatched) == 0 && base.UnpairedMarkers == 0 && target.UnpairedMarkers == 0
+	if workKnown && len(r.Groups) > 0 && len(r.BaseUnmatched) == 0 && len(r.TargetUnmatched) == 0 {
+		r.WorkScope = "observed cumulative successful logical-forward counts agree at matched scopes; execution-delta and completeness gates remain independent"
+	}
+	if workMismatch {
+		r.WorkScope = "mismatch: cumulative successful logical-forward counts differ; shapes alone do not establish equal work"
+	}
+	r.Pass = len(r.Failures) == 0 && !unsupportedGraphs(base) && !unsupportedGraphs(target) && len(r.Groups) > 0 && len(r.BaseUnmatched) == 0 && len(r.TargetUnmatched) == 0 && base.UnpairedMarkers == 0 && target.UnpairedMarkers == 0
 	return r
 }
 
-func collect(records timeline.Records, domain string) (map[string][]Launch, []Launch) {
+func collect(records timeline.Records, domain string, mappings map[requestKey]int) (map[string][]Launch, []Launch, map[int]bool) {
 	groups := make(map[string][]Launch)
+	seen := map[int]bool{}
 	unmatched := []Launch{}
 	links := timeline.Correlations(records, domain)
 	for i, a := range records.Activities {
@@ -151,6 +215,10 @@ func collect(records timeline.Records, domain string) (map[string][]Launch, []La
 		link := links[i]
 		l := Launch{Activity: i, Journal: a.Journal, RawSymbol: a.Name, Start: a.Start, Duration: a.End - a.Start, APIStatus: link.APIStatus, MetadataStatus: link.MetadataStatus, Metadata: link.Metadata}
 		m := link.Metadata
+		var process uint32
+		if link.Call >= 0 && link.Call < len(records.Calls) {
+			process = records.Calls[link.Call].Process
+		}
 		if link.APIStatus != "matched" {
 			l.Missing = append(l.Missing, "submission correlation")
 		}
@@ -161,6 +229,14 @@ func collect(records timeline.Records, domain string) (map[string][]Launch, []La
 			l.Missing = append(l.Missing, "phase", "token", "operation", "dtype", "cache_length")
 		}
 		if m != nil {
+			if m.Version == 2 {
+				if _, ok := mappings[requestKey{a.Journal, process, m.RequestID, m.Role}]; !ok {
+					l.Missing = append(l.Missing, "explicit request equivalence mapping")
+				}
+			}
+			if m.Version == 2 && m.Boundary == "" {
+				l.Missing = append(l.Missing, "explicit endpoint boundary")
+			}
 			if m.Token == nil {
 				l.Missing = append(l.Missing, "token")
 			}
@@ -194,13 +270,19 @@ func collect(records timeline.Records, domain string) (map[string][]Launch, []La
 			unmatched = append(unmatched, l)
 			continue
 		}
-		id := Identity{Phase: m.Phase, Token: *m.Token, Layer: m.Layer, Operation: m.Operation, DType: *m.DType, CacheLength: *m.CacheLength, Grid: a.Grid, Block: a.Block, SharedMemory: a.SharedMemory, Lookahead: m.Lookahead, Materialization: m.Materialization}
+		var pair *int
+		if m.Version == 2 {
+			v := mappings[requestKey{a.Journal, process, m.RequestID, m.Role}]
+			pair = &v
+			seen[v] = true
+		}
+		id := Identity{RequestPair: pair, Role: m.Role, Boundary: m.Boundary, Phase: m.Phase, Token: *m.Token, Layer: m.Layer, Operation: m.Operation, DType: *m.DType, CacheLength: *m.CacheLength, Grid: a.Grid, Block: a.Block, SharedMemory: a.SharedMemory, Lookahead: m.Lookahead, Materialization: m.Materialization}
 		l.Identity = &id
 		data, _ := json.Marshal(id) // Identity contains no unsupported JSON types.
 		k := string(data)
 		groups[k] = append(groups[k], l)
 	}
-	return groups, unmatched
+	return groups, unmatched, seen
 }
 
 func distribution(launches []Launch) Distribution {

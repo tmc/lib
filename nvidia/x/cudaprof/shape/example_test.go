@@ -49,3 +49,18 @@ func ExampleReport() {
 	fmt.Println(report.Sources["grid"])
 	// Output: observed CUPTI activity
 }
+
+func ExampleRequestPair() {
+	pair := shape.RequestPair{BaseJournal: "go", BaseProcess: 1, BaseID: "request-1", TargetJournal: "python", TargetProcess: 2, TargetID: "run-a", Role: "measured"}
+	fmt.Println(pair.BaseID, pair.TargetID, pair.Role)
+	// Output: request-1 run-a measured
+}
+
+func ExampleCompareScoped() {
+	report := shape.CompareScoped(timeline.Records{}, timeline.Records{}, "driver", nil)
+	fmt.Println(report.Pass)
+	fmt.Println(report.WorkScope)
+	// Output:
+	// false
+	// unavailable: legacy metadata or successful execution counters missing
+}

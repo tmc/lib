@@ -146,3 +146,20 @@ func TestDecodeGraphIdentity(t *testing.T) {
 		t.Fatalf("lost graph identity: %+v", a)
 	}
 }
+
+func TestRequestMetadataConflict(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		a, b marker.Metadata
+	}{
+		{"request", marker.Metadata{RequestID: "a"}, marker.Metadata{RequestID: "b"}},
+		{"role", marker.Metadata{Role: "warmup"}, marker.Metadata{Role: "measured"}},
+		{"boundary", marker.Metadata{Boundary: "completion"}, marker.Metadata{Boundary: "consumer_delivery"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if !conflictingMetadata(tt.a, tt.b) {
+				t.Fatal("conflict ignored")
+			}
+		})
+	}
+}

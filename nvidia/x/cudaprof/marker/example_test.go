@@ -46,3 +46,14 @@ func ExampleParseRange() {
 	fmt.Println(m.Phase, err)
 	// Output: decode <nil>
 }
+
+func ExampleEncode_request() {
+	executions := 32
+	message, err := marker.Encode(marker.Metadata{Version: 2, RequestID: "request-1", Role: "measured", Phase: "cleanup", Event: "request_end", Boundary: "completion", ExecutionUnit: "logical_forward", Executions: &executions})
+	fmt.Println(err)
+	m, _ := marker.Parse(message)
+	fmt.Println(m.RequestID, m.Role, m.Phase, *m.Executions)
+	// Output:
+	// <nil>
+	// request-1 measured cleanup 32
+}

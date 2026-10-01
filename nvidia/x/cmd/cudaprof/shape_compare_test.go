@@ -111,3 +111,26 @@ func TestShapeCompareCaptureReceipts(t *testing.T) {
 		t.Fatalf("partial result emitted: %s", out.String())
 	}
 }
+
+func TestShapeRequestPairs(t *testing.T) {
+	for _, tt := range []struct {
+		name, text string
+		valid      bool
+	}{
+		{"valid", `[{"base_journal":"a","base_process":1,"base_id":"r","target_journal":"b","target_process":2,"target_id":"s","role":"measured"}]`, true},
+		{"unknown", `[{"extra":true}]`, false},
+		{"duplicate", `[{"base_id":"r","base_id":"s"}]`, false},
+		{"trailing", `[] []`, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "pairs.json")
+			if err := os.WriteFile(path, []byte(tt.text), 0600); err != nil {
+				t.Fatal(err)
+			}
+			_, err := readShapeRequestPairs(path)
+			if (err == nil) != tt.valid {
+				t.Fatalf("readShapeRequestPairs=%v", err)
+			}
+		})
+	}
+}

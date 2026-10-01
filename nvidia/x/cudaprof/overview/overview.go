@@ -55,6 +55,12 @@ type Node struct {
 // DeliveryLatency measures earliest observed host scope to explicit delivered
 // event, not engine request latency. Nil is unavailable, never zero.
 type Token struct {
+	Process               uint32      `json:"process,omitempty"`
+	ExecutionUnit         string      `json:"execution_unit,omitempty"`
+	RequestID             string      `json:"request_id,omitempty"`
+	Role                  string      `json:"role,omitempty"`
+	Boundary              string      `json:"boundary,omitempty"`
+	Executions            *int        `json:"executions,omitempty"`
 	InferredBoundary      *Interval   `json:"inferred_boundary,omitempty"`
 	ID                    string      `json:"id"`
 	Journal               string      `json:"journal"`
@@ -90,22 +96,30 @@ type Report struct {
 // intervals. It supplies neither delivered events nor materialization evidence.
 func Analyze(records timeline.Records, domain string, inferred *regexp.Regexp) Report {
 	root := node("capture", "capture", "observed", "capture")
-	r := Report{Version: 1, TimestampDomain: "CUPTI journal timestamps; cross-journal clock equivalence must be qualified by the caller", Hierarchy: root, Tokens: []Token{}, Inferred: []Token{}, Unmatched: []Reference{}, UnpairedMarkers: records.UnpairedMarkers, Limits: []string{"submission context does not prove kernel duration causes", "host scopes, GPU union, kernel sums and delivery observations are distinct", "metadata does not inherit; cross-thread overlap is not submission evidence", "inferred kernel boundaries are not delivered or materialized events", "missing journal identity or invalid timestamps are excluded from time metrics; activity references remain visible", "kernel-marker inference is unavailable for journals containing multiple device IDs", "reused phase/token numbers in one process journal are one declared identity; request boundaries are not retained"}}
+	r := Report{Version: 1, TimestampDomain: "CUPTI journal timestamps; cross-journal clock equivalence must be qualified by the caller", Hierarchy: root, Tokens: []Token{}, Inferred: []Token{}, Unmatched: []Reference{}, UnpairedMarkers: records.UnpairedMarkers, Limits: []string{"submission context does not prove kernel duration causes", "host scopes, GPU union, kernel sums and delivery observations are distinct", "metadata does not inherit; cross-thread overlap is not submission evidence", "inferred kernel boundaries are not delivered or materialized events", "missing journal identity or invalid timestamps are excluded from time metrics; activity references remain visible", "kernel-marker inference is unavailable for journals containing multiple device IDs", "legacy v1 phase/token numbers do not identify requests; v2 retains process/request/role identities but lifecycle completeness is independently qualified"}}
 	links := timeline.Correlations(records, domain)
 	groups := map[string]*Node{}
 	tokens := map[string]*Token{}
-	ensureToken := func(journal string, m marker.Metadata) *Token {
+	ensureToken := func(journal string, process uint32, m marker.Metadata) *Token {
 		if m.Token == nil {
 			return nil
 		}
 		key := tokenKey(journal, m.Phase, *m.Token)
+		if m.Version == 2 {
+			key = fmt.Sprintf("%s/process:%d/request:%q/role:%q", key, process, m.RequestID, m.Role)
+		}
 		if tokens[key] == nil {
-			tokens[key] = &Token{ID: stableID(key), Journal: journal, Phase: m.Phase, Index: *m.Token, Provenance: "observed", References: []Reference{}, Crossing: []Reference{}, Materialization: []Reference{}, Availability: []string{}}
+			tokens[key] = &Token{Process: process, ExecutionUnit: m.ExecutionUnit, RequestID: m.RequestID, Role: m.Role, Boundary: m.Boundary, Executions: m.Executions, ID: stableID(key), Journal: journal, Phase: m.Phase, Index: *m.Token, Provenance: "observed", References: []Reference{}, Crossing: []Reference{}, Materialization: []Reference{}, Availability: []string{}}
 		}
 		return tokens[key]
 	}
-	ensureHierarchy := func(journal string, m *marker.Metadata) []*Node {
-		phase := child(root, groups, "phase", m.Phase, "observed", "phase:"+m.Phase)
+	ensureHierarchy := func(journal string, process uint32, m *marker.Metadata) []*Node {
+		parent, prefix := root, ""
+		if m.Version == 2 {
+			prefix = fmt.Sprintf("journal:%s/process:%d/request:%q/role:%q/", journal, process, m.RequestID, m.Role)
+			parent = child(root, groups, "request", m.RequestID+" ("+m.Role+")", "observed", prefix)
+		}
+		phase := child(parent, groups, "phase", m.Phase, "observed", prefix+"phase:"+m.Phase)
 		tokenLabel, tokenProv := "unknown token", "missing"
 		tokenValue := "unknown"
 		if m.Token != nil {
@@ -113,7 +127,7 @@ func Analyze(records timeline.Records, domain string, inferred *regexp.Regexp) R
 			tokenValue = strconv.Itoa(*m.Token)
 			tokenProv = "observed"
 		}
-		key := "phase:" + m.Phase + "/journal:" + journal + "/token:" + tokenValue
+		key := prefix + "phase:" + m.Phase + "/journal:" + journal + "/token:" + tokenValue
 		tok := child(phase, groups, "token", tokenLabel, tokenProv, key)
 		layerLabel, layerProv, layerValue := "unknown layer", "missing", "unknown"
 		if m.Layer != nil {
@@ -138,10 +152,10 @@ func Analyze(records timeline.Records, domain string, inferred *regexp.Regexp) R
 		}
 		ref := Reference{scope.Journal, "range", i}
 		root.References = appendUnique(root.References, ref)
-		for _, n := range ensureHierarchy(scope.Journal, &m) {
+		for _, n := range ensureHierarchy(scope.Journal, scope.Process, &m) {
 			n.References = appendUnique(n.References, ref)
 		}
-		if t := ensureToken(scope.Journal, m); t != nil {
+		if t := ensureToken(scope.Journal, scope.Process, m); t != nil {
 			t.References = appendUnique(t.References, ref)
 			if m.Materialization != nil && *m.Materialization {
 				t.Materialization = append(t.Materialization, ref)
@@ -169,7 +183,7 @@ func Analyze(records timeline.Records, domain string, inferred *regexp.Regexp) R
 			unknown.Children = append(unknown.Children, leaf)
 			continue
 		}
-		nodes := ensureHierarchy(a.Journal, m)
+		nodes := ensureHierarchy(a.Journal, records.Calls[link.Call].Process, m)
 		op := nodes[len(nodes)-1]
 		for _, n := range nodes {
 			n.References = appendUnique(n.References, ref)
@@ -183,7 +197,7 @@ func Analyze(records timeline.Records, domain string, inferred *regexp.Regexp) R
 		leaf := node(activityKind(a), a.Name, "observed", fmt.Sprintf("activity:%s:%d", a.Journal, i))
 		leaf.References = []Reference{ref}
 		op.Children = append(op.Children, leaf)
-		if t := ensureToken(a.Journal, *m); t != nil {
+		if t := ensureToken(a.Journal, records.Calls[link.Call].Process, *m); t != nil {
 			t.References = appendUnique(t.References, ref)
 			if link.Call >= 0 {
 				t.References = appendUnique(t.References, Reference{records.Calls[link.Call].Journal, "call", link.Call})
@@ -202,11 +216,18 @@ func Analyze(records timeline.Records, domain string, inferred *regexp.Regexp) R
 		if err != nil || m.Event == "" || m.Token == nil {
 			continue
 		}
-		t := ensureToken(event.Journal, m)
+		t := ensureToken(event.Journal, event.Process, m)
+		if m.Version == 2 {
+			t.Boundary, t.Executions = m.Boundary, m.Executions
+		}
 		ref := Reference{event.Journal, "marker", i}
 		t.References = appendUnique(t.References, ref)
 		switch m.Event {
 		case "delivered":
+			if m.Version == 2 && m.Boundary != "consumer_delivery" {
+				t.Availability = append(t.Availability, "delivered event lacks consumer_delivery boundary")
+				continue
+			}
 			if t.Delivery != nil {
 				t.Delivery = nil
 				t.Availability = append(t.Availability, "ambiguous delivered events")
@@ -254,6 +275,15 @@ func Analyze(records timeline.Records, domain string, inferred *regexp.Regexp) R
 		a, b := r.Tokens[i], r.Tokens[j]
 		if a.Journal != b.Journal {
 			return a.Journal < b.Journal
+		}
+		if a.RequestID != b.RequestID {
+			return a.RequestID < b.RequestID
+		}
+		if a.Role != b.Role {
+			return a.Role < b.Role
+		}
+		if a.ID != b.ID && a.Index == b.Index && a.Phase == b.Phase {
+			return a.ID < b.ID
 		}
 		if a.Phase != b.Phase {
 			return a.Phase < b.Phase

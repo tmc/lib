@@ -233,3 +233,17 @@ func TestDecodeRanges(t *testing.T) {
 		t.Errorf("api thread = %d, want 3", a.Thread)
 	}
 }
+
+func TestMarkerUnknownTimestamp(t *testing.T) {
+	b := journaltest.New().Kernel(2, 3, 1)
+	for _, at := range []int{0, 1} {
+		b.Append(wire.KindActivity, map[string]any{"kind": "activity", "subtype": "marker", "valid": true, "name": "endpoint", "marker_flags": MarkerInstantaneous, "process_id": 7, "thread_id": 2, "start": at, "end": at})
+	}
+	records, err := Decode(map[string][]byte{"capture.journal": b.Finalize()}, MaxRecords, 1<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(records.Markers) != 1 || records.Markers[0].Time != 1 {
+		t.Fatalf("unknown CUPTI timestamp retained: %+v", records.Markers)
+	}
+}
