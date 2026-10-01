@@ -17,6 +17,13 @@ import (
 // Incomplete records are rejected before writing any trace data. Extra
 // annotations describe caller-supplied context; they do not alter the record.
 func WriteRecord(w *perfetto.Writer, track uint64, origin uint64, r Record, extra ...perfetto.DebugAnnotation) error {
+	return WriteRecordWithCallstack(w, track, origin, r, 0, extra...)
+}
+
+// WriteRecordWithCallstack writes an activity with an interned submission or
+// scope-entry stack. callstack must have been returned by w.InternCallstack;
+// zero writes no stack. The stack describes host provenance, not GPU execution.
+func WriteRecordWithCallstack(w *perfetto.Writer, track uint64, origin uint64, r Record, callstack uint64, extra ...perfetto.DebugAnnotation) error {
 	if w == nil {
 		return errors.New("cuptiactivity: nil trace writer")
 	}
@@ -88,7 +95,7 @@ func WriteRecord(w *perfetto.Writer, track uint64, origin uint64, r Record, extr
 			perfetto.NewUintAnnotation("cuda_event_sync_id", r.CudaEventSyncID))
 	}
 	annotations = append(annotations, extra...)
-	if err := w.WriteSliceBeginWithAnnotations(track, r.Start-origin, name, "cupti", annotations, nil); err != nil {
+	if err := w.WriteSliceBeginWithCallstack(track, r.Start-origin, name, "cupti", annotations, callstack); err != nil {
 		return fmt.Errorf("cuptiactivity: write activity start: %w", err)
 	}
 	if err := w.WriteSliceEnd(track, r.End-origin); err != nil {

@@ -43,7 +43,7 @@ func (pw *Writer) WriteFlowInstant(trackUUID, tsNs uint64, name, category string
 	}
 	var packet []byte
 	packet = append(packet, encodeVarint(FieldPacketTimestamp, tsNs)...)
-	packet = append(packet, encodeVarint(FieldPacketSequenceID, DefaultSequenceID)...)
+	packet = append(packet, encodeVarint(FieldPacketSequenceID, pw.sequenceID())...)
 	packet = append(packet, encodeLengthDelimited(FieldPacketTrackEvent, body)...)
 	return pw.writePacket(packet, true)
 }
