@@ -31,6 +31,17 @@
 // contents or headers read from external include paths. Use WithNoCache when
 // those inputs can change without changing the key.
 //
+// # Spliced Device Functions
+//
+// [SpliceAndCompile] sends the fully spliced source through the same cache.
+// The key also includes name expressions and tracked external dependency
+// contents; caching is disabled when an external dependency cannot be tracked.
+// The compiler identity includes the NVRTC version and path, output kind, and
+// cache format. JIT options are not part of the key even though SpliceAndCompile
+// forwards them and the returned CompiledModule retains them. Callers that use
+// different JIT options with the same compile inputs should disable the cache
+// until that identity boundary includes JIT options.
+//
 // # Usage
 //
 // Illustrative fragment; sourceCode and dev are supplied by the caller:
