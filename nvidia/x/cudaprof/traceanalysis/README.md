@@ -67,9 +67,19 @@ Old or external traces without these roles remain unavailable for role-sensitive
 queries. Supplied exported annotations are provenance, not independently
 measured collector/correctness evidence. External overview is a partial role
 inventory; native token/operation/dependency views require their retained
-metadata. The initial SQL delivery/correlation/unmatched modules return explicit
-unavailable states until versioned request/submission receipts are supplied.
-Native versions of those queries preserve the observations and matching reasons.
+metadata. SQL delivery cadence remains unavailable without request identity.
+Correlation and unmatched queries consume the native match receipts emitted by
+`trace export -submission-links` or `trace compare -submission-links`. The
+`submission_receipt` role, `cudaprof.correlation.v1` schema and matching
+`cudaprof.correlation_coverage.v1` count must be present. Queries select the
+requested driver/runtime domain and retain each capture/arm/journal/positive raw
+sequence once. Duplicate source identities or inconsistent coverage are
+unavailable. An available coverage row with no activity rows establishes zero
+unmatched receipts; missing coverage cannot establish zero. Serialized native
+matches are hex encoded to preserve exact JSON through the local CSV adapter.
+The CLI checks their fields against SQL status columns. Supplied receipts remain
+provenance, not independent collector or causal evidence. Native queries retain
+the same match observations and reasons without re-inference.
 
 The CPU-only parity test emits a valid fixture with overlapping streams and a
 repeated hierarchy representation. It compares native union/kernel counts and
@@ -91,4 +101,12 @@ shape totals against native analysis:
 
 ```sh
 CUDAPROF_TRACE_PROCESSOR="$TP" go test ./x/cmd/cudaprof -run TestTraceExportSQLParity
+```
+
+The fixture-only submission parity test covers matched, missing, ambiguous and
+unsupported native matches, zero unmatched work, duplicate source identity and
+wrong-domain refusal:
+
+```sh
+CUDAPROF_TRACE_PROCESSOR="$TP" go test ./x/cmd/cudaprof -run TestTraceSubmissionSQLParity
 ```
