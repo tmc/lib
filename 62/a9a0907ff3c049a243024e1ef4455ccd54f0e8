@@ -4,5 +4,5 @@ client=Codex
 claude-code-version=unavailable
 model=GPT-6
 tty=not-a-tty
-pid=86764
+pid=90456
 ITERM_SESSION_ID=unset
