@@ -98,3 +98,32 @@ unmatched work from missing coverage. Duplicate source identities or inconsisten
 coverage remain unavailable. Submission provenance establishes neither causal
 dependencies nor collector completeness. Request delivery cadence remains
 unavailable without explicit request identity.
+
+## Compact native summary
+
+```
+cudaprof trace summary -json run.pprof
+cudaprof trace summary -json -top 5 run.pprof
+cudaprof trace summary -json -view detailed run.pprof
+```
+
+The default native overview uses `cudaprof.trace-summary.v2`. It bounds request,
+operation, kernel-shape and device-window rows before encoding. `-top` defaults
+to 10 and accepts 1–100. Rows report omitted totals; retained references are
+limited to four per row, and long labels carry the complete label's SHA-256.
+Raw-query pointers resolve the omitted evidence against the input capture hash.
+`-view detailed` retains the exhaustive v1 overview; other views are unchanged.
+
+Requests remain separate by journal, PID, request ID and role. Validated v2
+lifecycles show wall and first-delivery latency, consumer spacing and interval
+counts grouped by application-reported execution delta. A delta of two counts
+one interval. Zero-delta intervals and trailing zero runs remain visible;
+they do not prove zero GPU work. Median is the upper middle observed interval.
+All-consumer spacing is reported separately from spacing within each delta group.
+Invalid lifecycles retain reasons and null metrics. Native v1 endpoints cannot
+supply request identity. No clock alignment across journals is inferred.
+
+Collector, correctness, coverage, stationarity and isolation dispositions remain
+independent. Application completion evidence does not replace unknown native
+GPU completion. Kernel-duration sums and recorded device unions are separate
+from request wall time and do not establish a critical path.
