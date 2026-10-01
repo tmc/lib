@@ -112,6 +112,8 @@ func init() {
 // Do with neither bracket active does not pin and costs nothing beyond
 // [pprof.Do].
 func Do(ctx context.Context, labels pprof.LabelSet, f func(ctx context.Context)) {
+	leave := enterStack("scope_entry", 3)
+	defer leave()
 	pprof.Do(ctx, labels, func(labeledCtx context.Context) {
 		corrID := atomic.AddUint64(&nextCorrID, 1)
 		entered := pushCorrelation(labeledCtx, corrID)
