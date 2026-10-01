@@ -138,11 +138,19 @@ func NewBoolAnnotation(name string, val bool) DebugAnnotation {
 type Writer struct {
 	// TimestampClockID, when nonzero, sets the clock of timestamped packets.
 	// Set it before writing. Zero preserves the protocol default.
-	TimestampClockID   uint64
+	TimestampClockID uint64
+	// SequenceID identifies incremental state. Set it before writing.
+	SequenceID         uint64
 	mu                 sync.Mutex
 	w                  io.Writer
 	buf                bytes.Buffer
 	hasEmittedSeqFlags bool
+	stackMu            sync.Mutex
+	callstacks         map[string]uint64
+	stackFrames        map[StackFrame]uint64
+	stackStrings       map[string]uint64
+	stackErr           error
+	stackSequence      uint64
 }
 
 // NewWriter returns a new Perfetto trace writer writing into w.
@@ -222,7 +230,7 @@ func (pw *Writer) WriteClockSnapshot(hostMonotonicNs, gpuClockNs uint64) error {
 	snapshotBody = append(snapshotBody, encodeLengthDelimited(FieldClockSnapshotClocks, clock2)...)
 
 	var packetBody []byte
-	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, DefaultSequenceID)...)
+	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, pw.sequenceID())...)
 	packetBody = append(packetBody, encodeLengthDelimited(FieldPacketClockSnapshot, snapshotBody)...)
 	packet := encodeLengthDelimited(FieldTracePacket, packetBody)
 
@@ -248,7 +256,7 @@ func (pw *Writer) WriteTrackDescriptor(uuid uint64, name string, parentUUID uint
 	}
 
 	var packetBody []byte
-	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, DefaultSequenceID)...)
+	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, pw.sequenceID())...)
 	packetBody = append(packetBody, encodeLengthDelimited(FieldPacketTrackDesc, body)...)
 	return pw.writePacket(packetBody, true)
 }
@@ -268,7 +276,7 @@ func (pw *Writer) WriteProcessDescriptor(uuid uint64, pid int32, processName str
 	body = append(body, encodeLengthDelimited(FieldTrackDescProcessUUID, procBody)...)
 
 	var packetBody []byte
-	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, DefaultSequenceID)...)
+	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, pw.sequenceID())...)
 	packetBody = append(packetBody, encodeLengthDelimited(FieldPacketTrackDesc, body)...)
 	return pw.writePacket(packetBody, true)
 }
@@ -291,7 +299,7 @@ func (pw *Writer) WriteThreadDescriptor(uuid uint64, pid int32, tid int32, threa
 	body = append(body, encodeLengthDelimited(FieldTrackDescThreadUUID, thBody)...)
 
 	var packetBody []byte
-	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, DefaultSequenceID)...)
+	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, pw.sequenceID())...)
 	packetBody = append(packetBody, encodeLengthDelimited(FieldPacketTrackDesc, body)...)
 	return pw.writePacket(packetBody, true)
 }
@@ -314,7 +322,7 @@ func (pw *Writer) WriteCounterDescriptor(uuid uint64, name string, unitName stri
 	body = append(body, encodeLengthDelimited(FieldTrackDescCounter, counterBody)...)
 
 	var packetBody []byte
-	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, DefaultSequenceID)...)
+	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, pw.sequenceID())...)
 	packetBody = append(packetBody, encodeLengthDelimited(FieldPacketTrackDesc, body)...)
 	return pw.writePacket(packetBody, true)
 }
@@ -328,7 +336,7 @@ func (pw *Writer) WriteCounterValue(trackUUID uint64, tsNs uint64, val int64) er
 
 	var packetBody []byte
 	packetBody = append(packetBody, encodeVarint(FieldPacketTimestamp, tsNs)...)
-	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, DefaultSequenceID)...)
+	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, pw.sequenceID())...)
 	packetBody = append(packetBody, encodeLengthDelimited(FieldPacketTrackEvent, body)...)
 
 	return pw.writePacket(packetBody, false)
@@ -349,7 +357,7 @@ func (pw *Writer) WriteDoubleCounterValue(trackUUID uint64, tsNs uint64, val flo
 
 	var packetBody []byte
 	packetBody = append(packetBody, encodeVarint(FieldPacketTimestamp, tsNs)...)
-	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, DefaultSequenceID)...)
+	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, pw.sequenceID())...)
 	packetBody = append(packetBody, encodeLengthDelimited(FieldPacketTrackEvent, body)...)
 
 	return pw.writePacket(packetBody, false)
@@ -368,7 +376,7 @@ func (pw *Writer) WriteSliceEnd(trackUUID uint64, tsNs uint64) error {
 
 	var packetBody []byte
 	packetBody = append(packetBody, encodeVarint(FieldPacketTimestamp, tsNs)...)
-	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, DefaultSequenceID)...)
+	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, pw.sequenceID())...)
 	packetBody = append(packetBody, encodeLengthDelimited(FieldPacketTrackEvent, body)...)
 
 	return pw.writePacket(packetBody, false)
@@ -388,7 +396,7 @@ func (pw *Writer) WriteInstant(trackUUID uint64, tsNs uint64, name string, categ
 
 	var packetBody []byte
 	packetBody = append(packetBody, encodeVarint(FieldPacketTimestamp, tsNs)...)
-	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, DefaultSequenceID)...)
+	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, pw.sequenceID())...)
 	packetBody = append(packetBody, encodeLengthDelimited(FieldPacketTrackEvent, body)...)
 
 	return pw.writePacket(packetBody, false)
@@ -439,6 +447,10 @@ func encodeSourceLocation(loc SourceLocation) []byte {
 
 // WriteSliceBeginWithAnnotations records the start of a timed slice with debug annotations and optional source location.
 func (pw *Writer) WriteSliceBeginWithAnnotations(trackUUID uint64, tsNs uint64, name string, category string, annotations []DebugAnnotation, loc *SourceLocation) error {
+	return pw.writeSliceBegin(trackUUID, tsNs, name, category, annotations, loc, 0)
+}
+
+func (pw *Writer) writeSliceBegin(trackUUID uint64, tsNs uint64, name string, category string, annotations []DebugAnnotation, loc *SourceLocation, callstackID uint64) error {
 	var body []byte
 	body = append(body, encodeVarint(FieldTrackEventType, TrackEventTypeSliceBegin)...)
 	body = append(body, encodeVarint(FieldTrackEventTrackUUID, trackUUID)...)
@@ -455,9 +467,12 @@ func (pw *Writer) WriteSliceBeginWithAnnotations(trackUUID uint64, tsNs uint64, 
 		body = append(body, encodeSourceLocation(*loc)...)
 	}
 
+	if callstackID != 0 {
+		body = append(body, encodeVarint(56, callstackID)...)
+	}
 	var packetBody []byte
 	packetBody = append(packetBody, encodeVarint(FieldPacketTimestamp, tsNs)...)
-	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, DefaultSequenceID)...)
+	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, pw.sequenceID())...)
 	packetBody = append(packetBody, encodeLengthDelimited(FieldPacketTrackEvent, body)...)
 	return pw.writePacket(packetBody, true)
 }
