@@ -686,7 +686,7 @@ func TestUnfinalizedNoCUDAJournal(t *testing.T) {
 				"worker-a-capture.journal": tt.journal,
 				"worker-b-capture.journal": newJournalBuilder().kernel(100, 200, 1).api(90, 95, 1).finalize(),
 			}
-			_, _, _, exportErr := decodeTraceJournals(journals, controllerMaxJournalRecords, 1<<20)
+			_, _, _, exportErr := decodeTraceJournals(journals, controllerMaxJournalRecords, 1<<20, false)
 			if tt.wantErr != "" {
 				if exportErr == nil || !strings.Contains(exportErr.Error(), tt.wantErr) {
 					t.Errorf("export error = %v, want %q", exportErr, tt.wantErr)

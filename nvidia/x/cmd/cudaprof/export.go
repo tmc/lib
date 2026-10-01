@@ -19,6 +19,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudaprof/iteration"
 	"github.com/tmc/lib/nvidia/x/cudaprof/overview"
+	languagestack "github.com/tmc/lib/nvidia/x/cudaprof/stack"
 	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 	"github.com/tmc/lib/nvidia/x/cuptiactivity"
 	"github.com/tmc/lib/nvidia/x/perfetto"
@@ -89,9 +90,16 @@ func runExportCommand(args []string) error {
 		return err
 	}
 	maxRecords, journalBytes := decodeLimits(cap, opts.maxRecords, opts.journalBytes)
-	records, nvtx, ext, err := decodeTraceJournals(journals, maxRecords, journalBytes)
+	records, nvtx, ext, err := decodeTraceJournals(journals, maxRecords, journalBytes, haveLanguageStacks(cap))
 	if err != nil {
 		return decodeRemedy(cap, err, maxRecords, journalBytes)
+	}
+	if err := attachLanguageStacks(cap, records); err != nil {
+		return err
+	}
+	records, err = appendLanguageSamples(cap, records)
+	if err != nil {
+		return err
 	}
 	var telemetry []capturePhaseEdge
 	if opts.telemetry {
@@ -422,18 +430,26 @@ const (
 type trackKind uint32
 
 const (
-	trackDevice trackKind = iota // device: group is (device, stream)
-	trackHost                    // host API: group is (pid, thread)
-	trackNVTX                    // NVTX range: group is (pid, thread)
+	trackDevice      trackKind = iota // device: group is (device, stream)
+	trackHost                         // host API: group is (pid, thread)
+	trackNVTX                         // NVTX range: group is (pid, thread)
+	trackStackSample                  // observed host stack samples, not CUDA calls
 )
 
 // traceRecord is one activity with the track it belongs on. The track key is
 // separate from the record because a device stream and a host thread are
 // different namespaces that would otherwise collide on small integers.
 type traceRecord struct {
-	journal     string
-	sequence    uint64
-	annotations []perfetto.DebugAnnotation
+	journal       string
+	sequence      uint64
+	annotations   []perfetto.DebugAnnotation
+	session       string
+	process       uint64
+	generation    uint64
+	external      map[uint32]cuptiactivity.ExternalMatch
+	stack         *languagestack.Record
+	sample        *languagestack.Sample
+	clocksUnified bool
 
 	rec   cuptiactivity.Record
 	kind  trackKind
@@ -444,7 +460,7 @@ type traceRecord struct {
 // calls. The refusals mirror timeline.Decode: a journal that never finalized,
 // lost records, or decoded short leaves a timeline whose missing spans read as
 // idle device, which is a wrong answer rather than a partial one.
-func decodeTraceJournals(journals map[string][]byte, maxRecords, maxBytes int64) ([]traceRecord, nvtxSummary, externalSummary, error) {
+func decodeTraceJournals(journals map[string][]byte, maxRecords, maxBytes int64, stacks bool) ([]traceRecord, nvtxSummary, externalSummary, error) {
 	names := make([]string, 0, len(journals))
 	for name := range journals {
 		names = append(names, name)
@@ -458,7 +474,7 @@ func decodeTraceJournals(journals map[string][]byte, maxRecords, maxBytes int64)
 		if err != nil {
 			return nil, nvtx, ext, fmt.Errorf("read journal %s: %w", name, err)
 		}
-		err = decodeTraceJournal(name, reader, maxRecords, &out, &nvtx, &ext)
+		err = decodeTraceJournal(name, reader, maxRecords, &out, &nvtx, &ext, stacks)
 		if cerr := reader.Close(); err == nil && cerr != nil {
 			err = fmt.Errorf("close journal %s: %w", name, cerr)
 		}
@@ -674,7 +690,7 @@ func markerRange(start tracePayload, end uint64) traceRecord {
 	}
 }
 
-func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]traceRecord, nvtx *nvtxSummary, ext *externalSummary) error {
+func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]traceRecord, nvtx *nvtxSummary, ext *externalSummary, stacks bool) error {
 	limit := uint32(math.MaxUint32)
 	if maxRecords > 0 && maxRecords < math.MaxUint32 {
 		limit = uint32(maxRecords)
@@ -685,6 +701,8 @@ func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]
 	var markers []tracePayload
 	var externals []cuptiactivity.Record
 	var session string
+	var process, generation uint64
+	var clocksUnified bool
 	base := len(*out)
 	for {
 		r, err := d.Next()
@@ -715,6 +733,15 @@ func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]
 				}
 				for i := base; i < len(*out); i++ {
 					(*out)[i].journal = name
+					(*out)[i].session = session
+					(*out)[i].process = process
+					(*out)[i].generation = generation
+					(*out)[i].clocksUnified = clocksUnified
+				}
+				if stacks {
+					if err := retainStackCorrelations((*out)[base:], externals); err != nil {
+						return err
+					}
 				}
 				return nil
 			case errors.Is(err, io.ErrUnexpectedEOF):
@@ -726,6 +753,7 @@ func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]
 		if first {
 			d.ExpectSession(r.Session)
 			session = hex.EncodeToString(r.Session[:])
+			process, generation = r.Process, r.Generation
 			first = false
 		}
 		decoded++
@@ -739,6 +767,14 @@ func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]
 		noCUDA.Observe(r.Kind, p.Subtype, r.Payload)
 		p.sequence = r.Sequence
 		switch r.Kind {
+		case wire.KindCapability:
+			var capability struct {
+				ClocksUnified bool `json:"clocks_unified"`
+			}
+			if err := json.Unmarshal(r.Payload, &capability); err != nil {
+				return err
+			}
+			clocksUnified = capability.ClocksUnified
 		case wire.KindActivity:
 			if p.Dropped > 0 {
 				return fmt.Errorf("journal %s reports %d dropped record(s), so the timeline is missing activities", name, p.Dropped)
@@ -902,6 +938,7 @@ func writeTrace(w io.Writer, records []traceRecord) (int, error) {
 func writeTraceOrigin(w io.Writer, records []traceRecord, origin, uuidBase uint64, label string, identities ...traceExportIdentity) (int, error) {
 	uuids, names := assignTracks(records)
 	pw := perfetto.NewWriter(w)
+	pw.SequenceID = 100 + (uuidBase >> 32)
 	if label != "" {
 		pw.TimestampClockID = perfetto.ClockBoottime
 	}
@@ -926,7 +963,21 @@ func writeTraceOrigin(w io.Writer, records []traceRecord, origin, uuidBase uint6
 			annotations = append(annotations, perfetto.NewStringAnnotation("cudaprof_capture_sha256", identity.sha256), perfetto.NewStringAnnotation("cudaprof_arm", identity.arm))
 		}
 		annotations = append(annotations, perfetto.NewStringAnnotation("cudaprof_activity_kind", traceRecordKind(t)))
-		if err := cuptiactivity.WriteRecord(pw, uuidBase+uuids[i], origin, t.rec, annotations...); err != nil {
+		stackID, err := internLanguageStack(pw, t.stack)
+		if t.sample != nil {
+			stackID, err = internLanguageFrames(pw, t.sample.Frames)
+		}
+		if err != nil {
+			return len(names), fmt.Errorf("intern record %d stack: %w", i, err)
+		}
+		annotations = append(annotations, perfetto.NewUintAnnotation("cudaprof_stack_iid", stackID))
+		if t.sample != nil {
+			if err := pw.WriteInstantWithCallstack(uuidBase+uuids[i], t.rec.Start-origin, t.rec.Name, "host_stack_sample", annotations, stackID); err != nil {
+				return len(names), fmt.Errorf("write sample %d: %w", i, err)
+			}
+			continue
+		}
+		if err := cuptiactivity.WriteRecordWithCallstack(pw, uuidBase+uuids[i], origin, t.rec, stackID, annotations...); err != nil {
 			return len(names), fmt.Errorf("write record %d: %w", i, err)
 		}
 	}
@@ -1015,6 +1066,8 @@ func trackName(kind trackKind, group [2]uint32, lane int) string {
 		name = fmt.Sprintf("pid %d thread %d", group[0], group[1])
 	case trackNVTX:
 		name = fmt.Sprintf("nvtx pid %d thread %d", group[0], group[1])
+	case trackStackSample:
+		name = fmt.Sprintf("host stack samples pid %d thread %d", group[0], group[1])
 	default:
 		name = fmt.Sprintf("device %d stream %d", group[0], group[1])
 	}

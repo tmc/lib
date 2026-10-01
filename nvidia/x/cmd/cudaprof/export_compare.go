@@ -285,7 +285,14 @@ func loadAlignmentArm(opts exportCompareOptions, i int) (alignmentArm, error) {
 		return arm, err
 	}
 	maxRecords, maxBytes := decodeLimits(cap, opts.maxRecords, opts.journalBytes)
-	arm.records, _, _, err = decodeTraceJournals(journals, maxRecords, maxBytes)
+	arm.records, _, _, err = decodeTraceJournals(journals, maxRecords, maxBytes, haveLanguageStacks(cap))
+	if err != nil {
+		return arm, err
+	}
+	if err := attachLanguageStacks(cap, arm.records); err != nil {
+		return arm, err
+	}
+	arm.records, err = appendLanguageSamples(cap, arm.records)
 	if err != nil {
 		return arm, err
 	}
