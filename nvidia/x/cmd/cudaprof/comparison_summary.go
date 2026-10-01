@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 
@@ -105,7 +106,10 @@ func makeComparisonSummary(s comparisonShapeReceipt, a alignmentReceipt, c *camp
 					if string(launchIdentity) != string(identity) {
 						return r, errors.New("comparison-summary: launch identity differs from matched group")
 					}
-					op.References[arm] = append(op.References[arm], comparisonReference{CaptureSHA256: a.Arms[arm].SHA256, Journal: l.Journal, Activity: l.Activity, RawSymbol: l.RawSymbol, OriginalStart: l.Start, AlignedStart: l.Start + a.Arms[arm].Offset, Trace: a.Arms[arm].Trace, Lookup: "match capture_journal, raw_symbol and aligned_start_ns; activity index is the timeline decoder's original index"})
+					if a.Arms[arm].Origin < 0 || a.Arms[arm].Offset < 0 || l.Start < a.Arms[arm].Origin || l.Start-a.Arms[arm].Origin > math.MaxInt64-a.Arms[arm].Offset {
+						return r, errors.New("comparison-summary: invalid or overflowing aligned reference")
+					}
+					op.References[arm] = append(op.References[arm], comparisonReference{CaptureSHA256: a.Arms[arm].SHA256, Journal: l.Journal, Activity: l.Activity, RawSymbol: l.RawSymbol, OriginalStart: l.Start, AlignedStart: l.Start - a.Arms[arm].Origin + a.Arms[arm].Offset, Trace: a.Arms[arm].Trace, Lookup: "match capture_journal, raw_symbol and aligned_start_ns; activity index is the timeline decoder's original index"})
 				}
 			}
 			r.Operations = append(r.Operations, op)
