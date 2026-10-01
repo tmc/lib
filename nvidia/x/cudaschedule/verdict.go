@@ -91,22 +91,47 @@ func (v Verdict) FindingLabel() string {
 
 // RunRecord captures the recorded outcome of executing a kernel binary.
 type RunRecord struct {
-	ExitCode      int        `json:"exit_code"`
-	Exited        bool       `json:"exited"`
-	TimedOut      bool       `json:"timed_out"`
-	Signal        string     `json:"signal,omitempty"`
-	PristineRun   bool       `json:"pristine_run,omitempty"`
-	Stdout        string     `json:"stdout"`
-	Stderr        string     `json:"stderr"`
-	HarnessErr    string     `json:"harness_error,omitempty"`
-	Pristine      *RunRecord `json:"pristine,omitempty"`
-	Baseline      *RunRecord `json:"baseline,omitempty"`
-	CompareOutput bool       `json:"compare_output,omitempty"`
+	ExitCode    int    `json:"exit_code"`
+	Exited      bool   `json:"exited"`
+	TimedOut    bool   `json:"timed_out"`
+	Signal      string `json:"signal,omitempty"`
+	PristineRun bool   `json:"pristine_run,omitempty"`
+	Stdout      string `json:"stdout"`
+	Stderr      string `json:"stderr"`
+	HarnessErr  string `json:"harness_error,omitempty"`
+	// PTXDigest is the runner-reported SHA-256 digest of the loaded PTX.
+	PTXDigest string `json:"ptx_sha256,omitempty"`
+	// PTXDigestSource identifies the receipt as "runner_receipt".
+	PTXDigestSource string `json:"ptx_digest_source,omitempty"`
+	// ExpectedPTXDigest is the digest of the PTX source the campaign supplied.
+	ExpectedPTXDigest string `json:"expected_ptx_sha256,omitempty"`
+	// OracleAttached requires a liveness receipt from the instrumented runner.
+	OracleAttached             bool       `json:"oracle_attached,omitempty"`
+	OraclePID                  int        `json:"oracle_pid,omitempty"`
+	OraclePatchedModules       int        `json:"oracle_patched_modules,omitempty"`
+	OracleInstrumentedAccesses uint64     `json:"oracle_instrumented_accesses,omitempty"`
+	PTXPath                    string     `json:"ptx_path,omitempty"`
+	StdoutPath                 string     `json:"stdout_path,omitempty"`
+	StderrPath                 string     `json:"stderr_path,omitempty"`
+	ReplayScriptPath           string     `json:"replay_script_path,omitempty"`
+	Pristine                   *RunRecord `json:"pristine,omitempty"`
+	Baseline                   *RunRecord `json:"baseline,omitempty"`
+	CompareOutput              bool       `json:"compare_output,omitempty"`
 }
 
 // Classify determines the verdict for a recorded run. It is a pure function
 // of the recorded execution outcome with no hardware interaction.
+// Missing, invalid or mismatched loaded-PTX receipts are HarnessError,
+// including timeouts before a load receipt. Matching SHA-256 digests and
+// PTXDigestSource "runner_receipt" are required for every executed outcome.
 func Classify(run RunRecord) Verdict {
+	if !validPTXDigest(run.PTXDigest) || !validPTXDigest(run.ExpectedPTXDigest) ||
+		run.PTXDigest != run.ExpectedPTXDigest || run.PTXDigestSource != "runner_receipt" {
+		return VerdictHarnessError
+	}
+	if run.OracleAttached && (run.OraclePID <= 0 || run.OraclePatchedModules <= 0 || run.OracleInstrumentedAccesses == 0) {
+		return VerdictHarnessError
+	}
 	// 1. Harness error: variant never ran or preparation failed.
 	if run.HarnessErr != "" {
 		return VerdictHarnessError
@@ -119,6 +144,8 @@ func Classify(run RunRecord) Verdict {
 			if pristineVerdict == VerdictHarnessError {
 				return VerdictHarnessError
 			}
+			// Any non-pass health check, including a graceful skip, leaves the
+			// device unable to establish the run's timeout cause.
 			if pristineVerdict != VerdictPass {
 				return VerdictGpuWedged
 			}
@@ -148,6 +175,9 @@ func Classify(run RunRecord) Verdict {
 
 	// 6. Opt-in output change against baseline.
 	if run.CompareOutput && run.Baseline != nil {
+		if Classify(*run.Baseline) != VerdictPass {
+			return VerdictHarnessError
+		}
 		if strings.TrimSpace(run.Stdout) != strings.TrimSpace(run.Baseline.Stdout) {
 			return VerdictOutputChanged
 		}

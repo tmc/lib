@@ -358,6 +358,12 @@ func TestAnalyze_RejectsMalformedModules(t *testing.T) {
 	}{
 		{"empty", ""},
 		{"not ptx", "this is not ptx {{{"},
+		{"missing version", `.target sm_90
+.address_size 64
+.visible .entry foo(){ ret; }`},
+		{"missing target", `.version 8.7
+.address_size 64
+.visible .entry foo(){ ret; }`},
 		{"unterminated", `.version 8.7
 .target sm_90
 .visible .entry broken(){ atom.global.add.u32 %r,[%rd],1;`},

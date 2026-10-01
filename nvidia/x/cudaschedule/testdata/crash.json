@@ -1,5 +1,5 @@
 {
-  "provenance": "synthetic: hand-written host record per Slice 5",
+  "provenance": "synthetic: hand-written host record per Slice 5; synthetic matching digest receipt (not a device capture)",
   "expected_verdict": "Crash",
   "record": {
     "exit_code": 139,
@@ -7,6 +7,9 @@
     "timed_out": false,
     "signal": "SIGSEGV",
     "stdout": "",
-    "stderr": "CUDA illegal memory access detected\n"
+    "stderr": "CUDA illegal memory access detected\n",
+    "ptx_sha256": "242cdddd59fb0b2f15b4dc6b138b4323f197fab8ccbdc1e830835bd3620419fd",
+    "expected_ptx_sha256": "242cdddd59fb0b2f15b4dc6b138b4323f197fab8ccbdc1e830835bd3620419fd",
+    "ptx_digest_source": "runner_receipt"
   }
 }

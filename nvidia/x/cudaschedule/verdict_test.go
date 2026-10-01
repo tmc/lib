@@ -73,7 +73,7 @@ func TestClassify_WedgeRequiresPristineFailure(t *testing.T) {
 			Stdout:   "PASS: pristine re-run succeeded\n",
 		},
 	}
-	if v := cudaschedule.Classify(hangWithGoodPristine); v != cudaschedule.VerdictHang {
+	if v := classifySyntheticRecord(hangWithGoodPristine); v != cudaschedule.VerdictHang {
 		t.Errorf("Hang with good pristine classified as %s, want Hang", v)
 	}
 
@@ -85,8 +85,24 @@ func TestClassify_WedgeRequiresPristineFailure(t *testing.T) {
 			Stderr:   "device unresponsive\n",
 		},
 	}
-	if v := cudaschedule.Classify(hangWithFailedPristine); v != cudaschedule.VerdictGpuWedged {
+	if v := classifySyntheticRecord(hangWithFailedPristine); v != cudaschedule.VerdictGpuWedged {
 		t.Errorf("Hang with failed pristine classified as %s, want GpuWedged", v)
+	}
+}
+
+func TestClassify_HangWithPristineSkipIsGpuWedged(t *testing.T) {
+	record := cudaschedule.RunRecord{
+		TimedOut: true,
+		Pristine: &cudaschedule.RunRecord{Exited: true, Stdout: "skipping: target unavailable"},
+	}
+	if got := classifySyntheticRecord(record); got != cudaschedule.VerdictGpuWedged {
+		t.Fatalf("hang with skipped pristine run classified as %s, want GpuWedged", got)
+	}
+}
+
+func TestVerdictEmptyDrawString(t *testing.T) {
+	if got := cudaschedule.VerdictEmptyDraw.String(); got != "EmptyDraw" {
+		t.Fatalf("VerdictEmptyDraw.String() = %q, want EmptyDraw", got)
 	}
 }
 
@@ -97,7 +113,7 @@ func TestControl_ClassifierDistinguishesMismatch(t *testing.T) {
 		Stdout:   "MISMATCH at index 5: computed 42.0 != expected 0.0\n",
 	}
 
-	verdict := cudaschedule.Classify(mismatchRecord)
+	verdict := classifySyntheticRecord(mismatchRecord)
 	if verdict == cudaschedule.VerdictPass {
 		t.Fatalf("dead classifier: Mismatch classified as Pass!")
 	}
@@ -106,6 +122,23 @@ func TestControl_ClassifierDistinguishesMismatch(t *testing.T) {
 	}
 	if !verdict.IsFinding() {
 		t.Fatalf("Mismatch must be a schedule finding")
+	}
+}
+
+func TestClassify_PristineDigestUnderInjectedDecisionIsHarnessError(t *testing.T) {
+	run := cudaschedule.RunRecord{
+		Exited:            true,
+		Stdout:            "MISMATCH injected decision",
+		PTXDigest:         testPTXDigest("pristine"),
+		ExpectedPTXDigest: testPTXDigest("rewritten"),
+		PTXDigestSource:   "runner_receipt",
+	}
+	if got := classifySyntheticRecord(run); got != cudaschedule.VerdictHarnessError {
+		t.Fatalf("wrong PTX digest classified as %s, want HarnessError", got)
+	}
+	run.PTXDigest = ""
+	if got := classifySyntheticRecord(run); got != cudaschedule.VerdictHarnessError {
+		t.Fatalf("missing PTX digest classified as %s, want HarnessError", got)
 	}
 }
 
@@ -140,7 +173,7 @@ func TestControl_HarnessErrorNotFinding(t *testing.T) {
 		HarnessErr: "ptx patch failed: objcopy error",
 	}
 
-	verdict := cudaschedule.Classify(harnessErr)
+	verdict := classifySyntheticRecord(harnessErr)
 	if verdict != cudaschedule.VerdictHarnessError {
 		t.Fatalf("classified as %s, want HarnessError", verdict)
 	}

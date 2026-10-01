@@ -1,5 +1,5 @@
 {
-  "provenance": "synthetic: hand-written host record per Slice 5",
+  "provenance": "synthetic: hand-written host record per Slice 5; synthetic matching digest receipt (not a device capture)",
   "expected_verdict": "OutputChanged",
   "record": {
     "exit_code": 0,
@@ -13,7 +13,13 @@
       "exited": true,
       "timed_out": false,
       "stdout": "ordering: warp 0 finished first\n",
-      "stderr": ""
-    }
+      "stderr": "",
+      "ptx_sha256": "242cdddd59fb0b2f15b4dc6b138b4323f197fab8ccbdc1e830835bd3620419fd",
+      "expected_ptx_sha256": "242cdddd59fb0b2f15b4dc6b138b4323f197fab8ccbdc1e830835bd3620419fd",
+      "ptx_digest_source": "runner_receipt"
+    },
+    "ptx_sha256": "242cdddd59fb0b2f15b4dc6b138b4323f197fab8ccbdc1e830835bd3620419fd",
+    "expected_ptx_sha256": "242cdddd59fb0b2f15b4dc6b138b4323f197fab8ccbdc1e830835bd3620419fd",
+    "ptx_digest_source": "runner_receipt"
   }
 }

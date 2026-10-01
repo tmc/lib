@@ -5,6 +5,8 @@ package cudaschedule_test
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -49,6 +51,8 @@ func TestCampaignNativeHarness(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	digest := sha256.Sum256(image)
+	fmt.Fprintf(os.Stdout, "CUDASCHEDULE_LOADED_PTX_SHA256:%s\n", hex.EncodeToString(digest[:]))
 	mod, err := cuda.OwnModule(dev, raw)
 	if err != nil {
 		_ = dev.WithContext(raw.Close)
@@ -139,8 +143,10 @@ func TestCampaign_FindingReproducesFromSeed(t *testing.T) {
 	options := func(source string, start, end uint64, images map[string][]byte) cudaschedule.CampaignOptions {
 		return cudaschedule.CampaignOptions{
 			PTXSource: source, SeedStart: start, SeedEnd: end, Intensity: 2,
-			MaxSleepNs:  cudaschedule.DefaultMaxSleepNs,
-			ConfirmRuns: 1, Timeout: 3 * time.Second, PristineTimeout: 8 * time.Second,
+			LaunchGeometry: "grid=1x1x1 block=64x1x1",
+			InputReference: "schedule_race zero-initialized uint64 output",
+			MaxSleepNs:     cudaschedule.DefaultMaxSleepNs,
+			ConfirmRuns:    1, Timeout: 3 * time.Second, PristineTimeout: 8 * time.Second,
 			BuildVariant: build(images),
 		}
 	}
