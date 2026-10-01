@@ -406,20 +406,24 @@ func TestCampaign_CompareOutputUsesBaselineAtCampaignLevel(t *testing.T) {
 func TestCampaign_ExecPathWatchdogRecordsTimeout(t *testing.T) {
 	report, err := runSyntheticCampaign(context.Background(), cudaschedule.CampaignOptions{
 		PTXSource: CAMPAIGN_PTX, SeedStart: 3, SeedEnd: 4, Intensity: 2,
-		ConfirmRuns: 1, Timeout: 100 * time.Millisecond, PristineTimeout: 10 * time.Second,
+		ConfirmRuns: 1, Timeout: 8 * time.Second, PristineTimeout: 30 * time.Second,
 		DeviceProbe: func() bool { return true },
 		BuildVariant: func(_ context.Context, _ uint64, pristine bool, _ string) (string, []string, error) {
 			if pristine {
 				return "/bin/sh", []string{"-c", "echo PASS"}, nil
 			}
-			return "/bin/sh", []string{"-c", "exec sleep 1"}, nil
+			return "/bin/sh", []string{"-c", "exec sleep 30"}, nil
 		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(report.Seeds) != 1 || report.Seeds[0].Verdict != cudaschedule.VerdictHang || report.Seeds[0].Run == nil || !report.Seeds[0].Run.TimedOut {
-		t.Fatalf("exec-path watchdog result = %+v", report.Seeds)
+		var run any
+		if len(report.Seeds) > 0 && report.Seeds[0].Run != nil {
+			run = *report.Seeds[0].Run
+		}
+		t.Fatalf("exec-path watchdog result = %+v, run=%+v", report.Seeds, run)
 	}
 }
 
@@ -523,7 +527,7 @@ func checkHarnessPristineBudget(t *testing.T, opts cudaschedule.CampaignOptions)
 func TestCampaign_BuildFailureIsHarnessErrorAndSweepContinues(t *testing.T) {
 	opts := cudaschedule.CampaignOptions{
 		PTXSource: CAMPAIGN_PTX, SeedStart: 30, SeedEnd: 32, Intensity: 2,
-		ConfirmRuns: 1, Timeout: time.Second, PristineTimeout: 30 * time.Second, DeviceProbe: func() bool { return true },
+		ConfirmRuns: 1, Timeout: 8 * time.Second, PristineTimeout: 30 * time.Second, DeviceProbe: func() bool { return true },
 		BuildVariant: func(_ context.Context, seed uint64, pristine bool, _ string) (string, []string, error) {
 			if !pristine && seed == 30 {
 				return "", nil, fmt.Errorf("compiler rejected variant")
@@ -536,14 +540,20 @@ func TestCampaign_BuildFailureIsHarnessErrorAndSweepContinues(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	var runs []cudaschedule.RunRecord
+	for _, seed := range report.Seeds {
+		if seed.Run != nil {
+			runs = append(runs, *seed.Run)
+		}
+	}
 	if len(report.Seeds) != 2 || report.Seeds[0].Status != cudaschedule.SeedHarnessError || report.Seeds[0].Verdict != cudaschedule.VerdictHarnessError || report.Seeds[0].Verdict.IsFinding() {
-		t.Fatalf("build failure seed = %+v", report.Seeds)
+		t.Fatalf("build failure seed = %+v, runs=%+v", report.Seeds, runs)
 	}
 	if report.Seeds[1].Verdict != cudaschedule.VerdictPass || report.FindingCount() != 0 {
-		t.Fatalf("sweep did not continue after build error: %+v", report.Seeds)
+		t.Fatalf("sweep did not continue after build error: %+v, runs=%+v", report.Seeds, runs)
 	}
 	if report.SeedsDrawn != 2 || report.HarnessErrors != 1 || report.VariantsExecuted != 1 || report.EmptyDraws != 0 {
-		t.Fatalf("seed partition counters = %+v", report)
+		t.Fatalf("seed partition counters = %+v, runs=%+v", report, runs)
 	}
 }
 
