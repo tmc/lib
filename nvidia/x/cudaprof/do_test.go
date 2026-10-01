@@ -187,3 +187,27 @@ func TestDoKeepsLabelsReachableInsideTheRegion(t *testing.T) {
 		}
 	})
 }
+
+func TestDoRetainsEnteredNamespace(t *testing.T) {
+	resetCorrelation(t)
+	oldPush, oldPop := pushExternalID, popExternalID
+	defer func() { pushExternalID, popExternalID = oldPush, oldPop }()
+	var pushed uint64
+	pushExternalID = func(kind cupti.ExternalCorrelationKind, id uint64) error {
+		if kind != cupti.ExternalCorrelationKindCustom0 {
+			t.Fatalf("push kind = %v", kind)
+		}
+		pushed = id
+		return nil
+	}
+	popExternalID = func(kind cupti.ExternalCorrelationKind) (uint64, error) {
+		if kind != cupti.ExternalCorrelationKindCustom0 {
+			t.Fatalf("pop kind = %v, want entered Custom0", kind)
+		}
+		return pushed, nil
+	}
+	Correlate(cupti.ExternalCorrelationKindCustom0)
+	Do(context.Background(), Labels(), func(context.Context) {
+		Correlate(cupti.ExternalCorrelationKindCustom1)
+	})
+}
