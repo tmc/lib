@@ -5,6 +5,7 @@ package cudaschedule_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -58,26 +59,35 @@ func TestCampaignNativeHarness(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	output, err := cudamem.Alloc[uint32](dev, 1)
+	output, err := cudamem.Alloc[uint64](dev, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer output.Free()
-	if err := output.CopyFromHost([]uint32{0}); err != nil {
-		t.Fatal(err)
-	}
-	if err := cudalaunch.OwnedKernel(kernel).Block(64, 1, 1).Launch(output); err != nil {
-		t.Fatal(err)
-	}
-	if err := driver.CtxSynchronize(); err != nil {
-		t.Fatal(err)
-	}
-	got := make([]uint32, 1)
-	if err := output.CopyToHost(got); err != nil {
-		t.Fatal(err)
+	got := make([]uint64, 2)
+	if err := dev.WithContext(func() (err error) {
+		defer func() { err = errors.Join(err, output.Free()) }()
+		if err := output.CopyFromHost([]uint64{0, 0}); err != nil {
+			return fmt.Errorf("initialize output: %w", err)
+		}
+		if err := cudalaunch.OwnedKernel(kernel).Block(64, 1, 1).Launch(output); err != nil {
+			return fmt.Errorf("launch: %w", err)
+		}
+		if err := driver.CtxSynchronize(); err != nil {
+			return fmt.Errorf("synchronize: %w", err)
+		}
+		if err := output.CopyToHost(got); err != nil {
+			return fmt.Errorf("read output: %w", err)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("native child: %v", err)
 	}
 	if err := mod.Close(); err != nil {
 		t.Fatal(err)
+	}
+	fmt.Fprintf(os.Stdout, "READER_DELAY_NS: %d\n", got[1])
+	if got[1] < scheduleReaderDelayThreshold {
+		t.Fatalf("reader delay %d ns below threshold %d ns", got[1], scheduleReaderDelayThreshold)
 	}
 	if got[0] != 1 {
 		fmt.Fprintf(os.Stdout, "MISMATCH: shared handoff produced %d, want 1\n", got[0])
@@ -140,6 +150,14 @@ func TestCampaign_FindingReproducesFromSeed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	checkBaseline := func(report *cudaschedule.CampaignReport) {
+		t.Helper()
+		if err := checkScheduleBaseline(report); err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("baseline output: %s", report.Baseline.Stdout)
+	}
+	checkBaseline(clean)
 	if clean.FindingCount() != 0 {
 		t.Fatalf("synchronized control reported findings: %+v", clean.Seeds)
 	}
@@ -148,6 +166,7 @@ func TestCampaign_FindingReproducesFromSeed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	checkBaseline(first)
 	var seed uint64
 	found := false
 	for _, result := range first.Seeds {
@@ -163,8 +182,8 @@ func TestCampaign_FindingReproducesFromSeed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The fixture has one 64-thread block and no loop. Even if every thread
-	// sleeps at the maximum once at every site, the total is below 3 seconds.
+	// This bounds a single visit to each perturbation site, not the entire
+	// clock-based loop. The watchdog also bounds repeated loop visits.
 	const threadsPerBlock = 64
 	worstInjected := uint64(threadsPerBlock) * uint64(len(sites)) * uint64(cudaschedule.DefaultMaxSleepNs)
 	if worstInjected >= uint64((3 * time.Second).Nanoseconds()) {
@@ -177,6 +196,7 @@ func TestCampaign_FindingReproducesFromSeed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	checkBaseline(second)
 	if len(second.Seeds) != 1 || second.Seeds[0].Verdict != cudaschedule.VerdictMismatch {
 		t.Fatalf("seed %d did not reproduce its mismatch: second=%+v", seed, second.Seeds)
 	}

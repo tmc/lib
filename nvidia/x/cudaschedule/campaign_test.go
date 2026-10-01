@@ -516,8 +516,8 @@ func TestCampaign_BrokenBaselineRunsNoVariants(t *testing.T) {
 			return cudaschedule.RunRecord{Exited: true, Stdout: "MISMATCH"}, nil
 		},
 	})
-	if err != nil {
-		t.Fatal(err)
+	if err == nil || !strings.Contains(err.Error(), "baseline failed") {
+		t.Fatalf("error = %v, want failed baseline", err)
 	}
 	if report.BaselineVerdict != cudaschedule.VerdictMismatch || report.BaselineStatus != "Broken" || len(report.Seeds) != 0 || variantRuns != 1 {
 		t.Fatalf("baseline=%v/%s seeds=%d calls=%d, want Mismatch/Broken/0/1", report.BaselineVerdict, report.BaselineStatus, len(report.Seeds), variantRuns)
@@ -531,11 +531,43 @@ func TestCampaign_BrokenBaselinePrecedesAnalysis(t *testing.T) {
 			return cudaschedule.RunRecord{Exited: true, Stdout: "MISMATCH"}, nil
 		},
 	})
-	if err != nil {
-		t.Fatalf("RunCampaign error = %v, want baseline report before PTX analysis", err)
+	if err == nil || !strings.Contains(err.Error(), "baseline failed") {
+		t.Fatalf("RunCampaign error = %v, want failed baseline before PTX analysis", err)
 	}
 	if report.BaselineStatus != "Broken" || report.BaselineVerdict != cudaschedule.VerdictMismatch || len(report.Seeds) != 0 {
 		t.Fatalf("malformed broken baseline report = %+v", report)
+	}
+}
+
+func TestCampaign_BaselineFailurePreservesDiagnostics(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		run  cudaschedule.RunRecord
+	}{
+		{"child exit", cudaschedule.RunRecord{Exited: true, ExitCode: 1, Stderr: "CUDA_ERROR_INVALID_CONTEXT"}},
+		{"runner error", cudaschedule.RunRecord{HarnessErr: "CUDA_ERROR_INVALID_CONTEXT"}},
+		{"missing result", cudaschedule.RunRecord{}},
+		{"timeout", cudaschedule.RunRecord{TimedOut: true}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			calls := 0
+			report, err := cudaschedule.RunCampaign(context.Background(), cudaschedule.CampaignOptions{
+				PTXSource: CAMPAIGN_PTX, SeedStart: 1, SeedEnd: 4, Intensity: 2, ConfirmRuns: 1,
+				RunVariant: func(_ context.Context, _ uint64, pristine bool, _ string) (cudaschedule.RunRecord, error) {
+					calls++
+					if !pristine {
+						t.Fatal("variant ran after failed baseline")
+					}
+					return test.run, nil
+				},
+			})
+			if err == nil || !strings.Contains(err.Error(), "baseline failed") || calls != 1 || report == nil || len(report.Seeds) != 0 {
+				t.Fatalf("report=%+v error=%v calls=%d, want failed baseline without variants", report, err, calls)
+			}
+			if strings.Contains(test.run.Stderr+test.run.HarnessErr, "CUDA_ERROR_INVALID_CONTEXT") && !strings.Contains(err.Error(), "CUDA_ERROR_INVALID_CONTEXT") {
+				t.Fatalf("lost CUDA status: %v", err)
+			}
+		})
 	}
 }
 

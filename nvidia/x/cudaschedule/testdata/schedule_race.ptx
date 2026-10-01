@@ -8,7 +8,7 @@
 {
     .reg .pred %p<3>;
     .reg .b32 %r<4>;
-    .reg .b64 %rd<2>;
+    .reg .b64 %rd<5>;
     .shared .align 4 .b32 handoff;
 
     ld.param.u64 %rd0, [output];
@@ -28,10 +28,12 @@ INIT_DONE:
 READER:
     // Bounded reader work makes the pristine writer likely to publish first.
     // Delaying the writer's shared store can reverse this order.
-    mov.u32 %r1, 64;
+    // Special-register reads keep the spin observable to the compiler.
+    mov.u64 %rd2, %globaltimer;
 READER_DELAY:
-    sub.u32 %r1, %r1, 1;
-    setp.ne.u32 %p2, %r1, 0;
+    mov.u64 %rd3, %globaltimer;
+    sub.u64 %rd4, %rd3, %rd2;
+    setp.lt.u64 %p2, %rd4, 8000;
     @%p2 bra READER_DELAY;
     bra JOIN;
 
@@ -40,6 +42,7 @@ JOIN:
     setp.eq.u32 %p1, %r0, 32;
     @!%p1 bra DONE;
     st.volatile.global.u32 [%rd0], %r2;
+    st.volatile.global.u64 [%rd0+8], %rd4;
 DONE:
     ret;
 }

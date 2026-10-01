@@ -140,6 +140,7 @@ func (cr *CampaignReport) FindingCount() int {
 
 // RunCampaign sweeps a half-open seed interval and executes a perturbation campaign.
 // Without an available device or custom runner, it returns [cudaerrors.ErrHardwarePending].
+// A failed baseline returns its report and an error before any variants run.
 func RunCampaign(ctx context.Context, opts CampaignOptions) (*CampaignReport, error) {
 	if opts.SeedStart >= opts.SeedEnd {
 		return nil, fmt.Errorf("cudaschedule: invalid seed range %d..%d: start must be less than end", opts.SeedStart, opts.SeedEnd)
@@ -196,7 +197,10 @@ func RunCampaign(ctx context.Context, opts CampaignOptions) (*CampaignReport, er
 		report.BaselineStatus = "Broken"
 	}
 	if report.BaselineVerdict != VerdictPass {
-		return report, nil
+		if report.BaselineVerdict == VerdictSkipped {
+			return report, nil
+		}
+		return report, fmt.Errorf("cudaschedule: baseline failed (%s, exit %d): harness=%q stderr=%q stdout=%q", report.BaselineVerdict, baselineRun.ExitCode, baselineRun.HarnessErr, baselineRun.Stderr, baselineRun.Stdout)
 	}
 
 	analysis, err := Analyze(opts.PTXSource)

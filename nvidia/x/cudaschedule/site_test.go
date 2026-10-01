@@ -119,13 +119,29 @@ func TestNativeRaceFixturesInitializeHandoffAndExposeReversingDraw(t *testing.T)
 				"@!%p1 bra INIT_DONE;",
 				"setp.eq.u32 %p0, %r0, 0;",
 				"@!%p0 bra READER;",
-				"mov.u32 %r1, 64;",
-				"sub.u32 %r1, %r1, 1;",
+				"mov.u64 %rd2, %globaltimer;",
+				"mov.u64 %rd3, %globaltimer;",
+				"sub.u64 %rd4, %rd3, %rd2;",
+				"setp.lt.u64 %p2, %rd4, 8000;",
 				"@%p2 bra READER_DELAY;",
+				"st.volatile.global.u64 [%rd0+8], %rd4;",
 			} {
 				if !strings.Contains(ptx, fragment) {
 					t.Fatalf("fixture does not preserve single-writer/reader-bias fragment %q", fragment)
 				}
+			}
+			previous := -1
+			for _, fragment := range []string{
+				"mov.u64 %rd2, %globaltimer;", "READER_DELAY:",
+				"mov.u64 %rd3, %globaltimer;", "sub.u64 %rd4, %rd3, %rd2;",
+				"setp.lt.u64 %p2, %rd4, 8000;", "@%p2 bra READER_DELAY;",
+				"st.volatile.global.u64 [%rd0+8], %rd4;",
+			} {
+				at := strings.Index(ptx, fragment)
+				if at <= previous {
+					t.Fatalf("reader delay fragment %q out of order at %d after %d", fragment, at, previous)
+				}
+				previous = at
 			}
 		})
 	}
