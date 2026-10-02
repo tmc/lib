@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -173,18 +174,7 @@ func loadLocked(path string) error {
 		libErr = errors.New("cusolver: bindings disabled via CODEGEN_SKIP_BINDINGS")
 		return libErr
 	}
-	lib, libPath, libErr = openLibrary(path)
-	if libErr != nil {
-		return libErr
-	}
-	registerFuncs()
-	if libErr = checkVersion(); libErr != nil {
-		closeLibrary(lib)
-		lib = 0
-		libPath = ""
-		present = make(map[string]bool)
-		unbound = make(map[string]error)
-		clearFuncs()
+	if libErr = openLibrary(path); libErr != nil {
 		return libErr
 	}
 	ready.Store(true)
@@ -211,13 +201,13 @@ type VersionMismatchError struct {
 // reported instead.
 func (e *VersionMismatchError) Error() string {
 	if e.Got == 0 {
-		return fmt.Sprintf("cusolver: %s reported version %d, which does not decode as a version these bindings recognise; they require major %d", e.Path, e.Raw, e.Want)
+		return fmt.Sprintf("cusolver: %s reported version %d, which does not decode as a version these bindings recognise; they accept major %d or 11", e.Path, e.Raw, e.Want)
 	}
-	return fmt.Sprintf("cusolver: %s reports version major %d, these bindings require %d", e.Path, e.Got, e.Want)
+	return fmt.Sprintf("cusolver: %s reports version major %d, these bindings accept major %d or 11", e.Path, e.Got, e.Want)
 }
 
 // checkVersion asks the loaded library its version through cusolverGetVersion and
-// compares the major against 12, the soname major these bindings were
+// checks the major against 12 or 11, which these bindings accept.
 // generated against. It runs under loadMu, after registerFuncs, so it
 // calls the bound pointer directly rather than the exported wrapper.
 //
@@ -235,36 +225,75 @@ func checkVersion() error {
 	}
 	raw := int(out0)
 	got := raw / 1000
-	if got != 12 {
+	if got != 12 && got != 11 {
 		return &VersionMismatchError{Path: libPath, Want: 12, Got: got, Raw: raw}
 	}
 	return nil
 }
 
-// openLibrary attempts to load the cusolver shared library and reports the
-// path it was opened from. An explicit path wins; otherwise it checks the
-// library path environment variable, then platform-specific default names.
-func openLibrary(path string) (uintptr, string, error) {
+// openLibrary opens the cusolver shared library, binds its symbols, and
+// checks its version. An explicit path wins; otherwise it checks the library
+// path environment variable, then each default candidate in turn, skipping
+// one whose version these bindings do not accept.
+// It also skips a candidate from a CUDA release newer than the installed
+// driver supports, which would open and then fail every call.
+func openLibrary(path string) error {
 	if path == "" {
 		path = os.Getenv("CUSOLVER_LIB_PATH")
 	}
 	if path != "" {
 		h, err := openDynamicLibrary(path)
-		if err == nil {
-			return h, path, nil
+		if err != nil {
+			return newLibraryError(path, []LibraryAttempt{{Name: path, Err: err}})
 		}
-		return 0, "", newLibraryError(path, []LibraryAttempt{{Name: path, Err: err}})
+		return admit(h, path)
 	}
 	names := libraryNames()
+	driver := driverVersion()
 	var attempts []LibraryAttempt
 	for _, name := range names {
+		if cuda := sonameCUDA[filepath.Base(name)]; driver > 0 && cuda > driver/1000 {
+			err := fmt.Errorf("library is from CUDA %d, driver supports CUDA %d.%d", cuda, driver/1000, driver%1000/10)
+			attempts = append(attempts, LibraryAttempt{Name: name, Err: err})
+			continue
+		}
 		h, err := openDynamicLibrary(name)
+		if err != nil {
+			attempts = append(attempts, LibraryAttempt{Name: name, Err: err})
+			continue
+		}
+		err = admit(h, name)
 		if err == nil {
-			return h, name, nil
+			return nil
 		}
 		attempts = append(attempts, LibraryAttempt{Name: name, Err: err})
 	}
-	return 0, "", newLibraryError("", attempts)
+	return newLibraryError("", attempts)
+}
+
+// admit makes the library at h, opened as name, the loaded library and
+// checks its version. It closes a library the check refuses.
+func admit(h uintptr, name string) error {
+	lib, libPath = h, name
+	registerFuncs()
+	err := checkVersion()
+	if err != nil {
+		closeLibrary(lib)
+		lib = 0
+		libPath = ""
+		present = make(map[string]bool)
+		unbound = make(map[string]error)
+		clearFuncs()
+		return err
+	}
+	return nil
+}
+
+// sonameCUDA maps each soname to the major version of the CUDA toolkit
+// that ships it.
+var sonameCUDA = map[string]int{
+	"libcusolver.so.12": 13,
+	"libcusolver.so.11": 12,
 }
 
 // LibraryAttempt records one failed attempt to open the shared library.
@@ -351,11 +380,35 @@ func pkgConfigHint() string {
 	return "pkg-config reports " + pkg + " in " + dir
 }
 
+// driverVersion returns the CUDA version the installed driver supports,
+// as cuDriverGetVersion reports it (13000 for 13.0), or 0 when there is no
+// driver to ask.
+func driverVersion() int {
+	if runtime.GOOS != "linux" {
+		return 0
+	}
+	name := "libcuda.so.1"
+	h, err := openDynamicLibrary(name)
+	if err != nil {
+		return 0
+	}
+	defer closeLibrary(h)
+	sym, err := lookupLibrarySymbol(h, "cuDriverGetVersion")
+	if err != nil || sym == 0 {
+		return 0
+	}
+	var v int32
+	if r, _, _ := purego.SyscallN(sym, uintptr(unsafe.Pointer(&v))); r != 0 {
+		return 0
+	}
+	return int(v)
+}
+
 // libraryNames returns the platform-specific shared library names to try.
 func libraryNames() []string {
 	switch runtime.GOOS {
 	case "linux":
-		return []string{"libcusolver.so.12"}
+		return []string{"libcusolver.so.12", "libcusolver.so.11"}
 	case "darwin":
 		return []string{"libcusolver.dylib"}
 	case "windows":

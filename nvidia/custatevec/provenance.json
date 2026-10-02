@@ -9,7 +9,7 @@
     "-cuda-headers",
     "cuda-headers",
     "-output",
-    "custatevec"
+    "${OUTPUT_DIR}"
   ],
   "inputs": [
     {

@@ -128,7 +128,7 @@
         "toolchain": {
           "go": "go version go1.27.0 darwin/arm64"
         },
-        "source_state": "clean tracked libgen sources at d7ee8ed06aa51d0064cac98c7a7c181168aa1965",
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
         "duplicate_header_check": "Before generation, compare all five cuBLAS header names across the include path and reject differing copies. The headers list pins the directly read cublas/ and libcublas/ copies; the oracle includes one identical copy per name."
       },
       "header": {
@@ -140,10 +140,10 @@
       "package": "github.com/tmc/lib/nvidia/cublas",
       "repositories": {
         "codegen": {
-          "commit": "d7ee8ed06aa51d0064cac98c7a7c181168aa1965",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
           "note": "Unpublished at the time of recording; it is the commit this generation was taken from. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 8da282f: doc comments name snake_case parameters by their Go names. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c Regenerated at libgen 4029439a: C source dropped from scraped docs. Regenerated at libgen 936c8b2a: foreign word types call through ffi.",
           "url": "https://github.com/tmc/libgen.git",
-          "tree": "764491dc369a44337547d89cf0d7341268bf7928"
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092"
         },
         "headers": {
           "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",
@@ -156,7 +156,7 @@
         {
           "path": "cublas/cublas_api.h",
           "repository": "headers",
-          "sha256": "7a9fec18f54db0ef918af506b709385b3ca5290832b4c71a4716edbd6f47ce82"
+          "sha256": "c1b432ebf9d61aedfac3230c456c7501f7925a2e5a8951172f47bb58d2e093a4"
         },
         {
           "path": "cuda_cccl/nv/detail/__preprocessor",
@@ -166,17 +166,17 @@
         {
           "path": "cuda_cccl/nv/detail/__target_macros",
           "repository": "headers",
-          "sha256": "199a109be511df3611263605946d2d8af3e8561c639be25fdb19d0f71ca6e736"
+          "sha256": "122ed2d795b9c264fd54ec934468099a5f077301b5115e986fb332c71e5ee96b"
         },
         {
           "path": "cuda_cccl/nv/target",
           "repository": "headers",
-          "sha256": "913c0ee62523291cace9c9d25854eb3c009dd1f3fc108c92a0bc6e4a6aae0bb6"
+          "sha256": "3d2a36a0a837d6012962036e33e75701786f99e7956c93554b7c78d56f9d6abd"
         },
         {
           "path": "cuda_crt/crt/host_defines.h",
           "repository": "headers",
-          "sha256": "dbabf0f8e8461362addf1bd4a04b6878923aa9be997352baf0bab7af7b9e47e1"
+          "sha256": "11b67879d28c09ee4b1aba1ebeeae7c62a0af7be8bcb6ffd499c34f10981e288"
         },
         {
           "path": "cuda_cudart/builtin_types.h",
@@ -191,12 +191,12 @@
         {
           "path": "cuda_cudart/cuda_bf16.h",
           "repository": "headers",
-          "sha256": "5d5a824f1d4401189b501cd934067d3e5a20e58c6d5176ad99665a4843fa8e03"
+          "sha256": "f708c6dd9c3737a51def69029db5b1959a718efd7e1a757b444a7b571286eb8e"
         },
         {
           "path": "cuda_cudart/cuda_bf16.hpp",
           "repository": "headers",
-          "sha256": "c71f7902fc526861db301028ad8966dfd93a97dd9be802e5962821a73f373e27"
+          "sha256": "b51e9983ddef78e46e518abf541785dcbd6889e6fb86c5303a82fd31cf143e9b"
         },
         {
           "path": "cuda_cudart/cuda_device_runtime_api.h",
@@ -206,7 +206,7 @@
         {
           "path": "cuda_cudart/cuda_fp16.h",
           "repository": "headers",
-          "sha256": "2e34ed9c273f569a4600cfe30694a9c5a980b183fbcb33262fd6f1150c7f4927"
+          "sha256": "31eca36c73566489c6f745d448c4ed93538b6099894effba2f687898f866e64a"
         },
         {
           "path": "cuda_cudart/cuda_fp16.hpp",
@@ -216,7 +216,7 @@
         {
           "path": "cuda_cudart/cuda_runtime_api.h",
           "repository": "headers",
-          "sha256": "a848e416776a49904e8bace4bd377c0c5b379461e6bb2fb8accb7e6162c3a96d"
+          "sha256": "2c6732345e9662d91733f5e45fa9c76c955640ef02c4bf17ceb7f1bcc209d3de"
         },
         {
           "path": "cuda_cudart/device_types.h",
@@ -226,12 +226,12 @@
         {
           "path": "cuda_cudart/driver_types.h",
           "repository": "headers",
-          "sha256": "b37eb334124c5e43cfa2baa087aa128b44ddd8913da476ca0e92358d5d1be9c4"
+          "sha256": "601cc73210a046d029e25f189ade5d02004aaa6c045a5100be80b5d5e52b5e57"
         },
         {
           "path": "cuda_cudart/library_types.h",
           "repository": "headers",
-          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
+          "sha256": "f75e715c673c5058112b60a0f3ed9dc529150f641bd21d868a20612d1da77f5f"
         },
         {
           "path": "cuda_cudart/surface_types.h",
@@ -261,19 +261,19 @@
         {
           "path": "types/library_types.h",
           "repository": "headers",
-          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
+          "sha256": "f75e715c673c5058112b60a0f3ed9dc529150f641bd21d868a20612d1da77f5f"
         }
       ],
       "headers": [
         {
           "path": "cublas/cublas_api.h",
           "repository": "headers",
-          "sha256": "7a9fec18f54db0ef918af506b709385b3ca5290832b4c71a4716edbd6f47ce82"
+          "sha256": "c1b432ebf9d61aedfac3230c456c7501f7925a2e5a8951172f47bb58d2e093a4"
         },
         {
           "path": "libcublas/cublas_api.h",
           "repository": "headers",
-          "sha256": "7a9fec18f54db0ef918af506b709385b3ca5290832b4c71a4716edbd6f47ce82"
+          "sha256": "c1b432ebf9d61aedfac3230c456c7501f7925a2e5a8951172f47bb58d2e093a4"
         },
         {
           "path": "cublas/cublas_v2.h",
@@ -298,12 +298,12 @@
         {
           "path": "cublas/cublasLt.h",
           "repository": "headers",
-          "sha256": "c6284e0a11864bcd89f59f9b326d85a51dcad415d4e6afde3f49f5b8321c6bd1"
+          "sha256": "e8d82298d0cd6223960a062c230d0d842c884d4a65dd79d592154ea318cb9af9"
         },
         {
           "path": "libcublas/cublasLt.h",
           "repository": "headers",
-          "sha256": "c6284e0a11864bcd89f59f9b326d85a51dcad415d4e6afde3f49f5b8321c6bd1"
+          "sha256": "e8d82298d0cd6223960a062c230d0d842c884d4a65dd79d592154ea318cb9af9"
         },
         {
           "path": "cublas/cublasXt.h",
@@ -429,7 +429,7 @@
         "toolchain": {
           "go": "go version go1.27.0 darwin/arm64"
         },
-        "source_state": "clean tracked libgen sources at d7ee8ed06aa51d0064cac98c7a7c181168aa1965",
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
         "duplicate_header_check": "Before generation, compare all five cuBLAS header names across the include path and reject differing copies. The headers list pins the directly read cublas/ and libcublas/ copies; the oracle includes one identical copy per name."
       },
       "header": {
@@ -441,10 +441,10 @@
       "package": "github.com/tmc/lib/nvidia/cublaslt",
       "repositories": {
         "codegen": {
-          "commit": "d7ee8ed06aa51d0064cac98c7a7c181168aa1965",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
           "note": "Unpublished at the time of recording; it is the commit this generation was taken from. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 8cdab9e: cublasLtNumericalImplFlags_t, spelled as macros above a uint64_t typedef, is now the NumericalImplFlags type with typed constants. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen fc6bb16 regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c Regenerated at libgen 4029439a: C source dropped from scraped docs. Regenerated at libgen 1c7003cb: requested-count arrays bind as slices. Regenerated at libgen 936c8b2a: foreign word types call through ffi.",
           "url": "https://github.com/tmc/libgen.git",
-          "tree": "764491dc369a44337547d89cf0d7341268bf7928"
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092"
         },
         "headers": {
           "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",
@@ -457,12 +457,12 @@
         {
           "path": "cublas/cublasLt.h",
           "repository": "headers",
-          "sha256": "c6284e0a11864bcd89f59f9b326d85a51dcad415d4e6afde3f49f5b8321c6bd1"
+          "sha256": "e8d82298d0cd6223960a062c230d0d842c884d4a65dd79d592154ea318cb9af9"
         },
         {
           "path": "cublas/cublas_api.h",
           "repository": "headers",
-          "sha256": "7a9fec18f54db0ef918af506b709385b3ca5290832b4c71a4716edbd6f47ce82"
+          "sha256": "c1b432ebf9d61aedfac3230c456c7501f7925a2e5a8951172f47bb58d2e093a4"
         },
         {
           "path": "cuda_cccl/nv/detail/__preprocessor",
@@ -472,17 +472,17 @@
         {
           "path": "cuda_cccl/nv/detail/__target_macros",
           "repository": "headers",
-          "sha256": "199a109be511df3611263605946d2d8af3e8561c639be25fdb19d0f71ca6e736"
+          "sha256": "122ed2d795b9c264fd54ec934468099a5f077301b5115e986fb332c71e5ee96b"
         },
         {
           "path": "cuda_cccl/nv/target",
           "repository": "headers",
-          "sha256": "913c0ee62523291cace9c9d25854eb3c009dd1f3fc108c92a0bc6e4a6aae0bb6"
+          "sha256": "3d2a36a0a837d6012962036e33e75701786f99e7956c93554b7c78d56f9d6abd"
         },
         {
           "path": "cuda_crt/crt/host_defines.h",
           "repository": "headers",
-          "sha256": "dbabf0f8e8461362addf1bd4a04b6878923aa9be997352baf0bab7af7b9e47e1"
+          "sha256": "11b67879d28c09ee4b1aba1ebeeae7c62a0af7be8bcb6ffd499c34f10981e288"
         },
         {
           "path": "cuda_cudart/builtin_types.h",
@@ -497,12 +497,12 @@
         {
           "path": "cuda_cudart/cuda_bf16.h",
           "repository": "headers",
-          "sha256": "5d5a824f1d4401189b501cd934067d3e5a20e58c6d5176ad99665a4843fa8e03"
+          "sha256": "f708c6dd9c3737a51def69029db5b1959a718efd7e1a757b444a7b571286eb8e"
         },
         {
           "path": "cuda_cudart/cuda_bf16.hpp",
           "repository": "headers",
-          "sha256": "c71f7902fc526861db301028ad8966dfd93a97dd9be802e5962821a73f373e27"
+          "sha256": "b51e9983ddef78e46e518abf541785dcbd6889e6fb86c5303a82fd31cf143e9b"
         },
         {
           "path": "cuda_cudart/cuda_device_runtime_api.h",
@@ -512,7 +512,7 @@
         {
           "path": "cuda_cudart/cuda_fp16.h",
           "repository": "headers",
-          "sha256": "2e34ed9c273f569a4600cfe30694a9c5a980b183fbcb33262fd6f1150c7f4927"
+          "sha256": "31eca36c73566489c6f745d448c4ed93538b6099894effba2f687898f866e64a"
         },
         {
           "path": "cuda_cudart/cuda_fp16.hpp",
@@ -522,7 +522,7 @@
         {
           "path": "cuda_cudart/cuda_runtime_api.h",
           "repository": "headers",
-          "sha256": "a848e416776a49904e8bace4bd377c0c5b379461e6bb2fb8accb7e6162c3a96d"
+          "sha256": "2c6732345e9662d91733f5e45fa9c76c955640ef02c4bf17ceb7f1bcc209d3de"
         },
         {
           "path": "cuda_cudart/device_types.h",
@@ -532,12 +532,12 @@
         {
           "path": "cuda_cudart/driver_types.h",
           "repository": "headers",
-          "sha256": "b37eb334124c5e43cfa2baa087aa128b44ddd8913da476ca0e92358d5d1be9c4"
+          "sha256": "601cc73210a046d029e25f189ade5d02004aaa6c045a5100be80b5d5e52b5e57"
         },
         {
           "path": "cuda_cudart/library_types.h",
           "repository": "headers",
-          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
+          "sha256": "f75e715c673c5058112b60a0f3ed9dc529150f641bd21d868a20612d1da77f5f"
         },
         {
           "path": "cuda_cudart/surface_types.h",
@@ -567,19 +567,19 @@
         {
           "path": "types/library_types.h",
           "repository": "headers",
-          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
+          "sha256": "f75e715c673c5058112b60a0f3ed9dc529150f641bd21d868a20612d1da77f5f"
         }
       ],
       "headers": [
         {
           "path": "cublas/cublas_api.h",
           "repository": "headers",
-          "sha256": "7a9fec18f54db0ef918af506b709385b3ca5290832b4c71a4716edbd6f47ce82"
+          "sha256": "c1b432ebf9d61aedfac3230c456c7501f7925a2e5a8951172f47bb58d2e093a4"
         },
         {
           "path": "libcublas/cublas_api.h",
           "repository": "headers",
-          "sha256": "7a9fec18f54db0ef918af506b709385b3ca5290832b4c71a4716edbd6f47ce82"
+          "sha256": "c1b432ebf9d61aedfac3230c456c7501f7925a2e5a8951172f47bb58d2e093a4"
         },
         {
           "path": "cublas/cublas_v2.h",
@@ -604,12 +604,12 @@
         {
           "path": "cublas/cublasLt.h",
           "repository": "headers",
-          "sha256": "c6284e0a11864bcd89f59f9b326d85a51dcad415d4e6afde3f49f5b8321c6bd1"
+          "sha256": "e8d82298d0cd6223960a062c230d0d842c884d4a65dd79d592154ea318cb9af9"
         },
         {
           "path": "libcublas/cublasLt.h",
           "repository": "headers",
-          "sha256": "c6284e0a11864bcd89f59f9b326d85a51dcad415d4e6afde3f49f5b8321c6bd1"
+          "sha256": "e8d82298d0cd6223960a062c230d0d842c884d4a65dd79d592154ea318cb9af9"
         },
         {
           "path": "cublas/cublasXt.h",
@@ -702,7 +702,7 @@
             "sha256": "da5dbc885f2173bf5316a5b40c3c32e85bb5ebd39111fe1b8d57b67f77e9736f"
           }
         ],
-        "source_state": "clean codegen checkout at the recorded commit; generation re-run and every output compared byte for byte with the recorded lib commit",
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
           "clang_target": "arm64-apple-darwin25.6.0",
@@ -727,8 +727,8 @@
       "package": "github.com/tmc/lib/nvidia/cublasmp",
       "repositories": {
         "codegen": {
-          "commit": "936c8b2a37552d41ab78f1de81f7227c4cc28d7b",
-          "tree": "0d68e5678e79cab9f3902ff01007d8a23518d9ac",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen 294fc372 Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -1006,7 +1006,7 @@
             "sha256": "abadeb1d4a8f0ad0542922146f03aaa13e095e5812b79b4de830be90a6307c3f"
           }
         ],
-        "source_state": "clean codegen checkout at the recorded commit; generation re-run and every output compared byte for byte with the recorded lib commit",
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
           "clang_target": "arm64-apple-darwin25.6.0",
@@ -1031,8 +1031,8 @@
       "package": "github.com/tmc/lib/nvidia/cudensitymat",
       "repositories": {
         "codegen": {
-          "commit": "936c8b2a37552d41ab78f1de81f7227c4cc28d7b",
-          "tree": "0d68e5678e79cab9f3902ff01007d8a23518d9ac",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -1308,7 +1308,7 @@
             "sha256": "89f8c29ad1b33c6446fbe52b94d7998b9d946c0c00edf25c7024b4944f9ff999"
           }
         ],
-        "source_state": "clean codegen checkout at libgen 56a7881b830b54f2beb5eda0447dc6a344d6d38a",
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
           "clang_target": "arm64-apple-darwin25.6.0",
@@ -1441,8 +1441,8 @@
       "package": "github.com/tmc/lib/nvidia/cudnn",
       "repositories": {
         "codegen": {
-          "commit": "936c8b2a37552d41ab78f1de81f7227c4cc28d7b",
-          "tree": "0d68e5678e79cab9f3902ff01007d8a23518d9ac",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants. Regenerated at libgen 80aa768: input arrays are slices, outputs are returned (more than four as a config struct), size_t is int, and Nd drops from methods taking slices. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen b3dc359c Final regeneration uses cudnn-survey at libgen 56a7881b after fixes for getter output configs and configured size_t results. Regenerated at libgen 86484557: host buffers typed as pointers. Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -1832,7 +1832,7 @@
             "sha256": "f623438fb66849fc0cc178cb65e3e0772e3d158ac691f6d4b40c89793d34cb32"
           }
         ],
-        "source_state": "clean codegen checkout at the recorded commit; generation re-run and every output compared byte for byte with the recorded lib commit",
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
           "clang_target": "arm64-apple-darwin25.6.0",
@@ -1879,8 +1879,8 @@
       "package": "github.com/tmc/lib/nvidia/cudss",
       "repositories": {
         "codegen": {
-          "commit": "936c8b2a37552d41ab78f1de81f7227c4cc28d7b",
-          "tree": "0d68e5678e79cab9f3902ff01007d8a23518d9ac",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants. Regenerated at libgen f14ae40 to drop scraped page chrome. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen 294fc372 regenerate at libgen b3dc359c Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -2059,7 +2059,7 @@
           },
           {
             "path": "nvidia/cufft/init.gen.go",
-            "sha256": "d3904e9addf5315ff56b189e0ef3d4caa71ae143e7129c55c6ecdcb859bbdf38"
+            "sha256": "d7c9b51ce6b76db0f00490cd1b4495376fa9c6833246589634a45311dd237ebb"
           },
           {
             "path": "nvidia/cufft/layout.gen_test.go",
@@ -2115,7 +2115,7 @@
           "api_removal_guard": true,
           "unclaimed_generated_file_guard": true
         },
-        "source_state": "Recipe source is committed at libgen 08aac43; generated from a clean checkout."
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe"
       },
       "header": {
         "path": "cufft/cufft.h",
@@ -2126,9 +2126,9 @@
       "package": "github.com/tmc/lib/nvidia/cufft",
       "repositories": {
         "codegen": {
-          "commit": "936c8b2a37552d41ab78f1de81f7227c4cc28d7b",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
           "note": "Unpublished at the time of recording: the commit adds APIConfig.LibraryError, without which this generation does not reproduce. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants. Regenerated at libgen 80aa768: methods drop the receiver words they repeat and parameters are camel case. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen b3dc359c; cufft-survey migration at libgen 08aac43 Regenerated at libgen 936c8b2a: foreign word types call through ffi.",
-          "tree": "0d68e5678e79cab9f3902ff01007d8a23518d9ac",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git"
         },
         "headers": {
@@ -2813,7 +2813,8 @@
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
           "go": "go version go1.25.0 darwin/arm64"
-        }
+        },
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe"
       },
       "generator_sources": [
         {
@@ -3410,8 +3411,8 @@
       "package": "github.com/tmc/lib/nvidia/cufile",
       "repositories": {
         "codegen": {
-          "commit": "446fae667d7143fdba4122b281b8306fccd58b57",
-          "tree": "53f428bf7943cda8b16fdbaf82aa923a4a43049d",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Restamped at libgen 80aa768, which changed a generator source; output unchanged. Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Regenerated at libgen bc4b7c9: constants.gen.go binds the cuFile flag, length and error-base macros. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39 regenerate at libgen 294fc372 regenerate at libgen b3dc359c Regenerated at libgen 446fae66: 8-byte integer structs call through ffi."
         },
@@ -3574,7 +3575,8 @@
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
           "go": "go version go1.27.0 darwin/arm64"
-        }
+        },
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe"
       },
       "header": {
         "path": "cupti/cupti.h",
@@ -3590,27 +3592,27 @@
         {
           "path": "cupti/cupti_result.h",
           "repository": "headers",
-          "sha256": "b20dded3b2734bbc91a503ae2400e33274eda09b7b1ea25c71f87e153848b8be"
+          "sha256": "2205d2281efd7103a80c09a7e38f0a23523ba73c2b91f3f60d05a18a2f90e571"
         },
         {
           "path": "cupti/cupti_version.h",
           "repository": "headers",
-          "sha256": "bf9475286bc81085097d4f493154aa6040ea0b1db62ff690791d3a1a81f0c85a"
+          "sha256": "c069af552cb74b132475d7f6b04c474ad69871f137cd3614e719b0a1ec68c382"
         },
         {
           "path": "cupti/cupti_activity.h",
           "repository": "headers",
-          "sha256": "a0c33d2f92e73d221406d5996f3fbf9b232e02a6522a44996aa6c210e640ad4d"
+          "sha256": "ff3b1a42a7f553917471e163321b7ad3cf023233abd150f0c460fba56e62328c"
         },
         {
           "path": "cupti/cupti_activity_deprecated.h",
           "repository": "headers",
-          "sha256": "592835010b1b2b5fb8544572cf1efe1539e0ad45b0e939561a5cc2a7b74aacab"
+          "sha256": "48ead5967e2b9497e93dc7211244bfdf3730d261a703f53fa685bf8036db426e"
         },
         {
           "path": "cupti/cupti_callbacks.h",
           "repository": "headers",
-          "sha256": "467dc10e2c8dd54eadbd06460d6c4ae338878247b5945efd4d8767a030c906ff"
+          "sha256": "91596b1b244a40fe872e44d2c6b7248c002b2d1f8c20e0c71d3a9665f78d1ece"
         },
         {
           "path": "cupti/cupti_events.h",
@@ -3625,17 +3627,17 @@
         {
           "path": "cupti/cupti_profiler_target.h",
           "repository": "headers",
-          "sha256": "2aac4e121b85139483a7ee9105802a70e0610a20f3276d78fc4780b1b0d89b2d"
+          "sha256": "176003273e4d9155bd7f47a2d97b50cf2b1bf0b873b4b9e5ebd951b00f22b782"
         },
         {
           "path": "cupti/cupti_profiler_host.h",
           "repository": "headers",
-          "sha256": "8913cfad9b09f01c30ef857577483d087ef0b67ecbfa15fc62058d3068534a35"
+          "sha256": "debbeb8dd5970a538a98f43aea31bc667f6d958af6152751a8f502dd74d5f7a4"
         },
         {
           "path": "cupti/cupti_range_profiler.h",
           "repository": "headers",
-          "sha256": "b9ee5b500fb7c42c00b501b20dee4ed5de6b02645b55b72b5ca7c84dde313352"
+          "sha256": "1d50b97dfa3ca133ecf2766bb2e16b44fb94559fa4b2b4228a37df3620c4500f"
         },
         {
           "path": "cupti/cupti_pcsampling.h",
@@ -3645,7 +3647,7 @@
         {
           "path": "cupti/cupti_pmsampling.h",
           "repository": "headers",
-          "sha256": "53de6128ec0891949b18d54fd7541298c6b007ca9d26c96363fb54258e2f79d7"
+          "sha256": "c3608944fd809745d70f9b131f39628482e8e3ae3a066f65d40be62b2123a6b9"
         },
         {
           "path": "cupti/cupti_sass_metrics.h",
@@ -3655,7 +3657,7 @@
         {
           "path": "cupti/cupti_checkpoint.h",
           "repository": "headers",
-          "sha256": "ad3cfc2685b1a844815f26565216491a6e31798731e0e24eb49ecb775dd3fdbd"
+          "sha256": "4266976f733b55c0e1c67a2158396d1051575cab82aadd148cf4d2f541abebb4"
         },
         {
           "path": "cupti/cupti_target.h",
@@ -3665,17 +3667,37 @@
         {
           "path": "cupti/cupti_driver_cbid.h",
           "repository": "headers",
-          "sha256": "a466a41d811a5848a30f34d60b8286b461fa679550190c2f20192ca5b12bdb25"
+          "sha256": "4fd9ffc1abbbb9a66ff7c3392bacde6dce30aadd4cf4ae888e36546f0d23ed6b"
         },
         {
           "path": "cupti/cupti_runtime_cbid.h",
           "repository": "headers",
-          "sha256": "9ace1de8e0a4192da7b5848994106e91dbdbd49bb5b56395de7e9480bc9c397b"
+          "sha256": "52e7bd666e366415bb50c68dfd7bd669e757d9bf6ea8f7a6a4b14fcfca344616"
         },
         {
           "path": "cupti/cupti_nvtx_cbid.h",
           "repository": "headers",
           "sha256": "633a2107c2f2f1a82f10d8af8b4f487d87ff7ecc6ede938dc411dfdb6a7a4e9a"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.6/cupti_profiler_host.h",
+          "repository": "headers",
+          "sha256": "32491f5e528146b44be0d7da3c58ae1380f8cff8299b18815964c18b1cb23139"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.8/cupti_profiler_host.h",
+          "repository": "headers",
+          "sha256": "32491f5e528146b44be0d7da3c58ae1380f8cff8299b18815964c18b1cb23139"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.9/cupti_profiler_host.h",
+          "repository": "headers",
+          "sha256": "32491f5e528146b44be0d7da3c58ae1380f8cff8299b18815964c18b1cb23139"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.0/cupti_profiler_host.h",
+          "repository": "headers",
+          "sha256": "87ca2a11d1b3861e19c4b44d517c9b7dde594b7b0ac48ab499b3cace95e826ff"
         }
       ],
       "maintained_files_excluded": [
@@ -3686,8 +3708,8 @@
       "package": "github.com/tmc/lib/nvidia/cupti",
       "repositories": {
         "codegen": {
-          "commit": "d7ee8ed06aa51d0064cac98c7a7c181168aa1965",
-          "tree": "764491dc369a44337547d89cf0d7341268bf7928",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Private local generator commit used for this reproduction; not published. Regenerated at libgen 4029439a: C source dropped from scraped docs. Regenerated at libgen 1c7003cb: requested-count arrays bind as slices. Regenerated at libgen a57cbfdc: counted slice fields and typed union members. Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -3714,17 +3736,12 @@
         {
           "path": "cuda_crt/crt/host_defines.h",
           "repository": "headers",
-          "sha256": "dbabf0f8e8461362addf1bd4a04b6878923aa9be997352baf0bab7af7b9e47e1"
+          "sha256": "11b67879d28c09ee4b1aba1ebeeae7c62a0af7be8bcb6ffd499c34f10981e288"
         },
         {
           "path": "cuda_cudart/builtin_types.h",
           "repository": "headers",
           "sha256": "2714fd55fdaadac9f14c138bf400b33666334d60023b654e554bb529d16deff8"
-        },
-        {
-          "path": "cuda_cudart/cuda.h",
-          "repository": "headers",
-          "sha256": "31df84e16179b6d97db4b3c0bae7697392a370b41983f4a8962f0e5a8069b577"
         },
         {
           "path": "cuda_cudart/cuda_device_runtime_api.h",
@@ -3734,7 +3751,7 @@
         {
           "path": "cuda_cudart/cuda_runtime_api.h",
           "repository": "headers",
-          "sha256": "a848e416776a49904e8bace4bd377c0c5b379461e6bb2fb8accb7e6162c3a96d"
+          "sha256": "2c6732345e9662d91733f5e45fa9c76c955640ef02c4bf17ceb7f1bcc209d3de"
         },
         {
           "path": "cuda_cudart/device_types.h",
@@ -3744,7 +3761,7 @@
         {
           "path": "cuda_cudart/driver_types.h",
           "repository": "headers",
-          "sha256": "b37eb334124c5e43cfa2baa087aa128b44ddd8913da476ca0e92358d5d1be9c4"
+          "sha256": "601cc73210a046d029e25f189ade5d02004aaa6c045a5100be80b5d5e52b5e57"
         },
         {
           "path": "cuda_cudart/surface_types.h",
@@ -3767,6 +3784,76 @@
           "sha256": "5db14e93d0ad2632aa93b3e960da9b495b03c40b1533c6af038ad6a4f8b40634"
         },
         {
+          "path": "cuda_nvtx/nvtx3/nvToolsExt.h",
+          "repository": "headers",
+          "sha256": "6d61597ba9462689f422d7196cf8c57a75ba72fea09e970321b5bf54d2326006"
+        },
+        {
+          "path": "cuda_nvtx/nvtx3/nvToolsExtCuda.h",
+          "repository": "headers",
+          "sha256": "657499662ce8bf5faee8c09876e1f6bd54ac6b23f71d5ca775c818424849cc4b"
+        },
+        {
+          "path": "cuda_nvtx/nvtx3/nvToolsExtCudaRt.h",
+          "repository": "headers",
+          "sha256": "376e247fe3a295184ff26790905308dd37ff9705f2470c1dd70887010b01590c"
+        },
+        {
+          "path": "cuda_nvtx/nvtx3/nvToolsExtSync.h",
+          "repository": "headers",
+          "sha256": "3f876bc6493b36723d826ae391695f9a89ba51c05edf7f30c247a5a24b41a359"
+        },
+        {
+          "path": "cuda_nvtx/nvtx3/nvtxDetail/nvtxImpl.h",
+          "repository": "headers",
+          "sha256": "14f0c3a4a8ba72566f601eb7a1baf7e1981924be30a18e7e288cd9259ff11c48"
+        },
+        {
+          "path": "cuda_nvtx/nvtx3/nvtxDetail/nvtxImplCore.h",
+          "repository": "headers",
+          "sha256": "55a2635a46c8770725d062dbd385446a345c28937e3c85b417e5cf9cdbaa1a38"
+        },
+        {
+          "path": "cuda_nvtx/nvtx3/nvtxDetail/nvtxImplCudaRt_v3.h",
+          "repository": "headers",
+          "sha256": "ac6f9176d75d29faa953faae49adade5b280c66002f8721765bb2e851f761e37"
+        },
+        {
+          "path": "cuda_nvtx/nvtx3/nvtxDetail/nvtxImplCuda_v3.h",
+          "repository": "headers",
+          "sha256": "40e11d279df0ba2e662cf3fd82e536e9b6057977dc5f135c4eb1dcce96f338cd"
+        },
+        {
+          "path": "cuda_nvtx/nvtx3/nvtxDetail/nvtxImplSync_v3.h",
+          "repository": "headers",
+          "sha256": "acb5a9d5d24a9e32f9b559fd1c8d33e8b132c867b3f5c9d4cdd9751583b050ae"
+        },
+        {
+          "path": "cuda_nvtx/nvtx3/nvtxDetail/nvtxInit.h",
+          "repository": "headers",
+          "sha256": "ecda10b6d576438001295ca056feb150be8a9f1901432e5169388f6a114f0c3c"
+        },
+        {
+          "path": "cuda_nvtx/nvtx3/nvtxDetail/nvtxInitDecls.h",
+          "repository": "headers",
+          "sha256": "5857e9489e533cb4cfb652bcaa55e8a42d5ed1312b446ed38a3c3156199c831a"
+        },
+        {
+          "path": "cuda_nvtx/nvtx3/nvtxDetail/nvtxInitDefs.h",
+          "repository": "headers",
+          "sha256": "03f09d54ee9ef29d54cd2031e5bedd62fa96fb24ae5510e02a87444225ebd7db"
+        },
+        {
+          "path": "cuda_nvtx/nvtx3/nvtxDetail/nvtxLinkOnce.h",
+          "repository": "headers",
+          "sha256": "17c0ae718cf5c7397637f0ca69c31c5d21aff61a0cf3ac5b0677c5944790b10b"
+        },
+        {
+          "path": "cuda_nvtx/nvtx3/nvtxDetail/nvtxTypes.h",
+          "repository": "headers",
+          "sha256": "8219a7ae5f239c43fc6dcb84ca64eaab4aa248041b558b88bc0c34355be29b51"
+        },
+        {
           "path": "cupti/cupti.h",
           "repository": "headers",
           "sha256": "2b0a3268524bf80c13ffb173b7271295ee81161d220ea28951d748d5af26bd0e"
@@ -3774,22 +3861,22 @@
         {
           "path": "cupti/cupti_activity.h",
           "repository": "headers",
-          "sha256": "a0c33d2f92e73d221406d5996f3fbf9b232e02a6522a44996aa6c210e640ad4d"
+          "sha256": "ff3b1a42a7f553917471e163321b7ad3cf023233abd150f0c460fba56e62328c"
         },
         {
           "path": "cupti/cupti_activity_deprecated.h",
           "repository": "headers",
-          "sha256": "592835010b1b2b5fb8544572cf1efe1539e0ad45b0e939561a5cc2a7b74aacab"
+          "sha256": "48ead5967e2b9497e93dc7211244bfdf3730d261a703f53fa685bf8036db426e"
         },
         {
           "path": "cupti/cupti_callbacks.h",
           "repository": "headers",
-          "sha256": "467dc10e2c8dd54eadbd06460d6c4ae338878247b5945efd4d8767a030c906ff"
+          "sha256": "91596b1b244a40fe872e44d2c6b7248c002b2d1f8c20e0c71d3a9665f78d1ece"
         },
         {
           "path": "cupti/cupti_checkpoint.h",
           "repository": "headers",
-          "sha256": "ad3cfc2685b1a844815f26565216491a6e31798731e0e24eb49ecb775dd3fdbd"
+          "sha256": "4266976f733b55c0e1c67a2158396d1051575cab82aadd148cf4d2f541abebb4"
         },
         {
           "path": "cupti/cupti_common.h",
@@ -3799,7 +3886,7 @@
         {
           "path": "cupti/cupti_driver_cbid.h",
           "repository": "headers",
-          "sha256": "a466a41d811a5848a30f34d60b8286b461fa679550190c2f20192ca5b12bdb25"
+          "sha256": "4fd9ffc1abbbb9a66ff7c3392bacde6dce30aadd4cf4ae888e36546f0d23ed6b"
         },
         {
           "path": "cupti/cupti_events.h",
@@ -3824,32 +3911,32 @@
         {
           "path": "cupti/cupti_pmsampling.h",
           "repository": "headers",
-          "sha256": "53de6128ec0891949b18d54fd7541298c6b007ca9d26c96363fb54258e2f79d7"
+          "sha256": "c3608944fd809745d70f9b131f39628482e8e3ae3a066f65d40be62b2123a6b9"
         },
         {
           "path": "cupti/cupti_profiler_host.h",
           "repository": "headers",
-          "sha256": "8913cfad9b09f01c30ef857577483d087ef0b67ecbfa15fc62058d3068534a35"
+          "sha256": "debbeb8dd5970a538a98f43aea31bc667f6d958af6152751a8f502dd74d5f7a4"
         },
         {
           "path": "cupti/cupti_profiler_target.h",
           "repository": "headers",
-          "sha256": "2aac4e121b85139483a7ee9105802a70e0610a20f3276d78fc4780b1b0d89b2d"
+          "sha256": "176003273e4d9155bd7f47a2d97b50cf2b1bf0b873b4b9e5ebd951b00f22b782"
         },
         {
           "path": "cupti/cupti_range_profiler.h",
           "repository": "headers",
-          "sha256": "b9ee5b500fb7c42c00b501b20dee4ed5de6b02645b55b72b5ca7c84dde313352"
+          "sha256": "1d50b97dfa3ca133ecf2766bb2e16b44fb94559fa4b2b4228a37df3620c4500f"
         },
         {
           "path": "cupti/cupti_result.h",
           "repository": "headers",
-          "sha256": "b20dded3b2734bbc91a503ae2400e33274eda09b7b1ea25c71f87e153848b8be"
+          "sha256": "2205d2281efd7103a80c09a7e38f0a23523ba73c2b91f3f60d05a18a2f90e571"
         },
         {
           "path": "cupti/cupti_runtime_cbid.h",
           "repository": "headers",
-          "sha256": "9ace1de8e0a4192da7b5848994106e91dbdbd49bb5b56395de7e9480bc9c397b"
+          "sha256": "52e7bd666e366415bb50c68dfd7bd669e757d9bf6ea8f7a6a4b14fcfca344616"
         },
         {
           "path": "cupti/cupti_sass_metrics.h",
@@ -3864,17 +3951,1252 @@
         {
           "path": "cupti/cupti_version.h",
           "repository": "headers",
-          "sha256": "bf9475286bc81085097d4f493154aa6040ea0b1db62ff690791d3a1a81f0c85a"
+          "sha256": "c069af552cb74b132475d7f6b04c474ad69871f137cd3614e719b0a1ec68c382"
         },
         {
           "path": "cupti/generated_cuda_meta.h",
           "repository": "headers",
-          "sha256": "74385318d40eb7b1467c84d0aea5b5901fde04e27617efcf6589180ef5cc6a48"
+          "sha256": "e916367fb3b21ad1a60a09712413b638862861917bc640a219a2cd2ca6a471dc"
         },
         {
           "path": "cupti/generated_cuda_runtime_api_meta.h",
           "repository": "headers",
+          "sha256": "1248955da505b1880165c8bec88ad72c9e8aaed42397f65b670d25d01d14d2f1"
+        },
+        {
+          "path": "cupti/generated_nvtx_meta.h",
+          "repository": "headers",
+          "sha256": "df876f59dc7c201b301f908a0d362622f662241259b404f1c20e5648f3c4d9c3"
+        },
+        {
+          "path": "driver/cuda.h",
+          "repository": "headers",
+          "sha256": "7a79d67ca888061b1dfbe4739b51ad64f85a2f3ad874947ce09b2c635b4c7072"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.2/cuda_stdint.h",
+          "repository": "headers",
+          "sha256": "5db14e93d0ad2632aa93b3e960da9b495b03c40b1533c6af038ad6a4f8b40634"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.2/cupti.h",
+          "repository": "headers",
+          "sha256": "2645720064c8318cf09bad9d7d5a9ab379cc7082e180ffd6773e9f878fcd103d"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.2/cupti_activity.h",
+          "repository": "headers",
+          "sha256": "d68094612d1fdcc4a602623c912d08e7fc176e63a64f9264fe87b935997314d4"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.2/cupti_callbacks.h",
+          "repository": "headers",
+          "sha256": "b494c4a71aadcdc5b69a3d221efb6fafe7d0bda1561ddc4a6cc6a56e1e86cfc5"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.2/cupti_checkpoint.h",
+          "repository": "headers",
+          "sha256": "ad3cfc2685b1a844815f26565216491a6e31798731e0e24eb49ecb775dd3fdbd"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.2/cupti_driver_cbid.h",
+          "repository": "headers",
+          "sha256": "89d9960e1e7e2fb94a192652a7a15504ce9b2f513e99a151cc8712937ad33ea7"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.2/cupti_events.h",
+          "repository": "headers",
+          "sha256": "7fb94b1a60f67bc173bcc8518279f4fafed4d2f4e95248901c8a50c6001119bd"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.2/cupti_metrics.h",
+          "repository": "headers",
+          "sha256": "88b00e943adc6c712c20852682ad13a7564e63d3b73addf08f6f9b23c8986d2b"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.2/cupti_nvtx_cbid.h",
+          "repository": "headers",
+          "sha256": "fdaccfb51d60e2a8afbd7eea6ef1d1520d111c2585ee210e2721cc37da997bd1"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.2/cupti_pcsampling.h",
+          "repository": "headers",
+          "sha256": "b93fc3b453740727ba003b717ca5d401cf0172b15e7e8b5ff95b53b8a406271d"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.2/cupti_profiler_target.h",
+          "repository": "headers",
+          "sha256": "26c71ea03ba196558d13368ed31c53f35749e7936b6c5d14b51249822b743ff1"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.2/cupti_result.h",
+          "repository": "headers",
+          "sha256": "6be0b863b2c06028824f59e039fa03b938b6b2d106d584da7f0c27e947cbf8b5"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.2/cupti_runtime_cbid.h",
+          "repository": "headers",
+          "sha256": "3ead7ac07f6d8e1cd5d7cf608ba2a7606558cbaad1cf4ac3d1d8e470d825de41"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.2/cupti_sass_metrics.h",
+          "repository": "headers",
+          "sha256": "03f4d009a3ebd7853e376109cf37e62817a06038fd9ca41cfe0cfed1b8f0da25"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.2/cupti_target.h",
+          "repository": "headers",
+          "sha256": "c78573d54a5bea6f62c6656998668a425743598408dce67ea1c1171b334ad041"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.2/cupti_version.h",
+          "repository": "headers",
+          "sha256": "58e254ee16674f231068d0445497df6c685c295d0fcebe588a7af47907990299"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.2/generated_cuda_meta.h",
+          "repository": "headers",
+          "sha256": "1f91afd8a7817e48165304c3c0bc168c23058af57e49f3c08dd21c443f341c7a"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.2/generated_cuda_runtime_api_meta.h",
+          "repository": "headers",
+          "sha256": "f8719c2561284c738247916a2463b0cf26e255381dd648d9829b7fe0057fa77a"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.3/cuda_stdint.h",
+          "repository": "headers",
+          "sha256": "5db14e93d0ad2632aa93b3e960da9b495b03c40b1533c6af038ad6a4f8b40634"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.3/cupti.h",
+          "repository": "headers",
+          "sha256": "2645720064c8318cf09bad9d7d5a9ab379cc7082e180ffd6773e9f878fcd103d"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.3/cupti_activity.h",
+          "repository": "headers",
+          "sha256": "a6751988d07a5b4bcefc32ce0186461ec9de85f9f82204240c19e26e291ff9cf"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.3/cupti_activity_deprecated.h",
+          "repository": "headers",
+          "sha256": "bbaa07dbc7fa644c5d84ddd73391a297fe096f05edffa29c1500748072944626"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.3/cupti_callbacks.h",
+          "repository": "headers",
+          "sha256": "a965f6aae3acc1e52945083b827c0520187a94c64d0b70364a91aeb0cb4d3747"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.3/cupti_checkpoint.h",
+          "repository": "headers",
+          "sha256": "ad3cfc2685b1a844815f26565216491a6e31798731e0e24eb49ecb775dd3fdbd"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.3/cupti_driver_cbid.h",
+          "repository": "headers",
+          "sha256": "e1c802fdbfe200636e206cc29f3c630cbf177b6b423e375cf04a7094ba8eb186"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.3/cupti_events.h",
+          "repository": "headers",
+          "sha256": "7fb94b1a60f67bc173bcc8518279f4fafed4d2f4e95248901c8a50c6001119bd"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.3/cupti_metrics.h",
+          "repository": "headers",
+          "sha256": "88b00e943adc6c712c20852682ad13a7564e63d3b73addf08f6f9b23c8986d2b"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.3/cupti_nvtx_cbid.h",
+          "repository": "headers",
+          "sha256": "fdaccfb51d60e2a8afbd7eea6ef1d1520d111c2585ee210e2721cc37da997bd1"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.3/cupti_pcsampling.h",
+          "repository": "headers",
+          "sha256": "b93fc3b453740727ba003b717ca5d401cf0172b15e7e8b5ff95b53b8a406271d"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.3/cupti_profiler_target.h",
+          "repository": "headers",
+          "sha256": "26c71ea03ba196558d13368ed31c53f35749e7936b6c5d14b51249822b743ff1"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.3/cupti_result.h",
+          "repository": "headers",
+          "sha256": "6be0b863b2c06028824f59e039fa03b938b6b2d106d584da7f0c27e947cbf8b5"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.3/cupti_runtime_cbid.h",
+          "repository": "headers",
+          "sha256": "2d99852d1b38aa14d583cdcd28f69fb1c782e6ab6529c28e3bca6c1e969ea879"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.3/cupti_sass_metrics.h",
+          "repository": "headers",
+          "sha256": "03f4d009a3ebd7853e376109cf37e62817a06038fd9ca41cfe0cfed1b8f0da25"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.3/cupti_target.h",
+          "repository": "headers",
+          "sha256": "c78573d54a5bea6f62c6656998668a425743598408dce67ea1c1171b334ad041"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.3/cupti_version.h",
+          "repository": "headers",
+          "sha256": "79cc994d9f2ef573f67761b04b425752a3c7883b502cb03ea7e10b424a375eed"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.3/generated_cuda_meta.h",
+          "repository": "headers",
+          "sha256": "42e6db76e17b4e68236151ec19adc8d798c18d92a25cfd3fe919df22642e4400"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.3/generated_cuda_runtime_api_meta.h",
+          "repository": "headers",
+          "sha256": "1eb6a4cbf85a004b5ef8c1e8ef33295ff4f8b7f546832eacdd0b74856d4b17fc"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.4/cuda_stdint.h",
+          "repository": "headers",
+          "sha256": "5db14e93d0ad2632aa93b3e960da9b495b03c40b1533c6af038ad6a4f8b40634"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.4/cupti.h",
+          "repository": "headers",
+          "sha256": "2645720064c8318cf09bad9d7d5a9ab379cc7082e180ffd6773e9f878fcd103d"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.4/cupti_activity.h",
+          "repository": "headers",
+          "sha256": "441ed562b762381a5d1ff2db5dbda8f82706b619e4dfe344d82aaafa341b37b4"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.4/cupti_activity_deprecated.h",
+          "repository": "headers",
+          "sha256": "ad826ca002710360534f9d3ea2537c118712cdd95706945b4750132c6deb5483"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.4/cupti_callbacks.h",
+          "repository": "headers",
+          "sha256": "ceb11545bd21b9b49f0faf505261ec2622fca007efab2b8a19c4d5462850ae77"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.4/cupti_checkpoint.h",
+          "repository": "headers",
+          "sha256": "ad3cfc2685b1a844815f26565216491a6e31798731e0e24eb49ecb775dd3fdbd"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.4/cupti_common.h",
+          "repository": "headers",
+          "sha256": "f399bbe1bc54817a77b4468f4297b379ace6a6c34cc38d4fb2335262641d4f6d"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.4/cupti_driver_cbid.h",
+          "repository": "headers",
+          "sha256": "7472b241865b05b765c62c7316422834783921f197760ae2ca337506ed62ea0e"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.4/cupti_events.h",
+          "repository": "headers",
+          "sha256": "7fb94b1a60f67bc173bcc8518279f4fafed4d2f4e95248901c8a50c6001119bd"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.4/cupti_metrics.h",
+          "repository": "headers",
+          "sha256": "88b00e943adc6c712c20852682ad13a7564e63d3b73addf08f6f9b23c8986d2b"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.4/cupti_nvtx_cbid.h",
+          "repository": "headers",
+          "sha256": "fdaccfb51d60e2a8afbd7eea6ef1d1520d111c2585ee210e2721cc37da997bd1"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.4/cupti_pcsampling.h",
+          "repository": "headers",
+          "sha256": "c9c2474f7e8398f21a5731ec077c718d792117211f30224e9772db0ac1c58320"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.4/cupti_profiler_target.h",
+          "repository": "headers",
+          "sha256": "26c71ea03ba196558d13368ed31c53f35749e7936b6c5d14b51249822b743ff1"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.4/cupti_result.h",
+          "repository": "headers",
+          "sha256": "6be0b863b2c06028824f59e039fa03b938b6b2d106d584da7f0c27e947cbf8b5"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.4/cupti_runtime_cbid.h",
+          "repository": "headers",
+          "sha256": "d75a5797431d993b7152781e97eaeee0976a5af17f804206d786901314727f32"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.4/cupti_sass_metrics.h",
+          "repository": "headers",
+          "sha256": "dd15bdb2726e15074e86b127df00c93abbb4e6ad15ff3b2c5aba83eedbd524ac"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.4/cupti_target.h",
+          "repository": "headers",
+          "sha256": "c78573d54a5bea6f62c6656998668a425743598408dce67ea1c1171b334ad041"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.4/cupti_version.h",
+          "repository": "headers",
+          "sha256": "b2377e694a131a4116caf036554588a59c17c9701a725a82f206f0367b8ae43d"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.4/generated_cuda_meta.h",
+          "repository": "headers",
+          "sha256": "85ac18a437b4c696831439c295723dd498f0091c566fe012d054bcc9d50c8317"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.4/generated_cuda_runtime_api_meta.h",
+          "repository": "headers",
+          "sha256": "0fc09b00ddfe8cbb85d8a19fb011d71042d280bf762ab500883bee81613c07c3"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.5/cuda_stdint.h",
+          "repository": "headers",
+          "sha256": "5db14e93d0ad2632aa93b3e960da9b495b03c40b1533c6af038ad6a4f8b40634"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.5/cupti.h",
+          "repository": "headers",
+          "sha256": "2645720064c8318cf09bad9d7d5a9ab379cc7082e180ffd6773e9f878fcd103d"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.5/cupti_activity.h",
+          "repository": "headers",
+          "sha256": "762128fc3e52f8c09820a83811fd5bc292a45323011f28fd4aeac2ac944dd8f8"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.5/cupti_activity_deprecated.h",
+          "repository": "headers",
+          "sha256": "dc39d75925ce45f824953d5eb16ffdd67a3698b87e45a441ea094cbde7c97d40"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.5/cupti_callbacks.h",
+          "repository": "headers",
+          "sha256": "ceb11545bd21b9b49f0faf505261ec2622fca007efab2b8a19c4d5462850ae77"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.5/cupti_checkpoint.h",
+          "repository": "headers",
+          "sha256": "ad3cfc2685b1a844815f26565216491a6e31798731e0e24eb49ecb775dd3fdbd"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.5/cupti_common.h",
+          "repository": "headers",
+          "sha256": "f399bbe1bc54817a77b4468f4297b379ace6a6c34cc38d4fb2335262641d4f6d"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.5/cupti_driver_cbid.h",
+          "repository": "headers",
+          "sha256": "4f78c3d63cbbb7d54a281e24636925cc614f94504e857d626d7af6c50176fdb4"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.5/cupti_events.h",
+          "repository": "headers",
+          "sha256": "7fb94b1a60f67bc173bcc8518279f4fafed4d2f4e95248901c8a50c6001119bd"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.5/cupti_metrics.h",
+          "repository": "headers",
+          "sha256": "88b00e943adc6c712c20852682ad13a7564e63d3b73addf08f6f9b23c8986d2b"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.5/cupti_nvtx_cbid.h",
+          "repository": "headers",
+          "sha256": "fdaccfb51d60e2a8afbd7eea6ef1d1520d111c2585ee210e2721cc37da997bd1"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.5/cupti_pcsampling.h",
+          "repository": "headers",
+          "sha256": "c9c2474f7e8398f21a5731ec077c718d792117211f30224e9772db0ac1c58320"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.5/cupti_profiler_target.h",
+          "repository": "headers",
+          "sha256": "26c71ea03ba196558d13368ed31c53f35749e7936b6c5d14b51249822b743ff1"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.5/cupti_result.h",
+          "repository": "headers",
+          "sha256": "6be0b863b2c06028824f59e039fa03b938b6b2d106d584da7f0c27e947cbf8b5"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.5/cupti_runtime_cbid.h",
+          "repository": "headers",
+          "sha256": "8c441d2ce24fdfe4ce2c1939706bf74240a1cdee7c022966ef08d8da11700440"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.5/cupti_sass_metrics.h",
+          "repository": "headers",
+          "sha256": "dd15bdb2726e15074e86b127df00c93abbb4e6ad15ff3b2c5aba83eedbd524ac"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.5/cupti_target.h",
+          "repository": "headers",
+          "sha256": "c78573d54a5bea6f62c6656998668a425743598408dce67ea1c1171b334ad041"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.5/cupti_version.h",
+          "repository": "headers",
+          "sha256": "3439e4f01a7bf6005466e1b744ba6fab1affe35596ef11c9ff8c10d7ab191320"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.5/generated_cuda_meta.h",
+          "repository": "headers",
+          "sha256": "00dbbcba234cb6e7cd61231f7718f8cc13213e3e381ab1f3dee354d789183424"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.5/generated_cuda_runtime_api_meta.h",
+          "repository": "headers",
+          "sha256": "ac39de4dbaaf25b732863007653e23aef10c6c16ee66eead2ce6b356973e0b4b"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.6/cuda_stdint.h",
+          "repository": "headers",
+          "sha256": "5db14e93d0ad2632aa93b3e960da9b495b03c40b1533c6af038ad6a4f8b40634"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.6/cupti.h",
+          "repository": "headers",
+          "sha256": "2645720064c8318cf09bad9d7d5a9ab379cc7082e180ffd6773e9f878fcd103d"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.6/cupti_activity.h",
+          "repository": "headers",
+          "sha256": "46dd04c7089a1aa21ee91224ef9717f04532faf08bda050ce4b08bdb18daaf1c"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.6/cupti_activity_deprecated.h",
+          "repository": "headers",
+          "sha256": "a4144650f00668df2219f79b14f509b2be863a6cefb1dfa7b05760101f9d6679"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.6/cupti_callbacks.h",
+          "repository": "headers",
+          "sha256": "1165e4f010a08b383a74a7fec94eee0b379786afe3af335aa354c76b20526afb"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.6/cupti_checkpoint.h",
+          "repository": "headers",
+          "sha256": "ad3cfc2685b1a844815f26565216491a6e31798731e0e24eb49ecb775dd3fdbd"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.6/cupti_common.h",
+          "repository": "headers",
+          "sha256": "f399bbe1bc54817a77b4468f4297b379ace6a6c34cc38d4fb2335262641d4f6d"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.6/cupti_driver_cbid.h",
+          "repository": "headers",
+          "sha256": "764fde88971f1f6c999ad2ea545381302779d41f344e7898ee975e1f6741c990"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.6/cupti_events.h",
+          "repository": "headers",
+          "sha256": "7fb94b1a60f67bc173bcc8518279f4fafed4d2f4e95248901c8a50c6001119bd"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.6/cupti_metrics.h",
+          "repository": "headers",
+          "sha256": "88b00e943adc6c712c20852682ad13a7564e63d3b73addf08f6f9b23c8986d2b"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.6/cupti_nvtx_cbid.h",
+          "repository": "headers",
+          "sha256": "fdaccfb51d60e2a8afbd7eea6ef1d1520d111c2585ee210e2721cc37da997bd1"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.6/cupti_pcsampling.h",
+          "repository": "headers",
+          "sha256": "c9c2474f7e8398f21a5731ec077c718d792117211f30224e9772db0ac1c58320"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.6/cupti_pmsampling.h",
+          "repository": "headers",
+          "sha256": "28fd30604ca429117f5e486f7aca0102e2d49a34d0440860120d3c7873ae2769"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.6/cupti_profiler_target.h",
+          "repository": "headers",
+          "sha256": "31d2eeb4879fc1d31323bc2c71ed0b3b736e0a6dc5460151dc6c4092a69d32ce"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.6/cupti_range_profiler.h",
+          "repository": "headers",
+          "sha256": "b9ee5b500fb7c42c00b501b20dee4ed5de6b02645b55b72b5ca7c84dde313352"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.6/cupti_result.h",
+          "repository": "headers",
+          "sha256": "6be0b863b2c06028824f59e039fa03b938b6b2d106d584da7f0c27e947cbf8b5"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.6/cupti_runtime_cbid.h",
+          "repository": "headers",
+          "sha256": "9867b8e2074a24ae84ff38a28d7afb9ec9519dc21692c925d960fb8e4b25a8d8"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.6/cupti_sass_metrics.h",
+          "repository": "headers",
+          "sha256": "dd15bdb2726e15074e86b127df00c93abbb4e6ad15ff3b2c5aba83eedbd524ac"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.6/cupti_target.h",
+          "repository": "headers",
+          "sha256": "c78573d54a5bea6f62c6656998668a425743598408dce67ea1c1171b334ad041"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.6/cupti_version.h",
+          "repository": "headers",
+          "sha256": "2dc516e90731956373e73a6e5ca5d5377a76ed2b176a59a47141aeb5921ab6e2"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.6/generated_cuda_meta.h",
+          "repository": "headers",
+          "sha256": "00dbbcba234cb6e7cd61231f7718f8cc13213e3e381ab1f3dee354d789183424"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.6/generated_cuda_runtime_api_meta.h",
+          "repository": "headers",
+          "sha256": "ac39de4dbaaf25b732863007653e23aef10c6c16ee66eead2ce6b356973e0b4b"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.8/cuda_stdint.h",
+          "repository": "headers",
+          "sha256": "5db14e93d0ad2632aa93b3e960da9b495b03c40b1533c6af038ad6a4f8b40634"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.8/cupti.h",
+          "repository": "headers",
+          "sha256": "2645720064c8318cf09bad9d7d5a9ab379cc7082e180ffd6773e9f878fcd103d"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.8/cupti_activity.h",
+          "repository": "headers",
+          "sha256": "809286946d8989f5b7e8bc7eba325c28196752b34ea13c5aaf9d64dbc1ab52d5"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.8/cupti_activity_deprecated.h",
+          "repository": "headers",
+          "sha256": "074a78cdb965daf527d63d089931ba4086e9a7a1e2c3ccbe5f4db56667fb7e51"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.8/cupti_callbacks.h",
+          "repository": "headers",
+          "sha256": "699f9213460c15f4fd47e521e4c1dba0f834ca91cc8de492009c37cdd3fb382b"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.8/cupti_checkpoint.h",
+          "repository": "headers",
+          "sha256": "ad3cfc2685b1a844815f26565216491a6e31798731e0e24eb49ecb775dd3fdbd"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.8/cupti_common.h",
+          "repository": "headers",
+          "sha256": "f399bbe1bc54817a77b4468f4297b379ace6a6c34cc38d4fb2335262641d4f6d"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.8/cupti_driver_cbid.h",
+          "repository": "headers",
+          "sha256": "9a404d3d890b7dc1318506450e8d2260795a1c95860f6bce31db73695fa51149"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.8/cupti_events.h",
+          "repository": "headers",
+          "sha256": "f35c1cbc5bef1e3f1198409b6c4a7915f823248403a02ffcd4586fab39c5ba96"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.8/cupti_metrics.h",
+          "repository": "headers",
+          "sha256": "ce67d9c6ae55914269e938fba171243fda32711370d7307d54d8684256e188de"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.8/cupti_nvtx_cbid.h",
+          "repository": "headers",
+          "sha256": "fdaccfb51d60e2a8afbd7eea6ef1d1520d111c2585ee210e2721cc37da997bd1"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.8/cupti_pcsampling.h",
+          "repository": "headers",
+          "sha256": "c9c2474f7e8398f21a5731ec077c718d792117211f30224e9772db0ac1c58320"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.8/cupti_pmsampling.h",
+          "repository": "headers",
+          "sha256": "53de6128ec0891949b18d54fd7541298c6b007ca9d26c96363fb54258e2f79d7"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.8/cupti_profiler_target.h",
+          "repository": "headers",
+          "sha256": "31d2eeb4879fc1d31323bc2c71ed0b3b736e0a6dc5460151dc6c4092a69d32ce"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.8/cupti_range_profiler.h",
+          "repository": "headers",
+          "sha256": "b9ee5b500fb7c42c00b501b20dee4ed5de6b02645b55b72b5ca7c84dde313352"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.8/cupti_result.h",
+          "repository": "headers",
+          "sha256": "c50a81b1946889c05259d935959004fd67998fcf0c2c7e82953a39f28b21c7ef"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.8/cupti_runtime_cbid.h",
+          "repository": "headers",
+          "sha256": "059267cecbdfd918d194728484f8c293409d8cb23dfcbfa70a54f07b8bfd3547"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.8/cupti_sass_metrics.h",
+          "repository": "headers",
+          "sha256": "dd15bdb2726e15074e86b127df00c93abbb4e6ad15ff3b2c5aba83eedbd524ac"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.8/cupti_target.h",
+          "repository": "headers",
+          "sha256": "c78573d54a5bea6f62c6656998668a425743598408dce67ea1c1171b334ad041"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.8/cupti_version.h",
+          "repository": "headers",
+          "sha256": "2855e68c1e28fa2646bcef256bd49ff54ae0e2ae2cae61229a7c5b3c2c9dd8df"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.8/generated_cuda_meta.h",
+          "repository": "headers",
+          "sha256": "0c37607d6f38195b6c19bafb75a3497219a66434bfc5fbc31ef1429b72353847"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.8/generated_cuda_runtime_api_meta.h",
+          "repository": "headers",
+          "sha256": "0aece2683c0ed8c877de96822c62aa8bbdcf41f60d9b3a77f3062b8402be7e78"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.9/cuda_stdint.h",
+          "repository": "headers",
+          "sha256": "5db14e93d0ad2632aa93b3e960da9b495b03c40b1533c6af038ad6a4f8b40634"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.9/cupti.h",
+          "repository": "headers",
+          "sha256": "2645720064c8318cf09bad9d7d5a9ab379cc7082e180ffd6773e9f878fcd103d"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.9/cupti_activity.h",
+          "repository": "headers",
+          "sha256": "8f1be5852d80b06abbe2e5be103ae897a8c16477146968f04fe7b137007f12e6"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.9/cupti_activity_deprecated.h",
+          "repository": "headers",
+          "sha256": "074a78cdb965daf527d63d089931ba4086e9a7a1e2c3ccbe5f4db56667fb7e51"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.9/cupti_callbacks.h",
+          "repository": "headers",
+          "sha256": "699f9213460c15f4fd47e521e4c1dba0f834ca91cc8de492009c37cdd3fb382b"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.9/cupti_checkpoint.h",
+          "repository": "headers",
+          "sha256": "ad3cfc2685b1a844815f26565216491a6e31798731e0e24eb49ecb775dd3fdbd"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.9/cupti_common.h",
+          "repository": "headers",
+          "sha256": "f399bbe1bc54817a77b4468f4297b379ace6a6c34cc38d4fb2335262641d4f6d"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.9/cupti_driver_cbid.h",
+          "repository": "headers",
+          "sha256": "7f1db3d6cf6566283d6d32d55c0472adf63d70ce8b086dd532d6190178199fe1"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.9/cupti_events.h",
+          "repository": "headers",
+          "sha256": "f35c1cbc5bef1e3f1198409b6c4a7915f823248403a02ffcd4586fab39c5ba96"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.9/cupti_metrics.h",
+          "repository": "headers",
+          "sha256": "ce67d9c6ae55914269e938fba171243fda32711370d7307d54d8684256e188de"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.9/cupti_nvtx_cbid.h",
+          "repository": "headers",
+          "sha256": "fdaccfb51d60e2a8afbd7eea6ef1d1520d111c2585ee210e2721cc37da997bd1"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.9/cupti_pcsampling.h",
+          "repository": "headers",
+          "sha256": "c9c2474f7e8398f21a5731ec077c718d792117211f30224e9772db0ac1c58320"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.9/cupti_pmsampling.h",
+          "repository": "headers",
+          "sha256": "53de6128ec0891949b18d54fd7541298c6b007ca9d26c96363fb54258e2f79d7"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.9/cupti_profiler_target.h",
+          "repository": "headers",
+          "sha256": "31d2eeb4879fc1d31323bc2c71ed0b3b736e0a6dc5460151dc6c4092a69d32ce"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.9/cupti_range_profiler.h",
+          "repository": "headers",
+          "sha256": "b9ee5b500fb7c42c00b501b20dee4ed5de6b02645b55b72b5ca7c84dde313352"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.9/cupti_result.h",
+          "repository": "headers",
+          "sha256": "c50a81b1946889c05259d935959004fd67998fcf0c2c7e82953a39f28b21c7ef"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.9/cupti_runtime_cbid.h",
+          "repository": "headers",
+          "sha256": "15d16a6e185990a01110266a64e3155dfc281e60c512c0dd4d246b6e8e77b3ba"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.9/cupti_sass_metrics.h",
+          "repository": "headers",
+          "sha256": "dd15bdb2726e15074e86b127df00c93abbb4e6ad15ff3b2c5aba83eedbd524ac"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.9/cupti_target.h",
+          "repository": "headers",
+          "sha256": "c78573d54a5bea6f62c6656998668a425743598408dce67ea1c1171b334ad041"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.9/cupti_version.h",
+          "repository": "headers",
+          "sha256": "f4e267df16488bf98980f77f3cde772c64a5edc5d76bdab61de0aabb8f7cce17"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.9/generated_cuda_meta.h",
+          "repository": "headers",
+          "sha256": "f478caf7935cb90c1666a3b615f9d7b14fbf7c655d2a574b76fd6b5982f71f9b"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.9/generated_cuda_runtime_api_meta.h",
+          "repository": "headers",
+          "sha256": "7f70edac8505935751be24d3bc696cde2267dfd753ba0d99fe2c27a09d4c2ea3"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.0/cuda_stdint.h",
+          "repository": "headers",
+          "sha256": "5db14e93d0ad2632aa93b3e960da9b495b03c40b1533c6af038ad6a4f8b40634"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.0/cupti.h",
+          "repository": "headers",
+          "sha256": "2b0a3268524bf80c13ffb173b7271295ee81161d220ea28951d748d5af26bd0e"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.0/cupti_activity.h",
+          "repository": "headers",
+          "sha256": "914cd60f2d76af0d9d3c8d680d14099922aedaebcd8156111c6a070bda6b3fff"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.0/cupti_activity_deprecated.h",
+          "repository": "headers",
+          "sha256": "5af03458a91accb30a42b58df09a5989df56c8be4edd6e6521fc2f0778575ca8"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.0/cupti_callbacks.h",
+          "repository": "headers",
+          "sha256": "b2f82221fb03ecb2b2a27afa2d64284babdf49fee1a3a2811258d473285e1105"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.0/cupti_checkpoint.h",
+          "repository": "headers",
+          "sha256": "ad3cfc2685b1a844815f26565216491a6e31798731e0e24eb49ecb775dd3fdbd"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.0/cupti_common.h",
+          "repository": "headers",
+          "sha256": "f399bbe1bc54817a77b4468f4297b379ace6a6c34cc38d4fb2335262641d4f6d"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.0/cupti_driver_cbid.h",
+          "repository": "headers",
+          "sha256": "8d203d94c8be9af5ed34db316a4fd483c66a5b946c6bf91b5c77e12eff9511de"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.0/cupti_events.h",
+          "repository": "headers",
+          "sha256": "8de8e51ce0a6e6f60764e1fb76ca0a12cdbae3eb53d8ac62c637d3e68bf926af"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.0/cupti_metrics.h",
+          "repository": "headers",
+          "sha256": "9190a8697f5ffbec3614fd2b0b7e8e379a54393a962c604b57f8b2ddc8a069d4"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.0/cupti_nvtx_cbid.h",
+          "repository": "headers",
+          "sha256": "fdaccfb51d60e2a8afbd7eea6ef1d1520d111c2585ee210e2721cc37da997bd1"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.0/cupti_pcsampling.h",
+          "repository": "headers",
+          "sha256": "c9c2474f7e8398f21a5731ec077c718d792117211f30224e9772db0ac1c58320"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.0/cupti_pmsampling.h",
+          "repository": "headers",
+          "sha256": "53de6128ec0891949b18d54fd7541298c6b007ca9d26c96363fb54258e2f79d7"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.0/cupti_profiler_target.h",
+          "repository": "headers",
+          "sha256": "c1e442632c23380062e62e18008cc8c43e417f8d3f1140aaded22765beacd930"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.0/cupti_range_profiler.h",
+          "repository": "headers",
+          "sha256": "b9ee5b500fb7c42c00b501b20dee4ed5de6b02645b55b72b5ca7c84dde313352"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.0/cupti_result.h",
+          "repository": "headers",
+          "sha256": "9c68cf59e13e2772c4dc6811dab48210a8a6068b9c0f2ed4532e2ddc32702c9e"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.0/cupti_runtime_cbid.h",
+          "repository": "headers",
+          "sha256": "4b497c907a116db81a0b6cb363193b069f55410bbda0b34c8ed4638aee5d8910"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.0/cupti_sass_metrics.h",
+          "repository": "headers",
+          "sha256": "dd15bdb2726e15074e86b127df00c93abbb4e6ad15ff3b2c5aba83eedbd524ac"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.0/cupti_target.h",
+          "repository": "headers",
+          "sha256": "c78573d54a5bea6f62c6656998668a425743598408dce67ea1c1171b334ad041"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.0/cupti_version.h",
+          "repository": "headers",
+          "sha256": "2bff898187efdab865528d617b9405e104fd8dc510d2937bab5bd04bb5632238"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.0/generated_cuda_meta.h",
+          "repository": "headers",
+          "sha256": "28d1995d602631c146a246a3328e07f3f632aceb2bfd75981a9a705c4d04c68c"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.0/generated_cuda_runtime_api_meta.h",
+          "repository": "headers",
+          "sha256": "00017b01a927a606efc56714d9aa8f5ace86960077d3329333a9e82906d6dea0"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.1/cuda_stdint.h",
+          "repository": "headers",
+          "sha256": "5db14e93d0ad2632aa93b3e960da9b495b03c40b1533c6af038ad6a4f8b40634"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.1/cupti.h",
+          "repository": "headers",
+          "sha256": "2b0a3268524bf80c13ffb173b7271295ee81161d220ea28951d748d5af26bd0e"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.1/cupti_activity.h",
+          "repository": "headers",
+          "sha256": "1061e039ae4ebee6fdae73950233f324a4826d492fdad62f09caba7410c22b77"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.1/cupti_activity_deprecated.h",
+          "repository": "headers",
+          "sha256": "8a02698b56d25955dbea1ce3076828e3872c40f40b098d6a840781e08c1b0a8c"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.1/cupti_callbacks.h",
+          "repository": "headers",
+          "sha256": "b2f82221fb03ecb2b2a27afa2d64284babdf49fee1a3a2811258d473285e1105"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.1/cupti_checkpoint.h",
+          "repository": "headers",
+          "sha256": "ad3cfc2685b1a844815f26565216491a6e31798731e0e24eb49ecb775dd3fdbd"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.1/cupti_common.h",
+          "repository": "headers",
+          "sha256": "f399bbe1bc54817a77b4468f4297b379ace6a6c34cc38d4fb2335262641d4f6d"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.1/cupti_driver_cbid.h",
+          "repository": "headers",
+          "sha256": "a466a41d811a5848a30f34d60b8286b461fa679550190c2f20192ca5b12bdb25"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.1/cupti_events.h",
+          "repository": "headers",
+          "sha256": "8de8e51ce0a6e6f60764e1fb76ca0a12cdbae3eb53d8ac62c637d3e68bf926af"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.1/cupti_metrics.h",
+          "repository": "headers",
+          "sha256": "9190a8697f5ffbec3614fd2b0b7e8e379a54393a962c604b57f8b2ddc8a069d4"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.1/cupti_nvtx_cbid.h",
+          "repository": "headers",
+          "sha256": "633a2107c2f2f1a82f10d8af8b4f487d87ff7ecc6ede938dc411dfdb6a7a4e9a"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.1/cupti_pcsampling.h",
+          "repository": "headers",
+          "sha256": "c9c2474f7e8398f21a5731ec077c718d792117211f30224e9772db0ac1c58320"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.1/cupti_pmsampling.h",
+          "repository": "headers",
+          "sha256": "53de6128ec0891949b18d54fd7541298c6b007ca9d26c96363fb54258e2f79d7"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.1/cupti_profiler_host.h",
+          "repository": "headers",
+          "sha256": "aa88bbaddcdf2abb6d11ad6596f57e6c2deca22fca01df3d84a5e4bf3a4ec00d"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.1/cupti_profiler_target.h",
+          "repository": "headers",
+          "sha256": "2aac4e121b85139483a7ee9105802a70e0610a20f3276d78fc4780b1b0d89b2d"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.1/cupti_range_profiler.h",
+          "repository": "headers",
+          "sha256": "b9ee5b500fb7c42c00b501b20dee4ed5de6b02645b55b72b5ca7c84dde313352"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.1/cupti_result.h",
+          "repository": "headers",
+          "sha256": "b20dded3b2734bbc91a503ae2400e33274eda09b7b1ea25c71f87e153848b8be"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.1/cupti_runtime_cbid.h",
+          "repository": "headers",
+          "sha256": "011ccd8ca802d32b2a9fede0b9a7cf7ccf3ff35a96ebe4139e5cdca14e33b8f4"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.1/cupti_sass_metrics.h",
+          "repository": "headers",
+          "sha256": "dd15bdb2726e15074e86b127df00c93abbb4e6ad15ff3b2c5aba83eedbd524ac"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.1/cupti_target.h",
+          "repository": "headers",
+          "sha256": "c78573d54a5bea6f62c6656998668a425743598408dce67ea1c1171b334ad041"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.1/cupti_version.h",
+          "repository": "headers",
+          "sha256": "f0ab896097c1711dc4b6cd053eb4b0bc88bf55fbe37068bb37261941cce046ec"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.1/generated_cuda_meta.h",
+          "repository": "headers",
+          "sha256": "af51b14a236a90722f115bcd581647a56a534deb806aa18d98b863abf4c6b5e5"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.1/generated_cuda_runtime_api_meta.h",
+          "repository": "headers",
+          "sha256": "7d4f567ca103cd264a62d5826e2614d95795dc6e7c48db323ab9e49cc0cc7b8b"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.2/cuda_stdint.h",
+          "repository": "headers",
+          "sha256": "5db14e93d0ad2632aa93b3e960da9b495b03c40b1533c6af038ad6a4f8b40634"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.2/cupti.h",
+          "repository": "headers",
+          "sha256": "2b0a3268524bf80c13ffb173b7271295ee81161d220ea28951d748d5af26bd0e"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.2/cupti_activity.h",
+          "repository": "headers",
+          "sha256": "ebc0a37219ecc853ad395356059cb533bf6f2758321ce50dad20fe2077419518"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.2/cupti_activity_deprecated.h",
+          "repository": "headers",
+          "sha256": "6fcf761d6b05370c92c2c6f226318b3e59ae835eea2f3f80f1be3a659ad7ea56"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.2/cupti_callbacks.h",
+          "repository": "headers",
+          "sha256": "467dc10e2c8dd54eadbd06460d6c4ae338878247b5945efd4d8767a030c906ff"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.2/cupti_checkpoint.h",
+          "repository": "headers",
+          "sha256": "edec416aa7dc1981759651eabe88aab31cd0769cd4366c3163625d63d2b4683c"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.2/cupti_common.h",
+          "repository": "headers",
+          "sha256": "8a3aa4d3563dbf825f3a27525e67222d86126fb248d86905e615838b126c7214"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.2/cupti_driver_cbid.h",
+          "repository": "headers",
+          "sha256": "a466a41d811a5848a30f34d60b8286b461fa679550190c2f20192ca5b12bdb25"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.2/cupti_events.h",
+          "repository": "headers",
+          "sha256": "8de8e51ce0a6e6f60764e1fb76ca0a12cdbae3eb53d8ac62c637d3e68bf926af"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.2/cupti_metrics.h",
+          "repository": "headers",
+          "sha256": "9190a8697f5ffbec3614fd2b0b7e8e379a54393a962c604b57f8b2ddc8a069d4"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.2/cupti_nvtx_cbid.h",
+          "repository": "headers",
+          "sha256": "633a2107c2f2f1a82f10d8af8b4f487d87ff7ecc6ede938dc411dfdb6a7a4e9a"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.2/cupti_pcsampling.h",
+          "repository": "headers",
+          "sha256": "c9c2474f7e8398f21a5731ec077c718d792117211f30224e9772db0ac1c58320"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.2/cupti_pmsampling.h",
+          "repository": "headers",
+          "sha256": "53de6128ec0891949b18d54fd7541298c6b007ca9d26c96363fb54258e2f79d7"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.2/cupti_profiler_host.h",
+          "repository": "headers",
+          "sha256": "8913cfad9b09f01c30ef857577483d087ef0b67ecbfa15fc62058d3068534a35"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.2/cupti_profiler_target.h",
+          "repository": "headers",
+          "sha256": "1f3799b1015942502813cb0c12716b7163e0689fdfe95d0bdc2465cdf28d0657"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.2/cupti_range_profiler.h",
+          "repository": "headers",
+          "sha256": "b9ee5b500fb7c42c00b501b20dee4ed5de6b02645b55b72b5ca7c84dde313352"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.2/cupti_result.h",
+          "repository": "headers",
+          "sha256": "b20dded3b2734bbc91a503ae2400e33274eda09b7b1ea25c71f87e153848b8be"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.2/cupti_runtime_cbid.h",
+          "repository": "headers",
+          "sha256": "9ace1de8e0a4192da7b5848994106e91dbdbd49bb5b56395de7e9480bc9c397b"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.2/cupti_sass_metrics.h",
+          "repository": "headers",
+          "sha256": "dd15bdb2726e15074e86b127df00c93abbb4e6ad15ff3b2c5aba83eedbd524ac"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.2/cupti_target.h",
+          "repository": "headers",
+          "sha256": "c78573d54a5bea6f62c6656998668a425743598408dce67ea1c1171b334ad041"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.2/cupti_version.h",
+          "repository": "headers",
+          "sha256": "151dda5f4a01507a1cc7c418ae49d6f5a46caa0fc1e2cc1148fae2cd62996a69"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.2/generated_cuda_meta.h",
+          "repository": "headers",
+          "sha256": "74385318d40eb7b1467c84d0aea5b5901fde04e27617efcf6589180ef5cc6a48"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.2/generated_cuda_runtime_api_meta.h",
+          "repository": "headers",
           "sha256": "2441318b44d6f582e783d47a97d80f9c80c2c5d27c4905b45f00bad960efe15c"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.3/cuda_stdint.h",
+          "repository": "headers",
+          "sha256": "5db14e93d0ad2632aa93b3e960da9b495b03c40b1533c6af038ad6a4f8b40634"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.3/cupti.h",
+          "repository": "headers",
+          "sha256": "2b0a3268524bf80c13ffb173b7271295ee81161d220ea28951d748d5af26bd0e"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.3/cupti_activity.h",
+          "repository": "headers",
+          "sha256": "306ed811227ae7a0a154fd27f977c72e0e5ea0082f63d5395624f6abfd44596a"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.3/cupti_activity_deprecated.h",
+          "repository": "headers",
+          "sha256": "cf930a89a337c5ba76b73e61d31e3cee76bc5b056a98c3de63ca17b153cde262"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.3/cupti_callbacks.h",
+          "repository": "headers",
+          "sha256": "c0147bf1a2ee213b97fbe4e788a4c89ecfd55a5c3bede50214103f143f9249a0"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.3/cupti_checkpoint.h",
+          "repository": "headers",
+          "sha256": "4266976f733b55c0e1c67a2158396d1051575cab82aadd148cf4d2f541abebb4"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.3/cupti_common.h",
+          "repository": "headers",
+          "sha256": "8a3aa4d3563dbf825f3a27525e67222d86126fb248d86905e615838b126c7214"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.3/cupti_driver_cbid.h",
+          "repository": "headers",
+          "sha256": "d4997cbb0b4643a48898d10c336ec0f5c3fe2b1a338b1d832ed5faa7494197f1"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.3/cupti_events.h",
+          "repository": "headers",
+          "sha256": "8de8e51ce0a6e6f60764e1fb76ca0a12cdbae3eb53d8ac62c637d3e68bf926af"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.3/cupti_metrics.h",
+          "repository": "headers",
+          "sha256": "9190a8697f5ffbec3614fd2b0b7e8e379a54393a962c604b57f8b2ddc8a069d4"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.3/cupti_nvtx_cbid.h",
+          "repository": "headers",
+          "sha256": "633a2107c2f2f1a82f10d8af8b4f487d87ff7ecc6ede938dc411dfdb6a7a4e9a"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.3/cupti_pcsampling.h",
+          "repository": "headers",
+          "sha256": "c9c2474f7e8398f21a5731ec077c718d792117211f30224e9772db0ac1c58320"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.3/cupti_pmsampling.h",
+          "repository": "headers",
+          "sha256": "c3608944fd809745d70f9b131f39628482e8e3ae3a066f65d40be62b2123a6b9"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.3/cupti_profiler_host.h",
+          "repository": "headers",
+          "sha256": "debbeb8dd5970a538a98f43aea31bc667f6d958af6152751a8f502dd74d5f7a4"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.3/cupti_profiler_target.h",
+          "repository": "headers",
+          "sha256": "7af2691b15fdabb43d5314cec656454bb4c2a804d3e17f5f98500fc8aa0f8537"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.3/cupti_range_profiler.h",
+          "repository": "headers",
+          "sha256": "c01f435805cc02ec9a210541af9925d0c1a23370f6185054fca22a0dca9876d6"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.3/cupti_result.h",
+          "repository": "headers",
+          "sha256": "16ef400771ab213243d76d49372b7d4409eb0ff685238aee20b8ad1ee30bbaee"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.3/cupti_runtime_cbid.h",
+          "repository": "headers",
+          "sha256": "9ace1de8e0a4192da7b5848994106e91dbdbd49bb5b56395de7e9480bc9c397b"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.3/cupti_sass_metrics.h",
+          "repository": "headers",
+          "sha256": "dd15bdb2726e15074e86b127df00c93abbb4e6ad15ff3b2c5aba83eedbd524ac"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.3/cupti_target.h",
+          "repository": "headers",
+          "sha256": "c78573d54a5bea6f62c6656998668a425743598408dce67ea1c1171b334ad041"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.3/cupti_version.h",
+          "repository": "headers",
+          "sha256": "64e69e72b7e8ccd3ce6818bc0d9bd380068ad3935cbd09211a4cf6b8abd16d07"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.3/generated_cuda_meta.h",
+          "repository": "headers",
+          "sha256": "c3e2bb756a595da776095177bbc169fd6692f54ec31481ccf0d60be41a718542"
+        },
+        {
+          "path": "pinned/cupti/cuda-13.3/generated_cuda_runtime_api_meta.h",
+          "repository": "headers",
+          "sha256": "2f5f7d8b0f7358d088b7258935affc733931db8272bed48a21bc95286c20ef0c"
+        },
+        {
+          "path": "pinned/driver/cuda-12.2/cuda.h",
+          "repository": "headers",
+          "sha256": "a2b4436404c3a9a4231d667c811f24e9ddac256ab3f30c7a486120550abd78d5"
+        },
+        {
+          "path": "pinned/driver/cuda-12.3/cuda.h",
+          "repository": "headers",
+          "sha256": "da37ad1f695dfebe30a9d0856c0eacb002b8eaa11e43bdd338feaed25a622cdb"
+        },
+        {
+          "path": "pinned/driver/cuda-12.4/cuda.h",
+          "repository": "headers",
+          "sha256": "dbd3ae3677ecf076f6b2a0971d42b2dd5b9d5f1ccdf34e74774a16fc2df7cac1"
+        },
+        {
+          "path": "pinned/driver/cuda-12.5/cuda.h",
+          "repository": "headers",
+          "sha256": "52b817f04d0a2a436c544875a29c073bbd1554160330c9244020e4f9e04df13e"
+        },
+        {
+          "path": "pinned/driver/cuda-12.6/cuda.h",
+          "repository": "headers",
+          "sha256": "7313ec1a0642c1a02736b6178136eaa9df5e048a8b9707e43ad2119c1c677bcb"
+        },
+        {
+          "path": "pinned/driver/cuda-12.8/cuda.h",
+          "repository": "headers",
+          "sha256": "4568cc9e7a321e47707cd6403980f21ac2e2e55170500d0e0a3f54feb03a9acb"
+        },
+        {
+          "path": "pinned/driver/cuda-12.9/cuda.h",
+          "repository": "headers",
+          "sha256": "fda3285d055a9f05e40cd76352f9f073d0ab45d42fb5bb0db4bb33b0df506d28"
+        },
+        {
+          "path": "pinned/driver/cuda-13.0/cuda.h",
+          "repository": "headers",
+          "sha256": "64025f81a9d6d2b10e9e11654f3523e5b046d01b883f0b9ca474e463274b80d4"
+        },
+        {
+          "path": "pinned/driver/cuda-13.1/cuda.h",
+          "repository": "headers",
+          "sha256": "756c5d0b68c4bf33d279419d5db479d63263abe80c1e476f8899f4b077215bf5"
+        },
+        {
+          "path": "pinned/driver/cuda-13.2/cuda.h",
+          "repository": "headers",
+          "sha256": "673873a292718591d75ea3c2e65330b1f8f8278eac3c96b32245418fb0817851"
+        },
+        {
+          "path": "pinned/driver/cuda-13.3/cuda.h",
+          "repository": "headers",
+          "sha256": "31df84e16179b6d97db4b3c0bae7697392a370b41983f4a8962f0e5a8069b577"
         }
       ]
     },
@@ -4041,7 +5363,7 @@
           },
           {
             "path": "nvidia/curand/init.gen.go",
-            "sha256": "84d974e1f94e91189a5b2352accf8c3201a1ab91c31defa24fdbe9c1bef6f69d"
+            "sha256": "39cb052d6192313f51d600ed34ed2616f3fa28f2503baab6dc3436c018c97c5a"
           },
           {
             "path": "nvidia/curand/loader.gen_test.go",
@@ -4071,7 +5393,8 @@
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
           "go": "go version go1.27.0 darwin/arm64"
-        }
+        },
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe"
       },
       "generator_sources": [
         {
@@ -4748,8 +6071,8 @@
       "package": "github.com/tmc/lib/nvidia/curand",
       "repositories": {
         "codegen": {
-          "commit": "936c8b2a37552d41ab78f1de81f7227c4cc28d7b",
-          "tree": "0d68e5678e79cab9f3902ff01007d8a23518d9ac",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Regenerated at libgen 80aa768: methods drop the receiver words they repeat (SetOffset, SetOrdering). Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39 regenerate at libgen 294fc372 regenerate at libgen b3dc359c Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -4815,7 +6138,7 @@
           },
           {
             "path": "nvidia/cusolver/init.gen.go",
-            "sha256": "6161348a6e91c18f2226c51020978a8f3563bfbb19825684cc607761b62ba4b0"
+            "sha256": "f8d21da511cf222bca4062c1a97ee0a1d873cdec28aeb2e5915d2a0cbc7bd541"
           },
           {
             "path": "nvidia/cusolver/irs_infos.gen.go",
@@ -4869,7 +6192,7 @@
         "toolchain": {
           "go": "go version go1.27.0 darwin/arm64"
         },
-        "source_state": "clean tracked libgen sources at dc14e827e5463455889b74d5f72c93051e5cb89e"
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe"
       },
       "header": {
         "path": "cusolver/cusolverDn.h",
@@ -4880,9 +6203,9 @@
       "package": "github.com/tmc/lib/nvidia/cusolver",
       "repositories": {
         "codegen": {
-          "commit": "936c8b2a37552d41ab78f1de81f7227c4cc28d7b",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
           "note": "Unpublished at the time of recording; it is the commit this generation was taken from. The later commit a96f510 fixes the cublas and cublaslt surveys and does not affect this package. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen a8270fa regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c Regenerated at libgen 936c8b2a: foreign word types call through ffi.",
-          "tree": "0d68e5678e79cab9f3902ff01007d8a23518d9ac",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git"
         },
         "headers": {
@@ -5111,7 +6434,7 @@
             "sha256": "59c9aae332480a5cbff3b17277e318246c9156167529f8f5c41a284a3114805a"
           }
         ],
-        "source_state": "clean codegen checkout at the recorded commit; generation re-run and every output compared byte for byte with the recorded lib commit",
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
           "clang_target": "arm64-apple-darwin25.6.0",
@@ -5136,8 +6459,8 @@
       "package": "github.com/tmc/lib/nvidia/cusolvermp",
       "repositories": {
         "codegen": {
-          "commit": "936c8b2a37552d41ab78f1de81f7227c4cc28d7b",
-          "tree": "0d68e5678e79cab9f3902ff01007d8a23518d9ac",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen ebad1633 Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -5750,7 +7073,7 @@
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
           "go": "go version go1.25.0 darwin/arm64"
         },
-        "source_state": "clean tracked libgen sources at d7ee8ed06aa51d0064cac98c7a7c181168aa1965"
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe"
       },
       "generator_sources": [
         {
@@ -6687,7 +8010,7 @@
         {
           "path": "cuda_crt/crt/host_defines.h",
           "repository": "headers",
-          "sha256": "dbabf0f8e8461362addf1bd4a04b6878923aa9be997352baf0bab7af7b9e47e1"
+          "sha256": "11b67879d28c09ee4b1aba1ebeeae7c62a0af7be8bcb6ffd499c34f10981e288"
         },
         {
           "path": "cuda_cudart/builtin_types.h",
@@ -6707,7 +8030,7 @@
         {
           "path": "cuda_cudart/cuda_runtime_api.h",
           "repository": "headers",
-          "sha256": "a848e416776a49904e8bace4bd377c0c5b379461e6bb2fb8accb7e6162c3a96d"
+          "sha256": "2c6732345e9662d91733f5e45fa9c76c955640ef02c4bf17ceb7f1bcc209d3de"
         },
         {
           "path": "cuda_cudart/device_types.h",
@@ -6717,12 +8040,12 @@
         {
           "path": "cuda_cudart/driver_types.h",
           "repository": "headers",
-          "sha256": "b37eb334124c5e43cfa2baa087aa128b44ddd8913da476ca0e92358d5d1be9c4"
+          "sha256": "601cc73210a046d029e25f189ade5d02004aaa6c045a5100be80b5d5e52b5e57"
         },
         {
           "path": "cuda_cudart/library_types.h",
           "repository": "headers",
-          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
+          "sha256": "f75e715c673c5058112b60a0f3ed9dc529150f641bd21d868a20612d1da77f5f"
         },
         {
           "path": "cuda_cudart/surface_types.h",
@@ -6742,20 +8065,20 @@
         {
           "path": "cusparse/cusparse.h",
           "repository": "headers",
-          "sha256": "446549afb6720ec5d56e85648c03b4dbfa9d9bda8d29acdbed3b6fdbb0912fcb"
+          "sha256": "65749b43a6acd035d3923e718f9a8f18d49d1e76d35dad85ea5331d1a851073b"
         },
         {
           "path": "types/library_types.h",
           "repository": "headers",
-          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
+          "sha256": "f75e715c673c5058112b60a0f3ed9dc529150f641bd21d868a20612d1da77f5f"
         }
       ],
       "note": "Regenerated 2026-09-08 from the recorded recipe. The only change is the Linux candidate list, which no longer ends with the unversioned libcusparse.so; see the soname-pinning note in the cufft entry. Exported API is unchanged.",
       "package": "github.com/tmc/lib/nvidia/cusparse",
       "repositories": {
         "codegen": {
-          "commit": "d7ee8ed06aa51d0064cac98c7a7c181168aa1965",
-          "tree": "764491dc369a44337547d89cf0d7341268bf7928",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Restamped at libgen 80aa768, which changed a generator source; output unchanged. Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39 regenerate at libgen 294fc372 regenerate at libgen b3dc359c Regenerated at libgen 4029439a: C source dropped from scraped docs. Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -6864,9 +8187,13 @@
           {
             "path": "nvidia/custatevec/types.gen.go",
             "sha256": "35557669124a0250220f6a78294941dcf4263bc1684c8995bbabd42073bfc32d"
+          },
+          {
+            "path": "nvidia/custatevec/provenance.json",
+            "sha256": "b8c7d4e21ac908e0b6eafaa2786398345e0a8eec88b77c784b26aa02eaca41b5"
           }
         ],
-        "source_state": "clean codegen checkout at the recorded commit; generation re-run and every output compared byte for byte with the recorded lib commit",
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
           "clang_target": "arm64-apple-darwin25.6.0",
@@ -6880,7 +8207,8 @@
             "GOTOOLCHAIN": "auto",
             "GOVERSION": "go1.27.0"
           }
-        }
+        },
+        "layout_requirement": "The codegen and header checkouts must be siblings named libgen and cuda-headers. The captured input inventory is relative to their common parent; changing that layout changes the metadata hash. Binding outputs do not change."
       },
       "header": {
         "path": "cmd/gen-custatevec/headers/cuquantum/custatevec.h",
@@ -6891,8 +8219,8 @@
       "package": "github.com/tmc/lib/nvidia/custatevec",
       "repositories": {
         "codegen": {
-          "commit": "936c8b2a37552d41ab78f1de81f7227c4cc28d7b",
-          "tree": "0d68e5678e79cab9f3902ff01007d8a23518d9ac",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen 294fc372 Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -7078,7 +8406,7 @@
         "toolchain": {
           "go": "go version go1.27.0 darwin/arm64"
         },
-        "source_state": "clean tracked libgen sources at 3005ecfdb35134468c9a9d93532ee08f6c7c53cf"
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe"
       },
       "header": {
         "path": "libcutensor/cutensor.h",
@@ -7089,10 +8417,10 @@
       "package": "github.com/tmc/lib/nvidia/cutensor",
       "repositories": {
         "codegen": {
-          "commit": "936c8b2a37552d41ab78f1de81f7227c4cc28d7b",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
           "note": "Unpublished at the time of recording; it is the commit this generation was taken from. The later commit a96f510 fixes the cublas and cublaslt surveys and does not affect this package. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c; regenerate at libgen f3b353d8, dropping the header's claim that descCompute sets the alpha and beta type Regenerated at libgen 1c7003cb: requested-count arrays bind as slices. Regenerated at libgen 936c8b2a: foreign word types call through ffi.",
           "url": "https://github.com/tmc/libgen.git",
-          "tree": "0d68e5678e79cab9f3902ff01007d8a23518d9ac"
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092"
         },
         "headers": {
           "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",
@@ -7314,7 +8642,7 @@
             "sha256": "7324f47b5ab3bed1bd25093e75d0122a34c328363de8ad63a5b0b774af7c8f60"
           }
         ],
-        "source_state": "clean codegen checkout at the recorded commit; generation re-run and every output compared byte for byte with the recorded lib commit",
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
           "clang_target": "arm64-apple-darwin25.6.0",
@@ -7356,8 +8684,8 @@
       "package": "github.com/tmc/lib/nvidia/cutensornet",
       "repositories": {
         "codegen": {
-          "commit": "936c8b2a37552d41ab78f1de81f7227c4cc28d7b",
-          "tree": "0d68e5678e79cab9f3902ff01007d8a23518d9ac",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 8d0f6db: doc prose naming a deprecated function now links it. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen 294fc372 regenerate at libgen b3dc359c Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -7604,7 +8932,7 @@
             "sha256": "1da01ce3c313d2412cabb18d03eedbaac65bfc50017a399a38aeb24e2c29b602"
           }
         ],
-        "source_state": "clean codegen checkout at the recorded commit; generation re-run and every output compared byte for byte with the recorded lib commit",
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
           "clang_target": "arm64-apple-darwin25.6.0",
@@ -7656,8 +8984,8 @@
       "package": "github.com/tmc/lib/nvidia/dcgm",
       "repositories": {
         "codegen": {
-          "commit": "b3dc359c9db53dea61a497ef6f5c4a305f945132",
-          "tree": "f54815ecdd777ae664e200e000db35f1e948469d",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c"
         },
@@ -7951,7 +9279,7 @@
         "toolchain": {
           "go": "go version go1.27.0 darwin/arm64"
         },
-        "source_state": "clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe"
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe"
       },
       "generator_sources": [
         {
@@ -9214,7 +10542,7 @@
             "sha256": "35f93cc1da305a7178201621e412daae9e6cf4c01c29649c5d267d01dc673b09"
           }
         ],
-        "source_state": "clean committed generator, output compared against committed lib",
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
           "clang_target": "arm64-apple-darwin25.6.0",
@@ -9243,8 +10571,8 @@
       "package": "github.com/tmc/lib/nvidia/fabricmanager",
       "repositories": {
         "codegen": {
-          "commit": "f1b4a2dafa95744ac394c7b44e3ffb57db3882e6",
-          "tree": "67120bbc7f0a967a62c535121d7c5a01f1c22fce",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen e987d3a fabricmanager-survey at libgen f1b4a2d"
         },
@@ -9343,7 +10671,7 @@
             "sha256": "7f4c81125259d0bca5218cf77e979ba9cccc41a1203c558b526e3ba30dfcf17e"
           }
         ],
-        "source_state": "clean codegen checkout at the recorded commit; generation re-run and every output compared byte for byte with the recorded lib commit",
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
           "clang_target": "arm64-apple-darwin25.6.0",
@@ -9368,8 +10696,8 @@
       "package": "github.com/tmc/lib/nvidia/gdrcopy",
       "repositories": {
         "codegen": {
-          "commit": "446fae667d7143fdba4122b281b8306fccd58b57",
-          "tree": "53f428bf7943cda8b16fdbaf82aa923a4a43049d",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git",
           "note": "regenerate at libgen 0b6b362 regenerate at libgen e987d3a Regenerated at libgen 446fae66: 8-byte integer structs call through ffi."
         },
@@ -10029,7 +11357,7 @@
           "initializer_macros": true,
           "compiler_measured_by_value_routing": true
         },
-        "source_state": "clean tracked libgen sources at 3005ecfdb35134468c9a9d93532ee08f6c7c53cf",
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
         "maintained_files_excluded": [
           "README.md",
           "comm_array_test.go",
@@ -10083,11 +11411,6 @@
           "path": "cuda_cudart/channel_descriptor.h",
           "repository": "headers",
           "sha256": "b78717961fe4aa0c3529fd5e6260331746249bd59b5fad1eebfdc7bc12ba9d1a"
-        },
-        {
-          "path": "cuda_cudart/cuda.h",
-          "repository": "headers",
-          "sha256": "31df84e16179b6d97db4b3c0bae7697392a370b41983f4a8962f0e5a8069b577"
         },
         {
           "path": "cuda_cudart/cuda_bf16.h",
@@ -10168,6 +11491,11 @@
           "path": "cuda_cudart/vector_types.h",
           "repository": "headers",
           "sha256": "ded087a2c3ca89fd3a5150589175aca0aa4714357016209ea3e7a51f94845e75"
+        },
+        {
+          "path": "driver/cuda.h",
+          "repository": "headers",
+          "sha256": "673873a292718591d75ea3c2e65330b1f8f8278eac3c96b32245418fb0817851"
         },
         {
           "path": "pinned/nccl/2.31.2-1/nccl.h",
@@ -10283,8 +11611,8 @@
       "package": "github.com/tmc/lib/nvidia/nccl",
       "repositories": {
         "codegen": {
-          "commit": "936c8b2a37552d41ab78f1de81f7227c4cc28d7b",
-          "tree": "0d68e5678e79cab9f3902ff01007d8a23518d9ac",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 80aa768: ParamHandle methods drop the ParamGet stem. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen b3dc359c Regenerated with nccl-survey at libgen d61bc79a; the package API is compatible, and 12-byte team aggregates now use compiler-measured ffi registration. Regenerated at libgen de1b8c78: split function files keep only their own comments, and the generated-code header precedes the package clause. Regenerated at libgen 4029439a: C source dropped from scraped docs. Regenerated at libgen 288aadde: parameter API takes and returns Go strings; WinFlags. Regenerated at libgen af502c40: deferred outputs of Split, Shrink, Grow and WindowRegister are caller-owned. Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -10304,7 +11632,9 @@
           "-api",
           "ncclep",
           "-output",
-          "${OUTPUT_DIR}"
+          "${OUTPUT_DIR}",
+          "-cuda-headers",
+          "${HEADERS_REPO}"
         ],
         "cwd": "${CODEGEN_REPO}",
         "limitations": [
@@ -10370,7 +11700,7 @@
           },
           {
             "path": "nvidia/ncclep/provenance.json",
-            "sha256": "5b4a9488a6d9e8aebbae568100ea365025ab31ee81d315003e1a58a69fa62e6e"
+            "sha256": "a4f7b80f0ea0bb46eb16e3628d5fe0ead8f172c70d8c8d42dda19ee12776e33b"
           },
           {
             "path": "nvidia/ncclep/result.gen.go",
@@ -10390,7 +11720,7 @@
           "GOWORK": "off",
           "GOTOOLCHAIN": "go1.27.0"
         },
-        "source_state": "clean tracked libgen sources at 9deecb18aafc7e545e4e7563ced00bdaeaf3a0e1"
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe"
       },
       "generator_sources": [
         {
@@ -10713,8 +12043,8 @@
       "package": "github.com/tmc/lib/nvidia/ncclep",
       "repositories": {
         "codegen": {
-          "commit": "936c8b2a37552d41ab78f1de81f7227c4cc28d7b",
-          "tree": "0d68e5678e79cab9f3902ff01007d8a23518d9ac",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Regenerated at libgen 8da282f: doc comments name snake_case parameters by their Go names. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39 regenerate at libgen 294fc372 regenerate at libgen b3dc359c Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         }
@@ -10877,7 +12207,9 @@
           "-api",
           "ncclll",
           "-output",
-          "${OUTPUT_DIR}"
+          "${OUTPUT_DIR}",
+          "-cuda-headers",
+          "${HEADERS_REPO}"
         ],
         "cwd": "${CODEGEN_REPO}",
         "limitations": [
@@ -10933,7 +12265,7 @@
           },
           {
             "path": "nvidia/ncclll/provenance.json",
-            "sha256": "ef98dd2ca8495a25c199ad6e12e2a3206af7b53c5aa636815183c5e0ebccb533"
+            "sha256": "99982a808c916f0d9969333d389c0963ed46cb624e29d7d1307c637eb4dab2c7"
           },
           {
             "path": "nvidia/ncclll/result.gen.go",
@@ -10953,7 +12285,7 @@
           "GOWORK": "off",
           "GOTOOLCHAIN": "go1.27.0"
         },
-        "source_state": "clean tracked libgen sources at 9deecb18aafc7e545e4e7563ced00bdaeaf3a0e1"
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe"
       },
       "generator_sources": [
         {
@@ -11275,8 +12607,8 @@
       "package": "github.com/tmc/lib/nvidia/ncclll",
       "repositories": {
         "codegen": {
-          "commit": "936c8b2a37552d41ab78f1de81f7227c4cc28d7b",
-          "tree": "0d68e5678e79cab9f3902ff01007d8a23518d9ac",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39 regenerate at libgen 294fc372 regenerate at libgen b3dc359c Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         }
@@ -11444,7 +12776,9 @@
           "-api",
           "ncclm2n",
           "-output",
-          "${OUTPUT_DIR}"
+          "${OUTPUT_DIR}",
+          "-cuda-headers",
+          "${HEADERS_REPO}"
         ],
         "cwd": "${CODEGEN_REPO}",
         "limitations": [
@@ -11506,7 +12840,7 @@
           },
           {
             "path": "nvidia/ncclm2n/provenance.json",
-            "sha256": "77fdf4afcc8ee367533df1d57d7cb1997f9efdcf2642c6c874f0617a4f9225e0"
+            "sha256": "e49a58b63b5242b5f98e11c18dc4f47aa0dca735c8cbef0e7ceb61adb8572d17"
           },
           {
             "path": "nvidia/ncclm2n/result.gen.go",
@@ -11530,7 +12864,7 @@
           "GOWORK": "off",
           "GOTOOLCHAIN": "go1.27.0"
         },
-        "source_state": "clean tracked libgen sources at 9deecb18aafc7e545e4e7563ced00bdaeaf3a0e1"
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe"
       },
       "generator_sources": [
         {
@@ -11848,8 +13182,8 @@
       "package": "github.com/tmc/lib/nvidia/ncclm2n",
       "repositories": {
         "codegen": {
-          "commit": "936c8b2a37552d41ab78f1de81f7227c4cc28d7b",
-          "tree": "0d68e5678e79cab9f3902ff01007d8a23518d9ac",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39 regenerate at libgen 294fc372 regenerate at libgen b3dc359c Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         }
@@ -12070,7 +13404,7 @@
             "sha256": "913b7f02c4bc359a506cf5e8a8dea63b4a8201984c8e386f7a5b0600617f3b18"
           }
         ],
-        "source_state": "clean codegen checkout at the recorded commit; generation re-run and every output compared byte for byte with the recorded lib commit",
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
           "clang_target": "arm64-apple-darwin25.6.0",
@@ -12127,8 +13461,8 @@
       "package": "github.com/tmc/lib/nvidia/nvcomp",
       "repositories": {
         "codegen": {
-          "commit": "936c8b2a37552d41ab78f1de81f7227c4cc28d7b",
-          "tree": "0d68e5678e79cab9f3902ff01007d8a23518d9ac",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at libgen 8da282f: doc comments name snake_case parameters by their Go names. regenerate at libgen 4222a55 regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen fd74952f Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -12279,7 +13613,7 @@
             "sha256": "cb68343607bd13313e74e82328de232cb9dd1f9166ce60df693ebc76287ab103"
           }
         ],
-        "source_state": "clean codegen checkout at the recorded commit; the default pass was re-run and its ten outputs compared byte for byte with the recorded lib commit. The Windows pass was not run, so its seven outputs are recorded by hash only.",
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
         "supplemental_runs": [
           {
             "argv": [
@@ -12378,8 +13712,8 @@
       "package": "github.com/tmc/lib/nvidia/nvdec",
       "repositories": {
         "codegen": {
-          "commit": "80aa768adca258edde3852617f1c8204b86e1b7d",
-          "tree": "abba00eda5bdd29cd3fb142cfc87de98610d3b61",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants. Regenerated at libgen 80aa768: parameters are camel case."
         },
@@ -12493,7 +13827,7 @@
             "sha256": "405b9346e6bccecf3d890f3d817cc60be2ca0de57d433abb2a2642c301e3462b"
           }
         ],
-        "source_state": "regenerated from the vendored API 13.0 header on a clean codegen checkout at the recorded commit; outputs written directly into the lib tree",
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
           "clang_target": "arm64-apple-darwin25.6.0",
@@ -12518,8 +13852,8 @@
       "package": "github.com/tmc/lib/nvidia/nvenc",
       "repositories": {
         "codegen": {
-          "commit": "b9d9a13bc655966cb642d8a80c3005ca9676b043",
-          "tree": "f63ddda0832d4406319fd67b416c9d39fc03ccb8",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git"
         },
         "lib": {
@@ -12613,7 +13947,7 @@
           },
           {
             "path": "nvidia/nvfatbin/init.gen.go",
-            "sha256": "87a91a28894c2d9019c0ebb45b2e69bad7c584e8342e4be20e71097317440d96"
+            "sha256": "eff51b5f030516326e70dd9fe5cbb80651292e3f236487c1434b9ec3159e6add"
           },
           {
             "path": "nvidia/nvfatbin/loader.gen_test.go",
@@ -12636,7 +13970,7 @@
             "sha256": "88c241ea4ea5829460433ec3375309cb848c5c920ee8008092b3776f177c422b"
           }
         ],
-        "source_state": "clean codegen checkout recorded after generation",
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
           "clang_target": "arm64-apple-darwin25.6.0",
@@ -12661,8 +13995,8 @@
       "package": "github.com/tmc/lib/nvidia/nvfatbin",
       "repositories": {
         "codegen": {
-          "commit": "78568b217ac266d90d40bb73942cfb18bd5b47f4",
-          "tree": "8544faa296f344f0a135f5e5546823b945ebf11a",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 80aa768: parameters are camel case. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen e987d3a nvfatbin-survey at libgen 78568b2"
         },
@@ -12806,7 +14140,7 @@
             "sha256": "835add22880b843a2e8d3913465264a9915bbf66f966ed5d65ec7d9eeea5f265"
           }
         ],
-        "source_state": "clean tracked libgen sources at d7ee8ed06aa51d0064cac98c7a7c181168aa1965",
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
         "supplemental_runs": [
           {
             "argv": [
@@ -12861,8 +14195,8 @@
       "package": "github.com/tmc/lib/nvidia/nvjitlink",
       "repositories": {
         "codegen": {
-          "commit": "d7ee8ed06aa51d0064cac98c7a7c181168aa1965",
-          "tree": "764491dc369a44337547d89cf0d7341268bf7928",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 50579d6 regenerate at libgen 0b6b362 regenerate at libgen e987d3a nvjitlink-survey at libgen b7ab704"
         },
@@ -12899,7 +14233,7 @@
         {
           "path": "nvjitlink/nvJitLink.h",
           "repository": "headers",
-          "sha256": "6bd4880984986486e2cee5ddfe848d82efcf2be8454dcad4499b3bc41939b871"
+          "sha256": "4837ebb7294c5956360b940d747ff5f46067cfe855dc00bbd2d9d736bbc8faa5"
         }
       ]
     },
@@ -12996,7 +14330,7 @@
             "sha256": "db9789f622654642f785271a5dddd7f58a397c3a75a34a365f489f63d85c0f9e"
           }
         ],
-        "source_state": "clean codegen checkout at the recorded commit; generation re-run and every output compared byte for byte with the recorded lib commit",
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
           "clang_target": "arm64-apple-darwin25.6.0",
@@ -13033,8 +14367,8 @@
       "package": "github.com/tmc/lib/nvidia/nvjpeg2k",
       "repositories": {
         "codegen": {
-          "commit": "936c8b2a37552d41ab78f1de81f7227c4cc28d7b",
-          "tree": "0d68e5678e79cab9f3902ff01007d8a23518d9ac",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 8da282f: doc comments name snake_case parameters by their Go names. regenerate at libgen 4222a55 regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -13108,11 +14442,11 @@
           },
           {
             "path": "nvidia/nvml/device.gen.go",
-            "sha256": "0f3e30cb15813716732207a3e425e59a4522f5151229dda69ed67adb6bcddc65"
+            "sha256": "76e9b930be394fc9197590a1461f339f26bb5a13b4a6f6ff44ffb78c7fed3085"
           },
           {
             "path": "nvidia/nvml/doc.gen.go",
-            "sha256": "e192403f6f8a2c43fb30429908140781306348d6fe8b5adc9e5de84a4b2a799b"
+            "sha256": "cbdb80326ba446d9ef8e402484aa421f30d5cd9b0c7ba377d27d10d3b47ae3da"
           },
           {
             "path": "nvidia/nvml/enums.gen.go",
@@ -13124,7 +14458,7 @@
           },
           {
             "path": "nvidia/nvml/funcs.gen.go",
-            "sha256": "9efd9c40aae4bc1c4a809dcb709b3a82fe27cd706fc279aa29792ed4d6335db4"
+            "sha256": "772cbd767c1e3fbf8a40635cb7220d067b7f0db246c6b501e81f7dda79be9088"
           },
           {
             "path": "nvidia/nvml/gpm_sample.gen.go",
@@ -13132,7 +14466,7 @@
           },
           {
             "path": "nvidia/nvml/gpu_instance.gen.go",
-            "sha256": "390ebce2be6cf10c1e4eb334e00fefe8c07793e3f6340557ef69335777a3fca2"
+            "sha256": "6020228e6b12d647fd9f66f2741e7cf09afcb6a51966cf8122a0bf8a9eff61c6"
           },
           {
             "path": "nvidia/nvml/handles.gen.go",
@@ -13140,7 +14474,7 @@
           },
           {
             "path": "nvidia/nvml/init.gen.go",
-            "sha256": "c22eb924b4b987944d27bf9fee23d6f48ee37c422e52b8e61cb9080d3f6c898b"
+            "sha256": "e9f98ef609d2fd016a408ca93bd50eb21d4a25da776afb4729ef5c68c9c67d43"
           },
           {
             "path": "nvidia/nvml/layout.gen_test.go",
@@ -13148,7 +14482,7 @@
           },
           {
             "path": "nvidia/nvml/loader.gen_test.go",
-            "sha256": "7969452cde926455873db3516b560d9701ccd721a482aff105c94773c313395d"
+            "sha256": "f634d58cc73bee91a2469f160bdb95ee59d0d278234609a613339fb606c5d34e"
           },
           {
             "path": "nvidia/nvml/loader_unix.gen.go",
@@ -13194,7 +14528,8 @@
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
           "go": "go version go1.27.0 darwin/arm64"
-        }
+        },
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe"
       },
       "header": {
         "path": "pinned/nvml/cuda-13.3/nvml.h",
@@ -13209,8 +14544,8 @@
       "package": "github.com/tmc/lib/nvidia/nvml",
       "repositories": {
         "codegen": {
-          "commit": "a57cbfdc5f8fa5f8328e4d0971959ef742e9ef14",
-          "tree": "6b8db1be83e64c50ebe0517a5655d24c2d8c2c40",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated with the pinned NVML header; nvgen defaults to the same pin. Regenerated at libgen 4029439a: C source dropped from scraped docs. Regenerated at libgen a57cbfdc: counted slice fields and typed union members."
         },
@@ -13301,7 +14636,7 @@
           },
           {
             "path": "nvidia/nvrtc/init.gen.go",
-            "sha256": "ef3b7ed009ae8bc1eb59ba1e5ec9e1cecce339cde642c9e4e2bdd0c2e1452b77"
+            "sha256": "6e28e049aa9f4420928986a9ace28bd08f54b6b35e27dbaed2696a9949b106ee"
           },
           {
             "path": "nvidia/nvrtc/layout.gen_test.go",
@@ -13341,7 +14676,7 @@
           }
         ],
         "comparison": "All 15 generated outputs, including layout and loader tests, provenance, and the genoptions flags output, match the clean generation. apidiff reports no public API changes on linux/amd64, linux/arm64, or darwin/arm64. Changes are recipe ownership, paired header-slice and error-log wrappers, accepted runtime majors 12 and 13, generated method ordering, and documentation; shipped names and signatures are preserved.",
-        "source_state": "Generated from clean committed libgen f776782a and compared with clean lib baseline 967feece1.",
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
         "note": "Reproduced from a clean libgen worktree; nvjitlink outputs also regenerate byte-identically at the same ffigen source commit.",
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
@@ -13397,9 +14732,9 @@
       "package": "github.com/tmc/lib/nvidia/nvrtc",
       "repositories": {
         "codegen": {
-          "commit": "4029439a681adda1655270cb8605321dbf068988",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
           "note": "The generator changes these bytes depend on -- the ErrorLogParams customization and its errorLogDetail helper, Generator.zeroValue, the bundled-headers entries and NVRTC_INSTALL_HEADERS_* define group in contrib/cuda/nvrtc_config.go, and the \\ingroup strip in internal/cparser -- are committed here. Two untracked directories unrelated to generation, cgotest/ and cmd/fetch-ptx-isa/, were present in the checkout. The repository is github.com/tmc/libgen; earlier entries record its former github.com/tmc/codegen URL. init.gen.go was restamped at this commit for the LibraryError loader and changes nothing else. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 80aa768: parameters are camel case. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen b3dc359c NVRTC survey recipe committed at 336715e0; AcceptedMajors and empty error-log preservation committed at 4e528182 and f776782a. Regenerated at libgen 4029439a: C source dropped from scraped docs.",
-          "tree": "d059eb3eaa489833308e1a99d9f49be549ee7db6",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git"
         },
         "headers": {
@@ -13516,7 +14851,7 @@
             "sha256": "86a4dcf8ce3a41226aaa6b18cee6b445c5e1eb690c31fd9d3a1bff98536d3d31"
           }
         ],
-        "source_state": "clean tracked libgen sources at 3005ecfdb35134468c9a9d93532ee08f6c7c53cf",
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
           "clang_target": "arm64-apple-darwin25.6.0",
@@ -13608,8 +14943,8 @@
       "package": "github.com/tmc/lib/nvidia/nvshmem",
       "repositories": {
         "codegen": {
-          "commit": "936c8b2a37552d41ab78f1de81f7227c4cc28d7b",
-          "tree": "0d68e5678e79cab9f3902ff01007d8a23518d9ac",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git",
           "note": "regenerate at libgen 4222a55 regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -13936,7 +15271,7 @@
             "sha256": "cebaa763ebefd329a4d559684c4c63e1297a4a4b3ece1a6a0f4758cde317f39b"
           }
         ],
-        "source_state": "clean codegen checkout at the recorded generator commit",
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
         "supplemental_runs": [
           {
             "argv": [
@@ -13990,8 +15325,8 @@
       "package": "github.com/tmc/lib/nvidia/nvvm",
       "repositories": {
         "codegen": {
-          "commit": "947df4f268ed65b53f5add0fb7e87a8d5d389d69",
-          "tree": "3e83b2d3c694652e63ff04b79b935e0b6e8623f7",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git",
           "note": "NVVM bindings generated from the recorded nvvm-survey recipe after toolkit library search support landed in ffigen."
         },
@@ -14169,7 +15504,7 @@
             "sha256": "b8478e417bf04d7952fd7c8e6f136e2f9e3e715914d1ae475286e10a7ff7c273"
           }
         ],
-        "source_state": "clean tracked libgen sources at d7ee8ed06aa51d0064cac98c7a7c181168aa1965",
+        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
           "clang_target": "arm64-apple-darwin25.6.0",
@@ -14281,13 +15616,48 @@
           "path": "sanitizer/sanitizer_stream.h",
           "repository": "headers",
           "sha256": "8562bc83ccf6eb1d993bf8a19c6fd54e883ce8a67ba7f25b23925d1f6306bee3"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.2/generated_cuda_runtime_api_meta.h",
+          "repository": "headers",
+          "sha256": "f8719c2561284c738247916a2463b0cf26e255381dd648d9829b7fe0057fa77a"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.3/generated_cuda_runtime_api_meta.h",
+          "repository": "headers",
+          "sha256": "1eb6a4cbf85a004b5ef8c1e8ef33295ff4f8b7f546832eacdd0b74856d4b17fc"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.4/generated_cuda_runtime_api_meta.h",
+          "repository": "headers",
+          "sha256": "0fc09b00ddfe8cbb85d8a19fb011d71042d280bf762ab500883bee81613c07c3"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.5/generated_cuda_runtime_api_meta.h",
+          "repository": "headers",
+          "sha256": "ac39de4dbaaf25b732863007653e23aef10c6c16ee66eead2ce6b356973e0b4b"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.6/generated_cuda_runtime_api_meta.h",
+          "repository": "headers",
+          "sha256": "ac39de4dbaaf25b732863007653e23aef10c6c16ee66eead2ce6b356973e0b4b"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.8/generated_cuda_runtime_api_meta.h",
+          "repository": "headers",
+          "sha256": "0aece2683c0ed8c877de96822c62aa8bbdcf41f60d9b3a77f3062b8402be7e78"
+        },
+        {
+          "path": "pinned/cupti/cuda-12.9/generated_cuda_runtime_api_meta.h",
+          "repository": "headers",
+          "sha256": "7f70edac8505935751be24d3bc696cde2267dfd753ba0d99fe2c27a09d4c2ea3"
         }
       ],
       "package": "github.com/tmc/lib/nvidia/sanitizer",
       "repositories": {
         "codegen": {
-          "commit": "d7ee8ed06aa51d0064cac98c7a7c181168aa1965",
-          "tree": "764491dc369a44337547d89cf0d7341268bf7928",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 4d9ccca: launch extents grouped into Dim3. Regenerated at libgen 80aa768: methods drop the receiver words they repeat (LaunchHandle.SetCallbackData). regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen e987d3a; sanitizer-survey migration at libgen c1387a4 Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -14324,9 +15694,504 @@
       },
       "header_dependencies": [
         {
-          "path": "cuda_cudart/cuda.h",
+          "path": "driver/cuda.h",
           "repository": "headers",
-          "sha256": "31df84e16179b6d97db4b3c0bae7697392a370b41983f4a8962f0e5a8069b577"
+          "sha256": "7a79d67ca888061b1dfbe4739b51ad64f85a2f3ad874947ce09b2c635b4c7072"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.2/sanitizer.h",
+          "repository": "headers",
+          "sha256": "c08737d830082b56f4cbcfd78b8fb0d74c3aec6ac34b6a1c2d7001d06f5f778c"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.2/sanitizer_barrier.h",
+          "repository": "headers",
+          "sha256": "6ca30067858dd7587fe00e1d671667dff39534a8c387b2d93022baef8fd92602"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.2/sanitizer_callbacks.h",
+          "repository": "headers",
+          "sha256": "067250a3f50ed227a236ef1b4c8b4c87ca4c6023d9e57ee84ad633d3c99d3783"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.2/sanitizer_driver_cbid.h",
+          "repository": "headers",
+          "sha256": "d21f3c223569b1959b45bf45ae57daddc525dc539ab2c7d6bbf66f30d780007f"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.2/sanitizer_memory.h",
+          "repository": "headers",
+          "sha256": "a032751e8366f40035d7e93bfd790a5b64db44dbc12f88461e0d2c1dbae70b55"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.2/sanitizer_patching.h",
+          "repository": "headers",
+          "sha256": "e22b15e0ab0966aa8d96bbcaf08f2daad855d2c1cfb86530e25ba6a51d190e3a"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.2/sanitizer_result.h",
+          "repository": "headers",
+          "sha256": "0029185b66334640a5745b13f43bc6837f0200013133a0f90c3a95f958138964"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.2/sanitizer_runtime_cbid.h",
+          "repository": "headers",
+          "sha256": "3cbfc4deb1004c08f366e2014364ab16b238c7dc4bca4a61e7d4a80485dec716"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.2/sanitizer_stream.h",
+          "repository": "headers",
+          "sha256": "d9c944f6d11836b51cdd445cd70a279c2cc68ef69b59921a004cd08d341d6bfe"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.3/sanitizer.h",
+          "repository": "headers",
+          "sha256": "c08737d830082b56f4cbcfd78b8fb0d74c3aec6ac34b6a1c2d7001d06f5f778c"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.3/sanitizer_barrier.h",
+          "repository": "headers",
+          "sha256": "6ca30067858dd7587fe00e1d671667dff39534a8c387b2d93022baef8fd92602"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.3/sanitizer_callbacks.h",
+          "repository": "headers",
+          "sha256": "25efd79185cc32cc8b14d15a493137d0d5ef1315086ab0189c8d410645717ca2"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.3/sanitizer_driver_cbid.h",
+          "repository": "headers",
+          "sha256": "dd653d324c91b8e5446e064fdaf0207ac85093122c714113651406c15774f0d7"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.3/sanitizer_memory.h",
+          "repository": "headers",
+          "sha256": "a032751e8366f40035d7e93bfd790a5b64db44dbc12f88461e0d2c1dbae70b55"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.3/sanitizer_patching.h",
+          "repository": "headers",
+          "sha256": "c078be9f8c680b03f7a5244d9175bdd894b79f11d8564ad13b7d57040a9b64fd"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.3/sanitizer_result.h",
+          "repository": "headers",
+          "sha256": "0029185b66334640a5745b13f43bc6837f0200013133a0f90c3a95f958138964"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.3/sanitizer_runtime_cbid.h",
+          "repository": "headers",
+          "sha256": "6ae362cfaa52c0e7018e94915dfb6bc1d5264c287db287c939e98b02f32d5e92"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.3/sanitizer_stream.h",
+          "repository": "headers",
+          "sha256": "d9c944f6d11836b51cdd445cd70a279c2cc68ef69b59921a004cd08d341d6bfe"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.4/sanitizer.h",
+          "repository": "headers",
+          "sha256": "c08737d830082b56f4cbcfd78b8fb0d74c3aec6ac34b6a1c2d7001d06f5f778c"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.4/sanitizer_barrier.h",
+          "repository": "headers",
+          "sha256": "6ca30067858dd7587fe00e1d671667dff39534a8c387b2d93022baef8fd92602"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.4/sanitizer_callbacks.h",
+          "repository": "headers",
+          "sha256": "76bec6939f01f948d03c6ea8cbc22d36a7654fbccc01f6e4081e913f0f31b472"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.4/sanitizer_driver_cbid.h",
+          "repository": "headers",
+          "sha256": "c1e194e915d1bb11cc94e50fa340597de280bd578a9403738b16c2df876cf599"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.4/sanitizer_memory.h",
+          "repository": "headers",
+          "sha256": "a032751e8366f40035d7e93bfd790a5b64db44dbc12f88461e0d2c1dbae70b55"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.4/sanitizer_patching.h",
+          "repository": "headers",
+          "sha256": "c078be9f8c680b03f7a5244d9175bdd894b79f11d8564ad13b7d57040a9b64fd"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.4/sanitizer_result.h",
+          "repository": "headers",
+          "sha256": "0029185b66334640a5745b13f43bc6837f0200013133a0f90c3a95f958138964"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.4/sanitizer_runtime_cbid.h",
+          "repository": "headers",
+          "sha256": "602d592a5341df24fb0287dd0b0a43b8d0577e657638dd008f6e3703e367ce63"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.4/sanitizer_stream.h",
+          "repository": "headers",
+          "sha256": "d9c944f6d11836b51cdd445cd70a279c2cc68ef69b59921a004cd08d341d6bfe"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.5/sanitizer.h",
+          "repository": "headers",
+          "sha256": "c08737d830082b56f4cbcfd78b8fb0d74c3aec6ac34b6a1c2d7001d06f5f778c"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.5/sanitizer_barrier.h",
+          "repository": "headers",
+          "sha256": "46f315dd8fc4aae4c65275f8056aa34995ab0536aeb3e3c5948e08023baed2dd"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.5/sanitizer_callbacks.h",
+          "repository": "headers",
+          "sha256": "d59265d1d964f44e78c395d5cb0c5d6d4f10940a8e6201a9024b9b44ca1568bf"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.5/sanitizer_driver_cbid.h",
+          "repository": "headers",
+          "sha256": "fcea8429292a4c768d6d3c2283c967f16d856106fff3882b122984f2610a149a"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.5/sanitizer_memory.h",
+          "repository": "headers",
+          "sha256": "d69d8c009a293c860c9ebd3574f8a4ceb3b93b0603a6924aaa8fb6db45452c30"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.5/sanitizer_patching.h",
+          "repository": "headers",
+          "sha256": "9311b6d46949a41e1931bbcb79b5cef94e7e182ee464432ed2cf12ad5934a446"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.5/sanitizer_result.h",
+          "repository": "headers",
+          "sha256": "036946cf6f95e01a17a2d2091ad2be43716013633b0193182b17481a8c350a4b"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.5/sanitizer_runtime_cbid.h",
+          "repository": "headers",
+          "sha256": "602d592a5341df24fb0287dd0b0a43b8d0577e657638dd008f6e3703e367ce63"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.5/sanitizer_stream.h",
+          "repository": "headers",
+          "sha256": "3c2ea08cec8accda60978f785f22339e10f5d819b099380f5eb4a1990c4eb28d"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.6/sanitizer.h",
+          "repository": "headers",
+          "sha256": "c08737d830082b56f4cbcfd78b8fb0d74c3aec6ac34b6a1c2d7001d06f5f778c"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.6/sanitizer_barrier.h",
+          "repository": "headers",
+          "sha256": "46f315dd8fc4aae4c65275f8056aa34995ab0536aeb3e3c5948e08023baed2dd"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.6/sanitizer_callbacks.h",
+          "repository": "headers",
+          "sha256": "d59265d1d964f44e78c395d5cb0c5d6d4f10940a8e6201a9024b9b44ca1568bf"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.6/sanitizer_driver_cbid.h",
+          "repository": "headers",
+          "sha256": "d31f5daa650256a6b0247ceb9a7a63780f8aa8c357220ea7fb86e7eff3a20f47"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.6/sanitizer_memory.h",
+          "repository": "headers",
+          "sha256": "d69d8c009a293c860c9ebd3574f8a4ceb3b93b0603a6924aaa8fb6db45452c30"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.6/sanitizer_patching.h",
+          "repository": "headers",
+          "sha256": "9311b6d46949a41e1931bbcb79b5cef94e7e182ee464432ed2cf12ad5934a446"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.6/sanitizer_result.h",
+          "repository": "headers",
+          "sha256": "036946cf6f95e01a17a2d2091ad2be43716013633b0193182b17481a8c350a4b"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.6/sanitizer_runtime_cbid.h",
+          "repository": "headers",
+          "sha256": "8b99247e9cd4190dcf280791b1e4d9018ba3adc21beff3d0f7f7d60c729d4547"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.6/sanitizer_stream.h",
+          "repository": "headers",
+          "sha256": "3c2ea08cec8accda60978f785f22339e10f5d819b099380f5eb4a1990c4eb28d"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.8/sanitizer.h",
+          "repository": "headers",
+          "sha256": "c08737d830082b56f4cbcfd78b8fb0d74c3aec6ac34b6a1c2d7001d06f5f778c"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.8/sanitizer_barrier.h",
+          "repository": "headers",
+          "sha256": "46f315dd8fc4aae4c65275f8056aa34995ab0536aeb3e3c5948e08023baed2dd"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.8/sanitizer_callbacks.h",
+          "repository": "headers",
+          "sha256": "d59265d1d964f44e78c395d5cb0c5d6d4f10940a8e6201a9024b9b44ca1568bf"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.8/sanitizer_driver_cbid.h",
+          "repository": "headers",
+          "sha256": "93897a3b83c9231e9fd082ec2641b362ba2364e394e71fbc48c300f2ea125822"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.8/sanitizer_memory.h",
+          "repository": "headers",
+          "sha256": "d69d8c009a293c860c9ebd3574f8a4ceb3b93b0603a6924aaa8fb6db45452c30"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.8/sanitizer_patching.h",
+          "repository": "headers",
+          "sha256": "884980903f2a796393dfa14a238c693bc84b65af9d4c0cae4d7434c42d5f5dc0"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.8/sanitizer_result.h",
+          "repository": "headers",
+          "sha256": "036946cf6f95e01a17a2d2091ad2be43716013633b0193182b17481a8c350a4b"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.8/sanitizer_runtime_cbid.h",
+          "repository": "headers",
+          "sha256": "8b99247e9cd4190dcf280791b1e4d9018ba3adc21beff3d0f7f7d60c729d4547"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.8/sanitizer_stream.h",
+          "repository": "headers",
+          "sha256": "3c2ea08cec8accda60978f785f22339e10f5d819b099380f5eb4a1990c4eb28d"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.9/sanitizer.h",
+          "repository": "headers",
+          "sha256": "c08737d830082b56f4cbcfd78b8fb0d74c3aec6ac34b6a1c2d7001d06f5f778c"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.9/sanitizer_barrier.h",
+          "repository": "headers",
+          "sha256": "925cdb09dc957972ce451acd9e311f83275cf7c6089274194a0a75652561bf48"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.9/sanitizer_callbacks.h",
+          "repository": "headers",
+          "sha256": "495b2790f24ffe340d7cc1d69683c4a1ac6cad611e62f059f464e50956650baf"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.9/sanitizer_driver_cbid.h",
+          "repository": "headers",
+          "sha256": "37d42f68617d1d4d7b39d70815d0ff0e58d317c03182ce7945c6c7efe0cdb59f"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.9/sanitizer_memory.h",
+          "repository": "headers",
+          "sha256": "32d5684ff17d7e1c083dea19d20ab6a6e84a7585ff0e89e7102f47f7a2e70b16"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.9/sanitizer_patching.h",
+          "repository": "headers",
+          "sha256": "66d6f509d440395c490331b571e04a69c83cfa339e7063e4024d0c2469ca9e48"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.9/sanitizer_result.h",
+          "repository": "headers",
+          "sha256": "8ae49f03f525fdac50ed6db98273461dbf43a42624802e3a1317111567de9466"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.9/sanitizer_runtime_cbid.h",
+          "repository": "headers",
+          "sha256": "de1b6752951037b3eca113b9352624d26c28dbe7fe19cce8739afaf323798a29"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-12.9/sanitizer_stream.h",
+          "repository": "headers",
+          "sha256": "1e955cdd502a3cf494ec37134cb34a8b6e8c5a252d8787a03a9a10ed93e3493d"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.0/sanitizer.h",
+          "repository": "headers",
+          "sha256": "c08737d830082b56f4cbcfd78b8fb0d74c3aec6ac34b6a1c2d7001d06f5f778c"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.0/sanitizer_barrier.h",
+          "repository": "headers",
+          "sha256": "925cdb09dc957972ce451acd9e311f83275cf7c6089274194a0a75652561bf48"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.0/sanitizer_callbacks.h",
+          "repository": "headers",
+          "sha256": "495b2790f24ffe340d7cc1d69683c4a1ac6cad611e62f059f464e50956650baf"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.0/sanitizer_driver_cbid.h",
+          "repository": "headers",
+          "sha256": "33307619d44d5b2f9dc3d78505769b4522cbd5575a459bb9534e5d756ab649ed"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.0/sanitizer_memory.h",
+          "repository": "headers",
+          "sha256": "32d5684ff17d7e1c083dea19d20ab6a6e84a7585ff0e89e7102f47f7a2e70b16"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.0/sanitizer_patching.h",
+          "repository": "headers",
+          "sha256": "6d1ed7433123cf6f868ce65c82c9f593dcd57470a3770dc205d81c773701ca14"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.0/sanitizer_result.h",
+          "repository": "headers",
+          "sha256": "8ae49f03f525fdac50ed6db98273461dbf43a42624802e3a1317111567de9466"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.0/sanitizer_runtime_cbid.h",
+          "repository": "headers",
+          "sha256": "bec76bf5698cc44ee8d62cb29f483b8fdca4cb9f81127377bd7ff58ef0345cc2"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.0/sanitizer_stream.h",
+          "repository": "headers",
+          "sha256": "1e955cdd502a3cf494ec37134cb34a8b6e8c5a252d8787a03a9a10ed93e3493d"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.1/sanitizer.h",
+          "repository": "headers",
+          "sha256": "c08737d830082b56f4cbcfd78b8fb0d74c3aec6ac34b6a1c2d7001d06f5f778c"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.1/sanitizer_barrier.h",
+          "repository": "headers",
+          "sha256": "925cdb09dc957972ce451acd9e311f83275cf7c6089274194a0a75652561bf48"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.1/sanitizer_callbacks.h",
+          "repository": "headers",
+          "sha256": "41fb04aa6812f1455fa5b2460c10e9b5d086dab8d11849581715329886ef8fac"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.1/sanitizer_driver_cbid.h",
+          "repository": "headers",
+          "sha256": "14da3aff9431a05a0bfad24b91b3a923d329136ed28bbdc7c8b13abdd3dd0645"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.1/sanitizer_memory.h",
+          "repository": "headers",
+          "sha256": "32d5684ff17d7e1c083dea19d20ab6a6e84a7585ff0e89e7102f47f7a2e70b16"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.1/sanitizer_patching.h",
+          "repository": "headers",
+          "sha256": "239ffe6ce3192528cc56a55da99aaa806b283935f0d80156921db6076414a8dd"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.1/sanitizer_result.h",
+          "repository": "headers",
+          "sha256": "8ae49f03f525fdac50ed6db98273461dbf43a42624802e3a1317111567de9466"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.1/sanitizer_runtime_cbid.h",
+          "repository": "headers",
+          "sha256": "629f74dff20aa8dc02d33dfd5a3876dab3245d301997cff97c3950833f67aa32"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.1/sanitizer_stream.h",
+          "repository": "headers",
+          "sha256": "1e955cdd502a3cf494ec37134cb34a8b6e8c5a252d8787a03a9a10ed93e3493d"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.2/sanitizer.h",
+          "repository": "headers",
+          "sha256": "34f9100d71cc5cceafd67c5f297c6d8ca3c975f64e87d16aa0c19bea6c6bd515"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.2/sanitizer_barrier.h",
+          "repository": "headers",
+          "sha256": "19a7f8c87fb9d35b8bf57e8817492c70b1fbfd5b5e681befcdba127a641fcfbf"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.2/sanitizer_callbacks.h",
+          "repository": "headers",
+          "sha256": "7aa075ebf90bce89b709d467ad8f55126e35f034718d8bc14b81ee6747106117"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.2/sanitizer_driver_cbid.h",
+          "repository": "headers",
+          "sha256": "14da3aff9431a05a0bfad24b91b3a923d329136ed28bbdc7c8b13abdd3dd0645"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.2/sanitizer_memory.h",
+          "repository": "headers",
+          "sha256": "d09b60e86dd77b1853f04d109dfd82d90f0bd06b772c2327966f080676ec8c36"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.2/sanitizer_patching.h",
+          "repository": "headers",
+          "sha256": "3431ced19cf438a4e4a8af83d0bdca0296f3cfbd43f46fc78a3345cc762a5138"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.2/sanitizer_result.h",
+          "repository": "headers",
+          "sha256": "c4570f868f57ad19c9d17fcc3b2bcdfecb49f107bc25aa6c595a8ed95b463d95"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.2/sanitizer_runtime_cbid.h",
+          "repository": "headers",
+          "sha256": "075ca15a2ff56bfd773d3517911837ded4db35115c34499cc5c37ecd0576f28a"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.2/sanitizer_stream.h",
+          "repository": "headers",
+          "sha256": "8562bc83ccf6eb1d993bf8a19c6fd54e883ce8a67ba7f25b23925d1f6306bee3"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.3/sanitizer.h",
+          "repository": "headers",
+          "sha256": "34f9100d71cc5cceafd67c5f297c6d8ca3c975f64e87d16aa0c19bea6c6bd515"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.3/sanitizer_barrier.h",
+          "repository": "headers",
+          "sha256": "19a7f8c87fb9d35b8bf57e8817492c70b1fbfd5b5e681befcdba127a641fcfbf"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.3/sanitizer_callbacks.h",
+          "repository": "headers",
+          "sha256": "627b37b97e88214d3878e17ab9e80f87407fcb67bedb9b250d9683f3a0e74019"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.3/sanitizer_driver_cbid.h",
+          "repository": "headers",
+          "sha256": "ca5345d1fb7f00a574d13ccf524ef2e9029f4797e4ad64ae7f723477a06051b0"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.3/sanitizer_memory.h",
+          "repository": "headers",
+          "sha256": "d09b60e86dd77b1853f04d109dfd82d90f0bd06b772c2327966f080676ec8c36"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.3/sanitizer_patching.h",
+          "repository": "headers",
+          "sha256": "6992c4ad49305bc002ad17d3687ce948aaf0faaf4ab1e389c9dab020395c2ef7"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.3/sanitizer_result.h",
+          "repository": "headers",
+          "sha256": "c4570f868f57ad19c9d17fcc3b2bcdfecb49f107bc25aa6c595a8ed95b463d95"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.3/sanitizer_runtime_cbid.h",
+          "repository": "headers",
+          "sha256": "075ca15a2ff56bfd773d3517911837ded4db35115c34499cc5c37ecd0576f28a"
+        },
+        {
+          "path": "pinned/sanitizer/cuda-13.3/sanitizer_stream.h",
+          "repository": "headers",
+          "sha256": "8562bc83ccf6eb1d993bf8a19c6fd54e883ce8a67ba7f25b23925d1f6306bee3"
         },
         {
           "path": "sanitizer/sanitizer.h",
@@ -14341,12 +16206,12 @@
         {
           "path": "sanitizer/sanitizer_callbacks.h",
           "repository": "headers",
-          "sha256": "627b37b97e88214d3878e17ab9e80f87407fcb67bedb9b250d9683f3a0e74019"
+          "sha256": "2ec7ffb2ab57d60eb598157ae328672b4194648096b792bb478b40b48d72f647"
         },
         {
           "path": "sanitizer/sanitizer_driver_cbid.h",
           "repository": "headers",
-          "sha256": "ca5345d1fb7f00a574d13ccf524ef2e9029f4797e4ad64ae7f723477a06051b0"
+          "sha256": "5fc200a2694167108c2aa810aa28faf2a4eb4e2a6249546493ca0f6f046927e5"
         },
         {
           "path": "sanitizer/sanitizer_memory.h",
@@ -14356,7 +16221,7 @@
         {
           "path": "sanitizer/sanitizer_patching.h",
           "repository": "headers",
-          "sha256": "6992c4ad49305bc002ad17d3687ce948aaf0faaf4ab1e389c9dab020395c2ef7"
+          "sha256": "c8f624394e45f942e53ffe7c37e0f0dcc59fd4074d68341e74845a6a34ff4c9d"
         },
         {
           "path": "sanitizer/sanitizer_result.h",
@@ -14366,7 +16231,7 @@
         {
           "path": "sanitizer/sanitizer_runtime_cbid.h",
           "repository": "headers",
-          "sha256": "075ca15a2ff56bfd773d3517911837ded4db35115c34499cc5c37ecd0576f28a"
+          "sha256": "ab5720589fc34ec77170d2c00c90790038ecdd5a42c1286971437661faf6e6d4"
         },
         {
           "path": "sanitizer/sanitizer_stream.h",

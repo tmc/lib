@@ -315,6 +315,41 @@ func (d Device) AccountingStats(stats *AccountingStatsV2) error {
 	return deviceGetAccountingStats(d, stats)
 }
 
+// AccountingStatsV1 queries process’s accounting stats.
+//
+// For Kepler or newer fully supported devices.
+// Accounting stats capture GPU utilization and other statistics across the lifetime of a process. Accounting stats can be queried during life time of the process and after its termination. The time field in [AccountingStats] is reported as 0 during the lifetime of the process and updated to actual running time after its termination. Accounting stats are kept in a circular buffer, newly created processes overwrite information about old processes.
+// See [AccountingStats] for description of each returned metric. List of processes that can be queried can be retrieved from [Device.AccountingPids].
+//
+// Note: Accounting Mode needs to be on. See [Device.AccountingMode].
+//
+// Note: Only compute and graphics applications stats can be queried. Monitoring applications stats can’t be queried since they don’t contribute to GPU utilization.
+//
+// Note: In case of pid collision stats of only the latest process (that terminated last) will be reported
+//
+// Warning: On Kepler devices per process statistics are accurate only if there’s one process running on a GPU.
+//
+// See also: [Device.AccountingBufferSize]
+//
+//   - pid: Process Id of the target process to query stats for
+//   - stats: Reference in which to return the process’s accounting stats
+//
+// A nil error means stats have been successfully retrieved.
+//
+// Errors:
+//   - [ErrInvalidArgument]: if device is invalid or stats are NULL
+//   - [ErrNotFound]: if process stats were not found
+//   - [ErrNotSupported]: if device doesn’t support this feature or accounting mode is disabled or on vGPU host.
+//   - [ErrUninitialized]: if the library has not been successfully initialized
+//   - [ErrUnknown]: on any unexpected error
+//
+// Wraps [nvmlDeviceGetAccountingStats].
+//
+// [nvmlDeviceGetAccountingStats]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAccountingStats.html#_CPPv428nvmlDeviceGetAccountingStats12nvmlDevice_tjP21nvmlAccountingStats_t
+func (d Device) AccountingStatsV1(pid uint32, stats *AccountingStats) error {
+	return deviceGetAccountingStatsV1(d, pid, stats)
+}
+
 // ActiveVgpus retrieves the active vGPU instances on a device.
 //
 // An array of active vGPU instances is returned in the caller-supplied buffer pointed at by vgpuInstances. The array element count is passed in vgpuCount, and vgpuCount is used to return the number of vGPU instances written to the buffer.
@@ -1839,6 +1874,30 @@ func (d Device) FanSpeedRPM(fanSpeed *FanSpeedInfo) error {
 	return deviceGetFanSpeedRPM(d, fanSpeed)
 }
 
+// FanSpeedV1 retrieves the intended operating speed of the device’s fan.
+//
+// Note: The reported speed is the intended fan speed. If the fan is physically blocked and unable to spin, the output will not match the actual fan speed.
+// For all discrete products with dedicated fans.
+// The fan speed is expressed as a percentage of the product’s maximum noise tolerance fan speed. This value may exceed 100% in certain cases.
+//
+//   - speed: Reference in which to return the fan speed percentage
+//
+// A nil error means speed has been set.
+//
+// Errors:
+//   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
+//   - [ErrInvalidArgument]: if device is invalid or speed is NULL
+//   - [ErrNotSupported]: if the device does not have a fan
+//   - [ErrUninitialized]: if the library has not been successfully initialized
+//   - [ErrUnknown]: on any unexpected error
+//
+// Wraps [nvmlDeviceGetFanSpeed].
+//
+// [nvmlDeviceGetFanSpeed]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv421nvmlDeviceGetFanSpeed12nvmlDevice_tPj
+func (d Device) FanSpeedV1() (uint32, error) {
+	return deviceGetFanSpeedV1(d)
+}
+
 // FieldValues requests values for a list of fields for a device.
 //
 // This API allows multiple fields to be queried at once. If any of the underlying fieldIds are populated by the same driver call, the results for those field IDs will be populated from a single call rather than making a driver call for each fieldId.
@@ -2973,6 +3032,41 @@ func (d Device) MemoryErrorCounter(errorType MemoryErrorType, counterType EccCou
 // [nvmlDeviceGetMemoryInfo_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv426nvmlDeviceGetMemoryInfo_v212nvmlDevice_tP15nvmlMemory_v2_t
 func (d Device) MemoryInfo() (MemoryV2, error) {
 	return deviceGetMemoryInfo(d)
+}
+
+// MemoryInfoV1 retrieves the amount of used, free, reserved and total memory available on the device, in bytes.
+//
+// The reserved amount is supported on version 2 only.
+// For all products.
+// Enabling ECC reduces the amount of total available memory, due to the extra required parity bits. Under WDDM most device memory is allocated and managed on startup by Windows.
+// Under Linux and Windows TCC, the reported amount of used memory is equal to the sum of memory allocated by all active channels on the device.
+// See [MemoryV2] for details on available memory info.
+//
+// Note: In MIG mode, if device handle is provided, the API returns aggregate information, only if the caller has appropriate privileges. Per-instance information can be queried by using specific MIG device handles.
+//
+// Note: [Device.MemoryInfo] adds additional memory information.
+//
+// Note: On systems where GPUs are NUMA nodes, the accuracy of FB memory utilization provided by this API depends on the memory accounting of the operating system. This is because FB memory is managed by the operating system instead of the NVIDIA GPU driver. Typically, pages allocated from FB memory are not released even after the process terminates to enhance performance. In scenarios where the operating system is under memory pressure, it may resort to utilizing FB memory. Such actions can result in discrepancies in the accuracy of memory reporting.
+//
+// Note: On certain SOC platforms, the integrated GPU (iGPU) does not use a dedicated framebuffer but instead shares memory with the system. As a result, [ErrNotSupported] will be returned in this case.
+//
+//   - memory: Reference in which to return the memory information
+//
+// A nil error means memory has been populated.
+//
+// Errors:
+//   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
+//   - [ErrInvalidArgument]: if device is invalid or memory is NULL
+//   - [ErrNotSupported]: if video memory is unsupported on the device
+//   - [ErrNoPermission]: if the user doesn’t have permission to perform this operation
+//   - [ErrUninitialized]: if the library has not been successfully initialized
+//   - [ErrUnknown]: on any unexpected error
+//
+// Wraps [nvmlDeviceGetMemoryInfo].
+//
+// [nvmlDeviceGetMemoryInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv423nvmlDeviceGetMemoryInfo12nvmlDevice_tP12nvmlMemory_t
+func (d Device) MemoryInfoV1() (Memory, error) {
+	return deviceGetMemoryInfoV1(d)
 }
 
 // MigDeviceHandleByIndex gets MIG device handle for the given index under its parent NVML device.
@@ -4236,6 +4330,30 @@ func (d Device) RemappedRows() (RemappedRowsInfoV2, error) {
 	return deviceGetRemappedRows(d)
 }
 
+// RemappedRowsV1 gets number of remapped rows.
+//
+// The number of rows reported will be based on the cause of the remapping. isPending indicates whether or not there are pending remappings. A reset will be required to actually remap the row. failureOccurred will be set if a row remapping ever failed in the past. A pending remapping won’t affect future work on the GPU since error-containment and dynamic page blacklisting will take care of that.
+// For Ampere or newer fully supported devices.
+//
+// Note: On MIG-enabled GPUs with active instances, querying the number of remapped rows is not supported
+//
+//   - corrRows: Reference for number of rows remapped due to correctable errors
+//   - uncRows: Reference for number of rows remapped due to uncorrectable errors
+//   - isPending: Reference for whether or not remappings are pending
+//   - failureOccurred: Reference that is set when a remapping has failed in the past
+//
+// Errors:
+//   - [ErrInvalidArgument]: If corrRows, uncRows, isPending or failureOccurred is invalid
+//   - [ErrNotSupported]: If MIG is enabled or if the device doesn’t support this feature
+//   - [ErrUnknown]: Unexpected error
+//
+// Wraps [nvmlDeviceGetRemappedRows].
+//
+// [nvmlDeviceGetRemappedRows]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceGetRemappedRows12nvmlDevice_tPjPjPjPj
+func (d Device) RemappedRowsV1() (uint32, uint32, uint32, uint32, error) {
+	return deviceGetRemappedRowsV1(d)
+}
+
 // RepairStatus gets the repair status for TPC/Channel repair.
 //
 // For Ampere or newer fully supported devices.
@@ -4428,6 +4546,32 @@ func (d Device) RetiredPages(cause PageRetirementCause) (addresses, timestamps [
 // [nvmlDeviceGetRetiredPagesPendingStatus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv438nvmlDeviceGetRetiredPagesPendingStatus12nvmlDevice_tP17nvmlEnableState_t
 func (d Device) RetiredPagesPendingStatus(isPending *EnableState) error {
 	return deviceGetRetiredPagesPendingStatus(d, isPending)
+}
+
+// RetiredPagesV1 returns the list of retired pages by source, including pages that are pending retirement The address information provided from this API is the hardware address of the page that was retired.
+//
+// Note that this does not match the virtual address used in CUDA, but will match the address information in Xid 63
+// For Kepler or newer fully supported devices.
+//
+//   - cause: Filter page addresses by cause of retirement
+//   - pageCount: Reference in which to provide the addresses buffer size, and to return the number of retired pages that match cause Set to 0 to query the size without allocating an addresses buffer
+//   - addresses: Buffer to write the page addresses into
+//
+// A nil error means pageCount was populated and addresses was filled.
+//
+// Errors:
+//   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
+//   - [ErrInsufficientSize]: if pageCount indicates the buffer is not large enough to store all the matching page addresses. pageCount is set to the needed size.
+//   - [ErrInvalidArgument]: if device is invalid, pageCount is NULL, cause is invalid, or addresses is NULL
+//   - [ErrNotSupported]: if the device doesn’t support this feature
+//   - [ErrUninitialized]: if the library has not been successfully initialized
+//   - [ErrUnknown]: on any unexpected error
+//
+// Wraps [nvmlDeviceGetRetiredPages].
+//
+// [nvmlDeviceGetRetiredPages]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceGetRetiredPages12nvmlDevice_t25nvmlPageRetirementCause_tPjPy
+func (d Device) RetiredPagesV1(cause PageRetirementCause, pageCount *uint32, addresses *uint64) error {
+	return deviceGetRetiredPagesV1(d, cause, pageCount, addresses)
 }
 
 // RowRemapperHistogram gets the row remapper histogram.
@@ -5249,6 +5393,33 @@ func (d Device) SetPowerManagementLimit(powerValue *PowerValueV2) error {
 	return deviceSetPowerManagementLimit(d, powerValue)
 }
 
+// SetPowerManagementLimitV1 sets new power limit of this device.
+//
+// For Kepler or newer fully supported devices. Requires root/admin permissions.
+// See [Device.PowerManagementLimitConstraints] to check the allowed ranges of values.
+//
+// Note: Limit is not persistent across reboots or driver unloads. Enable persistent mode to prevent driver from unloading when no application is using the device.
+//
+// See also: [Device.PowerManagementLimitConstraints], [Device.PowerManagementDefaultLimit]
+//
+//   - limit: Power management limit in milliwatts to set
+//
+// A nil error means limit has been set.
+//
+// Errors:
+//   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
+//   - [ErrInvalidArgument]: if device is invalid or defaultLimit is out of range
+//   - [ErrNotSupported]: if the device does not support this feature
+//   - [ErrUninitialized]: if the library has not been successfully initialized
+//   - [ErrUnknown]: on any unexpected error
+//
+// Wraps [nvmlDeviceSetPowerManagementLimit].
+//
+// [nvmlDeviceSetPowerManagementLimit]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv433nvmlDeviceSetPowerManagementLimit12nvmlDevice_tj
+func (d Device) SetPowerManagementLimitV1(limit uint32) error {
+	return deviceSetPowerManagementLimitV1(d, limit)
+}
+
 // SetPowerMizerMode sets the new power mizer mode.
 //
 // For Maxwell or newer fully supported devices.
@@ -5379,6 +5550,30 @@ func (d Device) SetVgpuHeterogeneousMode(pHeterogeneousMode *VgpuHeterogeneousMo
 // [nvmlDeviceSetVgpuSchedulerState_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv434nvmlDeviceSetVgpuSchedulerState_v212nvmlDevice_tP27nvmlVgpuSchedulerState_v2_t
 func (d Device) SetVgpuSchedulerState(pSchedulerState *VgpuSchedulerStateV2) error {
 	return deviceSetVgpuSchedulerState(d, pSchedulerState)
+}
+
+// SetVgpuSchedulerStateV1 sets the vGPU scheduler state.
+//
+// For Pascal or newer fully supported devices.
+// The scheduler state change won’t persist across module load/unload. Scheduler state and params will be allowed to set only when no VM is running. In [VgpuSchedulerSetState], IFF enableARRMode is enabled then provide avgFactorForARR and frequency as input. If enableARRMode is disabled then provide timeslice as input.
+//
+//   - pSchedulerState: vGPU pSchedulerState to set
+//
+// A nil error means vGPU scheduler state has been successfully set.
+//
+// Errors:
+//   - [ErrInvalidArgument]: If pSchedulerState is NULL or device is invalid
+//   - [ErrNotSupported]: If MIG is enabled or device not in vGPU host mode or if any vGPU instance currently exists on the device
+//   - [ErrResetRequired]: If setting pSchedulerState failed with fatal error, reboot is required to overcome from this error.
+//   - [ErrUnknown]: On any unexpected error
+//
+// Deprecated: Will be deprecated in a future release. Use [Device.SetVgpuSchedulerState] instead.
+//
+// Wraps [nvmlDeviceSetVgpuSchedulerState].
+//
+// [nvmlDeviceSetVgpuSchedulerState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpuMigration.html#_CPPv431nvmlDeviceSetVgpuSchedulerState12nvmlDevice_tP27nvmlVgpuSchedulerSetState_t
+func (d Device) SetVgpuSchedulerStateV1(pSchedulerState *VgpuSchedulerSetState) error {
+	return deviceSetVgpuSchedulerStateV1(d, pSchedulerState)
 }
 
 // SetVirtualizationMode is used to set the virtualization mode corresponding to the GPU.
@@ -6256,6 +6451,30 @@ func (d Device) VgpuSchedulerLog(pSchedulerLogInfo *VgpuSchedulerLogInfoV2) erro
 	return deviceGetVgpuSchedulerLog(d, pSchedulerLogInfo)
 }
 
+// VgpuSchedulerLogV1 returns the vGPU Software scheduler logs.
+//
+// pSchedulerLog points to a caller-allocated structure to contain the logs. The number of elements returned will never exceed [SchedulerSwMaxLogEntries].
+// To get the entire logs, call the function atleast 5 times a second.
+// For Pascal or newer fully supported devices.
+//
+//   - pSchedulerLog: Reference in which pSchedulerLog is written
+//
+// A nil error means vGPU scheduler logs were successfully obtained.
+//
+// Errors:
+//   - [ErrInvalidArgument]: If pSchedulerLog is NULL or device is invalid
+//   - [ErrNotSupported]: If MIG is enabled or device not in vGPU host mode
+//   - [ErrUnknown]: On any unexpected error
+//
+// Deprecated: Will be deprecated in a future release. Use [Device.VgpuSchedulerLog] instead.
+//
+// Wraps [nvmlDeviceGetVgpuSchedulerLog].
+//
+// [nvmlDeviceGetVgpuSchedulerLog]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpuMigration.html#_CPPv429nvmlDeviceGetVgpuSchedulerLog12nvmlDevice_tP22nvmlVgpuSchedulerLog_t
+func (d Device) VgpuSchedulerLogV1(pSchedulerLog *VgpuSchedulerLog) error {
+	return deviceGetVgpuSchedulerLogV1(d, pSchedulerLog)
+}
+
 // VgpuSchedulerState returns the vGPU scheduler state.
 //
 // The information returned in [VgpuSchedulerStateInfoV2] is not relevant if the BEST EFFORT policy is set.
@@ -6275,6 +6494,29 @@ func (d Device) VgpuSchedulerLog(pSchedulerLogInfo *VgpuSchedulerLogInfoV2) erro
 // [nvmlDeviceGetVgpuSchedulerState_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv434nvmlDeviceGetVgpuSchedulerState_v212nvmlDevice_tP31nvmlVgpuSchedulerStateInfo_v2_t
 func (d Device) VgpuSchedulerState(pSchedulerStateInfo *VgpuSchedulerStateInfoV2) error {
 	return deviceGetVgpuSchedulerState(d, pSchedulerStateInfo)
+}
+
+// VgpuSchedulerStateV1 returns the vGPU scheduler state.
+//
+// The information returned in [VgpuSchedulerGetState] is not relevant if the BEST EFFORT policy is set.
+// For Pascal or newer fully supported devices.
+//
+//   - pSchedulerState: Reference in which pSchedulerState is returned
+//
+// A nil error means vGPU scheduler state is successfully obtained.
+//
+// Errors:
+//   - [ErrInvalidArgument]: If pSchedulerState is NULL or device is invalid
+//   - [ErrNotSupported]: If MIG is enabled or device not in vGPU host mode
+//   - [ErrUnknown]: On any unexpected error
+//
+// Deprecated: Will be deprecated in a future release. Use [Device.VgpuSchedulerState] instead.
+//
+// Wraps [nvmlDeviceGetVgpuSchedulerState].
+//
+// [nvmlDeviceGetVgpuSchedulerState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpuMigration.html#_CPPv431nvmlDeviceGetVgpuSchedulerState12nvmlDevice_tP27nvmlVgpuSchedulerGetState_t
+func (d Device) VgpuSchedulerStateV1(pSchedulerState *VgpuSchedulerGetState) error {
+	return deviceGetVgpuSchedulerStateV1(d, pSchedulerState)
 }
 
 // VgpuTypeCreatablePlacements queries the creatable vGPU placement ID of the vGPU type.

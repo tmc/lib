@@ -173,18 +173,7 @@ func loadLocked(path string) error {
 		libErr = errors.New("nvrtc: bindings disabled via CODEGEN_SKIP_BINDINGS")
 		return libErr
 	}
-	lib, libPath, libErr = openLibrary(path)
-	if libErr != nil {
-		return libErr
-	}
-	registerFuncs()
-	if libErr = checkVersion(); libErr != nil {
-		closeLibrary(lib)
-		lib = 0
-		libPath = ""
-		present = make(map[string]bool)
-		unbound = make(map[string]error)
-		clearFuncs()
+	if libErr = openLibrary(path); libErr != nil {
 		return libErr
 	}
 	ready.Store(true)
@@ -242,30 +231,54 @@ func checkVersion() error {
 	return nil
 }
 
-// openLibrary attempts to load the nvrtc shared library and reports the
-// path it was opened from. An explicit path wins; otherwise it checks the
-// library path environment variable, then platform-specific default names.
-func openLibrary(path string) (uintptr, string, error) {
+// openLibrary opens the nvrtc shared library, binds its symbols, and
+// checks its version. An explicit path wins; otherwise it checks the library
+// path environment variable, then each default candidate in turn, skipping
+// one whose version these bindings do not accept.
+func openLibrary(path string) error {
 	if path == "" {
 		path = os.Getenv("NVRTC_LIB_PATH")
 	}
 	if path != "" {
 		h, err := openDynamicLibrary(path)
-		if err == nil {
-			return h, path, nil
+		if err != nil {
+			return newLibraryError(path, []LibraryAttempt{{Name: path, Err: err}})
 		}
-		return 0, "", newLibraryError(path, []LibraryAttempt{{Name: path, Err: err}})
+		return admit(h, path)
 	}
 	names := libraryNames()
 	var attempts []LibraryAttempt
 	for _, name := range names {
 		h, err := openDynamicLibrary(name)
+		if err != nil {
+			attempts = append(attempts, LibraryAttempt{Name: name, Err: err})
+			continue
+		}
+		err = admit(h, name)
 		if err == nil {
-			return h, name, nil
+			return nil
 		}
 		attempts = append(attempts, LibraryAttempt{Name: name, Err: err})
 	}
-	return 0, "", newLibraryError("", attempts)
+	return newLibraryError("", attempts)
+}
+
+// admit makes the library at h, opened as name, the loaded library and
+// checks its version. It closes a library the check refuses.
+func admit(h uintptr, name string) error {
+	lib, libPath = h, name
+	registerFuncs()
+	err := checkVersion()
+	if err != nil {
+		closeLibrary(lib)
+		lib = 0
+		libPath = ""
+		present = make(map[string]bool)
+		unbound = make(map[string]error)
+		clearFuncs()
+		return err
+	}
+	return nil
 }
 
 // LibraryAttempt records one failed attempt to open the shared library.
@@ -356,7 +369,7 @@ func pkgConfigHint() string {
 func libraryNames() []string {
 	switch runtime.GOOS {
 	case "linux":
-		return []string{"libnvrtc.so.13"}
+		return []string{"libnvrtc.so.13", "libnvrtc.so.12"}
 	case "darwin":
 		return []string{"libnvrtc.dylib"}
 	case "windows":

@@ -9,7 +9,9 @@
     "-api",
     "ncclll",
     "-output",
-    "${OUTPUT_DIR}"
+    "${OUTPUT_DIR}",
+    "-cuda-headers",
+    "cuda-headers"
   ],
   "inputs": [
     {

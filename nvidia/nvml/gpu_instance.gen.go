@@ -315,6 +315,30 @@ func (g GpuInstance) SetVgpuSchedulerState(pSchedulerState *VgpuSchedulerStateV2
 	return gpuInstanceSetVgpuSchedulerState(g, pSchedulerState)
 }
 
+// SetVgpuSchedulerStateV1 sets vGPU scheduler state for the given GPU instance
+//
+// For Blackwell &tm GB20x; or newer fully supported devices.
+// Scheduler state and params will be allowed to set only when no VM is running within the GPU instance. In [VgpuSchedulerState], IFF enableARRMode is enabled then provide the avgFactor and frequency as input. If enableARRMode is disabled then provide timeslice as input.
+// The scheduler state change won’t persist across module load/unload and GPU Instance creation/deletion.
+//
+//   - pScheduler: Pointer to the caller-provided structure of [VgpuSchedulerState]
+//
+// Errors:
+//   - [ErrArgumentVersionMismatch]: If the version of pScheduler is invalid
+//   - [ErrInvalidArgument]: If gpuInstance is NULL or invalid, or pScheduler is NULL or GPU Instance Id is invalid
+//   - [ErrNotSupported]: If not on a vGPU host or an unsupported GPU or if any vGPU instance exists
+//   - [ErrResetRequired]: If setting the state failed with fatal error, reboot is required
+//   - [ErrUnknown]: On any unexpected error
+//
+// Deprecated: Will be deprecated in a future release. Use [GpuInstance.SetVgpuSchedulerState] instead.
+//
+// Wraps [nvmlGpuInstanceSetVgpuSchedulerState].
+//
+// [nvmlGpuInstanceSetVgpuSchedulerState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv436nvmlGpuInstanceSetVgpuSchedulerState17nvmlGpuInstance_tP24nvmlVgpuSchedulerState_t
+func (g GpuInstance) SetVgpuSchedulerStateV1(pScheduler *VgpuSchedulerState) error {
+	return gpuInstanceSetVgpuSchedulerStateV1(g, pScheduler)
+}
+
 // VgpuHeterogeneousMode gets the vGPU heterogeneous mode for the GPU instance.
 //
 // When in heterogeneous mode, a vGPU can concurrently host timesliced vGPUs with differing framebuffer sizes.
@@ -360,6 +384,32 @@ func (g GpuInstance) VgpuSchedulerLog(pSchedulerLogInfo *VgpuSchedulerLogInfoV2)
 	return gpuInstanceGetVgpuSchedulerLog(g, pSchedulerLogInfo)
 }
 
+// VgpuSchedulerLogV1 returns the vGPU scheduler logs for the given GPU instance.
+//
+// pSchedulerLogInfo points to a caller-allocated structure to contain the logs. The number of elements returned will never exceed [SchedulerSwMaxLogEntries].
+// To get the entire logs, call the function atleast 5 times a second.
+// For Blackwell &tm GB20x; or newer fully supported devices.
+//
+//   - pSchedulerLogInfo: Reference in which pSchedulerLogInfo is written
+//
+// A nil error means vGPU scheduler logs are successfully obtained.
+//
+// Errors:
+//   - [ErrArgumentVersionMismatch]: If the version of pSchedulerLogInfo is invalid
+//   - [ErrInvalidArgument]: If gpuInstance is NULL or invalid, or pSchedulerLogInfo is NULL or GPU Instance Id is invalid
+//   - [ErrNotSupported]: If not on a vGPU host or an unsupported GPU
+//   - [ErrUninitialized]: If library has not been successfully initialized
+//   - [ErrUnknown]: on any unexpected error
+//
+// Deprecated: Will be deprecated in a future release. Use [GpuInstance.VgpuSchedulerLog] instead.
+//
+// Wraps [nvmlGpuInstanceGetVgpuSchedulerLog].
+//
+// [nvmlGpuInstanceGetVgpuSchedulerLog]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv434nvmlGpuInstanceGetVgpuSchedulerLog17nvmlGpuInstance_tP26nvmlVgpuSchedulerLogInfo_t
+func (g GpuInstance) VgpuSchedulerLogV1(pSchedulerLogInfo *VgpuSchedulerLogInfo) error {
+	return gpuInstanceGetVgpuSchedulerLogV1(g, pSchedulerLogInfo)
+}
+
 // VgpuSchedulerState returns the vGPU scheduler state for the given GPU instance.
 //
 // The information returned in [VgpuSchedulerStateInfoV2] is not relevant if the BEST EFFORT policy is set.
@@ -380,6 +430,31 @@ func (g GpuInstance) VgpuSchedulerLog(pSchedulerLogInfo *VgpuSchedulerLogInfoV2)
 // [nvmlGpuInstanceGetVgpuSchedulerState_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv439nvmlGpuInstanceGetVgpuSchedulerState_v217nvmlGpuInstance_tP31nvmlVgpuSchedulerStateInfo_v2_t
 func (g GpuInstance) VgpuSchedulerState(pSchedulerStateInfo *VgpuSchedulerStateInfoV2) error {
 	return gpuInstanceGetVgpuSchedulerState(g, pSchedulerStateInfo)
+}
+
+// VgpuSchedulerStateV1 returns the vGPU scheduler state for the given GPU instance.
+//
+// The information returned in [VgpuSchedulerStateInfo] is not relevant if the BEST EFFORT policy is set.
+// For Blackwell &tm GB20x; or newer fully supported devices.
+//
+//   - pSchedulerStateInfo: Reference in which pSchedulerStateInfo is returned
+//
+// A nil error means vGPU scheduler state is successfully obtained.
+//
+// Errors:
+//   - [ErrArgumentVersionMismatch]: If the version of pSchedulerStateInfo is invalid
+//   - [ErrInvalidArgument]: If gpuInstance is NULL or invalid, or pSchedulerStateInfo is NULL or GPU Instance Id is invalid
+//   - [ErrNotSupported]: If not on a vGPU host or an unsupported GPU
+//   - [ErrUninitialized]: If library has not been successfully initialized
+//   - [ErrUnknown]: on any unexpected error
+//
+// Deprecated: Will be deprecated in a future release. Use [GpuInstance.VgpuSchedulerState] instead.
+//
+// Wraps [nvmlGpuInstanceGetVgpuSchedulerState].
+//
+// [nvmlGpuInstanceGetVgpuSchedulerState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv436nvmlGpuInstanceGetVgpuSchedulerState17nvmlGpuInstance_tP28nvmlVgpuSchedulerStateInfo_t
+func (g GpuInstance) VgpuSchedulerStateV1(pSchedulerStateInfo *VgpuSchedulerStateInfo) error {
+	return gpuInstanceGetVgpuSchedulerStateV1(g, pSchedulerStateInfo)
 }
 
 // VgpuTypeCreatablePlacements queries the creatable vGPU placement ID of the vGPU type within a GPU instance.

@@ -9,7 +9,9 @@
     "-api",
     "ncclm2n",
     "-output",
-    "${OUTPUT_DIR}"
+    "${OUTPUT_DIR}",
+    "-cuda-headers",
+    "cuda-headers"
   ],
   "inputs": [
     {

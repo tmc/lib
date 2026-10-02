@@ -56,6 +56,7 @@
 //   - [Device.AccountingBufferSize]: Returns the number of processes that the circular buffer with accounting pids can hold.
 //   - [Device.AccountingMode]: Queries the state of per process accounting mode.
 //   - [Device.AccountingPids]: Queries list of processes that can be queried for accounting stats.
+//   - [Device.AccountingStatsV1]: Queries process’s accounting stats.
 //   - [Device.AccountingStats]: Queries process’s accounting stats (v2).
 //   - [Device.ActiveVgpus]: Retrieve the active vGPU instances on a device.
 //   - [Device.AdaptiveClockInfoStatus]: Gets the device’s Adaptive Clock status.
@@ -109,6 +110,7 @@
 //   - [Device.FBCSessions]: Retrieves information about active frame buffer capture sessions on a target device.
 //   - [Device.FBCStats]: Retrieves the active frame buffer capture sessions statistics for a given device.
 //   - [Device.FanControlPolicy]: Gets current fan control policy.
+//   - [Device.FanSpeedV1]: Retrieves the intended operating speed of the device’s fan.
 //   - [Device.FanSpeedRPM]: Retrieves the intended operating speed in rotations per minute (RPM) of the device’s specified fan.
 //   - [Device.FanSpeed]: Retrieves the intended operating speed of the device’s specified fan.
 //   - [Device.FieldValues]: Request values for a list of fields for a device.
@@ -154,6 +156,7 @@
 //   - [Device.MemoryAffinity]: Retrieves an array of unsigned ints (sized to nodeSetSize) of bitmasks with the ideal memory affinity within node or socket for the device.
 //   - [Device.MemoryBusWidth]: Gets the device’s memory bus width.
 //   - [Device.MemoryErrorCounter]: Retrieves the requested memory error counter for the device.
+//   - [Device.MemoryInfoV1]: Retrieves the amount of used, free, reserved and total memory available on the device, in bytes.
 //   - [Device.MemoryInfo]: Retrieves the amount of used, free, reserved and total memory available on the device, in bytes.
 //   - [Device.MigDeviceHandleByIndex]: Get MIG device handle for the given index under its parent NVML device.
 //   - [Device.MigMode]: Get MIG mode for the device.
@@ -197,8 +200,10 @@
 //   - [Device.PowerUsage]: Retrieves power usage for this GPU in milliwatts and its associated circuitry (e.g.
 //   - [Device.ProcessUtilization]: Retrieves the current utilization and process ID.
 //   - [Device.ProcessesUtilizationInfo]: Retrieves the recent utilization and process ID for all running processes.
+//   - [Device.RemappedRowsV1]: Get number of remapped rows.
 //   - [Device.RemappedRows]: Get the status of row remapper.
 //   - [Device.RepairStatus]: Get the repair status for TPC/Channel repair.
+//   - [Device.RetiredPagesV1]: Returns the list of retired pages by source, including pages that are pending retirement The address information provided from this API is the hardware address of the page that was retired.
 //   - [Device.RetiredPagesPendingStatus]: Check if any pages are pending retirement and need a reboot to fully retire.
 //   - [Device.RetiredPages]: Returns the list of retired pages by source, including pages that are pending retirement The address information provided from this API is the hardware address of the page that was retired.
 //   - [Device.RowRemapperHistogram]: Get the row remapper histogram.
@@ -279,6 +284,7 @@
 //   - [Device.SetNvLinkDeviceLowPowerThreshold]: Set NvLink Low Power Threshold for device.
 //   - [Device.SetNvlinkBwMode]: Set the NvLink Reduced Bandwidth Mode for the device.
 //   - [Device.SetPersistenceMode]: Set the persistence mode for the device.
+//   - [Device.SetPowerManagementLimitV1]: Set new power limit of this device.
 //   - [Device.SetPowerManagementLimit]: Set new power limit of this device.
 //   - [Device.SetPowerMizerMode]: Sets the new power mizer mode.
 //   - [Device.SetRusdSettings]: Set Read-only user shared data (RUSD) settings for GPU.
@@ -398,6 +404,8 @@
 //   - [SystemGetConfComputeSettings]: Get Conf Computing System Settings.
 //   - [SystemGetConfComputeState]: Get Conf Computing System State.
 //   - [SystemGetCudaDriverVersion]: Retrieves the version of the CUDA driver from the shared library.
+//   - [SystemGetCudaDriverVersionV1]: Retrieves the version of the CUDA driver.
+//   - [SystemGetCudaDriverVersionV2]: Retrieves the version of the CUDA driver from the shared library.
 //   - [SystemGetDriverBranch]: Retrieves the driver branch of the NVIDIA driver installed on the system.
 //   - [SystemGetDriverVersion]: Retrieves the version of the system’s graphics driver.
 //   - [SystemGetHicVersion]: Retrieves the IDs and firmware versions for any Host Interface Cards (HICs) in the system.
@@ -421,6 +429,16 @@
 //   - [Unit.Temperature]: Retrieves the temperature readings for the unit, in degrees C.
 //   - [Unit.Info]: Retrieves the static information associated with a unit.
 //   - [Unit.SetLedState]: Set the LED state for the unit.
+//
+// # Functions bound at load time
+//
+// Each function below binds, when the library loads, the first of its
+// symbols that the library exports, newest first, so that it also runs
+// against libraries older than the header. A shim takes the newest
+// prototype and reaches its last symbol, an older version with fewer
+// parameters, as its documentation describes.
+//
+//   - [SystemGetCudaDriverVersion]: nvmlSystemGetCudaDriverVersion_v2, nvmlSystemGetCudaDriverVersion.
 //
 // [NVML API Reference]: https://docs.nvidia.com/deploy/nvml-api/
 package nvml

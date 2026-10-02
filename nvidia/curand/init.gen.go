@@ -238,6 +238,17 @@ func checkVersion() error {
 	if got != 10 {
 		return &VersionMismatchError{Path: libPath, Want: 10, Got: got, Raw: raw}
 	}
+	minor := raw % 1000 / 100
+	cuda := 0
+	switch {
+	case minor >= 4:
+		cuda = 13
+	case minor >= 3:
+		cuda = 12
+	}
+	if driver := driverVersion(); cuda > 0 && driver > 0 && cuda > driver/1000 {
+		return fmt.Errorf("curand: %s is version %d (minor %d) from CUDA %d, driver supports CUDA %d.%d", libPath, raw, minor, cuda, driver/1000, driver%1000/10)
+	}
 	return nil
 }
 
@@ -349,6 +360,30 @@ func pkgConfigHint() string {
 		return ""
 	}
 	return "pkg-config reports " + pkg + " in " + dir
+}
+
+// driverVersion returns the CUDA version the installed driver supports,
+// as cuDriverGetVersion reports it (13000 for 13.0), or 0 when there is no
+// driver to ask.
+func driverVersion() int {
+	if runtime.GOOS != "linux" {
+		return 0
+	}
+	name := "libcuda.so.1"
+	h, err := openDynamicLibrary(name)
+	if err != nil {
+		return 0
+	}
+	defer closeLibrary(h)
+	sym, err := lookupLibrarySymbol(h, "cuDriverGetVersion")
+	if err != nil || sym == 0 {
+		return 0
+	}
+	var v int32
+	if r, _, _ := purego.SyscallN(sym, uintptr(unsafe.Pointer(&v))); r != 0 {
+		return 0
+	}
+	return int(v)
 }
 
 // libraryNames returns the platform-specific shared library names to try.

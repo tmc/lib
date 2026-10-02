@@ -423,6 +423,80 @@ func checkLibSym(symbol string) error {
 	return nil
 }
 
+// A symbolChain lists the symbols one function may bind, newest first, and
+// records the one that bound. A function the header declares under several
+// versions with one prototype binds the newest version the library exports.
+type symbolChain struct {
+	symbols  []string
+	fallback string // tried last, only in a library whose version was verified
+	bound    string // the symbol that bound, or ""
+}
+
+// missing returns the *SymbolError for a chain that bound nothing. It names
+// the first symbol the library exports but that could not be bound, or else
+// the newest symbol.
+func (c *symbolChain) missing() error {
+	for _, s := range c.symbols {
+		if err := unbound[s]; err != nil {
+			return &SymbolError{Symbol: s, Err: err}
+		}
+	}
+	if err := unbound[c.fallback]; c.fallback != "" && err != nil {
+		return &SymbolError{Symbol: c.fallback, Err: err}
+	}
+	return &SymbolError{Symbol: c.symbols[0]}
+}
+
+// checkLibChain loads the library if necessary and reports whether any of
+// c's symbols bound. It returns the load error if the library is
+// unavailable, or *SymbolError if none of the symbols is callable.
+func checkLibChain(c *symbolChain) error {
+	if err := checkLib(); err != nil {
+		return err
+	}
+	if c.bound == "" {
+		return c.missing()
+	}
+	return nil
+}
+
+// registerSymChain resolves the first of c's symbols the library exports.
+func registerSymChain(c *symbolChain) uintptr {
+	for _, s := range c.symbols {
+		if sym := registerSym(s); sym != 0 {
+			c.bound = s
+			return sym
+		}
+	}
+	return 0
+}
+
+var (
+	chainNvmlSystemGetCudaDriverVersion = symbolChain{symbols: []string{"nvmlSystemGetCudaDriverVersion_v2", "nvmlSystemGetCudaDriverVersion"}}
+)
+
+// chains maps a C function name to its symbolChain.
+var chains = map[string]*symbolChain{
+	"nvmlSystemGetCudaDriverVersion": &chainNvmlSystemGetCudaDriverVersion,
+}
+
+// BoundSymbol returns the symbol the loaded library bound for the C
+// function name, loading the library first if necessary, or "" if none
+// bound. It answers for the functions that bind the first of several
+// symbols the library exports:
+// BoundSymbol("nvmlSystemGetCudaDriverVersion") returns
+// "nvmlSystemGetCudaDriverVersion_v2" when the library exports it, and an
+// older spelling otherwise. It returns "" for any other name.
+func BoundSymbol(name string) string {
+	if err := checkLib(); err != nil {
+		return ""
+	}
+	if c := chains[name]; c != nil {
+		return c.bound
+	}
+	return ""
+}
+
 // registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
 	register(&fnErrorString, "nvmlErrorString")
@@ -440,6 +514,7 @@ func registerFuncs() {
 	symdeviceGetAccountingBufferSize = registerSym("nvmlDeviceGetAccountingBufferSize")
 	symdeviceGetAccountingMode = registerSym("nvmlDeviceGetAccountingMode")
 	symdeviceGetAccountingPids = registerSym("nvmlDeviceGetAccountingPids")
+	symdeviceGetAccountingStatsV1 = registerSym("nvmlDeviceGetAccountingStats")
 	symdeviceGetAccountingStats = registerSym("nvmlDeviceGetAccountingStats_v2")
 	symdeviceGetActiveVgpus = registerSym("nvmlDeviceGetActiveVgpus")
 	symdeviceGetAdaptiveClockInfoStatus = registerSym("nvmlDeviceGetAdaptiveClockInfoStatus")
@@ -498,6 +573,7 @@ func registerFuncs() {
 	symdeviceGetFBCSessions = registerSym("nvmlDeviceGetFBCSessions")
 	symdeviceGetFBCStats = registerSym("nvmlDeviceGetFBCStats")
 	symdeviceGetFanControlPolicy = registerSym("nvmlDeviceGetFanControlPolicy_v2")
+	symdeviceGetFanSpeedV1 = registerSym("nvmlDeviceGetFanSpeed")
 	symdeviceGetFanSpeedRPM = registerSym("nvmlDeviceGetFanSpeedRPM")
 	symdeviceGetFanSpeed = registerSym("nvmlDeviceGetFanSpeed_v2")
 	symdeviceGetFieldValues = registerSym("nvmlDeviceGetFieldValues")
@@ -545,6 +621,7 @@ func registerFuncs() {
 	symdeviceGetMemoryAffinity = registerSym("nvmlDeviceGetMemoryAffinity")
 	symdeviceGetMemoryBusWidth = registerSym("nvmlDeviceGetMemoryBusWidth")
 	symdeviceGetMemoryErrorCounter = registerSym("nvmlDeviceGetMemoryErrorCounter")
+	symdeviceGetMemoryInfoV1 = registerSym("nvmlDeviceGetMemoryInfo")
 	symdeviceGetMemoryInfo = registerSym("nvmlDeviceGetMemoryInfo_v2")
 	symdeviceGetMigDeviceHandleByIndex = registerSym("nvmlDeviceGetMigDeviceHandleByIndex")
 	symdeviceGetMigMode = registerSym("nvmlDeviceGetMigMode")
@@ -592,8 +669,10 @@ func registerFuncs() {
 	symdeviceGetPowerUsage = registerSym("nvmlDeviceGetPowerUsage")
 	symdeviceGetProcessUtilization = registerSym("nvmlDeviceGetProcessUtilization")
 	symdeviceGetProcessesUtilizationInfo = registerSym("nvmlDeviceGetProcessesUtilizationInfo")
+	symdeviceGetRemappedRowsV1 = registerSym("nvmlDeviceGetRemappedRows")
 	symdeviceGetRemappedRows = registerSym("nvmlDeviceGetRemappedRows_v2")
 	symdeviceGetRepairStatus = registerSym("nvmlDeviceGetRepairStatus")
+	symdeviceGetRetiredPagesV1 = registerSym("nvmlDeviceGetRetiredPages")
 	symdeviceGetRetiredPagesPendingStatus = registerSym("nvmlDeviceGetRetiredPagesPendingStatus")
 	symdeviceGetRetiredPages = registerSym("nvmlDeviceGetRetiredPages_v2")
 	symdeviceGetRowRemapperHistogram = registerSym("nvmlDeviceGetRowRemapperHistogram")
@@ -629,7 +708,9 @@ func registerFuncs() {
 	symdeviceGetVgpuProcessUtilization = registerSym("nvmlDeviceGetVgpuProcessUtilization")
 	symdeviceGetVgpuProcessesUtilizationInfo = registerSym("nvmlDeviceGetVgpuProcessesUtilizationInfo")
 	symdeviceGetVgpuSchedulerCapabilities = registerSym("nvmlDeviceGetVgpuSchedulerCapabilities")
+	symdeviceGetVgpuSchedulerLogV1 = registerSym("nvmlDeviceGetVgpuSchedulerLog")
 	symdeviceGetVgpuSchedulerLog = registerSym("nvmlDeviceGetVgpuSchedulerLog_v2")
+	symdeviceGetVgpuSchedulerStateV1 = registerSym("nvmlDeviceGetVgpuSchedulerState")
 	symdeviceGetVgpuSchedulerState = registerSym("nvmlDeviceGetVgpuSchedulerState_v2")
 	symdeviceGetVgpuTypeCreatablePlacements = registerSym("nvmlDeviceGetVgpuTypeCreatablePlacements")
 	symdeviceGetVgpuTypeSupportedPlacements = registerSym("nvmlDeviceGetVgpuTypeSupportedPlacements")
@@ -678,12 +759,14 @@ func registerFuncs() {
 	symdeviceSetNvLinkUtilizationControl = registerSym("nvmlDeviceSetNvLinkUtilizationControl")
 	symdeviceSetNvlinkBwMode = registerSym("nvmlDeviceSetNvlinkBwMode")
 	symdeviceSetPersistenceMode = registerSym("nvmlDeviceSetPersistenceMode")
+	symdeviceSetPowerManagementLimitV1 = registerSym("nvmlDeviceSetPowerManagementLimit")
 	symdeviceSetPowerManagementLimit = registerSym("nvmlDeviceSetPowerManagementLimit_v2")
 	symdeviceSetPowerMizerMode = registerSym("nvmlDeviceSetPowerMizerMode_v1")
 	symdeviceSetRusdSettings = registerSym("nvmlDeviceSetRusdSettings_v1")
 	symdeviceSetTemperatureThreshold = registerSym("nvmlDeviceSetTemperatureThreshold")
 	symdeviceSetVgpuCapabilities = registerSym("nvmlDeviceSetVgpuCapabilities")
 	symdeviceSetVgpuHeterogeneousMode = registerSym("nvmlDeviceSetVgpuHeterogeneousMode")
+	symdeviceSetVgpuSchedulerStateV1 = registerSym("nvmlDeviceSetVgpuSchedulerState")
 	symdeviceSetVgpuSchedulerState = registerSym("nvmlDeviceSetVgpuSchedulerState_v2")
 	symdeviceSetVirtualizationMode = registerSym("nvmlDeviceSetVirtualizationMode")
 	symdeviceValidateInforom = registerSym("nvmlDeviceValidateInforom")
@@ -722,10 +805,13 @@ func registerFuncs() {
 	symgpuInstanceGetCreatableVgpus = registerSym("nvmlGpuInstanceGetCreatableVgpus")
 	symgpuInstanceGetInfo = registerSym("nvmlGpuInstanceGetInfo")
 	symgpuInstanceGetVgpuHeterogeneousMode = registerSym("nvmlGpuInstanceGetVgpuHeterogeneousMode")
+	symgpuInstanceGetVgpuSchedulerLogV1 = registerSym("nvmlGpuInstanceGetVgpuSchedulerLog")
 	symgpuInstanceGetVgpuSchedulerLog = registerSym("nvmlGpuInstanceGetVgpuSchedulerLog_v2")
+	symgpuInstanceGetVgpuSchedulerStateV1 = registerSym("nvmlGpuInstanceGetVgpuSchedulerState")
 	symgpuInstanceGetVgpuSchedulerState = registerSym("nvmlGpuInstanceGetVgpuSchedulerState_v2")
 	symgpuInstanceGetVgpuTypeCreatablePlacements = registerSym("nvmlGpuInstanceGetVgpuTypeCreatablePlacements")
 	symgpuInstanceSetVgpuHeterogeneousMode = registerSym("nvmlGpuInstanceSetVgpuHeterogeneousMode")
+	symgpuInstanceSetVgpuSchedulerStateV1 = registerSym("nvmlGpuInstanceSetVgpuSchedulerState")
 	symgpuInstanceSetVgpuSchedulerState = registerSym("nvmlGpuInstanceSetVgpuSchedulerState_v2")
 	symInit = registerSym("nvmlInit_v2")
 	symInitWithFlags = registerSym("nvmlInitWithFlags")
@@ -740,7 +826,9 @@ func registerFuncs() {
 	symSystemGetConfComputeKeyRotationThresholdInfo = registerSym("nvmlSystemGetConfComputeKeyRotationThresholdInfo")
 	symSystemGetConfComputeSettings = registerSym("nvmlSystemGetConfComputeSettings")
 	symSystemGetConfComputeState = registerSym("nvmlSystemGetConfComputeState")
-	symSystemGetCudaDriverVersion = registerSym("nvmlSystemGetCudaDriverVersion_v2")
+	symSystemGetCudaDriverVersion = registerSymChain(&chainNvmlSystemGetCudaDriverVersion)
+	symSystemGetCudaDriverVersionV1 = registerSym("nvmlSystemGetCudaDriverVersion")
+	symSystemGetCudaDriverVersionV2 = registerSym("nvmlSystemGetCudaDriverVersion_v2")
 	symSystemGetDriverBranch = registerSym("nvmlSystemGetDriverBranch")
 	symSystemGetDriverVersion = registerSym("nvmlSystemGetDriverVersion")
 	symSystemGetHicVersion = registerSym("nvmlSystemGetHicVersion")
@@ -821,6 +909,7 @@ func clearFuncs() {
 	symdeviceGetAccountingBufferSize = 0
 	symdeviceGetAccountingMode = 0
 	symdeviceGetAccountingPids = 0
+	symdeviceGetAccountingStatsV1 = 0
 	symdeviceGetAccountingStats = 0
 	symdeviceGetActiveVgpus = 0
 	symdeviceGetAdaptiveClockInfoStatus = 0
@@ -879,6 +968,7 @@ func clearFuncs() {
 	symdeviceGetFBCSessions = 0
 	symdeviceGetFBCStats = 0
 	symdeviceGetFanControlPolicy = 0
+	symdeviceGetFanSpeedV1 = 0
 	symdeviceGetFanSpeedRPM = 0
 	symdeviceGetFanSpeed = 0
 	symdeviceGetFieldValues = 0
@@ -926,6 +1016,7 @@ func clearFuncs() {
 	symdeviceGetMemoryAffinity = 0
 	symdeviceGetMemoryBusWidth = 0
 	symdeviceGetMemoryErrorCounter = 0
+	symdeviceGetMemoryInfoV1 = 0
 	symdeviceGetMemoryInfo = 0
 	symdeviceGetMigDeviceHandleByIndex = 0
 	symdeviceGetMigMode = 0
@@ -973,8 +1064,10 @@ func clearFuncs() {
 	symdeviceGetPowerUsage = 0
 	symdeviceGetProcessUtilization = 0
 	symdeviceGetProcessesUtilizationInfo = 0
+	symdeviceGetRemappedRowsV1 = 0
 	symdeviceGetRemappedRows = 0
 	symdeviceGetRepairStatus = 0
+	symdeviceGetRetiredPagesV1 = 0
 	symdeviceGetRetiredPagesPendingStatus = 0
 	symdeviceGetRetiredPages = 0
 	symdeviceGetRowRemapperHistogram = 0
@@ -1010,7 +1103,9 @@ func clearFuncs() {
 	symdeviceGetVgpuProcessUtilization = 0
 	symdeviceGetVgpuProcessesUtilizationInfo = 0
 	symdeviceGetVgpuSchedulerCapabilities = 0
+	symdeviceGetVgpuSchedulerLogV1 = 0
 	symdeviceGetVgpuSchedulerLog = 0
+	symdeviceGetVgpuSchedulerStateV1 = 0
 	symdeviceGetVgpuSchedulerState = 0
 	symdeviceGetVgpuTypeCreatablePlacements = 0
 	symdeviceGetVgpuTypeSupportedPlacements = 0
@@ -1059,12 +1154,14 @@ func clearFuncs() {
 	symdeviceSetNvLinkUtilizationControl = 0
 	symdeviceSetNvlinkBwMode = 0
 	symdeviceSetPersistenceMode = 0
+	symdeviceSetPowerManagementLimitV1 = 0
 	symdeviceSetPowerManagementLimit = 0
 	symdeviceSetPowerMizerMode = 0
 	symdeviceSetRusdSettings = 0
 	symdeviceSetTemperatureThreshold = 0
 	symdeviceSetVgpuCapabilities = 0
 	symdeviceSetVgpuHeterogeneousMode = 0
+	symdeviceSetVgpuSchedulerStateV1 = 0
 	symdeviceSetVgpuSchedulerState = 0
 	symdeviceSetVirtualizationMode = 0
 	symdeviceValidateInforom = 0
@@ -1103,10 +1200,13 @@ func clearFuncs() {
 	symgpuInstanceGetCreatableVgpus = 0
 	symgpuInstanceGetInfo = 0
 	symgpuInstanceGetVgpuHeterogeneousMode = 0
+	symgpuInstanceGetVgpuSchedulerLogV1 = 0
 	symgpuInstanceGetVgpuSchedulerLog = 0
+	symgpuInstanceGetVgpuSchedulerStateV1 = 0
 	symgpuInstanceGetVgpuSchedulerState = 0
 	symgpuInstanceGetVgpuTypeCreatablePlacements = 0
 	symgpuInstanceSetVgpuHeterogeneousMode = 0
+	symgpuInstanceSetVgpuSchedulerStateV1 = 0
 	symgpuInstanceSetVgpuSchedulerState = 0
 	symInit = 0
 	symInitWithFlags = 0
@@ -1121,7 +1221,10 @@ func clearFuncs() {
 	symSystemGetConfComputeKeyRotationThresholdInfo = 0
 	symSystemGetConfComputeSettings = 0
 	symSystemGetConfComputeState = 0
+	chainNvmlSystemGetCudaDriverVersion.bound = ""
 	symSystemGetCudaDriverVersion = 0
+	symSystemGetCudaDriverVersionV1 = 0
+	symSystemGetCudaDriverVersionV2 = 0
 	symSystemGetDriverBranch = 0
 	symSystemGetDriverVersion = 0
 	symSystemGetHicVersion = 0
@@ -1258,6 +1361,11 @@ func HasDeviceGetAccountingMode() bool {
 // HasDeviceGetAccountingPids reports whether nvmlDeviceGetAccountingPids resolved in the loaded library.
 func HasDeviceGetAccountingPids() bool {
 	return Has("nvmlDeviceGetAccountingPids")
+}
+
+// HasDeviceGetAccountingStatsV1 reports whether nvmlDeviceGetAccountingStats resolved in the loaded library.
+func HasDeviceGetAccountingStatsV1() bool {
+	return Has("nvmlDeviceGetAccountingStats")
 }
 
 // HasDeviceGetAccountingStats reports whether nvmlDeviceGetAccountingStats_v2 resolved in the loaded library.
@@ -1550,6 +1658,11 @@ func HasDeviceGetFanControlPolicy() bool {
 	return Has("nvmlDeviceGetFanControlPolicy_v2")
 }
 
+// HasDeviceGetFanSpeedV1 reports whether nvmlDeviceGetFanSpeed resolved in the loaded library.
+func HasDeviceGetFanSpeedV1() bool {
+	return Has("nvmlDeviceGetFanSpeed")
+}
+
 // HasDeviceGetFanSpeedRPM reports whether nvmlDeviceGetFanSpeedRPM resolved in the loaded library.
 func HasDeviceGetFanSpeedRPM() bool {
 	return Has("nvmlDeviceGetFanSpeedRPM")
@@ -1783,6 +1896,11 @@ func HasDeviceGetMemoryBusWidth() bool {
 // HasDeviceGetMemoryErrorCounter reports whether nvmlDeviceGetMemoryErrorCounter resolved in the loaded library.
 func HasDeviceGetMemoryErrorCounter() bool {
 	return Has("nvmlDeviceGetMemoryErrorCounter")
+}
+
+// HasDeviceGetMemoryInfoV1 reports whether nvmlDeviceGetMemoryInfo resolved in the loaded library.
+func HasDeviceGetMemoryInfoV1() bool {
+	return Has("nvmlDeviceGetMemoryInfo")
 }
 
 // HasDeviceGetMemoryInfo reports whether nvmlDeviceGetMemoryInfo_v2 resolved in the loaded library.
@@ -2020,6 +2138,11 @@ func HasDeviceGetProcessesUtilizationInfo() bool {
 	return Has("nvmlDeviceGetProcessesUtilizationInfo")
 }
 
+// HasDeviceGetRemappedRowsV1 reports whether nvmlDeviceGetRemappedRows resolved in the loaded library.
+func HasDeviceGetRemappedRowsV1() bool {
+	return Has("nvmlDeviceGetRemappedRows")
+}
+
 // HasDeviceGetRemappedRows reports whether nvmlDeviceGetRemappedRows_v2 resolved in the loaded library.
 func HasDeviceGetRemappedRows() bool {
 	return Has("nvmlDeviceGetRemappedRows_v2")
@@ -2028,6 +2151,11 @@ func HasDeviceGetRemappedRows() bool {
 // HasDeviceGetRepairStatus reports whether nvmlDeviceGetRepairStatus resolved in the loaded library.
 func HasDeviceGetRepairStatus() bool {
 	return Has("nvmlDeviceGetRepairStatus")
+}
+
+// HasDeviceGetRetiredPagesV1 reports whether nvmlDeviceGetRetiredPages resolved in the loaded library.
+func HasDeviceGetRetiredPagesV1() bool {
+	return Has("nvmlDeviceGetRetiredPages")
 }
 
 // HasDeviceGetRetiredPagesPendingStatus reports whether nvmlDeviceGetRetiredPagesPendingStatus resolved in the loaded library.
@@ -2205,9 +2333,19 @@ func HasDeviceGetVgpuSchedulerCapabilities() bool {
 	return Has("nvmlDeviceGetVgpuSchedulerCapabilities")
 }
 
+// HasDeviceGetVgpuSchedulerLogV1 reports whether nvmlDeviceGetVgpuSchedulerLog resolved in the loaded library.
+func HasDeviceGetVgpuSchedulerLogV1() bool {
+	return Has("nvmlDeviceGetVgpuSchedulerLog")
+}
+
 // HasDeviceGetVgpuSchedulerLog reports whether nvmlDeviceGetVgpuSchedulerLog_v2 resolved in the loaded library.
 func HasDeviceGetVgpuSchedulerLog() bool {
 	return Has("nvmlDeviceGetVgpuSchedulerLog_v2")
+}
+
+// HasDeviceGetVgpuSchedulerStateV1 reports whether nvmlDeviceGetVgpuSchedulerState resolved in the loaded library.
+func HasDeviceGetVgpuSchedulerStateV1() bool {
+	return Has("nvmlDeviceGetVgpuSchedulerState")
 }
 
 // HasDeviceGetVgpuSchedulerState reports whether nvmlDeviceGetVgpuSchedulerState_v2 resolved in the loaded library.
@@ -2450,6 +2588,11 @@ func HasDeviceSetPersistenceMode() bool {
 	return Has("nvmlDeviceSetPersistenceMode")
 }
 
+// HasDeviceSetPowerManagementLimitV1 reports whether nvmlDeviceSetPowerManagementLimit resolved in the loaded library.
+func HasDeviceSetPowerManagementLimitV1() bool {
+	return Has("nvmlDeviceSetPowerManagementLimit")
+}
+
 // HasDeviceSetPowerManagementLimit reports whether nvmlDeviceSetPowerManagementLimit_v2 resolved in the loaded library.
 func HasDeviceSetPowerManagementLimit() bool {
 	return Has("nvmlDeviceSetPowerManagementLimit_v2")
@@ -2478,6 +2621,11 @@ func HasDeviceSetVgpuCapabilities() bool {
 // HasDeviceSetVgpuHeterogeneousMode reports whether nvmlDeviceSetVgpuHeterogeneousMode resolved in the loaded library.
 func HasDeviceSetVgpuHeterogeneousMode() bool {
 	return Has("nvmlDeviceSetVgpuHeterogeneousMode")
+}
+
+// HasDeviceSetVgpuSchedulerStateV1 reports whether nvmlDeviceSetVgpuSchedulerState resolved in the loaded library.
+func HasDeviceSetVgpuSchedulerStateV1() bool {
+	return Has("nvmlDeviceSetVgpuSchedulerState")
 }
 
 // HasDeviceSetVgpuSchedulerState reports whether nvmlDeviceSetVgpuSchedulerState_v2 resolved in the loaded library.
@@ -2670,9 +2818,19 @@ func HasGpuInstanceGetVgpuHeterogeneousMode() bool {
 	return Has("nvmlGpuInstanceGetVgpuHeterogeneousMode")
 }
 
+// HasGpuInstanceGetVgpuSchedulerLogV1 reports whether nvmlGpuInstanceGetVgpuSchedulerLog resolved in the loaded library.
+func HasGpuInstanceGetVgpuSchedulerLogV1() bool {
+	return Has("nvmlGpuInstanceGetVgpuSchedulerLog")
+}
+
 // HasGpuInstanceGetVgpuSchedulerLog reports whether nvmlGpuInstanceGetVgpuSchedulerLog_v2 resolved in the loaded library.
 func HasGpuInstanceGetVgpuSchedulerLog() bool {
 	return Has("nvmlGpuInstanceGetVgpuSchedulerLog_v2")
+}
+
+// HasGpuInstanceGetVgpuSchedulerStateV1 reports whether nvmlGpuInstanceGetVgpuSchedulerState resolved in the loaded library.
+func HasGpuInstanceGetVgpuSchedulerStateV1() bool {
+	return Has("nvmlGpuInstanceGetVgpuSchedulerState")
 }
 
 // HasGpuInstanceGetVgpuSchedulerState reports whether nvmlGpuInstanceGetVgpuSchedulerState_v2 resolved in the loaded library.
@@ -2688,6 +2846,11 @@ func HasGpuInstanceGetVgpuTypeCreatablePlacements() bool {
 // HasGpuInstanceSetVgpuHeterogeneousMode reports whether nvmlGpuInstanceSetVgpuHeterogeneousMode resolved in the loaded library.
 func HasGpuInstanceSetVgpuHeterogeneousMode() bool {
 	return Has("nvmlGpuInstanceSetVgpuHeterogeneousMode")
+}
+
+// HasGpuInstanceSetVgpuSchedulerStateV1 reports whether nvmlGpuInstanceSetVgpuSchedulerState resolved in the loaded library.
+func HasGpuInstanceSetVgpuSchedulerStateV1() bool {
+	return Has("nvmlGpuInstanceSetVgpuSchedulerState")
 }
 
 // HasGpuInstanceSetVgpuSchedulerState reports whether nvmlGpuInstanceSetVgpuSchedulerState_v2 resolved in the loaded library.
@@ -2760,8 +2923,21 @@ func HasSystemGetConfComputeState() bool {
 	return Has("nvmlSystemGetConfComputeState")
 }
 
-// HasSystemGetCudaDriverVersion reports whether nvmlSystemGetCudaDriverVersion_v2 resolved in the loaded library.
+// HasSystemGetCudaDriverVersion reports whether
+// nvmlSystemGetCudaDriverVersion bound, through any of
+// nvmlSystemGetCudaDriverVersion_v2, nvmlSystemGetCudaDriverVersion.
+// BoundSymbol reports which.
 func HasSystemGetCudaDriverVersion() bool {
+	return BoundSymbol("nvmlSystemGetCudaDriverVersion") != ""
+}
+
+// HasSystemGetCudaDriverVersionV1 reports whether nvmlSystemGetCudaDriverVersion resolved in the loaded library.
+func HasSystemGetCudaDriverVersionV1() bool {
+	return Has("nvmlSystemGetCudaDriverVersion")
+}
+
+// HasSystemGetCudaDriverVersionV2 reports whether nvmlSystemGetCudaDriverVersion_v2 resolved in the loaded library.
+func HasSystemGetCudaDriverVersionV2() bool {
 	return Has("nvmlSystemGetCudaDriverVersion_v2")
 }
 

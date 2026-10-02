@@ -173,18 +173,7 @@ func loadLocked(path string) error {
 		libErr = errors.New("nvfatbin: bindings disabled via CODEGEN_SKIP_BINDINGS")
 		return libErr
 	}
-	lib, libPath, libErr = openLibrary(path)
-	if libErr != nil {
-		return libErr
-	}
-	registerFuncs()
-	if libErr = checkVersion(); libErr != nil {
-		closeLibrary(lib)
-		lib = 0
-		libPath = ""
-		present = make(map[string]bool)
-		unbound = make(map[string]error)
-		clearFuncs()
+	if libErr = openLibrary(path); libErr != nil {
 		return libErr
 	}
 	ready.Store(true)
@@ -211,13 +200,13 @@ type VersionMismatchError struct {
 // reported instead.
 func (e *VersionMismatchError) Error() string {
 	if e.Got == 0 {
-		return fmt.Sprintf("nvfatbin: %s reported version %d, which does not decode as a version these bindings recognise; they require major %d", e.Path, e.Raw, e.Want)
+		return fmt.Sprintf("nvfatbin: %s reported version %d, which does not decode as a version these bindings recognise; they accept major %d or 12", e.Path, e.Raw, e.Want)
 	}
-	return fmt.Sprintf("nvfatbin: %s reports version major %d, these bindings require %d", e.Path, e.Got, e.Want)
+	return fmt.Sprintf("nvfatbin: %s reports version major %d, these bindings accept major %d or 12", e.Path, e.Got, e.Want)
 }
 
 // checkVersion asks the loaded library its version through nvFatbinVersion and
-// compares the major against 13, the soname major these bindings were
+// checks the major against 13 or 12, which these bindings accept.
 // generated against. It runs under loadMu, after registerFuncs, so it
 // calls the bound pointer directly rather than the exported wrapper.
 //
@@ -236,36 +225,60 @@ func checkVersion() error {
 	}
 	raw := int(out0)
 	got := raw
-	if got != 13 {
+	if got != 13 && got != 12 {
 		return &VersionMismatchError{Path: libPath, Want: 13, Got: got, Raw: raw}
 	}
 	return nil
 }
 
-// openLibrary attempts to load the nvfatbin shared library and reports the
-// path it was opened from. An explicit path wins; otherwise it checks the
-// library path environment variable, then platform-specific default names.
-func openLibrary(path string) (uintptr, string, error) {
+// openLibrary opens the nvfatbin shared library, binds its symbols, and
+// checks its version. An explicit path wins; otherwise it checks the library
+// path environment variable, then each default candidate in turn, skipping
+// one whose version these bindings do not accept.
+func openLibrary(path string) error {
 	if path == "" {
 		path = os.Getenv("NVFATBIN_LIB_PATH")
 	}
 	if path != "" {
 		h, err := openDynamicLibrary(path)
-		if err == nil {
-			return h, path, nil
+		if err != nil {
+			return newLibraryError(path, []LibraryAttempt{{Name: path, Err: err}})
 		}
-		return 0, "", newLibraryError(path, []LibraryAttempt{{Name: path, Err: err}})
+		return admit(h, path)
 	}
 	names := libraryNames()
 	var attempts []LibraryAttempt
 	for _, name := range names {
 		h, err := openDynamicLibrary(name)
+		if err != nil {
+			attempts = append(attempts, LibraryAttempt{Name: name, Err: err})
+			continue
+		}
+		err = admit(h, name)
 		if err == nil {
-			return h, name, nil
+			return nil
 		}
 		attempts = append(attempts, LibraryAttempt{Name: name, Err: err})
 	}
-	return 0, "", newLibraryError("", attempts)
+	return newLibraryError("", attempts)
+}
+
+// admit makes the library at h, opened as name, the loaded library and
+// checks its version. It closes a library the check refuses.
+func admit(h uintptr, name string) error {
+	lib, libPath = h, name
+	registerFuncs()
+	err := checkVersion()
+	if err != nil {
+		closeLibrary(lib)
+		lib = 0
+		libPath = ""
+		present = make(map[string]bool)
+		unbound = make(map[string]error)
+		clearFuncs()
+		return err
+	}
+	return nil
 }
 
 // LibraryAttempt records one failed attempt to open the shared library.
@@ -356,7 +369,7 @@ func pkgConfigHint() string {
 func libraryNames() []string {
 	switch runtime.GOOS {
 	case "linux":
-		return []string{"libnvfatbin.so.13"}
+		return []string{"libnvfatbin.so.13", "libnvfatbin.so.12"}
 	case "darwin":
 		return []string{"libnvfatbin.dylib"}
 	case "windows":

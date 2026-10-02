@@ -25,6 +25,7 @@ var (
 	symdeviceGetAccountingBufferSize                    uintptr
 	symdeviceGetAccountingMode                          uintptr
 	symdeviceGetAccountingPids                          uintptr
+	symdeviceGetAccountingStatsV1                       uintptr
 	symdeviceGetAccountingStats                         uintptr
 	symdeviceGetActiveVgpus                             uintptr
 	symdeviceGetAdaptiveClockInfoStatus                 uintptr
@@ -83,6 +84,7 @@ var (
 	symdeviceGetFBCSessions                             uintptr
 	symdeviceGetFBCStats                                uintptr
 	symdeviceGetFanControlPolicy                        uintptr
+	symdeviceGetFanSpeedV1                              uintptr
 	symdeviceGetFanSpeedRPM                             uintptr
 	symdeviceGetFanSpeed                                uintptr
 	symdeviceGetFieldValues                             uintptr
@@ -130,6 +132,7 @@ var (
 	symdeviceGetMemoryAffinity                          uintptr
 	symdeviceGetMemoryBusWidth                          uintptr
 	symdeviceGetMemoryErrorCounter                      uintptr
+	symdeviceGetMemoryInfoV1                            uintptr
 	symdeviceGetMemoryInfo                              uintptr
 	symdeviceGetMigDeviceHandleByIndex                  uintptr
 	symdeviceGetMigMode                                 uintptr
@@ -177,8 +180,10 @@ var (
 	symdeviceGetPowerUsage                              uintptr
 	symdeviceGetProcessUtilization                      uintptr
 	symdeviceGetProcessesUtilizationInfo                uintptr
+	symdeviceGetRemappedRowsV1                          uintptr
 	symdeviceGetRemappedRows                            uintptr
 	symdeviceGetRepairStatus                            uintptr
+	symdeviceGetRetiredPagesV1                          uintptr
 	symdeviceGetRetiredPagesPendingStatus               uintptr
 	symdeviceGetRetiredPages                            uintptr
 	symdeviceGetRowRemapperHistogram                    uintptr
@@ -214,7 +219,9 @@ var (
 	symdeviceGetVgpuProcessUtilization                  uintptr
 	symdeviceGetVgpuProcessesUtilizationInfo            uintptr
 	symdeviceGetVgpuSchedulerCapabilities               uintptr
+	symdeviceGetVgpuSchedulerLogV1                      uintptr
 	symdeviceGetVgpuSchedulerLog                        uintptr
+	symdeviceGetVgpuSchedulerStateV1                    uintptr
 	symdeviceGetVgpuSchedulerState                      uintptr
 	symdeviceGetVgpuTypeCreatablePlacements             uintptr
 	symdeviceGetVgpuTypeSupportedPlacements             uintptr
@@ -263,12 +270,14 @@ var (
 	symdeviceSetNvLinkUtilizationControl                uintptr
 	symdeviceSetNvlinkBwMode                            uintptr
 	symdeviceSetPersistenceMode                         uintptr
+	symdeviceSetPowerManagementLimitV1                  uintptr
 	symdeviceSetPowerManagementLimit                    uintptr
 	symdeviceSetPowerMizerMode                          uintptr
 	symdeviceSetRusdSettings                            uintptr
 	symdeviceSetTemperatureThreshold                    uintptr
 	symdeviceSetVgpuCapabilities                        uintptr
 	symdeviceSetVgpuHeterogeneousMode                   uintptr
+	symdeviceSetVgpuSchedulerStateV1                    uintptr
 	symdeviceSetVgpuSchedulerState                      uintptr
 	symdeviceSetVirtualizationMode                      uintptr
 	symdeviceValidateInforom                            uintptr
@@ -307,10 +316,13 @@ var (
 	symgpuInstanceGetCreatableVgpus                     uintptr
 	symgpuInstanceGetInfo                               uintptr
 	symgpuInstanceGetVgpuHeterogeneousMode              uintptr
+	symgpuInstanceGetVgpuSchedulerLogV1                 uintptr
 	symgpuInstanceGetVgpuSchedulerLog                   uintptr
+	symgpuInstanceGetVgpuSchedulerStateV1               uintptr
 	symgpuInstanceGetVgpuSchedulerState                 uintptr
 	symgpuInstanceGetVgpuTypeCreatablePlacements        uintptr
 	symgpuInstanceSetVgpuHeterogeneousMode              uintptr
+	symgpuInstanceSetVgpuSchedulerStateV1               uintptr
 	symgpuInstanceSetVgpuSchedulerState                 uintptr
 	symInit                                             uintptr
 	symInitWithFlags                                    uintptr
@@ -326,6 +338,8 @@ var (
 	symSystemGetConfComputeSettings                     uintptr
 	symSystemGetConfComputeState                        uintptr
 	symSystemGetCudaDriverVersion                       uintptr
+	symSystemGetCudaDriverVersionV1                     uintptr
+	symSystemGetCudaDriverVersionV2                     uintptr
 	symSystemGetDriverBranch                            uintptr
 	symSystemGetDriverVersion                           uintptr
 	symSystemGetHicVersion                              uintptr
@@ -615,6 +629,12 @@ func fndeviceGetAccountingMode(a0 Device, a1 *EnableState) Result {
 // fndeviceGetAccountingPids calls nvmlDeviceGetAccountingPids.
 func fndeviceGetAccountingPids(a0 Device, a1 *uint32, a2 *uint32) Result {
 	r1, _ := ffiCall3(symdeviceGetAccountingPids, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fndeviceGetAccountingStatsV1 calls nvmlDeviceGetAccountingStats.
+func fndeviceGetAccountingStatsV1(a0 Device, a1 uint32, a2 *AccountingStats) Result {
+	r1, _ := ffiCallWidths3(symdeviceGetAccountingStatsV1, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -966,6 +986,12 @@ func fndeviceGetFanControlPolicy(a0 Device, a1 uint32, a2 *FanControlPolicy) Res
 	return Result(r1)
 }
 
+// fndeviceGetFanSpeedV1 calls nvmlDeviceGetFanSpeed.
+func fndeviceGetFanSpeedV1(a0 Device, a1 *uint32) Result {
+	r1, _ := ffiCall2(symdeviceGetFanSpeedV1, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
 // fndeviceGetFanSpeedRPM calls nvmlDeviceGetFanSpeedRPM.
 func fndeviceGetFanSpeedRPM(a0 Device, a1 *FanSpeedInfo) Result {
 	r1, _ := ffiCall2(symdeviceGetFanSpeedRPM, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
@@ -1245,6 +1271,12 @@ func fndeviceGetMemoryBusWidth(a0 Device, a1 *uint32) Result {
 // fndeviceGetMemoryErrorCounter calls nvmlDeviceGetMemoryErrorCounter.
 func fndeviceGetMemoryErrorCounter(a0 Device, a1 MemoryErrorType, a2 EccCounterType, a3 MemoryLocation, a4 *uint64) Result {
 	r1, _ := ffiCallWidths5(symdeviceGetMemoryErrorCounter, 0, 0xfc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fndeviceGetMemoryInfoV1 calls nvmlDeviceGetMemoryInfo.
+func fndeviceGetMemoryInfoV1(a0 Device, a1 *Memory) Result {
+	r1, _ := ffiCall2(symdeviceGetMemoryInfoV1, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
@@ -1530,6 +1562,12 @@ func fndeviceGetProcessesUtilizationInfo(a0 Device, a1 *ProcessesUtilizationInfo
 	return Result(r1)
 }
 
+// fndeviceGetRemappedRowsV1 calls nvmlDeviceGetRemappedRows.
+func fndeviceGetRemappedRowsV1(a0 Device, a1 *uint32, a2 *uint32, a3 *uint32, a4 *uint32) Result {
+	r1, _ := ffiCall5(symdeviceGetRemappedRowsV1, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
 // fndeviceGetRemappedRows calls nvmlDeviceGetRemappedRows_v2.
 func fndeviceGetRemappedRows(a0 Device, a1 *RemappedRowsInfoV2) Result {
 	r1, _ := ffiCall2(symdeviceGetRemappedRows, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
@@ -1539,6 +1577,12 @@ func fndeviceGetRemappedRows(a0 Device, a1 *RemappedRowsInfoV2) Result {
 // fndeviceGetRepairStatus calls nvmlDeviceGetRepairStatus.
 func fndeviceGetRepairStatus(a0 Device, a1 *RepairStatus) Result {
 	r1, _ := ffiCall2(symdeviceGetRepairStatus, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fndeviceGetRetiredPagesV1 calls nvmlDeviceGetRetiredPages.
+func fndeviceGetRetiredPagesV1(a0 Device, a1 PageRetirementCause, a2 *uint32, a3 *uint64) Result {
+	r1, _ := ffiCallWidths4(symdeviceGetRetiredPagesV1, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
@@ -1752,9 +1796,21 @@ func fndeviceGetVgpuSchedulerCapabilities(a0 Device, a1 *VgpuSchedulerCapabiliti
 	return Result(r1)
 }
 
+// fndeviceGetVgpuSchedulerLogV1 calls nvmlDeviceGetVgpuSchedulerLog.
+func fndeviceGetVgpuSchedulerLogV1(a0 Device, a1 *VgpuSchedulerLog) Result {
+	r1, _ := ffiCall2(symdeviceGetVgpuSchedulerLogV1, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
 // fndeviceGetVgpuSchedulerLog calls nvmlDeviceGetVgpuSchedulerLog_v2.
 func fndeviceGetVgpuSchedulerLog(a0 Device, a1 *VgpuSchedulerLogInfoV2) Result {
 	r1, _ := ffiCall2(symdeviceGetVgpuSchedulerLog, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fndeviceGetVgpuSchedulerStateV1 calls nvmlDeviceGetVgpuSchedulerState.
+func fndeviceGetVgpuSchedulerStateV1(a0 Device, a1 *VgpuSchedulerGetState) Result {
+	r1, _ := ffiCall2(symdeviceGetVgpuSchedulerStateV1, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
@@ -2046,6 +2102,12 @@ func fndeviceSetPersistenceMode(a0 Device, a1 EnableState) Result {
 	return Result(r1)
 }
 
+// fndeviceSetPowerManagementLimitV1 calls nvmlDeviceSetPowerManagementLimit.
+func fndeviceSetPowerManagementLimitV1(a0 Device, a1 uint32) Result {
+	r1, _ := ffiCallWidths2(symdeviceSetPowerManagementLimitV1, 0, 0xc, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
 // fndeviceSetPowerManagementLimit calls nvmlDeviceSetPowerManagementLimit_v2.
 func fndeviceSetPowerManagementLimit(a0 Device, a1 *PowerValueV2) Result {
 	r1, _ := ffiCall2(symdeviceSetPowerManagementLimit, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
@@ -2079,6 +2141,12 @@ func fndeviceSetVgpuCapabilities(a0 Device, a1 DeviceVgpuCapability, a2 EnableSt
 // fndeviceSetVgpuHeterogeneousMode calls nvmlDeviceSetVgpuHeterogeneousMode.
 func fndeviceSetVgpuHeterogeneousMode(a0 Device, a1 *VgpuHeterogeneousMode) Result {
 	r1, _ := ffiCall2(symdeviceSetVgpuHeterogeneousMode, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fndeviceSetVgpuSchedulerStateV1 calls nvmlDeviceSetVgpuSchedulerState.
+func fndeviceSetVgpuSchedulerStateV1(a0 Device, a1 *VgpuSchedulerSetState) Result {
+	r1, _ := ffiCall2(symdeviceSetVgpuSchedulerStateV1, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
@@ -2310,9 +2378,21 @@ func fngpuInstanceGetVgpuHeterogeneousMode(a0 GpuInstance, a1 *VgpuHeterogeneous
 	return Result(r1)
 }
 
+// fngpuInstanceGetVgpuSchedulerLogV1 calls nvmlGpuInstanceGetVgpuSchedulerLog.
+func fngpuInstanceGetVgpuSchedulerLogV1(a0 GpuInstance, a1 *VgpuSchedulerLogInfo) Result {
+	r1, _ := ffiCall2(symgpuInstanceGetVgpuSchedulerLogV1, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
 // fngpuInstanceGetVgpuSchedulerLog calls nvmlGpuInstanceGetVgpuSchedulerLog_v2.
 func fngpuInstanceGetVgpuSchedulerLog(a0 GpuInstance, a1 *VgpuSchedulerLogInfoV2) Result {
 	r1, _ := ffiCall2(symgpuInstanceGetVgpuSchedulerLog, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngpuInstanceGetVgpuSchedulerStateV1 calls nvmlGpuInstanceGetVgpuSchedulerState.
+func fngpuInstanceGetVgpuSchedulerStateV1(a0 GpuInstance, a1 *VgpuSchedulerStateInfo) Result {
+	r1, _ := ffiCall2(symgpuInstanceGetVgpuSchedulerStateV1, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
@@ -2331,6 +2411,12 @@ func fngpuInstanceGetVgpuTypeCreatablePlacements(a0 GpuInstance, a1 *VgpuCreatab
 // fngpuInstanceSetVgpuHeterogeneousMode calls nvmlGpuInstanceSetVgpuHeterogeneousMode.
 func fngpuInstanceSetVgpuHeterogeneousMode(a0 GpuInstance, a1 *VgpuHeterogeneousMode) Result {
 	r1, _ := ffiCall2(symgpuInstanceSetVgpuHeterogeneousMode, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngpuInstanceSetVgpuSchedulerStateV1 calls nvmlGpuInstanceSetVgpuSchedulerState.
+func fngpuInstanceSetVgpuSchedulerStateV1(a0 GpuInstance, a1 *VgpuSchedulerState) Result {
+	r1, _ := ffiCall2(symgpuInstanceSetVgpuSchedulerStateV1, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
@@ -2418,9 +2504,21 @@ func fnSystemGetConfComputeState(a0 *ConfComputeSystemState) Result {
 	return Result(r1)
 }
 
-// fnSystemGetCudaDriverVersion calls nvmlSystemGetCudaDriverVersion_v2.
+// fnSystemGetCudaDriverVersion calls the first of nvmlSystemGetCudaDriverVersion_v2, nvmlSystemGetCudaDriverVersion that the library exports.
 func fnSystemGetCudaDriverVersion(a0 *int32) Result {
 	r1, _ := ffiCall1(symSystemGetCudaDriverVersion, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnSystemGetCudaDriverVersionV1 calls nvmlSystemGetCudaDriverVersion.
+func fnSystemGetCudaDriverVersionV1(a0 *int32) Result {
+	r1, _ := ffiCall1(symSystemGetCudaDriverVersionV1, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnSystemGetCudaDriverVersionV2 calls nvmlSystemGetCudaDriverVersion_v2.
+func fnSystemGetCudaDriverVersionV2(a0 *int32) Result {
+	r1, _ := ffiCall1(symSystemGetCudaDriverVersionV2, 0, uintptr(unsafe.Pointer(a0)))
 	return Result(r1)
 }
 
@@ -3203,6 +3301,45 @@ func deviceGetAccountingPids(device Device, count *uint32, pids *uint32) error {
 		return err
 	}
 	return toError(fndeviceGetAccountingPids(device, count, pids), "nvmlDeviceGetAccountingPids")
+}
+
+// deviceGetAccountingStatsV1 queries process’s accounting stats.
+//
+// For Kepler or newer fully supported devices.
+// Accounting stats capture GPU utilization and other statistics across the lifetime of a process. Accounting stats can be queried during life time of the process and after its termination. The time field in [AccountingStats] is reported as 0 during the lifetime of the process and updated to actual running time after its termination. Accounting stats are kept in a circular buffer, newly created processes overwrite information about old processes.
+// See [AccountingStats] for description of each returned metric. List of processes that can be queried can be retrieved from [Device.AccountingPids].
+//
+// Note: Accounting Mode needs to be on. See [Device.AccountingMode].
+//
+// Note: Only compute and graphics applications stats can be queried. Monitoring applications stats can’t be queried since they don’t contribute to GPU utilization.
+//
+// Note: In case of pid collision stats of only the latest process (that terminated last) will be reported
+//
+// Warning: On Kepler devices per process statistics are accurate only if there’s one process running on a GPU.
+//
+// See also: [Device.AccountingBufferSize]
+//
+//   - device: The identifier of the target device
+//   - pid: Process Id of the target process to query stats for
+//   - stats: Reference in which to return the process’s accounting stats
+//
+// A nil error means stats have been successfully retrieved.
+//
+// Errors:
+//   - [ErrInvalidArgument]: if device is invalid or stats are NULL
+//   - [ErrNotFound]: if process stats were not found
+//   - [ErrNotSupported]: if device doesn’t support this feature or accounting mode is disabled or on vGPU host.
+//   - [ErrUninitialized]: if the library has not been successfully initialized
+//   - [ErrUnknown]: on any unexpected error
+//
+// Wraps [nvmlDeviceGetAccountingStats].
+//
+// [nvmlDeviceGetAccountingStats]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAccountingStats.html#_CPPv428nvmlDeviceGetAccountingStats12nvmlDevice_tjP21nvmlAccountingStats_t
+func deviceGetAccountingStatsV1(device Device, pid uint32, stats *AccountingStats) error {
+	if err := checkLibSym("nvmlDeviceGetAccountingStats"); err != nil {
+		return err
+	}
+	return toError(fndeviceGetAccountingStatsV1(device, pid, stats), "nvmlDeviceGetAccountingStats")
 }
 
 // deviceGetAccountingStats queries process’s accounting stats (v2).
@@ -5029,6 +5166,43 @@ func deviceGetFanControlPolicy(device Device, fan uint32) (FanControlPolicy, err
 
 var slotDeviceGetFanControlPolicy outSlot[FanControlPolicy]
 
+// deviceGetFanSpeedV1 retrieves the intended operating speed of the device’s fan.
+//
+// Note: The reported speed is the intended fan speed. If the fan is physically blocked and unable to spin, the output will not match the actual fan speed.
+// For all discrete products with dedicated fans.
+// The fan speed is expressed as a percentage of the product’s maximum noise tolerance fan speed. This value may exceed 100% in certain cases.
+//
+//   - device: The identifier of the target device
+//   - speed: Reference in which to return the fan speed percentage
+//
+// A nil error means speed has been set.
+//
+// Errors:
+//   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
+//   - [ErrInvalidArgument]: if device is invalid or speed is NULL
+//   - [ErrNotSupported]: if the device does not have a fan
+//   - [ErrUninitialized]: if the library has not been successfully initialized
+//   - [ErrUnknown]: on any unexpected error
+//
+// Wraps [nvmlDeviceGetFanSpeed].
+//
+// [nvmlDeviceGetFanSpeed]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv421nvmlDeviceGetFanSpeed12nvmlDevice_tPj
+func deviceGetFanSpeedV1(device Device) (uint32, error) {
+	if err := checkLibSym("nvmlDeviceGetFanSpeed"); err != nil {
+		var zero uint32
+		return zero, err
+	}
+	out := slotDeviceGetFanSpeedV1.get()
+	defer slotDeviceGetFanSpeedV1.put(out)
+	if err := toError(fndeviceGetFanSpeedV1(device, out), "nvmlDeviceGetFanSpeed"); err != nil {
+		var zero uint32
+		return zero, err
+	}
+	return *out, nil
+}
+
+var slotDeviceGetFanSpeedV1 outSlot[uint32]
+
 // deviceGetFanSpeedRPM retrieves the intended operating speed in rotations per minute (RPM) of the device’s specified fan.
 //
 // For Maxwell or newer fully supported devices.
@@ -6592,6 +6766,54 @@ func deviceGetMemoryErrorCounter(device Device, errorType MemoryErrorType, count
 	}
 	return toError(fndeviceGetMemoryErrorCounter(device, errorType, counterType, locationType, count), "nvmlDeviceGetMemoryErrorCounter")
 }
+
+// deviceGetMemoryInfoV1 retrieves the amount of used, free, reserved and total memory available on the device, in bytes.
+//
+// The reserved amount is supported on version 2 only.
+// For all products.
+// Enabling ECC reduces the amount of total available memory, due to the extra required parity bits. Under WDDM most device memory is allocated and managed on startup by Windows.
+// Under Linux and Windows TCC, the reported amount of used memory is equal to the sum of memory allocated by all active channels on the device.
+// See [MemoryV2] for details on available memory info.
+//
+// Note: In MIG mode, if device handle is provided, the API returns aggregate information, only if the caller has appropriate privileges. Per-instance information can be queried by using specific MIG device handles.
+//
+// Note: [Device.MemoryInfo] adds additional memory information.
+//
+// Note: On systems where GPUs are NUMA nodes, the accuracy of FB memory utilization provided by this API depends on the memory accounting of the operating system. This is because FB memory is managed by the operating system instead of the NVIDIA GPU driver. Typically, pages allocated from FB memory are not released even after the process terminates to enhance performance. In scenarios where the operating system is under memory pressure, it may resort to utilizing FB memory. Such actions can result in discrepancies in the accuracy of memory reporting.
+//
+// Note: On certain SOC platforms, the integrated GPU (iGPU) does not use a dedicated framebuffer but instead shares memory with the system. As a result, [ErrNotSupported] will be returned in this case.
+//
+//   - device: The identifier of the target device
+//   - memory: Reference in which to return the memory information
+//
+// A nil error means memory has been populated.
+//
+// Errors:
+//   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
+//   - [ErrInvalidArgument]: if device is invalid or memory is NULL
+//   - [ErrNotSupported]: if video memory is unsupported on the device
+//   - [ErrNoPermission]: if the user doesn’t have permission to perform this operation
+//   - [ErrUninitialized]: if the library has not been successfully initialized
+//   - [ErrUnknown]: on any unexpected error
+//
+// Wraps [nvmlDeviceGetMemoryInfo].
+//
+// [nvmlDeviceGetMemoryInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv423nvmlDeviceGetMemoryInfo12nvmlDevice_tP12nvmlMemory_t
+func deviceGetMemoryInfoV1(device Device) (Memory, error) {
+	if err := checkLibSym("nvmlDeviceGetMemoryInfo"); err != nil {
+		var zero Memory
+		return zero, err
+	}
+	out := slotDeviceGetMemoryInfoV1.get()
+	defer slotDeviceGetMemoryInfoV1.put(out)
+	if err := toError(fndeviceGetMemoryInfoV1(device, out), "nvmlDeviceGetMemoryInfo"); err != nil {
+		var zero Memory
+		return zero, err
+	}
+	return *out, nil
+}
+
+var slotDeviceGetMemoryInfoV1 outSlot[Memory]
 
 // deviceGetMemoryInfo retrieves the amount of used, free, reserved and total memory available on the device, in bytes.
 //
@@ -8179,6 +8401,46 @@ func deviceGetProcessesUtilizationInfo(device Device, procesesUtilInfo *Processe
 	return toError(fndeviceGetProcessesUtilizationInfo(device, procesesUtilInfo), "nvmlDeviceGetProcessesUtilizationInfo")
 }
 
+// deviceGetRemappedRowsV1 gets number of remapped rows.
+//
+// The number of rows reported will be based on the cause of the remapping. isPending indicates whether or not there are pending remappings. A reset will be required to actually remap the row. failureOccurred will be set if a row remapping ever failed in the past. A pending remapping won’t affect future work on the GPU since error-containment and dynamic page blacklisting will take care of that.
+// For Ampere or newer fully supported devices.
+//
+// Note: On MIG-enabled GPUs with active instances, querying the number of remapped rows is not supported
+//
+//   - device: The identifier of the target device
+//   - corrRows: Reference for number of rows remapped due to correctable errors
+//   - uncRows: Reference for number of rows remapped due to uncorrectable errors
+//   - isPending: Reference for whether or not remappings are pending
+//   - failureOccurred: Reference that is set when a remapping has failed in the past
+//
+// Errors:
+//   - [ErrInvalidArgument]: If corrRows, uncRows, isPending or failureOccurred is invalid
+//   - [ErrNotSupported]: If MIG is enabled or if the device doesn’t support this feature
+//   - [ErrUnknown]: Unexpected error
+//
+// Wraps [nvmlDeviceGetRemappedRows].
+//
+// [nvmlDeviceGetRemappedRows]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceGetRemappedRows12nvmlDevice_tPjPjPjPj
+func deviceGetRemappedRowsV1(device Device) (uint32, uint32, uint32, uint32, error) {
+	if err := checkLibSym("nvmlDeviceGetRemappedRows"); err != nil {
+		return 0, 0, 0, 0, err
+	}
+	outs := slotDeviceGetRemappedRowsV1.get()
+	defer slotDeviceGetRemappedRowsV1.put(outs)
+	if err := toError(fndeviceGetRemappedRowsV1(device, &outs.out0, &outs.out1, &outs.out2, &outs.out3), "nvmlDeviceGetRemappedRows"); err != nil {
+		return 0, 0, 0, 0, err
+	}
+	return outs.out0, outs.out1, outs.out2, outs.out3, nil
+}
+
+var slotDeviceGetRemappedRowsV1 outSlot[struct {
+	out0 uint32
+	out1 uint32
+	out2 uint32
+	out3 uint32
+}]
+
 // deviceGetRemappedRows gets the status of row remapper.
 //
 // For Ampere or newer fully supported devices.
@@ -8198,17 +8460,19 @@ func deviceGetProcessesUtilizationInfo(device Device, procesesUtilInfo *Processe
 // [nvmlDeviceGetRemappedRows_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv428nvmlDeviceGetRemappedRows_v212nvmlDevice_tP25nvmlRemappedRowsInfo_v2_t
 func deviceGetRemappedRows(device Device) (RemappedRowsInfoV2, error) {
 	if err := checkLibSym("nvmlDeviceGetRemappedRows_v2"); err != nil {
-		return *new(RemappedRowsInfoV2), err
+		var zero RemappedRowsInfoV2
+		return zero, err
 	}
-	outs := slotDeviceGetRemappedRows.get()
-	defer slotDeviceGetRemappedRows.put(outs)
-	if err := toError(fndeviceGetRemappedRows(device, &outs.out0), "nvmlDeviceGetRemappedRows_v2"); err != nil {
-		return *new(RemappedRowsInfoV2), err
+	out := slotDeviceGetRemappedRows.get()
+	defer slotDeviceGetRemappedRows.put(out)
+	if err := toError(fndeviceGetRemappedRows(device, out), "nvmlDeviceGetRemappedRows_v2"); err != nil {
+		var zero RemappedRowsInfoV2
+		return zero, err
 	}
-	return outs.out0, nil
+	return *out, nil
 }
 
-var slotDeviceGetRemappedRows outSlot[struct{ out0 RemappedRowsInfoV2 }]
+var slotDeviceGetRemappedRows outSlot[RemappedRowsInfoV2]
 
 // deviceGetRepairStatus gets the repair status for TPC/Channel repair.
 //
@@ -8243,6 +8507,36 @@ func deviceGetRepairStatus(device Device) (RepairStatus, error) {
 }
 
 var slotDeviceGetRepairStatus outSlot[RepairStatus]
+
+// deviceGetRetiredPagesV1 returns the list of retired pages by source, including pages that are pending retirement The address information provided from this API is the hardware address of the page that was retired.
+//
+// Note that this does not match the virtual address used in CUDA, but will match the address information in Xid 63
+// For Kepler or newer fully supported devices.
+//
+//   - device: The identifier of the target device
+//   - cause: Filter page addresses by cause of retirement
+//   - pageCount: Reference in which to provide the addresses buffer size, and to return the number of retired pages that match cause Set to 0 to query the size without allocating an addresses buffer
+//   - addresses: Buffer to write the page addresses into
+//
+// A nil error means pageCount was populated and addresses was filled.
+//
+// Errors:
+//   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
+//   - [ErrInsufficientSize]: if pageCount indicates the buffer is not large enough to store all the matching page addresses. pageCount is set to the needed size.
+//   - [ErrInvalidArgument]: if device is invalid, pageCount is NULL, cause is invalid, or addresses is NULL
+//   - [ErrNotSupported]: if the device doesn’t support this feature
+//   - [ErrUninitialized]: if the library has not been successfully initialized
+//   - [ErrUnknown]: on any unexpected error
+//
+// Wraps [nvmlDeviceGetRetiredPages].
+//
+// [nvmlDeviceGetRetiredPages]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceGetRetiredPages12nvmlDevice_t25nvmlPageRetirementCause_tPjPy
+func deviceGetRetiredPagesV1(device Device, cause PageRetirementCause, pageCount *uint32, addresses *uint64) error {
+	if err := checkLibSym("nvmlDeviceGetRetiredPages"); err != nil {
+		return err
+	}
+	return toError(fndeviceGetRetiredPagesV1(device, cause, pageCount, addresses), "nvmlDeviceGetRetiredPages")
+}
 
 // deviceGetRetiredPagesPendingStatus checks if any pages are pending retirement and need a reboot to fully retire.
 //
@@ -9339,6 +9633,34 @@ func deviceGetVgpuSchedulerCapabilities(device Device, pCapabilities *VgpuSchedu
 	return toError(fndeviceGetVgpuSchedulerCapabilities(device, pCapabilities), "nvmlDeviceGetVgpuSchedulerCapabilities")
 }
 
+// deviceGetVgpuSchedulerLogV1 returns the vGPU Software scheduler logs.
+//
+// pSchedulerLog points to a caller-allocated structure to contain the logs. The number of elements returned will never exceed [SchedulerSwMaxLogEntries].
+// To get the entire logs, call the function atleast 5 times a second.
+// For Pascal or newer fully supported devices.
+//
+//   - device: The identifier of the target device
+//   - pSchedulerLog: Reference in which pSchedulerLog is written
+//
+// A nil error means vGPU scheduler logs were successfully obtained.
+//
+// Errors:
+//   - [ErrInvalidArgument]: If pSchedulerLog is NULL or device is invalid
+//   - [ErrNotSupported]: If MIG is enabled or device not in vGPU host mode
+//   - [ErrUnknown]: On any unexpected error
+//
+// Deprecated: Will be deprecated in a future release. Use [Device.VgpuSchedulerLog] instead.
+//
+// Wraps [nvmlDeviceGetVgpuSchedulerLog].
+//
+// [nvmlDeviceGetVgpuSchedulerLog]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpuMigration.html#_CPPv429nvmlDeviceGetVgpuSchedulerLog12nvmlDevice_tP22nvmlVgpuSchedulerLog_t
+func deviceGetVgpuSchedulerLogV1(device Device, pSchedulerLog *VgpuSchedulerLog) error {
+	if err := checkLibSym("nvmlDeviceGetVgpuSchedulerLog"); err != nil {
+		return err
+	}
+	return toError(fndeviceGetVgpuSchedulerLogV1(device, pSchedulerLog), "nvmlDeviceGetVgpuSchedulerLog")
+}
+
 // deviceGetVgpuSchedulerLog returns the vGPU Software scheduler logs for the device.
 //
 // pSchedulerLogInfo points to a caller-allocated structure to contain the logs. The number of elements returned will never exceed [SchedulerSwMaxLogEntries].
@@ -9363,6 +9685,33 @@ func deviceGetVgpuSchedulerLog(device Device, pSchedulerLogInfo *VgpuSchedulerLo
 		return err
 	}
 	return toError(fndeviceGetVgpuSchedulerLog(device, pSchedulerLogInfo), "nvmlDeviceGetVgpuSchedulerLog_v2")
+}
+
+// deviceGetVgpuSchedulerStateV1 returns the vGPU scheduler state.
+//
+// The information returned in [VgpuSchedulerGetState] is not relevant if the BEST EFFORT policy is set.
+// For Pascal or newer fully supported devices.
+//
+//   - device: The identifier of the target device
+//   - pSchedulerState: Reference in which pSchedulerState is returned
+//
+// A nil error means vGPU scheduler state is successfully obtained.
+//
+// Errors:
+//   - [ErrInvalidArgument]: If pSchedulerState is NULL or device is invalid
+//   - [ErrNotSupported]: If MIG is enabled or device not in vGPU host mode
+//   - [ErrUnknown]: On any unexpected error
+//
+// Deprecated: Will be deprecated in a future release. Use [Device.VgpuSchedulerState] instead.
+//
+// Wraps [nvmlDeviceGetVgpuSchedulerState].
+//
+// [nvmlDeviceGetVgpuSchedulerState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpuMigration.html#_CPPv431nvmlDeviceGetVgpuSchedulerState12nvmlDevice_tP27nvmlVgpuSchedulerGetState_t
+func deviceGetVgpuSchedulerStateV1(device Device, pSchedulerState *VgpuSchedulerGetState) error {
+	if err := checkLibSym("nvmlDeviceGetVgpuSchedulerState"); err != nil {
+		return err
+	}
+	return toError(fndeviceGetVgpuSchedulerStateV1(device, pSchedulerState), "nvmlDeviceGetVgpuSchedulerState")
 }
 
 // deviceGetVgpuSchedulerState returns the vGPU scheduler state.
@@ -10727,6 +11076,37 @@ func deviceSetPersistenceMode(device Device, mode EnableState) error {
 	return toError(fndeviceSetPersistenceMode(device, mode), "nvmlDeviceSetPersistenceMode")
 }
 
+// deviceSetPowerManagementLimitV1 sets new power limit of this device.
+//
+// For Kepler or newer fully supported devices. Requires root/admin permissions.
+// See [Device.PowerManagementLimitConstraints] to check the allowed ranges of values.
+//
+// Note: Limit is not persistent across reboots or driver unloads. Enable persistent mode to prevent driver from unloading when no application is using the device.
+//
+// See also: [Device.PowerManagementLimitConstraints], [Device.PowerManagementDefaultLimit]
+//
+//   - device: The identifier of the target device
+//   - limit: Power management limit in milliwatts to set
+//
+// A nil error means limit has been set.
+//
+// Errors:
+//   - [ErrGpuIsLost]: if the target GPU has fallen off the bus or is otherwise inaccessible
+//   - [ErrInvalidArgument]: if device is invalid or defaultLimit is out of range
+//   - [ErrNotSupported]: if the device does not support this feature
+//   - [ErrUninitialized]: if the library has not been successfully initialized
+//   - [ErrUnknown]: on any unexpected error
+//
+// Wraps [nvmlDeviceSetPowerManagementLimit].
+//
+// [nvmlDeviceSetPowerManagementLimit]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv433nvmlDeviceSetPowerManagementLimit12nvmlDevice_tj
+func deviceSetPowerManagementLimitV1(device Device, limit uint32) error {
+	if err := checkLibSym("nvmlDeviceSetPowerManagementLimit"); err != nil {
+		return err
+	}
+	return toError(fndeviceSetPowerManagementLimitV1(device, limit), "nvmlDeviceSetPowerManagementLimit")
+}
+
 // deviceSetPowerManagementLimit sets new power limit of this device.
 //
 // For Kepler or newer fully supported devices. Requires root/admin permissions.
@@ -10888,6 +11268,34 @@ func deviceSetVgpuHeterogeneousMode(device Device, pHeterogeneousMode *VgpuHeter
 		return err
 	}
 	return toError(fndeviceSetVgpuHeterogeneousMode(device, pHeterogeneousMode), "nvmlDeviceSetVgpuHeterogeneousMode")
+}
+
+// deviceSetVgpuSchedulerStateV1 sets the vGPU scheduler state.
+//
+// For Pascal or newer fully supported devices.
+// The scheduler state change won’t persist across module load/unload. Scheduler state and params will be allowed to set only when no VM is running. In [VgpuSchedulerSetState], IFF enableARRMode is enabled then provide avgFactorForARR and frequency as input. If enableARRMode is disabled then provide timeslice as input.
+//
+//   - device: The identifier of the target device
+//   - pSchedulerState: vGPU pSchedulerState to set
+//
+// A nil error means vGPU scheduler state has been successfully set.
+//
+// Errors:
+//   - [ErrInvalidArgument]: If pSchedulerState is NULL or device is invalid
+//   - [ErrNotSupported]: If MIG is enabled or device not in vGPU host mode or if any vGPU instance currently exists on the device
+//   - [ErrResetRequired]: If setting pSchedulerState failed with fatal error, reboot is required to overcome from this error.
+//   - [ErrUnknown]: On any unexpected error
+//
+// Deprecated: Will be deprecated in a future release. Use [Device.SetVgpuSchedulerState] instead.
+//
+// Wraps [nvmlDeviceSetVgpuSchedulerState].
+//
+// [nvmlDeviceSetVgpuSchedulerState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpuMigration.html#_CPPv431nvmlDeviceSetVgpuSchedulerState12nvmlDevice_tP27nvmlVgpuSchedulerSetState_t
+func deviceSetVgpuSchedulerStateV1(device Device, pSchedulerState *VgpuSchedulerSetState) error {
+	if err := checkLibSym("nvmlDeviceSetVgpuSchedulerState"); err != nil {
+		return err
+	}
+	return toError(fndeviceSetVgpuSchedulerStateV1(device, pSchedulerState), "nvmlDeviceSetVgpuSchedulerState")
 }
 
 // deviceSetVgpuSchedulerState sets the vGPU scheduler state.
@@ -11945,6 +12353,36 @@ func gpuInstanceGetVgpuHeterogeneousMode(gpuInstance GpuInstance, pHeterogeneous
 	return toError(fngpuInstanceGetVgpuHeterogeneousMode(gpuInstance, pHeterogeneousMode), "nvmlGpuInstanceGetVgpuHeterogeneousMode")
 }
 
+// gpuInstanceGetVgpuSchedulerLogV1 returns the vGPU scheduler logs for the given GPU instance.
+//
+// pSchedulerLogInfo points to a caller-allocated structure to contain the logs. The number of elements returned will never exceed [SchedulerSwMaxLogEntries].
+// To get the entire logs, call the function atleast 5 times a second.
+// For Blackwell &tm GB20x; or newer fully supported devices.
+//
+//   - gpuInstance: The GPU instance handle
+//   - pSchedulerLogInfo: Reference in which pSchedulerLogInfo is written
+//
+// A nil error means vGPU scheduler logs are successfully obtained.
+//
+// Errors:
+//   - [ErrArgumentVersionMismatch]: If the version of pSchedulerLogInfo is invalid
+//   - [ErrInvalidArgument]: If gpuInstance is NULL or invalid, or pSchedulerLogInfo is NULL or GPU Instance Id is invalid
+//   - [ErrNotSupported]: If not on a vGPU host or an unsupported GPU
+//   - [ErrUninitialized]: If library has not been successfully initialized
+//   - [ErrUnknown]: on any unexpected error
+//
+// Deprecated: Will be deprecated in a future release. Use [GpuInstance.VgpuSchedulerLog] instead.
+//
+// Wraps [nvmlGpuInstanceGetVgpuSchedulerLog].
+//
+// [nvmlGpuInstanceGetVgpuSchedulerLog]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv434nvmlGpuInstanceGetVgpuSchedulerLog17nvmlGpuInstance_tP26nvmlVgpuSchedulerLogInfo_t
+func gpuInstanceGetVgpuSchedulerLogV1(gpuInstance GpuInstance, pSchedulerLogInfo *VgpuSchedulerLogInfo) error {
+	if err := checkLibSym("nvmlGpuInstanceGetVgpuSchedulerLog"); err != nil {
+		return err
+	}
+	return toError(fngpuInstanceGetVgpuSchedulerLogV1(gpuInstance, pSchedulerLogInfo), "nvmlGpuInstanceGetVgpuSchedulerLog")
+}
+
 // gpuInstanceGetVgpuSchedulerLog returns the vGPU scheduler logs for the given GPU instance.
 //
 // pSchedulerLogInfo points to a caller-allocated structure to contain the logs. The number of elements returned will never exceed [SchedulerSwMaxLogEntries].
@@ -11970,6 +12408,35 @@ func gpuInstanceGetVgpuSchedulerLog(gpuInstance GpuInstance, pSchedulerLogInfo *
 		return err
 	}
 	return toError(fngpuInstanceGetVgpuSchedulerLog(gpuInstance, pSchedulerLogInfo), "nvmlGpuInstanceGetVgpuSchedulerLog_v2")
+}
+
+// gpuInstanceGetVgpuSchedulerStateV1 returns the vGPU scheduler state for the given GPU instance.
+//
+// The information returned in [VgpuSchedulerStateInfo] is not relevant if the BEST EFFORT policy is set.
+// For Blackwell &tm GB20x; or newer fully supported devices.
+//
+//   - gpuInstance: The GPU instance handle
+//   - pSchedulerStateInfo: Reference in which pSchedulerStateInfo is returned
+//
+// A nil error means vGPU scheduler state is successfully obtained.
+//
+// Errors:
+//   - [ErrArgumentVersionMismatch]: If the version of pSchedulerStateInfo is invalid
+//   - [ErrInvalidArgument]: If gpuInstance is NULL or invalid, or pSchedulerStateInfo is NULL or GPU Instance Id is invalid
+//   - [ErrNotSupported]: If not on a vGPU host or an unsupported GPU
+//   - [ErrUninitialized]: If library has not been successfully initialized
+//   - [ErrUnknown]: on any unexpected error
+//
+// Deprecated: Will be deprecated in a future release. Use [GpuInstance.VgpuSchedulerState] instead.
+//
+// Wraps [nvmlGpuInstanceGetVgpuSchedulerState].
+//
+// [nvmlGpuInstanceGetVgpuSchedulerState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv436nvmlGpuInstanceGetVgpuSchedulerState17nvmlGpuInstance_tP28nvmlVgpuSchedulerStateInfo_t
+func gpuInstanceGetVgpuSchedulerStateV1(gpuInstance GpuInstance, pSchedulerStateInfo *VgpuSchedulerStateInfo) error {
+	if err := checkLibSym("nvmlGpuInstanceGetVgpuSchedulerState"); err != nil {
+		return err
+	}
+	return toError(fngpuInstanceGetVgpuSchedulerStateV1(gpuInstance, pSchedulerStateInfo), "nvmlGpuInstanceGetVgpuSchedulerState")
 }
 
 // gpuInstanceGetVgpuSchedulerState returns the vGPU scheduler state for the given GPU instance.
@@ -12048,6 +12515,34 @@ func gpuInstanceSetVgpuHeterogeneousMode(gpuInstance GpuInstance, pHeterogeneous
 		return err
 	}
 	return toError(fngpuInstanceSetVgpuHeterogeneousMode(gpuInstance, pHeterogeneousMode), "nvmlGpuInstanceSetVgpuHeterogeneousMode")
+}
+
+// gpuInstanceSetVgpuSchedulerStateV1 sets vGPU scheduler state for the given GPU instance
+//
+// For Blackwell &tm GB20x; or newer fully supported devices.
+// Scheduler state and params will be allowed to set only when no VM is running within the GPU instance. In [VgpuSchedulerState], IFF enableARRMode is enabled then provide the avgFactor and frequency as input. If enableARRMode is disabled then provide timeslice as input.
+// The scheduler state change won’t persist across module load/unload and GPU Instance creation/deletion.
+//
+//   - gpuInstance: The GPU instance handle
+//   - pScheduler: Pointer to the caller-provided structure of [VgpuSchedulerState]
+//
+// Errors:
+//   - [ErrArgumentVersionMismatch]: If the version of pScheduler is invalid
+//   - [ErrInvalidArgument]: If gpuInstance is NULL or invalid, or pScheduler is NULL or GPU Instance Id is invalid
+//   - [ErrNotSupported]: If not on a vGPU host or an unsupported GPU or if any vGPU instance exists
+//   - [ErrResetRequired]: If setting the state failed with fatal error, reboot is required
+//   - [ErrUnknown]: On any unexpected error
+//
+// Deprecated: Will be deprecated in a future release. Use [GpuInstance.SetVgpuSchedulerState] instead.
+//
+// Wraps [nvmlGpuInstanceSetVgpuSchedulerState].
+//
+// [nvmlGpuInstanceSetVgpuSchedulerState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv436nvmlGpuInstanceSetVgpuSchedulerState17nvmlGpuInstance_tP24nvmlVgpuSchedulerState_t
+func gpuInstanceSetVgpuSchedulerStateV1(gpuInstance GpuInstance, pScheduler *VgpuSchedulerState) error {
+	if err := checkLibSym("nvmlGpuInstanceSetVgpuSchedulerState"); err != nil {
+		return err
+	}
+	return toError(fngpuInstanceSetVgpuSchedulerStateV1(gpuInstance, pScheduler), "nvmlGpuInstanceSetVgpuSchedulerState")
 }
 
 // gpuInstanceSetVgpuSchedulerState sets vGPU scheduler state for the given GPU instance.
@@ -12444,17 +12939,17 @@ var slotSystemGetConfComputeState outSlot[ConfComputeSystemState]
 //   - [ErrInvalidArgument]: if cudaDriverVersion is NULL
 //   - [ErrLibraryNotFound]: if libcuda.so.1 or libcuda.dll is not found
 //
-// Wraps [nvmlSystemGetCudaDriverVersion_v2].
+// Wraps [nvmlSystemGetCudaDriverVersion], bound to the first of nvmlSystemGetCudaDriverVersion_v2, nvmlSystemGetCudaDriverVersion that the library exports.
 //
-// [nvmlSystemGetCudaDriverVersion_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlSystemQueries.html#_CPPv433nvmlSystemGetCudaDriverVersion_v2Pi
+// [nvmlSystemGetCudaDriverVersion]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlSystemQueries.html#_CPPv433nvmlSystemGetCudaDriverVersion_v2Pi
 func SystemGetCudaDriverVersion() (int32, error) {
-	if err := checkLibSym("nvmlSystemGetCudaDriverVersion_v2"); err != nil {
+	if err := checkLibChain(&chainNvmlSystemGetCudaDriverVersion); err != nil {
 		var zero int32
 		return zero, err
 	}
 	out := slotSystemGetCudaDriverVersion.get()
 	defer slotSystemGetCudaDriverVersion.put(out)
-	if err := toError(fnSystemGetCudaDriverVersion(out), "nvmlSystemGetCudaDriverVersion_v2"); err != nil {
+	if err := toError(fnSystemGetCudaDriverVersion(out), chainNvmlSystemGetCudaDriverVersion.bound); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -12462,6 +12957,70 @@ func SystemGetCudaDriverVersion() (int32, error) {
 }
 
 var slotSystemGetCudaDriverVersion outSlot[int32]
+
+// SystemGetCudaDriverVersionV1 retrieves the version of the CUDA driver.
+//
+// For all products.
+// The CUDA driver version returned will be retreived from the currently installed version of CUDA. If the cuda library is not found, this function will return a known supported version number.
+//
+//   - cudaDriverVersion: Reference in which to return the version identifier
+//
+// A nil error means cudaDriverVersion has been set.
+//
+// Errors:
+//   - [ErrInvalidArgument]: if cudaDriverVersion is NULL
+//
+// Wraps [nvmlSystemGetCudaDriverVersion].
+//
+// [nvmlSystemGetCudaDriverVersion]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlSystemQueries.html#_CPPv433nvmlSystemGetCudaDriverVersion_v2Pi
+func SystemGetCudaDriverVersionV1() (int32, error) {
+	if err := checkLibSym("nvmlSystemGetCudaDriverVersion"); err != nil {
+		var zero int32
+		return zero, err
+	}
+	out := slotSystemGetCudaDriverVersionV1.get()
+	defer slotSystemGetCudaDriverVersionV1.put(out)
+	if err := toError(fnSystemGetCudaDriverVersionV1(out), "nvmlSystemGetCudaDriverVersion"); err != nil {
+		var zero int32
+		return zero, err
+	}
+	return *out, nil
+}
+
+var slotSystemGetCudaDriverVersionV1 outSlot[int32]
+
+// SystemGetCudaDriverVersionV2 retrieves the version of the CUDA driver from the shared library.
+//
+// For all products.
+// The returned CUDA driver version by calling cuDriverGetVersion()
+//
+//   - cudaDriverVersion: Reference in which to return the version identifier
+//
+// A nil error means cudaDriverVersion has been set.
+//
+// Errors:
+//   - [ErrFunctionNotFound]: if cuDriverGetVersion() is not found in the shared library
+//   - [ErrInvalidArgument]: if cudaDriverVersion is NULL
+//   - [ErrLibraryNotFound]: if libcuda.so.1 or libcuda.dll is not found
+//
+// Wraps [nvmlSystemGetCudaDriverVersion_v2].
+//
+// [nvmlSystemGetCudaDriverVersion_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlSystemQueries.html#_CPPv433nvmlSystemGetCudaDriverVersion_v2Pi
+func SystemGetCudaDriverVersionV2() (int32, error) {
+	if err := checkLibSym("nvmlSystemGetCudaDriverVersion_v2"); err != nil {
+		var zero int32
+		return zero, err
+	}
+	out := slotSystemGetCudaDriverVersionV2.get()
+	defer slotSystemGetCudaDriverVersionV2.put(out)
+	if err := toError(fnSystemGetCudaDriverVersionV2(out), "nvmlSystemGetCudaDriverVersion_v2"); err != nil {
+		var zero int32
+		return zero, err
+	}
+	return *out, nil
+}
+
+var slotSystemGetCudaDriverVersionV2 outSlot[int32]
 
 // SystemGetDriverBranch retrieves the driver branch of the NVIDIA driver installed on the system.
 //
