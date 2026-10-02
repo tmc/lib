@@ -427,16 +427,16 @@ func TestGoTraceFlightRecording(t *testing.T) {
 			<-ch
 			time.Sleep(15 * time.Millisecond)
 
-			// Push GPU records
+			// Push completed GPU records within the observed Go trace span.
 			now := time.Now()
 			rec.Push(cudaflightrecorder.Record{
-				TimestampNs:   now.UnixNano(),
+				TimestampNs:   now.Add(-2 * time.Millisecond).UnixNano(),
 				KernelName:    "elementwise_add",
 				CorrelationID: 1001,
 				DurationNs:    8000,
 			})
 			rec.Push(cudaflightrecorder.Record{
-				TimestampNs:   now.Add(2 * time.Millisecond).UnixNano(),
+				TimestampNs:   now.Add(-time.Millisecond).UnixNano(),
 				KernelName:    "gemm_wmma",
 				CorrelationID: 1002,
 				DurationNs:    12000,
